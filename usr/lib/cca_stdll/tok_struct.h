@@ -106,7 +106,11 @@ token_spec_t token_specific = {
 
     // AES
     &token_specific_aes_key_gen,
-    NULL,                       // aes_xts_key_gen
+#ifndef NO_PKEY
+    &token_specific_aes_xts_key_gen,
+#else
+    NULL,
+#endif
     &token_specific_aes_ecb,
     &token_specific_aes_cbc,
     NULL,                       // aes_ctr

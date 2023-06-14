@@ -442,6 +442,11 @@ static CK_RV cca_reencipher_sec_key(STDLL_TokData_t *tokdata,
                                     CK_BYTE *sec_key, CK_BYTE *reenc_sec_key,
                                     CK_ULONG sec_key_len, CK_BBOOL from_old);
 
+static CK_RV cca_key_gen(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
+                         enum cca_key_type type, CK_BYTE * key,
+                         unsigned char *key_form, unsigned char *key_type_1,
+                         CK_ULONG key_size, CK_BBOOL aes_xts_2dn_key);
+
 static CK_RV init_cca_adapter_lock(STDLL_TokData_t *tokdata)
 {
     struct cca_private_data *cca_private = tokdata->private_data;
@@ -2027,7 +2032,8 @@ static CK_RV cca_deselect_single_apqn(STDLL_TokData_t *tokdata, char *serialno)
 static CK_RV cca_reencipher_created_key(STDLL_TokData_t *tokdata,
                                         TEMPLATE* tmpl,  CK_BYTE *sec_key,
                                         CK_ULONG sec_key_len, CK_BBOOL new_mk,
-                                        enum cca_token_type keytype)
+                                        enum cca_token_type keytype,
+                                        CK_BBOOL aes_xts_2dn_key)
 {
     struct cca_private_data *cca_private = tokdata->private_data;
     struct cca_mk_change_op *mk_change_op;
@@ -2036,6 +2042,8 @@ static CK_RV cca_reencipher_created_key(STDLL_TokData_t *tokdata,
     CK_BYTE reenc_sec_key[CCA_KEY_TOKEN_SIZE] = { 0 };
     CK_RV rc, rc2;
     CK_ULONG retries = 0;
+    CK_ATTRIBUTE *reenc_attr = NULL;
+    CK_BYTE reenc_buf[CCA_KEY_TOKEN_SIZE * 2] = { 0 };
 
     if (sec_key_len > sizeof(reenc_sec_key)) {
         TRACE_ERROR("%s sec_key_len too large: %lu\n", __func__, sec_key_len);
@@ -2115,6 +2123,25 @@ retry:
     return rc;
 
 add_attr:
+    if (aes_xts_2dn_key) {
+        rc = template_attribute_get_non_empty(tmpl, CKA_IBM_OPAQUE_REENC,
+                                              &reenc_attr);
+        if (rc == CKR_OK && reenc_attr->ulValueLen == sec_key_len) {
+            memcpy(reenc_buf, reenc_attr->pValue, sec_key_len);
+            memcpy(reenc_buf + reenc_attr->ulValueLen, reenc_sec_key,
+                   sec_key_len);
+
+            rc = build_update_attribute(tmpl, CKA_IBM_OPAQUE_REENC,
+                                        reenc_buf, sec_key_len * 2);
+            if (rc != CKR_OK) {
+                TRACE_DEVEL("build_update_attribute(CKA_IBM_OPAQUE_REENC) failed\n");
+                return rc;
+            }
+
+            return CKR_OK;
+        }
+    }
+
     rc = build_update_attribute(tmpl, CKA_IBM_OPAQUE_REENC,
                                 reenc_sec_key, sec_key_len);
     if (rc != CKR_OK) {
@@ -3431,6 +3458,96 @@ static CK_RV ccatok_pkey_check_attrs(STDLL_TokData_t *tokdata,
     return CKR_OK;
 
 }
+
+CK_RV token_specific_aes_xts_key_gen(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
+                                     CK_BYTE **aes_key, CK_ULONG *len,
+                                     CK_ULONG key_size, CK_BBOOL *is_opaque)
+{
+    long return_code, reason_code;
+    CK_RV rc;
+    unsigned char key_token[CCA_KEY_ID_SIZE] = { 0, };
+    unsigned char key_form[CCA_KEYWORD_SIZE];
+    unsigned char key_type[CCA_KEYWORD_SIZE];
+    unsigned char rule_array[CCA_RULE_ARRAY_SIZE] = { 0x20, };
+    long exit_data_len = 0, rule_array_count;
+    unsigned char exit_data[4] = { 0, };
+    unsigned char reserved_1[4] = { 0, };
+    unsigned char point_to_array_of_zeros = 0;
+    unsigned char mkvp[16] = { 0, };
+
+    if (((struct cca_private_data *)tokdata->private_data)->inconsistent) {
+        TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
+        return CKR_DEVICE_ERROR;
+    }
+
+    *aes_key = calloc(CCA_KEY_ID_SIZE * 2, 1);
+    if (*aes_key == NULL)
+        return CKR_HOST_MEMORY;
+    *len = CCA_KEY_ID_SIZE * 2;
+    *is_opaque = TRUE;
+
+    memcpy(rule_array, "INTERNALAES     NO-KEY  ",
+           (size_t) (CCA_KEYWORD_SIZE * 3));
+    memcpy(key_type, "DATA    ", (size_t) CCA_KEYWORD_SIZE);
+
+    switch (key_size / 2) {
+    case 16:
+        memcpy(rule_array + 3 * CCA_KEYWORD_SIZE, "KEYLN16 ",
+               (size_t) CCA_KEYWORD_SIZE);
+        break;
+    case 32:
+        memcpy(rule_array + 3 * CCA_KEYWORD_SIZE, "KEYLN32 ",
+               (size_t) CCA_KEYWORD_SIZE);
+        break;
+    default:
+        TRACE_ERROR("Invalid key length: %lu\n", key_size);
+        return CKR_KEY_SIZE_RANGE;
+    }
+
+    rule_array_count = 4;
+    USE_CCA_ADAPTER_START(tokdata, return_code, reason_code)
+        dll_CSNBKTB(&return_code,
+                    &reason_code,
+                    &exit_data_len,
+                    exit_data,
+                    key_token,
+                    key_type,
+                    &rule_array_count,
+                    rule_array,
+                    NULL,
+                    reserved_1,
+                    NULL, &point_to_array_of_zeros,
+                    NULL, NULL, NULL, NULL, mkvp);
+    USE_CCA_ADAPTER_END(tokdata, return_code, reason_code)
+
+    if (return_code != CCA_SUCCESS) {
+        TRACE_ERROR("CSNBTKB (TOKEN BUILD) failed. return:%ld,"
+                    " reason:%ld\n", return_code, reason_code);
+        return CKR_FUNCTION_FAILED;
+    }
+    memcpy(key_form, "OP      ", (size_t) CCA_KEYWORD_SIZE);
+    memcpy(key_type, "AESTOKEN", (size_t) CCA_KEYWORD_SIZE);
+    memcpy(*aes_key, key_token, (size_t) CCA_KEY_ID_SIZE);
+
+    rc = cca_key_gen(tokdata, tmpl, CCA_AES_KEY, *aes_key, key_form,
+                     key_type, key_size / 2, FALSE);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s cca_key_gen function failed\n", ock_err(rc));
+        return rc;
+    }
+
+    memcpy(*aes_key + CCA_KEY_ID_SIZE, key_token, (size_t) CCA_KEY_ID_SIZE);
+
+    rc = cca_key_gen(tokdata, tmpl, CCA_AES_KEY, *aes_key + CCA_KEY_ID_SIZE,
+                     key_form, key_type, key_size / 2, TRUE);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s cca_key_gen function failed\n", ock_err(rc));
+        return rc;
+    }
+
+    return CKR_OK;
+}
+
 #endif /* NO_PKEY */
 
 typedef struct {
@@ -3726,7 +3843,7 @@ CK_RV token_specific_final(STDLL_TokData_t *tokdata,
 static CK_RV cca_key_gen(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
                          enum cca_key_type type, CK_BYTE * key,
                          unsigned char *key_form, unsigned char *key_type_1,
-                         CK_ULONG key_size)
+                         CK_ULONG key_size, CK_BBOOL aes_xts_2dn_key)
 {
 
     long return_code, reason_code;
@@ -3805,7 +3922,7 @@ static CK_RV cca_key_gen(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
     }
 
     rc = cca_reencipher_created_key(tokdata, tmpl, key, CCA_KEY_ID_SIZE,
-                                    new_mk, keytype);
+                                    new_mk, keytype, aes_xts_2dn_key);
     if (rc != CKR_OK) {
         TRACE_ERROR("cca_reencipher_created_key failed: 0x%lx\n", rc);
         return rc;
@@ -3838,7 +3955,7 @@ CK_RV token_specific_des_key_gen(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
     memcpy(key_type_1, "DATA    ", (size_t) CCA_KEYWORD_SIZE);
 
     return cca_key_gen(tokdata, tmpl, CCA_DES_KEY, *des_key, key_form,
-                       key_type_1, keysize);
+                       key_type_1, keysize, FALSE);
 }
 
 
@@ -4367,7 +4484,8 @@ CK_RV token_specific_rsa_generate_keypair(STDLL_TokData_t * tokdata,
     }
 
     rv = cca_reencipher_created_key(tokdata, priv_tmpl, priv_key_token,
-                                    priv_key_token_length, new_mk, keytype);
+                                    priv_key_token_length, new_mk, keytype,
+                                    FALSE);
     if (rv != CKR_OK) {
         TRACE_ERROR("cca_reencipher_created_key failed: 0x%lx\n", rv);
         return rv;
@@ -5327,7 +5445,7 @@ CK_RV token_specific_aes_key_gen(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
     memcpy(*aes_key, key_token, (size_t) CCA_KEY_ID_SIZE);
 
     return cca_key_gen(tokdata, tmpl, CCA_AES_KEY, *aes_key, key_form,
-                       key_type, key_size);
+                       key_type, key_size, FALSE);
 }
 
 CK_RV token_specific_aes_ecb(STDLL_TokData_t * tokdata,
@@ -5975,7 +6093,8 @@ CK_RV token_specific_ec_generate_keypair(STDLL_TokData_t * tokdata,
     }
 
     rv = cca_reencipher_created_key(tokdata, priv_tmpl, priv_key_token,
-                                    priv_key_token_length, new_mk, keytype);
+                                    priv_key_token_length, new_mk, keytype,
+                                    FALSE);
     if (rv != CKR_OK) {
         TRACE_ERROR("cca_reencipher_created_key failed: 0x%lx\n", rv);
         return rv;
@@ -7216,7 +7335,7 @@ static CK_RV import_rsa_privkey(STDLL_TokData_t *tokdata, TEMPLATE * priv_tmpl)
         rc = cca_reencipher_created_key(tokdata, priv_tmpl,
                                         opaque_attr->pValue,
                                         opaque_attr->ulValueLen,
-                                        new_mk, token_type);
+                                        new_mk, token_type, FALSE);
         if (rc != CKR_OK) {
             TRACE_ERROR("cca_reencipher_created_key failed: 0x%lx\n", rc);
             return rc;
@@ -7482,7 +7601,7 @@ static CK_RV import_rsa_privkey(STDLL_TokData_t *tokdata, TEMPLATE * priv_tmpl)
 
         rc = cca_reencipher_created_key(tokdata, priv_tmpl, target_key_token,
                                         target_key_token_length, new_mk,
-                                        token_type);
+                                        token_type, FALSE);
         if (rc != CKR_OK) {
             TRACE_ERROR("cca_reencipher_created_key failed: 0x%lx\n", rc);
             return rc;
@@ -7771,7 +7890,7 @@ static CK_RV import_symmetric_key(STDLL_TokData_t *tokdata,
         rc = cca_reencipher_created_key(tokdata, object->template,
                                         opaque_attr->pValue,
                                         opaque_attr->ulValueLen,
-                                        new_mk, token_type);
+                                        new_mk, token_type, FALSE);
         if (rc != CKR_OK) {
             TRACE_ERROR("cca_reencipher_created_key failed: 0x%lx\n", rc);
             return rc;
@@ -7849,7 +7968,7 @@ static CK_RV import_symmetric_key(STDLL_TokData_t *tokdata,
 
         rc = cca_reencipher_created_key(tokdata, object->template,
                                         target_key_id, CCA_KEY_ID_SIZE, new_mk,
-                                        token_type);
+                                        token_type, FALSE);
         if (rc != CKR_OK) {
             TRACE_ERROR("cca_reencipher_created_key failed: 0x%lx\n", rc);
             return rc;
@@ -7930,7 +8049,7 @@ static CK_RV import_generic_secret_key(STDLL_TokData_t *tokdata,
         rc = cca_reencipher_created_key(tokdata, object->template,
                                         opaque_attr->pValue,
                                         opaque_attr->ulValueLen,
-                                        new_mk, token_type);
+                                        new_mk, token_type, FALSE);
         if (rc != CKR_OK) {
             TRACE_ERROR("cca_reencipher_created_key failed: 0x%lx\n", rc);
             return rc;
@@ -8032,7 +8151,8 @@ static CK_RV import_generic_secret_key(STDLL_TokData_t *tokdata,
         }
 
         rc = cca_reencipher_created_key(tokdata, object->template, key_token,
-                                        key_token_len, new_mk, token_type);
+                                        key_token_len, new_mk, token_type,
+                                        FALSE);
         if (rc != CKR_OK) {
             TRACE_ERROR("cca_reencipher_created_key failed: 0x%lx\n", rc);
             return rc;
@@ -8409,7 +8529,7 @@ static CK_RV import_ec_privkey(STDLL_TokData_t *tokdata, TEMPLATE *priv_templ)
         rc = cca_reencipher_created_key(tokdata, priv_templ,
                                         opaque_attr->pValue,
                                         opaque_attr->ulValueLen,
-                                        new_mk, token_type);
+                                        new_mk, token_type, FALSE);
         if (rc != CKR_OK) {
             TRACE_ERROR("cca_reencipher_created_key failed: 0x%lx\n", rc);
             return rc;
@@ -8570,7 +8690,7 @@ static CK_RV import_ec_privkey(STDLL_TokData_t *tokdata, TEMPLATE *priv_templ)
 
         rc = cca_reencipher_created_key(tokdata, priv_templ, target_key_token,
                                         target_key_token_length, new_mk,
-                                        token_type);
+                                        token_type, FALSE);
         if (rc != CKR_OK) {
             TRACE_ERROR("cca_reencipher_created_key failed: 0x%lx\n", rc);
             return rc;
@@ -8967,7 +9087,7 @@ CK_RV token_specific_generic_secret_key_gen(STDLL_TokData_t * tokdata,
     }
 
     rc = cca_reencipher_created_key(tokdata, template, key_token,
-                                    key_token_length, new_mk, keytype);
+                                    key_token_length, new_mk, keytype, FALSE);
     if (rc != CKR_OK) {
         TRACE_ERROR("cca_reencipher_created_key failed: 0x%lx\n", rc);
         return rc;
@@ -9329,7 +9449,7 @@ static CK_RV ccatok_unwrap_key_rsa_pkcs(STDLL_TokData_t *tokdata,
     }
 
     rc = cca_reencipher_created_key(tokdata, key->template, buffer, buffer_len,
-                                    new_mk, keytype);
+                                    new_mk, keytype, FALSE);
     if (rc != CKR_OK) {
         TRACE_ERROR("cca_reencipher_created_key failed: 0x%lx\n", rc);
         return rc;
