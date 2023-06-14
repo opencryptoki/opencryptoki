@@ -1314,9 +1314,9 @@ CK_RV do_WrapUnwrapRSA(struct GENERATED_TEST_SUITE_INFO * tsuite)
             continue;
         }
         if (keygen_mech.mechanism == CKM_AES_XTS_KEY_GEN &&
-            is_ep11_token(slot_id)) {
+            (is_ep11_token(slot_id) || is_cca_token(slot_id))) {
             testcase_skip("Skip test as CKM_AES_XTS_KEY_GEN is supported " \
-                          "only for protected keys in EP11 token");
+                          "only for protected keys in EP11 and CCA token");
             continue;
         }
         // get wrapping mechanism
