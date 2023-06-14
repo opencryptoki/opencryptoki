@@ -3548,6 +3548,236 @@ CK_RV token_specific_aes_xts_key_gen(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
     return CKR_OK;
 }
 
+static CK_RV import_aes_xts_key(STDLL_TokData_t *tokdata,
+                                OBJECT * object)
+{
+    CK_RV rc;
+    CK_ATTRIBUTE *opaque_attr = NULL;
+    enum cca_token_type token_type, token_type2;
+    unsigned int token_keybitsize, token_keybitsize2;
+    const CK_BYTE *mkvp, *mkvp2;
+    CK_BBOOL new_mk;
+
+    rc = template_attribute_find(object->template, CKA_IBM_OPAQUE, &opaque_attr);
+    if (rc == TRUE) {
+        /*
+         * This is an import of an existing secure key which is stored in
+         * the CKA_IBM_OPAQUE attribute. The CKA_VALUE attribute is only
+         * a dummy reflecting the clear key byte size. However, let's
+         * check if the template attributes match to the cca key in the
+         * CKA_IBM_OPAQUE attribute.
+         */
+        CK_BYTE zorro[64] = { 0 };
+        CK_BBOOL true = TRUE;
+
+        if (analyse_cca_key_token(opaque_attr->pValue,
+                                  opaque_attr->ulValueLen / 2, &token_type,
+                                  &token_keybitsize, &mkvp) != TRUE) {
+            TRACE_ERROR("Invalid/unknown cca token in CKA_IBM_OPAQUE attribute\n");
+            return CKR_ATTRIBUTE_VALUE_INVALID;
+        }
+
+        if (token_type == sec_aes_data_key) {
+            /* keybitsize has been checked by the analyse_cca_key_token() function */
+            ;
+        } else if (token_type == sec_aes_cipher_key) {
+            /* not supported yet */
+            TRACE_ERROR("CCA AES cipher key import is not supported\n");
+            return CKR_TEMPLATE_INCONSISTENT;
+        } else {
+            TRACE_ERROR("CCA token type in CKA_IBM_OPAQUE does not match to keytype CKK_AES\n");
+            return CKR_TEMPLATE_INCONSISTENT;
+        }
+
+        if (check_expected_mkvp(tokdata, token_type, mkvp, &new_mk) != CKR_OK) {
+            TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
+            return CKR_DEVICE_ERROR;
+        }
+
+        rc = cca_reencipher_created_key(tokdata, object->template,
+                                        opaque_attr->pValue,
+                                        opaque_attr->ulValueLen / 2,
+                                        new_mk, token_type, FALSE);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("cca_reencipher_created_key failed: 0x%lx\n", rc);
+            return rc;
+        }
+
+        if (analyse_cca_key_token(((CK_BYTE *)opaque_attr->pValue) +
+                                      (opaque_attr->ulValueLen / 2),
+                                  opaque_attr->ulValueLen / 2, &token_type2,
+                                  &token_keybitsize2, &mkvp2) != TRUE) {
+            TRACE_ERROR("Invalid/unknown cca token in CKA_IBM_OPAQUE attribute\n");
+            return CKR_ATTRIBUTE_VALUE_INVALID;
+        }
+
+        if (token_type2 == sec_aes_data_key) {
+            /* keybitsize has been checked by the analyse_cca_key_token() function */
+            ;
+        } else if (token_type2 == sec_aes_cipher_key) {
+            /* not supported yet */
+            TRACE_ERROR("CCA AES cipher key import is not supported\n");
+            return CKR_TEMPLATE_INCONSISTENT;
+        } else {
+            TRACE_ERROR("CCA token type in CKA_IBM_OPAQUE does not match to keytype CKK_AES\n");
+            return CKR_TEMPLATE_INCONSISTENT;
+        }
+
+        if (check_expected_mkvp(tokdata, token_type2, mkvp2, &new_mk) != CKR_OK) {
+            TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
+            return CKR_DEVICE_ERROR;
+        }
+
+        rc = cca_reencipher_created_key(tokdata, object->template,
+                                        ((CK_BYTE *)opaque_attr->pValue) +
+                                            (opaque_attr->ulValueLen / 2),
+                                        opaque_attr->ulValueLen / 2,
+                                        new_mk, token_type2, TRUE);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("cca_reencipher_created_key failed: 0x%lx\n", rc);
+            return rc;
+        }
+
+        if (token_type != token_type2 ||
+            memcmp(mkvp, mkvp2, CCA_MKVP_LENGTH) != 0 ||
+            token_keybitsize != token_keybitsize2) {
+            TRACE_ERROR("CCA AES XTS keys attribute value mismatch\n");
+            return CKR_ATTRIBUTE_VALUE_INVALID;
+        }
+
+        /* create a dummy CKA_VALUE attribute with the key bit size but all zero */
+        rc = build_update_attribute(object->template, CKA_VALUE,
+                                    zorro, token_keybitsize * 2 / 8);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("build_update_attribute(CKA_VALUE) failed\n");
+            return rc;
+        }
+
+        /* Add/update CKA_SENSITIVE */
+        rc = build_update_attribute(object->template, CKA_SENSITIVE, &true,
+                                    sizeof(CK_BBOOL));
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("build_update_attribute for CKA_SENSITIVE failed. rc=0x%lx\n", rc);
+            return rc;
+        }
+
+    } else {
+        /*
+         * This is an import of a clear key value which is to be transfered
+         * into a CCA Data AES key now.
+         */
+
+        long return_code, reason_code, rule_array_count;
+        unsigned char target_key_id[CCA_KEY_ID_SIZE * 2] = { 0 };
+        unsigned char rule_array[CCA_RULE_ARRAY_SIZE] = { 0 };
+        CK_ATTRIBUTE *value_attr = NULL;
+        CK_ULONG keylen;
+
+        rc = template_attribute_get_non_empty(object->template, CKA_VALUE,
+                                              &value_attr);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("Incomplete key template\n");
+            return CKR_TEMPLATE_INCOMPLETE;
+        }
+
+        memcpy(rule_array, "AES     ", CCA_KEYWORD_SIZE);
+        rule_array_count = 1;
+        keylen = value_attr->ulValueLen / 2;
+        USE_CCA_ADAPTER_START(tokdata, return_code, reason_code)
+            dll_CSNBCKM(&return_code, &reason_code, NULL, NULL,
+                        &rule_array_count, rule_array,
+                        (long int *)&keylen, value_attr->pValue,
+                        target_key_id);
+        USE_CCA_ADAPTER_END(tokdata, return_code, reason_code)
+
+        if (return_code != CCA_SUCCESS) {
+            TRACE_ERROR("CSNBCKM failed. return:%ld, reason:%ld\n",
+                        return_code, reason_code);
+            return CKR_FUNCTION_FAILED;
+        }
+
+        if (analyse_cca_key_token(target_key_id, CCA_KEY_ID_SIZE,
+                                  &token_type, &token_keybitsize,
+                                  &mkvp) == FALSE || mkvp == NULL) {
+            TRACE_ERROR("Invalid/unknown cca token has been imported\n");
+            return CKR_FUNCTION_FAILED;
+        }
+
+        if (check_expected_mkvp(tokdata, token_type, mkvp, &new_mk) != CKR_OK) {
+            TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
+            return CKR_DEVICE_ERROR;
+        }
+
+        rc = cca_reencipher_created_key(tokdata, object->template,
+                                        target_key_id, CCA_KEY_ID_SIZE, new_mk,
+                                        token_type, FALSE);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("cca_reencipher_created_key failed: 0x%lx\n", rc);
+            return rc;
+        }
+
+        keylen = value_attr->ulValueLen / 2;
+        USE_CCA_ADAPTER_START(tokdata, return_code, reason_code)
+            dll_CSNBCKM(&return_code, &reason_code, NULL, NULL,
+                        &rule_array_count, rule_array,
+                        (long int *)&keylen, (CK_BYTE *)value_attr->pValue +
+                        value_attr->ulValueLen / 2,
+                        target_key_id + CCA_KEY_ID_SIZE);
+        USE_CCA_ADAPTER_END(tokdata, return_code, reason_code)
+
+        if (return_code != CCA_SUCCESS) {
+            TRACE_ERROR("CSNBCKM failed. return:%ld, reason:%ld\n",
+                        return_code, reason_code);
+            return CKR_FUNCTION_FAILED;
+        }
+
+        if (analyse_cca_key_token(target_key_id + CCA_KEY_ID_SIZE,
+                                  CCA_KEY_ID_SIZE, &token_type2,
+                                  &token_keybitsize2, &mkvp2) == FALSE ||
+            mkvp2 == NULL) {
+            TRACE_ERROR("Invalid/unknown cca token has been imported\n");
+            return CKR_FUNCTION_FAILED;
+        }
+
+        if (check_expected_mkvp(tokdata, token_type2, mkvp2, &new_mk) != CKR_OK) {
+            TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
+            return CKR_DEVICE_ERROR;
+        }
+
+        rc = cca_reencipher_created_key(tokdata, object->template,
+                                        target_key_id + CCA_KEY_ID_SIZE,
+                                        CCA_KEY_ID_SIZE, new_mk, token_type2,
+                                        TRUE);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("cca_reencipher_created_key failed: 0x%lx\n", rc);
+            return rc;
+        }
+
+        if (token_type != token_type2 ||
+            memcmp(mkvp, mkvp2, CCA_MKVP_LENGTH) != 0 ||
+            token_keybitsize != token_keybitsize2) {
+            TRACE_ERROR("CCA AES XTS keys attribute value mismatch\n");
+            return CKR_ATTRIBUTE_VALUE_INVALID;
+        }
+
+        /* Add the key object to the template */
+        rc = build_update_attribute(object->template, CKA_IBM_OPAQUE,
+                                    target_key_id, CCA_KEY_ID_SIZE * 2);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("build_update_attribute(CKA_IBM_OPAQUE) failed\n");
+            return rc;
+        }
+
+        /* zero clear key value */
+        OPENSSL_cleanse(value_attr->pValue, value_attr->ulValueLen);
+    }
+
+    TRACE_DEBUG("%s: imported object template attributes:\n", __func__);
+    TRACE_DEBUG_DUMPTEMPL(object->template);
+
+    return CKR_OK;
+}
+
 #endif /* NO_PKEY */
 
 typedef struct {
@@ -8925,6 +9155,21 @@ CK_RV token_specific_object_add(STDLL_TokData_t *tokdata, SESSION *sess, OBJECT 
             return CKR_KEY_TYPE_INCONSISTENT;
         }
         break;
+
+#ifndef NO_PKEY
+    case CKK_AES_XTS:
+        rc = import_aes_xts_key(tokdata, object);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("AES XTS key import failed, rc=0x%lx\n", rc);
+            return rc;
+        }
+
+        template_attribute_find(object->template, CKA_VALUE, &attr);
+        TRACE_INFO("AES XTS key with len=%ld successfully imported\n",
+                   attr != NULL ? attr->ulValueLen : 0);
+        break;
+#endif
+
     case CKK_AES:
     case CKK_DES:
     case CKK_DES3:
