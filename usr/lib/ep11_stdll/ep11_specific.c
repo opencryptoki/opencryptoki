@@ -5675,7 +5675,7 @@ CK_RV token_specific_aes_cmac(STDLL_TokData_t *tokdata,
  * a protected key. Therefore we don't have (and don't need) an ep11
  * fallback here.
  */
-CK_RV token_specific_aes_xts(STDLL_TokData_t *tokdata,
+CK_RV token_specific_aes_xts(STDLL_TokData_t *tokdata, SESSION *session,
                              CK_BYTE *in_data, CK_ULONG in_data_len,
                              CK_BYTE *out_data, CK_ULONG *out_data_len,
                              OBJECT *key_obj, CK_BYTE *init_v,
@@ -5683,6 +5683,8 @@ CK_RV token_specific_aes_xts(STDLL_TokData_t *tokdata,
                              CK_BBOOL final, CK_BYTE *iv)
 {
     UNUSED(tokdata);
+    UNUSED(session);
+
     return pkey_aes_xts(key_obj, init_v, in_data, in_data_len,
                         out_data, out_data_len, encrypt, initial, final, iv);
 }

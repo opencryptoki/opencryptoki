@@ -2767,6 +2767,12 @@ typedef struct {
     CK_BYTE *pkey_buf;
     size_t *pkey_buflen_p;
     enum cca_token_type keytype;
+    /* for AES XTS processing */
+    CK_VOID_PTR secure_key2;
+    CK_ULONG secure_key_len2;
+    CK_BYTE *pkey_buf2;
+    size_t *pkey_buflen_p2;
+    CK_BBOOL aes_xts;
 } pkey_wrap_handler_data_t;
 
 /*
@@ -2850,10 +2856,26 @@ static CK_RV ccatok_pkey_sec2prot(STDLL_TokData_t *tokdata, const char *adapter,
         data->wrap_was_successful = CK_FALSE;
         goto done;
     }
-
+    *(data->pkey_buflen_p) = io.pkeylen;
+    if (data->aes_xts) {
+        memset(&io, 0, sizeof(io));
+        io.key = data->secure_key2;
+        io.keylen = data->secure_key_len2;
+        io.apqns = &apqn;
+        io.apqn_entries = 1;
+        io.pkeytype = ccatok_pkey_type_from_keytype(data->keytype);
+        io.pkeylen = *(data->pkey_buflen_p2);
+        io.pkey = data->pkey_buf2;
+        rc = ioctl(cca_data->pkeyfd, PKEY_KBLOB2PROTK3, &io);
+        if (rc != 0) {
+            data->wrap_error = CKR_FUNCTION_FAILED;
+            data->wrap_was_successful = CK_FALSE;
+            goto done;
+        }
+        *(data->pkey_buflen_p2) = io.pkeylen;
+    }
     data->wrap_error = CKR_OK;
     data->wrap_was_successful = CK_TRUE;
-    *(data->pkey_buflen_p) = io.pkeylen;
 
 done:
 
@@ -2871,11 +2893,13 @@ done:
  */
 static CK_RV ccatok_pkey_skey2pkey(STDLL_TokData_t *tokdata,
                                    CK_ATTRIBUTE *skey_attr,
-                                   CK_ATTRIBUTE **pkey_attr)
+                                   CK_ATTRIBUTE **pkey_attr, CK_BBOOL aes_xts)
 {
     CK_ATTRIBUTE *tmp_attr = NULL;
-    CK_BYTE pkey_buf[MAXECPROTKEYSIZE];
+    CK_BYTE pkey_buf[MAXECPROTKEYSIZE], pkey_buf2[MAXECPROTKEYSIZE],
+            pkey_buffer[MAXECPROTKEYSIZE * 2];
     CK_ULONG pkey_buflen = sizeof(pkey_buf);
+    CK_ULONG pkey_buflen2 = sizeof(pkey_buf2);
     pkey_wrap_handler_data_t pkey_wrap_handler_data;
     CK_RV ret;
     enum cca_token_type key_type;
@@ -2885,11 +2909,13 @@ static CK_RV ccatok_pkey_skey2pkey(STDLL_TokData_t *tokdata,
     unsigned int num_retries = 0;
 
     /* Determine CCA key type */
-    if (analyse_cca_key_token(skey_attr->pValue, skey_attr->ulValueLen,
-                              &key_type, &token_keybitsize, &mkvp) != TRUE) {
-        TRACE_ERROR("Invalid/unknown cca token, cannot get key type\n");
-        ret = CKR_FUNCTION_FAILED;
-        goto done;
+    if (analyse_cca_key_token(skey_attr->pValue, (aes_xts ?
+                              skey_attr->ulValueLen / 2 :
+                              skey_attr->ulValueLen), &key_type,
+                              &token_keybitsize, &mkvp) != TRUE) {
+       TRACE_ERROR("Invalid/unknown cca token, cannot get key type\n");
+       ret = CKR_FUNCTION_FAILED;
+       goto done;
     }
 
     if (check_expected_mkvp(tokdata, key_type, mkvp, &new_mk) != CKR_OK) {
@@ -2902,10 +2928,35 @@ static CK_RV ccatok_pkey_skey2pkey(STDLL_TokData_t *tokdata,
     memset(&pkey_wrap_handler_data, 0, sizeof(pkey_wrap_handler_data_t));
     pkey_wrap_handler_data.tokdata = tokdata;
     pkey_wrap_handler_data.secure_key = skey_attr->pValue;
-    pkey_wrap_handler_data.secure_key_len = skey_attr->ulValueLen;
+    pkey_wrap_handler_data.secure_key_len = (aes_xts ? skey_attr->ulValueLen / 2
+                                                     : skey_attr->ulValueLen);
     pkey_wrap_handler_data.pkey_buf = (CK_BYTE *)&pkey_buf;
     pkey_wrap_handler_data.pkey_buflen_p = &pkey_buflen;
-    pkey_wrap_handler_data.keytype = key_type;
+    pkey_wrap_handler_data.aes_xts = aes_xts;
+
+    if (aes_xts) {
+        if (analyse_cca_key_token((CK_BYTE *)skey_attr->pValue + skey_attr->ulValueLen / 2,
+                                  skey_attr->ulValueLen / 2,
+                                  &key_type, &token_keybitsize,
+                                  &mkvp) != TRUE) {
+            TRACE_ERROR("Invalid/unknown cca token, cannot get key type\n");
+            ret = CKR_FUNCTION_FAILED;
+            goto done;
+        }
+
+        if (check_expected_mkvp(tokdata, key_type, mkvp, &new_mk) != CKR_OK) {
+            TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
+            ret = CKR_DEVICE_ERROR;
+            goto done;
+        }
+
+        pkey_wrap_handler_data.secure_key2 = (CK_BYTE *)skey_attr->pValue +
+                                             skey_attr->ulValueLen / 2;
+        pkey_wrap_handler_data.secure_key_len2 = skey_attr->ulValueLen / 2;
+        pkey_wrap_handler_data.pkey_buf2 = (CK_BYTE *)&pkey_buf2;
+        pkey_wrap_handler_data.pkey_buflen_p2 = &pkey_buflen2;
+        pkey_wrap_handler_data.keytype = key_type;
+    }
 
     while (num_retries < 3600) {
         ret = cca_iterate_adapters(tokdata, ccatok_pkey_sec2prot,
@@ -2928,13 +2979,25 @@ static CK_RV ccatok_pkey_skey2pkey(STDLL_TokData_t *tokdata,
     }
 
     /* Build new attribute for protected key */
-    ret = build_attribute(CKA_IBM_OPAQUE_PKEY, pkey_buf, pkey_buflen, &tmp_attr);
-    if (ret != CKR_OK) {
-        TRACE_ERROR("build_attribute failed with rc=0x%lx\n", ret);
-        ret = CKR_FUNCTION_FAILED;;
-        goto done;
+    if (aes_xts) {
+        memcpy(pkey_buffer, pkey_buf, pkey_buflen);
+        memcpy(pkey_buffer + pkey_buflen, pkey_buf2, pkey_buflen2);
+        ret = build_attribute(CKA_IBM_OPAQUE_PKEY, pkey_buffer,
+                              pkey_buflen + pkey_buflen2, &tmp_attr);
+        if (ret != CKR_OK) {
+            TRACE_ERROR("build_attribute failed with rc=0x%lx\n", ret);
+            ret = CKR_FUNCTION_FAILED;;
+            goto done;
+        }
+    } else {
+        ret = build_attribute(CKA_IBM_OPAQUE_PKEY, pkey_buf, pkey_buflen,
+                              &tmp_attr);
+        if (ret != CKR_OK) {
+            TRACE_ERROR("build_attribute failed with rc=0x%lx\n", ret);
+            ret = CKR_FUNCTION_FAILED;;
+            goto done;
+        }
     }
-
     ret = CKR_OK;
 
 done:
@@ -3067,7 +3130,7 @@ static CK_RV ccatok_pkey_get_firmware_wkvp(STDLL_TokData_t *tokdata)
      * this function returns ok, we have a 64 byte pkey value: 32 bytes
      * encrypted key + 32 bytes vp.
      */
-    ret = ccatok_pkey_skey2pkey(tokdata, sec_attr, &pkey_attr);
+    ret = ccatok_pkey_skey2pkey(tokdata, sec_attr, &pkey_attr, FALSE);
     if (ret != CKR_OK) {
         TRACE_ERROR("ccatok_pkey_skey2pkey failed with ret=0x%lx\n", ret);
         goto done;
@@ -3132,7 +3195,8 @@ static CK_BBOOL ccatok_pkey_is_valid(STDLL_TokData_t *tokdata, OBJECT *key_obj)
  * Create a new protected key for the given key obj and update attribute
  * CKA_IBM_OPAQUE with the new pkey.
  */
-static CK_RV ccatok_pkey_update(STDLL_TokData_t *tokdata, OBJECT *key_obj)
+static CK_RV ccatok_pkey_update(STDLL_TokData_t *tokdata, OBJECT *key_obj,
+                                CK_BBOOL aes_xts)
 {
     struct cca_private_data *cca_data = tokdata->private_data;
     CK_ATTRIBUTE *skey_attr = NULL;
@@ -3149,7 +3213,7 @@ static CK_RV ccatok_pkey_update(STDLL_TokData_t *tokdata, OBJECT *key_obj)
     }
 
     /* Transform the secure key into a protected key */
-    ret = ccatok_pkey_skey2pkey(tokdata, skey_attr, &pkey_attr);
+    ret = ccatok_pkey_skey2pkey(tokdata, skey_attr, &pkey_attr, aes_xts);
     if (ret != CKR_OK) {
         TRACE_ERROR("protected key creation failed with rc=0x%lx\n",ret);
         goto done;
@@ -3293,7 +3357,8 @@ static CK_RV ccatok_pkey_check(STDLL_TokData_t *tokdata, SESSION *session,
             if (!ccatok_pkey_session_ok_for_obj(session, key_obj))
                 goto done;
 
-            ret = ccatok_pkey_update(tokdata, key_obj);
+            ret = ccatok_pkey_update(tokdata, key_obj,
+                                     mech->mechanism == CKM_AES_XTS);
             if (ret != CKR_OK) {
                 TRACE_ERROR("error updating the protected key, rc=0x%lx\n", ret);
                 if (ret == CKR_FUNCTION_NOT_SUPPORTED)
@@ -3459,6 +3524,18 @@ static CK_RV ccatok_pkey_check_attrs(STDLL_TokData_t *tokdata,
 
 }
 
+CK_RV ccatok_pkey_check_aes_xts(TEMPLATE *tmpl)
+{
+    CK_BBOOL val;
+    CK_RV rc;
+
+    rc = template_attribute_get_bool(tmpl, CKA_IBM_PROTKEY_EXTRACTABLE, &val);
+    if (rc != CKR_OK || val == TRUE)
+        return CKR_TEMPLATE_INCONSISTENT;
+
+    return CKR_OK;
+}
+
 CK_RV token_specific_aes_xts_key_gen(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
                                      CK_BYTE **aes_key, CK_ULONG *len,
                                      CK_ULONG key_size, CK_BBOOL *is_opaque)
@@ -3478,6 +3555,16 @@ CK_RV token_specific_aes_xts_key_gen(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
     if (((struct cca_private_data *)tokdata->private_data)->inconsistent) {
         TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
         return CKR_DEVICE_ERROR;
+    }
+
+    if (!((struct cca_private_data *)tokdata->private_data)->pkey_wrap_supported) {
+        TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
+        return CKR_MECHANISM_INVALID;
+    }
+
+    if (!ccatok_pkey_check_aes_xts(tmpl)) {
+        TRACE_ERROR("%s CCA AES XTS is not supported\n", __func__);
+        return CKR_TEMPLATE_INCONSISTENT;
     }
 
     *aes_key = calloc(CCA_KEY_ID_SIZE * 2, 1);
@@ -3548,6 +3635,49 @@ CK_RV token_specific_aes_xts_key_gen(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
     return CKR_OK;
 }
 
+/**
+ * This routine is currently only used when the operation is performed using
+ * a protected key. Therefore we don't have (and don't need) an cca
+ * fallback here.
+ */
+CK_RV token_specific_aes_xts(STDLL_TokData_t *tokdata, SESSION *session,
+                             CK_BYTE *in_data, CK_ULONG in_data_len,
+                             CK_BYTE *out_data, CK_ULONG *out_data_len,
+                             OBJECT *key_obj, CK_BYTE *init_v,
+                             CK_BBOOL encrypt, CK_BBOOL initial,
+                             CK_BBOOL final, CK_BYTE *iv)
+{
+    CK_ATTRIBUTE *attr = NULL;
+    CK_RV rc;
+    CK_MECHANISM mech = { CKM_AES_XTS, NULL, 0 };
+
+    if (((struct cca_private_data *)tokdata->private_data)->inconsistent) {
+        TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
+        return CKR_DEVICE_ERROR;
+    }
+
+    rc = template_attribute_get_non_empty(key_obj->template, CKA_IBM_OPAQUE, &attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_IBM_OPAQUE for the key.\n");
+        return rc;
+    }
+
+    /* CCA token protected key option */
+    rc = ccatok_pkey_check(tokdata, session, key_obj, &mech);
+    switch (rc) {
+    case CKR_OK:
+        rc = pkey_aes_xts(key_obj, init_v, in_data, in_data_len,
+                          out_data, out_data_len, encrypt, initial, final, iv);
+        goto done;
+    default:
+        goto done;
+    }
+
+done:
+
+    return rc;
+}
+
 static CK_RV import_aes_xts_key(STDLL_TokData_t *tokdata,
                                 OBJECT * object)
 {
@@ -3557,6 +3687,16 @@ static CK_RV import_aes_xts_key(STDLL_TokData_t *tokdata,
     unsigned int token_keybitsize, token_keybitsize2;
     const CK_BYTE *mkvp, *mkvp2;
     CK_BBOOL new_mk;
+
+    if (!((struct cca_private_data *)tokdata->private_data)->pkey_wrap_supported) {
+        TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
+        return CKR_MECHANISM_INVALID;
+    }
+
+    if (!ccatok_pkey_check_aes_xts(object->template)) {
+        TRACE_ERROR("%s CCA AES XTS is not supported\n", __func__);
+        return CKR_TEMPLATE_INCONSISTENT;
+    }
 
     rc = template_attribute_find(object->template, CKA_IBM_OPAQUE, &opaque_attr);
     if (rc == TRUE) {

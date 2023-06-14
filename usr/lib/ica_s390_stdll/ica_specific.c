@@ -4066,13 +4066,15 @@ CK_RV token_specific_aes_cmac(STDLL_TokData_t *tokdata, CK_BYTE *message,
     return rc;
 }
 
-CK_RV token_specific_aes_xts(STDLL_TokData_t *tokdata,
+CK_RV token_specific_aes_xts(STDLL_TokData_t *tokdata, SESSION *sess,
                              CK_BYTE *in_data, CK_ULONG in_data_len,
                              CK_BYTE *out_data, CK_ULONG *out_data_len,
                              OBJECT *key_obj, CK_BYTE *tweak,
                              CK_BOOL encrypt, CK_BBOOL initial, CK_BBOOL final,
                              CK_BYTE* iv)
 {
+    UNUSED(sess);
+
     ica_private_data_t *ica_data = (ica_private_data_t *)tokdata->private_data;
     CK_ATTRIBUTE *key_attr;
     CK_RV rc;

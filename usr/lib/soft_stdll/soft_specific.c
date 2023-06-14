@@ -666,13 +666,15 @@ CK_RV token_specific_aes_cmac(STDLL_TokData_t *tokdata, CK_BYTE *message,
                                      first, last, ctx);
 }
 
-CK_RV token_specific_aes_xts(STDLL_TokData_t *tokdata,
+CK_RV token_specific_aes_xts(STDLL_TokData_t *tokdata, SESSION *sess,
                              CK_BYTE *in_data, CK_ULONG in_data_len,
                              CK_BYTE *out_data, CK_ULONG *out_data_len,
                              OBJECT *key_obj, CK_BYTE *tweak,
                              CK_BOOL encrypt, CK_BBOOL initial, CK_BBOOL final,
                              CK_BYTE* iv)
 {
+    UNUSED(sess);
+
     return openssl_specific_aes_xts(tokdata, in_data, in_data_len,
                                     out_data, out_data_len, key_obj,
                                     tweak, encrypt, initial, final, iv);
