@@ -532,7 +532,7 @@ static CK_RV aes_xts_crypt(STDLL_TokData_t *tokdata,
         goto done;
     }
 
-    rc = ckm_aes_xts_crypt(tokdata, in_data, in_data_len, out_data,
+    rc = ckm_aes_xts_crypt(tokdata, sess, in_data, in_data_len, out_data,
                            out_data_len, ctx->mech.pParameter, key,
                            TRUE, TRUE, context->iv, encrypt);
 
@@ -1322,7 +1322,7 @@ static CK_RV aes_xts_crypt_update(STDLL_TokData_t *tokdata,
     }
 
     if (out_len < context->len) {
-        rc = ckm_aes_xts_crypt(tokdata, context->data, out_len, out_data,
+        rc = ckm_aes_xts_crypt(tokdata, sess, context->data, out_len, out_data,
                                out_data_len, ctx->mech.pParameter, key,
                                !context->initialized, FALSE, context->iv,
                                encrypt);
@@ -1350,7 +1350,7 @@ static CK_RV aes_xts_crypt_update(STDLL_TokData_t *tokdata,
         memcpy(clear, context->data, context->len);
         memcpy(clear + context->len, in_data, out_len - context->len);
 
-        rc = ckm_aes_xts_crypt(tokdata, clear, out_len, out_data,
+        rc = ckm_aes_xts_crypt(tokdata, sess, clear, out_len, out_data,
                                  out_data_len, ctx->mech.pParameter, key,
                                  !context->initialized, FALSE, context->iv,
                                  encrypt);
@@ -1793,7 +1793,7 @@ static CK_RV aes_xts_crypt_final(STDLL_TokData_t *tokdata,
         return rc;
     }
 
-    rc = ckm_aes_xts_crypt(tokdata, context->data, context->len, out_data,
+    rc = ckm_aes_xts_crypt(tokdata, sess, context->data, context->len, out_data,
                            out_data_len, ctx->mech.pParameter, key,
                            !context->initialized, TRUE, context->iv,
                            encrypt);
@@ -4183,7 +4183,7 @@ CK_RV ckm_aes_wrap_format(STDLL_TokData_t *tokdata,
     return CKR_OK;
 }
 
-CK_RV ckm_aes_xts_crypt(STDLL_TokData_t *tokdata,
+CK_RV ckm_aes_xts_crypt(STDLL_TokData_t *tokdata, SESSION *sess,
                         CK_BYTE *in_data,
                         CK_ULONG in_data_len,
                         CK_BYTE *out_data,
@@ -4209,7 +4209,7 @@ CK_RV ckm_aes_xts_crypt(STDLL_TokData_t *tokdata,
         return CKR_MECHANISM_INVALID;
     }
 
-    rc = token_specific.t_aes_xts(tokdata, in_data, in_data_len,
+    rc = token_specific.t_aes_xts(tokdata, sess, in_data, in_data_len,
                                   out_data, out_data_len, key, tweak, encrypt,
                                   initial, final, iv);
 

@@ -1476,7 +1476,7 @@ CK_RV ckm_aes_ctr_decrypt(STDLL_TokData_t *, CK_BYTE *in_data,
                           CK_ULONG in_data_len, CK_BYTE *out_data,
                           CK_ULONG *out_data_len, CK_BYTE *counterblock,
                           CK_ULONG counter_width, OBJECT *key);
-CK_RV ckm_aes_xts_crypt(STDLL_TokData_t *tokdata,
+CK_RV ckm_aes_xts_crypt(STDLL_TokData_t *tokdata, SESSION *sess,
                         CK_BYTE *in_data,
                         CK_ULONG in_data_len,
                         CK_BYTE *out_data,

@@ -122,7 +122,11 @@ token_spec_t token_specific = {
     NULL,                       // aes_cfb
     NULL,                       // aes_mac
     NULL,                       // aes_cmac
-    NULL,                       // aes_xts
+#ifndef NO_PKEY
+    &token_specific_aes_xts,
+#else
+    NULL,
+#endif
     // DSA
     NULL,                       // dsa_generate_keypair
     NULL,                       // dsa_sign
