@@ -3210,14 +3210,14 @@ CK_RV token_specific_get_mechanism_list(STDLL_TokData_t * tokdata,
                                         CK_MECHANISM_TYPE_PTR pMechanismList,
                                         CK_ULONG_PTR pulCount)
 {
-    return ock_generic_get_mechanism_list(tokdata, pMechanismList, pulCount);
+    return ock_generic_get_mechanism_list(tokdata, pMechanismList, pulCount, NULL);
 }
 
 CK_RV token_specific_get_mechanism_info(STDLL_TokData_t * tokdata,
                                         CK_MECHANISM_TYPE type,
                                         CK_MECHANISM_INFO_PTR pInfo)
 {
-    return ock_generic_get_mechanism_info(tokdata, type, pInfo);
+    return ock_generic_get_mechanism_info(tokdata, type, pInfo, NULL);
 }
 
 int token_specific_creatlock(void)

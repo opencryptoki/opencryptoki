@@ -235,9 +235,11 @@ static const MECH_LIST_ELEMENT cca_mech_list[] = {
     {CKM_DES3_CBC_PAD,
      {24, 24, CKF_HW | CKF_ENCRYPT | CKF_DECRYPT}},
     {CKM_AES_KEY_GEN, {16, 32, CKF_HW | CKF_GENERATE}},
+    {CKM_AES_XTS_KEY_GEN, {32, 64, CKF_HW | CKF_GENERATE}},
     {CKM_AES_ECB, {16, 32, CKF_HW | CKF_ENCRYPT | CKF_DECRYPT}},
     {CKM_AES_CBC, {16, 32, CKF_HW | CKF_ENCRYPT | CKF_DECRYPT}},
     {CKM_AES_CBC_PAD, {16, 32, CKF_HW | CKF_ENCRYPT | CKF_DECRYPT}},
+    {CKM_AES_XTS, {32, 64, CKF_ENCRYPT | CKF_DECRYPT}},
     {CKM_SHA512, {0, 0, CKF_HW | CKF_DIGEST}},
     {CKM_SHA512_HMAC, {256, 2048, CKF_SIGN | CKF_VERIFY}},
     {CKM_SHA512_HMAC_GENERAL, {256, 2048, CKF_SIGN | CKF_VERIFY}},
@@ -6131,6 +6133,34 @@ done:
     return rc;
 }
 
+static CK_BBOOL token_specific_filter_mechanism(STDLL_TokData_t *tokdata,
+                                                CK_MECHANISM_TYPE mechanism)
+{
+    CK_BBOOL rc = CK_FALSE;
+
+    switch(mechanism) {
+    case CKM_AES_XTS:
+    case CKM_AES_XTS_KEY_GEN:
+#ifndef NO_PKEY
+         if (ccatok_pkey_option_disabled(tokdata) ||
+             !((struct cca_private_data *)tokdata->private_data)->pkey_wrap_supported) {
+             TRACE_ERROR("AES XTS Mech not supported\n");
+             rc = CK_FALSE;
+             break;
+         }
+         rc = CK_TRUE;
+#else
+         UNUSED(tokdata);
+         rc = CK_FALSE;
+#endif
+         break;
+    default:
+         rc = CK_TRUE;
+         break;
+    }
+    return rc;
+}
+
 /* See the top of this file for the declarations of mech_list and
  * mech_list_len.
  */
@@ -6138,14 +6168,16 @@ CK_RV token_specific_get_mechanism_list(STDLL_TokData_t * tokdata,
                                         CK_MECHANISM_TYPE * pMechanismList,
                                         CK_ULONG * pulCount)
 {
-    return ock_generic_get_mechanism_list(tokdata, pMechanismList, pulCount);
+    return ock_generic_get_mechanism_list(tokdata, pMechanismList, pulCount,
+                                          &token_specific_filter_mechanism);
 }
 
 CK_RV token_specific_get_mechanism_info(STDLL_TokData_t * tokdata,
                                         CK_MECHANISM_TYPE type,
                                         CK_MECHANISM_INFO * pInfo)
 {
-    return ock_generic_get_mechanism_info(tokdata, type, pInfo);
+    return ock_generic_get_mechanism_info(tokdata, type, pInfo,
+                                          &token_specific_filter_mechanism);
 }
 
 CK_BBOOL is_curve_error(long return_code, long reason_code)

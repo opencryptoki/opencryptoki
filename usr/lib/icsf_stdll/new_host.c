@@ -54,7 +54,7 @@ CK_RV valid_mech(STDLL_TokData_t *tokdata, CK_MECHANISM_PTR m, CK_FLAGS f)
 
     if (m) {
         memset(&info, 0, sizeof(info));
-        rc = ock_generic_get_mechanism_info(tokdata, m->mechanism, &info);
+        rc = ock_generic_get_mechanism_info(tokdata, m->mechanism, &info, NULL);
         if (rc != CKR_OK || !(info.flags & (f)))
             return CKR_MECHANISM_INVALID;
     }
@@ -330,7 +330,7 @@ CK_RV SC_GetMechanismList(STDLL_TokData_t *tokdata, CK_SLOT_ID sid,
         rc = CKR_SLOT_ID_INVALID;
         goto out;
     }
-    rc = ock_generic_get_mechanism_list(tokdata, pMechList, count);
+    rc = ock_generic_get_mechanism_list(tokdata, pMechList, count, NULL);
     if (rc == CKR_OK) {
         /* To accomodate certain special cases, we may need to
          * make adjustments to the token's mechanism list.
@@ -368,7 +368,7 @@ CK_RV SC_GetMechanismInfo(STDLL_TokData_t * tokdata, CK_SLOT_ID sid,
         rc = CKR_SLOT_ID_INVALID;
         goto out;
     }
-    rc = ock_generic_get_mechanism_info(tokdata, type, pInfo);
+    rc = ock_generic_get_mechanism_info(tokdata, type, pInfo, NULL);
 out:
     TRACE_INFO("C_GetMechanismInfo: rc = 0x%08lx, mech type = 0x%08lx\n",
                rc, type);

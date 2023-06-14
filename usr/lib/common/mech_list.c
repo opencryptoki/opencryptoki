@@ -44,39 +44,58 @@ CK_RV ock_generic_filter_mechanism_list(STDLL_TokData_t *tokdata,
 
 CK_RV ock_generic_get_mechanism_list(STDLL_TokData_t * tokdata,
                                      CK_MECHANISM_TYPE_PTR pMechanismList,
-                                     CK_ULONG_PTR pulCount)
+                                     CK_ULONG_PTR pulCount,
+                                     CK_BBOOL (*filter_mechanism)
+                                               (STDLL_TokData_t *tokdata,
+                                               CK_MECHANISM_TYPE mechanism))
 {
     int rc = CKR_OK;
-    unsigned int i;
-    if (pMechanismList == NULL) {
-        (*pulCount) = tokdata->mech_list_len;
-        goto out;
-    }
-    if ((*pulCount) < tokdata->mech_list_len) {
-        (*pulCount) = tokdata->mech_list_len;
-        TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
-        rc = CKR_BUFFER_TOO_SMALL;
-        goto out;
-    }
-    for (i = 0; i < tokdata->mech_list_len; i++)
-        pMechanismList[i] = tokdata->mech_list[i].mech_type;
-    (*pulCount) = tokdata->mech_list_len;
+    unsigned int i, j;
 
-out:
+    for (i = 0, j = 0; i < tokdata->mech_list_len; i++) {
+        if (filter_mechanism == NULL ||
+            filter_mechanism(tokdata, tokdata->mech_list[i].mech_type)) {
+            if (pMechanismList != NULL) {
+                if ((*pulCount) <= j)
+                    rc = CKR_BUFFER_TOO_SMALL;
+                else
+                    pMechanismList[j] = tokdata->mech_list[i].mech_type;
+            }
+            j++;
+        }
+    }
+
+    (*pulCount) = j;
+
+    if (rc == CKR_BUFFER_TOO_SMALL) {
+        TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
+    }
+
     return rc;
 }
 
 CK_RV ock_generic_get_mechanism_info(STDLL_TokData_t * tokdata,
                                      CK_MECHANISM_TYPE type,
-                                     CK_MECHANISM_INFO_PTR pInfo)
+                                     CK_MECHANISM_INFO_PTR pInfo,
+                                     CK_BBOOL (*filter_mechanism)
+                                               (STDLL_TokData_t *tokdata,
+                                               CK_MECHANISM_TYPE mechanism))
 {
     int rc = CKR_OK;
     unsigned int i;
+
     for (i = 0; i < tokdata->mech_list_len; i++) {
         if (tokdata->mech_list[i].mech_type == type) {
-            memcpy(pInfo, &tokdata->mech_list[i].mech_info,
-                   sizeof(CK_MECHANISM_INFO));
-            goto out;
+            if (filter_mechanism == NULL || filter_mechanism(tokdata, type)) {
+                memcpy(pInfo, &tokdata->mech_list[i].mech_info,
+                       sizeof(CK_MECHANISM_INFO));
+                goto out;
+            } else {
+                TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
+                rc = CKR_MECHANISM_INVALID;
+                goto out;
+            }
+
         }
     }
     TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
