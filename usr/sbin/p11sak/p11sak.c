@@ -4831,8 +4831,8 @@ static CK_RV p11sak_remove_key(void)
     return data.num_failed == 0 ? CKR_OK : CKR_FUNCTION_FAILED;
 }
 
-static CK_RV handle_key_set_attr(CK_OBJECT_HANDLE key, CK_OBJECT_CLASS class,
-                                 const struct p11sak_objtype *keytype,
+static CK_RV handle_obj_set_attr(CK_OBJECT_HANDLE obj, CK_OBJECT_CLASS class,
+                                 const struct p11sak_objtype *objtype,
                                  CK_ULONG keysize, const char *typestr,
                                  const char* label, void *private)
 {
@@ -4853,8 +4853,8 @@ static CK_RV handle_key_set_attr(CK_OBJECT_HANDLE key, CK_OBJECT_CLASS class,
     }
 
     if (!data->set_all) {
-        if (asprintf(&msg, "Are you sure you want to change %s key object \"%s\" [y/n/a/c]? ",
-                     typestr, label) < 0 ||
+        if (asprintf(&msg, "Are you sure you want to change %s %s object \"%s\" [y/n/a/c]? ",
+                     typestr, objtype->obj_typestr, label) < 0 ||
             msg == NULL) {
             warnx("Failed to allocate memory for a message");
             return CKR_HOST_MEMORY;
@@ -4890,14 +4890,14 @@ static CK_RV handle_key_set_attr(CK_OBJECT_HANDLE key, CK_OBJECT_CLASS class,
         attr_applicable = private_attr_applicable;
         break;
     default:
-        warnx("Key object \"%s\" has an unsupported object class: %lu",
+        warnx("Object \"%s\" has an unsupported object class: %lu",
               label, class);
         rc = CKR_KEY_TYPE_INCONSISTENT;
         goto done;
     }
 
     if (opt_new_attr != NULL) {
-        rc = parse_boolean_attrs(keytype, opt_new_attr, &attrs, &num_attrs,
+        rc = parse_boolean_attrs(objtype, opt_new_attr, &attrs, &num_attrs,
                                  true, attr_applicable);
         if (rc != CKR_OK) {
             data->num_failed++;
@@ -4905,8 +4905,8 @@ static CK_RV handle_key_set_attr(CK_OBJECT_HANDLE key, CK_OBJECT_CLASS class,
         }
 
         if (num_attrs == 0) {
-            warnx("None of the specified attributes apply to %s key object \"%s\".",
-                  typestr, label);
+            warnx("None of the specified attributes apply to %s %s object \"%s\".",
+                  typestr, objtype->obj_typestr, label);
             data->num_skipped++;
             goto done;
         }
@@ -4916,8 +4916,8 @@ static CK_RV handle_key_set_attr(CK_OBJECT_HANDLE key, CK_OBJECT_CLASS class,
         rc = add_attribute(CKA_LABEL, opt_new_label, strlen(opt_new_label),
                            &attrs, &num_attrs);
         if (rc != CKR_OK) {
-            warnx("Failed to add %s key attribute CKA_LABEL: 0x%lX: %s",
-                  keytype->name, rc, p11_get_ckr(rc));
+            warnx("Failed to add %s %s attribute CKA_LABEL: 0x%lX: %s",
+                  objtype->name, objtype->obj_typestr, rc, p11_get_ckr(rc));
             return rc;
         }
     }
@@ -4928,17 +4928,18 @@ static CK_RV handle_key_set_attr(CK_OBJECT_HANDLE key, CK_OBJECT_CLASS class,
             return rc;
     }
 
-    rc = pkcs11_funcs->C_SetAttributeValue(pkcs11_session, key,
+    rc = pkcs11_funcs->C_SetAttributeValue(pkcs11_session, obj,
                                            attrs, num_attrs);
     if (rc != CKR_OK) {
-        warnx("Failed to change %s key object \"%s\": C_SetAttributeValue: 0x%lX: %s",
-              typestr, label, rc, p11_get_ckr(rc));
+        warnx("Failed to change %s %s object \"%s\": C_SetAttributeValue: 0x%lX: %s",
+              typestr, objtype->obj_typestr, label, rc, p11_get_ckr(rc));
         data->num_failed++;
         rc = CKR_OK;
         goto done;
     }
 
-    printf("Successfully changed %s key object \"%s\".\n", typestr, label);
+    printf("Successfully changed %s %s object \"%s\".\n", typestr,
+            objtype->obj_typestr, label);
     data->num_set++;
 
 done:
@@ -4964,7 +4965,7 @@ static CK_RV p11sak_set_key_attr(void)
     data.set_all = opt_force;
 
     rc = iterate_key_objects(keytype, opt_label, opt_id, opt_attr, NULL,
-                             handle_key_set_attr, &data);
+                             handle_obj_set_attr, &data);
     if (rc != CKR_OK) {
         warnx("Failed to iterate over key objects for key type %s: 0x%lX: %s",
                 keytype != NULL ? keytype->name : "All", rc, p11_get_ckr(rc));
