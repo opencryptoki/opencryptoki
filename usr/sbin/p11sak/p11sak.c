@@ -4980,8 +4980,8 @@ static CK_RV p11sak_set_key_attr(void)
     return data.num_failed == 0 ? CKR_OK : CKR_FUNCTION_FAILED;
 }
 
-static CK_RV handle_key_copy(CK_OBJECT_HANDLE key, CK_OBJECT_CLASS class,
-                             const struct p11sak_objtype *keytype,
+static CK_RV handle_obj_copy(CK_OBJECT_HANDLE key, CK_OBJECT_CLASS class,
+                             const struct p11sak_objtype *objtype,
                              CK_ULONG keysize, const char *typestr,
                              const char* label, void *private)
 {
@@ -5003,8 +5003,8 @@ static CK_RV handle_key_copy(CK_OBJECT_HANDLE key, CK_OBJECT_CLASS class,
     }
 
     if (!data->copy_all) {
-        if (asprintf(&msg, "Are you sure you want to copy %s key object \"%s\" [y/n/a/c]? ",
-                     typestr, label) < 0 ||
+        if (asprintf(&msg, "Are you sure you want to copy %s %s object \"%s\" [y/n/a/c]? ",
+                     objtype->obj_typestr, typestr, label) < 0 ||
             msg == NULL) {
             warnx("Failed to allocate memory for a message");
             return CKR_HOST_MEMORY;
@@ -5040,14 +5040,14 @@ static CK_RV handle_key_copy(CK_OBJECT_HANDLE key, CK_OBJECT_CLASS class,
         attr_applicable = private_attr_applicable;
         break;
     default:
-        warnx("Key object \"%s\" has an unsupported object class: %lu",
+        warnx("Object \"%s\" has an unsupported object class: %lu",
               label, class);
         rc = CKR_KEY_TYPE_INCONSISTENT;
         goto done;
     }
 
     if (opt_new_attr != NULL) {
-        rc = parse_boolean_attrs(keytype, opt_new_attr, &attrs, &num_attrs,
+        rc = parse_boolean_attrs(objtype, opt_new_attr, &attrs, &num_attrs,
                                  true, attr_applicable);
         if (rc != CKR_OK) {
             data->num_failed++;
@@ -5059,8 +5059,8 @@ static CK_RV handle_key_copy(CK_OBJECT_HANDLE key, CK_OBJECT_CLASS class,
         rc = add_attribute(CKA_LABEL, opt_new_label, strlen(opt_new_label),
                            &attrs, &num_attrs);
         if (rc != CKR_OK) {
-            warnx("Failed to add %s key attribute CKA_LABEL: 0x%lX: %s",
-                  keytype->name, rc, p11_get_ckr(rc));
+            warnx("Failed to add %s %s attribute CKA_LABEL: 0x%lX: %s",
+                  objtype->name, objtype->obj_typestr, rc, p11_get_ckr(rc));
             return rc;
         }
     }
@@ -5102,7 +5102,7 @@ static CK_RV p11sak_copy_key(void)
     data.copy_all = opt_force;
 
     rc = iterate_key_objects(keytype, opt_label, opt_id, opt_attr, NULL,
-                             handle_key_copy, &data);
+                             handle_obj_copy, &data);
     if (rc != CKR_OK) {
         warnx("Failed to iterate over key objects for key type %s: 0x%lX: %s",
                 keytype != NULL ? keytype->name : "All", rc, p11_get_ckr(rc));
