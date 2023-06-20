@@ -4441,8 +4441,8 @@ static CK_RV prepare_uri(CK_OBJECT_HANDLE key, CK_OBJECT_CLASS *class,
     return CKR_OK;
 }
 
-static CK_RV handle_key_list(CK_OBJECT_HANDLE key, CK_OBJECT_CLASS class,
-                             const struct p11sak_objtype *keytype,
+static CK_RV handle_obj_list(CK_OBJECT_HANDLE key, CK_OBJECT_CLASS class,
+                             const struct p11sak_objtype *objtype,
                              CK_ULONG keysize, const char *typestr,
                              const char* label, void *private)
 {
@@ -4456,31 +4456,31 @@ static CK_RV handle_key_list(CK_OBJECT_HANDLE key, CK_OBJECT_CLASS class,
                                            data->bool_attrs,
                                            data->num_bool_attrs);
     if (rc != CKR_OK && rc != CKR_ATTRIBUTE_TYPE_INVALID) {
-        warnx("Failed to get boolean attributes for %s key \"%s\": 0x%lX: %s",
-              typestr, label, rc, p11_get_ckr(rc));
+        warnx("Failed to get boolean attributes for %s %s \"%s\": 0x%lX: %s",
+              typestr, objtype->obj_typestr, label, rc, p11_get_ckr(rc));
         return rc;
     }
 
     if (opt_long) {
-        rc = prepare_uri(key, &class, keytype, typestr, label, &uri);
+        rc = prepare_uri(key, &class, objtype, typestr, label, &uri);
         if (rc != CKR_OK)
             goto done;
 
         printf("Label: \"%s\"\n", label);
         printf("    URI: %s\n", p11_uri_format(uri));
-        printf("    Key: %s\n", typestr);
+        printf("    %s: %s\n", objtype->obj_liststr, typestr);
         printf("    Attributes:\n");
         printf("        CKA_TOKEN: CK_TRUE\n");
     } else {
         printf("| ");
     }
 
-    rc = print_boolean_attrs(key, class, keytype, typestr, label, data);
+    rc = print_boolean_attrs(key, class, objtype, typestr, label, data);
     if (rc != CKR_OK)
         goto done;
 
     if (opt_long)
-        print_key_attrs(key, class, keytype, 8);
+        print_key_attrs(key, class, objtype, 8);
     else
         printf("| %*s | \"%s\"\n", LIST_KEYTYPE_CELL_SIZE, typestr, label);
 
@@ -4697,7 +4697,7 @@ static CK_RV p11sak_list_key(void)
 
     rc = iterate_key_objects(keytype, opt_label, opt_id, opt_attr,
                              opt_sort != NULL ? p11sak_list_key_compare : NULL,
-                             handle_key_list, &data);
+                             handle_obj_list, &data);
     if (rc != CKR_OK) {
         warnx("Failed to iterate over key objects for key type %s: 0x%lX: %s",
                 keytype != NULL ? keytype->name : "All", rc, p11_get_ckr(rc));
