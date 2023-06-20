@@ -1096,6 +1096,86 @@ opaque secure key blob can be exported by using the
 .BR \-\-opaque | \-o
 option.
 .
+.PP
+.SS "Listing certificates"
+.
+.B p11sak
+.BR list\-cert | ls\-cert | lsc
+.RI [ CERTTYPE ]
+.BR \-\-slot | \-s
+.I SLOTID
+.RB [ \-\-pin | \-p
+.IR PIN ]
+.RB [ \-\-force\-pin\-prompt ]
+.RB [ \-\-label | \-L
+.IR LABEL ]
+.RB [ \-\-id | \-i
+.IR ID ]
+.RB [ \-\-attr | \-a
+.IR ATTRS ]
+.RB [ \-\-long | \-l ]
+.RB [ \-\-detailed\-uri ]
+.RB [ \-\-sort | \-S
+.IR SORT-SPEC ]
+.RB [ \-\-help | \-h ]
+.PP
+Use the
+.BR list\-cert | ls\-cert | lsc
+command and the optional
+.I CERTTYPE
+argument to list certificates.
+.PP
+Possible values for the
+.I CERTTYPE
+argument are:
+.BR x509 .
+If
+.I CERTTYPE
+is omitted, then x509 certificates are listed by default, because no other
+certificate types are supported.
+.PP
+Specify the
+.BR \-\-label | \-L
+.IR LABEL ,
+the
+.BR \-\-id | \-i
+.IR ID ,
+and/or the
+.BR \-\-attr | \-a
+.I ATTRS
+options to filter the list of certificates to display. You can use wildcards
+(\fB*\fP and \fB?\fP) in the
+.I LABEL
+specification. To specify a wildcard character that should not be treated as a
+wildcard, it must be escaped using a backslash (\fB\e*\fP or \fB\e?\fP).
+Also, a backslash character that should not be treated as an escape character
+must be escaped (\fB\e\e\fP).
+The
+.B ID
+must be specified as hex string (not prefixed with 0x) of any number of bytes.
+.PP
+By default, the certificates are listed in a short, tabular format showing only the
+boolean attributes, the certificate type (\fBCKA_CERTIFICATE_TYPE\fP) and the 
+certificate label (\fPCKA_LABEL\fP). The attributes are denoted using the same 
+single letters as used with the
+.BR \-\-attr | \-a
+.I ATTRS
+option. When option
+.BR \-\-long | \-l
+is specified, the certificates are listed in long format, displaying the values
+of all attributes defined for the certificate type, including non-boolean attributes.
+.PP
+By default, the certificates are displayed in the order as they are retrieved 
+from the PKCS\~#11 implementation. To display the certificates in a certain 
+order, specify the
+.BR \-\-sort | \-S
+.I SORT-SPEC
+option. You can sort the certificates by label and/or subject common name (CN).
+For details, see the description of the
+.BR \-\-sort | \-S
+.I SORT-SPEC
+option below.
+.
 .SS "Importing x.509 certificates from a file"
 .
 .B p11sak
@@ -1588,29 +1668,33 @@ Displayes a detailed PKCS\~#11 URI.
 .
 .TP 8
 .BR \-\-sort | \-S\~\fISORT-SPEC\fP
-Sort the keys by label, key type, object class, and/or key size. Specify a sort
+Sort the keys by label, key type, object class, and/or key size. Sort 
+certificates by label and/or subject common name (CN). Specify a sort
 selection of up to 4 fields, each field represented by its corresponding letter,
 separated by comma
 .RB ( , ):
 .RS 8
 .IP "\(bu" 2
 .B l
-- sort by label
+- sort by label (keys and certificates)
 .RB ( CKA_LABEL )
 .IP "\(bu" 2
 .B k
-- sort by key type
+- sort by key type (keys only)
 .RB ( CKA_KEY_TYPE )
 .IP "\(bu" 2
 .B c
-- sort by object class
+- sort by object class (keys only)
 .RB ( CKA_CLASS ,
 secret key, private key, public key)
 .IP "\(bu" 2
 .B s
-- sort by key size
+- sort by key size (keys only)
 .RB ( CKA_VALUE_LEN ,
 or derived from other key type specific attribute)
+.IP "\(bu" 2
+.B n
+- sort by common name (certificates only)
 .PP
 The sort order can be appended to the field designator by a colon
 .RB ( : )

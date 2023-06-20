@@ -62,8 +62,10 @@ static CK_RV p11sak_export_key(void);
 static void print_generate_import_key_attr_help(void);
 static void print_list_key_attr_help(void);
 static void print_set_copy_key_attr_help(void);
+static CK_RV p11sak_list_cert(void);
 static CK_RV p11sak_import_cert(void);
 static void print_import_cert_attr_help(void);
+static void print_list_cert_attr_help(void);
 
 static void *pkcs11_lib = NULL;
 static bool pkcs11_initialized = false;
@@ -955,6 +957,32 @@ static const struct p11sak_opt p11sak_generic_opts[] = {
                      "letters. Attributes that are not specified are not "     \
                      "used to filter the keys.", }
 
+#define CERT_FILTER_OPTS                                                       \
+    { .short_opt = 'L', .long_opt = "label", .required = false,                \
+      .arg =  { .type = ARG_TYPE_STRING, .required = true,                     \
+                .value.string = &opt_label, .name = "LABEL", },                \
+      .description = "Filter the certificates by label (optional). You can use "\
+                     "wildcards ('*' and '?') in the label specification. To " \
+                     "specify a wildcard character that should not be treated "\
+                     "as a wildcard, it must be escaped using a backslash "    \
+                     "('\\*' or '\\?'). Also, a backslash character that "     \
+                     "should not be treated a an escape character must be "    \
+                     "escaped ('\\\\').", },                                   \
+    { .short_opt = 'i', .long_opt = "id", .required = false,                   \
+      .arg =  { .type = ARG_TYPE_STRING, .required = true,                     \
+                .value.string = &opt_id, .name = "ID", },                      \
+      .description = "Filter the certificates by ID (optional). Specify a hex "\
+                     "string (not prefixed with 0x) of any number of bytes.", },\
+    { .short_opt = 'a', .long_opt = "attr", .required = false,                 \
+      .arg =  { .type = ARG_TYPE_STRING, .required = true,                     \
+                .value.string = &opt_attr, .name = "ATTRS", },                 \
+      .description = "Filter the certificate by its boolean attribute values: "\
+                     "P M B Y T (optional). "                                  \
+                     "Specify a set of these letters without any blanks in "   \
+                     "between. See below for the meaning of the attribute "    \
+                     "letters. Attributes that are not specified are not "     \
+                     "used to filter the certificates.", }
+
 #define KEYGEN_KEYTYPES(args_prefix)                                           \
     { .value = "des", .args = NULL,                                            \
       .private = { .ptr = &p11sak_des_keytype, }, },                           \
@@ -988,6 +1016,10 @@ static const struct p11sak_opt p11sak_generic_opts[] = {
       .private = { .ptr = &p11sak_secret_keytype }, },                         \
     { .value = "all", .args = NULL,                                            \
       .private = { .ptr = &p11sak_all_keytype }, }
+
+#define GROUP_CERTTYPES                                                        \
+    { .value = "x509", .args = NULL,                                           \
+      .private = { .ptr = &p11sak_x509_certtype }, }
 
 static const struct p11sak_opt p11sak_generate_key_opts[] = {
     PKCS11_OPTS,
@@ -1289,6 +1321,35 @@ static const struct p11sak_opt p11sak_list_key_opts[] = {
     { .short_opt = 0, .long_opt = NULL, },
 };
 
+static const struct p11sak_opt p11sak_list_cert_opts[] = {
+    PKCS11_OPTS,
+    CERT_FILTER_OPTS,
+    { .short_opt = 'l', .long_opt = "long", .required = false,
+      .arg =  { .type = ARG_TYPE_PLAIN, .required = false,
+                .value.plain = &opt_long, },
+      .description = "List certificates in long (detailed) format.", },
+    { .short_opt = 0, .long_opt = "detailed-uri", .required = false,
+      .long_opt_val = OPT_DETAILED_URI,
+      .arg =  { .type = ARG_TYPE_PLAIN, .required = false,
+                .value.plain = &opt_detailed_uri, },
+      .description = "Show detailed PKCS#11 URI.", },
+    { .short_opt = 'S', .long_opt = "sort", .required = false,
+      .arg =  { .type = ARG_TYPE_STRING, .required = true,
+                .value.string = &opt_sort, .name = "SORT-SPEC" },
+      .description = "Sort the certs by label and/or subject common name (CN). "
+                     "Specify a sort selection of up to 2 fields, "
+                     "each represented by its corresponding letter, separated "
+                     "by comma (','):\n"
+                     "- label:            'l'\n"
+                     "- subj common name: 'n'\n"
+                     "The sort order ('a' = ascending (default), 'd' = "
+                     "descending) can be appended  to the  field designator by "
+                     "a colon (':').\n"
+                     "Example: 'l:a,n:d' will sort by label in ascending order "
+                     "and then by common name in descending order.", },
+    { .short_opt = 0, .long_opt = NULL, },
+};
+
 #define null_generic_args           NULL
 #define null_aes_args               NULL
 #define null_aes_xts_args           NULL
@@ -1306,12 +1367,29 @@ static const struct p11sak_enum_value
     { .value = NULL, },
 };
 
+static const struct p11sak_enum_value
+                        p11sak_list_remove_set_copy_export_cert_certtypes[] = {
+    GROUP_CERTTYPES,
+    { .value = NULL, },
+};
+
 static const struct p11sak_arg p11sak_list_key_args[] = {
     { .name = "KEYTYPE", .type = ARG_TYPE_ENUM, .required = false,
       .enum_values = p11sak_list_remove_set_copy_export_key_keytypes,
       .value.enum_value = &opt_keytype,
       .description = "The type of the keys to list (optional). If no key type "
                      "is specified, all key types are listed.", },
+    { .name = NULL },
+};
+
+static const struct p11sak_arg p11sak_list_cert_args[] = {
+    { .name = "CERTTYPE", .type = ARG_TYPE_ENUM, .required = false,
+      .enum_values = p11sak_list_remove_set_copy_export_cert_certtypes,
+      .value.enum_value = &opt_certtype,
+      .description = "The type of the certificates to list (optional). If no "
+                     "certificate type is specified, certificate type x509 "
+                     "is used, because currently no other certificate types "
+                     "are supported.", },
     { .name = NULL },
 };
 
@@ -1661,6 +1739,11 @@ static const struct p11sak_cmd p11sak_commands[] = {
       .opts = p11sak_export_key_opts, .args = p11sak_export_key_args,
       .description = "Export keys to a binary file or PEM file.",
       .session_flags = CKF_SERIAL_SESSION, },
+    { .cmd = "list-cert", .cmd_short1 = "ls-cert", .cmd_short2 = "lsc",
+      .func = p11sak_list_cert,
+      .opts = p11sak_list_cert_opts, .args = p11sak_list_cert_args,
+      .description = "List certificates in the repository.",
+      .help = print_list_cert_attr_help, .session_flags = CKF_SERIAL_SESSION, },
     { .cmd = "import-cert", .cmd_short1 = "importc", .cmd_short2 = "impc",
       .func = p11sak_import_cert,
       .opts = p11sak_import_cert_opts, .args = p11sak_import_cert_args,
@@ -2356,6 +2439,22 @@ static void print_list_key_attr_help(void)
     printf("    ");
     print_indented("Not all attributes may be defined for all key types.\n"
                    "Attribute CKA_TOKEN is always CK_TRUE for all keys listed.",
+                   4);
+    printf("\n");
+}
+
+static void print_list_cert_attr_help(void)
+{
+    const struct p11sak_attr *attr;
+
+    printf("ATTRIBUTES:\n");
+    for (attr = p11sak_bool_cert_attrs; attr->name != NULL; attr++)
+        printf("    '%c':   %s\n", attr->letter, attr->name);
+    printf("\n");
+
+    printf("    ");
+    print_indented("Not all attributes may be defined for all certificate types.\n"
+                   "Attribute CKA_TOKEN is always CK_TRUE for all certificates listed.",
                    4);
     printf("\n");
 }
@@ -4944,6 +5043,9 @@ static void print_obj_attrs(CK_OBJECT_HANDLE key, CK_OBJECT_CLASS class,
     case CKO_PRIVATE_KEY:
         attrs = objtype->private_attrs;
         break;
+    case CKO_CERTIFICATE:
+        attrs = objtype->cert_attrs;
+        break;
     default:
         attrs = NULL;
         break;
@@ -5078,7 +5180,6 @@ static CK_RV handle_obj_list(CK_OBJECT_HANDLE key, CK_OBJECT_CLASS class,
     CK_RV rc;
 
     UNUSED(keysize);
-    UNUSED(common_name);
 
     rc = pkcs11_funcs->C_GetAttributeValue(pkcs11_session, key,
                                            data->bool_attrs,
@@ -5109,8 +5210,22 @@ static CK_RV handle_obj_list(CK_OBJECT_HANDLE key, CK_OBJECT_CLASS class,
 
     if (opt_long)
         print_obj_attrs(key, class, objtype, 8);
-    else
-        printf("| %*s | \"%s\"\n", LIST_KEYTYPE_CELL_SIZE, typestr, label);
+    else {
+        if (data->objclass != OBJCLASS_CERTIFICATE) {
+            printf("| %*s | \"%s\"\n", LIST_KEYTYPE_CELL_SIZE, typestr, label);
+        } else {
+            char display_name[LIST_CERT_CN_CELL_SIZE + 1] = { 0 };
+            int len = strlen(common_name);
+            if (len > LIST_CERT_CN_CELL_SIZE) {
+                strncpy(display_name, common_name, LIST_CERT_CN_CELL_SIZE - 3);
+                strcat(display_name, "...");
+            } else {
+                strcpy(display_name, common_name);
+            }
+            printf("| %*s | %*s | \"%s\"\n", LIST_CERTTYPE_CELL_SIZE, typestr,
+                   LIST_CERT_CN_CELL_SIZE, display_name, label);
+        }
+    }
 
     data->num_displayed++;
     rc = CKR_OK;
@@ -5357,6 +5472,78 @@ static CK_RV p11sak_list_key(void)
 
     printf("\n");
     printf("%lu key(s) displayed\n", data.num_displayed);
+
+done:
+    if (data.bool_attrs != NULL)
+        free(data.bool_attrs);
+    if (attr_data != NULL)
+        free(attr_data);
+
+    return rc;
+}
+
+static CK_RV p11sak_list_cert(void)
+{
+    const struct p11sak_objtype *certtype = NULL;
+    const struct p11sak_attr *attr;
+    struct p11sak_list_data data = { 0 };
+    unsigned int i;
+    CK_BYTE *attr_data = NULL;
+    CK_RV rc;
+
+    if (opt_certtype != NULL)
+        certtype = opt_certtype->private.ptr;
+
+    for (attr = p11sak_bool_cert_attrs, data.num_bool_attrs = 0; attr->name != NULL;
+                                        attr++, data.num_bool_attrs++)
+        ;
+    attr_data = calloc(data.num_bool_attrs, sizeof(CK_BBOOL));
+    data.bool_attrs = calloc(data.num_bool_attrs, sizeof(CK_ATTRIBUTE));
+    if (attr_data == NULL || data.bool_attrs == NULL) {
+        warnx("Failed to allocate memory for the attributes");
+        rc = CKR_HOST_MEMORY;
+        goto done;
+    }
+    for (attr = p11sak_bool_cert_attrs, i = 0; attr->name != NULL; attr++, i++) {
+        data.bool_attrs[i].type = attr->type;
+        data.bool_attrs[i].ulValueLen = sizeof(CK_BBOOL);
+        data.bool_attrs[i].pValue = &attr_data[i];
+    }
+    data.attrs = p11sak_bool_cert_attrs;
+    data.objclass = OBJCLASS_CERTIFICATE;
+
+    if (opt_sort) {
+        rc = parse_sort_specification(opt_sort, &data);
+        if (rc != CKR_OK)
+            goto done;
+    }
+
+    if (!opt_long) {
+        printf("| ");
+        for (attr = p11sak_bool_cert_attrs; attr->name != NULL; attr++)
+            printf("%c ", attr->letter);
+        printf("| %*s | SUBJECT-CN             | LABEL\n", LIST_CERTTYPE_CELL_SIZE, "CERT TYPE");
+        printf("|-");
+        for (attr = p11sak_bool_cert_attrs; attr->name != NULL; attr++)
+            printf("--");
+        printf("+-");
+        for (i = 0; i < LIST_CERTTYPE_CELL_SIZE; i++)
+            printf("-");
+        printf("-+------------------------+-------------------------\n");
+    }
+
+    rc = iterate_objects(certtype, opt_label, opt_id, opt_attr,
+                         OBJCLASS_CERTIFICATE,
+                         opt_sort != NULL ? p11sak_list_obj_compare : NULL,
+                         handle_obj_list, &data);
+    if (rc != CKR_OK) {
+        warnx("Failed to iterate over certificate objects for type %s: 0x%lX: %s",
+                certtype != NULL ? certtype->name : "All", rc, p11_get_ckr(rc));
+        goto done;
+    }
+
+    printf("\n");
+    printf("%lu certificate(s) displayed\n", data.num_displayed);
 
 done:
     if (data.bool_attrs != NULL)
