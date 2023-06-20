@@ -4304,8 +4304,8 @@ static void print_custom_attrs(CK_OBJECT_HANDLE key,
     }
 }
 
-static void print_key_attrs(CK_OBJECT_HANDLE key, CK_OBJECT_CLASS class,
-                            const struct p11sak_objtype *keytype, int indent)
+static void print_obj_attrs(CK_OBJECT_HANDLE key, CK_OBJECT_CLASS class,
+                            const struct p11sak_objtype *objtype, int indent)
 {
     const struct p11sak_attr *attrs, *attr;
     CK_ATTRIBUTE val;
@@ -4313,13 +4313,13 @@ static void print_key_attrs(CK_OBJECT_HANDLE key, CK_OBJECT_CLASS class,
 
     switch (class) {
     case CKO_SECRET_KEY:
-        attrs = keytype->secret_attrs;
+        attrs = objtype->secret_attrs;
         break;
     case CKO_PUBLIC_KEY:
-        attrs = keytype->public_attrs;
+        attrs = objtype->public_attrs;
         break;
     case CKO_PRIVATE_KEY:
-        attrs = keytype->private_attrs;
+        attrs = objtype->private_attrs;
         break;
     default:
         attrs = NULL;
@@ -4480,7 +4480,7 @@ static CK_RV handle_obj_list(CK_OBJECT_HANDLE key, CK_OBJECT_CLASS class,
         goto done;
 
     if (opt_long)
-        print_key_attrs(key, class, objtype, 8);
+        print_obj_attrs(key, class, objtype, 8);
     else
         printf("| %*s | \"%s\"\n", LIST_KEYTYPE_CELL_SIZE, typestr, label);
 
