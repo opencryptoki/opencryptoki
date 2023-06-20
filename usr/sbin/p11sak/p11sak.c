@@ -3554,6 +3554,7 @@ static CK_RV iterate_objects(const struct p11sak_objtype *objtype,
                                                  CK_ULONG keysize,
                                                  const char *typestr,
                                                  const char* label,
+                                                 const char *common_name,
                                                  void *private),
                              void *private)
 {
@@ -3569,6 +3570,7 @@ static CK_RV iterate_objects(const struct p11sak_objtype *objtype,
     CK_ULONG keysize = 0;
     char *label = NULL;
     char *typestr = NULL;
+    char *common_name = NULL;
     const struct p11sak_objtype *type;
     CK_OBJECT_HANDLE *matched_objs = NULL, *tmp;
     CK_ULONG num_matched_objs = 0;
@@ -3706,7 +3708,7 @@ done_find:
             break;
 
         rc = handle_obj(matched_objs[i], class, type, keysize, typestr, label,
-                        private);
+                        common_name, private);
         if (rc != CKR_OK)
             break;
 
@@ -4444,13 +4446,15 @@ static CK_RV prepare_uri(CK_OBJECT_HANDLE key, CK_OBJECT_CLASS *class,
 static CK_RV handle_obj_list(CK_OBJECT_HANDLE key, CK_OBJECT_CLASS class,
                              const struct p11sak_objtype *objtype,
                              CK_ULONG keysize, const char *typestr,
-                             const char* label, void *private)
+                             const char* label, const char *common_name,
+                             void *private)
 {
     struct p11sak_list_data *data = private;
     struct p11_uri *uri = NULL;
     CK_RV rc;
 
     UNUSED(keysize);
+    UNUSED(common_name);
 
     rc = pkcs11_funcs->C_GetAttributeValue(pkcs11_session, key,
                                            data->bool_attrs,
@@ -4747,7 +4751,8 @@ static char prompt_user(const char *message, char* allowed_chars)
 static CK_RV handle_obj_remove(CK_OBJECT_HANDLE key, CK_OBJECT_CLASS class,
                                const struct p11sak_objtype *keytype,
                                CK_ULONG keysize, const char *typestr,
-                               const char* label, void *private)
+                               const char* label, const char *common_name,
+                               void *private)
 {
     struct p11sak_remove_data *data = private;
     char *msg = NULL;
@@ -4756,6 +4761,7 @@ static CK_RV handle_obj_remove(CK_OBJECT_HANDLE key, CK_OBJECT_CLASS class,
 
     UNUSED(class);
     UNUSED(keysize);
+    UNUSED(common_name);
 
     if (data->skip_all) {
         data->num_skipped++;
@@ -4834,7 +4840,8 @@ static CK_RV p11sak_remove_key(void)
 static CK_RV handle_obj_set_attr(CK_OBJECT_HANDLE obj, CK_OBJECT_CLASS class,
                                  const struct p11sak_objtype *objtype,
                                  CK_ULONG keysize, const char *typestr,
-                                 const char* label, void *private)
+                                 const char* label, const char *common_name,
+                                 void *private)
 {
     struct p11sak_set_attr_data *data = private;
     CK_ATTRIBUTE *attrs = NULL;
@@ -4846,6 +4853,7 @@ static CK_RV handle_obj_set_attr(CK_OBJECT_HANDLE obj, CK_OBJECT_CLASS class,
                             const struct p11sak_attr *attr);
 
     UNUSED(keysize);
+    UNUSED(common_name);
 
     if (data->skip_all) {
         data->num_skipped++;
@@ -4984,7 +4992,8 @@ static CK_RV p11sak_set_key_attr(void)
 static CK_RV handle_obj_copy(CK_OBJECT_HANDLE key, CK_OBJECT_CLASS class,
                              const struct p11sak_objtype *objtype,
                              CK_ULONG keysize, const char *typestr,
-                             const char* label, void *private)
+                             const char* label, const char *common_name,
+                             void *private)
 {
     struct p11sak_copy_data *data = private;
     CK_ATTRIBUTE *attrs = NULL;
@@ -4997,6 +5006,7 @@ static CK_RV handle_obj_copy(CK_OBJECT_HANDLE key, CK_OBJECT_CLASS class,
                             const struct p11sak_attr *attr);
 
     UNUSED(keysize);
+    UNUSED(common_name);
 
     if (data->skip_all) {
         data->num_skipped++;
@@ -7010,7 +7020,8 @@ done:
 static CK_RV handle_key_export(CK_OBJECT_HANDLE key, CK_OBJECT_CLASS class,
                                const struct p11sak_objtype *keytype,
                                CK_ULONG keysize, const char *typestr,
-                               const char* label, void *private)
+                               const char* label, const char *common_name,
+                               void *private)
 {
     struct p11sak_export_data *data = private;
     char *msg = NULL;
@@ -7020,6 +7031,7 @@ static CK_RV handle_key_export(CK_OBJECT_HANDLE key, CK_OBJECT_CLASS class,
     CK_RV rc;
 
     UNUSED(keysize);
+    UNUSED(common_name);
 
     if (data->skip_all) {
         data->num_skipped++;
