@@ -222,6 +222,7 @@ struct p11sak_list_data {
     unsigned long num_displayed;
     CK_ATTRIBUTE *bool_attrs;
     CK_ULONG num_bool_attrs;
+    const struct p11sak_attr *attrs;
     struct p11sak_sort_info sort_info[MAX_SORT_FIELDS];
 };
 
