@@ -2997,6 +2997,25 @@ static const struct p11sak_attr *find_attr_by_letter(char letter)
     return NULL;
 }
 
+static bool attr_applicable_for_certtype(const struct p11sak_objtype *certtype,
+                                         const struct p11sak_attr *attr)
+{
+    UNUSED(certtype);
+
+    switch (attr->type) {
+    case CKA_PRIVATE:
+    case CKA_MODIFIABLE:
+    case CKA_COPYABLE:
+    case CKA_DESTROYABLE:
+    case CKA_TRUSTED:
+        return true;
+    default:
+        break;
+    }
+
+    return false;
+}
+
 static bool attr_applicable_for_keytype(const struct p11sak_objtype *keytype,
                                         const struct p11sak_attr *attr)
 {
@@ -3022,6 +3041,12 @@ static bool attr_applicable_for_keytype(const struct p11sak_objtype *keytype,
     default:
         return true;
     }
+}
+
+static bool cert_attr_applicable(const struct p11sak_objtype *certtype,
+                                 const struct p11sak_attr *attr)
+{
+    return attr_applicable_for_certtype(certtype, attr);
 }
 
 static bool secret_attr_applicable(const struct p11sak_objtype *objtype,
@@ -4349,7 +4374,7 @@ static void print_obj_attrs(CK_OBJECT_HANDLE key, CK_OBJECT_CLASS class,
     print_custom_attrs(key, attrs, indent);
 }
 
-static CK_RV print_boolean_attrs(CK_OBJECT_HANDLE key, CK_OBJECT_CLASS class,
+static CK_RV print_boolean_attrs(CK_OBJECT_HANDLE obj, CK_OBJECT_CLASS class,
                                  const struct p11sak_objtype *objtype,
                                  const char *typestr, const char* label,
                                  struct p11sak_list_data *data)
@@ -4359,16 +4384,16 @@ static CK_RV print_boolean_attrs(CK_OBJECT_HANDLE key, CK_OBJECT_CLASS class,
     CK_ULONG i;
     CK_RV rc;
 
-    rc = pkcs11_funcs->C_GetAttributeValue(pkcs11_session, key,
+    rc = pkcs11_funcs->C_GetAttributeValue(pkcs11_session, obj,
                                            data->bool_attrs,
                                            data->num_bool_attrs);
     if (rc != CKR_OK && rc != CKR_ATTRIBUTE_TYPE_INVALID) {
-        warnx("Failed to get boolean attributes for %s key \"%s\": 0x%lX: %s",
-              typestr, label, rc, p11_get_ckr(rc));
+        warnx("Failed to get boolean attributes for %s %s \"%s\": 0x%lX: %s",
+              typestr, objtype->obj_typestr, label, rc, p11_get_ckr(rc));
         return rc;
     }
 
-    for (attr = p11sak_bool_attrs, i = 0; attr->name != NULL; attr++, i++) {
+    for (attr = data->attrs, i = 0; attr->name != NULL; attr++, i++) {
         switch (class) {
         case CKO_SECRET_KEY:
             applicable = secret_attr_applicable(objtype, attr);
@@ -4378,6 +4403,9 @@ static CK_RV print_boolean_attrs(CK_OBJECT_HANDLE key, CK_OBJECT_CLASS class,
             break;
         case CKO_PRIVATE_KEY:
             applicable = private_attr_applicable(objtype, attr);
+            break;
+        case CKO_CERTIFICATE:
+            applicable = cert_attr_applicable(objtype, attr);
             break;
         default:
            applicable = false;
@@ -4678,6 +4706,7 @@ static CK_RV p11sak_list_key(void)
         data.bool_attrs[i].ulValueLen = sizeof(CK_BBOOL);
         data.bool_attrs[i].pValue = &attr_data[i];
     }
+    data.attrs = p11sak_bool_attrs;
 
     if (opt_sort) {
         rc = parse_sort_specification(opt_sort, &data);
