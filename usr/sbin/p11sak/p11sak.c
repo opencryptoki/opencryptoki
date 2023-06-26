@@ -395,7 +395,7 @@ static const struct p11sak_attr p11sak_x509_attrs[] = {
 #define DECLARE_PUBLIC_KEY_ATTRS                                               \
     { .name = "CKA_SUBJECT", .type = CKA_SUBJECT,                              \
       .secret = true, .public = false, .private = true, .settable = true,      \
-      .print_long = print_byte_array_attr, },                                  \
+      .print_long = print_x509_name_attr, },                                   \
     { .name = "CKA_WRAP_TEMPLATE", .type = CKA_WRAP_TEMPLATE,                  \
       .secret = true, .public = true, .private = false, .settable = true,      \
       .print_long = print_attr_array_attr, },                                  \
@@ -406,7 +406,7 @@ static const struct p11sak_attr p11sak_x509_attrs[] = {
 #define DECLARE_PRIVATE_KEY_ATTRS                                              \
     { .name = "CKA_SUBJECT", .type = CKA_SUBJECT,                              \
       .secret = true, .public = false, .private = true, .settable = true,      \
-      .print_long = print_byte_array_attr, },                                  \
+      .print_long = print_x509_name_attr, },                                   \
     { .name = "CKA_UNWRAP_TEMPLATE", .type = CKA_UNWRAP_TEMPLATE,              \
       .secret = true, .public = false, .private = true, .settable = true,      \
       .print_long = print_attr_array_attr, },                                  \
