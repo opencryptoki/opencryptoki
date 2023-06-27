@@ -63,9 +63,11 @@ static void print_generate_import_key_attr_help(void);
 static void print_list_key_attr_help(void);
 static void print_set_copy_key_attr_help(void);
 static CK_RV p11sak_list_cert(void);
+static CK_RV p11sak_remove_cert(void);
 static CK_RV p11sak_import_cert(void);
 static void print_import_cert_attr_help(void);
 static void print_list_cert_attr_help(void);
+static void print_remove_cert_help(void);
 
 static void *pkcs11_lib = NULL;
 static bool pkcs11_initialized = false;
@@ -1405,6 +1407,18 @@ static const struct p11sak_opt p11sak_remove_key_opts[] = {
     { .short_opt = 0, .long_opt = NULL, },
 };
 
+static const struct p11sak_opt p11sak_remove_cert_opts[] = {
+    PKCS11_OPTS,
+    CERT_FILTER_OPTS,
+    { .short_opt = 'f', .long_opt = "force", .required = false,
+      .arg =  { .type = ARG_TYPE_PLAIN, .required = false,
+                .value.plain = &opt_force, },
+      .description = "Do not prompt for a confirmation to remove a certificate. "
+                     "Use with care, all certificates matching the filter will "
+                     "be removed!", },
+    { .short_opt = 0, .long_opt = NULL, },
+};
+
 static const struct p11sak_arg p11sak_remove_key_args[] = {
     { .name = "KEYTYPE", .type = ARG_TYPE_ENUM, .required = false,
       .enum_values = p11sak_list_remove_set_copy_export_key_keytypes,
@@ -1412,6 +1426,17 @@ static const struct p11sak_arg p11sak_remove_key_args[] = {
       .description = "The type of the keys to select for removal (optional). "
                      "If no key type is specified, all key types are "
                      "selected.", },
+    { .name = NULL },
+};
+
+static const struct p11sak_arg p11sak_remove_cert_args[] = {
+    { .name = "CERTTYPE", .type = ARG_TYPE_ENUM, .required = false,
+      .enum_values = p11sak_list_remove_set_copy_export_cert_certtypes,
+      .value.enum_value = &opt_certtype,
+      .description = "The type of the certificates to select for removal "
+                     "(optional). If no certificate type is specified, "
+                     "certificate type x509 is used, because currently no "
+                     "other certificate types are supported.", },
     { .name = NULL },
 };
 
@@ -1744,6 +1769,12 @@ static const struct p11sak_cmd p11sak_commands[] = {
       .opts = p11sak_list_cert_opts, .args = p11sak_list_cert_args,
       .description = "List certificates in the repository.",
       .help = print_list_cert_attr_help, .session_flags = CKF_SERIAL_SESSION, },
+    { .cmd = "remove-cert", .cmd_short1 = "rm-cert", .cmd_short2 = "rmc",
+      .func = p11sak_remove_cert,
+      .opts = p11sak_remove_cert_opts, .args = p11sak_remove_cert_args,
+      .description = "Delete certificates in the repository.",
+      .help = print_remove_cert_help,
+      .session_flags = CKF_SERIAL_SESSION | CKF_RW_SESSION, },
     { .cmd = "import-cert", .cmd_short1 = "importc", .cmd_short2 = "impc",
       .func = p11sak_import_cert,
       .opts = p11sak_import_cert_opts, .args = p11sak_import_cert_args,
@@ -2477,6 +2508,21 @@ static void print_set_copy_key_attr_help(void)
                    "changed.\n"
                    "Not all attributes may be allowed to be changed for all "
                    "key types, or to all values.\n", 4);
+    printf("\n");
+}
+
+static void print_remove_cert_help(void)
+{
+    const struct p11sak_attr *attr;
+
+    printf("ATTRIBUTES:\n");
+    for (attr = p11sak_bool_cert_attrs; attr->name != NULL; attr++)
+        printf("    '%c':   %s\n", attr->letter, attr->name);
+    printf("\n");
+
+    printf("    ");
+    print_indented("Not all attributes may be defined for all certificate types.",
+                   4);
     printf("\n");
 }
 
@@ -5668,6 +5714,35 @@ static CK_RV p11sak_remove_key(void)
         printf("%lu key object(s) skipped.\n", data.num_skipped);
     if (data.num_failed > 0)
         printf("%lu key object(s) failed to remove.\n", data.num_failed);
+
+    return data.num_failed == 0 ? CKR_OK : CKR_FUNCTION_FAILED;
+}
+
+static CK_RV p11sak_remove_cert(void)
+{
+    const struct p11sak_objtype *certtype = NULL;
+    struct p11sak_remove_data data = { 0 };
+    CK_RV rc;
+
+    if (opt_certtype != NULL)
+        certtype = opt_certtype->private.ptr;
+
+    data.remove_all = opt_force;
+
+    rc = iterate_objects(certtype, opt_label, opt_id, opt_attr,
+                         OBJCLASS_CERTIFICATE, NULL,
+                         handle_obj_remove, &data);
+    if (rc != CKR_OK) {
+        warnx("Failed to iterate over certificate objects for type %s: 0x%lX: %s",
+                certtype != NULL ? certtype->name : "All", rc, p11_get_ckr(rc));
+        return rc;
+    }
+
+    printf("%lu certificate object(s) removed.\n", data.num_removed);
+    if (data.num_skipped > 0)
+        printf("%lu certificate object(s) skipped.\n", data.num_skipped);
+    if (data.num_failed > 0)
+        printf("%lu certificate object(s) failed to remove.\n", data.num_failed);
 
     return data.num_failed == 0 ? CKR_OK : CKR_FUNCTION_FAILED;
 }

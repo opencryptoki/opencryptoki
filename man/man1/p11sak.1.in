@@ -1176,6 +1176,67 @@ For details, see the description of the
 .I SORT-SPEC
 option below.
 .
+.PP
+.SS "Deleting certificates"
+.
+.B p11sak
+.BR remove\-cert | rm\-cert | rmc
+.RI [ CERTTYPE ]
+.BR \-\-slot | \-s
+.I SLOTID
+.RB [ \-\-pin | \-p
+.IR PIN ]
+.RB [ \-\-force\-pin\-prompt ]
+.RB [ \-\-label | \-L
+.IR LABEL ]
+.RB [ \-\-id | \-i
+.IR ID ]
+.RB [ \-\-attr | \-a
+.IR ATTRS ]
+.RB [ \-\-force | \-f ]
+.RB [ \-\-help | \-h ]
+.PP
+Use the
+.BR remove\-cert | rm\-cert | rmc
+command and the optional
+.I CERTTYPE
+argument to remove certificates from the repository.
+.PP
+Possible values for the
+.I CERTTYPE
+argument are:
+.BR x509 .
+If
+.I CERTTYPE
+is omitted, then x509 is used by default, because no other certificate types are
+supported.
+.PP
+Specify the
+.BR \-\-label | \-L
+.IR LABEL ,
+the
+.BR \-\-id | \-i
+.IR ID ,
+and/or the
+.BR \-\-attr | \-a
+.I ATTRS
+options to filter the list of certificates to remove. You can use wildcards
+(\fB*\fP and \fB?\fP) in the
+.I LABEL
+specification. To specify a wildcard character that should not be treated as a
+wildcard, it must be escaped using a backslash (\fB\e*\fP or \fB\e?\fP).
+Also, a backslash character that should not be treated as an escape character
+must be escaped (\fB\e\e\fP).
+The
+.B ID
+must be specified as hex string (not prefixed with 0x) of any number of bytes.
+.PP
+The user will be prompted to confirm the removal of the certificate. To suppress
+the prompt, use the
+.BR \-\-force | \-f
+option.
+.PP
+.
 .SS "Importing x.509 certificates from a file"
 .
 .B p11sak
