@@ -1237,6 +1237,94 @@ the prompt, use the
 option.
 .PP
 .
+.PP
+.SS "Setting or updating attributes of certificates"
+.
+.B p11sak
+.BR set\-cert\-attr | set\-cert | setc
+.RI [ CERTTYPE ]
+.BR \-\-slot | \-s
+.I SLOTID
+.RB [ \-\-pin | \-p
+.IR PIN ]
+.RB [ \-\-force\-pin\-prompt ]
+.RB [ \-\-label | \-L
+.IR LABEL ]
+.RB [ \-\-id | \-i
+.IR ID ]
+.RB [ \-\-attr | \-a
+.IR ATTRS ]
+.RB [ \-\-force | \-f ]
+.RB [ \-\-new\-attr | \-A
+.IR ATTRS ]
+.RB [ \-\-new\-label | \-l
+.IR LABEL ]
+.RB [ \-\-new\-id | \-I
+.IR ID ]
+.RB [ \-\-help | \-h ]
+.PP
+Use the
+.B set\-cert\-attrs | set\-cert | sect
+command and the optional
+.I CERTTYPE
+argument to set or update boolean attributes of certificates.
+.PP
+Possible values for the
+.I CERTTYPE
+argument are:
+.BR x509 .
+If
+.I CERTTYPE
+is omitted, x509 is used by default, because no other certificate types are
+supported.
+.PP
+Specify the
+.BR \-\-label | \-L
+.IR LABEL ,
+the
+.BR \-\-id | \-i
+.IR ID ,
+and/or the
+.BR \-\-attr | \-a
+.I ATTRS
+options to filter the list of certificates to set or update. You can use wildcards
+(\fB*\fP and \fB?\fP) in the
+.I LABEL
+specification. To specify a wildcard character that should not be treated as a
+wildcard, it must be escaped using a backslash (\fB\e*\fP or \fB\e?\fP).
+Also, a backslash character that should not be treated as an escape character
+must be escaped (\fB\e\e\fP).
+The
+.B ID
+must be specified as hex string (not prefixed with 0x) of any number of bytes.
+.PP
+Use the
+.BR \-\-new\-attr | \-A
+.I ATTRS
+option to specify the boolean attributes of the certificate you want to update
+(see below for detailed description of the attributes). Attributes that are not
+specified are not changed. Use the
+.BR \-\-new\-label | \-l
+.I LABEL
+option to specify the new label, or the
+.BR \-\-new\-id | \-I
+.I ID
+option to specify the new ID to set for the certificate. At least one of the
+.BR \-\-new\-attr | \-A
+.IR ATTRS ,
+.BR \-\-new\-label | \-l
+.IR LABEL ,
+or
+.BR \-\-new\-id | \-I
+.I ID
+options must be specified.
+.PP
+The user will be prompted to confirm the updating of the certificate. To suppress
+the prompt, use the
+.BR \-\-force | \-f
+option.
+.PP
+.
 .SS "Importing x.509 certificates from a file"
 .
 .B p11sak
