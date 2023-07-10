@@ -3403,6 +3403,16 @@ static CK_RV get_key_infos(CK_OBJECT_HANDLE key, CK_OBJECT_CLASS *class,
         }
     }
 
+    switch (class_val) {
+    case CKO_PUBLIC_KEY:
+    case CKO_PRIVATE_KEY:
+    case CKO_SECRET_KEY:
+        break;
+    default:
+        free(attrs[0].pValue);
+        return CKR_KEY_NEEDED;
+    }
+
     for (i = 0; i < num_attrs; i++) {
         if (attrs[i].ulValueLen == CK_UNAVAILABLE_INFORMATION) {
             warnx("Attribute %s is not available in key object",
@@ -3614,6 +3624,10 @@ static CK_RV iterate_key_objects(const struct p11sak_keytype *keytype,
             if (manual_filtering) {
                 rc = get_key_infos(keys[i], NULL, NULL, NULL, &label,
                                    NULL, NULL);
+                if (rc == CKR_KEY_NEEDED) {
+                    rc = CKR_OK;
+                    goto next;
+                }
                 if (rc != CKR_OK)
                     break;
 
@@ -3672,6 +3686,10 @@ done_find:
     for (i = 0; i < num_matched_keys; i++) {
         rc = get_key_infos(matched_keys[i], &class, &ktype, &keysize,
                            &label, &typestr, &type);
+        if (rc == CKR_KEY_NEEDED) {
+            rc = CKR_OK;
+            goto next2;
+        }
         if (rc != CKR_OK)
             break;
 
@@ -3680,6 +3698,7 @@ done_find:
         if (rc != CKR_OK)
             break;
 
+next2:
         if (label != NULL)
             free(label);
         label = NULL;
@@ -4480,10 +4499,20 @@ static CK_RV p11sak_list_key_compare(CK_OBJECT_HANDLE key1,
     *result = 0;
 
     rc = get_key_infos(key1, &class1, &ktype1, &keysize1, &label1, NULL, NULL);
+    if (rc == CKR_KEY_NEEDED) {
+        rc = CKR_OK;
+        *result = 1; /* non-key objects are always greater than key objects */
+        goto done;
+    }
     if (rc != CKR_OK)
         goto done;
 
     rc = get_key_infos(key2, &class2, &ktype2, &keysize2, &label2, NULL, NULL);
+    if (rc == CKR_KEY_NEEDED) {
+        rc = CKR_OK;
+        *result = -1; /* key objects are always smaller than non-key objects */
+        goto done;
+    }
     if (rc != CKR_OK)
         goto done;
 
