@@ -1712,6 +1712,7 @@ static CK_RV process_number_argument(const struct p11sak_arg *arg, char *val)
 {
     char *endptr;
 
+    errno = 0;
     *arg->value.number = strtoul(val, &endptr, 0);
 
     if ((errno == ERANGE && *arg->value.number == ULONG_MAX) ||
