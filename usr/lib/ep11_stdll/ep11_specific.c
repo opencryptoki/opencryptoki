@@ -2114,6 +2114,7 @@ static CK_RV rawkey_2_blob(STDLL_TokData_t * tokdata, SESSION * sess,
     trace_attributes(__func__, "Import sym.:", new_p_attrs, new_attrs_len);
 
     ep11_get_pin_blob(ep11_session, object_is_session_object(key_obj),
+                      object_is_private(key_obj),
                       &ep11_pin_blob, &ep11_pin_blob_len);
 
     /* the encrypted key is decrypted and a blob is build,
@@ -2682,11 +2683,85 @@ CK_RV ep11tok_final(STDLL_TokData_t * tokdata, CK_BBOOL in_fork_initializer)
     return CKR_OK;
 }
 
+static CK_RV check_add_spki_attr(STDLL_TokData_t *tokdata,
+                                 CK_ATTRIBUTE_PTR attr, CK_KEY_TYPE keytype,
+                                 int curve_type,
+                                 CK_ATTRIBUTE_PTR *attrs, CK_ULONG *attrs_len)
+{
+    CK_MECHANISM mech = { CKM_IBM_TRANSPORTKEY, 0, 0 };
+    CK_BBOOL bool_value;
+    CK_RV rc;
+
+    if (!attr_applicable_for_ep11(tokdata, attr, keytype,
+                                  CKO_PUBLIC_KEY, curve_type, &mech))
+        return CKR_OK;
+
+    switch (attr->type) {
+    case CKA_ENCRYPT:
+    case CKA_VERIFY:
+    case CKA_VERIFY_RECOVER:
+        if (attr->ulValueLen != sizeof(CK_BOOL) || attr->pValue == NULL) {
+            TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
+            return CKR_ATTRIBUTE_VALUE_INVALID;
+        }
+
+        /*
+         * EP11 does not allow to restrict public RSA/DSA/EC keys with
+         * CKA_VERIFY=FALSE and/or CKA_ENCRYPT=FALSE since it can not
+         * technically enforce the restrictions. Therefore override these
+         * attributes for the EP11 library, but keep the original attribute
+         * values in the object.
+         */
+        if (keytype == CKK_EC || keytype == CKK_RSA || keytype == CKK_DSA)
+            bool_value = CK_TRUE;
+        else
+            bool_value = *(CK_BBOOL *)attr->pValue;
+        rc = add_to_attribute_array(attrs, attrs_len, attr->type,
+                                    &bool_value, sizeof(bool_value));
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s adding attribute failed type=0x%lx rc=0x%lx\n",
+                        __func__, attr->type, rc);
+            return rc;
+        }
+        break;
+
+    case CKA_EXTRACTABLE:
+    case CKA_MODIFIABLE:
+    case CKA_DERIVE:
+    case CKA_WRAP:
+    case CKA_TRUSTED:
+    case CKA_IBM_RESTRICTABLE:
+    case CKA_IBM_NEVER_MODIFIABLE:
+    case CKA_IBM_ATTRBOUND:
+    case CKA_IBM_USE_AS_DATA:
+        if (attr->ulValueLen > 0 && attr->pValue == NULL) {
+            return CKR_ATTRIBUTE_VALUE_INVALID;
+        }
+        rc = add_to_attribute_array(attrs, attrs_len, attr->type,
+                                    attr->pValue, attr->ulValueLen);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s adding attribute failed type=0x%lx rc=0x%lx\n",
+                        __func__, attr->type, rc);
+            return rc;
+        }
+        break;
+
+    default:
+        break;
+    }
+
+    return CKR_OK;
+}
+
 /*
  * Makes a public key blob which is a MACed SPKI of the public key.
+ * Either pub_key_obj or pub_key_attrs/pub_key_attrs_len must be specified
+ * to supply the public key attributes.
  */
-static CK_RV make_maced_spki(STDLL_TokData_t *tokdata, SESSION * sess,
+static CK_RV make_maced_spki(STDLL_TokData_t *tokdata, SESSION *sess,
                              OBJECT *pub_key_obj,
+                             CK_ATTRIBUTE *pub_key_attrs,
+                             CK_ULONG pub_key_attrs_len,
                              CK_BYTE *spki, CK_ULONG spki_len,
                              CK_BYTE *maced_spki, CK_BYTE *maced_spki_reenc,
                              CK_ULONG *maced_spki_len, int curve_type)
@@ -2697,95 +2772,73 @@ static CK_RV make_maced_spki(STDLL_TokData_t *tokdata, SESSION * sess,
     CK_MECHANISM mech = { CKM_IBM_TRANSPORTKEY, 0, 0 };
     CK_ATTRIBUTE_PTR p_attrs = NULL;
     CK_ULONG attrs_len = 0;
-    CK_ATTRIBUTE_PTR attr;
-    CK_BBOOL bool_value;
     DL_NODE *node;
     CK_BYTE csum[MAX_BLOBSIZE];
     CK_ULONG cslen = sizeof(csum);
     CK_KEY_TYPE keytype;
+    CK_BBOOL is_private, is_session;
+    CK_BYTE *tmp;
+    CK_ULONG i, tmp_len, seq_len;
     CK_RV rc;
 
-    rc = template_attribute_get_ulong(pub_key_obj->template, CKA_KEY_TYPE,
-                                      &keytype);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("Could not find CKA_KEY_TYPE for the key.\n");
-        return rc;
+    if (spki_len < 6 ||
+        ber_decode_SEQUENCE(spki, &tmp, &tmp_len, &seq_len) != CKR_OK) {
+        TRACE_ERROR("%s Its not an SPKI\n", __func__);
+        return CKR_FUNCTION_FAILED;
     }
+    if (seq_len < spki_len)
+        spki_len = seq_len;
 
-    /*
-     * m_UnwrapKey with CKM_IBM_TRANSPORTKEY allows boolean attributes only to
-     * be added to MACed-SPKIs
-     */
-    node = pub_key_obj->template->attribute_list;
-    while (node != NULL) {
-        attr = node->data;
-
-        if (!attr_applicable_for_ep11(tokdata, attr, keytype,
-                                      CKO_PUBLIC_KEY, curve_type, &mech))
-            goto make_maced_spki_next;
-
-        switch (attr->type) {
-        case CKA_ENCRYPT:
-        case CKA_VERIFY:
-        case CKA_VERIFY_RECOVER:
-            if (attr->ulValueLen != sizeof(CK_BOOL) || attr->pValue == NULL) {
-                TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
-                rc = CKR_ATTRIBUTE_VALUE_INVALID;
-                goto make_maced_spki_end;
-            }
-
-            /*
-             * EP11 does not allow to restrict public RSA/DSA/EC keys with
-             * CKA_VERIFY=FALSE and/or CKA_ENCRYPT=FALSE since it can not
-             * technically enforce the restrictions. Therefore override these
-             * attributes for the EP11 library, but keep the original attribute
-             * values in the object.
-             */
-            if (keytype == CKK_EC || keytype == CKK_RSA || keytype == CKK_DSA)
-                bool_value = CK_TRUE;
-            else
-                bool_value = *(CK_BBOOL *)attr->pValue;
-            rc = add_to_attribute_array(&p_attrs, &attrs_len, attr->type,
-                                        &bool_value, sizeof(bool_value));
-            if (rc != CKR_OK) {
-                TRACE_ERROR("%s adding attribute failed type=0x%lx rc=0x%lx\n",
-                            __func__, attr->type, rc);
-                goto make_maced_spki_end;
-            }
-            break;
-
-        case CKA_EXTRACTABLE:
-        case CKA_MODIFIABLE:
-        case CKA_DERIVE:
-        case CKA_WRAP:
-        case CKA_TRUSTED:
-        case CKA_IBM_RESTRICTABLE:
-        case CKA_IBM_NEVER_MODIFIABLE:
-        case CKA_IBM_ATTRBOUND:
-        case CKA_IBM_USE_AS_DATA:
-            if (attr->ulValueLen > 0 && attr->pValue == NULL) {
-                rc = CKR_ATTRIBUTE_VALUE_INVALID;
-                goto make_maced_spki_end;
-            }
-            rc = add_to_attribute_array(&p_attrs, &attrs_len, attr->type,
-                                        attr->pValue, attr->ulValueLen);
-            if (rc != CKR_OK) {
-                TRACE_ERROR("%s adding attribute failed type=0x%lx rc=0x%lx\n",
-                            __func__, attr->type, rc);
-                goto make_maced_spki_end;
-            }
-            break;
-
-        default:
-            break;
+    if (pub_key_obj != NULL) {
+        rc = template_attribute_get_ulong(pub_key_obj->template, CKA_KEY_TYPE,
+                                          &keytype);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("Could not find CKA_KEY_TYPE for the key.\n");
+            goto make_maced_spki_end;
         }
-make_maced_spki_next:
-        node = node->next;
+
+        is_private = object_is_private(pub_key_obj);
+        is_session = object_is_session_object(pub_key_obj);
+
+        /*
+         * m_UnwrapKey with CKM_IBM_TRANSPORTKEY allows boolean attributes only
+         * to be added to MACed-SPKIs
+         */
+        node = pub_key_obj->template->attribute_list;
+        while (node != NULL) {
+            rc = check_add_spki_attr(tokdata, node->data, keytype, curve_type,
+                                     &p_attrs, &attrs_len);
+            if (rc != CKR_OK)
+                goto make_maced_spki_end;
+
+            node = node->next;
+        }
+    } else {
+        rc = get_ulong_attribute_by_type(pub_key_attrs, pub_key_attrs_len,
+                                         CKA_KEY_TYPE, &keytype);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("Could not find CKA_KEY_TYPE for the key.\n");
+            goto make_maced_spki_end;
+        }
+
+        is_private = ep11_is_private_object(pub_key_attrs, pub_key_attrs_len);
+        is_session = ep11_is_session_object(pub_key_attrs, pub_key_attrs_len);
+
+        /*
+         * m_UnwrapKey with CKM_IBM_TRANSPORTKEY allows boolean attributes only
+         * to be added to MACed-SPKIs
+         */
+        for (i = 0; i < pub_key_attrs_len; i++) {
+            rc = check_add_spki_attr(tokdata, &pub_key_attrs[i], keytype,
+                                     curve_type, &p_attrs, &attrs_len);
+            if (rc != CKR_OK)
+                goto make_maced_spki_end;
+        }
     }
 
     trace_attributes(__func__, "MACed SPKI import:", p_attrs, attrs_len);
 
-    ep11_get_pin_blob(ep11_session, object_is_session_object(pub_key_obj),
+    ep11_get_pin_blob(ep11_session, is_session, is_private,
                       &ep11_pin_blob, &ep11_pin_blob_len);
 
     RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
@@ -2910,6 +2963,7 @@ static CK_RV import_aes_xts_key(STDLL_TokData_t *tokdata, SESSION *sess,
     trace_attributes(__func__, "Import sym.:", new_p_attrs, new_attrs_len);
 
     ep11_get_pin_blob(ep11_session, object_is_session_object(aes_xts_key_obj),
+                      object_is_private(aes_xts_key_obj),
                       &ep11_pin_blob, &ep11_pin_blob_len);
 
 retry:
@@ -3150,7 +3204,8 @@ static CK_RV import_RSA_key(STDLL_TokData_t *tokdata, SESSION *sess,
         /* save the SPKI as blob although it is not a blob.
          * The card expects MACed-SPKIs as public keys.
          */
-        rc = make_maced_spki(tokdata, sess, rsa_key_obj, data, data_len,
+        rc = make_maced_spki(tokdata, sess, rsa_key_obj, NULL, 0,
+                             data, data_len,
                              blob, blobreenc, blob_size, -1);
         if (rc != CKR_OK) {
             TRACE_ERROR("%s failed to make a MACed-SPKI rc=0x%lx\n",
@@ -3210,6 +3265,7 @@ static CK_RV import_RSA_key(STDLL_TokData_t *tokdata, SESSION *sess,
         trace_attributes(__func__, "RSA import:", new_p_attrs, new_attrs_len);
 
         ep11_get_pin_blob(ep11_session, object_is_session_object(rsa_key_obj),
+                          object_is_private(rsa_key_obj),
                           &ep11_pin_blob, &ep11_pin_blob_len);
 
         /* calls the card, it decrypts the private RSA key,
@@ -3393,8 +3449,10 @@ static CK_RV import_EC_key(STDLL_TokData_t *tokdata, SESSION *sess,
         /* save the SPKI as blob although it is not a blob.
          * The card expects MACed-SPKIs as public keys.
          */
-        rc = make_maced_spki(tokdata, sess, ec_key_obj, data, data_len,
-                             blob, blobreenc, blob_size, (int)curve->curve_type);
+        rc = make_maced_spki(tokdata, sess, ec_key_obj, NULL, 0,
+                             data, data_len,
+                             blob, blobreenc, blob_size,
+                             (int)curve->curve_type);
         if (rc != CKR_OK) {
             TRACE_ERROR("%s failed to make a MACed-SPKI rc=0x%lx\n",
                         __func__, rc);
@@ -3448,6 +3506,7 @@ static CK_RV import_EC_key(STDLL_TokData_t *tokdata, SESSION *sess,
         trace_attributes(__func__, "EC import:", new_p_attrs, new_attrs_len);
 
         ep11_get_pin_blob(ep11_session, object_is_session_object(ec_key_obj),
+                          object_is_private(ec_key_obj),
                           &ep11_pin_blob, &ep11_pin_blob_len);
 
         /* calls the card, it decrypts the private EC key,
@@ -3595,7 +3654,8 @@ static CK_RV import_DSA_key(STDLL_TokData_t *tokdata, SESSION *sess,
         /* save the SPKI as blob although it is not a blob.
          * The card expects MACed-SPKIs as public keys.
          */
-        rc = make_maced_spki(tokdata, sess, dsa_key_obj, data, data_len,
+        rc = make_maced_spki(tokdata, sess, dsa_key_obj, NULL, 0,
+                             data, data_len,
                              blob, blobreenc, blob_size, -1);
         if (rc != CKR_OK) {
             TRACE_ERROR("%s failed to make a MACed-SPKI rc=0x%lx\n",
@@ -3650,6 +3710,7 @@ static CK_RV import_DSA_key(STDLL_TokData_t *tokdata, SESSION *sess,
         trace_attributes(__func__, "DSA import:", new_p_attrs, new_attrs_len);
 
         ep11_get_pin_blob(ep11_session, object_is_session_object(dsa_key_obj),
+                          object_is_private(dsa_key_obj),
                           &ep11_pin_blob, &ep11_pin_blob_len);
 
         /* calls the card, it decrypts the private EC key,
@@ -3787,7 +3848,8 @@ static CK_RV import_DH_key(STDLL_TokData_t *tokdata, SESSION *sess,
         /* save the SPKI as blob although it is not a blob.
          * The card expects MACed-SPKIs as public keys.
          */
-        rc = make_maced_spki(tokdata, sess, dh_key_obj, data, data_len,
+        rc = make_maced_spki(tokdata, sess, dh_key_obj, NULL, 0,
+                             data, data_len,
                              blob, blobreenc, blob_size, -1);
         if (rc != CKR_OK) {
             TRACE_ERROR("%s failed to make a MACed-SPKI rc=0x%lx\n",
@@ -3853,6 +3915,7 @@ static CK_RV import_DH_key(STDLL_TokData_t *tokdata, SESSION *sess,
         trace_attributes(__func__, "DH import:", new_p_attrs, new_attrs_len);
 
         ep11_get_pin_blob(ep11_session, object_is_session_object(dh_key_obj),
+                          object_is_private(dh_key_obj),
                           &ep11_pin_blob, &ep11_pin_blob_len);
 
         /* calls the card, it decrypts the private EC key,
@@ -4052,7 +4115,8 @@ static CK_RV import_IBM_pqc_key(STDLL_TokData_t *tokdata, SESSION *sess,
         /* save the SPKI as blob although it is not a blob.
          * The card expects MACed-SPKIs as public keys.
          */
-        rc = make_maced_spki(tokdata, sess, pqc_key_obj, data, data_len,
+        rc = make_maced_spki(tokdata, sess, pqc_key_obj, NULL, 0,
+                             data, data_len,
                              blob, blobreenc, blob_size, -1);
         if (rc != CKR_OK) {
             TRACE_ERROR("%s failed to make a MACed-SPKI rc=0x%lx\n",
@@ -4148,6 +4212,7 @@ static CK_RV import_IBM_pqc_key(STDLL_TokData_t *tokdata, SESSION *sess,
         trace_attributes(__func__, "PQC import:", new_p_attrs, new_attrs_len);
 
         ep11_get_pin_blob(ep11_session, object_is_session_object(pqc_key_obj),
+                          object_is_private(pqc_key_obj),
                           &ep11_pin_blob, &ep11_pin_blob_len);
 
         /* calls the card, it decrypts the private PQC key,
@@ -4517,6 +4582,7 @@ CK_RV ep11tok_generate_key(STDLL_TokData_t * tokdata, SESSION * session,
     trace_attributes(__func__, "Generate key:", new_attrs2, new_attrs2_len);
 
     ep11_get_pin_blob(ep11_session, ep11_is_session_object(attrs, attrs_len),
+                      ep11_is_private_object(attrs, attrs_len),
                       &ep11_pin_blob, &ep11_pin_blob_len);
 
 retry:
@@ -6569,6 +6635,7 @@ CK_RV ep11tok_derive_key(STDLL_TokData_t *tokdata, SESSION *session,
     trace_attributes(__func__, "Derive:", new_attrs2, new_attrs2_len);
 
     ep11_get_pin_blob(ep11_session, ep11_is_session_object(attrs, attrs_len),
+                      ep11_is_private_object(attrs, attrs_len),
                       &ep11_pin_blob, &ep11_pin_blob_len);
 
     RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
@@ -6753,11 +6820,14 @@ static CK_RV dh_generate_keypair(STDLL_TokData_t *tokdata,
     CK_BYTE *data;
     CK_BYTE *y_start, *oid, *parm;
     CK_ULONG bit_str_len, oid_len, parm_len, value_bits = 0;
-    unsigned char *ep11_pin_blob = NULL;
-    CK_ULONG ep11_pin_blob_len = 0;
+    unsigned char *priv_ep11_pin_blob = NULL;
+    CK_ULONG priv_ep11_pin_blob_len = 0;
+    unsigned char *publ_ep11_pin_blob = NULL;
+    CK_ULONG publ_ep11_pin_blob_len = 0;
     ep11_session_t *ep11_session = (ep11_session_t *) sess->private_data;
     CK_ATTRIBUTE *new_publ_attrs = NULL, *new_priv_attrs = NULL;
     CK_ULONG new_publ_attrs_len = 0, new_priv_attrs_len = 0;
+    CK_ULONG spki_len;
 
     /* ep11 accepts CKA_PRIME and CKA_BASE parameters/attributes
      * only in this format
@@ -6894,18 +6964,24 @@ static CK_RV dh_generate_keypair(STDLL_TokData_t *tokdata,
                      new_priv_attrs, new_priv_attrs_len);
 
     ep11_get_pin_blob(ep11_session,
-                      (ep11_is_session_object(new_publ_attrs,
-                                              new_publ_attrs_len) ||
-                       ep11_is_session_object(new_priv_attrs,
-                                              new_priv_attrs_len)),
-                      &ep11_pin_blob, &ep11_pin_blob_len);
+                      ep11_is_session_object(new_priv_attrs,
+                                             new_priv_attrs_len),
+                      ep11_is_private_object(new_priv_attrs,
+                                             new_priv_attrs_len),
+                      &priv_ep11_pin_blob, &priv_ep11_pin_blob_len);
+    ep11_get_pin_blob(ep11_session,
+                      ep11_is_session_object(new_publ_attrs,
+                                             new_publ_attrs_len),
+                      ep11_is_private_object(new_publ_attrs,
+                                             new_publ_attrs_len),
+                      &publ_ep11_pin_blob, &publ_ep11_pin_blob_len);
 
     RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
     RETRY_REENC_CREATE_KEY2_START()
         rc = dll_m_GenerateKeyPair(pMechanism,
                                    new_publ_attrs, new_publ_attrs_len,
                                    new_priv_attrs, new_priv_attrs_len,
-                                   ep11_pin_blob, ep11_pin_blob_len,
+                                   priv_ep11_pin_blob, priv_ep11_pin_blob_len,
                                    privblob, &privblobsize,
                                    publblob, &publblobsize, target_info->target);
     RETRY_REENC_CREATE_KEY2_END(tokdata, sess, target_info,
@@ -6926,6 +7002,21 @@ static CK_RV dh_generate_keypair(STDLL_TokData_t *tokdata,
         TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
         rc = CKR_DEVICE_ERROR;
         goto dh_generate_keypair_end;
+    }
+
+    if (priv_ep11_pin_blob != publ_ep11_pin_blob) {
+        /* Re-create the MACed SPKI with the desired EP11 session */
+        spki_len = publblobsize;
+        publblobsize = sizeof(publblob);
+        rc = make_maced_spki(tokdata, sess, NULL,
+                             new_publ_attrs, new_publ_attrs_len,
+                             publblob, spki_len,
+                             publblob, publblobreenc, &publblobsize, -1);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s failed to re-make a MACed-SPKI rc=0x%lx\n",
+                        __func__, rc);
+            goto dh_generate_keypair_end;
+        }
     }
 
     /* store the blobs */
@@ -7109,11 +7200,14 @@ static CK_RV dsa_generate_keypair(STDLL_TokData_t *tokdata,
     CK_ULONG dsa_ulPublicKeyAttributeCount = 0;
     CK_ATTRIBUTE_PTR dsa_pPrivateKeyTemplate = NULL;
     CK_ULONG dsa_ulPrivateKeyAttributeCount = 0;
-    unsigned char *ep11_pin_blob = NULL;
-    CK_ULONG ep11_pin_blob_len = 0;
+    unsigned char *priv_ep11_pin_blob = NULL;
+    CK_ULONG priv_ep11_pin_blob_len = 0;
+    unsigned char *publ_ep11_pin_blob = NULL;
+    CK_ULONG publ_ep11_pin_blob_len = 0;
     ep11_session_t *ep11_session = (ep11_session_t *) sess->private_data;
     CK_ATTRIBUTE *new_publ_attrs = NULL, *new_priv_attrs = NULL;
     CK_ULONG new_publ_attrs_len = 0, new_priv_attrs_len = 0;
+    CK_ULONG spki_len;
 
     /* ep11 accepts CKA_PRIME,CKA_SUBPRIME,CKA_BASE only in this format */
     struct {
@@ -7278,18 +7372,24 @@ static CK_RV dsa_generate_keypair(STDLL_TokData_t *tokdata,
                      new_priv_attrs, new_priv_attrs_len);
 
     ep11_get_pin_blob(ep11_session,
-                      (ep11_is_session_object(new_publ_attrs,
-                                              new_publ_attrs_len) ||
-                       ep11_is_session_object(new_priv_attrs,
-                                              new_priv_attrs_len)),
-                      &ep11_pin_blob, &ep11_pin_blob_len);
+                      ep11_is_session_object(new_priv_attrs,
+                                             new_priv_attrs_len),
+                      ep11_is_private_object(new_priv_attrs,
+                                             new_priv_attrs_len),
+                      &priv_ep11_pin_blob, &priv_ep11_pin_blob_len);
+    ep11_get_pin_blob(ep11_session,
+                      ep11_is_session_object(new_publ_attrs,
+                                             new_publ_attrs_len),
+                      ep11_is_private_object(new_publ_attrs,
+                                             new_publ_attrs_len),
+                      &publ_ep11_pin_blob, &publ_ep11_pin_blob_len);
 
     RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
     RETRY_REENC_CREATE_KEY2_START()
         rc = dll_m_GenerateKeyPair(pMechanism,
                                    new_publ_attrs, new_publ_attrs_len,
                                    new_priv_attrs, new_priv_attrs_len,
-                                   ep11_pin_blob, ep11_pin_blob_len, privblob,
+                                   priv_ep11_pin_blob, priv_ep11_pin_blob_len, privblob,
                                    &privblobsize, publblob, &publblobsize,
                                    target_info->target);
     RETRY_REENC_CREATE_KEY2_END(tokdata, sess, target_info,
@@ -7311,6 +7411,21 @@ static CK_RV dsa_generate_keypair(STDLL_TokData_t *tokdata,
         TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
         rc = CKR_DEVICE_ERROR;
         goto dsa_generate_keypair_end;
+    }
+
+    if (priv_ep11_pin_blob != publ_ep11_pin_blob) {
+        /* Re-create the MACed SPKI with the desired EP11 session */
+        spki_len = publblobsize;
+        publblobsize = sizeof(publblob);
+        rc = make_maced_spki(tokdata, sess, NULL,
+                             new_publ_attrs, new_publ_attrs_len,
+                             publblob, spki_len,
+                             publblob, publblobreenc, &publblobsize, -1);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s failed to re-make a MACed-SPKI rc=0x%lx\n",
+                        __func__, rc);
+            goto dsa_generate_keypair_end;
+        }
     }
 
     rc = build_attribute(CKA_IBM_OPAQUE, publblob, publblobsize, &opaque_attr);
@@ -7448,14 +7563,17 @@ static CK_RV rsa_ec_generate_keypair(STDLL_TokData_t *tokdata,
     CK_ULONG data_len, oid_len, parm_len;
     CK_ULONG field_len;
     CK_ULONG ktype;
-    unsigned char *ep11_pin_blob = NULL;
-    CK_ULONG ep11_pin_blob_len = 0;
+    unsigned char *priv_ep11_pin_blob = NULL;
+    CK_ULONG priv_ep11_pin_blob_len = 0;
+    unsigned char *publ_ep11_pin_blob = NULL;
+    CK_ULONG publ_ep11_pin_blob_len = 0;
     ep11_session_t *ep11_session = (ep11_session_t *) sess->private_data;
     CK_ATTRIBUTE *new_publ_attrs = NULL, *new_priv_attrs = NULL;
     CK_ULONG new_publ_attrs_len = 0, new_priv_attrs_len = 0;
     CK_ATTRIBUTE *new_publ_attrs2 = NULL, *new_priv_attrs2 = NULL;
     CK_ULONG new_publ_attrs2_len = 0, new_priv_attrs2_len = 0;
     const struct _ec *curve = NULL;
+    CK_ULONG raw_spki_len;
 
     if (pMechanism->mechanism == CKM_EC_KEY_PAIR_GEN) {
         ktype = CKK_EC;
@@ -7519,18 +7637,24 @@ static CK_RV rsa_ec_generate_keypair(STDLL_TokData_t *tokdata,
                      new_priv_attrs2, new_priv_attrs2_len);
 
     ep11_get_pin_blob(ep11_session,
-                      (ep11_is_session_object(new_publ_attrs2,
-                                              new_publ_attrs2_len) ||
-                       ep11_is_session_object(new_priv_attrs2,
-                                              new_priv_attrs2_len)),
-                      &ep11_pin_blob, &ep11_pin_blob_len);
+                      ep11_is_session_object(new_priv_attrs2,
+                                             new_priv_attrs2_len),
+                      ep11_is_private_object(new_priv_attrs2,
+                                             new_priv_attrs2_len),
+                      &priv_ep11_pin_blob, &priv_ep11_pin_blob_len);
+    ep11_get_pin_blob(ep11_session,
+                      ep11_is_session_object(new_publ_attrs,
+                                             new_publ_attrs_len),
+                      ep11_is_private_object(new_publ_attrs,
+                                             new_publ_attrs_len),
+                      &publ_ep11_pin_blob, &publ_ep11_pin_blob_len);
 
     RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
     RETRY_REENC_CREATE_KEY2_START()
         rc = dll_m_GenerateKeyPair(pMechanism,
                                    new_publ_attrs2, new_publ_attrs2_len,
                                    new_priv_attrs2, new_priv_attrs2_len,
-                                   ep11_pin_blob, ep11_pin_blob_len,
+                                   priv_ep11_pin_blob, priv_ep11_pin_blob_len,
                                    privkey_blob, &privkey_blob_len, spki,
                                    &spki_len, target_info->target);
     RETRY_REENC_CREATE_KEY2_END(tokdata, sess, target_info, privkey_blob,
@@ -7561,6 +7685,22 @@ static CK_RV rsa_ec_generate_keypair(STDLL_TokData_t *tokdata,
         TRACE_ERROR("%s blobsize error\n", __func__);
         rc = CKR_KEY_INDIGESTIBLE;
         goto error;
+    }
+
+    if (priv_ep11_pin_blob != publ_ep11_pin_blob) {
+        /* Re-create the MACed SPKI with the desired EP11 session */
+        raw_spki_len = spki_len;
+        spki_len = sizeof(spki);
+        rc = make_maced_spki(tokdata, sess, NULL,
+                             new_publ_attrs, new_publ_attrs_len,
+                             spki, raw_spki_len,
+                             spki, spkireenc, &spki_len,
+                             curve != NULL ? curve->curve_type : -1);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s failed to re-make a MACed-SPKI rc=0x%lx\n",
+                        __func__, rc);
+            goto error;
+        }
     }
 
     rc = build_attribute(CKA_IBM_OPAQUE, spki, spki_len, &attr);
@@ -7825,8 +7965,10 @@ static CK_RV ibm_pqc_generate_keypair(STDLL_TokData_t *tokdata,
     unsigned char spkireenc[MAX_BLOBSIZE];
     size_t spki_len = sizeof(spki);
     CK_ULONG ktype;
-    unsigned char *ep11_pin_blob = NULL;
-    CK_ULONG ep11_pin_blob_len = 0;
+    unsigned char *priv_ep11_pin_blob = NULL;
+    CK_ULONG priv_ep11_pin_blob_len = 0;
+    unsigned char *publ_ep11_pin_blob = NULL;
+    CK_ULONG publ_ep11_pin_blob_len = 0;
     ep11_session_t *ep11_session = (ep11_session_t *) sess->private_data;
     CK_ATTRIBUTE *new_publ_attrs = NULL, *new_priv_attrs = NULL;
     CK_ULONG new_publ_attrs_len = 0, new_priv_attrs_len = 0;
@@ -7834,6 +7976,7 @@ static CK_RV ibm_pqc_generate_keypair(STDLL_TokData_t *tokdata,
     CK_ULONG new_publ_attrs2_len = 0, new_priv_attrs2_len = 0;
     const struct pqc_oid *pqc_oid;
     const char *key_type_str;
+    CK_ULONG raw_spki_len;
 
     switch (pMechanism->mechanism) {
     case CKM_IBM_DILITHIUM:
@@ -7936,11 +8079,17 @@ static CK_RV ibm_pqc_generate_keypair(STDLL_TokData_t *tokdata,
                      new_priv_attrs2, new_priv_attrs2_len);
 
     ep11_get_pin_blob(ep11_session,
-                      (ep11_is_session_object(new_publ_attrs2,
-                                              new_publ_attrs2_len) ||
-                       ep11_is_session_object(new_priv_attrs2,
-                                              new_priv_attrs2_len)),
-                      &ep11_pin_blob, &ep11_pin_blob_len);
+                      ep11_is_session_object(new_priv_attrs2,
+                                             new_priv_attrs2_len),
+                      ep11_is_private_object(new_priv_attrs2,
+                                             new_priv_attrs2_len),
+                       &priv_ep11_pin_blob, &priv_ep11_pin_blob_len);
+    ep11_get_pin_blob(ep11_session,
+                      ep11_is_session_object(new_publ_attrs,
+                                             new_publ_attrs_len),
+                      ep11_is_private_object(new_publ_attrs,
+                                             new_publ_attrs_len),
+                      &publ_ep11_pin_blob, &publ_ep11_pin_blob_len);
 
     RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
     RETRY_REENC_CREATE_KEY2_START()
@@ -7949,7 +8098,7 @@ static CK_RV ibm_pqc_generate_keypair(STDLL_TokData_t *tokdata,
             rc = dll_m_GenerateKeyPair(pMechanism,
                                        new_publ_attrs2, new_publ_attrs2_len,
                                        new_priv_attrs2, new_priv_attrs2_len,
-                                       ep11_pin_blob, ep11_pin_blob_len,
+                                       priv_ep11_pin_blob, priv_ep11_pin_blob_len,
                                        privkey_blob, &privkey_blob_len, spki,
                                        &spki_len, target_info->target);
         else
@@ -7982,6 +8131,21 @@ static CK_RV ibm_pqc_generate_keypair(STDLL_TokData_t *tokdata,
         TRACE_ERROR("%s blobsize error\n", __func__);
         rc = CKR_KEY_INDIGESTIBLE;
         goto error;
+    }
+
+    if (priv_ep11_pin_blob != publ_ep11_pin_blob) {
+        /* Re-create the MACed SPKI with the desired EP11 session */
+        raw_spki_len = spki_len;
+        spki_len = sizeof(spki);
+        rc = make_maced_spki(tokdata, sess, NULL,
+                             new_publ_attrs, new_publ_attrs_len,
+                             spki, raw_spki_len,
+                             spki, spkireenc, &spki_len, -1);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s failed to re-make a MACed-SPKI rc=0x%lx\n",
+                        __func__, rc);
+            goto error;
+        }
     }
 
     rc = build_attribute(CKA_IBM_OPAQUE, spki, spki_len, &attr);
@@ -10724,6 +10888,7 @@ CK_RV ep11tok_unwrap_key(STDLL_TokData_t * tokdata, SESSION * session,
     trace_attributes(__func__, "Unwrap:", new_attrs2, new_attrs2_len);
 
     ep11_get_pin_blob(ep11_session, ep11_is_session_object(attrs, attrs_len),
+                      ep11_is_private_object(attrs, attrs_len),
                       &ep11_pin_blob, &ep11_pin_blob_len);
 
     /* we need a blob for the new key created by unwrapping,

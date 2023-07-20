@@ -63,6 +63,20 @@ CK_BOOL ep11_is_session_object(CK_ATTRIBUTE_PTR attrs, CK_ULONG attrs_len)
     return FALSE;
 }
 
+CK_BOOL ep11_is_private_object(CK_ATTRIBUTE_PTR attrs, CK_ULONG attrs_len)
+{
+    CK_ATTRIBUTE_PTR attr;
+
+    attr = get_attribute_by_type(attrs, attrs_len, CKA_PRIVATE);
+    if (attr == NULL)
+        return FALSE;
+
+    if (attr->pValue == NULL)
+        return FALSE;
+
+    return *((CK_BBOOL *)attr->pValue);
+}
+
 CK_RV ep11tok_relogin_session(STDLL_TokData_t *tokdata, SESSION *session)
 {
     ep11_private_data_t *ep11_data = tokdata->private_data;
@@ -88,19 +102,22 @@ CK_RV ep11tok_relogin_session(STDLL_TokData_t *tokdata, SESSION *session)
 }
 
 void ep11_get_pin_blob(ep11_session_t *ep11_session, CK_BOOL is_session_obj,
+                       CK_BOOL is_private_obj,
                        CK_BYTE **pin_blob, CK_ULONG *pin_blob_len)
 {
     if (ep11_session != NULL &&
-        (ep11_session->flags & EP11_STRICT_MODE) && is_session_obj) {
+        (ep11_session->flags & EP11_STRICT_MODE) && is_session_obj &&
+         is_private_obj) {
         *pin_blob = ep11_session->session_pin_blob;
         *pin_blob_len = sizeof(ep11_session->session_pin_blob);
-        TRACE_DEVEL
-            ("%s Strict mode and CKA_TOKEN=FALSE -> pass session pin_blob\n",
-             __func__);
-    } else if (ep11_session != NULL && (ep11_session->flags & EP11_VHSM_MODE)) {
+        TRACE_DEVEL("%s Strict mode with CKA_TOKEN=FALSE & CKA_PRIVATE=TRUE "
+                    "-> pass session pin_blob\n", __func__);
+    } else if (ep11_session != NULL && (ep11_session->flags & EP11_VHSM_MODE) &&
+               is_private_obj) {
         *pin_blob = ep11_session->vhsm_pin_blob;
         *pin_blob_len = sizeof(ep11_session->vhsm_pin_blob);
-        TRACE_DEVEL("%s vHSM mode -> pass VHSM pin_blob\n", __func__);
+        TRACE_DEVEL("%s VHSM mode with CKA_PRIVATE=TRUE -> pass VHSM pin_blob\n",
+                    __func__);
     } else {
         *pin_blob = NULL;
         *pin_blob_len = 0;
