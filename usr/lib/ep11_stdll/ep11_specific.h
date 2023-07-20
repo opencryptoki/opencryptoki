@@ -347,8 +347,10 @@ CK_RV handle_all_ep11_cards(ep11_target_t * ep11_targets,
 CK_BBOOL is_apqn_online(uint_32 card, uint_32 domain);
 
 CK_BOOL ep11_is_session_object(CK_ATTRIBUTE_PTR attrs, CK_ULONG attrs_len);
+CK_BOOL ep11_is_private_object(CK_ATTRIBUTE_PTR attrs, CK_ULONG attrs_len);
 CK_RV ep11tok_relogin_session(STDLL_TokData_t *tokdata, SESSION *session);
 void ep11_get_pin_blob(ep11_session_t *ep11_session, CK_BOOL is_session_obj,
+                       CK_BOOL is_private_obj,
                        CK_BYTE **pin_blob, CK_ULONG *pin_blob_len);
 CK_RV ep11_login_handler(uint_32 adapter, uint_32 domain, void *handler_data);
 
