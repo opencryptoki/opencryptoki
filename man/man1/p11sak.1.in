@@ -735,7 +735,7 @@ prompt, use the
 option.
 .PP
 .
-.SS "Setting or updating boolean attributes of symmetric and asymmetric keys"
+.SS "Setting or updating attributes of symmetric and asymmetric keys"
 .
 .B p11sak
 .BR set\-key\-attr | set\-key | set
