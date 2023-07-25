@@ -7270,6 +7270,8 @@ done:
 #if OPENSSL_VERSION_PREREQ(3, 0)
     if (bn_priv != NULL)
         BN_free(bn_priv);
+    if (ec_group != NULL)
+        EC_GROUP_free(ec_group);
 #else
     if (point != NULL)
         free(point);
