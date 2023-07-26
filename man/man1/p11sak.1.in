@@ -642,7 +642,7 @@ and/or the
 .I ATTRS
 options to filter the list of keys to display. You can use wildcards (\fB*\fP
 and \fB?\fP) in the
-.B LABEL
+.I LABEL
 specification. To specify a wildcard character that should not be treated as a
 wildcard, it must be escaped using a backslash (\fB\e*\fP or \fB\e?\fP).
 Also, a backslash character that should not be treated as an escape character
@@ -720,7 +720,7 @@ and/or the
 .I ATTRS
 options to filter the list of keys to remove. You can use wildcards (\fB*\fP
 and \fB?\fP) in the
-.B LABEL
+.I LABEL
 specification. To specify a wildcard character that should not be treated as a
 wildcard, it must be escaped using a backslash (\fB\e*\fP or \fB\e?\fP).
 Also, a backslash character that should not be treated as an escape character
@@ -788,7 +788,7 @@ and/or the
 .I ATTRS
 options to filter the list of keys to set or update. You can use wildcards
 (\fB*\fP and \fB?\fP) in the
-.B LABEL
+.I LABEL
 specification. To specify a wildcard character that should not be treated as a
 wildcard, it must be escaped using a backslash (\fB\e*\fP or \fB\e?\fP).
 Also, a backslash character that should not be treated as an escape character
@@ -878,7 +878,7 @@ and/or the
 .I ATTRS
 options to filter the list of keys to copy. You can use wildcards (\fB*\fP
 and \fB?\fP) in the
-.B LABEL
+.I LABEL
 specification. To specify a wildcard character that should not be treated as a
 wildcard, it must be escaped using a backslash (\fB\e*\fP or \fB\e?\fP).
 Also, a backslash character that should not be treated as an escape character
@@ -1037,7 +1037,7 @@ and/or the
 .I ATTRS
 options to filter the list of keys to export. You can use wildcards (\fB*\fP
 and \fB?\fP) in the
-.B LABEL
+.I LABEL
 specification. To specify a wildcard character that should not be treated as a
 wildcard, it must be escaped using a backslash (\fB\e*\fP or \fB\e?\fP).
 Also, a backslash character that should not be treated as an escape character
