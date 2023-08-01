@@ -3540,29 +3540,29 @@ static int iterate_compare(const void *a, const void *b, void *private)
     return result;
 }
 
-static CK_RV iterate_key_objects(const struct p11sak_objtype *keytype,
-                                 const char *label_filter,
-                                 const char *id_filter,
-                                 const char *attr_filter,
-                                 CK_RV (*compare_key)(CK_OBJECT_HANDLE key1,
-                                                      CK_OBJECT_HANDLE key2,
-                                                      int *result,
-                                                      void *private),
-                                 CK_RV (*handle_key)(CK_OBJECT_HANDLE key,
-                                                     CK_OBJECT_CLASS class,
-                                                     const struct p11sak_objtype *keytype,
-                                                     CK_ULONG keysize,
-                                                     const char *typestr,
-                                                     const char* label,
-                                                     void *private),
-                                 void *private)
+static CK_RV iterate_objects(const struct p11sak_objtype *objtype,
+                             const char *label_filter,
+                             const char *id_filter,
+                             const char *attr_filter,
+                             CK_RV (*compare_obj)(CK_OBJECT_HANDLE obj1,
+                                                  CK_OBJECT_HANDLE obj2,
+                                                  int *result,
+                                                  void *private),
+                             CK_RV (*handle_obj)(CK_OBJECT_HANDLE obj,
+                                                 CK_OBJECT_CLASS class,
+                                                 const struct p11sak_objtype *objtype,
+                                                 CK_ULONG keysize,
+                                                 const char *typestr,
+                                                 const char* label,
+                                                 void *private),
+                             void *private)
 {
     CK_RV rc, rc2;
     CK_ATTRIBUTE *attrs = NULL;
     CK_ULONG num_attrs = 0;
     const CK_BBOOL ck_true = CK_TRUE;
-    CK_OBJECT_HANDLE keys[FIND_OBJECTS_COUNT];
-    CK_ULONG i, num_keys;
+    CK_OBJECT_HANDLE objs[FIND_OBJECTS_COUNT];
+    CK_ULONG i, num_objs;
     bool manual_filtering = false;
     CK_OBJECT_CLASS class;
     CK_KEY_TYPE ktype;
@@ -3570,18 +3570,18 @@ static CK_RV iterate_key_objects(const struct p11sak_objtype *keytype,
     char *label = NULL;
     char *typestr = NULL;
     const struct p11sak_objtype *type;
-    CK_OBJECT_HANDLE *matched_keys = NULL, *tmp;
-    CK_ULONG num_matched_keys = 0;
-    CK_ULONG alloc_matched_keys = 0;
+    CK_OBJECT_HANDLE *matched_objs = NULL, *tmp;
+    CK_ULONG num_matched_objs = 0;
+    CK_ULONG alloc_matched_objs = 0;
     struct p11sak_iterate_compare_data data;
 
     rc = add_attribute(CKA_TOKEN, &ck_true, sizeof(ck_true), &attrs, &num_attrs);
     if (rc != CKR_OK)
         goto done;
 
-    if (keytype != NULL && keytype->filter_attr != (CK_ATTRIBUTE_TYPE)-1) {
-        rc = add_attribute(keytype->filter_attr, &keytype->filter_value,
-                           sizeof(keytype->filter_value), &attrs, &num_attrs);
+    if (objtype != NULL && objtype->filter_attr != (CK_ATTRIBUTE_TYPE)-1) {
+        rc = add_attribute(objtype->filter_attr, &objtype->filter_value,
+                           sizeof(objtype->filter_value), &attrs, &num_attrs);
         if (rc != CKR_OK)
             goto done;
     }
@@ -3618,23 +3618,23 @@ static CK_RV iterate_key_objects(const struct p11sak_objtype *keytype,
     }
 
     while (1) {
-        memset(keys, 0, sizeof(keys));
-        num_keys = 0;
+        memset(objs, 0, sizeof(objs));
+        num_objs = 0;
 
-        rc = pkcs11_funcs->C_FindObjects(pkcs11_session, keys,
-                                         FIND_OBJECTS_COUNT, &num_keys);
+        rc = pkcs11_funcs->C_FindObjects(pkcs11_session, objs,
+                                         FIND_OBJECTS_COUNT, &num_objs);
         if (rc != CKR_OK) {
             warnx("Failed to find objects: C_FindObjects: 0x%lX: %s",
                   rc, p11_get_ckr(rc));
             goto done_find;
         }
 
-        if (num_keys == 0)
+        if (num_objs == 0)
             break;
 
-        for (i = 0; i < num_keys; i++) {
+        for (i = 0; i < num_objs; i++) {
             if (manual_filtering) {
-                rc = get_key_infos(keys[i], NULL, NULL, NULL, &label,
+                rc = get_key_infos(objs[i], NULL, NULL, NULL, &label,
                                    NULL, NULL);
                 if (rc == CKR_KEY_NEEDED) {
                     rc = CKR_OK;
@@ -3647,21 +3647,21 @@ static CK_RV iterate_key_objects(const struct p11sak_objtype *keytype,
                     goto next;
             }
 
-            if (num_matched_keys >= alloc_matched_keys) {
-                tmp = realloc(matched_keys,
-                              (alloc_matched_keys + FIND_OBJECTS_COUNT) *
+            if (num_matched_objs >= alloc_matched_objs) {
+                tmp = realloc(matched_objs,
+                              (alloc_matched_objs + FIND_OBJECTS_COUNT) *
                                                   sizeof(CK_OBJECT_HANDLE));
                 if (tmp == NULL) {
-                    warnx("Failed to allocate a list of matched keys.");
+                    warnx("Failed to allocate a list of matched objects.");
                     rc = CKR_HOST_MEMORY;
                     goto done_find;
                 }
 
-                matched_keys = tmp;
-                alloc_matched_keys += FIND_OBJECTS_COUNT;
+                matched_objs = tmp;
+                alloc_matched_objs += FIND_OBJECTS_COUNT;
             }
 
-            matched_keys[num_matched_keys++] = keys[i];
+            matched_objs[num_matched_objs++] = objs[i];
 
 next:
             if (label != NULL)
@@ -3682,12 +3682,12 @@ done_find:
     if (rc != CKR_OK)
         goto done;
 
-    if (compare_key != NULL && num_matched_keys > 0) {
-        data.compare_obj = compare_key;
+    if (compare_obj != NULL && num_matched_objs > 0) {
+        data.compare_obj = compare_obj;
         data.private = private;
         data.rc = CKR_OK;
 
-        qsort_r(matched_keys, num_matched_keys, sizeof(CK_OBJECT_HANDLE),
+        qsort_r(matched_objs, num_matched_objs, sizeof(CK_OBJECT_HANDLE),
                 iterate_compare, &data);
 
         rc = data.rc;
@@ -3695,8 +3695,8 @@ done_find:
             goto done;
     }
 
-    for (i = 0; i < num_matched_keys; i++) {
-        rc = get_key_infos(matched_keys[i], &class, &ktype, &keysize,
+    for (i = 0; i < num_matched_objs; i++) {
+        rc = get_key_infos(matched_objs[i], &class, &ktype, &keysize,
                            &label, &typestr, &type);
         if (rc == CKR_KEY_NEEDED) {
             rc = CKR_OK;
@@ -3705,7 +3705,7 @@ done_find:
         if (rc != CKR_OK)
             break;
 
-        rc = handle_key(matched_keys[i], class, type, keysize, typestr, label,
+        rc = handle_obj(matched_objs[i], class, type, keysize, typestr, label,
                         private);
         if (rc != CKR_OK)
             break;
@@ -3726,8 +3726,8 @@ done:
         free(label);
     if (typestr != NULL)
         free(typestr);
-    if (matched_keys != NULL)
-        free(matched_keys);
+    if (matched_objs != NULL)
+        free(matched_objs);
 
     return rc;
 }
@@ -4695,9 +4695,9 @@ static CK_RV p11sak_list_key(void)
         printf("-+--------------------\n");
     }
 
-    rc = iterate_key_objects(keytype, opt_label, opt_id, opt_attr,
-                             opt_sort != NULL ? p11sak_list_key_compare : NULL,
-                             handle_obj_list, &data);
+    rc = iterate_objects(keytype, opt_label, opt_id, opt_attr,
+                         opt_sort != NULL ? p11sak_list_key_compare : NULL,
+                         handle_obj_list, &data);
     if (rc != CKR_OK) {
         warnx("Failed to iterate over key objects for key type %s: 0x%lX: %s",
                 keytype != NULL ? keytype->name : "All", rc, p11_get_ckr(rc));
@@ -4814,8 +4814,8 @@ static CK_RV p11sak_remove_key(void)
 
     data.remove_all = opt_force;
 
-    rc = iterate_key_objects(keytype, opt_label, opt_id, opt_attr, NULL,
-                             handle_obj_remove, &data);
+    rc = iterate_objects(keytype, opt_label, opt_id, opt_attr, NULL,
+                         handle_obj_remove, &data);
     if (rc != CKR_OK) {
         warnx("Failed to iterate over key objects for key type %s: 0x%lX: %s",
                 keytype != NULL ? keytype->name : "All", rc, p11_get_ckr(rc));
@@ -4964,8 +4964,8 @@ static CK_RV p11sak_set_key_attr(void)
 
     data.set_all = opt_force;
 
-    rc = iterate_key_objects(keytype, opt_label, opt_id, opt_attr, NULL,
-                             handle_obj_set_attr, &data);
+    rc = iterate_objects(keytype, opt_label, opt_id, opt_attr, NULL,
+                         handle_obj_set_attr, &data);
     if (rc != CKR_OK) {
         warnx("Failed to iterate over key objects for key type %s: 0x%lX: %s",
                 keytype != NULL ? keytype->name : "All", rc, p11_get_ckr(rc));
@@ -5102,8 +5102,8 @@ static CK_RV p11sak_copy_key(void)
 
     data.copy_all = opt_force;
 
-    rc = iterate_key_objects(keytype, opt_label, opt_id, opt_attr, NULL,
-                             handle_obj_copy, &data);
+    rc = iterate_objects(keytype, opt_label, opt_id, opt_attr, NULL,
+                         handle_obj_copy, &data);
     if (rc != CKR_OK) {
         warnx("Failed to iterate over key objects for key type %s: 0x%lX: %s",
                 keytype != NULL ? keytype->name : "All", rc, p11_get_ckr(rc));
@@ -7157,8 +7157,8 @@ static CK_RV p11sak_export_key(void)
         return CKR_ARGUMENTS_BAD;
     }
 
-    rc = iterate_key_objects(keytype, opt_label, opt_id, opt_attr, NULL,
-                             handle_key_export, &data);
+    rc = iterate_objects(keytype, opt_label, opt_id, opt_attr, NULL,
+                         handle_key_export, &data);
     if (rc != CKR_OK) {
         warnx("Failed to iterate over key objects for key type %s: 0x%lX: %s",
                 keytype != NULL ? keytype->name : "All", rc, p11_get_ckr(rc));
