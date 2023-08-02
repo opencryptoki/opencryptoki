@@ -330,7 +330,6 @@ struct cca_private_data {
     unsigned int num_usagedoms;
     unsigned short usage_domains[256];
     CK_BBOOL inconsistent;
-    char serialno[CCA_SERIALNO_LENGTH + 1];
     struct cca_mk_change_op mk_change_ops[CCA_NUM_MK_TYPES];
     char token_config_filename[PATH_MAX];
     int pkey_mode;
@@ -1465,10 +1464,8 @@ static CK_RV cca_get_current_domain(unsigned short *domain)
     return CKR_OK;
 }
 
-static CK_RV cca_get_current_card(STDLL_TokData_t *tokdata,
-                                  unsigned short *card)
+static CK_RV cca_get_current_card(unsigned short *card, char *serialret)
 {
-    struct cca_private_data *cca_private = tokdata->private_data;
     char serialno[CCA_SERIALNO_LENGTH + 1];
     DIR *d;
     struct dirent *de;
@@ -1480,14 +1477,12 @@ static CK_RV cca_get_current_card(STDLL_TokData_t *tokdata,
     CK_BBOOL found = FALSE;
     CK_RV rc;
 
-    if (cca_private->dev_any) {
-        /* Get serial number of current adapter */
-        rc = cca_get_adapter_serial_number(serialno);
-        if (rc != CKR_OK)
-            return rc;
+    /* Get serial number of current adapter */
+    rc = cca_get_adapter_serial_number(serialno);
+    if (rc != CKR_OK)
+        return rc;
 
-        TRACE_DEVEL("serialno: %s\n", serialno);
-    }
+    TRACE_DEVEL("serialno: %s\n", serialno);
 
     if (regcomp(&reg_buf, REGEX_CARD_PATTERN, REG_EXTENDED) != 0) {
         TRACE_ERROR("Failed to compile regular expression '%s'\n",
@@ -1519,8 +1514,7 @@ static CK_RV cca_get_current_card(STDLL_TokData_t *tokdata,
             rc = file_fgets(fname, buf, sizeof(buf));
             if (rc != CKR_OK)
                 continue;
-            if (strcmp(buf, cca_private->dev_any ?
-                                    serialno : cca_private->serialno) != 0)
+            if (strcmp(buf, serialno) != 0)
                 continue;
 
             if (sscanf(de->d_name + 4, "%lx", &val) != 1)
@@ -1534,6 +1528,14 @@ static CK_RV cca_get_current_card(STDLL_TokData_t *tokdata,
 
     closedir(d);
     regfree(&reg_buf);
+
+    if (found && serialret != NULL)
+        strcpy(serialret, serialno);
+
+    if (found)
+        TRACE_DEVEL("Current card is %02x with serialno %s\n", *card, serialno);
+    else
+        TRACE_ERROR("Card with serialno %s not found in sysfs\n", serialno);
 
     return found ? CKR_OK : CKR_DEVICE_ERROR;
 }
@@ -1561,6 +1563,7 @@ static CK_RV cca_iterate_domains(STDLL_TokData_t *tokdata, const char *device,
     unsigned short card, domain = 0;
     unsigned int i, num_found = 0;
     CK_RV rc2, rc = CKR_OK;
+    char serialno[CCA_SERIALNO_LENGTH + 1] = { 0 };
 
     if (cca_private->dom_any == FALSE) {
         rc = cca_get_current_domain(&domain);
@@ -1569,7 +1572,7 @@ static CK_RV cca_iterate_domains(STDLL_TokData_t *tokdata, const char *device,
     }
 
     if (cca_private->dev_any == FALSE) {
-        rc = cca_get_current_card(tokdata, &card);
+        rc = cca_get_current_card(&card, serialno);
         if (rc != CKR_OK)
             return rc;
     }
@@ -1595,8 +1598,8 @@ static CK_RV cca_iterate_domains(STDLL_TokData_t *tokdata, const char *device,
         } else {
             memcpy(rule_array, "SERIAL  ", CCA_KEYWORD_SIZE);
             rule_array_count = 1;
-            device_name_len = strlen(cca_private->serialno);
-            device_name = (unsigned char *)cca_private->serialno;
+            device_name_len = strlen(serialno);
+            device_name = (unsigned char *)serialno;
         }
 
         if (cca_private->dom_any) {
@@ -1620,7 +1623,7 @@ static CK_RV cca_iterate_domains(STDLL_TokData_t *tokdata, const char *device,
         }
 
         if (cca_private->dev_any) {
-            rc2 = cca_get_current_card(tokdata, &card);
+            rc2 = cca_get_current_card(&card, NULL);
             if (rc2 != CKR_OK) {
                 if (rc2 == CKR_FUNCTION_FAILED) /* device not avail., ignore */
                     rc2 = CKR_OK;
@@ -1699,7 +1702,7 @@ static CK_RV cca_iterate_adapters(STDLL_TokData_t *tokdata,
 
     if (cca_private->dev_any == FALSE && cca_private->dom_any == FALSE) {
         /* CCA default adapter and domain selection */
-        rc = cca_get_current_card(tokdata, &card);
+        rc = cca_get_current_card(&card, NULL);
         if (rc != CKR_OK)
             return rc;
 
@@ -2238,12 +2241,6 @@ static CK_RV cca_get_adapter_domain_selection_infos(STDLL_TokData_t *tokdata)
         return CKR_FUNCTION_FAILED;
     }
     TRACE_DEVEL("num_adapters: %u\n", cca_private->num_adapters);
-
-    memcpy(cca_private->serialno,
-           &rule_array[CCA_STATCRD2_SERIAL_NUMBER_OFFSET],
-           CCA_SERIALNO_LENGTH);
-    cca_private->serialno[CCA_SERIALNO_LENGTH] = '\0';
-    TRACE_DEVEL("serialno: %s\n", cca_private->serialno);
 
     /* Get number of domains */
     memcpy(rule_array, "DOM-NUMS", CCA_KEYWORD_SIZE);
