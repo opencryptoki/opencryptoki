@@ -4710,6 +4710,14 @@ static const struct p11sak_attr *find_attribute(CK_ATTRIBUTE_TYPE type)
         }
     }
 
+    for (keytype = p11sak_certtypes; (*keytype)->name != NULL; keytype++) {
+        for (attr = (*keytype)->cert_attrs;
+                                attr != NULL && attr->name != NULL; attr++) {
+            if (attr->type == type)
+                return attr;
+        }
+    }
+
     return NULL;
 }
 
