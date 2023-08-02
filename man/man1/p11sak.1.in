@@ -1469,6 +1469,81 @@ The
 .BR \-\-ca-cert | \-C
 option flags the certificate as a Certificate Authority (CA) certificate.
 .
+.SS "Exporting certificates to a file"
+.
+.B p11sak
+.BR export\-cert | exportc | expc
+.RI [ CERTTYPE ]
+.BR \-\-slot | \-s
+.I SLOTID
+.RB [ \-\-pin | \-p
+.IR PIN ]
+.RB [ \-\-force\-pin\-prompt ]
+.RB [ \-\-label | \-L
+.IR LABEL ]
+.RB [ \-\-id | \-i
+.IR ID ]
+.RB [ \-\-attr | \-a
+.IR ATTRS ]
+.RB [ \-\-force | \-f ]
+.BR \-\-file | \-F
+.I FILENAME
+.RB [ \-\-der | \- D ]
+.RB [ \-\-help | \-h ]
+.PP
+Use the
+.BR export\-cert | exportc | expc
+command and the optional
+.I CERTTYPE
+argument to export x.509 public key certificates to a file.
+.PP
+Possible values for the
+.I CERTTYPE
+argument are:
+.BR x509 .
+If
+.I CERTTYPE
+is omitted, then x509 is used by default, because no other certificate types are
+supported.
+.PP
+Specify the
+.BR \-\-label | \-L
+.IR LABEL ,
+the
+.BR \-\-id | \-i
+.IR ID ,
+and/or the
+.BR \-\-attr | \-a
+.I ATTRS
+options to filter the list of certificates to export. You can use wildcards
+(\fB*\fP and \fB?\fP) in the
+.I LABEL
+specification. To specify a wildcard character that should not be treated as a
+wildcard, it must be escaped using a backslash (\fB\e*\fP or \fB\e?\fP).
+Also, a backslash character that should not be treated as an escape character
+must be escaped (\fB\e\e\fP).
+The
+.B ID
+must be specified as hex string (not prefixed with 0x) of any number of bytes.
+.PP
+The
+.BR \-\-file | \-F
+.I FILENAME
+option specifies the file name of the file to which the certificates to be 
+exported are written to. This can be an OpenSSL PEM file or binary (DER-encoded)
+file. If it's a PEM file, multiple certificates can be exported to the same 
+file. If it's a binary file, each subsequent export will overwrite the previous
+data in the output file. You are prompted to confirm to overwrite the previously
+created file, unless the
+.RB [ \-\-force | \-f ]
+option is specified.
+.PP
+Specify the
+.BR \-\-der | \-D
+option to export the certificate(s) in binary (DER-encoded) form. Default is
+PEM format.
+.PP
+.
 .SH ARGUMENTS
 .
 .SS "KEYTYPE"
@@ -2019,6 +2094,17 @@ The key material in the file specified with the
 .BR \-\-file | \-F
 .I FILENAME
 option is an opaque secure key blob. Not all tokens support this.
+.RE
+.PP
+.
+.
+.
+.TP 8
+.BR \-\-der | \-D
+The certificate is written to the file in binary (DER-encoded) form. Default is
+PEM format. Note that only one certificate can be written into a given file in
+DER-encoded form, while multiple certificates can be written into the same file
+in PEM format.
 .RE
 .PP
 .
