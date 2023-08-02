@@ -67,6 +67,7 @@ static CK_RV p11sak_remove_cert(void);
 static CK_RV p11sak_set_cert_attr(void);
 static CK_RV p11sak_copy_cert(void);
 static CK_RV p11sak_import_cert(void);
+static CK_RV p11sak_export_cert(void);
 static void print_import_cert_attr_help(void);
 static void print_list_cert_attr_help(void);
 static void print_set_copy_cert_attr_help(void);
@@ -112,6 +113,7 @@ static bool opt_force_pem_pwd_prompt = false;
 static bool opt_opaque = false;
 static struct p11sak_enum_value *opt_asym_kind = NULL;
 static bool opt_spki = false;
+static bool opt_der = false;
 static bool opt_cacert = false;
 
 static bool opt_slot_is_set(const struct p11sak_arg *arg);
@@ -237,7 +239,9 @@ static CK_RV p11sak_export_dilithium_kyber_pem_data(
                                         unsigned char **data, size_t *data_len,
                                         bool private, CK_OBJECT_HANDLE key,
                                         const char *label);
-
+static CK_RV p11sak_export_x509(const struct p11sak_objtype *certtype,
+                                unsigned char **data, size_t *data_len,
+                                CK_OBJECT_HANDLE cert, const char *label);
 static void print_bool_attr_short(const CK_ATTRIBUTE *val, bool applicable);
 static void print_bool_attr_long(const char *attr, const CK_ATTRIBUTE *val,
                                  int indent, bool sensitive);
@@ -870,6 +874,7 @@ static const struct p11sak_objtype p11sak_x509_certtype = {
     .filter_attr = CKA_CERTIFICATE_TYPE, .filter_value = CKC_X_509,
     .cert_attrs = p11sak_x509_attrs,
     .import_x509_data = p11sak_import_x509_attrs,
+    .export_x509_data = p11sak_export_x509,
 };
 
 static const struct p11sak_objtype *p11sak_keytypes[] = {
@@ -1796,6 +1801,34 @@ static const struct p11sak_opt p11sak_export_key_opts[] = {
     { .short_opt = 0, .long_opt = NULL, },
 };
 
+static const struct p11sak_opt p11sak_export_cert_opts[] = {
+    PKCS11_OPTS,
+    CERT_FILTER_OPTS,
+    { .short_opt = 'f', .long_opt = "force", .required = false,
+      .arg =  { .type = ARG_TYPE_PLAIN, .required = false,
+                .value.plain = &opt_force, },
+      .description = "Do not prompt for a confirmation to export a certificate. "
+                     "Use with care, all certificates matching the filter will be "
+                     "exported! If it's a PEM file, multiple certificates can "
+                     "be exported to the same file. If it's a binary file, "
+                     "each subsequent export will overwrite the previous data "
+                     "in the output file. You are prompted to confirm to "
+                     "overwrite the previously created file, unless the "
+                     "[--force|-f] option is specified.", },
+    { .short_opt = 'F', .long_opt = "file", .required = true,
+      .arg =  { .type = ARG_TYPE_STRING, .required = true,
+                .value.string = &opt_file, .name = "FILENAME", },
+      .description = "The file name of the file to which the certificates to be "
+                     "exported are written to. Supported output formats "
+                     "are PEM and binary (DER-encoded).",},
+    { .short_opt = 'D', .long_opt = "der", .required = false,
+      .arg = { .type = ARG_TYPE_PLAIN, .required = false,
+               .value.plain = &opt_der, },
+      .description = "The certificate is written to the file in binary "
+                     "(DER-encoded) form. Default is PEM.", },
+    { .short_opt = 0, .long_opt = NULL, },
+};
+
 static const struct p11sak_arg p11sak_export_key_args[] = {
     { .name = "KEYTYPE", .type = ARG_TYPE_ENUM, .required = false,
       .enum_values = p11sak_list_remove_set_copy_export_key_keytypes,
@@ -1803,6 +1836,17 @@ static const struct p11sak_arg p11sak_export_key_args[] = {
       .description = "The type of the keys to select for export (optional). "
                      "If no key type is specified, all key types are "
                      "selected.", },
+    { .name = NULL },
+};
+
+static const struct p11sak_arg p11sak_export_cert_args[] = {
+    { .name = "CERTTYPE", .type = ARG_TYPE_ENUM, .required = false,
+      .enum_values = p11sak_list_remove_set_copy_export_cert_certtypes,
+      .value.enum_value = &opt_certtype,
+      .description = "The type of the certificates to select for export "
+                     "(optional). If no certificate type is specified, "
+                     "certificate type x509 is used, because currently no "
+                     "other certificate types are supported.", },
     { .name = NULL },
 };
 
@@ -1875,6 +1919,11 @@ static const struct p11sak_cmd p11sak_commands[] = {
       .description = "Import a certificate from a binary file or PEM file.",
       .help = print_import_cert_attr_help,
       .session_flags = CKF_SERIAL_SESSION | CKF_RW_SESSION, },
+    { .cmd = "export-cert", .cmd_short1 = "exportc", .cmd_short2 = "expc",
+      .func = p11sak_export_cert,
+      .opts = p11sak_export_cert_opts, .args = p11sak_export_cert_args,
+      .description = "Export certificates to a binary file or PEM file.",
+      .session_flags = CKF_SERIAL_SESSION, },
     { .cmd = NULL, .func = NULL },
 };
 
@@ -7978,6 +8027,103 @@ done:
     return rc;
 }
 
+CK_RV x509_to_pem(X509 *cert, CK_BYTE **data, CK_ULONG *data_len)
+{
+    BIO *bio = NULL;
+    BUF_MEM *bptr;
+    CK_BYTE *pem = NULL;
+    int bio_len;
+    CK_RV rc;
+
+    bio = BIO_new(BIO_s_mem());
+    if (bio == NULL)
+        return CKR_HOST_MEMORY;
+
+    if (!PEM_write_bio_X509(bio, cert)) {
+        ERR_print_errors_cb(openssl_err_cb, NULL);
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+
+    BIO_get_mem_ptr(bio, &bptr);
+    bio_len = bptr->length;
+
+    pem = malloc(bio_len);
+    if (pem == NULL) {
+        rc = CKR_HOST_MEMORY;
+        goto done;
+    }
+
+    if (BIO_read(bio, pem, bio_len) != bio_len) {
+        ERR_print_errors_cb(openssl_err_cb, NULL);
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+
+    *data = pem;
+    *data_len = bio_len;
+
+    rc = CKR_OK;
+
+done:
+    if (bio != NULL)
+        BIO_free(bio);
+
+    return rc;
+}
+
+static CK_RV p11sak_export_x509(const struct p11sak_objtype *certtype,
+                                unsigned char **data, size_t *data_len,
+                                CK_OBJECT_HANDLE cert,
+                                const char *label)
+{
+    CK_ATTRIBUTE attr = { CKA_VALUE, NULL, 0 };
+    const CK_BYTE *tmp_value;
+    X509* x509;
+    CK_RV rc;
+
+    rc = get_attribute(cert, &attr);
+    if (rc != CKR_OK) {
+        warnx("Failed to retrieve attribute CKA_VALUE from %s certificate "
+              "object \"%s\": 0x%lX: %s", certtype->name, label, rc,
+              p11_get_ckr(rc));
+        return rc;
+    }
+
+    if (opt_der) {
+        *data = attr.pValue;
+        *data_len = attr.ulValueLen;
+    } else {
+        tmp_value = (CK_BYTE *)attr.pValue;
+        x509 = d2i_X509(NULL, &tmp_value, attr.ulValueLen);
+        if (x509 == NULL) {
+            warnx("Failed to convert CKA_VALUE from %s certificate "
+                  "object \"%s\" to X509 object.", certtype->name, label);
+            ERR_print_errors_cb(openssl_err_cb, NULL);
+            rc = CKR_FUNCTION_FAILED;
+            if (attr.pValue != NULL)
+                free(attr.pValue);
+            goto done;
+        }
+        rc = x509_to_pem(x509, data, data_len);
+        X509_free(x509);
+        if (attr.pValue != NULL)
+            free(attr.pValue);
+        if (rc != CKR_OK) {
+            warnx("Failed to convert X509 from %s certificate "
+                  "object \"%s\" to PEM form.", certtype->name, label);
+            rc = CKR_FUNCTION_FAILED;
+            goto done;
+        }
+    }
+
+    rc = CKR_OK;
+
+done:
+
+    return rc;
+}
+
 static CK_RV p11sak_export_ec_pkey(const struct p11sak_objtype *keytype,
                                    EVP_PKEY **pkey, bool private,
                                    CK_OBJECT_HANDLE key, const char *label)
@@ -8592,6 +8738,115 @@ done:
     return rc;
 }
 
+static CK_RV handle_cert_export(CK_OBJECT_HANDLE cert, CK_OBJECT_CLASS class,
+                                const struct p11sak_objtype *certtype,
+                                CK_ULONG keysize, const char *typestr,
+                                const char* label, const char *common_name,
+                                void *private)
+{
+    struct p11sak_export_data *data = private;
+    char *msg = NULL;
+    BIO *bio = NULL;
+    bool overwrite = false;
+    char ch;
+    CK_BYTE *cert_data = NULL;
+    CK_ULONG data_len = 0;
+    CK_RV rc;
+
+    UNUSED(class);
+    UNUSED(keysize);
+    UNUSED(common_name);
+
+    if (data->skip_all) {
+        data->num_skipped++;
+        return CKR_OK;
+    }
+
+    if (!data->export_all) {
+        if (asprintf(&msg, "Are you sure you want to export %s certificate object \"%s\" [y/n/a/c]? ",
+                     typestr, label) < 0 ||
+            msg == NULL) {
+            warnx("Failed to allocate memory for a message");
+            return CKR_HOST_MEMORY;
+        }
+        ch = prompt_user(msg, "ynac");
+        free(msg);
+
+        switch (ch) {
+        case 'n':
+            data->num_skipped++;
+            return CKR_OK;
+        case 'c':
+        case '\0':
+            data->skip_all = true;
+            data->num_skipped++;
+            return CKR_OK;
+        case 'a':
+            data->export_all = true;
+            break;
+        default:
+            break;
+        }
+    }
+
+    if (opt_der && data->num_exported > 0) {
+        printf("The last exported and current certificate are both in binary "
+               "form.\nIt's not possible to write both into the same file.\n");
+        overwrite = true;
+    }
+
+    if (overwrite && !opt_force) {
+        ch = prompt_user("Overwrite the previously exported certificate(s) [y/n]? ",
+                         "yn");
+        switch (ch) {
+        case 'n':
+            data->num_skipped++;
+            return CKR_OK;
+        default:
+            break;
+        }
+    }
+
+    bio = BIO_new_file(opt_file,
+                       overwrite || data->num_exported == 0 ? "w" : "a");
+    if (bio == NULL) {
+        warnx("Failed to open output file '%s'.", opt_file);
+        ERR_print_errors_cb(openssl_err_cb, NULL);
+        data->num_failed++;
+        return CKR_ARGUMENTS_BAD;
+    }
+
+    rc = certtype->export_x509_data(certtype, &cert_data, &data_len, cert, label);
+    if (rc != CKR_OK) {
+        warnx("Failed to export certificate object into X509 object, rc=%lx.",rc);
+        data->num_failed++;
+        rc = CKR_OK;
+        goto done;
+    }
+
+    if (BIO_write(bio, cert_data, data_len) != (int)data_len) {
+        warnx("Failed to write to file '%s'.", opt_file);
+        ERR_print_errors_cb(openssl_err_cb, NULL);
+        data->num_failed++;
+        rc = CKR_OK;
+        goto done;
+    }
+
+    printf("Successfully exported %s certificate object \"%s\" to file '%s'.\n",
+           typestr, label, opt_file);
+    data->num_exported++;
+
+    data->last_was_pem = !opt_der;
+    data->last_was_binary = opt_der;
+
+done:
+    free(cert_data);
+    if (bio != NULL)
+        BIO_free(bio);
+
+    return rc;
+}
+
 static CK_RV p11sak_export_key(void)
 {
     const struct p11sak_objtype *keytype = NULL;
@@ -8622,6 +8877,35 @@ static CK_RV p11sak_export_key(void)
         printf("%lu key object(s) skipped.\n", data.num_skipped);
     if (data.num_failed > 0)
         printf("%lu key object(s) failed to export.\n", data.num_failed);
+
+    return data.num_failed == 0 ? CKR_OK : CKR_FUNCTION_FAILED;
+}
+
+static CK_RV p11sak_export_cert(void)
+{
+    const struct p11sak_objtype *certtype = NULL;
+    struct p11sak_export_data data = { 0 };
+    CK_RV rc;
+
+    if (opt_certtype != NULL)
+        certtype = opt_certtype->private.ptr;
+
+    data.export_all = opt_force;
+
+    rc = iterate_objects(certtype, opt_label, opt_id, opt_attr,
+                         OBJCLASS_CERTIFICATE, NULL,
+                         handle_cert_export, &data);
+    if (rc != CKR_OK) {
+        warnx("Failed to iterate over certificate objects for type %s: 0x%lX: %s",
+                certtype != NULL ? certtype->name : "All", rc, p11_get_ckr(rc));
+        return rc;
+    }
+
+    printf("%lu certificate object(s) exported.\n", data.num_exported);
+    if (data.num_skipped > 0)
+        printf("%lu certificate object(s) skipped.\n", data.num_skipped);
+    if (data.num_failed > 0)
+        printf("%lu certificate object(s) failed to export.\n", data.num_failed);
 
     return data.num_failed == 0 ? CKR_OK : CKR_FUNCTION_FAILED;
 }

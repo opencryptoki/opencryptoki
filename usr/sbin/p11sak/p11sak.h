@@ -180,6 +180,9 @@ struct p11sak_objtype {
     CK_RV (*import_x509_data)(const struct p11sak_objtype *certtype,
                               X509 *x509, CK_ATTRIBUTE **attrs,
                               CK_ULONG *num_attrs);
+    CK_RV (*export_x509_data)(const struct p11sak_objtype *certtype,
+                              unsigned char **data, size_t *data_len,
+                              CK_OBJECT_HANDLE cert, const char *label);
 };
 
 struct p11sak_class {
