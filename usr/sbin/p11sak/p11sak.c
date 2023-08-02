@@ -5115,21 +5115,43 @@ static CK_RV parse_sort_specification(const char *sort_spec,
             goto done;
         }
 
-        switch (tolower(*tok)) {
-        case 'l':
-            data->sort_info[i].field = SORT_LABEL;
+        switch (data->objclass) {
+        case OBJCLASS_CERTIFICATE:
+            switch (tolower(*tok)) {
+            case 'l':
+                data->sort_info[i].field = SORT_LABEL;
+                break;
+            case 'n':
+                data->sort_info[i].field = SORT_CN;
+                break;
+            default:
+                warnx("Invalid sort field designator: '%c'.", *tok);
+                rc = CKR_ARGUMENTS_BAD;
+                goto done;
+            }
             break;
-        case 'k':
-            data->sort_info[i].field = SORT_KEYTYPE;
-            break;
-        case 'c':
-            data->sort_info[i].field = SORT_CLASS;
-            break;
-        case 's':
-            data->sort_info[i].field = SORT_KEYSIZE;
+        case OBJCLASS_KEY:
+            switch (tolower(*tok)) {
+            case 'l':
+                data->sort_info[i].field = SORT_LABEL;
+                break;
+            case 'k':
+                data->sort_info[i].field = SORT_KEYTYPE;
+                break;
+            case 'c':
+                data->sort_info[i].field = SORT_CLASS;
+                break;
+            case 's':
+                data->sort_info[i].field = SORT_KEYSIZE;
+                break;
+            default:
+                warnx("Invalid sort field designator: '%c'.", *tok);
+                rc = CKR_ARGUMENTS_BAD;
+                goto done;
+            }
             break;
         default:
-            warnx("Invalid sort field designator: '%c'.", *tok);
+            warnx("Cannot sort objects of class %d", data->objclass);
             rc = CKR_ARGUMENTS_BAD;
             goto done;
         }
