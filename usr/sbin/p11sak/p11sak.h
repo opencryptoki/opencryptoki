@@ -173,6 +173,8 @@ struct p11sak_objtype {
                                   const char *label);
     const char *pem_name_private;
     const char *pem_name_public;
+    /* Following entries are for certificates */
+    const struct p11sak_attr *cert_attrs;
 };
 
 struct p11sak_class {

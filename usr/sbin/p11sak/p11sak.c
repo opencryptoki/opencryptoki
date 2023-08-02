@@ -226,6 +226,14 @@ static void print_bool_attr_long(const char *attr, const CK_ATTRIBUTE *val,
                                  int indent, bool sensitive);
 static void print_utf8_attr(const char *attr, const CK_ATTRIBUTE *val,
                             int indent, bool sensitive);
+static void print_java_midp_secdom_attr(const char *attr, const CK_ATTRIBUTE *val,
+                                        int indent, bool sensitive);
+static void print_cert_category_attr(const char *attr, const CK_ATTRIBUTE *val,
+                                     int indent, bool sensitive);
+static void print_x509_name_attr(const char *attr, const CK_ATTRIBUTE *val,
+                                 int indent, bool sensitive);
+static void print_x509_attr(const char *attr, const CK_ATTRIBUTE *val,
+                            int indent, bool sensitive);
 static void print_byte_array_attr(const char *attr, const CK_ATTRIBUTE *val,
                                   int indent, bool sensitive);
 static void print_ulong_attr(const char *attr, const CK_ATTRIBUTE *val,
@@ -242,6 +250,8 @@ static void print_class_attr(const char *attr, const CK_ATTRIBUTE *val,
                              int indent, bool sensitive);
 static void print_key_type_attr(const char *attr, const CK_ATTRIBUTE *val,
                                 int indent, bool sensitive);
+static void print_cert_type_attr(const char *attr, const CK_ATTRIBUTE *val,
+                                 int indent, bool sensitive);
 static void print_oid_attr(const char *attr, const CK_ATTRIBUTE *val,
                            int indent, bool sensitive);
 static void print_ibm_dilithium_keyform_attr(const char *attr,
@@ -250,6 +260,67 @@ static void print_ibm_dilithium_keyform_attr(const char *attr,
 static void print_ibm_kyber_keyform_attr(const char *attr,
                                          const CK_ATTRIBUTE *val,
                                          int indent, bool sensitive);
+
+#define DECLARE_CERT_ATTRS                                                     \
+    { .name = "CKA_LABEL", .type = CKA_LABEL,                                  \
+      .secret = true, .public = true, .private = true, .settable = true,       \
+      .print_long = print_utf8_attr, },                                        \
+    { .name = "CKA_CLASS", .type = CKA_CLASS,                                  \
+      .secret = true, .public = true, .private = true, .settable = false,      \
+      .print_long = print_class_attr, },                                       \
+    { .name = "CKA_CERTIFICATE_TYPE", .type = CKA_CERTIFICATE_TYPE,            \
+      .secret = true, .public = true, .private = true, .settable = false,      \
+      .print_long = print_cert_type_attr, },                                   \
+    { .name = "CKA_CERTIFICATE_CATEGORY", .type = CKA_CERTIFICATE_CATEGORY,    \
+      .secret = true, .public = true, .private = true, .settable = false,      \
+      .print_long = print_cert_category_attr, },                               \
+    { .name = "CKA_CHECK_VALUE", .type = CKA_CHECK_VALUE,                      \
+      .secret = true, .public = true, .private = true, .settable = true,       \
+      .print_long = print_byte_array_attr, },                                  \
+    { .name = "CKA_START_DATE", .type = CKA_START_DATE,                        \
+      .secret = true, .public = true, .private = true, .settable = true,       \
+      .print_long = print_date_attr, },                                        \
+    { .name = "CKA_END_DATE", .type = CKA_END_DATE,                            \
+      .secret = true, .public = true, .private = true, .settable = true,       \
+      .print_long = print_date_attr, },                                        \
+    { .name = "CKA_PUBLIC_KEY_INFO", .type = CKA_PUBLIC_KEY_INFO,              \
+      .secret = true, .public = true, .private = true, .settable = true,       \
+      .print_long = print_byte_array_attr, }
+
+static const struct p11sak_attr p11sak_x509_attrs[] = {
+    DECLARE_CERT_ATTRS,
+    { .name = "CKA_SUBJECT", .type = CKA_SUBJECT,
+      .secret = true, .public = true, .private = true, .settable = true,
+      .print_long = print_x509_name_attr, },
+    { .name = "CKA_ID", .type = CKA_ID,
+      .secret = true, .public = true, .private = true, .settable = true,
+      .print_long = print_byte_array_attr, },
+    { .name = "CKA_ISSUER", .type = CKA_ISSUER,
+      .secret = true, .public = true, .private = true, .settable = true,
+      .print_long = print_x509_name_attr, },
+    { .name = "CKA_SERIAL_NUMBER", .type = CKA_SERIAL_NUMBER,
+      .secret = true, .public = false, .private = false, .settable = true,
+      .print_long = print_byte_array_attr, },
+    { .name = "CKA_VALUE", .type = CKA_VALUE,
+      .secret = true, .public = false, .private = false, .settable = true,
+      .print_long = print_x509_attr, },
+    { .name = "CKA_NAME_HASH_ALGORITHM", .type = CKA_NAME_HASH_ALGORITHM,
+      .secret = true, .public = false, .private = false, .settable = true,
+      .print_long = print_mech_attr, },
+    { .name = "CKA_HASH_OF_SUBJECT_PUBLIC_KEY", .type = CKA_HASH_OF_SUBJECT_PUBLIC_KEY,
+      .secret = true, .public = false, .private = false, .settable = true,
+      .print_long = print_byte_array_attr, },
+    { .name = "CKA_HASH_OF_ISSUER_PUBLIC_KEY", .type = CKA_HASH_OF_ISSUER_PUBLIC_KEY,
+      .secret = true, .public = false, .private = false, .settable = true,
+      .print_long = print_byte_array_attr, },
+    { .name = "CKA_URL", .type = CKA_URL,
+      .secret = true, .public = false, .private = false, .settable = true,
+      .print_long = print_utf8_attr, },
+    { .name = "CKA_JAVA_MIDP_SECURITY_DOMAIN", .type = CKA_JAVA_MIDP_SECURITY_DOMAIN,
+      .secret = true, .public = false, .private = false, .settable = true,
+      .print_long = print_java_midp_secdom_attr, },
+    { .name = NULL },
+};
 
 #define DECLARE_KEY_ATTRS                                                      \
     { .name = "CKA_LABEL", .type = CKA_LABEL,                                  \
@@ -776,6 +847,13 @@ static const struct p11sak_objtype p11sak_all_keytype = {
     .filter_attr = (CK_ATTRIBUTE_TYPE)-1,
 };
 
+static const struct p11sak_objtype p11sak_x509_certtype = {
+    .obj_typestr = "certificate", .obj_liststr = "Certificate",
+    .name = "X.509", .type = CKC_X_509, .ck_name = "CKC_X_509",
+    .filter_attr = CKA_CERTIFICATE_TYPE, .filter_value = CKC_X_509,
+    .cert_attrs = p11sak_x509_attrs,
+};
+
 static const struct p11sak_objtype *p11sak_keytypes[] = {
     &p11sak_des_keytype,
     &p11sak_3des_keytype,
@@ -788,6 +866,11 @@ static const struct p11sak_objtype *p11sak_keytypes[] = {
     &p11sak_ec_keytype,
     &p11sak_ibm_dilithium_keytype,
     &p11sak_ibm_kyber_keytype,
+    NULL,
+};
+
+static const struct p11sak_objtype *p11sak_certtypes[] = {
+    &p11sak_x509_certtype,
     NULL,
 };
 
@@ -3386,6 +3469,18 @@ static const struct p11sak_objtype *find_keytype(CK_KEY_TYPE ktype)
     return NULL;
 }
 
+static const struct p11sak_objtype *find_certtype(CK_KEY_TYPE ktype)
+{
+    const struct p11sak_objtype **kt;
+
+    for (kt = p11sak_certtypes; (*kt)->name != NULL; kt++) {
+        if ((*kt)->type == ktype)
+            return *kt;
+    }
+
+    return NULL;
+}
+
 static CK_RV get_key_infos(CK_OBJECT_HANDLE key, CK_OBJECT_CLASS *class,
                            CK_KEY_TYPE *ktype, CK_ULONG *keysize,
                            char** label, char** typestr,
@@ -3926,6 +4021,80 @@ static void print_utf8_attr(const char *attr, const CK_ATTRIBUTE *val,
     }
 }
 
+static void print_java_midp_secdom_attr(const char *attr, const CK_ATTRIBUTE *val,
+                                        int indent, bool sensitive)
+{
+    CK_JAVA_MIDP_SECURITY_DOMAIN secdom;
+
+    if (sensitive) {
+        printf("%*s%s: [sensitive]\n", indent, "", attr);
+        return;
+    } else if (val->ulValueLen == 0) {
+        printf("%*s%s: [no value]\n", indent, "", attr);
+        return;
+    } else if (val->ulValueLen != sizeof(CK_JAVA_MIDP_SECURITY_DOMAIN)) {
+        return;
+    }
+
+    secdom = *(CK_JAVA_MIDP_SECURITY_DOMAIN *)(val->pValue);
+
+    switch (secdom) {
+    case CK_SECURITY_DOMAIN_UNSPECIFIED:
+        printf("%*s%s: %s\n", indent, "", attr, "CK_SECURITY_DOMAIN_UNSPECIFIED");
+        break;
+    case CK_SECURITY_DOMAIN_MANUFACTURER:
+        printf("%*s%s: %s\n", indent, "", attr, "CK_SECURITY_DOMAIN_MANUFACTURER");
+        break;
+    case CK_SECURITY_DOMAIN_OPERATOR:
+        printf("%*s%s: %s\n", indent, "", attr, "CK_SECURITY_DOMAIN_OPERATOR");
+        break;
+    case CK_SECURITY_DOMAIN_THIRD_PARTY:
+        printf("%*s%s: %s\n", indent, "", attr, "CK_SECURITY_DOMAIN_THIRD_PARTY");
+        break;
+    default:
+        printf("%*s%s: 0x%lX\n", indent, "", attr,
+               *(CK_JAVA_MIDP_SECURITY_DOMAIN *)(val->pValue));
+        break;
+    }
+}
+
+static void print_cert_category_attr(const char *attr, const CK_ATTRIBUTE *val,
+                                     int indent, bool sensitive)
+{
+    CK_CERTIFICATE_CATEGORY category;
+
+    if (sensitive) {
+        printf("%*s%s: [sensitive]\n", indent, "", attr);
+        return;
+    } else if (val->ulValueLen == 0) {
+        printf("%*s%s: [no value]\n", indent, "", attr);
+        return;
+    } else if (val->ulValueLen != sizeof(CK_CERTIFICATE_CATEGORY)) {
+        return;
+    }
+
+    category = *(CK_CERTIFICATE_CATEGORY *)(val->pValue);
+
+    switch (category) {
+    case CK_CERTIFICATE_CATEGORY_UNSPECIFIED:
+        printf("%*s%s: %s\n", indent, "", attr, "CK_CERTIFICATE_CATEGORY_UNSPECIFIED");
+        break;
+    case CK_CERTIFICATE_CATEGORY_TOKEN_USER:
+        printf("%*s%s: %s\n", indent, "", attr, "CK_CERTIFICATE_CATEGORY_TOKEN_USER");
+        break;
+    case CK_CERTIFICATE_CATEGORY_AUTHORITY:
+        printf("%*s%s: %s\n", indent, "", attr, "CK_CERTIFICATE_CATEGORY_AUTHORITY");
+        break;
+    case CK_CERTIFICATE_CATEGORY_OTHER_ENTITY:
+        printf("%*s%s: %s\n", indent, "", attr, "CK_CERTIFICATE_CATEGORY_OTHER_ENTITY");
+        break;
+    default:
+        printf("%*s%s: 0x%lX\n", indent, "", attr,
+               *(CK_CERTIFICATE_CATEGORY *)(val->pValue));
+        break;
+    }
+}
+
 static void print_dump(CK_BYTE *p, CK_ULONG len, int indent)
 {
     CK_ULONG i;
@@ -3954,6 +4123,76 @@ static void print_byte_array_attr(const char *attr, const CK_ATTRIBUTE *val,
                val->ulValueLen);
         print_dump((CK_BYTE *)val->pValue, val->ulValueLen, indent + 4);
     }
+}
+
+static void print_x509_name_attr(const char *attr, const CK_ATTRIBUTE *val,
+                                 int indent, bool sensitive)
+{
+    X509_NAME *name = NULL;
+    const unsigned char *tmp_ptr;
+
+    if (sensitive) {
+        printf("%*s%s: [sensitive]\n", indent, "", attr);
+        return;
+    } else if (val->ulValueLen == 0) {
+        printf("%*s%s: [no value]\n", indent, "", attr);
+        return;
+    }
+
+    tmp_ptr = (const unsigned char *)val->pValue;
+    name = d2i_X509_NAME(NULL, &tmp_ptr, val->ulValueLen);
+    if (name != NULL) {
+        char *oneline = X509_NAME_oneline(name, NULL, 0);
+        if (oneline != NULL) {
+            printf("%*s%s: %s\n", indent, "", attr, oneline);
+            OPENSSL_free(oneline);
+        }
+        printf("%*s len=%lu value:", indent + 3, "", val->ulValueLen);
+        print_dump((CK_BYTE *)val->pValue, val->ulValueLen, indent + 4);
+    } else {
+        print_byte_array_attr(attr, val, indent, false);
+    }
+
+    if (name != NULL)
+        X509_NAME_free(name);
+}
+
+static void print_x509_attr(const char *attr, const CK_ATTRIBUTE *val,
+                            int indent, bool sensitive)
+{
+    X509 *x509 = NULL;
+    const unsigned char *tmp_ptr;
+    char buf[256];
+    BIO *bio;
+
+    if (sensitive) {
+        printf("%*s%s: [sensitive]\n", indent, "", attr);
+        return;
+    } else if (val->ulValueLen == 0) {
+        printf("%*s%s: [no value]\n", indent, "", attr);
+        return;
+    }
+
+    bio = BIO_new(BIO_s_mem());
+    tmp_ptr = (const unsigned char *)val->pValue;
+    x509 = d2i_X509(NULL, &tmp_ptr, val->ulValueLen);
+    if (x509 != NULL) {
+        printf("%*s%s: \n", indent, "", attr);
+        if (bio != NULL) {
+            X509_print(bio, x509);
+            while (BIO_gets(bio, buf, sizeof(buf)))
+                printf("%*s%s", indent + 4, "", buf);
+            printf("%*s len=%lu value:", indent + 3, "", val->ulValueLen);
+        }
+        print_dump((CK_BYTE *)val->pValue, val->ulValueLen, indent + 4);
+    } else {
+        print_byte_array_attr(attr, val, indent, false);
+    }
+
+    if (bio != NULL)
+        BIO_free(bio);
+    if (x509 != NULL)
+        X509_free(x509);
 }
 
 static void print_ulong_attr(const char *attr, const CK_ATTRIBUTE *val,
@@ -4169,6 +4408,33 @@ static void print_key_type_attr(const char *attr, const CK_ATTRIBUTE *val,
     else
         printf("%*s%s: 0x%lX\n", indent, "", attr,
                *(CK_KEY_TYPE *)(val->pValue));
+}
+
+static void print_cert_type_attr(const char *attr, const CK_ATTRIBUTE *val,
+                                 int indent, bool sensitive)
+{
+    const struct p11sak_objtype *ctype;
+    const char *name = NULL;
+
+    if ((val->ulValueLen == CK_UNAVAILABLE_INFORMATION && !sensitive) ||
+        val->ulValueLen != sizeof(CK_CERTIFICATE_TYPE))
+        return;
+
+    if (sensitive) {
+        printf("%*s%s: [sensitive]\n", indent, "", attr);
+        return;
+    }
+
+    ctype = find_certtype(*(CK_CERTIFICATE_TYPE *)(val->pValue));
+    if (ctype != NULL)
+        name = ctype->ck_name;
+
+    if (name != NULL)
+        printf("%*s%s: %s (0x%lX)\n", indent, "", attr, name,
+               *(CK_CERTIFICATE_TYPE *)(val->pValue));
+    else
+        printf("%*s%s: 0x%lX\n", indent, "", attr,
+               *(CK_CERTIFICATE_TYPE *)(val->pValue));
 }
 
 static void print_oid_attr(const char *attr, const CK_ATTRIBUTE *val,
