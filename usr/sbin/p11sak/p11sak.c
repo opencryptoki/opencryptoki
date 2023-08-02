@@ -62,6 +62,8 @@ static CK_RV p11sak_export_key(void);
 static void print_generate_import_key_attr_help(void);
 static void print_list_key_attr_help(void);
 static void print_set_copy_key_attr_help(void);
+static CK_RV p11sak_import_cert(void);
+static void print_import_cert_attr_help(void);
 
 static void *pkcs11_lib = NULL;
 static bool pkcs11_initialized = false;
@@ -79,6 +81,7 @@ static CK_SLOT_ID opt_slot = (CK_SLOT_ID)-1;
 static char *opt_pin = NULL;
 static bool opt_force_pin_prompt = false;
 static struct p11sak_enum_value *opt_keytype = NULL;
+static struct p11sak_enum_value *opt_certtype = NULL;
 static CK_ULONG opt_keybits_num = 0;
 static struct p11sak_enum_value *opt_keybits = NULL;
 static struct p11sak_enum_value *opt_group = NULL;
@@ -102,6 +105,7 @@ static bool opt_force_pem_pwd_prompt = false;
 static bool opt_opaque = false;
 static struct p11sak_enum_value *opt_asym_kind = NULL;
 static bool opt_spki = false;
+static bool opt_cacert = false;
 
 static bool opt_slot_is_set(const struct p11sak_arg *arg);
 static CK_RV generic_get_key_size(const struct p11sak_objtype *keytype,
@@ -184,6 +188,12 @@ static CK_RV p11sak_import_sym_clear_des_3des_aes_generic(
 static CK_RV p11sak_import_rsa_pkey(const struct p11sak_objtype *keytype,
                                     EVP_PKEY *pkey, bool private,
                                     CK_ATTRIBUTE **attrs, CK_ULONG *num_attrs);
+static CK_RV p11sak_import_cert_attrs(const struct p11sak_objtype *certtype,
+                                      X509 *x509, CK_ATTRIBUTE **attrs,
+                                      CK_ULONG *num_attrs);
+static CK_RV p11sak_import_x509_attrs(const struct p11sak_objtype *certtype,
+                                      X509 *x509, CK_ATTRIBUTE **attrs,
+                                      CK_ULONG *num_attrs);
 static CK_RV p11sak_import_dh_pkey(const struct p11sak_objtype *keytype,
                                     EVP_PKEY *pkey, bool private,
                                     CK_ATTRIBUTE **attrs, CK_ULONG *num_attrs);
@@ -852,6 +862,7 @@ static const struct p11sak_objtype p11sak_x509_certtype = {
     .name = "X.509", .type = CKC_X_509, .ck_name = "CKC_X_509",
     .filter_attr = CKA_CERTIFICATE_TYPE, .filter_value = CKC_X_509,
     .cert_attrs = p11sak_x509_attrs,
+    .import_x509_data = p11sak_import_x509_attrs,
 };
 
 static const struct p11sak_objtype *p11sak_keytypes[] = {
@@ -1457,6 +1468,39 @@ static const struct p11sak_opt p11sak_import_key_opts[] = {
     { .short_opt = 0, .long_opt = NULL, },
 };
 
+static const struct p11sak_opt p11sak_import_cert_opts[] = {
+    PKCS11_OPTS,
+    { .short_opt = 'L', .long_opt = "label", .required = true,
+      .arg =  { .type = ARG_TYPE_STRING, .required = true,
+                .value.string = &opt_label, .name = "LABEL", },
+      .description = "The label of the certificate to be imported.", },
+    { .short_opt = 'a', .long_opt = "attr", .required = false,
+      .arg =  { .type = ARG_TYPE_STRING, .required = true,
+                .value.string = &opt_attr, .name = "ATTRS", },
+      .description = "The boolean attributes to set for the certificate: "
+                     "P M B Y (optional). "
+                     "Specify a set of these letters without any blanks in "
+                     "between. See below for the meaning of the attribute "
+                     "letters.", },
+    { .short_opt = 'i', .long_opt = "id", .required = false,
+      .arg =  { .type = ARG_TYPE_STRING, .required = true,
+                .value.string = &opt_id, .name = "ID", },
+      .description = "The ID of the certificate to be imported. Specify a hex "
+                     "string (not prefixed with 0x) of any number of bytes.", },
+    { .short_opt = 'F', .long_opt = "file", .required = true,
+      .arg =  { .type = ARG_TYPE_STRING, .required = true,
+                .value.string = &opt_file, .name = "FILENAME", },
+      .description = "The file name of the file that contains the certificate "
+                     "to be imported. Supported input formats are PEM and binary "
+                     "(DER-encoded). The format is automatically detected.", },
+    { .short_opt = 'C', .long_opt = "ca-cert", .required = false,
+      .arg = { .type = ARG_TYPE_PLAIN, .required = false,
+               .value.plain = &opt_cacert, },
+      .description = "The certificate is a Certificate Authority (CA) "
+                     "certificate.", },
+    { .short_opt = 0, .long_opt = NULL, },
+};
+
 static const struct p11sak_enum_value p11sak_import_asym_types[] = {
     { .value = "public", .args = NULL, .private = { .num = false }, },
     { .value = "private", .args = NULL, .private = { .num = true }, },
@@ -1500,11 +1544,28 @@ static const struct p11sak_enum_value p11sak_import_key_keytypes[] = {
     { .value = NULL, },
 };
 
+#define IMPORT_CERTTYPES                                                       \
+    { .value = "x509", .args = NULL,                                           \
+      .private = { .ptr = &p11sak_x509_certtype, }, }
+
+static const struct p11sak_enum_value p11sak_import_cert_certtypes[] = {
+    IMPORT_CERTTYPES,
+    { .value = NULL, },
+};
+
 static const struct p11sak_arg p11sak_import_key_args[] = {
     { .name = "KEYTYPE", .type = ARG_TYPE_ENUM, .required = true,
       .enum_values = p11sak_import_key_keytypes,
       .value.enum_value = &opt_keytype,
       .description = "The type of the key. One of the following:", },
+    { .name = NULL },
+};
+
+static const struct p11sak_arg p11sak_import_cert_args[] = {
+    { .name = "CERTTYPE", .type = ARG_TYPE_ENUM, .required = true,
+      .enum_values = p11sak_import_cert_certtypes,
+      .value.enum_value = &opt_certtype,
+      .description = "The type of the certificate. One of the following:", },
     { .name = NULL },
 };
 
@@ -1600,6 +1661,12 @@ static const struct p11sak_cmd p11sak_commands[] = {
       .opts = p11sak_export_key_opts, .args = p11sak_export_key_args,
       .description = "Export keys to a binary file or PEM file.",
       .session_flags = CKF_SERIAL_SESSION, },
+    { .cmd = "import-cert", .cmd_short1 = "importc", .cmd_short2 = "impc",
+      .func = p11sak_import_cert,
+      .opts = p11sak_import_cert_opts, .args = p11sak_import_cert_args,
+      .description = "Import a certificate from a binary file or PEM file.",
+      .help = print_import_cert_attr_help,
+      .session_flags = CKF_SERIAL_SESSION | CKF_RW_SESSION, },
     { .cmd = NULL, .func = NULL },
 };
 
@@ -1634,6 +1701,15 @@ static const struct p11sak_attr p11sak_bool_attrs[] = {
                                              'K', true,  false, true,  true),
     DECLARE_BOOL_ATTR(CKA_IBM_PROTKEY_NEVER_EXTRACTABLE,
                                              'Z', true,  false, true,  false),
+    { .name = NULL, },
+};
+
+static const struct p11sak_attr p11sak_bool_cert_attrs[] = {
+    DECLARE_BOOL_ATTR(CKA_PRIVATE,           'P', true,  true,  true,  true),
+    DECLARE_BOOL_ATTR(CKA_MODIFIABLE,        'M', true,  true,  true,  true),
+    DECLARE_BOOL_ATTR(CKA_COPYABLE,          'B', true,  true,  true,  true),
+    DECLARE_BOOL_ATTR(CKA_DESTROYABLE,       'Y', true,  true,  true,  true),
+    DECLARE_BOOL_ATTR(CKA_TRUSTED,           'T', true,  true,  true,  false),
     { .name = NULL, },
 };
 
@@ -2224,6 +2300,27 @@ static void print_command_help(const struct p11sak_cmd *cmd)
     printf("\n");
     if (cmd->help != NULL)
         cmd->help();
+}
+
+static void print_import_cert_attr_help(void)
+{
+    const struct p11sak_attr *attr;
+
+    printf("ATTRIBUTES:\n");
+    for (attr = p11sak_bool_cert_attrs; attr->name != NULL; attr++) {
+        if (attr->settable)
+            printf("    '%c':   %s\n", attr->letter, attr->name);
+    }
+    printf("\n");
+
+    printf("    ");
+    print_indented("An uppercase letter sets the corresponding attribute to "
+                   "CK_TRUE, a lower case letter to CK_FALSE.\n"
+                   "If an attribute is not set explicitly, its default value "
+                   "is used.\n"
+                   "Not all attributes may be accepted for all certificate types.\n"
+                   "Attribute CKA_TOKEN is always set to CK_TRUE.", 4);
+    printf("\n");
 }
 
 static void print_generate_import_key_attr_help(void)
@@ -5755,6 +5852,262 @@ static CK_RV p11sak_import_sym_clear_des_3des_aes_generic(
     return add_attribute(CKA_VALUE, data, data_len, attrs, num_attrs);
 }
 
+static CK_RV ASN1_TIME2date(const ASN1_TIME *asn1time, CK_DATE *date)
+{
+    struct tm time;
+    char tmp[40];
+
+    if (!ASN1_TIME_to_tm(asn1time, &time)) {
+        warnx("ASN1_TIME_to_tm failed to convert the certificate's date");
+        ERR_print_errors_cb(openssl_err_cb, NULL);
+        return CKR_FUNCTION_FAILED;
+    }
+
+    snprintf(tmp, sizeof(tmp), "%04d%02d%02d",
+             time.tm_year + 1900, time.tm_mon + 1, time.tm_mday);
+    memcpy(date->year, tmp, 4);
+    memcpy(date->month, tmp + 4, 2);
+    memcpy(date->day, tmp + 4 + 2, 2);
+
+    return CKR_OK;
+}
+
+/*
+ * Imports the common attrs applicable for CKO_CERTIFICATE
+ */
+static CK_RV p11sak_import_cert_attrs(const struct p11sak_objtype *certtype,
+                                      X509 *x509, CK_ATTRIBUTE **attrs,
+                                      CK_ULONG *num_attrs)
+{
+    const ASN1_TIME *not_before, *not_after;
+    CK_BYTE *value_buf = NULL;
+    CK_BYTE check_buf[20];
+    CK_DATE start_date, end_date;
+    EVP_PKEY *pkey = NULL;
+    CK_BYTE *spki = NULL;
+    CK_ULONG spki_len, value_len;
+    EVP_MD_CTX *ctx = NULL;
+    unsigned int digest_len;
+    CK_RV rc = CKR_OK;
+
+    UNUSED(certtype);
+
+    /* CKA_START_DATE: CK_DATE struct of certificate start date */
+    not_before = X509_get0_notBefore(x509);
+    rc = ASN1_TIME2date(not_before, &start_date);
+    if (rc != CKR_OK)
+        goto done;
+
+    /* CKA_END_DATE: CK_DATE struct of certificate end date */
+    not_after = X509_get0_notAfter(x509);
+    rc = ASN1_TIME2date(not_after, &end_date);
+    if (rc != CKR_OK)
+        goto done;
+
+    /* CKA_PUBLIC_KEY_INFO: DER-encoding of the SubjectPublicKeyInfo */
+    pkey = X509_get_pubkey(x509);
+    if (pkey == NULL) {
+        warnx("509_get_pubkey failed to get the EVP_PKEY from X509");
+        ERR_print_errors_cb(openssl_err_cb, NULL);
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+    spki_len = i2d_PUBKEY(pkey, &spki);
+    if (spki_len <= 0) {
+        warnx("openssl i2d_PUBKEY failed to create spki from EVP_PKEY");
+        ERR_print_errors_cb(openssl_err_cb, NULL);
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+
+    /* CKA_VALUE: only needed for CKA_CHECK_VALUE below */
+    value_len = i2d_X509(x509, &value_buf);
+    if (value_len <= 0) {
+        warnx("i2d_X509 failed to convert the x509 into a buffer for cert's CKA_VALUE");
+        ERR_print_errors_cb(openssl_err_cb, NULL);
+        rc = CKR_HOST_MEMORY;
+        goto done;
+    }
+
+    /* CKA_CHECK_VALUE: first 3 bytes of the SHA-1 hash of CKA_VALUE */
+    ctx = EVP_MD_CTX_new();
+    if (ctx == NULL) {
+        warnx("Error creating MD_CTX for CKA_CHECK_VALUE");
+        ERR_print_errors_cb(openssl_err_cb, NULL);
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+    if (!EVP_DigestInit(ctx, EVP_sha1()) ||
+        !EVP_DigestUpdate(ctx, value_buf, value_len) ||
+        !EVP_DigestFinal(ctx, check_buf, &digest_len)) {
+        warnx("Error creating sha1 hash for CKA_CHECK_VALUE");
+        ERR_print_errors_cb(openssl_err_cb, NULL);
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+
+    /* Add attributes */
+    rc = add_attribute(CKA_CERTIFICATE_TYPE, &certtype->type, sizeof(certtype->type), attrs, num_attrs);
+    rc += add_attribute(CKA_START_DATE, &start_date, sizeof(CK_DATE), attrs, num_attrs);
+    rc += add_attribute(CKA_END_DATE, &end_date, sizeof(CK_DATE), attrs, num_attrs);
+    rc += add_attribute(CKA_PUBLIC_KEY_INFO, spki, spki_len, attrs, num_attrs);
+    rc += add_attribute(CKA_CHECK_VALUE, check_buf, 3, attrs, num_attrs);
+    if (rc != CKR_OK) {
+        warnx("Failed to add attributes for imported certificate.");
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+
+    rc = CKR_OK;
+
+done:
+    if (pkey != NULL)
+        EVP_PKEY_free(pkey);
+    if (ctx != NULL)
+        EVP_MD_CTX_free(ctx);
+    if (spki != NULL)
+        OPENSSL_free(spki);
+    if (value_buf != NULL)
+        OPENSSL_free(value_buf);
+
+    return rc;
+}
+
+/*
+ * Imports attributes for X.509 public key certificates
+ */
+static CK_RV p11sak_import_x509_attrs(const struct p11sak_objtype *certtype,
+                                      X509 *x509, CK_ATTRIBUTE **attrs,
+                                      CK_ULONG *num_attrs)
+{
+    const ASN1_INTEGER *serialno;
+    unsigned char *serial_buf = NULL;
+    BIGNUM *bn_serialno = NULL;
+    X509_NAME *name;
+    const unsigned char *subj_name = NULL, *issuer_name = NULL;
+    size_t subj_name_len, issuer_name_len;
+    CK_BYTE *value_buf = NULL;
+    EVP_PKEY *pkey = NULL;
+    unsigned char *spki = NULL;
+    unsigned char spki_hash[32];
+    CK_ULONG spki_len, spki_hash_len, serial_len, value_len;
+    EVP_MD_CTX *ctx = NULL;
+    CK_MECHANISM_TYPE name_hash_algo = CKM_SHA256;
+    unsigned int hash_len;
+    CK_RV rc = CKR_OK;
+
+    UNUSED(certtype);
+
+    /* CKA_SUBJECT: DER-encoding of the cert subject name */
+    name = X509_get_subject_name(x509);
+    if (!X509_NAME_get0_der(name, &subj_name, &subj_name_len)) {
+        warnx("OpenSSL X509_NAME_get0_der failed to return the certificate's subj name");
+        ERR_print_errors_cb(openssl_err_cb, NULL);
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+
+    /* CKA_ISSUER: DER-encoding of the cert issuer name */
+    name = X509_get_issuer_name(x509);
+    if (!X509_NAME_get0_der(name, &issuer_name, &issuer_name_len)) {
+        warnx("OpenSSL X509_NAME_get0_der failed to return the certificate's issuer name");
+        ERR_print_errors_cb(openssl_err_cb, NULL);
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+
+    /* CKA_SERIAL_NUMBER: serial number */
+    serialno = X509_get_serialNumber(x509);
+    bn_serialno = ASN1_INTEGER_to_BN(serialno, NULL);
+    serial_len = BN_num_bytes(bn_serialno);
+    serial_buf = OPENSSL_malloc(serial_len);
+    if (serial_buf == NULL) {
+        warnx("OPENSSL_malloc failed to allocate a buffer for the certificate's serial no");
+        ERR_print_errors_cb(openssl_err_cb, NULL);
+        rc = CKR_HOST_MEMORY;
+        goto done;
+    }
+    if (BN_bn2bin(bn_serialno, serial_buf) != (int)serial_len) {
+        warnx("OpenSSL BN_bn2bin failed to get the serial no length");
+        ERR_print_errors_cb(openssl_err_cb, NULL);
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+
+    /* CKA_VALUE: BER-encoding of certificate */
+    value_len = i2d_X509(x509, &value_buf);
+    if (value_len <= 0) {
+        warnx("OPENSSL_malloc failed to convert the x509 into a buffer for the certificate's CKA_VALUE");
+        ERR_print_errors_cb(openssl_err_cb, NULL);
+        rc = CKR_HOST_MEMORY;
+        goto done;
+    }
+
+    /* CKA_PUBLIC_KEY_INFO: only needed for CKA_HASH_OF_SUBJECT_PUBLIC_KEY */
+    pkey = X509_get_pubkey(x509);
+    if (pkey == NULL) {
+        warnx("X509_get_pubkey failed to get the EVP_PKEY from X509");
+        ERR_print_errors_cb(openssl_err_cb, NULL);
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+    spki_len = i2d_PUBKEY(pkey, &spki);
+    if (spki_len <= 0) {
+        warnx("OpenSSL i2d_PUBKEY failed to create spki from EVP_PKEY");
+        ERR_print_errors_cb(openssl_err_cb, NULL);
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+
+    /* CKA_HASH_OF_SUBJECT_PUBLIC_KEY: Hash of the subject public key.
+     * Hash algorithm is defined by CKA_NAME_HASH_ALGORITHM */
+    ctx = EVP_MD_CTX_new();
+    if (ctx == NULL) {
+        warnx("Error creating MD_CTX for CKA_HASH_OF_SUBJECT_PUBLIC_KEY");
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+    if (!EVP_DigestInit(ctx, EVP_sha256()) ||
+        !EVP_DigestUpdate(ctx, spki, spki_len) ||
+        !EVP_DigestFinal(ctx, spki_hash, &hash_len)) {
+        warnx("Error creating sha256 hash for CKA_HASH_OF_SUBJECT_PUBLIC_KEY");
+        ERR_print_errors_cb(openssl_err_cb, NULL);
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+    spki_hash_len = hash_len;
+
+    /* Add attributes */
+    rc = add_attribute(CKA_SUBJECT, subj_name, subj_name_len, attrs, num_attrs);
+    rc += add_attribute(CKA_ISSUER, issuer_name, issuer_name_len, attrs, num_attrs);
+    rc += add_attribute(CKA_SERIAL_NUMBER, serial_buf, serial_len, attrs, num_attrs);
+    rc += add_attribute(CKA_VALUE, value_buf, value_len, attrs, num_attrs);
+    rc += add_attribute(CKA_NAME_HASH_ALGORITHM, &name_hash_algo, sizeof(CK_MECHANISM_TYPE), attrs, num_attrs);
+    rc += add_attribute(CKA_HASH_OF_SUBJECT_PUBLIC_KEY, spki_hash, spki_hash_len, attrs, num_attrs);
+    if (rc != CKR_OK) {
+        warnx("Failed to add attributes for imported certificate.");
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+
+    rc = CKR_OK;
+
+done:
+    if (serial_buf != NULL)
+        OPENSSL_free(serial_buf);
+    if (value_buf != NULL)
+        OPENSSL_free(value_buf);
+    if (spki != NULL)
+        OPENSSL_free(spki);
+    if (pkey != NULL)
+        EVP_PKEY_free(pkey);
+    if (ctx != NULL)
+        EVP_MD_CTX_free(ctx);
+    if (bn_serialno!= NULL)
+        BN_free(bn_serialno);
+
+    return rc;
+}
 static CK_RV p11sak_import_rsa_pkey(const struct p11sak_objtype *keytype,
                                     EVP_PKEY *pkey, bool private,
                                     CK_ATTRIBUTE **attrs, CK_ULONG *num_attrs)
@@ -6266,6 +6619,92 @@ static int p11sak_pem_password_cb(char *buf, int size, int rwflag,
     pin_free(&buf_pem_password);
 
     return len;
+}
+
+static CK_RV p11sak_x509_from_pem_file(X509 **x509)
+{
+    BIO *bio = NULL;
+    X509 *x = NULL;
+    CK_RV rc;
+
+    bio = BIO_new_file(opt_file, "r");
+    if (bio == NULL) {
+        warnx("Failed to open file '%s'", opt_file);
+        ERR_print_errors_cb(openssl_err_cb, NULL);
+        rc = CKR_ARGUMENTS_BAD;
+        goto done;
+    }
+
+    x = PEM_read_bio_X509(bio, NULL, p11sak_pem_password_cb, NULL);
+    if (x == NULL) {
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+
+    *x509 = x;
+    rc = CKR_OK;
+
+done:
+    if (bio != NULL)
+        BIO_free(bio);
+
+    return rc;
+}
+
+static CK_RV p11sak_x509_from_der_file(X509 **x509)
+{
+    CK_BYTE *value;
+    CK_ULONG value_len;
+    const CK_BYTE *tmp_value;
+    X509 *x;
+    struct stat sb;
+    FILE *fp = NULL;
+    CK_RV rc;
+
+    if (stat(opt_file, &sb) != 0) {
+        warnx("Failed to access file '%s': %s", opt_file, strerror(errno));
+        return CKR_ARGUMENTS_BAD;
+    }
+
+    value_len = sb.st_size;
+    value = malloc(value_len);
+    if (value == NULL) {
+        warnx("Cannot malloc %ld bytes for DER file contents.", value_len);
+        return CKR_HOST_MEMORY;
+    }
+
+    fp = fopen(opt_file, "r");
+    if (fp == NULL) {
+        warnx("Failed to open file '%s': %s", opt_file, strerror(errno));
+        rc = CKR_ARGUMENTS_BAD;
+        goto done;
+    }
+
+    if (fread(value, value_len, 1, fp) != 1) {
+        warnx("Failed to read from file '%s': %s", opt_file, strerror(errno));
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+
+    tmp_value = (CK_BYTE *)value;
+    x = d2i_X509(NULL, &tmp_value, value_len);
+    if (x == NULL) {
+        warnx("d2i_X509 failed to decode contents from file '%s'", opt_file);
+        ERR_print_errors_cb(openssl_err_cb, NULL);
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+
+    *x509 = x;
+    rc = CKR_OK;
+
+done:
+    if (fp != NULL)
+        fclose(fp);
+    if (value != NULL)
+        free(value);
+
+    return rc;
 }
 
 static CK_RV p11sak_import_opaque_key(const struct p11sak_objtype *keytype,
@@ -7738,6 +8177,91 @@ static CK_RV p11sak_export_key(void)
         printf("%lu key object(s) failed to export.\n", data.num_failed);
 
     return data.num_failed == 0 ? CKR_OK : CKR_FUNCTION_FAILED;
+}
+
+static CK_RV p11sak_import_cert(void)
+{
+    const struct p11sak_objtype *certtype;
+    CK_ATTRIBUTE *attrs = NULL;
+    CK_ULONG num_attrs = 0;
+    CK_OBJECT_CLASS class;
+    CK_OBJECT_HANDLE cert;
+    CK_RV rc;
+    X509 *x509 = NULL;
+    CK_CERTIFICATE_CATEGORY cert_category;
+
+    if (opt_certtype == NULL || opt_certtype->private.ptr == NULL)
+        return CKR_ARGUMENTS_BAD;
+
+    certtype = opt_certtype->private.ptr;
+
+    rc = p11sak_x509_from_pem_file(&x509);
+    switch (rc) {
+    case CKR_OK:
+        break;
+    case CKR_ARGUMENTS_BAD:
+        return rc;
+    default:
+        rc = p11sak_x509_from_der_file(&x509);
+        if (rc != CKR_OK)
+            return rc;
+        break;
+    }
+
+    class = CKO_CERTIFICATE;
+    rc = add_attribute(CKA_CLASS, &class, sizeof(class), &attrs, &num_attrs);
+    if (rc != CKR_OK)
+        goto done;
+
+    rc = add_attributes(certtype, &attrs, &num_attrs,
+                        opt_label, opt_attr, opt_id,
+                        FALSE, NULL, NULL,
+                        cert_attr_applicable);
+    if (rc != CKR_OK)
+        goto done;
+
+    /* Set CA-cert attribute dependent on input option */
+    if (opt_cacert) {
+        cert_category = CK_CERTIFICATE_CATEGORY_AUTHORITY;
+        rc = add_attribute(CKA_CERTIFICATE_CATEGORY, &cert_category,
+                           sizeof(CK_CERTIFICATE_CATEGORY), &attrs, &num_attrs);
+        if (rc != CKR_OK) {
+            warnx("Failed to add %s attribute CKA_CERTIFICATE_CATEGORY: 0x%lX: %s",
+                  certtype->name, rc, p11_get_ckr(rc));
+            goto done;
+        }
+    }
+
+    /* Set common attributes for all types of certificates */
+    rc = p11sak_import_cert_attrs(certtype, x509, &attrs, &num_attrs);
+    if (rc != CKR_OK)
+        goto done;
+
+    /* Set attributes dependent on certificate type */
+    if (certtype->import_x509_data != NULL) {
+        rc = certtype->import_x509_data(certtype, x509, &attrs, &num_attrs);
+        if (rc != CKR_OK)
+            goto done;
+    }
+
+    rc = pkcs11_funcs->C_CreateObject(pkcs11_session, attrs, num_attrs, &cert);
+    if (rc != CKR_OK) {
+       if (is_rejected_by_policy(rc, pkcs11_session))
+           warnx("Certificate import of a %s certificate is rejected by policy", certtype->name);
+       else
+           warnx("Certificate import of a %s certificate failed: 0x%lX: %s", certtype->name,
+                 rc, p11_get_ckr(rc));
+       goto done;
+    }
+
+    printf("Successfully imported a %s certificate with label \"%s\".\n",
+           certtype->name, opt_label);
+
+done:
+    free_attributes(attrs, num_attrs);
+    X509_free(x509);
+
+    return rc;
 }
 
 static CK_RV load_pkcs11_lib(void)

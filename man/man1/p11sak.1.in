@@ -1096,7 +1096,69 @@ opaque secure key blob can be exported by using the
 .BR \-\-opaque | \-o
 option.
 .
+.SS "Importing x.509 certificates from a file"
 .
+.B p11sak
+.BR import\-cert | importc | impc
+.I CERTTYPE
+.BR \-\-slot | \-s
+.I SLOTID
+.RB [ \-\-pin | \-p
+.IR PIN ]
+.RB [ \-\-force\-pin\-prompt ]
+.BR \-\-label | \-L
+.I LABEL
+.RB [ \-\-id | \-i
+.IR ID ]
+.RB [ \-\-attr | \-a
+.IR ATTRS ]
+.BR \-\-file | \-F
+.I FILENAME
+.RB [ \-\-ca-cert | \-C ]
+.RB [ \-\-help | \-h ]
+.PP
+Use the
+.BR import\-cert | importc | impc
+command and
+.I CERTTYPE
+argument to import an x.509 certificate from a file.
+.PP
+Possible values for the
+.I CERTTYPE
+argument are:
+.BR x509 .
+If
+.I CERTTYPE
+is omitted, then x509 is used by default, because no other certificate type is
+supported.
+.PP
+The
+.BR \-\-label | \-L
+.IR LABEL
+option sets the
+.B CKA_LABEL
+attribute of the certificate and the
+.BR \-\-attr | \-a
+.I ATTRS
+can be used to set the boolean attributes of the certificate (see below for 
+detailed description of the attributes. Applicable attributes for certificates
+are P M B Y T). The
+.BR \-\-id | \-i
+.I ID
+option can be used to set the value of the
+.B CKA_ID
+attribute of the certificate.
+.PP
+The
+.BR \-\-file | \-F
+.I FILENAME
+option specifies the file name of the file that contains the certificate to be 
+imported. Supported input formats are PEM and binary (DER-encoded). The format
+is automatically detected.
+.PP
+The
+.BR \-\-ca-cert | \-C
+option flags the certificate as a Certificate Authority (CA) certificate.
 .
 .SH ARGUMENTS
 .
@@ -1119,6 +1181,17 @@ command, the
 command, or the
 .B export\-key
 command.
+.PP
+.
+.SS "CERTTYPE"
+.
+Selects the type of certificate to be imported, exported, listed, copied,
+updated, removed, or selected for public key extraction.
+Possible values are:
+.BR x509 .
+If no certificate type is specified, certificate type x509 is used, because
+currently no other certificate types are supported.
+.
 .PP
 .
 .SS "KEYBITS"
@@ -1653,6 +1726,14 @@ tool and/or the respective command and then exits.
 Prints the version of the
 .B p11sak
 tool and then exits.
+.RE
+.PP
+.
+.
+.
+.TP 8
+.BR \-\-ca-cert | \-C
+Flag the certificate as a Certificate Authority (CA) certificate.
 .RE
 .PP
 .

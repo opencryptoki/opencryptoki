@@ -175,6 +175,9 @@ struct p11sak_objtype {
     const char *pem_name_public;
     /* Following entries are for certificates */
     const struct p11sak_attr *cert_attrs;
+    CK_RV (*import_x509_data)(const struct p11sak_objtype *certtype,
+                              X509 *x509, CK_ATTRIBUTE **attrs,
+                              CK_ULONG *num_attrs);
 };
 
 struct p11sak_class {
