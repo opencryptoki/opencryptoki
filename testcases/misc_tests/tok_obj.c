@@ -531,9 +531,73 @@ void menu(void)
     printf("5.  Initialize Token\n");
     printf("6.  Set USER PIN\n");
     printf("7.  Get Token Info\n");
+    printf("8.  Create Data Object\n");
     printf("9.  Exit\n");
     printf("Selection:   ");
     fflush(stdout);
+}
+
+int do_CreateDataObject(void)
+{
+    CK_FLAGS flags;
+    CK_SESSION_HANDLE h_session;
+    CK_RV rc;
+    CK_BYTE user_pin[PKCS11_MAX_PIN_LEN];
+    CK_ULONG user_pin_len;
+
+    CK_OBJECT_HANDLE h_obj;
+    CK_OBJECT_CLASS class = CKO_DATA;
+    CK_UTF8CHAR label[] = "A data object";
+    CK_UTF8CHAR application[] = "An application";
+    CK_BYTE data[] = "Sample data";
+    CK_BBOOL true = CK_TRUE;
+    CK_ATTRIBUTE attrs[] = {
+      {CKA_CLASS, &class, sizeof(class)},
+      {CKA_TOKEN, &true, sizeof(true)},
+      {CKA_LABEL, label, sizeof(label) - 1},
+      {CKA_APPLICATION, application, sizeof(application) - 1},
+      {CKA_VALUE, data, sizeof(data)}
+    };
+    CK_ULONG num_attrs = sizeof(attrs) / sizeof(CK_ATTRIBUTE);
+
+    if (get_user_pin(user_pin))
+        return CKR_FUNCTION_FAILED;
+
+    user_pin_len = (CK_ULONG) strlen((char *) user_pin);
+
+    flags = CKF_SERIAL_SESSION | CKF_RW_SESSION;
+    printf("open session\n");
+    rc = funcs->C_OpenSession(SLOT_ID, flags, NULL, NULL, &h_session);
+    if (rc != CKR_OK) {
+        show_error("  C_OpenSession #1", rc);
+        rc = FALSE;
+        goto done;
+    }
+
+    printf("login session\n");
+    rc = funcs->C_Login(h_session, CKU_USER, user_pin, user_pin_len);
+    if (rc != CKR_OK) {
+        show_error("  C_Login #1", rc);
+        rc = FALSE;
+        goto done;
+    }
+
+    printf("create data object\n");
+    rc = funcs->C_CreateObject(h_session, attrs, num_attrs, &h_obj);
+    if (rc != CKR_OK) {
+        show_error("  C_CreateObject #1", rc);
+        rc = FALSE;
+        goto done;
+    }
+
+    printf("Data object created successfully.\n");
+    rc = TRUE;
+
+done:
+    printf("close session\n");
+    funcs->C_CloseAllSessions(SLOT_ID);
+
+    return rc;
 }
 
 int main(int argc, char **argv)
@@ -595,6 +659,9 @@ int main(int argc, char **argv)
             break;
         case 7:
             do_GetTokenInfo();
+            break;
+        case 8:
+            do_CreateDataObject();
             break;
         case 9:
             goto done;
