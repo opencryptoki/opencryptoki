@@ -9865,13 +9865,17 @@ static CK_RV cca_handle_apqn_event(STDLL_TokData_t *tokdata,
 
     rc = cca_check_mks(tokdata);
     if (rc != CKR_OK) {
-        __sync_or_and_fetch(&cca_private->inconsistent, TRUE);
-        TRACE_ERROR("CCA master key setup is inconsistent, all crypto operations will fail from now on\n");
-        OCK_SYSLOG(LOG_ERR, "CCA master key setup is inconsistent, all crypto operations will fail from now on\n");
+        if (__sync_fetch_and_or(&cca_private->inconsistent, TRUE) == FALSE) {
+            TRACE_ERROR("CCA master key setup is inconsistent, all crypto operations will fail from now on\n");
+            OCK_SYSLOG(LOG_ERR, "CCA master key setup is inconsistent, all crypto operations will fail from now on\n");
+        }
         return CKR_OK;
     }
 
-    __sync_and_and_fetch(&cca_private->inconsistent, FALSE);
+    if (__sync_fetch_and_and(&cca_private->inconsistent, FALSE) == TRUE) {
+        TRACE_INFO("CCA master key setup is now consistent again\n");
+        OCK_SYSLOG(LOG_INFO, "CCA master key setup is now consistent again\n");
+    }
 
     /* Re-check after APQN set change if protected key support is available */
     rc = cca_get_min_card_level(tokdata);

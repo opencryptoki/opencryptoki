@@ -14131,16 +14131,19 @@ static CK_RV ep11tok_handle_apqn_event(STDLL_TokData_t *tokdata,
         TRACE_DEVEL("%s Failed to get the target infos (refresh_target_info "
                     "rc=0x%lx)\n", __func__, rc);
 
-        TRACE_ERROR("EP11 APQN setup is inconsistent, all crypto operations "
-                    "will fail from now on\n");
-        OCK_SYSLOG(LOG_ERR, "EP11 APQN setup is inconsistent, all crypto "
-                   "operations will fail from now on\n");
-
-        __sync_or_and_fetch(&ep11_data->inconsistent, 1);
+        if (__sync_fetch_and_or(&ep11_data->inconsistent, 1) == 0) {
+            TRACE_ERROR("EP11 APQN setup is inconsistent, all crypto operations "
+                        "will fail from now on\n");
+            OCK_SYSLOG(LOG_ERR, "EP11 APQN setup is inconsistent, all crypto "
+                       "operations will fail from now on\n");
+        }
         return rc;
     }
 
-    __sync_and_and_fetch(&ep11_data->inconsistent, 0);
+    if (__sync_fetch_and_and(&ep11_data->inconsistent, 0) != 0) {
+        TRACE_INFO("EP11 APQN setup is now consistent again\n");
+        OCK_SYSLOG(LOG_INFO, "EP11 APQN setup is now consistent again\n");
+    }
 
     /* Re-check after APQN set change if CPACF_WRAP mech is supported */
     if (ep11tok_is_mechanism_supported(tokdata, CKM_IBM_CPACF_WRAP) != CKR_OK) {
