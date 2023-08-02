@@ -5029,16 +5029,17 @@ static CK_RV p11sak_list_obj_compare(CK_OBJECT_HANDLE obj1,
     CK_KEY_TYPE ktype1, ktype2;
     CK_ULONG keysize1, keysize2;
     char *label1 = NULL, *label2 = NULL;
+    char *cn1 = NULL, *cn2 = NULL;
     CK_RV rc;
     int i;
 
     *result = 0;
 
-    rc = get_obj_infos(obj1, &class1, &ktype1, &keysize1, &label1, NULL, NULL, NULL);
+    rc = get_obj_infos(obj1, &class1, &ktype1, &keysize1, &label1, NULL, NULL, &cn1);
     if (rc != CKR_OK)
         goto done;
 
-    rc = get_obj_infos(obj2, &class2, &ktype2, &keysize2, &label2, NULL, NULL, NULL);
+    rc = get_obj_infos(obj2, &class2, &ktype2, &keysize2, &label2, NULL, NULL, &cn2);
     if (rc != CKR_OK)
         goto done;
 
@@ -5055,6 +5056,9 @@ static CK_RV p11sak_list_obj_compare(CK_OBJECT_HANDLE obj1,
             break;
         case SORT_KEYSIZE:
             *result = (long)keysize1 - (long)keysize2;
+            break;
+        case SORT_CN:
+            *result = strcmp(cn1, cn2);
             break;
         case SORT_NONE:
         default:
@@ -5073,6 +5077,10 @@ done:
         free(label1);
     if (label2 != NULL)
         free(label2);
+    if (cn1 != NULL)
+        free(cn1);
+    if (cn2 != NULL)
+        free(cn2);
 
     return rc;
 }

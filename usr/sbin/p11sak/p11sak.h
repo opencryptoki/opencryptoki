@@ -211,9 +211,10 @@ enum p11sak_sort_field {
     SORT_KEYTYPE = 2,
     SORT_CLASS = 3,
     SORT_KEYSIZE = 4,
+    SORT_CN = 5,
 };
 
-#define MAX_SORT_FIELDS     4
+#define MAX_SORT_FIELDS     5
 
 struct p11sak_sort_info {
     enum p11sak_sort_field field;
