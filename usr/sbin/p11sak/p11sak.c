@@ -3481,27 +3481,191 @@ static const struct p11sak_objtype *find_certtype(CK_KEY_TYPE ktype)
     return NULL;
 }
 
-static CK_RV get_key_infos(CK_OBJECT_HANDLE key, CK_OBJECT_CLASS *class,
-                           CK_KEY_TYPE *ktype, CK_ULONG *keysize,
-                           char** label, char** typestr,
-                           const struct p11sak_objtype **keytype)
+static CK_RV get_common_name_value(CK_OBJECT_HANDLE obj, char *label,
+                                   char **common_name_value)
 {
+    CK_ATTRIBUTE attr = { CKA_VALUE, NULL, 0 };
+    X509 *x509 = NULL;
+    const CK_BYTE *tmp_ptr;
+    char *subj = NULL, *cn_tmp, *cn_tmp2 = NULL;
     CK_RV rc;
-    CK_ULONG i;
-    CK_OBJECT_CLASS class_val = 0;
-    CK_KEY_TYPE ktype_val = 0;
-    CK_ATTRIBUTE attrs[] = {
-        { CKA_LABEL, NULL, 0 }, /* label must be first one */
-        { CKA_CLASS, &class_val, sizeof(class_val) },
-        { CKA_KEY_TYPE, &ktype_val, sizeof(ktype_val) },
-    };
-    const CK_ULONG num_attrs = sizeof(attrs) / sizeof(CK_ATTRIBUTE);
-    const struct p11sak_objtype *keytype_val;
-    CK_ULONG keysize_val = 0;
+
+    rc = get_attribute(obj, &attr);
+    if (rc != CKR_OK) {
+        warnx("Failed to retrieve attribute CKA_VALUE from object "
+              "\"%s\": 0x%lX: %s", label, rc, p11_get_ckr(rc));
+        return rc;
+    }
+
+    if (attr.ulValueLen == 0 || attr.ulValueLen == CK_UNAVAILABLE_INFORMATION) {
+        *common_name_value = strdup("[not available]");
+        if (*common_name_value == NULL) {
+            warnx("Failed to allocate memory for common_name_value "
+                  "for object \"%s\"", label);
+            return CKR_HOST_MEMORY;
+        }
+        return CKR_OK;
+    }
+
+    tmp_ptr = attr.pValue;
+    x509 = d2i_X509(NULL, &tmp_ptr, attr.ulValueLen);
+    if (x509 == NULL) {
+        *common_name_value = strdup("[not available]");
+        if (*common_name_value == NULL) {
+            warnx("Failed to allocate memory for common_name_value "
+                  "for object \"%s\"", label);
+            rc = CKR_HOST_MEMORY;
+        } else {
+            rc = CKR_OK;
+        }
+        goto done;
+    }
+
+    subj = X509_NAME_oneline(X509_get_subject_name(x509), NULL, 0);
+    if (subj == NULL) {
+        *common_name_value = strdup("[not available]");
+        if (*common_name_value == NULL) {
+            warnx("Failed to allocate memory for common_name_value "
+                  "for object \"%s\"", label);
+            rc = CKR_HOST_MEMORY;
+        } else {
+            rc = CKR_OK;
+        }
+        goto done;
+    }
+
+    *common_name_value = strdup(subj);
+    if (*common_name_value == NULL) {
+        warnx("Failed to allocate memory for common_name attribute"
+              "for object \"%s\"", label);
+        rc = CKR_HOST_MEMORY;
+        goto done;
+    }
+
+    cn_tmp = strstr(subj, "/CN=");
+    if (cn_tmp != NULL) {
+        cn_tmp2 = *common_name_value;
+        *common_name_value = strdup(cn_tmp + 4);
+        if (*common_name_value == NULL) {
+            warnx("Failed to allocate memory for common_name attribute"
+                  "for object \"%s\"", label);
+            rc = CKR_HOST_MEMORY;
+            goto done;
+        }
+    }
+
+    rc = CKR_OK;
+
+done:
+    free(attr.pValue);
+    if (subj != NULL)
+        OPENSSL_free(subj);
+    if (x509 != NULL)
+        X509_free(x509);
+    if (cn_tmp2 != NULL)
+        free(cn_tmp2);
+
+    return rc;
+}
+
+static CK_RV get_keysize_value(CK_OBJECT_HANDLE obj, char *label,
+                              const struct p11sak_objtype *objtype_val,
+                              CK_ULONG *keysize_val)
+{
     CK_ATTRIBUTE keysize_attr;
+    CK_RV rc;
+
+    if (objtype_val->keysize_attr == (CK_ATTRIBUTE_TYPE)-1) {
+        *keysize_val = 0;
+        return CKR_OK;
+    }
+
+    keysize_attr.type = objtype_val->keysize_attr;
+    if (!objtype_val->keysize_attr_value_len) {
+        keysize_attr.ulValueLen = sizeof(*keysize_val);
+        keysize_attr.pValue = keysize_val;
+    } else {
+        /* Query attribute length only */
+        keysize_attr.ulValueLen = 0;
+        keysize_attr.pValue = NULL;
+    }
+
+    rc = pkcs11_funcs->C_GetAttributeValue(pkcs11_session, obj,
+                                           &keysize_attr, 1);
+    if (rc != CKR_OK) {
+        warnx("Attribute %s is not available in object \"%s\"",
+              p11_get_cka(keysize_attr.type), label);
+        return rc;
+    }
+
+    if (objtype_val->keysize_attr_value_len)
+        *keysize_val = keysize_attr.ulValueLen;
+
+    if (objtype_val->key_keysize_adjust != NULL)
+        *keysize_val = objtype_val->key_keysize_adjust(objtype_val,
+                                                       *keysize_val);
+
+    return CKR_OK;
+}
+
+static CK_RV get_typestr_value(CK_OBJECT_CLASS class_val, CK_ULONG keysize_val,
+                               const struct p11sak_objtype *objtype_val,
+                               char *label, char **typestr)
+{
     int rv;
 
-    rc = pkcs11_funcs->C_GetAttributeValue(pkcs11_session, key,
+    switch (class_val) {
+    case CKO_SECRET_KEY:
+        if (keysize_val != 0)
+            rv = asprintf(typestr, "%s %lu", objtype_val->name, keysize_val);
+        else
+            rv = asprintf(typestr, "%s", objtype_val->name);
+        break;
+    case CKO_PUBLIC_KEY:
+        if (keysize_val != 0)
+            rv = asprintf(typestr, "public %s %lu", objtype_val->name, keysize_val);
+        else
+            rv = asprintf(typestr, "public %s", objtype_val->name);
+        break;
+    case CKO_PRIVATE_KEY:
+        if (keysize_val != 0)
+            rv = asprintf(typestr, "private %s %lu", objtype_val->name, keysize_val);
+        else
+            rv = asprintf(typestr, "private %s", objtype_val->name);
+        break;
+    case CKO_CERTIFICATE:
+        rv = asprintf(typestr, "%s", objtype_val->name);
+        break;
+    default:
+        warnx("%s object \"%s\" has an unsupported %s class: %lu",
+              objtype_val->obj_liststr, label,
+              objtype_val->obj_typestr, class_val);
+        return CKR_KEY_TYPE_INCONSISTENT;
+    }
+
+    if (*typestr == NULL || rv < 0) {
+        warnx("Failed to allocate type string buffer");
+        return CKR_HOST_MEMORY;
+    }
+
+    return CKR_OK;
+}
+
+static CK_RV get_class_and_type_values(CK_OBJECT_HANDLE obj, char *label,
+                                       CK_OBJECT_CLASS *class_val,
+                                       CK_ULONG *otype_val)
+{
+    CK_RV rc;
+    CK_KEY_TYPE ktype_val = 0;
+    CK_CERTIFICATE_TYPE ctype_val = 0;
+    CK_ATTRIBUTE attrs[] = {
+        { CKA_CLASS, class_val, sizeof(class_val) },
+        { CKA_KEY_TYPE, &ktype_val, sizeof(ktype_val) },
+        { CKA_CERTIFICATE_TYPE, &ctype_val, sizeof(ctype_val) },
+    };
+    const CK_ULONG num_attrs = sizeof(attrs) / sizeof(CK_ATTRIBUTE);
+
+    rc = pkcs11_funcs->C_GetAttributeValue(pkcs11_session, obj,
                                            attrs, num_attrs);
     if (rc != CKR_OK && rc != CKR_ATTRIBUTE_TYPE_INVALID &&
         rc != CKR_ATTRIBUTE_SENSITIVE) {
@@ -3510,133 +3674,165 @@ static CK_RV get_key_infos(CK_OBJECT_HANDLE key, CK_OBJECT_CLASS *class,
         return rc;
     }
 
-    if (attrs[0].ulValueLen != 0 &&
-        attrs[0].ulValueLen != CK_UNAVAILABLE_INFORMATION) {
-        attrs[0].pValue = calloc(attrs[0].ulValueLen + 1, 1);
-        if (attrs[0].pValue == NULL) {
-            warnx("Failed to allocate memory for label attribute");
-            return CKR_HOST_MEMORY;
-        }
+    /* Class attribute must be available in any case. Others
+       depend on object type: key or certificate */
+    if (attrs[0].ulValueLen == CK_UNAVAILABLE_INFORMATION) {
+        warnx("Class attribute %s is not available in object \"%s\"",
+              p11_get_cka(attrs[0].type), label);
+        return CKR_TEMPLATE_INCOMPLETE;
+    }
 
-        rc = pkcs11_funcs->C_GetAttributeValue(pkcs11_session, key,
-                                               attrs, num_attrs);
-        if (rc != CKR_OK && rc != CKR_ATTRIBUTE_TYPE_INVALID &&
-            rc != CKR_ATTRIBUTE_SENSITIVE) {
-            warnx("Failed to get attributes: C_GetAttributeValue: 0x%lX: %s",
-                  rc, p11_get_ckr(rc));
-            free(attrs[0].pValue);
-            return rc;
-        }
-    } else {
-        attrs[0].pValue = strdup("");
-        if (attrs[0].pValue == NULL) {
+    if (attrs[1].ulValueLen != CK_UNAVAILABLE_INFORMATION)
+        *otype_val = ktype_val;
+    else if (attrs[2].ulValueLen != CK_UNAVAILABLE_INFORMATION)
+        *otype_val = ctype_val;
+    else {
+        warnx("At least one of CKA_KEY_TYPE or CKA_CERTIFICATE_TYPE must "
+              "be available in object \"%s\"", label);
+        return CKR_TEMPLATE_INCOMPLETE;
+    }
+
+    return CKR_OK;
+}
+
+static CK_RV get_label_value(CK_OBJECT_HANDLE obj, char** label_value)
+{
+    CK_ATTRIBUTE attr = { CKA_LABEL, NULL, 0 };
+    CK_RV rv;
+
+    if (label_value == NULL)
+        return CKR_ARGUMENTS_BAD;
+
+    rv = pkcs11_funcs->C_GetAttributeValue(pkcs11_session, obj, &attr, 1);
+    if (rv != CKR_OK && rv != CKR_ATTRIBUTE_TYPE_INVALID &&
+        rv != CKR_ATTRIBUTE_SENSITIVE) {
+        warnx("Failed to get CKA_LABEL attribute (length only): "
+              "C_GetAttributeValue: 0x%lX: %s", rv, p11_get_ckr(rv));
+        return rv;
+    }
+
+    if (attr.ulValueLen == 0 ||
+        attr.ulValueLen == CK_UNAVAILABLE_INFORMATION) {
+        attr.pValue = strdup("");
+        if (attr.pValue == NULL) {
             warnx("Failed to allocate memory for label attribute");
             return CKR_HOST_MEMORY;
+        } else {
+            goto done;
         }
     }
+
+    attr.pValue = calloc(attr.ulValueLen + 1, 1);
+    if (attr.pValue == NULL) {
+        warnx("Failed to allocate memory for label attribute");
+        return CKR_HOST_MEMORY;
+    }
+
+    rv = pkcs11_funcs->C_GetAttributeValue(pkcs11_session, obj, &attr, 1);
+    if (rv != CKR_OK) {
+        warnx("Failed to get CKA_LABEL attribute: C_GetAttributeValue: 0x%lX: %s",
+              rv, p11_get_ckr(rv));
+        free(attr.pValue);
+        return rv;
+    }
+
+done:
+    *label_value = attr.pValue;
+
+    return CKR_OK;
+}
+
+static CK_RV get_obj_infos(CK_OBJECT_HANDLE obj, CK_OBJECT_CLASS *class,
+                           CK_ULONG *otype, CK_ULONG *keysize,
+                           char** label, char** typestr,
+                           const struct p11sak_objtype **objtype,
+                           char **common_name)
+{
+    CK_RV rc;
+    CK_OBJECT_CLASS class_val = 0;
+    CK_ULONG otype_val = 0;
+    const struct p11sak_objtype *objtype_val;
+    CK_ULONG keysize_val = 0;
+    char *label_val = NULL;
+    char *common_name_val = NULL;
+
+    rc = get_label_value(obj, &label_val);
+    if (rc != CKR_OK)
+        return rc;
+
+    rc = get_class_and_type_values(obj, label_val, &class_val, &otype_val);
+    if (rc != CKR_OK)
+        return rc;
 
     switch (class_val) {
+    case CKO_SECRET_KEY:
     case CKO_PUBLIC_KEY:
     case CKO_PRIVATE_KEY:
-    case CKO_SECRET_KEY:
+        objtype_val = find_keytype(otype_val);
+        if (objtype_val == NULL) {
+            warnx("Object \"%s\" has an unsupported type: %lu",
+                  label_val, otype_val);
+            free(label_val);
+            return CKR_KEY_TYPE_INCONSISTENT;
+        }
+        if (keysize != NULL) {
+            rc = get_keysize_value(obj, label_val, objtype_val, &keysize_val);
+            if (rc != CKR_OK) {
+                free(label_val);
+                return rc;
+            }
+            *keysize = keysize_val;
+        }
+        break;
+    case CKO_CERTIFICATE:
+        objtype_val = find_certtype(otype_val);
+        if (objtype_val == NULL) {
+            warnx("Object \"%s\" has an unsupported type: %lu",
+                  label_val, otype_val);
+            free(label_val);
+            return CKR_KEY_TYPE_INCONSISTENT;
+        }
+        if (common_name != NULL) {
+            rc = get_common_name_value(obj, label_val, &common_name_val);
+            if (rc != CKR_OK) {
+                free(label_val);
+                free(common_name_val);
+                return rc;
+            }
+            *common_name = common_name_val;
+        }
         break;
     default:
-        free(attrs[0].pValue);
-        return CKR_KEY_NEEDED;
-    }
-
-    for (i = 0; i < num_attrs; i++) {
-        if (attrs[i].ulValueLen == CK_UNAVAILABLE_INFORMATION) {
-            warnx("Attribute %s is not available in key object",
-                  p11_get_cka(attrs[i].type));
-            free(attrs[0].pValue);
-            return CKR_TEMPLATE_INCOMPLETE;
-        }
+        /* Should not occur */
+        warnx("Object \"%s\" has an unsupported class: %lu",
+              label_val, class_val);
+        free(label_val);
+        return CKR_KEY_TYPE_INCONSISTENT;
+        break;
     }
 
     if (class != NULL)
         *class = class_val;
-    if (ktype != NULL)
-        *ktype = ktype_val;
 
-    keytype_val = find_keytype(ktype_val);
-    if (keytype_val == NULL) {
-        warnx("Key object \"%s\" has an unsupported key type: %lu",
-              (char *)attrs[0].pValue, ktype_val);
-        free(attrs[0].pValue);
-        return CKR_KEY_TYPE_INCONSISTENT;
-    }
+    if (otype != NULL)
+        *otype = otype_val;
 
-    if (keytype != NULL)
-        *keytype = keytype_val;
-
-    if (keytype_val->keysize_attr != (CK_ATTRIBUTE_TYPE)-1) {
-        keysize_attr.type = keytype_val->keysize_attr;
-        if (!keytype_val->keysize_attr_value_len) {
-            keysize_attr.ulValueLen = sizeof(keysize_val);
-            keysize_attr.pValue = &keysize_val;
-        } else {
-            /* Query attribute length only */
-            keysize_attr.ulValueLen = 0;
-            keysize_attr.pValue = NULL;
-        }
-        rc = pkcs11_funcs->C_GetAttributeValue(pkcs11_session, key,
-                                               &keysize_attr, 1);
-        if (rc != CKR_OK) {
-            warnx("Attribute %s is not available in key object",
-                  p11_get_cka( keysize_attr.type));
-            free(attrs[0].pValue);
-            return rc;
-        }
-
-        if (keytype_val->keysize_attr_value_len)
-            keysize_val = keysize_attr.ulValueLen;
-
-        if (keytype_val->key_keysize_adjust != NULL)
-            keysize_val = keytype_val->key_keysize_adjust(keytype_val,
-                                                          keysize_val);
-    }
-
-    if (keysize != NULL)
-        *keysize = keysize_val;
+    if (objtype != NULL)
+        *objtype = objtype_val;
 
     if (typestr != NULL) {
-        switch (class_val) {
-        case CKO_SECRET_KEY:
-            if (keysize_val != 0)
-                rv = asprintf(typestr, "%s %lu", keytype_val->name, keysize_val);
-            else
-                rv = asprintf(typestr, "%s", keytype_val->name);
-            break;
-        case CKO_PUBLIC_KEY:
-            if (keysize_val != 0)
-                rv = asprintf(typestr, "public %s %lu", keytype_val->name, keysize_val);
-            else
-                rv = asprintf(typestr, "public %s", keytype_val->name);
-            break;
-        case CKO_PRIVATE_KEY:
-            if (keysize_val != 0)
-                rv = asprintf(typestr, "private %s %lu", keytype_val->name, keysize_val);
-            else
-                rv = asprintf(typestr, "private %s", keytype_val->name);
-            break;
-        default:
-            warnx("Key object \"%s\" has an unsupported object class: %lu",
-                  (char *)attrs[0].pValue, class_val);
-            free(attrs[0].pValue);
-            return CKR_KEY_TYPE_INCONSISTENT;
-        }
-        if (*typestr == NULL || rv < 0) {
-            warnx("Failed to allocate type string buffer");
-            free(attrs[0].pValue);
-            return CKR_HOST_MEMORY;
+        rc = get_typestr_value(class_val, keysize_val, objtype_val,
+                               label_val, typestr);
+        if (rc != CKR_OK) {
+            free(label_val);
+            return rc;
         }
     }
 
     if (label != NULL)
-        *label = attrs[0].pValue;
+        *label = label_val;
     else
-        free(attrs[0].pValue);
+        free(label_val);
 
     return CKR_OK;
 }
@@ -3660,10 +3856,41 @@ static int iterate_compare(const void *a, const void *b, void *private)
     return result;
 }
 
+static CK_BBOOL objclass_expected(CK_OBJECT_HANDLE obj, enum p11sak_objclass objclass)
+{
+    CK_OBJECT_CLASS class_val = 0;
+    CK_ATTRIBUTE attr = { CKA_CLASS, &class_val, sizeof(class_val) };
+    CK_RV rv;
+
+    rv = get_attribute(obj, &attr);
+    if (rv != CKR_OK) {
+        warnx("Failed to get CKA_CLASS attribute: get_attribute: 0x%lX: %s",
+              rv, p11_get_ckr(rv));
+        return rv;
+    }
+
+    switch (objclass) {
+    case OBJCLASS_KEY:
+        if (class_val == CKO_SECRET_KEY || class_val == CKO_PUBLIC_KEY ||
+            class_val == CKO_PRIVATE_KEY)
+            return CK_TRUE;
+        break;
+    case OBJCLASS_CERTIFICATE:
+        if (class_val == CKO_CERTIFICATE)
+            return CK_TRUE;
+        break;
+    default:
+        break;
+    }
+
+    return CK_FALSE;
+}
+
 static CK_RV iterate_objects(const struct p11sak_objtype *objtype,
                              const char *label_filter,
                              const char *id_filter,
                              const char *attr_filter,
+                             enum p11sak_objclass objclass,
                              CK_RV (*compare_obj)(CK_OBJECT_HANDLE obj1,
                                                   CK_OBJECT_HANDLE obj2,
                                                   int *result,
@@ -3755,13 +3982,11 @@ static CK_RV iterate_objects(const struct p11sak_objtype *objtype,
             break;
 
         for (i = 0; i < num_objs; i++) {
+            if (!objclass_expected(objs[i], objclass))
+                continue;
+
             if (manual_filtering) {
-                rc = get_key_infos(objs[i], NULL, NULL, NULL, &label,
-                                   NULL, NULL);
-                if (rc == CKR_KEY_NEEDED) {
-                    rc = CKR_OK;
-                    goto next;
-                }
+                rc = get_label_value(objs[i], &label);
                 if (rc != CKR_OK)
                     break;
 
@@ -3818,12 +4043,8 @@ done_find:
     }
 
     for (i = 0; i < num_matched_objs; i++) {
-        rc = get_key_infos(matched_objs[i], &class, &ktype, &keysize,
-                           &label, &typestr, &type);
-        if (rc == CKR_KEY_NEEDED) {
-            rc = CKR_OK;
-            goto next2;
-        }
+        rc = get_obj_infos(matched_objs[i], &class, &ktype, &keysize,
+                           &label, &typestr, &type, &common_name);
         if (rc != CKR_OK)
             break;
 
@@ -3832,13 +4053,15 @@ done_find:
         if (rc != CKR_OK)
             break;
 
-next2:
         if (label != NULL)
             free(label);
         label = NULL;
         if (typestr != NULL)
             free(typestr);
         typestr = NULL;
+        if (common_name != NULL)
+            free(common_name);
+        common_name = NULL;
     }
 
 done:
@@ -3848,6 +4071,8 @@ done:
         free(label);
     if (typestr != NULL)
         free(typestr);
+    if (common_name != NULL)
+        free(common_name);
     if (matched_objs != NULL)
         free(matched_objs);
 
@@ -4795,8 +5020,8 @@ done:
     return rc;
 }
 
-static CK_RV p11sak_list_key_compare(CK_OBJECT_HANDLE key1,
-                                     CK_OBJECT_HANDLE key2,
+static CK_RV p11sak_list_obj_compare(CK_OBJECT_HANDLE obj1,
+                                     CK_OBJECT_HANDLE obj2,
                                      int *result, void *private)
 {
     struct p11sak_list_data *data = private;
@@ -4809,21 +5034,11 @@ static CK_RV p11sak_list_key_compare(CK_OBJECT_HANDLE key1,
 
     *result = 0;
 
-    rc = get_key_infos(key1, &class1, &ktype1, &keysize1, &label1, NULL, NULL);
-    if (rc == CKR_KEY_NEEDED) {
-        rc = CKR_OK;
-        *result = 1; /* non-key objects are always greater than key objects */
-        goto done;
-    }
+    rc = get_obj_infos(obj1, &class1, &ktype1, &keysize1, &label1, NULL, NULL, NULL);
     if (rc != CKR_OK)
         goto done;
 
-    rc = get_key_infos(key2, &class2, &ktype2, &keysize2, &label2, NULL, NULL);
-    if (rc == CKR_KEY_NEEDED) {
-        rc = CKR_OK;
-        *result = -1; /* key objects are always smaller than non-key objects */
-        goto done;
-    }
+    rc = get_obj_infos(obj2, &class2, &ktype2, &keysize2, &label2, NULL, NULL, NULL);
     if (rc != CKR_OK)
         goto done;
 
@@ -4973,6 +5188,7 @@ static CK_RV p11sak_list_key(void)
         data.bool_attrs[i].pValue = &attr_data[i];
     }
     data.attrs = p11sak_bool_attrs;
+    data.objclass = OBJCLASS_KEY;
 
     if (opt_sort) {
         rc = parse_sort_specification(opt_sort, &data);
@@ -4995,7 +5211,8 @@ static CK_RV p11sak_list_key(void)
     }
 
     rc = iterate_objects(keytype, opt_label, opt_id, opt_attr,
-                         opt_sort != NULL ? p11sak_list_key_compare : NULL,
+                         OBJCLASS_KEY,
+                         opt_sort != NULL ? p11sak_list_obj_compare : NULL,
                          handle_obj_list, &data);
     if (rc != CKR_OK) {
         warnx("Failed to iterate over key objects for key type %s: 0x%lX: %s",
@@ -5115,7 +5332,8 @@ static CK_RV p11sak_remove_key(void)
 
     data.remove_all = opt_force;
 
-    rc = iterate_objects(keytype, opt_label, opt_id, opt_attr, NULL,
+    rc = iterate_objects(keytype, opt_label, opt_id, opt_attr,
+                         OBJCLASS_KEY, NULL,
                          handle_obj_remove, &data);
     if (rc != CKR_OK) {
         warnx("Failed to iterate over key objects for key type %s: 0x%lX: %s",
@@ -5267,7 +5485,8 @@ static CK_RV p11sak_set_key_attr(void)
 
     data.set_all = opt_force;
 
-    rc = iterate_objects(keytype, opt_label, opt_id, opt_attr, NULL,
+    rc = iterate_objects(keytype, opt_label, opt_id, opt_attr,
+                         OBJCLASS_KEY, NULL,
                          handle_obj_set_attr, &data);
     if (rc != CKR_OK) {
         warnx("Failed to iterate over key objects for key type %s: 0x%lX: %s",
@@ -5407,7 +5626,8 @@ static CK_RV p11sak_copy_key(void)
 
     data.copy_all = opt_force;
 
-    rc = iterate_objects(keytype, opt_label, opt_id, opt_attr, NULL,
+    rc = iterate_objects(keytype, opt_label, opt_id, opt_attr,
+                         OBJCLASS_KEY, NULL,
                          handle_obj_copy, &data);
     if (rc != CKR_OK) {
         warnx("Failed to iterate over key objects for key type %s: 0x%lX: %s",
@@ -7464,7 +7684,8 @@ static CK_RV p11sak_export_key(void)
         return CKR_ARGUMENTS_BAD;
     }
 
-    rc = iterate_objects(keytype, opt_label, opt_id, opt_attr, NULL,
+    rc = iterate_objects(keytype, opt_label, opt_id, opt_attr,
+                         OBJCLASS_KEY, NULL,
                          handle_key_export, &data);
     if (rc != CKR_OK) {
         warnx("Failed to iterate over key objects for key type %s: 0x%lX: %s",
