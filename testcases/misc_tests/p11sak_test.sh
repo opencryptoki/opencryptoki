@@ -1051,13 +1051,13 @@ if [[ -n $( pkcsconf -m -c $SLOT | grep CKM_DH_PKCS_KEY_PAIR_GEN) ]]; then
 		status=1
 	fi
 else
-	echo "* TESTCASE generate-key dh SKIP Failed to generate dh public key"
-	echo "* TESTCASE remove-key dh SKIP Failed to delete generated dh public key"
-	echo "* TESTCASE generate-key dh SKIP Failed to generate dh private key"
-	echo "* TESTCASE remove-key dh SKIP Failed to delete generated dh private key"
-	echo "* TESTCASE list-key dh SKIP Failed to list dh keys CK_BBOOL attribute"
-	echo "* TESTCASE list-key dh SKIP Failed to list dh keys CK_ULONG attribute"
-	echo "* TESTCASE list-key dh SKIP Failed to list dh keys CK_BYTE attribute"
+	echo "* TESTCASE generate-key dh SKIP generate dh public key"
+	echo "* TESTCASE remove-key dh SKIP delete generated dh public key"
+	echo "* TESTCASE generate-key dh SKIP generate dh private key"
+	echo "* TESTCASE remove-key dh SKIP delete generated dh private key"
+	echo "* TESTCASE list-key dh SKIP list dh keys CK_BBOOL attribute"
+	echo "* TESTCASE list-key dh SKIP list dh keys CK_ULONG attribute"
+	echo "* TESTCASE list-key dh SKIP list dh keys CK_BYTE attribute"
 	echo "* TESTCASE list-key dh SKIP list dh public key pkcs#11 URI"
 fi
 
@@ -1129,13 +1129,13 @@ if [[ -n $( pkcsconf -m -c $SLOT | grep CKM_DSA_KEY_PAIR_GEN) ]]; then
 		status=1
 	fi
 else
-	echo "* TESTCASE generate-key dsa SKIP Failed to generate dsa public key"
-	echo "* TESTCASE remove-key dsa SKIP Failed to delete generated dsa public key"
-	echo "* TESTCASE generate-key dsa SKIP Failed to generate dsa private key"
-	echo "* TESTCASE remove-key dsa SKIP Failed to delete generated dsa private key"
-	echo "* TESTCASE list-key dsa SKIP Failed to list dsa keys CK_BBOOL attribute"
-	echo "* TESTCASE list-key dsa SKIP Failed to list dsa keys CK_ULONG attribute"
-	echo "* TESTCASE list-key dsa SKIP Failed to list dsa keys CK_BYTE attribute"
+	echo "* TESTCASE generate-key dsa SKIP generate dsa public key"
+	echo "* TESTCASE remove-key dsa SKIP delete generated dsa public key"
+	echo "* TESTCASE generate-key dsa SKIP generate dsa private key"
+	echo "* TESTCASE remove-key dsa SKIP delete generated dsa private key"
+	echo "* TESTCASE list-key dsa SKIP list dsa keys CK_BBOOL attribute"
+	echo "* TESTCASE list-key dsa SKIP list dsa keys CK_ULONG attribute"
+	echo "* TESTCASE list-key dsa SKIP list dsa keys CK_BYTE attribute"
 	echo "* TESTCASE list-key dsa SKIP list dsa public key pkcs#11 URI"
 fi
 
@@ -1942,7 +1942,7 @@ fi
 if [ $RC_P11SAK_PINOPT = 0 ]; then
 	echo "* TESTCASE list-key pin-opt PASS Token pin handling (opt)"
 else
-	echo "* TESTCASE list-key pin-option FAIL Token pin handling (opt)"
+	echo "* TESTCASE list-key pin-opt FAIL Token pin handling (opt)"
 	status=1
 fi
 
