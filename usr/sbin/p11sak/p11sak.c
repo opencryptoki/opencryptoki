@@ -62,6 +62,7 @@ static CK_RV p11sak_export_key(void);
 static void print_generate_import_key_attr_help(void);
 static void print_list_key_attr_help(void);
 static void print_set_copy_key_attr_help(void);
+static void print_remove_key_help(void);
 static CK_RV p11sak_list_cert(void);
 static CK_RV p11sak_remove_cert(void);
 static CK_RV p11sak_set_cert_attr(void);
@@ -1917,6 +1918,7 @@ static const struct p11sak_cmd p11sak_commands[] = {
       .func = p11sak_remove_key,
       .opts = p11sak_remove_key_opts, .args = p11sak_remove_key_args,
       .description = "Delete keys in the repository.",
+      .help = print_remove_key_help,
       .session_flags = CKF_SERIAL_SESSION | CKF_RW_SESSION, },
     { .cmd = "set-key-attr", .cmd_short1 = "set-key", .cmd_short2 = "set",
       .func = p11sak_set_key_attr,
@@ -2686,6 +2688,21 @@ static void print_list_cert_attr_help(void)
     printf("    ");
     print_indented("Not all attributes may be defined for all certificate types.\n"
                    "Attribute CKA_TOKEN is always CK_TRUE for all certificates listed.",
+                   4);
+    printf("\n");
+}
+
+static void print_remove_key_help(void)
+{
+    const struct p11sak_attr *attr;
+
+    printf("ATTRIBUTES:\n");
+    for (attr = p11sak_bool_attrs; attr->name != NULL; attr++)
+        printf("    '%c':   %s\n", attr->letter, attr->name);
+    printf("\n");
+
+    printf("    ");
+    print_indented("Not all attributes may be defined for all key types.",
                    4);
     printf("\n");
 }
