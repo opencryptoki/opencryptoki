@@ -445,9 +445,10 @@ static CK_RV cca_reencipher_sec_key(STDLL_TokData_t *tokdata,
                                     CK_ULONG sec_key_len, CK_BBOOL from_old);
 
 static CK_RV cca_key_gen(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
-                         enum cca_key_type type, CK_BYTE * key,
+                         enum cca_key_type type, CK_BYTE *key,
                          unsigned char *key_form, unsigned char *key_type_1,
-                         CK_ULONG key_size, CK_BBOOL aes_xts_2dn_key);
+                         CK_ULONG key_size, CK_BBOOL aes_xts_2dn_key,
+                         CK_BBOOL *has_new_mk);
 
 static CK_RV init_cca_adapter_lock(STDLL_TokData_t *tokdata)
 {
@@ -3553,6 +3554,8 @@ CK_RV token_specific_aes_xts_key_gen(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
     unsigned char reserved_1[4] = { 0, };
     unsigned char point_to_array_of_zeros = 0;
     unsigned char mkvp[16] = { 0, };
+    CK_BBOOL new_mk, new_mk2;
+    CK_ATTRIBUTE *reenc_attr = NULL;
 
     if (((struct cca_private_data *)tokdata->private_data)->inconsistent) {
         TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
@@ -3616,10 +3619,12 @@ CK_RV token_specific_aes_xts_key_gen(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
     }
     memcpy(key_form, "OP      ", (size_t) CCA_KEYWORD_SIZE);
     memcpy(key_type, "AESTOKEN", (size_t) CCA_KEYWORD_SIZE);
+
+retry:
     memcpy(*aes_key, key_token, (size_t) CCA_KEY_ID_SIZE);
 
     rc = cca_key_gen(tokdata, tmpl, CCA_AES_KEY, *aes_key, key_form,
-                     key_type, key_size / 2, FALSE);
+                     key_type, key_size / 2, FALSE, &new_mk);
     if (rc != CKR_OK) {
         TRACE_ERROR("%s cca_key_gen function failed\n", ock_err(rc));
         return rc;
@@ -3628,10 +3633,45 @@ CK_RV token_specific_aes_xts_key_gen(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
     memcpy(*aes_key + CCA_KEY_ID_SIZE, key_token, (size_t) CCA_KEY_ID_SIZE);
 
     rc = cca_key_gen(tokdata, tmpl, CCA_AES_KEY, *aes_key + CCA_KEY_ID_SIZE,
-                     key_form, key_type, key_size / 2, TRUE);
+                     key_form, key_type, key_size / 2, TRUE, &new_mk2);
     if (rc != CKR_OK) {
         TRACE_ERROR("%s cca_key_gen function failed\n", ock_err(rc));
         return rc;
+    }
+
+    if (new_mk == FALSE && new_mk2 == TRUE) {
+        /*
+         * Key 2 was created with new MK, key 1 with old MK.
+         * Key 2 has CKA_IBM_OPAQUE and CKA_IBM_OPAQUE_REENC both
+         * with new MK (was set by cca_reencipher_created_key() called inside
+         * cca_key_gen()).
+         * Key 1 has CKA_IBM_OPAQUE with old MK, and CKA_IBM_OPAQUE_REENC
+         * with new MK (it was re-enciphered by cca_reencipher_created_key()
+         * called inside 2nd cca_key_gen()).
+         * Supply CKA_IBM_OPAQUE_REENC with new MK in CKA_IBM_OPAQUE
+         * for key 1 also, so that both, CKA_IBM_OPAQUE and
+         * CKA_IBM_OPAQUE_REENC have new MK only for both key parts.
+         */
+        rc = template_attribute_get_non_empty(tmpl, CKA_IBM_OPAQUE_REENC,
+                                              &reenc_attr);
+        if (rc != CKR_OK || reenc_attr == NULL ||
+            reenc_attr->ulValueLen != CCA_KEY_ID_SIZE * 2) {
+            TRACE_ERROR("No CKA_IBM_OPAQUE_REENC attr found\n");
+            return CKR_TEMPLATE_INCOMPLETE;
+        }
+
+        memcpy(*aes_key, reenc_attr->pValue, CCA_KEY_ID_SIZE);
+    } else if (new_mk == TRUE && new_mk2 == FALSE) {
+        /*
+         * Key 1 was created with new MK, but key 2 with old MK.
+         * This can happen when an APQN with new MK went offline
+         * and another APQN with old MK is selected after creating
+         * key 1 but before creating key 2. Since there is no key 1 blob
+         * with old MK in CKA_IBM_OPAQUE, we need to re-create both keys
+         * (both with old MK now).
+         */
+        memset(*aes_key, 0, CCA_KEY_ID_SIZE * 2);
+        goto retry;
     }
 
     return CKR_OK;
@@ -3688,7 +3728,8 @@ static CK_RV import_aes_xts_key(STDLL_TokData_t *tokdata,
     enum cca_token_type token_type, token_type2;
     unsigned int token_keybitsize, token_keybitsize2;
     const CK_BYTE *mkvp, *mkvp2;
-    CK_BBOOL new_mk;
+    CK_BBOOL new_mk, new_mk2;
+    CK_ATTRIBUTE *reenc_attr = NULL;
 
     if (!((struct cca_private_data *)tokdata->private_data)->pkey_wrap_supported) {
         TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
@@ -3765,7 +3806,7 @@ static CK_RV import_aes_xts_key(STDLL_TokData_t *tokdata,
             return CKR_TEMPLATE_INCONSISTENT;
         }
 
-        if (check_expected_mkvp(tokdata, token_type2, mkvp2, &new_mk) != CKR_OK) {
+        if (check_expected_mkvp(tokdata, token_type2, mkvp2, &new_mk2) != CKR_OK) {
             TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
             return CKR_DEVICE_ERROR;
         }
@@ -3774,7 +3815,7 @@ static CK_RV import_aes_xts_key(STDLL_TokData_t *tokdata,
                                         ((CK_BYTE *)opaque_attr->pValue) +
                                             (opaque_attr->ulValueLen / 2),
                                         opaque_attr->ulValueLen / 2,
-                                        new_mk, token_type2, TRUE);
+                                        new_mk2, token_type2, TRUE);
         if (rc != CKR_OK) {
             TRACE_ERROR("cca_reencipher_created_key failed: 0x%lx\n", rc);
             return rc;
@@ -3824,6 +3865,8 @@ static CK_RV import_aes_xts_key(STDLL_TokData_t *tokdata,
 
         memcpy(rule_array, "AES     ", CCA_KEYWORD_SIZE);
         rule_array_count = 1;
+
+retry:
         keylen = value_attr->ulValueLen / 2;
         USE_CCA_ADAPTER_START(tokdata, return_code, reason_code)
             dll_CSNBCKM(&return_code, &reason_code, NULL, NULL,
@@ -3881,14 +3924,48 @@ static CK_RV import_aes_xts_key(STDLL_TokData_t *tokdata,
             return CKR_FUNCTION_FAILED;
         }
 
-        if (check_expected_mkvp(tokdata, token_type2, mkvp2, &new_mk) != CKR_OK) {
+        if (check_expected_mkvp(tokdata, token_type2, mkvp2, &new_mk2) != CKR_OK) {
             TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
             return CKR_DEVICE_ERROR;
         }
 
+        if (new_mk == FALSE && new_mk2 == TRUE) {
+            /*
+             * Key 2 was created with new MK, key 1 with old MK.
+             * Key 2 will have CKA_IBM_OPAQUE and CKA_IBM_OPAQUE_REENC both
+             * with new MK (will be set by cca_reencipher_created_key() below).
+             * Key 1 has CKA_IBM_OPAQUE with old MK, and CKA_IBM_OPAQUE_REENC
+             * with new MK (it was re-enciphered by cca_reencipher_created_key()
+             * above). Supply CKA_IBM_OPAQUE_REENC with new MK in CKA_IBM_OPAQUE
+             * for key 1 also, so that both, CKA_IBM_OPAQUE and
+             * CKA_IBM_OPAQUE_REENC have new MK only for both key parts.
+             */
+            rc = template_attribute_get_non_empty(object->template,
+                                                  CKA_IBM_OPAQUE_REENC,
+                                                  &reenc_attr);
+            if (rc != CKR_OK || reenc_attr == NULL ||
+                reenc_attr->ulValueLen != CCA_KEY_ID_SIZE) {
+                TRACE_ERROR("No CKA_IBM_OPAQUE_REENC attr found\n");
+                return CKR_TEMPLATE_INCOMPLETE;
+            }
+
+            memcpy(target_key_id, reenc_attr->pValue, CCA_KEY_ID_SIZE);
+        } else if (new_mk == TRUE && new_mk2 == FALSE) {
+            /*
+             * Key 1 was created with new MK, but key 2 with old MK.
+             * This can happen when an APQN with new MK went offline
+             * and another APQN with old MK is selected after creating
+             * key 1 but before creating key 2. Since there is no key 1 blob
+             * with old MK in CKA_IBM_OPAQUE, we need to re-create both keys
+             * (both with old MK now).
+             */
+            memset(target_key_id, 0, sizeof(target_key_id));
+            goto retry;
+        }
+
         rc = cca_reencipher_created_key(tokdata, object->template,
                                         target_key_id + CCA_KEY_ID_SIZE,
-                                        CCA_KEY_ID_SIZE, new_mk, token_type2,
+                                        CCA_KEY_ID_SIZE, new_mk2, token_type2,
                                         TRUE);
         if (rc != CKR_OK) {
             TRACE_ERROR("cca_reencipher_created_key failed: 0x%lx\n", rc);
@@ -4213,9 +4290,10 @@ CK_RV token_specific_final(STDLL_TokData_t *tokdata,
 }
 
 static CK_RV cca_key_gen(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
-                         enum cca_key_type type, CK_BYTE * key,
+                         enum cca_key_type type, CK_BYTE *key,
                          unsigned char *key_form, unsigned char *key_type_1,
-                         CK_ULONG key_size, CK_BBOOL aes_xts_2dn_key)
+                         CK_ULONG key_size, CK_BBOOL aes_xts_2dn_key,
+                         CK_BBOOL *has_new_mk)
 {
 
     long return_code, reason_code;
@@ -4300,6 +4378,9 @@ static CK_RV cca_key_gen(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
         return rc;
     }
 
+    if (has_new_mk != NULL)
+        *has_new_mk = new_mk;
+
     return CKR_OK;
 }
 
@@ -4327,7 +4408,7 @@ CK_RV token_specific_des_key_gen(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
     memcpy(key_type_1, "DATA    ", (size_t) CCA_KEYWORD_SIZE);
 
     return cca_key_gen(tokdata, tmpl, CCA_DES_KEY, *des_key, key_form,
-                       key_type_1, keysize, FALSE);
+                       key_type_1, keysize, FALSE, NULL);
 }
 
 
@@ -5817,7 +5898,7 @@ CK_RV token_specific_aes_key_gen(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
     memcpy(*aes_key, key_token, (size_t) CCA_KEY_ID_SIZE);
 
     return cca_key_gen(tokdata, tmpl, CCA_AES_KEY, *aes_key, key_form,
-                       key_type, key_size, FALSE);
+                       key_type, key_size, FALSE, NULL);
 }
 
 CK_RV token_specific_aes_ecb(STDLL_TokData_t * tokdata,
