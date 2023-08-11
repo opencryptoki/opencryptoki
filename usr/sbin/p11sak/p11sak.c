@@ -2712,14 +2712,14 @@ static void print_set_copy_key_attr_help(void)
     const struct p11sak_attr *attr;
 
     printf("ATTRIBUTES:\n");
-    for (attr = p11sak_bool_attrs; attr->name != NULL; attr++) {
-        if (attr->settable)
+    for (attr = p11sak_bool_attrs; attr->name != NULL; attr++)
             printf("    '%c':   %s\n", attr->letter, attr->name);
-    }
     printf("\n");
 
     printf("    ");
-    print_indented("An uppercase letter sets the corresponding attribute to "
+    print_indented("Keys can be filtered by all attributes, setting "
+                   "is possible for all except L A N T Z.\n"
+                   "An uppercase letter sets the corresponding attribute to "
                    "CK_TRUE, a lower case letter to CK_FALSE.\n"
                    "If an attribute is not set explicitly, its value is not "
                    "changed.\n"
