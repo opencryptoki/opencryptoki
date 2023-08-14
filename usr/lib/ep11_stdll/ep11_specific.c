@@ -2844,6 +2844,13 @@ static CK_RV import_aes_xts_key(STDLL_TokData_t *tokdata, SESSION *sess,
         return rc;
     }
 
+    if (memcmp(attr->pValue,
+               ((CK_BYTE *)attr->pValue) + attr->ulValueLen / 2,
+               attr->ulValueLen / 2) == 0) {
+        TRACE_ERROR("The 2 key parts of an AES-XTS key can not be the same\n");
+        return CKR_ATTRIBUTE_VALUE_INVALID;
+    }
+
     /* tell ep11 the attributes the user specified */
     rc = build_ep11_attrs(tokdata, aes_xts_key_obj->template, &p_attrs,
                           &attrs_len, CKK_AES, CKO_SECRET_KEY, -1, &mech);
@@ -4407,8 +4414,8 @@ CK_RV ep11tok_generate_key(STDLL_TokData_t * tokdata, SESSION * session,
     CK_BYTE reenc_blob[MAX_BLOBSIZE], reenc_blob2[MAX_BLOBSIZE];
     size_t blobsize = sizeof(blob);
     size_t blobsize2 = sizeof(blob2);
-    CK_BYTE csum[MAX_CSUMSIZE];
-    size_t csum_len = sizeof(csum);
+    CK_BYTE csum[MAX_CSUMSIZE], csum2[MAX_CSUMSIZE];;
+    size_t csum_len = sizeof(csum), csum2_len = sizeof(csum2);
     CK_ATTRIBUTE *attr = NULL;
     OBJECT *key_obj = NULL;
     CK_ULONG ktype;
@@ -4428,6 +4435,7 @@ CK_RV ep11tok_generate_key(STDLL_TokData_t * tokdata, SESSION * session,
     memset(reenc_blob, 0, sizeof(reenc_blob));
     memset(csum, 0, sizeof(csum));
     memset(blob2, 0, sizeof(blob2));
+    memset(csum2, 0, sizeof(csum2));
 
     /* Get the keytype to use when creating the key object */
     rc = pkcs_get_keytype(attrs, attrs_len, mech, &ktype, &class);
@@ -4502,11 +4510,12 @@ retry:
     }
 
     if (xts) {
+retry_xts:
         RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
         RETRY_REENC_CREATE_KEY_START()
             rc = dll_m_GenerateKey(&mech2, new_attrs2, new_attrs2_len,
                                    ep11_pin_blob, ep11_pin_blob_len, blob2,
-                                   &blobsize2, csum, &csum_len,
+                                   &blobsize2, csum2, &csum2_len,
                                    target_info->target);
         RETRY_REENC_CREATE_KEY_END(tokdata, session, target_info,
                                    blob2, reenc_blob2, blobsize2, rc)
@@ -4554,6 +4563,10 @@ retry:
                 goto retry;
             }
         }
+
+        /* Compare check sums to ensure the 2 key parts are not the same */
+        if (csum_len == csum2_len && memcmp(csum, csum2, csum_len) == 0)
+            goto retry_xts;
 
         if (blobsize + blobsize2 > MAX_BLOBSIZE) {
             TRACE_ERROR("%s\n", ock_err(CKR_HOST_MEMORY));
