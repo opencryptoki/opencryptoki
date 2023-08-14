@@ -3674,6 +3674,17 @@ retry:
         goto retry;
     }
 
+    /*
+     * Compare the encrypted key material to ensure that the 2 key parts are
+     * not the same.
+     * A CCA AES-DATA key blob contains the encrypted key material at
+     * offset 16, with a length of 32 bytes.
+     */
+    if (memcmp(*aes_key + 16, *aes_key + CCA_KEY_ID_SIZE + 16, 32) == 0) {
+        memset(*aes_key, 0, CCA_KEY_ID_SIZE * 2);
+        goto retry;
+    }
+
     return CKR_OK;
 }
 
@@ -3828,6 +3839,20 @@ static CK_RV import_aes_xts_key(STDLL_TokData_t *tokdata,
             return CKR_ATTRIBUTE_VALUE_INVALID;
         }
 
+        /*
+         * Compare the encrypted key material to ensure that the 2 key parts are
+         * not the same.
+         * A CCA AES-DATA key blob contains the encrypted key material at
+         * offset 16, with a length of 32 bytes.
+         */
+        if (memcmp(((CK_BYTE *)opaque_attr->pValue) + 16 ,
+                   ((CK_BYTE *)opaque_attr->pValue) +
+                                   opaque_attr->ulValueLen / 2 + 16,
+                   32) == 0) {
+            TRACE_ERROR("The 2 key parts of an AES-XTS key can not be the same\n");
+            return CKR_ATTRIBUTE_VALUE_INVALID;
+        }
+
         /* create a dummy CKA_VALUE attribute with the key bit size but all zero */
         rc = build_update_attribute(object->template, CKA_VALUE,
                                     zorro, token_keybitsize * 2 / 8);
@@ -3861,6 +3886,13 @@ static CK_RV import_aes_xts_key(STDLL_TokData_t *tokdata,
         if (rc != CKR_OK) {
             TRACE_ERROR("Incomplete key template\n");
             return CKR_TEMPLATE_INCOMPLETE;
+        }
+
+        if (memcmp(value_attr->pValue,
+                   ((CK_BYTE *)value_attr->pValue) + value_attr->ulValueLen / 2,
+                   value_attr->ulValueLen / 2) == 0) {
+            TRACE_ERROR("The 2 key parts of an AES-XTS key can not be the same\n");
+            return CKR_ATTRIBUTE_VALUE_INVALID;
         }
 
         memcpy(rule_array, "AES     ", CCA_KEYWORD_SIZE);
