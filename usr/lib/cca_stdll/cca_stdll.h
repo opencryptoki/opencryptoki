@@ -19,6 +19,16 @@
 #ifndef __CCA_STDLL_H__
 #define __CCA_STDLL_H__
 
+#include <pthread.h>
+
+#include "pkcs11types.h"
+#include "defs.h"
+#include "host_defs.h"
+#include "csulincl.h"
+#include "cca_func.h"
+#include "hsm_mk_change.h"
+#include "configuration.h"
+
 /* CCA library constants */
 
 #define CCA_PRIVATE_KEY_NAME_SIZE       64
@@ -189,5 +199,226 @@ enum cca_ktc_type {
 #define CCADBG(...)   do { } while (0)
 #define DBG(...)   do { } while (0)
 #endif
+
+/* cca token type enum, used with analyse_cca_key_token() */
+enum cca_token_type {
+    sec_des_data_key,
+    sec_aes_data_key,
+    sec_aes_cipher_key,
+    sec_hmac_key,
+    sec_rsa_priv_key,
+    sec_rsa_publ_key,
+    sec_ecc_priv_key,
+    sec_ecc_publ_key
+};
+
+struct cca_mk_change_op {
+    volatile int mk_change_active;
+    char mk_change_op[8]; /* set if mk_change_active = 1 */
+    unsigned char new_sym_mkvp[CCA_MKVP_LENGTH];
+    unsigned char new_aes_mkvp[CCA_MKVP_LENGTH];
+    unsigned char new_apka_mkvp[CCA_MKVP_LENGTH];
+    CK_BBOOL new_sym_mkvp_set;
+    CK_BBOOL new_aes_mkvp_set;
+    CK_BBOOL new_apka_mkvp_set;
+    struct apqn *apqns;
+    unsigned int num_apqns;
+};
+
+/* CCA token private data */
+#define PKEY_MK_VP_LENGTH           32
+
+#define PKEY_MODE_DISABLED          0
+#define PKEY_MODE_DEFAULT           1
+#define PKEY_MODE_ENABLED           2
+
+struct cca_version {
+    unsigned int ver;
+    unsigned int rel;
+    unsigned int mod;
+};
+
+struct cca_private_data {
+    void *lib_csulcca;
+    struct cca_version cca_lib_version;
+    struct cca_version min_card_version;
+    pthread_rwlock_t min_card_version_rwlock;
+    unsigned char expected_sym_mkvp[CCA_MKVP_LENGTH];
+    unsigned char expected_aes_mkvp[CCA_MKVP_LENGTH];
+    unsigned char expected_apka_mkvp[CCA_MKVP_LENGTH];
+    CK_BBOOL expected_sym_mkvp_set;
+    CK_BBOOL expected_aes_mkvp_set;
+    CK_BBOOL expected_apka_mkvp_set;
+    CK_BBOOL dev_any;
+    CK_BBOOL dom_any;
+    unsigned int num_adapters;
+    unsigned int num_domains;
+    unsigned int num_usagedoms;
+    unsigned short usage_domains[256];
+    CK_BBOOL inconsistent;
+    struct cca_mk_change_op mk_change_ops[CCA_NUM_MK_TYPES];
+    char token_config_filename[PATH_MAX];
+    int pkey_mode;
+    int pkey_wrap_supported;
+    char pkey_mk_vp[PKEY_MK_VP_LENGTH];
+    int pkeyfd;
+    int msa_level;
+};
+
+#define CCA_CFG_EXPECTED_MKVPS  "EXPECTED_MKVPS"
+#define CCA_CFG_SYM_MKVP        "SYM"
+#define CCA_CFG_AES_MKVP        "AES"
+#define CCA_CFG_APKA_MKVP       "APKA"
+
+#define SYSFS_BUS_AP            "/sys/bus/ap/"
+#define SYSFS_DEVICES_AP        "/sys/devices/ap/"
+#define REGEX_CARD_PATTERN      "card[0-9a-fA-F]+"
+#define MASK_COPRO              0x10000000
+
+extern CSUACRA_t dll_CSUACRA;
+extern CSUACRD_t dll_CSUACRD;
+extern CSNBKTC_t dll_CSNBKTC;
+extern CSNBKTC2_t dll_CSNBKTC2;
+extern CSNDKTC_t dll_CSNDKTC;
+
+/*
+ * Macros to enclose CCA verbs that use a secure key blob.
+ * If the CCA verb fails with return code 8 reason code 48 "One or more keys
+ * has a master key verification pattern that is not valid.", check if the
+ * secure key bob is enciphered with the new MK already. If so, and if a
+ * MK change operation for that master key type is currently active, select
+ * a single APQN that has the new MK set/activated. Wait in case no APQN is
+ * currently available. Once a single APQN has been selected, retry the CCA
+ * verb on the now selected single APQN.
+ */
+#define RETRY_NEW_MK_BLOB_START()                                            \
+                do {                                                         \
+                    int single_selected = 0;                                 \
+                    char serialno[CCA_SERIALNO_LENGTH + 1];                  \
+                    do {
+
+#define RETRY_NEW_MK_BLOB_END(tokdata, return_code, reason_code,             \
+                              blob, bloblen)                                 \
+                RETRY_NEW_MK_BLOB2_END(tokdata, return_code, reason_code,    \
+                                       blob, bloblen, NULL, 0)
+
+#define RETRY_NEW_MK_BLOB2_END(tokdata, return_code, reason_code,            \
+                               blob1, bloblen1, blob2, bloblen2)             \
+                        if ((return_code) == 8 && (reason_code) == 48) {     \
+                            TRACE_DEVEL("%s MKVP mismatch\n", __func__);     \
+                            if (!single_selected &&                          \
+                                cca_check_blob_select_single_apqn((tokdata), \
+                                                      (blob1), (bloblen1),   \
+                                                      (blob2), (bloblen2),   \
+                                                      serialno)) {           \
+                                single_selected = 1;                         \
+                                continue;                                    \
+                            }                                                \
+                        }                                                    \
+                        if (single_selected) {                               \
+                            if (cca_deselect_single_apqn((tokdata),          \
+                                                      serialno) != CKR_OK) { \
+                                TRACE_ERROR("%s Failed to de-select single " \
+                                            "APQN\n", __func__);             \
+                                (return_code) = 16;                          \
+                                (reason_code) = 336;                         \
+                            }                                                \
+                        }                                                    \
+                        break;                                               \
+                    } while (1);                                             \
+                } while (0);
+
+/*
+ * Macros to enclose any usage of CCA verbs.
+ * Obtains a READ lock on the CCA adapter lock, if a DOM-ANY configuration is
+ * used. This prevents CCA adapter usage concurrent to another thread performing
+ * Domain selection processing. Domain selection works on process scope, so
+ * it would influence all threads that currently use CCA verbs.
+ */
+#define USE_CCA_ADAPTER_START(tokdata, return_code, reason_code)             \
+                do {                                                         \
+                    if (((struct cca_private_data *)                         \
+                                      (tokdata)->private_data)->dom_any) {   \
+                        if (pthread_rwlock_rdlock(&cca_adapter_rwlock)       \
+                                                                    != 0) {  \
+                            TRACE_ERROR("CCA adapter RD-Lock failed.\n");    \
+                            (return_code) = 16;                              \
+                            (reason_code) = 336;                             \
+                            break;                                           \
+                        }                                                    \
+                    }
+
+#define USE_CCA_ADAPTER_END(tokdata, return_code, reason_code)               \
+                    if (((struct cca_private_data *)                         \
+                                       (tokdata)->private_data)->dom_any) {  \
+                        if (pthread_rwlock_unlock(&cca_adapter_rwlock)       \
+                                                                    != 0) {  \
+                            TRACE_ERROR("CCA adapter Unlock failed.\n");     \
+                            (return_code) = 16;                              \
+                            (reason_code) = 336;                             \
+                            break;                                           \
+                        }                                                    \
+                    }                                                        \
+                } while (0);
+
+extern pthread_rwlock_t cca_adapter_rwlock;
+
+CK_RV build_update_attribute(TEMPLATE * tmpl,
+                             CK_ATTRIBUTE_TYPE type,
+                             CK_BYTE * data, CK_ULONG data_len);
+CK_BBOOL analyse_cca_key_token(const CK_BYTE *t, CK_ULONG tlen,
+                               enum cca_token_type *keytype,
+                               unsigned int *keybitsize,
+                               const CK_BYTE **mkvp);
+CK_RV check_expected_mkvp(STDLL_TokData_t *tokdata,
+                          enum cca_token_type keytype,
+                          const CK_BYTE *mkvp, CK_BBOOL *new_mk);
+CK_RV cca_get_mkvps(unsigned char *cur_sym, unsigned char *new_sym,
+                    unsigned char *cur_aes, unsigned char *new_aes,
+                    unsigned char *cur_apka, unsigned char *new_apka);
+CK_RV cca_get_mk_state(enum cca_mk_type mk_type,
+                       enum cca_cmk_state *cur,
+                       enum cca_nmk_state *new);
+void cca_config_parse_error(int line, int col, const char *msg);
+CK_RV cca_config_parse_exp_mkvps(char *fname,
+                                 struct ConfigStructNode *exp_mkvp_node,
+                                 unsigned char *expected_sym_mkvp,
+                                 CK_BBOOL *expected_sym_mkvp_set,
+                                 unsigned char *expected_aes_mkvp,
+                                 CK_BBOOL *expected_aes_mkvp_set,
+                                 unsigned char *expected_apka_mkvp,
+                                 CK_BBOOL *expected_apka_mkvp_set);
+CK_RV cca_get_adapter_serial_number(char *serialno);
+CK_RV cca_iterate_adapters(STDLL_TokData_t *tokdata,
+                           CK_RV (*cb)(STDLL_TokData_t *tokdata,
+                                       const char *adapter,
+                                       unsigned short card,
+                                       unsigned short domain,
+                                       void *private),
+                           void *cb_private);
+unsigned char *cca_mk_change_find_mkvp_in_ops(STDLL_TokData_t *tokdata,
+                                              enum cca_mk_type mk_type,
+                                              unsigned int *idx);
+struct cca_mk_change_op *cca_mk_change_find_op_by_keytype(
+                                                   STDLL_TokData_t *tokdata,
+                                                   enum cca_token_type keytype);
+CK_RV cca_mk_change_check_pending_ops(STDLL_TokData_t *tokdata);
+CK_BBOOL cca_check_blob_select_single_apqn(STDLL_TokData_t *tokdata,
+                                           const CK_BYTE *sec_key1,
+                                           CK_ULONG sec_key1_len,
+                                           const CK_BYTE *sec_key2,
+                                           CK_ULONG sec_key2_len,
+                                           char *serialno);
+CK_RV cca_deselect_single_apqn(STDLL_TokData_t *tokdata, char *serialno);
+CK_RV cca_reencipher_created_key(STDLL_TokData_t *tokdata,
+                                 TEMPLATE* tmpl,  CK_BYTE *sec_key,
+                                 CK_ULONG sec_key_len, CK_BBOOL new_mk,
+                                 enum cca_token_type keytype,
+                                 CK_BBOOL aes_xts_2dn_key);
+CK_RV cca_handle_mk_change_event(STDLL_TokData_t *tokdata,
+                                 unsigned int event_type,
+                                 unsigned int event_flags,
+                                 const char *payload,
+                                 unsigned int payload_len);
 
 #endif
