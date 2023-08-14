@@ -3270,6 +3270,8 @@ CK_RV token_specific_aes_xts_key_gen(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
                                      CK_BYTE **key, CK_ULONG *len,
                                      CK_ULONG keysize, CK_BBOOL *is_opaque)
 {
+    CK_RV rc;
+
     UNUSED(tmpl);
 
     *key = malloc(keysize);
@@ -3278,7 +3280,13 @@ CK_RV token_specific_aes_xts_key_gen(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
     *len = keysize;
     *is_opaque = FALSE;
 
-    return rng_generate(tokdata, *key, keysize);
+    do {
+        rc = rng_generate(tokdata, *key, keysize);
+        if (rc != CKR_OK)
+            return rc;
+    } while (memcmp(*key, (*key) + keysize / 2, keysize / 2) == 0);
+
+    return CKR_OK;
 }
 
 CK_RV token_specific_aes_ecb(STDLL_TokData_t *tokdata,
@@ -5795,6 +5803,7 @@ CK_RV token_specific_object_add(STDLL_TokData_t *tokdata, SESSION *sess,
                                 OBJECT *obj)
 {
     ica_private_data_t *ica_data = (ica_private_data_t *)tokdata->private_data;
+    CK_ATTRIBUTE *value = NULL;
     CK_OBJECT_CLASS class;
     CK_KEY_TYPE keytype;
 #ifndef NO_EC
@@ -5845,6 +5854,21 @@ CK_RV token_specific_object_add(STDLL_TokData_t *tokdata, SESSION *sess,
         }
         return CKR_OK;
 #endif
+
+    case CKK_AES_XTS:
+        rc = template_attribute_get_non_empty(obj->template, CKA_VALUE, &value);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("Failed to get CKA_VALUE\n");
+            return rc;
+        }
+
+        if (memcmp(value->pValue,
+                   ((CK_BYTE *)value->pValue) + value->ulValueLen / 2,
+                   value->ulValueLen / 2) == 0) {
+            TRACE_ERROR("The 2 key parts of an AES-XTS key can not be the same\n");
+            return CKR_ATTRIBUTE_VALUE_INVALID;
+        }
+        return CKR_OK;
 
     default:
         return CKR_OK;
