@@ -4223,7 +4223,7 @@ CK_RV token_specific_init(STDLL_TokData_t * tokdata, CK_SLOT_ID SlotNumber,
     if (!ccatok_pkey_option_disabled(tokdata)) {
         cca_private->pkeyfd = open(PKEYDEVICE, O_RDWR);
         if (cca_private->pkeyfd >= 0) {
-            TRACE_INFO("Opened /dev/pkey: file descriptor %d", cca_private->pkeyfd);
+            TRACE_INFO("Opened /dev/pkey: file descriptor %d\n", cca_private->pkeyfd);
             rc = ccatok_pkey_get_firmware_wkvp(tokdata);
             if (rc != CKR_OK) {
                 /*
