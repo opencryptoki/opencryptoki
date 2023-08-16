@@ -2011,6 +2011,13 @@ static const struct p11sak_cmd p11sak_commands[] = {
       .settable = set, .print_short = print_bool_attr_short,                   \
       .print_long = print_bool_attr_long, }
 
+#define DECLARE_BOOL_ATTR_SO(attr, ch, sec, pub, priv, set, so_set_true)       \
+    { .name = # attr, .type = attr, .letter = ch,                              \
+      .secret = sec, .public = pub, .private = priv,                           \
+      .settable = set, .so_set_to_true = so_set_true,                          \
+      .print_short = print_bool_attr_short,                                    \
+      .print_long = print_bool_attr_long, }
+
 static const struct p11sak_attr p11sak_bool_attrs[] = {
     DECLARE_BOOL_ATTR(CKA_PRIVATE,           'P', true,  true,  true,  true),
     DECLARE_BOOL_ATTR(CKA_LOCAL,             'L', true,  true,  true,  false),
@@ -2030,7 +2037,8 @@ static const struct p11sak_attr p11sak_bool_attrs[] = {
     DECLARE_BOOL_ATTR(CKA_ALWAYS_SENSITIVE,  'A', true,  false, true,  false),
     DECLARE_BOOL_ATTR(CKA_EXTRACTABLE,       'X', true,  false, true,  true),
     DECLARE_BOOL_ATTR(CKA_NEVER_EXTRACTABLE, 'N', true,  false, true,  false),
-    DECLARE_BOOL_ATTR(CKA_TRUSTED,           'T', true,  true,  true,  false),
+    DECLARE_BOOL_ATTR_SO(CKA_TRUSTED,        'T', true,  true,  false,  true,
+                                                  true),
     DECLARE_BOOL_ATTR(CKA_WRAP_WITH_TRUSTED, 'I', true,  false, true,  true),
     DECLARE_BOOL_ATTR(CKA_IBM_PROTKEY_EXTRACTABLE,
                                              'K', true,  false, true,  true),
@@ -2044,7 +2052,8 @@ static const struct p11sak_attr p11sak_bool_cert_attrs[] = {
     DECLARE_BOOL_ATTR(CKA_MODIFIABLE,        'M', true,  true,  true,  true),
     DECLARE_BOOL_ATTR(CKA_COPYABLE,          'B', true,  true,  true,  true),
     DECLARE_BOOL_ATTR(CKA_DESTROYABLE,       'Y', true,  true,  true,  true),
-    DECLARE_BOOL_ATTR(CKA_TRUSTED,           'T', true,  true,  true,  false),
+    DECLARE_BOOL_ATTR_SO(CKA_TRUSTED,        'T', true,  true,  true,  true,
+                                                  true),
     { .name = NULL, },
 };
 
@@ -2644,7 +2653,9 @@ static void print_import_cert_attr_help(void)
     printf("ATTRIBUTES:\n");
     for (attr = p11sak_bool_cert_attrs; attr->name != NULL; attr++) {
         if (attr->settable)
-            printf("    '%c':   %s\n", attr->letter, attr->name);
+            printf("    '%c':   %s%s\n", attr->letter, attr->name,
+                   attr->so_set_to_true ?
+                           " (can be set to TRUE by SO only)" : "");
     }
     printf("\n");
 
@@ -2665,7 +2676,9 @@ static void print_generate_import_key_attr_help(void)
     printf("ATTRIBUTES:\n");
     for (attr = p11sak_bool_attrs; attr->name != NULL; attr++) {
         if (attr->settable)
-            printf("    '%c':   %s\n", attr->letter, attr->name);
+            printf("    '%c':   %s%s\n", attr->letter, attr->name,
+                   attr->so_set_to_true ?
+                           " (can be set to TRUE by SO only)" : "");
     }
     printf("\n");
 
@@ -2732,7 +2745,9 @@ static void print_set_copy_key_attr_help(void)
 
     printf("ATTRIBUTES:\n");
     for (attr = p11sak_bool_attrs; attr->name != NULL; attr++)
-            printf("    '%c':   %s\n", attr->letter, attr->name);
+        printf("    '%c':   %s%s\n", attr->letter, attr->name,
+               attr->so_set_to_true ?
+                       " (can be set to TRUE by SO only)" : "");
     printf("\n");
 
     printf("    ");
@@ -2753,7 +2768,10 @@ static void print_set_copy_cert_attr_help(void)
 
     printf("ATTRIBUTES:\n");
     for (attr = p11sak_bool_cert_attrs; attr->name != NULL; attr++)
-            printf("    '%c':   %s\n", attr->letter, attr->name);
+        printf("    '%c':   %s%s\n", attr->letter, attr->name,
+               attr->so_set_to_true ?
+                       " (can be set to TRUE by SO only)" : "");
+
     printf("\n");
 
     printf("    ");
@@ -2802,7 +2820,9 @@ static void print_extract_cert_pubkey_help(void)
     printf("ATTRIBUTES (for setting):\n");
     for (attr = p11sak_bool_attrs; attr->name != NULL; attr++) {
         if (attr->settable)
-            printf("    '%c':   %s\n", attr->letter, attr->name);
+            printf("    '%c':   %s%s\n", attr->letter, attr->name,
+                   attr->so_set_to_true ?
+                           " (can be set to TRUE by SO only)" : "");
     }
     printf("\n");
 
@@ -3713,6 +3733,13 @@ static CK_RV parse_boolean_attrs(const struct p11sak_objtype *objtype,
             continue;
 
         val = isupper(attr_string[i]) ? CK_TRUE : CK_FALSE;
+
+        if (check_settable && attr->so_set_to_true &&
+            val == CK_TRUE && !opt_so) {
+            warnx("Attribute %s ('%c') can only be set to TRUE by SO",
+                  attr->name, attr->letter);
+            return CKR_ARGUMENTS_BAD;
+        }
 
         rc = add_attribute(attr->type, &val, sizeof(val), attrs, num_attrs);
         if (rc != CKR_OK)

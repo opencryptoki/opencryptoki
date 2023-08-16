@@ -1469,7 +1469,7 @@ RC_P11SAK_X509_COPY=$((RC_P11SAK_X509_COPY + $?))
 
 echo "** Now updating x.509 certs - 'p11sak_test.sh'"
 RC_P11SAK_X509_UPDATE=0
-p11sak set-cert-attr x509 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-x509-*" --new-attr "YT" --force
+p11sak set-cert-attr x509 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-x509-*" --new-attr "Yt" --force
 RC_P11SAK_X509_UPDATE=$((RC_P11SAK_X509_UPDATE + $?))
 p11sak set-cert-attr x509 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-x509-*" --new-id "012345" --force
 RC_P11SAK_X509_UPDATE=$((RC_P11SAK_X509_UPDATE + $?))
