@@ -17,6 +17,7 @@
 #define P11SAK_DEFAULT_PKCS11_LIB           "libopencryptoki.so";
 #define P11SAK_PKCSLIB_ENV_NAME             "PKCSLIB"
 #define PKCS11_USER_PIN_ENV_NAME            "PKCS11_USER_PIN"
+#define PKCS11_SO_PIN_ENV_NAME              "PKCS11_SO_PIN"
 #define PKCS11_PEM_PASSWORD_ENV_NAME        "PKCS11_PEM_PASSWORD"
 #define P11SAK_DEFAULT_CONF_FILE_ENV_NAME   "P11SAK_DEFAULT_CONF_FILE"
 #define P11SAK_CONFIG_FILE_NAME             "p11sak_defined_attrs.conf"
@@ -37,6 +38,7 @@
 #define OPT_FORCE_PIN_PROMPT    256
 #define OPT_DETAILED_URI        257
 #define OPT_FORCE_PEM_PWD_PROMPT 258
+#define OPT_SO                  259
 
 #define MAX_PRINT_LINE_LENGTH   80
 #define PRINT_INDENT_POS        35

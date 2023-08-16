@@ -58,6 +58,7 @@ P11SAK_ALL_PINOPT=p11sak-all-pinopt
 P11SAK_ALL_PINENV=p11sak-all-pinenv
 P11SAK_ALL_PINCON=p11sak-all-pincon
 P11SAK_ALL_NOLOGIN=p11sak-all-nologin
+P11SAK_ALL_SO=p11sak-all-so
 P11SAK_X509_PRE=p11sak-x509-pre.out
 P11SAK_X509_LONG=p11sak-x509-long.out
 P11SAK_X509_POST=p11sak-x509-post.out
@@ -218,6 +219,12 @@ RC_P11SAK_PINCON=$?
 
 p11sak list-key all --slot $SLOT --no-login &> $P11SAK_ALL_NOLOGIN
 RC_P11SAK_NOLOGIN=$?
+if [[ -n $PKCS11_SO_PIN ]]; then
+	p11sak list-key all --slot $SLOT --pin $PKCS11_SO_PIN --so &> $P11SAK_ALL_SO
+	RC_P11SAK_SO=$?
+else
+	echo "Skip login as SO, PKCS11_SO_PIN is not set"
+fi
 
 echo "** Now updating keys - 'p11sak_test.sh'"
 
@@ -1971,6 +1978,15 @@ else
 	status=1
 fi
 
+if [[ -z $PKCS11_SO_PIN ]]; then
+	echo "* TESTCASE list-key so-login SKIP SO session"
+elif [ $RC_P11SAK_SO = 0 ]; then
+	echo "* TESTCASE list-key so-login PASS SO session"
+else
+	echo "* TESTCASE list-key so-login FAIL SO session"
+	status=1
+fi
+
 if diff -q $P11SAK_ALL_PINOPT $P11SAK_ALL_PINENV ; then
 	echo "* TESTCASE list-key pin-opt-env PASS Token pin opt/env output compare"
 else
@@ -2029,6 +2045,7 @@ rm -f $P11SAK_ALL_PINOPT
 rm -f $P11SAK_ALL_PINENV
 rm -f $P11SAK_ALL_PINCON
 rm -f $P11SAK_ALL_NOLOGIN
+rm -f $P11SAK_ALL_SO
 rm -f export-aes.key
 rm -f export-*.pem
 rm -f export-*.opaque
