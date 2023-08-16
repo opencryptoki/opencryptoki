@@ -86,6 +86,7 @@ option will also show the arguments and options available.
 .RB [ \-\-pin | \-p
 .IR PIN ]
 .RB [ \-\-force\-pin\-prompt ]
+.RB [ \-\-no\-login | \-N ]
 .BR \-\-label | \-L
 .I LABEL
 .BR \-\-attr | \-a
@@ -126,6 +127,7 @@ attribute of the key.
 .RB [ \-\-pin | \-p
 .IR PIN ]
 .RB [ \-\-force\-pin\-prompt ]
+.RB [ \-\-no\-login | \-N ]
 .BR \-\-label | \-L
 .I LABEL
 .BR \-\-attr | \-a
@@ -171,6 +173,7 @@ attribute of the key.
 .RB [ \-\-pin | \-p
 .IR PIN ]
 .RB [ \-\-force\-pin\-prompt ]
+.RB [ \-\-no\-login | \-N ]
 .BR \-\-label | \-L
 .I LABEL
 .BR \-\-attr | \-a
@@ -214,6 +217,7 @@ attribute of the key.
 .RB [ \-\-pin | \-p
 .IR PIN ]
 .RB [ \-\-force\-pin\-prompt ]
+.RB [ \-\-no\-login | \-N ]
 .BR \-\-label | \-L
 .I LABEL
 .BR \-\-attr | \-a
@@ -258,6 +262,7 @@ attribute of the key.
 .RB [ \-\-pin | \-p
 .IR PIN ]
 .RB [ \-\-force\-pin\-prompt ]
+.RB [ \-\-no\-login | \-N ]
 .BR \-\-label | \-L
 .IR LABEL | PUB\-LABEL : PRIV\-LABEL
 .BR \-\-attr | \-a
@@ -307,6 +312,7 @@ key. The default is set to 65537 according to the PKCS\~#11 standard.
 .RB [ \-\-pin | \-p
 .IR PIN ]
 .RB [ \-\-force\-pin\-prompt ]
+.RB [ \-\-no\-login | \-N ]
 .BR \-\-label | \-L
 .IR LABEL | PUB\-LABEL : PRIV\-LABEL
 .BR \-\-attr | \-a
@@ -381,6 +387,7 @@ argument allows the user to specify the size of the private key in bits.
 .RB [ \-\-pin | \-p
 .IR PIN ]
 .RB [ \-\-force\-pin\-prompt ]
+.RB [ \-\-no\-login | \-N ]
 .BR \-\-label | \-L
 .IR LABEL | PUB\-LABEL : PRIV\-LABEL
 .BR \-\-attr | \-a
@@ -432,6 +439,7 @@ attribute of the key.
 .RB [ \-\-pin | \-p
 .IR PIN ]
 .RB [ \-\-force\-pin\-prompt ]
+.RB [ \-\-no\-login | \-N ]
 .BR \-\-label | \-L
 .IR LABEL | PUB\-LABEL : PRIV\-LABEL
 .BR \-\-attr | \-a
@@ -492,6 +500,7 @@ attribute of the key.
 .RB [ \-\-pin | \-p
 .IR PIN ]
 .RB [ \-\-force\-pin\-prompt ]
+.RB [ \-\-no\-login | \-N ]
 .BR \-\-label | \-L
 .IR LABEL | PUB\-LABEL : PRIV\-LABEL
 .BR \-\-attr | \-a
@@ -548,6 +557,7 @@ attribute of the key.
 .RB [ \-\-pin | \-p
 .IR PIN ]
 .RB [ \-\-force\-pin\-prompt ]
+.RB [ \-\-no\-login | \-N ]
 .BR \-\-label | \-L
 .IR LABEL | PUB\-LABEL : PRIV\-LABEL
 .BR \-\-attr | \-a
@@ -603,6 +613,7 @@ attribute of the key.
 .RB [ \-\-pin | \-p
 .IR PIN ]
 .RB [ \-\-force\-pin\-prompt ]
+.RB [ \-\-no\-login | \-N ]
 .RB [ \-\-label | \-L
 .IR LABEL ]
 .RB [ \-\-id | \-i
@@ -683,6 +694,7 @@ option below.
 .RB [ \-\-pin | \-p
 .IR PIN ]
 .RB [ \-\-force\-pin\-prompt ]
+.RB [ \-\-no\-login | \-N ]
 .RB [ \-\-label | \-L
 .IR LABEL ]
 .RB [ \-\-id | \-i
@@ -745,6 +757,7 @@ option.
 .RB [ \-\-pin | \-p
 .IR PIN ]
 .RB [ \-\-force\-pin\-prompt ]
+.RB [ \-\-no\-login | \-N ]
 .RB [ \-\-label | \-L
 .IR LABEL ]
 .RB [ \-\-id | \-i
@@ -834,6 +847,7 @@ option.
 .RB [ \-\-pin | \-p
 .IR PIN ]
 .RB [ \-\-force\-pin\-prompt ]
+.RB [ \-\-no\-login | \-N ]
 .RB [ \-\-label | \-L
 .IR LABEL ]
 .RB [ \-\-id | \-i
@@ -917,6 +931,7 @@ option.
 .RB [ \-\-pin | \-p
 .IR PIN ]
 .RB [ \-\-force\-pin\-prompt ]
+.RB [ \-\-no\-login | \-N ]
 .BR \-\-label | \-L
 .I LABEL
 .RB [ \-\-id | \-i
@@ -996,6 +1011,7 @@ option to import an opaque secure key blob. Not all tokens support this.
 .RB [ \-\-pin | \-p
 .IR PIN ]
 .RB [ \-\-force\-pin\-prompt ]
+.RB [ \-\-no\-login | \-N ]
 .RB [ \-\-label | \-L
 .IR LABEL ]
 .RB [ \-\-id | \-i
@@ -1107,6 +1123,7 @@ option.
 .RB [ \-\-pin | \-p
 .IR PIN ]
 .RB [ \-\-force\-pin\-prompt ]
+.RB [ \-\-no\-login | \-N ]
 .RB [ \-\-label | \-L
 .IR LABEL ]
 .RB [ \-\-id | \-i
@@ -1187,6 +1204,7 @@ option below.
 .RB [ \-\-pin | \-p
 .IR PIN ]
 .RB [ \-\-force\-pin\-prompt ]
+.RB [ \-\-no\-login | \-N ]
 .RB [ \-\-label | \-L
 .IR LABEL ]
 .RB [ \-\-id | \-i
@@ -1248,6 +1266,7 @@ option.
 .RB [ \-\-pin | \-p
 .IR PIN ]
 .RB [ \-\-force\-pin\-prompt ]
+.RB [ \-\-no\-login | \-N ]
 .RB [ \-\-label | \-L
 .IR LABEL ]
 .RB [ \-\-id | \-i
@@ -1335,6 +1354,7 @@ option.
 .RB [ \-\-pin | \-p
 .IR PIN ]
 .RB [ \-\-force\-pin\-prompt ]
+.RB [ \-\-no\-login | \-N ]
 .RB [ \-\-label | \-L
 .IR LABEL ]
 .RB [ \-\-id | \-i
@@ -1415,6 +1435,7 @@ option.
 .RB [ \-\-pin | \-p
 .IR PIN ]
 .RB [ \-\-force\-pin\-prompt ]
+.RB [ \-\-no\-login | \-N ]
 .BR \-\-label | \-L
 .I LABEL
 .RB [ \-\-id | \-i
@@ -1479,6 +1500,7 @@ option flags the certificate as a Certificate Authority (CA) certificate.
 .RB [ \-\-pin | \-p
 .IR PIN ]
 .RB [ \-\-force\-pin\-prompt ]
+.RB [ \-\-no\-login | \-N ]
 .RB [ \-\-label | \-L
 .IR LABEL ]
 .RB [ \-\-id | \-i
@@ -1554,6 +1576,7 @@ PEM format.
 .RB [ \-\-pin | \-p
 .IR PIN ]
 .RB [ \-\-force\-pin\-prompt ]
+.RB [ \-\-no\-login | \-N ]
 .RB [ \-\-label | \-L
 .IR LABEL ]
 .RB [ \-\-id | \-i
@@ -1784,6 +1807,15 @@ Enforce the
 .B p11sak
 tool to prompt for the token user PIN (regardless if it has been specified
 elsewhere)
+.PP
+.
+.
+.
+.TP 8
+.BR \-\-no\-login | \-N
+Do not login the session. This means that only public token objects 
+.RB ( CKA_PRIVATE = FALSE )
+can be accessed.
 .PP
 .
 .

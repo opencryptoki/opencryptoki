@@ -91,6 +91,7 @@ static bool opt_version = false;
 static CK_SLOT_ID opt_slot = (CK_SLOT_ID)-1;
 static char *opt_pin = NULL;
 static bool opt_force_pin_prompt = false;
+static bool opt_no_login = false;
 static struct p11sak_enum_value *opt_keytype = NULL;
 static struct p11sak_enum_value *opt_certtype = NULL;
 static CK_ULONG opt_keybits_num = 0;
@@ -950,7 +951,12 @@ static const struct p11sak_opt p11sak_generic_opts[] = {
                .value.plain = &opt_force_pin_prompt, },                        \
       .description = "Enforce user PIN prompt, even if environment variable "  \
                      "PKCS11_USER_PIN is set, or the '-p'/'--pin' option is "  \
-                     "specified.", }
+                     "specified.", },                                          \
+    { .short_opt = 'N', .long_opt = "no-login", .required = false,             \
+      .arg = { .type = ARG_TYPE_PLAIN, .required = false,                      \
+               .value.plain = &opt_no_login, },                                \
+      .description = "Do not login the session. This means that only public "  \
+                     "token objects (CKA_PRIVATE=FALSE) can be accessed.", }
 
 #define KEY_FILTER_OPTS                                                        \
     { .short_opt = 'L', .long_opt = "label", .required = false,                \
@@ -9461,11 +9467,13 @@ static CK_RV open_pkcs11_session(CK_SLOT_ID slot, CK_FLAGS flags,
         return rc;
     }
 
-    rc = pkcs11_funcs->C_Login(pkcs11_session, CKU_USER, (CK_CHAR *)pin,
-                               strlen(pin));
-    if (rc != CKR_OK) {
-        warnx("Login failed: C_Login: 0x%lX: %s", rc, p11_get_ckr(rc));
-        return rc;
+    if (pin != NULL) {
+        rc = pkcs11_funcs->C_Login(pkcs11_session, CKU_USER, (CK_CHAR *)pin,
+                                   strlen(pin));
+        if (rc != CKR_OK) {
+            warnx("Login failed: C_Login: 0x%lX: %s", rc, p11_get_ckr(rc));
+            return rc;
+        }
     }
 
     return CKR_OK;
@@ -9495,12 +9503,25 @@ static CK_RV init_pkcs11(const struct p11sak_cmd *command)
     if (command == NULL || command->session_flags == 0)
         return CKR_OK;
 
-    if (pin == NULL)
-        pin = getenv(PKCS11_USER_PIN_ENV_NAME);
-    if (opt_force_pin_prompt || pin == NULL)
-        pin = pin_prompt(&buf_user_pin, "Please enter user PIN: ");
-    if (pin == NULL)
-        return CKR_FUNCTION_FAILED;
+    if (opt_no_login) {
+        if (opt_pin != NULL) {
+            warnx("Option '-p'/'--pin' is not allowed with '-N'/'--no-login'");
+            return CKR_ARGUMENTS_BAD;
+        }
+        if (opt_force_pin_prompt) {
+            warnx("Option '--force-pin-prompt' is not allowed with "
+                  "'-N'/'--no-login'");
+            return CKR_ARGUMENTS_BAD;
+        }
+        pin = NULL;
+    } else {
+        if (pin == NULL)
+            pin = getenv(PKCS11_USER_PIN_ENV_NAME);
+        if (opt_force_pin_prompt || pin == NULL)
+            pin = pin_prompt(&buf_user_pin, "Please enter user PIN: ");
+        if (pin == NULL)
+            return CKR_FUNCTION_FAILED;
+    }
 
     rc = load_pkcs11_lib();
     if (rc != CKR_OK)

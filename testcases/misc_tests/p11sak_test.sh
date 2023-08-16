@@ -57,6 +57,7 @@ P11SAK_IBM_KYBER_POST=p11sak-ibm-kyber-post.out
 P11SAK_ALL_PINOPT=p11sak-all-pinopt
 P11SAK_ALL_PINENV=p11sak-all-pinenv
 P11SAK_ALL_PINCON=p11sak-all-pincon
+P11SAK_ALL_NOLOGIN=p11sak-all-nologin
 P11SAK_X509_PRE=p11sak-x509-pre.out
 P11SAK_X509_LONG=p11sak-x509-long.out
 P11SAK_X509_POST=p11sak-x509-post.out
@@ -215,6 +216,8 @@ RC_P11SAK_PINENV=$?
 printf "${PKCS11_USER_PIN}\n" | p11sak list-key all --slot $SLOT --force-pin-prompt | tail -n +2 &> $P11SAK_ALL_PINCON
 RC_P11SAK_PINCON=$?
 
+p11sak list-key all --slot $SLOT --no-login &> $P11SAK_ALL_NOLOGIN
+RC_P11SAK_NOLOGIN=$?
 
 echo "** Now updating keys - 'p11sak_test.sh'"
 
@@ -1961,6 +1964,13 @@ else
 	status=1
 fi
 
+if [ $RC_P11SAK_NOLOGIN = 0 ]; then
+	echo "* TESTCASE list-key no-login PASS public session"
+else
+	echo "* TESTCASE list-key no-login FAIL public session"
+	status=1
+fi
+
 if diff -q $P11SAK_ALL_PINOPT $P11SAK_ALL_PINENV ; then
 	echo "* TESTCASE list-key pin-opt-env PASS Token pin opt/env output compare"
 else
@@ -2018,6 +2028,7 @@ rm -f $P11SAK_X509_POST
 rm -f $P11SAK_ALL_PINOPT
 rm -f $P11SAK_ALL_PINENV
 rm -f $P11SAK_ALL_PINCON
+rm -f $P11SAK_ALL_NOLOGIN
 rm -f export-aes.key
 rm -f export-*.pem
 rm -f export-*.opaque
