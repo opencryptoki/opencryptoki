@@ -113,6 +113,7 @@ struct p11sak_attr {
     bool public;
     bool private;
     bool settable;
+    bool so_set_to_true; /* can only be set to TRUE by SO */
     void (*print_short)(const CK_ATTRIBUTE *val, bool applicable);
     void (*print_long)(const char *attr, const CK_ATTRIBUTE *val,
                        int indent, bool sensitive);

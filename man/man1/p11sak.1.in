@@ -1859,7 +1859,12 @@ is used. If
 .B PKCS11_SO_PIN
 is not set, then you will be prompted for the SO PIN. SO can only access public
 token objects
-.RB ( CKA_PRIVATE = FALSE ).
+.RB ( CKA_PRIVATE = FALSE ),
+but SO can set attribute
+.B CKA_TRUSTED
+to
+.B TRUE
+for secret key objects, public key objects, and certificate objects.
 .PP
 .
 .
@@ -2044,7 +2049,7 @@ The following letters are associated with the respective
 \- CKA_NEVER_EXTRACTABLE (read only)
 .IP "\(bu" 2
 .B T
-\- CKA_TRUSTED (can only be set by SO user)
+\- CKA_TRUSTED (can only be set to TRUE by SO user)
 .IP "\(bu" 2
 .B I
 \- CKA_WRAP_WITH_TRUSTED
