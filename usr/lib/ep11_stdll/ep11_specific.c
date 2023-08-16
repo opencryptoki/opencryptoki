@@ -345,21 +345,51 @@ static CK_RV check_expected_mkvp(STDLL_TokData_t *tokdata, CK_BYTE *blob,
                                  size_t blobsize, CK_BBOOL *new_wk)
 {
     ep11_private_data_t *ep11_data = tokdata->private_data;
+    CK_ULONG data_len = 0, spki_len = 0, wkid_len = 0;
+    CK_BYTE *data, *wkid;
+    CK_RV rc;
 
     if (new_wk != NULL)
         *new_wk = FALSE;
 
-    if (blobsize < EP11_BLOB_WKID_OFFSET + XCP_WKID_BYTES) {
-        TRACE_ERROR("EP11 key blob is too small\n");
-        return CKR_FUNCTION_FAILED;
+    /*
+     * Check if MACed SPKI or key blob. From the EP11 structure document:
+     *    Session identifiers are guaranteed not to have 0x30 as their first
+     *    byte. This allows a single-byte check to differentiate between blobs
+     *    starting with session identifiers, and MACed SPKIs, which may be
+     *    used as blobs under other conditions.
+     * Key blobs start with the session identifier (32 bytes).
+     * SPKIs start with a DER encoded SPKI, which itself starts with a SEQUENCE
+     * denoted by 0x30 followed by the DER encoded length of the SPKI.
+     */
+    if (blobsize > 5 && blob[0] == 0x30 &&
+        ber_decode_SEQUENCE(blob, &data, &data_len, &spki_len) == CKR_OK) {
+        /* It is a SPKI, WKID follows as OCTET STRING right after SPKI data */
+        if (blobsize < spki_len + 2 + XCP_WKID_BYTES) {
+            TRACE_ERROR("MACed SPKI is too small\n");
+            return CKR_FUNCTION_FAILED;
+        }
+
+        rc = ber_decode_OCTET_STRING(blob + spki_len, &wkid, &wkid_len,
+                                     &data_len);
+        if (rc != CKR_OK || wkid_len != XCP_WKID_BYTES) {
+            TRACE_ERROR("Invalid MACed SPKI encoding\n");
+            return CKR_FUNCTION_FAILED;
+        }
+    } else {
+        /* It is a key blob, WKID starts at EP11_BLOB_WKID_OFFSET */
+        if (blobsize < EP11_BLOB_WKID_OFFSET + XCP_WKID_BYTES) {
+            TRACE_ERROR("EP11 key blob is too small\n");
+            return CKR_FUNCTION_FAILED;
+        }
+
+        wkid = blob + EP11_BLOB_WKID_OFFSET;
     }
 
-    if (memcmp(blob + EP11_BLOB_WKID_OFFSET, ep11_data->expected_wkvp,
-               XCP_WKID_BYTES) != 0) {
+    if (memcmp(wkid, ep11_data->expected_wkvp, XCP_WKID_BYTES) != 0) {
         /* If an MK change operation is active, also allow the new WK */
         if (ep11_data->mk_change_active &&
-            memcmp(blob + EP11_BLOB_WKID_OFFSET, ep11_data->new_wkvp,
-                               XCP_WKID_BYTES) == 0) {
+            memcmp(wkid, ep11_data->new_wkvp, XCP_WKID_BYTES) == 0) {
 
             TRACE_DEBUG("The key is wrapped by the new WK\n");
             if (new_wk != NULL)
@@ -369,8 +399,7 @@ static CK_RV check_expected_mkvp(STDLL_TokData_t *tokdata, CK_BYTE *blob,
 
         TRACE_ERROR("The key's wrapping key verification pattern does not "
                     "match the expected EP11 wrapping key\n");
-        TRACE_DEBUG_DUMP("WKVP of key:   ", blob + EP11_BLOB_WKID_OFFSET,
-                          XCP_WKID_BYTES);
+        TRACE_DEBUG_DUMP("WKVP of key:   ", wkid, XCP_WKID_BYTES);
         TRACE_DEBUG_DUMP("Expected WKVP: ", (CK_BYTE *)ep11_data->expected_wkvp,
                          XCP_WKID_BYTES);
         OCK_SYSLOG(LOG_ERR, "The key's wrapping key verification pattern does "
@@ -4418,24 +4447,17 @@ CK_RV token_specific_object_add(STDLL_TokData_t * tokdata, SESSION * sess,
         return CKR_KEY_FUNCTION_NOT_PERMITTED;
     }
 
-    switch (class) {
-    case CKO_PRIVATE_KEY:
-    case CKO_SECRET_KEY:
-        if (check_expected_mkvp(tokdata, blob, keytype == CKK_AES_XTS ?
-                                blobsize / 2 : blobsize, NULL) != CKR_OK) {
+    if (check_expected_mkvp(tokdata, blob, keytype == CKK_AES_XTS ?
+                            blobsize / 2 : blobsize, NULL) != CKR_OK) {
+        TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
+        return CKR_DEVICE_ERROR;
+    }
+    if (keytype == CKK_AES_XTS) {
+        if (check_expected_mkvp(tokdata, blob + blobsize / 2,
+                                blobsize / 2, NULL) != CKR_OK) {
             TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
             return CKR_DEVICE_ERROR;
         }
-        if (keytype == CKK_AES_XTS) {
-            if (check_expected_mkvp(tokdata, blob + blobsize / 2,
-                                    blobsize / 2, NULL) != CKR_OK) {
-                TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
-                return CKR_DEVICE_ERROR;
-            }
-        }
-        break;
-    default:
-        break;
     }
 
     /* store the blob in the key obj */
@@ -6665,12 +6687,10 @@ CK_RV ep11tok_derive_key(STDLL_TokData_t *tokdata, SESSION *session,
     TRACE_INFO("%s hBaseKey=0x%lx rc=0x%lx handle=0x%lx blobsize=0x%zx\n",
                __func__, hBaseKey, rc, *handle, newblobsize);
 
-    if (class == CKO_SECRET_KEY || class == CKO_PRIVATE_KEY) {
-        if (check_expected_mkvp(tokdata, newblob, newblobsize, NULL) != CKR_OK) {
-            TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
-            rc = CKR_DEVICE_ERROR;
-            goto error;
-        }
+    if (check_expected_mkvp(tokdata, newblob, newblobsize, NULL) != CKR_OK) {
+        TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
+        rc = CKR_DEVICE_ERROR;
+        goto error;
     }
 
     rc = build_attribute(CKA_IBM_OPAQUE, newblob, newblobsize, &opaque_attr);
@@ -7017,6 +7037,12 @@ static CK_RV dh_generate_keypair(STDLL_TokData_t *tokdata,
                         __func__, rc);
             goto dh_generate_keypair_end;
         }
+    }
+
+    if (check_expected_mkvp(tokdata, publblob, publblobsize, NULL) != CKR_OK) {
+        TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
+        rc = CKR_DEVICE_ERROR;
+        goto dh_generate_keypair_end;
     }
 
     /* store the blobs */
@@ -7428,6 +7454,12 @@ static CK_RV dsa_generate_keypair(STDLL_TokData_t *tokdata,
         }
     }
 
+    if (check_expected_mkvp(tokdata, publblob, publblobsize, NULL) != CKR_OK) {
+        TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
+        rc = CKR_DEVICE_ERROR;
+        goto dsa_generate_keypair_end;
+    }
+
     rc = build_attribute(CKA_IBM_OPAQUE, publblob, publblobsize, &opaque_attr);
     if (rc != CKR_OK) {
         TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n", __func__, rc);
@@ -7701,6 +7733,12 @@ static CK_RV rsa_ec_generate_keypair(STDLL_TokData_t *tokdata,
                         __func__, rc);
             goto error;
         }
+    }
+
+    if (check_expected_mkvp(tokdata, spki, spki_len, NULL) != CKR_OK) {
+        TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
+        rc = CKR_DEVICE_ERROR;
+        goto error;
     }
 
     rc = build_attribute(CKA_IBM_OPAQUE, spki, spki_len, &attr);
@@ -8146,6 +8184,12 @@ static CK_RV ibm_pqc_generate_keypair(STDLL_TokData_t *tokdata,
                         __func__, rc);
             goto error;
         }
+    }
+
+    if (check_expected_mkvp(tokdata, spki, spki_len, NULL) != CKR_OK) {
+        TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
+        rc = CKR_DEVICE_ERROR;
+        goto error;
     }
 
     rc = build_attribute(CKA_IBM_OPAQUE, spki, spki_len, &attr);
