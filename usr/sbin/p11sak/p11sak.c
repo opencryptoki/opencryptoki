@@ -59,9 +59,10 @@ static CK_RV p11sak_set_key_attr(void);
 static CK_RV p11sak_copy_key(void);
 static CK_RV p11sak_import_key(void);
 static CK_RV p11sak_export_key(void);
+static CK_RV p11sak_extract_key_pubkey(void);
 static void print_generate_import_key_attr_help(void);
 static void print_list_key_attr_help(void);
-static void print_set_copy_key_attr_help(void);
+static void print_set_copy_extract_key_attr_help(void);
 static void print_remove_key_help(void);
 static CK_RV p11sak_list_cert(void);
 static CK_RV p11sak_remove_cert(void);
@@ -1403,6 +1404,26 @@ static const struct p11sak_enum_value
     { .value = NULL, },
 };
 
+static const struct p11sak_enum_value p11sak_private_key_keytypes[] = {
+    { .value = "rsa", .args = NULL,
+      .private = { .ptr = &p11sak_rsa_keytype }, },
+    { .value = "dh", .args = NULL,
+      .private = { .ptr = &p11sak_dh_keytype }, },
+    { .value = "dsa", .args = NULL,
+      .private = { .ptr = &p11sak_dsa_keytype }, },
+    { .value = "ec", .args = NULL,
+      .private = { .ptr = &p11sak_ec_keytype }, },
+    { .value = "ibm-dilithium", .args = NULL,
+      .private = { .ptr = &p11sak_ibm_dilithium_keytype }, },
+    { .value = "ibm-kyber", .args = NULL,
+      .private = { .ptr = &p11sak_ibm_kyber_keytype }, },
+    { .value = "private", .args = NULL,
+      .private = { .ptr = &p11sak_private_keytype }, },
+    { .value = "all", .args = NULL,
+      .private = { .ptr = &p11sak_all_keytype }, },
+    { .value = NULL, },
+};
+
 static const struct p11sak_enum_value
                         p11sak_list_remove_set_copy_export_cert_certtypes[] = {
     GROUP_CERTTYPES,
@@ -1827,6 +1848,36 @@ static const struct p11sak_opt p11sak_export_key_opts[] = {
     { .short_opt = 0, .long_opt = NULL, },
 };
 
+static const struct p11sak_opt p11sak_extract_pubkey_opts[] = {
+    PKCS11_OPTS,
+    KEY_FILTER_OPTS,
+    { .short_opt = 'f', .long_opt = "force", .required = false,
+      .arg =  { .type = ARG_TYPE_PLAIN, .required = false,
+                .value.plain = &opt_force, },
+      .description = "Do not prompt for a confirmation to extract public keys. "
+                     "Use with care, public keys of all private keys matching "
+                     "the filter will be extracted!", },
+    { .short_opt = 'A', .long_opt = "new-attr", .required = false,
+      .arg =  { .type = ARG_TYPE_STRING, .required = true,
+                .value.string = &opt_new_attr, .name = "ATTRS", },
+      .description = "The boolean attributes to set for the extracted public "
+                     "key (optional): P L M B Y R E D G C V O W U S A X N T I. "
+                     "Specify a set of these letters without any blanks in "
+                     "between. See below for the meaning of the attribute "
+                     "letters. Restrictions on attribute values may apply.", },
+    { .short_opt = 'l', .long_opt = "new-label", .required = false,
+      .arg =  { .type = ARG_TYPE_STRING, .required = true,
+                .value.string = &opt_new_label, .name = "LABEL", },
+      .description = "The new label to set for the extracted public key (optional). "
+                     "If no new label is specified, the new label is derived "
+                     "from the private key label by appending '_pubkey'.", },
+    { .short_opt = 'I', .long_opt = "new-id", .required = false,
+      .arg =  { .type = ARG_TYPE_STRING, .required = true,
+                .value.string = &opt_new_id, .name = "ID", },
+      .description = "The new ID to set for the extracted public key (optional).", },
+    { .short_opt = 0, .long_opt = NULL, },
+};
+
 static const struct p11sak_opt p11sak_export_cert_opts[] = {
     PKCS11_OPTS,
     CERT_FILTER_OPTS,
@@ -1895,6 +1946,16 @@ static const struct p11sak_arg p11sak_export_key_args[] = {
     { .name = NULL },
 };
 
+static const struct p11sak_arg p11sak_extract_pubkey_args[] = {
+    { .name = "KEYTYPE", .type = ARG_TYPE_ENUM, .required = false,
+      .enum_values = p11sak_private_key_keytypes,
+      .value.enum_value = &opt_keytype,
+      .description = "The type of the private keys to select for public key "
+                     "extraction (optional). If no key type is specified, all "
+                     "private key types are selected.", },
+    { .name = NULL },
+};
+
 static const struct p11sak_arg p11sak_export_cert_args[] = {
     { .name = "CERTTYPE", .type = ARG_TYPE_ENUM, .required = false,
       .enum_values = p11sak_list_remove_set_copy_export_cert_certtypes,
@@ -1939,13 +2000,13 @@ static const struct p11sak_cmd p11sak_commands[] = {
       .func = p11sak_set_key_attr,
       .opts = p11sak_set_key_attr_opts, .args = p11sak_set_key_attr_args,
       .description = "Set attributes of keys in the repository.",
-      .help = print_set_copy_key_attr_help,
+      .help = print_set_copy_extract_key_attr_help,
       .session_flags = CKF_SERIAL_SESSION | CKF_RW_SESSION, },
     { .cmd = "copy-key", .cmd_short1 = "copy", .cmd_short2 = "cp",
       .func = p11sak_copy_key,
       .opts = p11sak_copy_key_opts, .args = p11sak_copy_key_args,
       .description = "Copy keys in the repository.",
-      .help = print_set_copy_key_attr_help,
+      .help = print_set_copy_extract_key_attr_help,
       .session_flags = CKF_SERIAL_SESSION | CKF_RW_SESSION, },
     { .cmd = "import-key", .cmd_short1 = "import", .cmd_short2 = "imp",
       .func = p11sak_import_key,
@@ -1958,6 +2019,12 @@ static const struct p11sak_cmd p11sak_commands[] = {
       .opts = p11sak_export_key_opts, .args = p11sak_export_key_args,
       .description = "Export keys to a binary file or PEM file.",
       .session_flags = CKF_SERIAL_SESSION, },
+    { .cmd = "extract-pubkey", .cmd_short1 = "extr-pubkey", .cmd_short2 = "expub",
+      .func = p11sak_extract_key_pubkey,
+      .opts = p11sak_extract_pubkey_opts, .args = p11sak_extract_pubkey_args,
+      .description = "Extract the public key from private keys in the repository.",
+      .help = print_set_copy_extract_key_attr_help,
+      .session_flags = CKF_SERIAL_SESSION | CKF_RW_SESSION, },
     { .cmd = "list-cert", .cmd_short1 = "ls-cert", .cmd_short2 = "lsc",
       .func = p11sak_list_cert,
       .opts = p11sak_list_cert_opts, .args = p11sak_list_cert_args,
@@ -1992,7 +2059,7 @@ static const struct p11sak_cmd p11sak_commands[] = {
       .opts = p11sak_export_cert_opts, .args = p11sak_export_cert_args,
       .description = "Export certificates to a binary file or PEM file.",
       .session_flags = CKF_SERIAL_SESSION, },
-    { .cmd = "extract-cert-pubkey", .cmd_short1 = "extr-pubkey", .cmd_short2 = "expub",
+    { .cmd = "extract-cert-pubkey", .cmd_short1 = "extrc-pubkey", .cmd_short2 = "excpub",
       .func = p11sak_extract_cert_pubkey,
       .opts = p11sak_extract_cert_pubkey_opts, .args = p11sak_extract_cert_pubkey_args,
       .description = "Extract the public key from certificates in the repository.",
@@ -2735,7 +2802,7 @@ static void print_remove_key_help(void)
     printf("\n");
 }
 
-static void print_set_copy_key_attr_help(void)
+static void print_set_copy_extract_key_attr_help(void)
 {
     const struct p11sak_attr *attr;
 
@@ -8880,9 +8947,140 @@ done:
     return rc;
 }
 
-static CK_RV p11sak_extract_pubkey(const struct p11sak_objtype *certtype,
-                                   CK_OBJECT_HANDLE cert,
-                                   const char *typestr, const char* label)
+static CK_RV p11sak_key_extract_pubkey(const struct p11sak_objtype *keytype,
+                                       CK_OBJECT_HANDLE key,
+                                       const char *typestr, const char* label)
+{
+    CK_OBJECT_HANDLE pubkey;
+    CK_ATTRIBUTE spki = { CKA_PUBLIC_KEY_INFO, NULL, 0 };
+    CK_ATTRIBUTE id_attr = { CKA_ID, NULL, 0 };
+    const unsigned char *p;
+    CK_ATTRIBUTE *attrs = NULL;
+    CK_ULONG num_attrs = 0;
+    EVP_PKEY *pkey = NULL;
+    char *pubkey_label = NULL;
+    CK_OBJECT_CLASS key_class = CKO_PUBLIC_KEY;
+    CK_BBOOL btrue = CK_TRUE;
+    CK_RV rc;
+
+    if (opt_new_attr != NULL) {
+        rc = parse_boolean_attrs(keytype, opt_new_attr, &attrs, &num_attrs,
+                                 true, public_attr_applicable);
+        if (rc != CKR_OK)
+            goto done;
+
+        if (num_attrs == 0) {
+            warnx("None of the specified attributes apply to a public key object.");
+            rc = CKR_ARGUMENTS_BAD;
+            goto done;
+        }
+    }
+
+    if (opt_new_label != NULL) {
+        rc = add_attribute(CKA_LABEL, opt_new_label, strlen(opt_new_label),
+                           &attrs, &num_attrs);
+        if (rc != CKR_OK) {
+            warnx("Failed to add %s key attribute CKA_LABEL: 0x%lX: %s",
+                  keytype->name, rc, p11_get_ckr(rc));
+            goto done;
+        }
+    }
+
+    if (opt_new_id != NULL) {
+        rc = parse_id(opt_new_id, &attrs, &num_attrs);
+        if (rc != CKR_OK)
+            goto done;
+    }
+
+    rc = get_attribute(key, &spki);
+    if (rc != CKR_OK) {
+        warnx("Failed to retrieve attribute CKA_PUBLIC_KEY_INFO from %s key "
+              "object \"%s\": 0x%lX: %s", typestr, label, rc, p11_get_ckr(rc));
+        goto done;
+    }
+
+    if (keytype->import_asym_pkey != NULL) {
+        p = spki.pValue;
+        pkey = d2i_PUBKEY(NULL, &p, spki.ulValueLen);
+        if (pkey == NULL) {
+            warnx("OpenSSL d2i_PUBKEY failed to get PKEY from SPKI.");
+            ERR_print_errors_cb(openssl_err_cb, NULL);
+            rc = CKR_FUNCTION_FAILED;
+            goto done;
+        }
+
+        rc = keytype->import_asym_pkey(keytype, pkey, false,
+                                       &attrs, &num_attrs);
+    } else if (keytype->import_asym_pem_data != NULL) {
+        rc = keytype->import_asym_pem_data(keytype,
+                                           (unsigned char *)spki.pValue,
+                                           spki.ulValueLen, false,
+                                           &attrs, &num_attrs);
+    } else {
+        warnx("No support for extracting %s public key", keytype->name);
+        rc = CKR_ARGUMENTS_BAD;
+    }
+    if (rc != CKR_OK)
+        goto done;
+
+    /* If no new label parm specified, derive new label from key label */
+    if (opt_new_label == NULL) {
+        if (asprintf(&pubkey_label, "%s_pubkey", label) < 0 ||
+            pubkey_label == NULL) {
+            warnx("Failed to allocate memory for new public key label.");
+            rc = CKR_HOST_MEMORY;
+            goto done;
+        }
+        rc = add_attribute(CKA_LABEL, pubkey_label, strlen(pubkey_label),
+                           &attrs, &num_attrs);
+    }
+
+    /* If no new ID is specified, try to use ID from certificate */
+    if (opt_new_id == NULL) {
+        rc = get_attribute(key, &id_attr);
+        if (rc == CKR_OK)
+            rc = add_attribute(CKA_ID, id_attr.pValue, id_attr.ulValueLen,
+                               &attrs, &num_attrs);
+    }
+
+    rc += add_attribute(CKA_CLASS, &key_class, sizeof(CK_OBJECT_CLASS),
+                        &attrs, &num_attrs);
+    rc += add_attribute(CKA_KEY_TYPE, &keytype->type, sizeof(CK_KEY_TYPE),
+                        &attrs, &num_attrs);
+    rc += add_attribute(CKA_TOKEN, &btrue, sizeof(CK_BBOOL),
+                        &attrs, &num_attrs);
+    if (rc != CKR_OK) {
+        warnx("Failed to add attributes for extracted key's public key.");
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+
+    rc = pkcs11_funcs->C_CreateObject(pkcs11_session, attrs, num_attrs, &pubkey);
+    if (rc != CKR_OK) {
+       if (is_rejected_by_policy(rc, pkcs11_session))
+           warnx("Public key extraction of a %s key is rejected by policy",
+                 keytype->name);
+       else
+           warnx("Public key extraction of a %s key failed: 0x%lX: %s",
+                 keytype->name, rc, p11_get_ckr(rc));
+       goto done;
+    }
+
+done:
+    free_attributes(attrs, num_attrs);
+    if (spki.pValue != NULL)
+        free(spki.pValue);
+    if (id_attr.pValue != NULL)
+        free(id_attr.pValue);
+    if (pkey != NULL)
+        EVP_PKEY_free(pkey);
+
+    return rc;
+}
+
+static CK_RV p11sak_cert_extract_pubkey(const struct p11sak_objtype *certtype,
+                                        CK_OBJECT_HANDLE cert,
+                                        const char *typestr, const char* label)
 {
     CK_OBJECT_HANDLE pubkey;
     CK_ATTRIBUTE *attrs = NULL;
@@ -9078,6 +9276,77 @@ done:
     return rc;
 }
 
+static CK_RV handle_key_pubkey_extract(CK_OBJECT_HANDLE cert,
+                                       CK_OBJECT_CLASS class,
+                                       const struct p11sak_objtype *keytype,
+                                       CK_ULONG keysize, const char *typestr,
+                                       const char* label,
+                                       const char *common_name,
+                                       void *private)
+{
+    struct p11sak_export_data *data = private;
+    char *msg = NULL;
+    char ch;
+    CK_RV rc;
+
+    UNUSED(keysize);
+    UNUSED(common_name);
+
+    if (class != CKO_PRIVATE_KEY)
+        return CKR_OK;
+
+    if (data->skip_all) {
+        data->num_skipped++;
+        return CKR_OK;
+    }
+
+    if (!data->export_all) {
+        if (asprintf(&msg, "Are you sure you want to extract the public key from %s key object \"%s\" [y/n/a/c]? ",
+                     typestr, label) < 0 ||
+            msg == NULL) {
+            warnx("Failed to allocate memory for a message");
+            return CKR_HOST_MEMORY;
+        }
+        ch = prompt_user(msg, "ynac");
+        free(msg);
+
+        switch (ch) {
+        case 'n':
+            data->num_skipped++;
+            return CKR_OK;
+        case 'c':
+        case '\0':
+            data->skip_all = true;
+            data->num_skipped++;
+            return CKR_OK;
+        case 'a':
+            data->export_all = true;
+            break;
+        default:
+            break;
+        }
+    }
+
+    rc = p11sak_key_extract_pubkey(keytype, cert, typestr, label);
+    if (rc != CKR_OK) {
+        data->num_failed++;
+        rc = CKR_OK;
+        goto done;
+    }
+
+    if (opt_new_label != NULL)
+        printf("Successfully extracted the public key from %s key object \"%s\" into new token object \"%s\".\n",
+                typestr, label, opt_new_label);
+    else
+        printf("Successfully extracted the public key from %s key object \"%s\" into new token object \"%s_pubkey\".\n",
+               typestr, label, label);
+    data->num_exported++;
+
+done:
+
+    return rc;
+}
+
 static CK_RV handle_cert_export(CK_OBJECT_HANDLE cert, CK_OBJECT_CLASS class,
                                 const struct p11sak_objtype *certtype,
                                 CK_ULONG keysize, const char *typestr,
@@ -9187,11 +9456,13 @@ done:
     return rc;
 }
 
-static CK_RV handle_pubkey_extract(CK_OBJECT_HANDLE cert, CK_OBJECT_CLASS class,
-                                   const struct p11sak_objtype *certtype,
-                                   CK_ULONG keysize, const char *typestr,
-                                   const char* label, const char *common_name,
-                                   void *private)
+static CK_RV handle_cert_pubkey_extract(CK_OBJECT_HANDLE cert,
+                                        CK_OBJECT_CLASS class,
+                                        const struct p11sak_objtype *certtype,
+                                        CK_ULONG keysize, const char *typestr,
+                                        const char* label,
+                                        const char *common_name,
+                                        void *private)
 {
     struct p11sak_export_data *data = private;
     char *msg = NULL;
@@ -9234,7 +9505,7 @@ static CK_RV handle_pubkey_extract(CK_OBJECT_HANDLE cert, CK_OBJECT_CLASS class,
         }
     }
 
-    rc = p11sak_extract_pubkey(certtype, cert, typestr, label);
+    rc = p11sak_cert_extract_pubkey(certtype, cert, typestr, label);
     if (rc != CKR_OK) {
         data->num_failed++;
         rc = CKR_OK;
@@ -9284,6 +9555,36 @@ static CK_RV p11sak_export_key(void)
         printf("%lu key object(s) skipped.\n", data.num_skipped);
     if (data.num_failed > 0)
         printf("%lu key object(s) failed to export.\n", data.num_failed);
+
+    return data.num_failed == 0 ? CKR_OK : CKR_FUNCTION_FAILED;
+}
+
+static CK_RV p11sak_extract_key_pubkey(void)
+{
+    const struct p11sak_objtype *keytype = NULL;
+    struct p11sak_export_data data = { 0 };
+    CK_RV rc;
+
+    if (opt_keytype != NULL)
+        keytype = opt_keytype->private.ptr;
+
+    data.export_all = opt_force;
+
+    rc = iterate_objects(keytype, opt_label, opt_id, opt_attr,
+                         OBJCLASS_KEY, NULL,
+                         handle_key_pubkey_extract, &data);
+    if (rc != CKR_OK) {
+        warnx("Failed to iterate over key objects for type %s: 0x%lX: %s",
+              keytype != NULL ? keytype->name : "All", rc, p11_get_ckr(rc));
+        return rc;
+    }
+
+    printf("%lu public key object(s) extracted.\n", data.num_exported);
+    if (data.num_skipped > 0)
+        printf("%lu private key object(s) skipped.\n", data.num_skipped);
+    if (data.num_failed > 0)
+        printf("%lu private key object(s) failed to export the public key.\n",
+               data.num_failed);
 
     return data.num_failed == 0 ? CKR_OK : CKR_FUNCTION_FAILED;
 }
@@ -9415,7 +9716,7 @@ static CK_RV p11sak_extract_cert_pubkey(void)
 
     rc = iterate_objects(certtype, opt_label, opt_id, opt_attr,
                          OBJCLASS_CERTIFICATE, NULL,
-                         handle_pubkey_extract, &data);
+                         handle_cert_pubkey_extract, &data);
     if (rc != CKR_OK) {
         warnx("Failed to iterate over certificate objects for type %s: 0x%lX: %s",
                 certtype != NULL ? certtype->name : "All", rc, p11_get_ckr(rc));
