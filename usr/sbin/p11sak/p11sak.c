@@ -247,10 +247,6 @@ static CK_RV p11sak_export_dilithium_kyber_pem_data(
 static CK_RV p11sak_export_x509(const struct p11sak_objtype *certtype,
                                 unsigned char **data, size_t *data_len,
                                 CK_OBJECT_HANDLE cert, const char *label);
-static CK_RV p11sak_extract_pubkey(const struct p11sak_objtype *certtype,
-                                   CK_OBJECT_HANDLE cert,
-                                   const char *typestr, const char* label,
-                                   struct p11sak_export_data *data);
 static CK_RV p11sak_extract_x509_pk(const struct p11sak_objtype *certtype,
                                     CK_ATTRIBUTE **attrs, CK_ULONG *num_attrs,
                                     CK_OBJECT_HANDLE cert, const char* label);
@@ -1872,7 +1868,7 @@ static const struct p11sak_opt p11sak_extract_cert_pubkey_opts[] = {
       .arg =  { .type = ARG_TYPE_STRING, .required = true,
                 .value.string = &opt_new_attr, .name = "ATTRS", },
       .description = "The boolean attributes to set for the extracted public "
-                     "key (optional): P M B Y. "
+                     "key (optional): P L M B Y R E D G C V O W U S A X N T I. "
                      "Specify a set of these letters without any blanks in "
                      "between. See below for the meaning of the attribute "
                      "letters. Restrictions on attribute values may apply.", },
@@ -8886,8 +8882,7 @@ done:
 
 static CK_RV p11sak_extract_pubkey(const struct p11sak_objtype *certtype,
                                    CK_OBJECT_HANDLE cert,
-                                   const char *typestr, const char* label,
-                                   struct p11sak_export_data *data)
+                                   const char *typestr, const char* label)
 {
     CK_OBJECT_HANDLE pubkey;
     CK_ATTRIBUTE *attrs = NULL;
@@ -8898,16 +8893,13 @@ static CK_RV p11sak_extract_pubkey(const struct p11sak_objtype *certtype,
 
     if (opt_new_attr != NULL) {
         rc = parse_boolean_attrs(certtype, opt_new_attr, &attrs, &num_attrs,
-                                 true, cert_attr_applicable);
-        if (rc != CKR_OK) {
-            data->num_failed++;
+                                 true, public_attr_applicable);
+        if (rc != CKR_OK)
             goto done;
-        }
 
         if (num_attrs == 0) {
-            warnx("None of the specified attributes apply to %s key object \"%s\".",
-                  typestr, label);
-            data->num_skipped++;
+            warnx("None of the specified attributes apply to a public key object.");
+            rc = CKR_ARGUMENTS_BAD;
             goto done;
         }
     }
@@ -9242,7 +9234,7 @@ static CK_RV handle_pubkey_extract(CK_OBJECT_HANDLE cert, CK_OBJECT_CLASS class,
         }
     }
 
-    rc = p11sak_extract_pubkey(certtype, cert, typestr, label, data);
+    rc = p11sak_extract_pubkey(certtype, cert, typestr, label);
     if (rc != CKR_OK) {
         data->num_failed++;
         rc = CKR_OK;

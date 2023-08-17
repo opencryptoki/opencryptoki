@@ -1591,7 +1591,7 @@ PEM format.
 .SS "Extracting the public key of certificates"
 .
 .B p11sak
-.BR extract\-cert\-pubkey | extr\-pubkey | extpub
+.BR extract\-cert\-pubkey | extr\-pubkey | expub
 .RI [ CERTTYPE ]
 .BR \-\-slot | \-s
 .I SLOTID
@@ -1616,7 +1616,7 @@ PEM format.
 .RB [ \-\-help | \-h ]
 .PP
 Use the
-.BR extract\-cert\-pubkey | extr\-pubkey | extrpub
+.BR extract\-cert\-pubkey | extr\-pubkey | expub
 command and the optional
 .I CERTTYPE
 argument to extract the public key from certificates and save it
@@ -1642,7 +1642,7 @@ and/or the
 .I ATTRS
 options to filter the certificates of which the public keys are to be extracted.
 You can use wildcards (\fB*\fP and \fB?\fP) in the
-.B LABEL
+.I LABEL
 specification. To specify a wildcard character that should not be treated as a
 wildcard, it must be escaped using a backslash (\fB\e*\fP or \fB\e?\fP).
 Also, a backslash character that should not be treated as an escape character
@@ -1654,21 +1654,21 @@ must be specified as hex string (not prefixed with 0x) of any number of bytes.
 Use the
 .BR \-\-new\-attr | \-A
 .I ATTRS
-option to specify the boolean attributes of the certificate you want to update
-(see below for detailed description of the attributes). Attributes that are not
-specified are not changed.
+option to specify the boolean attributes of the public key object you want to
+set (see below for detailed description of the attributes).
 Use the
 .BR \-\-new\-label | \-l
 .I LABEL
 option to specify the new label. If no new label is specified, the label of the
-public key object is derived from the certificate label by appending _pubkey.
+public key object is derived from the certificate label by appending 
+.BR _pubkey .
 .PP
 Use the
 .BR \-\-new\-id | \-I
 .I ID
 option to set an ID for the extracted public key object. 
 .PP
-The user will be prompted to confirm the extracting the public key of the
+The user will be prompted to confirm the extraction of the public key from the
 certificate. To suppress the prompt, use the --force|-f option.
 .PP
 .
@@ -1884,7 +1884,7 @@ command, and the
 .B export\-key
 command, specify the label to filter the list of keys to operate on. You can
 use wildcards (\fB*\fP and \fB?\fP) in the
-.B LABEL
+.I LABEL
 specification. To specify a wildcard character that should not be treated as a
 wildcard, it must be escaped using a backslash (\fB\e*\fP or \fB\e?\fP).
 Also, a backslash character that should not be treated as an escape character
