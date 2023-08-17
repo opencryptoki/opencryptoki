@@ -2180,8 +2180,8 @@ static CK_RV process_enum_argument(const struct p11sak_arg *arg, char *val)
         if (enum_val->any_value != NULL) {
             any_val = enum_val;
         } else if (arg->case_sensitive ?
-                            strcasecmp(val, enum_val->value) == 0 :
-                            strcmp(val, enum_val->value) == 0) {
+                            strcmp(val, enum_val->value) == 0 :
+                            strcasecmp(val, enum_val->value) == 0) {
 
             *arg->value.enum_value = (struct p11sak_enum_value *)enum_val;
             return CKR_OK;
