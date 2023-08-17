@@ -740,7 +740,7 @@ static const struct p11sak_objtype p11sak_aes_xts_keytype = {
 };
 
 static const struct p11sak_objtype p11sak_rsa_keytype = {
-    .obj_typestr = "key", .obj_liststr = "Key",
+    .obj_typestr = "key", .obj_liststr = "Key", .pkey_type = EVP_PKEY_RSA,
     .name = "RSA",  .type = CKK_RSA, .ck_name = "CKK_RSA",
     .keygen_mech = { .mechanism = CKM_RSA_PKCS_KEY_PAIR_GEN, },
     .is_asymmetric = true,
@@ -758,7 +758,7 @@ static const struct p11sak_objtype p11sak_rsa_keytype = {
 };
 
 static const struct p11sak_objtype p11sak_dh_keytype = {
-    .obj_typestr = "key", .obj_liststr = "Key",
+    .obj_typestr = "key", .obj_liststr = "Key", .pkey_type = EVP_PKEY_DH,
     .name = "DH", .type = CKK_DH, .ck_name = "CKK_DH",
     .keygen_mech = { .mechanism = CKM_DH_PKCS_KEY_PAIR_GEN, },
     .is_asymmetric = true,
@@ -779,7 +779,7 @@ static const struct p11sak_objtype p11sak_dh_keytype = {
 };
 
 static const struct p11sak_objtype p11sak_dsa_keytype = {
-    .obj_typestr = "key", .obj_liststr = "Key",
+    .obj_typestr = "key", .obj_liststr = "Key", .pkey_type = EVP_PKEY_DSA,
     .name = "DSA",  .type = CKK_DSA, .ck_name = "CKK_DSA",
     .keygen_mech = { .mechanism = CKM_DSA_KEY_PAIR_GEN, },
     .is_asymmetric = true,
@@ -799,7 +799,7 @@ static const struct p11sak_objtype p11sak_dsa_keytype = {
 };
 
 static const struct p11sak_objtype p11sak_ec_keytype = {
-    .obj_typestr = "key", .obj_liststr = "Key",
+    .obj_typestr = "key", .obj_liststr = "Key", .pkey_type = EVP_PKEY_EC,
     .name = "EC",  .type = CKK_EC, .ck_name = "CKK_EC",
     .keygen_mech = { .mechanism = CKM_EC_KEY_PAIR_GEN, },
     .is_asymmetric = true,
@@ -4030,6 +4030,18 @@ static const struct p11sak_objtype *find_keytype(CK_KEY_TYPE ktype)
     return NULL;
 }
 
+static const struct p11sak_objtype *find_keytype_by_pkey(int pkey_type)
+{
+    const struct p11sak_objtype **kt;
+
+    for (kt = p11sak_keytypes; (*kt)->name != NULL; kt++) {
+        if ((*kt)->pkey_type == pkey_type)
+            return *kt;
+    }
+
+    return NULL;
+}
+
 static const struct p11sak_objtype *find_certtype(CK_KEY_TYPE ktype)
 {
     const struct p11sak_objtype **kt;
@@ -6764,7 +6776,7 @@ static CK_RV p11sak_extract_x509_pk(const struct p11sak_objtype *certtype,
                                     CK_ATTRIBUTE **attrs, CK_ULONG *num_attrs,
                                     CK_OBJECT_HANDLE cert, const char *label)
 {
-    struct p11sak_objtype keytype = { 0 };
+    const struct p11sak_objtype *keytype;
     CK_ATTRIBUTE attr = { CKA_VALUE, NULL, 0 };
     CK_ATTRIBUTE id_attr = { CKA_ID, NULL, 0 };
     const CK_BYTE *tmp_ptr;
@@ -6775,7 +6787,6 @@ static CK_RV p11sak_extract_x509_pk(const struct p11sak_objtype *certtype,
     X509 *x509 = NULL;
     EVP_PKEY *pkey = NULL;
     CK_OBJECT_CLASS key_class = CKO_PUBLIC_KEY;
-    CK_KEY_TYPE key_type;
     CK_BBOOL btrue = CK_TRUE;
     CK_RV rc;
 
@@ -6812,33 +6823,20 @@ static CK_RV p11sak_extract_x509_pk(const struct p11sak_objtype *certtype,
         goto done;
     }
 
-    switch (EVP_PKEY_base_id(pkey)) {
-    case EVP_PKEY_RSA:
-        key_type = CKK_RSA;
-        keytype.name = "RSA";
-        rc = p11sak_import_rsa_pkey(&keytype, pkey, CK_FALSE, attrs, num_attrs);
-        break;
-    case EVP_PKEY_EC:
-        key_type = CKK_EC;
-        keytype.name = "EC";
-        rc = p11sak_import_ec_pkey(&keytype, pkey, CK_FALSE, attrs, num_attrs);
-        break;
-    case EVP_PKEY_DSA:
-        key_type = CKK_DSA;
-        keytype.name = "DSA";
-        rc = p11sak_import_dsa_pkey(&keytype, pkey, CK_FALSE, attrs, num_attrs);
-        break;
-    default:
+    keytype = find_keytype_by_pkey(EVP_PKEY_base_id(pkey));
+    if (keytype == NULL || keytype->import_asym_pkey == NULL) {
         warnx("Key type %s cannot be extracted from a certificate.",
               OBJ_nid2ln(EVP_PKEY_base_id(pkey)));
         ERR_print_errors_cb(openssl_err_cb, NULL);
         rc = CKR_FUNCTION_NOT_SUPPORTED;
         goto done;
     }
+
+    rc = keytype->import_asym_pkey(keytype, pkey, CK_FALSE, attrs, num_attrs);
     if (rc != CKR_OK) {
         warnx("Failed to import %s public key from %s certificate "
-              "object \"%s\": 0x%lX: %s", keytype.name, certtype->name, label, rc,
-              p11_get_ckr(rc));
+              "object \"%s\": 0x%lX: %s", keytype->name, certtype->name, label,
+              rc, p11_get_ckr(rc));
         goto done;
     }
 
@@ -6860,7 +6858,7 @@ static CK_RV p11sak_extract_x509_pk(const struct p11sak_objtype *certtype,
     }
 
     rc += add_attribute(CKA_CLASS, &key_class, sizeof(CK_OBJECT_CLASS), attrs, num_attrs);
-    rc += add_attribute(CKA_KEY_TYPE, &key_type, sizeof(CK_KEY_TYPE), attrs, num_attrs);
+    rc += add_attribute(CKA_KEY_TYPE, &keytype->type, sizeof(CK_KEY_TYPE), attrs, num_attrs);
     rc += add_attribute(CKA_TOKEN, &btrue, sizeof(CK_BBOOL), attrs, num_attrs);
     rc += add_attribute(CKA_SUBJECT, subj_name, subj_name_len, attrs, num_attrs);
     if (rc != CKR_OK) {

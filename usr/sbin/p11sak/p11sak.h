@@ -125,6 +125,7 @@ struct p11sak_objtype {
     const char *name;
     CK_ULONG type; /* CKA_KEY_TYPE or CKA_CERTIFICATE_TYPE */
     const char *ck_name;
+    int pkey_type; /* OpenSSL PKEY_xxx type or 0 if not applicable */
     CK_MECHANISM keygen_mech;
     bool is_asymmetric;
     bool sign_verify;
