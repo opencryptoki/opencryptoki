@@ -242,6 +242,23 @@ p11sak copy-key aes --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-aes-*" -
 RC_P11SAK_COPY=$((RC_P11SAK_COPY + $?))
 
 
+echo "** Now extracting public keys - 'p11sak_test.sh'"
+
+RC_P11SAK_KEY_EXTRACT=0
+p11sak extract-pubkey private --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-rsa-*" --new-label "p11sak-pubkey-extracted" --force
+RC_P11SAK_KEY_EXTRACT=$((RC_P11SAK_KEY_EXTRACT + $?))
+p11sak extract-pubkey private --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-dh*" --new-label "p11sak-pubkey-extracted" --force
+RC_P11SAK_KEY_EXTRACT=$((RC_P11SAK_KEY_EXTRACT + $?))
+p11sak extract-pubkey private --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-dsa*" --new-label "p11sak-pubkey-extracted" --force
+RC_P11SAK_KEY_EXTRACT=$((RC_P11SAK_KEY_EXTRACT + $?))
+p11sak extract-pubkey private --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-ec-prime256v1*" --new-label "p11sak-pubkey-extracted" --force
+RC_P11SAK_KEY_EXTRACT=$((RC_P11SAK_KEY_EXTRACT + $?))
+p11sak extract-pubkey private --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-ibm-dilithium*" --new-label "p11sak-pubkey-extracted" --force
+RC_P11SAK_KEY_EXTRACT=$((RC_P11SAK_KEY_EXTRACT + $?))
+p11sak extract-pubkey private --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-ibm-kyber*" --new-label "p11sak-pubkey-extracted" --force
+RC_P11SAK_KEY_EXTRACT=$((RC_P11SAK_KEY_EXTRACT + $?))
+
+
 echo "** Now importing keys - 'p11sak_test.sh'"
 
 RC_P11SAK_IMPORT=0
@@ -499,6 +516,8 @@ RC_P11SAK_REMOVE=$((RC_P11SAK_REMOVE + $?))
 p11sak remove-key ibm-kyber --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-ibm-kyber:prv" -f
 RC_P11SAK_REMOVE=$((RC_P11SAK_REMOVE + $?))
 p11sak remove-key --slot $SLOT --pin $PKCS11_USER_PIN --label "import*" -f
+RC_P11SAK_REMOVE=$((RC_P11SAK_REMOVE + $?))
+p11sak remove-key --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-pubkey-extracted" -f
 RC_P11SAK_REMOVE=$((RC_P11SAK_REMOVE + $?))
 
 
@@ -1861,6 +1880,13 @@ if [ $RC_P11SAK_COPY = 0 ]; then
 	echo "* TESTCASE copy-key PASS return code check"
 else
 	echo "* TESTCASE copy-key FAIL return code check"
+	status=1
+fi
+
+if [ $RC_P11SAK_KEY_EXTRACT = 0 ]; then
+	echo "* TESTCASE extract-pubkey PASS return code check"
+else
+	echo "* TESTCASE extract-pubkey FAIL return code check"
 	status=1
 fi
 
