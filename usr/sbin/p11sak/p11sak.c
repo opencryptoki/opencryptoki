@@ -9074,6 +9074,8 @@ done:
         free(id_attr.pValue);
     if (pkey != NULL)
         EVP_PKEY_free(pkey);
+    if (pubkey_label != NULL)
+        free(pubkey_label);
 
     return rc;
 }
