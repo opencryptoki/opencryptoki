@@ -8129,6 +8129,13 @@ CK_RV ep11tok_generate_key_pair(STDLL_TokData_t * tokdata, SESSION * sess,
         goto error;
     }
 
+    rc = update_ep11_attrs_from_blob(tokdata, sess, public_key_obj, FALSE);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s update_ep11_attrs_from_blob failed with rc=0x%lx\n",
+                    __func__, rc);
+        goto error;
+    }
+
     /* Copy CKA_MODULUS and CKA_PUBLIC_EXPONENT attributes from
      * public key object to private key object to fulfill PKCS#11
      * private key template requirements
