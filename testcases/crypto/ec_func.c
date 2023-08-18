@@ -1631,6 +1631,13 @@ CK_RV run_GenerateECCKeyPairSignVerify(void)
             }
             testcase_pass("*Sign & verify i=%lu, j=%lu passed.", i, j);
         }
+
+        if (publ_key != CK_INVALID_HANDLE)
+            funcs->C_DestroyObject(session, publ_key);
+        publ_key = CK_INVALID_HANDLE;
+        if (priv_key != CK_INVALID_HANDLE)
+            funcs->C_DestroyObject(session, priv_key);
+        priv_key = CK_INVALID_HANDLE;
     }
 
     for (i = 0; i < NUMECINVAL; i++) {
