@@ -297,6 +297,16 @@ p11sak import-key ec private --slot $SLOT --pin $PKCS11_USER_PIN --label "import
 RC_P11SAK_IMPORT=$((RC_P11SAK_IMPORT + $?))
 p11sak import-key ec public --slot $SLOT --pin $PKCS11_USER_PIN --label "import-ec-secp521r1-public" --file $DIR/ec-key-secp521r1.pem --attr sX
 RC_P11SAK_IMPORT=$((RC_P11SAK_IMPORT + $?))
+# edwards/montgomery
+if [[ -n $(openssl version | grep "OpenSSL 3.") && -n $( pkcsconf -t -c $SLOT | grep "Model: EP11") ]]; then
+	p11sak import-key ec private --slot $SLOT --pin $PKCS11_USER_PIN --label "import-ec-ed25519-private" --file $DIR/ed25519-private-key.pem --attr sX
+	RC_P11SAK_IMPORT=$((RC_P11SAK_IMPORT + $?))
+	p11sak import-key ec public --slot $SLOT --pin $PKCS11_USER_PIN --label "import-ec-ed25519-public" --file $DIR/ed25519-public-key.pem --attr sX
+	RC_P11SAK_IMPORT=$((RC_P11SAK_IMPORT + $?))
+else
+	echo "Skip importing edwards/montgomery keys, OpenSSL version not supporting it or not EP11 token"
+fi
+
 # ibm-dilithium
 if [[ -n $( pkcsconf -m -c $SLOT | grep CKM_IBM_DILITHIUM) ]]; then
 	p11sak import-key ibm-dilithium private --slot $SLOT --pin $PKCS11_USER_PIN --label "import-ibm-dilithium-private" --file $DIR/ibm-dilithium-key.pem --attr sX
@@ -390,6 +400,14 @@ if [[ -n $( pkcsconf -t -c $SLOT | grep "Model: EP11") || -n $( pkcsconf -t -c $
 	RC_P11SAK_EXPORT=$((RC_P11SAK_EXPORT + $?))
 	p11sak export-key ec --slot $SLOT --pin $PKCS11_USER_PIN --label "import-ec-secp521r1-private" --file export-ec-secp521r1-key.opaque --force --opaque
 	RC_P11SAK_EXPORT=$((RC_P11SAK_EXPORT + $?))
+	if [[ -n $(openssl version | grep "OpenSSL 3.") && -n $( pkcsconf -t -c $SLOT | grep "Model: EP11") ]]; then
+		p11sak export-key ec --slot $SLOT --pin $PKCS11_USER_PIN --label "import-ec-ed25519-public" --file export-ec-ed25519-key.pem --force
+		RC_P11SAK_EXPORT=$((RC_P11SAK_EXPORT + $?))
+		p11sak export-key ec --slot $SLOT --pin $PKCS11_USER_PIN --label "import-ec-ed25519-private" --file export-ec-ed25519-key.opaque --force --opaque
+		RC_P11SAK_EXPORT=$((RC_P11SAK_EXPORT + $?))
+	else
+		echo "Skip exporting edwards/montgomery keys, OpenSSL version not supporting it or not EP11 token"
+	fi
 else
 	p11sak export-key ec --slot $SLOT --pin $PKCS11_USER_PIN --label "import-ec-prime256v1-*" --file export-ec-prime256v1-key.pem --force
 	RC_P11SAK_EXPORT=$((RC_P11SAK_EXPORT + $?))
@@ -404,6 +422,10 @@ openssl pkey -in export-ec-prime256v1-key.pem -pubin -text > /dev/null
 RC_P11SAK_EXPORT=$((RC_P11SAK_EXPORT + $?))
 openssl pkey -in export-ec-secp521r1-key.pem -pubin -text > /dev/null
 RC_P11SAK_EXPORT=$((RC_P11SAK_EXPORT + $?))
+if [[ -n $(openssl version | grep "OpenSSL 3.") && -n $( pkcsconf -t -c $SLOT | grep "Model: EP11") ]]; then
+	openssl pkey -in export-ec-ed25519-key.pem -pubin -text > /dev/null
+	RC_P11SAK_EXPORT=$((RC_P11SAK_EXPORT + $?))
+fi
 # ibm-dilithium
 if [[ -n $( pkcsconf -m -c $SLOT | grep CKM_IBM_DILITHIUM) ]]; then
 	if [[ -n $( pkcsconf -t -c $SLOT | grep "Model: EP11") || -n $( pkcsconf -t -c $SLOT | grep "Model: CCA") ]]; then
