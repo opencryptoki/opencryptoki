@@ -7239,6 +7239,94 @@ done:
     return rc;
 }
 
+#if OPENSSL_VERSION_PREREQ(3, 0)
+static CK_RV p11sak_import_ecx_pkey(const struct p11sak_objtype *keytype,
+                                    int pkey_type, EVP_PKEY *pkey, bool private,
+                                    CK_ATTRIBUTE **attrs, CK_ULONG *num_attrs)
+{
+    CK_RV rc = CKR_OK;
+    unsigned char priv[100] = { 0 };
+    size_t priv_len = 0;
+    unsigned char point[200] = { 0 };
+    unsigned char *point_ptr;
+    size_t point_len = 0;
+    ASN1_OBJECT *obj = NULL;
+    unsigned char *ec_params = NULL;
+    int ec_params_len;
+
+    if ((!private &&          /* leave 3 bytes space for DER encoding */
+         !EVP_PKEY_get_octet_string_param(pkey,
+                                          OSSL_PKEY_PARAM_PUB_KEY,
+                                          point + 3, sizeof(point) - 3,
+                                          &point_len)) ||
+        (private &&
+         !EVP_PKEY_get_octet_string_param(pkey, OSSL_PKEY_PARAM_PRIV_KEY,
+                                          priv, sizeof(priv), &priv_len))) {
+        warnx("Failed to get the %s params.", keytype->name);
+        ERR_print_errors_cb(openssl_err_cb, NULL);
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+
+    obj = OBJ_nid2obj(pkey_type);
+    if (obj == NULL) {
+        warnx("OBJ_nid2obj failed for curve nid %d.", pkey_type);
+        ERR_print_errors_cb(openssl_err_cb, NULL);
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+
+    ec_params_len = i2d_ASN1_OBJECT(obj, &ec_params);
+    if (ec_params_len <= 0 || ec_params == NULL) {
+        warnx("i2d_ASN1_OBJECT failed for curve nid %d.", pkey_type);
+        ERR_print_errors_cb(openssl_err_cb, NULL);
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+
+    rc = add_attribute(CKA_EC_PARAMS, ec_params, ec_params_len,
+                       attrs, num_attrs);
+    if (rc != CKR_OK)
+       goto done;
+
+    if (private) {
+        rc = add_attribute(CKA_VALUE, priv, priv_len, attrs, num_attrs);
+        if (rc != CKR_OK)
+           goto done;
+    } else {
+        /* CKA_EC_POINT needs DER encoded EC point */
+        if (point_len < 0x80) {
+            point[1] = 0x04; /* OCTET-STRING */
+            point[2] = point_len & 0x7f;
+            point_len += 2;
+            point_ptr = &point[1];
+        } else if (point_len < 0x0100) {
+            point[0] = 0x04; /* OCTET-STRING */
+            point[1] = 0x81; /* 1 byte length field */
+            point[2] = point_len & 0xff;
+            point_len += 3;
+            point_ptr = &point[0];
+        } else {
+            warnx("EC point is too long.");
+            rc = CKR_FUNCTION_FAILED;
+            goto done;
+        }
+
+        rc = add_attribute(CKA_EC_POINT, point_ptr, point_len, attrs, num_attrs);
+        if (rc != CKR_OK)
+           goto done;
+    }
+
+done:
+    if (obj != NULL)
+        ASN1_OBJECT_free(obj);
+    if (ec_params != NULL)
+        OPENSSL_free(ec_params);
+
+    return rc;
+}
+#endif
+
 static CK_RV p11sak_import_ec_pkey(const struct p11sak_objtype *keytype,
                                    EVP_PKEY *pkey, bool private,
                                    CK_ATTRIBUTE **attrs, CK_ULONG *num_attrs)
@@ -7265,9 +7353,21 @@ static CK_RV p11sak_import_ec_pkey(const struct p11sak_objtype *keytype,
     size_t point_len = 0;
     ASN1_OBJECT *obj = NULL;
     unsigned char *ec_params = NULL;
-    int ec_params_len;
+    int ec_params_len, type;
 
-    if (EVP_PKEY_base_id(pkey) != EVP_PKEY_EC) {
+    type = EVP_PKEY_base_id(pkey);
+    switch (type) {
+    case EVP_PKEY_EC:
+        break;
+#if OPENSSL_VERSION_PREREQ(3, 0)
+    case EVP_PKEY_X25519:
+    case EVP_PKEY_ED25519:
+    case EVP_PKEY_X448:
+    case EVP_PKEY_ED448:
+        return p11sak_import_ecx_pkey(keytype, type, pkey, private,
+                                      attrs, num_attrs);
+#endif
+    default:
         warnx("PEM file '%s' does not contain an %s %s key.", opt_file,
               keytype->name, private ? "private" : "public");
         return CKR_FUNCTION_FAILED;
@@ -8478,6 +8578,129 @@ done:
     return rc;
 }
 
+#if OPENSSL_VERSION_PREREQ(3, 0)
+static CK_RV p11sak_export_ecx_pkey(const struct p11sak_objtype *keytype,
+                                    int type, EVP_PKEY **pkey, bool private,
+                                    CK_OBJECT_HANDLE key, const char *label)
+{
+    CK_ATTRIBUTE value_attr = { CKA_VALUE, NULL, 0 };
+    CK_ATTRIBUTE ecpoint_attr = { CKA_EC_POINT, NULL, 0 };
+    EVP_PKEY_CTX *pctx = NULL;
+    OSSL_PARAM_BLD *tmpl = NULL;
+    OSSL_PARAM *params = NULL;
+    CK_BYTE *ecpoint = NULL;
+    CK_ULONG ecpoint_len = 0;
+    CK_RV rc;
+
+    if (private) {
+        rc = get_attribute(key, &value_attr);
+        if (rc == CKR_ATTRIBUTE_SENSITIVE)
+            goto done;
+        if (rc != CKR_OK) {
+            warnx("Failed to retrieve attribute CKA_VALUE from %s key "
+                  "object \"%s\": 0x%lX: %s", keytype->name, label, rc,
+                  p11_get_ckr(rc));
+            goto done;
+        }
+    } else {
+        rc = get_attribute(key, &ecpoint_attr);
+        if (rc == CKR_ATTRIBUTE_SENSITIVE)
+            goto done;
+        if (rc != CKR_OK) {
+            warnx("Failed to retrieve attribute CKA_EC_POINT from %s key "
+                  "object \"%s\": 0x%lX: %s", keytype->name, label, rc,
+                  p11_get_ckr(rc));
+            goto done;
+        }
+
+        /* remove octet string BER encoding */
+        ecpoint = (CK_BYTE*)ecpoint_attr.pValue;
+        ecpoint_len = ecpoint_attr.ulValueLen;
+        if ((ecpoint[1] & 0x80) == 0) {
+            ecpoint += 2;
+            ecpoint_len -= 2;
+        } else {
+            ecpoint += 2 + (ecpoint[1] & 0x7f);
+            ecpoint_len -= 3 + (ecpoint[1] & 0x7f);
+        }
+    }
+
+    tmpl = OSSL_PARAM_BLD_new();
+    if (tmpl == NULL) {
+        warnx("OSSL_PARAM_BLD_new failed.");
+        ERR_print_errors_cb(openssl_err_cb, NULL);
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+
+    if (private) {
+        if (!OSSL_PARAM_BLD_push_octet_string(tmpl, OSSL_PKEY_PARAM_PRIV_KEY,
+                                              value_attr.pValue,
+                                              value_attr.ulValueLen)) {
+            warnx("OSSL_PARAM_BLD_push_octet_string failed.");
+            ERR_print_errors_cb(openssl_err_cb, NULL);
+            rc = CKR_FUNCTION_FAILED;
+            goto done;
+        }
+    } else {
+        if (!OSSL_PARAM_BLD_push_octet_string(tmpl, OSSL_PKEY_PARAM_PUB_KEY,
+                                              ecpoint, ecpoint_len)) {
+            warnx("OSSL_PARAM_BLD_push_octet_string failed.");
+            ERR_print_errors_cb(openssl_err_cb, NULL);
+            rc = CKR_FUNCTION_FAILED;
+            goto done;
+        }
+    }
+
+    params = OSSL_PARAM_BLD_to_param(tmpl);
+    if (params == NULL) {
+        warnx("OSSL_PARAM_BLD_to_param failed.");
+        ERR_print_errors_cb(openssl_err_cb, NULL);
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+
+    pctx = EVP_PKEY_CTX_new_id(type, NULL);
+    if (pctx == NULL) {
+        warnx("EVP_PKEY_CTX_new_id failed for type %d.", type);
+        ERR_print_errors_cb(openssl_err_cb, NULL);
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+
+    if (!EVP_PKEY_fromdata_init(pctx) ||
+        !EVP_PKEY_fromdata(pctx, pkey,
+                           private ? EVP_PKEY_KEYPAIR : EVP_PKEY_PUBLIC_KEY,
+                           params)) {
+        warnx("EVP_PKEY_fromdata_init/EVP_PKEY_fromdata for type %d failed.",
+              type);
+        ERR_print_errors_cb(openssl_err_cb, NULL);
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+
+done:
+    if (ecpoint_attr.pValue != NULL)
+        free(ecpoint_attr.pValue);
+    if (value_attr.pValue != NULL)
+        free(value_attr.pValue);
+    if (pctx != NULL)
+        EVP_PKEY_CTX_free(pctx);
+    if (tmpl != NULL)
+        OSSL_PARAM_BLD_free(tmpl);
+    if (params != NULL)
+        OSSL_PARAM_free(params);
+    if (private && ecpoint != NULL)
+        OPENSSL_free(ecpoint);
+    if (rc != CKR_OK && *pkey != NULL) {
+        EVP_PKEY_free(*pkey);
+        *pkey = NULL;
+    }
+
+    return rc;
+}
+#endif
+
 static CK_RV p11sak_export_ec_pkey(const struct p11sak_objtype *keytype,
                                    EVP_PKEY **pkey, bool private,
                                    CK_OBJECT_HANDLE key, const char *label)
@@ -8509,6 +8732,34 @@ static CK_RV p11sak_export_ec_pkey(const struct p11sak_objtype *keytype,
               "object \"%s\": 0x%lX: %s", keytype->name, label, rc,
               p11_get_ckr(rc));
         goto done;
+    }
+
+    oid = ecparams_attr.pValue;
+    obj = d2i_ASN1_OBJECT(NULL, &oid, ecparams_attr.ulValueLen);
+    if (obj == NULL ||
+        oid != (CK_BYTE *)ecparams_attr.pValue + ecparams_attr.ulValueLen) {
+        warnx("Curve of %s key object \"%s\" not supported by OpenSSL.",
+              keytype->name, label);
+        goto done;
+    }
+
+    nid = OBJ_obj2nid(obj);
+    ASN1_OBJECT_free(obj);
+    if (ecparams_attr.pValue != NULL)
+        free(ecparams_attr.pValue);
+    ecparams_attr.pValue = NULL;
+    ecparams_attr.ulValueLen = 0;
+
+    switch (nid) {
+#if OPENSSL_VERSION_PREREQ(3, 0)
+    case NID_X25519:
+    case NID_ED25519:
+    case NID_X448:
+    case NID_ED448:
+        return p11sak_export_ecx_pkey(keytype, nid, pkey, private, key, label);
+#endif
+    default:
+        break;
     }
 
     if (private) {
@@ -8543,18 +8794,6 @@ static CK_RV p11sak_export_ec_pkey(const struct p11sak_objtype *keytype,
             ecpoint_len -= 3 + (ecpoint[1] & 0x7f);
         }
     }
-
-    oid = ecparams_attr.pValue;
-    obj = d2i_ASN1_OBJECT(NULL, &oid, ecparams_attr.ulValueLen);
-    if (obj == NULL ||
-        oid != (CK_BYTE *)ecparams_attr.pValue + ecparams_attr.ulValueLen) {
-        warnx("Curve of %s key object \"%s\" not supported by OpenSSL.",
-              keytype->name, label);
-        goto done;
-    }
-
-    nid = OBJ_obj2nid(obj);
-    ASN1_OBJECT_free(obj);
 
 #if !OPENSSL_VERSION_PREREQ(3, 0)
     ec = EC_KEY_new_by_curve_name(nid);
