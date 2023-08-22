@@ -4085,7 +4085,7 @@ static const struct p11sak_objtype *find_keytype(CK_KEY_TYPE ktype)
 {
     const struct p11sak_objtype **kt;
 
-    for (kt = p11sak_keytypes; (*kt)->name != NULL; kt++) {
+    for (kt = p11sak_keytypes; *kt != NULL; kt++) {
         if ((*kt)->type == ktype)
             return *kt;
     }
@@ -4097,7 +4097,7 @@ static const struct p11sak_objtype *find_keytype_by_pkey(int pkey_type)
 {
     const struct p11sak_objtype **kt;
 
-    for (kt = p11sak_keytypes; (*kt)->name != NULL; kt++) {
+    for (kt = p11sak_keytypes; *kt != NULL; kt++) {
         if ((*kt)->pkey_type == pkey_type)
             return *kt;
     }
@@ -4109,7 +4109,7 @@ static const struct p11sak_objtype *find_certtype(CK_KEY_TYPE ktype)
 {
     const struct p11sak_objtype **kt;
 
-    for (kt = p11sak_certtypes; (*kt)->name != NULL; kt++) {
+    for (kt = p11sak_certtypes; *kt != NULL; kt++) {
         if ((*kt)->type == ktype)
             return *kt;
     }
@@ -5326,7 +5326,7 @@ static const struct p11sak_attr *find_attribute(CK_ATTRIBUTE_TYPE type)
             return attr;
     }
 
-    for (keytype = p11sak_keytypes; (*keytype)->name != NULL; keytype++) {
+    for (keytype = p11sak_keytypes; *keytype != NULL; keytype++) {
         for (attr = (*keytype)->secret_attrs;
                                 attr != NULL && attr->name != NULL; attr++) {
             if (attr->type == type)
@@ -5346,7 +5346,7 @@ static const struct p11sak_attr *find_attribute(CK_ATTRIBUTE_TYPE type)
         }
     }
 
-    for (keytype = p11sak_certtypes; (*keytype)->name != NULL; keytype++) {
+    for (keytype = p11sak_certtypes; *keytype != NULL; keytype++) {
         for (attr = (*keytype)->cert_attrs;
                                 attr != NULL && attr->name != NULL; attr++) {
             if (attr->type == type)
