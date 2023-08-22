@@ -6852,6 +6852,7 @@ static CK_RV p11sak_extract_x509_pk(const struct p11sak_objtype *certtype,
     CK_OBJECT_CLASS key_class = CKO_PUBLIC_KEY;
     CK_BBOOL btrue = CK_TRUE;
     CK_RV rc;
+    int pkey_type;
 
     rc = get_attribute(cert, &attr);
     if (rc != CKR_OK) {
@@ -6886,10 +6887,13 @@ static CK_RV p11sak_extract_x509_pk(const struct p11sak_objtype *certtype,
         goto done;
     }
 
-    keytype = find_keytype_by_pkey(EVP_PKEY_base_id(pkey));
+    pkey_type = EVP_PKEY_base_id(pkey);
+    if (pkey_type == EVP_PKEY_RSA_PSS)
+        pkey_type = EVP_PKEY_RSA;
+    keytype = find_keytype_by_pkey(pkey_type);
     if (keytype == NULL || keytype->import_asym_pkey == NULL) {
         warnx("Key type %s cannot be extracted from a certificate.",
-              OBJ_nid2ln(EVP_PKEY_base_id(pkey)));
+              OBJ_nid2ln(pkey_type));
         ERR_print_errors_cb(openssl_err_cb, NULL);
         rc = CKR_FUNCTION_NOT_SUPPORTED;
         goto done;
@@ -6972,7 +6976,8 @@ static CK_RV p11sak_import_rsa_pkey(const struct p11sak_objtype *keytype,
     const BIGNUM *bn_dmp1 = NULL, *bn_dmq1 = NULL, *bn_iqmp = NULL;
 #endif
 
-    if (EVP_PKEY_base_id(pkey) != EVP_PKEY_RSA) {
+    if (EVP_PKEY_base_id(pkey) != EVP_PKEY_RSA &&
+        EVP_PKEY_base_id(pkey) != EVP_PKEY_RSA_PSS) {
         warnx("PEM file '%s' does not contain an %s %s key.", opt_file,
               keytype->name, private ? "private" : "public");
         return CKR_FUNCTION_FAILED;
