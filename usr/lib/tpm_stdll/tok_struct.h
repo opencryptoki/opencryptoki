@@ -123,4 +123,5 @@ struct token_specific_struct token_specific = {
     NULL,                       // set_attribute_values
     NULL,                       // set_attrs_for_new_object
     NULL,                       // handle_event
+    NULL,                       // check_obj_access
 };

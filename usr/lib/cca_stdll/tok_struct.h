@@ -144,6 +144,7 @@ token_spec_t token_specific = {
     NULL,
 #endif
     &token_specific_handle_event,
+    NULL,                       // check_obj_access
 };
 
 #endif

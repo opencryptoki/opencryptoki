@@ -290,6 +290,9 @@ struct token_specific_struct {
     CK_RV(*t_handle_event) (STDLL_TokData_t *tokdata, unsigned int event_type,
                             unsigned int event_flags, const char *payload,
                             unsigned int payload_len);
+
+    CK_RV (*t_check_obj_access) (STDLL_TokData_t *tokdata, OBJECT *obj,
+                                 CK_BBOOL create);
 };
 
 typedef struct token_specific_struct token_spec_t;
