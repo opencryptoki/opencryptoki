@@ -107,6 +107,14 @@ CK_RV object_mgr_add(STDLL_TokData_t *tokdata,
         goto done;
     }
 
+    if (token_specific.t_check_obj_access != NULL) {
+        rc = token_specific.t_check_obj_access(tokdata, o, TRUE);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("check_obj_access rejected access to object.\n");
+            goto done;
+        }
+    }
+
     if (token_specific.t_object_add != NULL) {
         rc = token_specific.t_object_add(tokdata, sess, o);
         if (rc != CKR_OK) {
@@ -331,6 +339,14 @@ CK_RV object_mgr_copy(STDLL_TokData_t *tokdata,
     if (rc != CKR_OK)
         goto done;
 
+    if (token_specific.t_check_obj_access != NULL) {
+        rc = token_specific.t_check_obj_access(tokdata, new_obj, TRUE);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("check_obj_access rejected access to object.\n");
+            goto done;
+        }
+    }
+
     // okay, object is created and the session permissions look okay.
     // add the object to the appropriate list and assign an object handle
     //
@@ -421,6 +437,15 @@ CK_RV object_mgr_create_skel(STDLL_TokData_t *tokdata,
             object_free(o);
             TRACE_ERROR("%s\n", ock_err(ERR_USER_NOT_LOGGED_IN));
             return CKR_USER_NOT_LOGGED_IN;
+        }
+    }
+
+    if (token_specific.t_check_obj_access != NULL) {
+        rc = token_specific.t_check_obj_access(tokdata, o, TRUE);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("check_obj_access rejected access to object.\n");
+            object_free(o);
+            return rc;
         }
     }
 
@@ -864,6 +889,16 @@ CK_RV object_mgr_find_in_map_nocache(STDLL_TokData_t *tokdata,
         return rc;
     }
 
+    if (token_specific.t_check_obj_access != NULL) {
+        rc = token_specific.t_check_obj_access(tokdata, obj, FALSE);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("check_obj_access rejected access to object.\n");
+            object_put(tokdata, obj, FALSE);
+            obj = NULL;
+            return rc;
+        }
+    }
+
     TRACE_DEVEL("Object found: handle: %lu\n", handle);
     *ptr = obj;
 
@@ -948,6 +983,14 @@ CK_RV object_mgr_find_in_map1(STDLL_TokData_t *tokdata,
         rc = object_lock(obj, lock_type);
         if (rc != CKR_OK)
             goto done;
+    }
+
+    if (token_specific.t_check_obj_access != NULL) {
+        rc = token_specific.t_check_obj_access(tokdata, obj, FALSE);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("check_obj_access rejected access to object.\n");
+            goto done;
+        }
     }
 
 done:
@@ -1092,6 +1135,14 @@ void find_build_list_cb(STDLL_TokData_t *tokdata, void *node,
                                         &flag) == CKR_OK) {
             if (flag == TRUE)
                 goto done;
+        }
+
+        if (token_specific.t_check_obj_access != NULL) {
+            rc = token_specific.t_check_obj_access(tokdata, obj, FALSE);
+            if (rc != CKR_OK) {
+                TRACE_DEVEL("check_obj_access rejected access to object.\n");
+                goto done;
+            }
         }
 
         fa->sess->find_list[fa->sess->find_count] = map_handle;

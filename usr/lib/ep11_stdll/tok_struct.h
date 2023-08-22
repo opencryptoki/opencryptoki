@@ -140,6 +140,7 @@ token_spec_t token_specific = {
     &token_specific_set_attribute_values,
     &token_specific_set_attrs_for_new_object,
     &token_specific_handle_event,
+    NULL,                       // check_obj_access
 };
 
 #endif

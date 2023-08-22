@@ -338,4 +338,7 @@ CK_RV token_specific_handle_event(STDLL_TokData_t *tokdata,
                                   const char *payload,
                                   unsigned int payload_len);
 
+CK_RV token_specific_check_obj_access(STDLL_TokData_t *tokdata,
+                                      OBJECT *obj, CK_BBOOL create);
+
 #endif
