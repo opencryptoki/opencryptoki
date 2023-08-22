@@ -9140,7 +9140,8 @@ static CK_RV p11sak_cert_extract_pubkey(const struct p11sak_objtype *certtype,
 
     rc = certtype->extract_x509_pubkey(certtype, &attrs, &num_attrs, cert, label);
     if (rc != CKR_OK) {
-        warnx("Failed to extract public key from certificate object, rc=%lx.",rc);
+        warnx("Failed to extract public key from certificate object: 0x%lx: %s",
+              rc, p11_get_ckr(rc));
         goto done;
     }
 
@@ -9447,7 +9448,8 @@ static CK_RV handle_cert_export(CK_OBJECT_HANDLE cert, CK_OBJECT_CLASS class,
 
     rc = certtype->export_x509_data(certtype, &cert_data, &data_len, cert, label);
     if (rc != CKR_OK) {
-        warnx("Failed to export certificate object into X509 object, rc=%lx.",rc);
+        warnx("Failed to export certificate object into X509 object, 0x%lx: %s",
+              rc, p11_get_ckr(rc));
         data->num_failed++;
         rc = CKR_OK;
         goto done;
