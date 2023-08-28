@@ -3104,7 +3104,13 @@ CK_RV C_Initialize(CK_VOID_PTR pVoid)
      *   -> PKCS11-provider -> Opencryptoki -> ...
      * Explicitly using the 'default' provider only for Opencrypoki's OpenSSL
      * usage breaks this loop.
+     * Ensure OpenSSL is initialized and the OpenSSL config is loaded
+     * BEFORE creating the library context. Otherwise the OpenSSL config
+     * is loaded later, which may cause that all configured providers
+     * are also loaded into the library context. We need to make sure that
+     * only the default and legacy provider is loaded in the library context.
      */
+    OPENSSL_init_crypto(OPENSSL_INIT_LOAD_CONFIG, NULL);
     ERR_set_mark();
     Anchor->openssl_libctx = OSSL_LIB_CTX_new();
     if (Anchor->openssl_libctx == NULL) {
