@@ -74,21 +74,26 @@ typedef struct {
 typedef struct {
     SESSION *session;
     CK_BYTE session_id[SHA256_HASH_SIZE];
-    CK_BYTE vhsm_pin[XCP_MAX_PINBYTES];
-    CK_BYTE flags;
+    CK_BBOOL pin_blob_valid;
     CK_BYTE session_pin_blob[XCP_PINBLOB_BYTES];
     CK_OBJECT_HANDLE session_object;
-    CK_BYTE vhsm_pin_blob[XCP_PINBLOB_BYTES];
-    CK_OBJECT_HANDLE vhsm_object;
 } ep11_session_t;
 
-#define EP11_SESS_PINBLOB_VALID     0x01
-#define EP11_VHSM_PINBLOB_VALID     0x02
-#define EP11_VHSMPIN_VALID          0x10
-#define EP11_STRICT_MODE            0x40
-#define EP11_VHSM_MODE              0x80
+
+typedef struct {
+    STDLL_TokData_t *tokdata;
+    ep11_session_t *ep11_session;
+    CK_BBOOL relogin;
+} login_logout_data_t;
+
+typedef struct {
+    CK_SLOT_ID_32 slot_id; /* Slot number as BE32 */
+    CK_BYTE purpose[12];
+} __attribute__ ((packed)) session_nonce_t;
 
 #define DEFAULT_EP11_PIN            "        "
+
+#define VHSM_NONCE_PURPOSE          "VHSM-session"
 
 #define CKH_IBM_EP11_SESSION        CKH_VENDOR_DEFINED + 1
 #define CKH_IBM_EP11_VHSMPIN        CKH_VENDOR_DEFINED + 2
@@ -278,6 +283,15 @@ typedef struct {
     CK_VERSION ep11_lib_version;
     volatile ep11_target_info_t *target_info;
     pthread_rwlock_t target_rwlock;
+    CK_BYTE vhsm_pin[XCP_MAX_PINBYTES];
+    CK_BBOOL vhsm_pin_valid;
+    CK_BYTE vhsm_pin_blob[XCP_PINBLOB_BYTES];
+    CK_BBOOL vhsm_pin_blob_valid;
+    uint32 session_refcount;
+    uint32_t (*get_session_refcount)(STDLL_TokData_t *tokdata);
+    void (*incr_session_refcount)(STDLL_TokData_t *tokdata);
+    void (*decr_session_refcount)(STDLL_TokData_t *tokdata);
+    pthread_mutex_t session_mutex;
 } ep11_private_data_t;
 
 #define UNKNOWN_CP          0xFFFFFFFF
@@ -349,8 +363,8 @@ CK_BBOOL is_apqn_online(uint_32 card, uint_32 domain);
 CK_BOOL ep11_is_session_object(CK_ATTRIBUTE_PTR attrs, CK_ULONG attrs_len);
 CK_BOOL ep11_is_private_object(CK_ATTRIBUTE_PTR attrs, CK_ULONG attrs_len);
 CK_RV ep11tok_relogin_session(STDLL_TokData_t *tokdata, SESSION *session);
-void ep11_get_pin_blob(ep11_session_t *ep11_session, CK_BOOL is_session_obj,
-                       CK_BOOL is_private_obj,
+void ep11_get_pin_blob(STDLL_TokData_t *tokdata, ep11_session_t *ep11_session,
+                       CK_BOOL is_session_obj, CK_BOOL is_private_obj,
                        CK_BYTE **pin_blob, CK_ULONG *pin_blob_len);
 CK_RV ep11_login_handler(uint_32 adapter, uint_32 domain, void *handler_data);
 
