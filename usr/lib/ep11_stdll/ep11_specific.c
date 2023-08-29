@@ -516,6 +516,7 @@ static CK_RV ep11tok_pkey_wrap_handler(uint_32 adapter, uint_32 domain,
     CK_BYTE *blob;
     CK_ULONG bloblen;
     CK_BBOOL blobretry = FALSE;
+    login_logout_data_t lldata;
 
     if (data->wrap_was_successful)
         goto done;
@@ -537,7 +538,9 @@ repeat:
     if ((ret == CKR_SESSION_CLOSED || ret == CKR_PIN_INCORRECT) &&
         retry == FALSE && data->ep11_session != NULL) {
         /* Re-login the EP11 session and retry once */
-        ret = ep11_login_handler(adapter, domain, data->ep11_session);
+        lldata.tokdata = data->tokdata;
+        lldata.ep11_session = data->ep11_session;
+        ret = ep11_login_handler(adapter, domain, &lldata);
         if (ret == CKR_OK) {
             retry = TRUE;
             goto repeat;
@@ -566,7 +569,9 @@ repeat2:
         if ((ret == CKR_SESSION_CLOSED || ret == CKR_PIN_INCORRECT) &&
             retry == FALSE && data->ep11_session != NULL) {
             /* Re-login the EP11 session and retry once */
-            ret = ep11_login_handler(adapter, domain, data->ep11_session);
+            lldata.tokdata = data->tokdata;
+            lldata.ep11_session = data->ep11_session;
+            ret = ep11_login_handler(adapter, domain, &lldata);
             if (ret == CKR_OK) {
                 retry = TRUE;
                 goto repeat2;
@@ -2142,7 +2147,7 @@ static CK_RV rawkey_2_blob(STDLL_TokData_t * tokdata, SESSION * sess,
 
     trace_attributes(__func__, "Import sym.:", new_p_attrs, new_attrs_len);
 
-    ep11_get_pin_blob(ep11_session, object_is_session_object(key_obj),
+    ep11_get_pin_blob(tokdata, ep11_session, object_is_session_object(key_obj),
                       object_is_private(key_obj),
                       &ep11_pin_blob, &ep11_pin_blob_len);
 
@@ -2673,6 +2678,17 @@ CK_RV ep11tok_init(STDLL_TokData_t * tokdata, CK_SLOT_ID SlotNumber,
         }
     }
 
+    if (ep11_data->vhsm_mode) {
+        if (pthread_mutex_init(&ep11_data->session_mutex, NULL) != 0) {
+            TRACE_ERROR("Initializing session lock failed.\n");
+            rc = CKR_CANT_LOCK;
+            goto error;
+        }
+    }
+    ep11_data->get_session_refcount = tokdata->tokspec_counter.get_tokspec_count;
+    ep11_data->incr_session_refcount = tokdata->tokspec_counter.incr_tokspec_count;
+    ep11_data->decr_session_refcount = tokdata->tokspec_counter.decr_tokspec_count;
+
     TRACE_INFO("%s init done successfully\n", __func__);
     return CKR_OK;
 
@@ -2696,6 +2712,8 @@ CK_RV ep11tok_final(STDLL_TokData_t * tokdata, CK_BBOOL in_fork_initializer)
             free((void* )ep11_data->target_info);
         }
         pthread_rwlock_destroy(&ep11_data->target_rwlock);
+        if (ep11_data->vhsm_mode)
+            pthread_mutex_destroy(&ep11_data->session_mutex);
         free_cp_config(ep11_data->cp_config);
         if (ep11_data->libica.ica_cleanup != NULL && !in_fork_initializer)
             ep11_data->libica.ica_cleanup();
@@ -2867,7 +2885,7 @@ static CK_RV make_maced_spki(STDLL_TokData_t *tokdata, SESSION *sess,
 
     trace_attributes(__func__, "MACed SPKI import:", p_attrs, attrs_len);
 
-    ep11_get_pin_blob(ep11_session, is_session, is_private,
+    ep11_get_pin_blob(tokdata, ep11_session, is_session, is_private,
                       &ep11_pin_blob, &ep11_pin_blob_len);
 
     RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
@@ -2991,7 +3009,8 @@ static CK_RV import_aes_xts_key(STDLL_TokData_t *tokdata, SESSION *sess,
 
     trace_attributes(__func__, "Import sym.:", new_p_attrs, new_attrs_len);
 
-    ep11_get_pin_blob(ep11_session, object_is_session_object(aes_xts_key_obj),
+    ep11_get_pin_blob(tokdata, ep11_session,
+                      object_is_session_object(aes_xts_key_obj),
                       object_is_private(aes_xts_key_obj),
                       &ep11_pin_blob, &ep11_pin_blob_len);
 
@@ -3293,7 +3312,8 @@ static CK_RV import_RSA_key(STDLL_TokData_t *tokdata, SESSION *sess,
 
         trace_attributes(__func__, "RSA import:", new_p_attrs, new_attrs_len);
 
-        ep11_get_pin_blob(ep11_session, object_is_session_object(rsa_key_obj),
+        ep11_get_pin_blob(tokdata, ep11_session,
+                          object_is_session_object(rsa_key_obj),
                           object_is_private(rsa_key_obj),
                           &ep11_pin_blob, &ep11_pin_blob_len);
 
@@ -3534,7 +3554,8 @@ static CK_RV import_EC_key(STDLL_TokData_t *tokdata, SESSION *sess,
 
         trace_attributes(__func__, "EC import:", new_p_attrs, new_attrs_len);
 
-        ep11_get_pin_blob(ep11_session, object_is_session_object(ec_key_obj),
+        ep11_get_pin_blob(tokdata, ep11_session,
+                          object_is_session_object(ec_key_obj),
                           object_is_private(ec_key_obj),
                           &ep11_pin_blob, &ep11_pin_blob_len);
 
@@ -3738,7 +3759,8 @@ static CK_RV import_DSA_key(STDLL_TokData_t *tokdata, SESSION *sess,
 
         trace_attributes(__func__, "DSA import:", new_p_attrs, new_attrs_len);
 
-        ep11_get_pin_blob(ep11_session, object_is_session_object(dsa_key_obj),
+        ep11_get_pin_blob(tokdata, ep11_session,
+                          object_is_session_object(dsa_key_obj),
                           object_is_private(dsa_key_obj),
                           &ep11_pin_blob, &ep11_pin_blob_len);
 
@@ -3943,7 +3965,8 @@ static CK_RV import_DH_key(STDLL_TokData_t *tokdata, SESSION *sess,
 
         trace_attributes(__func__, "DH import:", new_p_attrs, new_attrs_len);
 
-        ep11_get_pin_blob(ep11_session, object_is_session_object(dh_key_obj),
+        ep11_get_pin_blob(tokdata, ep11_session,
+                          object_is_session_object(dh_key_obj),
                           object_is_private(dh_key_obj),
                           &ep11_pin_blob, &ep11_pin_blob_len);
 
@@ -4240,7 +4263,8 @@ static CK_RV import_IBM_pqc_key(STDLL_TokData_t *tokdata, SESSION *sess,
 
         trace_attributes(__func__, "PQC import:", new_p_attrs, new_attrs_len);
 
-        ep11_get_pin_blob(ep11_session, object_is_session_object(pqc_key_obj),
+        ep11_get_pin_blob(tokdata, ep11_session,
+                          object_is_session_object(pqc_key_obj),
                           object_is_private(pqc_key_obj),
                           &ep11_pin_blob, &ep11_pin_blob_len);
 
@@ -4603,7 +4627,8 @@ CK_RV ep11tok_generate_key(STDLL_TokData_t * tokdata, SESSION * session,
 
     trace_attributes(__func__, "Generate key:", new_attrs2, new_attrs2_len);
 
-    ep11_get_pin_blob(ep11_session, ep11_is_session_object(attrs, attrs_len),
+    ep11_get_pin_blob(tokdata, ep11_session,
+                      ep11_is_session_object(attrs, attrs_len),
                       ep11_is_private_object(attrs, attrs_len),
                       &ep11_pin_blob, &ep11_pin_blob_len);
 
@@ -6656,7 +6681,8 @@ CK_RV ep11tok_derive_key(STDLL_TokData_t *tokdata, SESSION *session,
 
     trace_attributes(__func__, "Derive:", new_attrs2, new_attrs2_len);
 
-    ep11_get_pin_blob(ep11_session, ep11_is_session_object(attrs, attrs_len),
+    ep11_get_pin_blob(tokdata, ep11_session,
+                      ep11_is_session_object(attrs, attrs_len),
                       ep11_is_private_object(attrs, attrs_len),
                       &ep11_pin_blob, &ep11_pin_blob_len);
 
@@ -6983,13 +7009,13 @@ static CK_RV dh_generate_keypair(STDLL_TokData_t *tokdata,
     trace_attributes(__func__, "DH private key attributes:",
                      new_priv_attrs, new_priv_attrs_len);
 
-    ep11_get_pin_blob(ep11_session,
+    ep11_get_pin_blob(tokdata, ep11_session,
                       ep11_is_session_object(new_priv_attrs,
                                              new_priv_attrs_len),
                       ep11_is_private_object(new_priv_attrs,
                                              new_priv_attrs_len),
                       &priv_ep11_pin_blob, &priv_ep11_pin_blob_len);
-    ep11_get_pin_blob(ep11_session,
+    ep11_get_pin_blob(tokdata, ep11_session,
                       ep11_is_session_object(new_publ_attrs,
                                              new_publ_attrs_len),
                       ep11_is_private_object(new_publ_attrs,
@@ -7397,13 +7423,13 @@ static CK_RV dsa_generate_keypair(STDLL_TokData_t *tokdata,
     trace_attributes(__func__, "DSA private key attributes:",
                      new_priv_attrs, new_priv_attrs_len);
 
-    ep11_get_pin_blob(ep11_session,
+    ep11_get_pin_blob(tokdata, ep11_session,
                       ep11_is_session_object(new_priv_attrs,
                                              new_priv_attrs_len),
                       ep11_is_private_object(new_priv_attrs,
                                              new_priv_attrs_len),
                       &priv_ep11_pin_blob, &priv_ep11_pin_blob_len);
-    ep11_get_pin_blob(ep11_session,
+    ep11_get_pin_blob(tokdata, ep11_session,
                       ep11_is_session_object(new_publ_attrs,
                                              new_publ_attrs_len),
                       ep11_is_private_object(new_publ_attrs,
@@ -7668,13 +7694,13 @@ static CK_RV rsa_ec_generate_keypair(STDLL_TokData_t *tokdata,
     trace_attributes(__func__, "RSA/EC private key attributes:",
                      new_priv_attrs2, new_priv_attrs2_len);
 
-    ep11_get_pin_blob(ep11_session,
+    ep11_get_pin_blob(tokdata, ep11_session,
                       ep11_is_session_object(new_priv_attrs2,
                                              new_priv_attrs2_len),
                       ep11_is_private_object(new_priv_attrs2,
                                              new_priv_attrs2_len),
                       &priv_ep11_pin_blob, &priv_ep11_pin_blob_len);
-    ep11_get_pin_blob(ep11_session,
+    ep11_get_pin_blob(tokdata, ep11_session,
                       ep11_is_session_object(new_publ_attrs,
                                              new_publ_attrs_len),
                       ep11_is_private_object(new_publ_attrs,
@@ -8116,13 +8142,13 @@ static CK_RV ibm_pqc_generate_keypair(STDLL_TokData_t *tokdata,
     trace_attributes(__func__, "PQC private key attributes:",
                      new_priv_attrs2, new_priv_attrs2_len);
 
-    ep11_get_pin_blob(ep11_session,
+    ep11_get_pin_blob(tokdata, ep11_session,
                       ep11_is_session_object(new_priv_attrs2,
                                              new_priv_attrs2_len),
                       ep11_is_private_object(new_priv_attrs2,
                                              new_priv_attrs2_len),
                        &priv_ep11_pin_blob, &priv_ep11_pin_blob_len);
-    ep11_get_pin_blob(ep11_session,
+    ep11_get_pin_blob(tokdata, ep11_session,
                       ep11_is_session_object(new_publ_attrs,
                                              new_publ_attrs_len),
                       ep11_is_private_object(new_publ_attrs,
@@ -10931,7 +10957,8 @@ CK_RV ep11tok_unwrap_key(STDLL_TokData_t * tokdata, SESSION * session,
 
     trace_attributes(__func__, "Unwrap:", new_attrs2, new_attrs2_len);
 
-    ep11_get_pin_blob(ep11_session, ep11_is_session_object(attrs, attrs_len),
+    ep11_get_pin_blob(tokdata, ep11_session,
+                      ep11_is_session_object(attrs, attrs_len),
                       ep11_is_private_object(attrs, attrs_len),
                       &ep11_pin_blob, &ep11_pin_blob_len);
 
