@@ -321,10 +321,14 @@ BOOL CheckForGarbage(Slot_Mgr_Shr_t *MemPtr)
                     &(MemPtr->slot_global_sessions[SlotIndex]);
                 unsigned int *pGlobalRWSessions =
                     &(MemPtr->slot_global_rw_sessions[SlotIndex]);
+                unsigned int *pGlobalTokspecCount =
+                    &(MemPtr->slot_global_tokspec_count[SlotIndex]);
                 unsigned int *pProcSessions =
                     &(pProc->slot_session_count[SlotIndex]);
                 unsigned int *pProcRWSessions =
                     &(pProc->slot_rw_session_count[SlotIndex]);
+                unsigned int *pProcTokspecCount =
+                    &(pProc->slot_tokspec_count[SlotIndex]);
 
                 if (*pProcSessions > 0) {
 
@@ -359,6 +363,14 @@ BOOL CheckForGarbage(Slot_Mgr_Shr_t *MemPtr)
 
                 }
                 /* end if *pProcSessions */
+
+                if (*pGlobalTokspecCount > 0) {
+                    if (*pProcTokspecCount > *pGlobalTokspecCount)
+                        *pGlobalTokspecCount = 0;
+                    else
+                        *pGlobalTokspecCount -= *pProcTokspecCount;
+                    *pProcTokspecCount = 0;
+                }
             }                   /* end for SlotIndex */
 
 

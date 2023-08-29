@@ -383,12 +383,19 @@ struct _LW_SHM_TYPE {
     TOK_OBJ_ENTRY priv_tok_objs[MAX_TOK_OBJS];
 };
 
+struct tokspec_counter {
+    uint32_t (*get_tokspec_count)(STDLL_TokData_t *tokdata);
+    void (*incr_tokspec_count)(STDLL_TokData_t *tokdata);
+    void (*decr_tokspec_count)(STDLL_TokData_t *tokdata);
+};
+
 struct _STDLL_TokData_t {
     CK_SLOT_INFO slot_info;
     CK_SLOT_ID slot_id;
     pid_t real_pid; /* pid of client process in pkcsslotd namespace */
     uid_t real_uid; /* uid of client process in pkcsslotd namespace */
     gid_t real_gid; /* gid of client process in pkcsslotd namespace */
+    struct tokspec_counter tokspec_counter;
     int spinxplfd;              // token specific lock
     unsigned int spinxplfd_count; // counter for recursive file lock
     pthread_mutex_t spinxplfd_mutex; // token specific pthread lock

@@ -297,6 +297,68 @@ void decr_sess_counts(CK_SLOT_ID slotID, CK_BBOOL rw_session)
     ProcUnLock();
 }
 
+uint32_t get_tokspec_count(STDLL_TokData_t *tokdata)
+{
+    Slot_Mgr_Shr_t *shm;
+    uint32_t ret;
+
+    shm = Anchor->SharedMemP;
+    if (ProcLock() != CKR_OK)
+        return 0;
+
+    ret = shm->slot_global_tokspec_count[tokdata->slot_id];
+
+    ProcUnLock();
+
+    return ret;
+}
+
+void incr_tokspec_count(STDLL_TokData_t *tokdata)
+{
+    Slot_Mgr_Shr_t *shm;
+#ifdef PKCS64
+    Slot_Mgr_Proc_t_64 *procp;
+#else
+    Slot_Mgr_Proc_t *procp;
+#endif
+
+    // Get the slot mutex
+    shm = Anchor->SharedMemP;
+
+    ProcLock();
+
+    shm->slot_global_tokspec_count[tokdata->slot_id]++;
+
+    procp = &shm->proc_table[Anchor->MgrProcIndex];
+    procp->slot_tokspec_count[tokdata->slot_id]++;
+
+    ProcUnLock();
+}
+
+void decr_tokspec_count(STDLL_TokData_t *tokdata)
+{
+    Slot_Mgr_Shr_t *shm;
+#ifdef PKCS64
+    Slot_Mgr_Proc_t_64 *procp;
+#else
+    Slot_Mgr_Proc_t *procp;
+#endif
+
+    // Get the slot mutex
+    shm = Anchor->SharedMemP;
+
+    ProcLock();
+
+    if (shm->slot_global_tokspec_count[tokdata->slot_id] > 0)
+        shm->slot_global_tokspec_count[tokdata->slot_id]--;
+
+    procp = &shm->proc_table[Anchor->MgrProcIndex];
+    if (procp->slot_tokspec_count[tokdata->slot_id] > 0)
+        procp->slot_tokspec_count[tokdata->slot_id]--;
+
+    ProcUnLock();
+}
+
 // Check if any sessions from other applicaitons exist on this particular
 // token.... This will also validate our own sessions as well.
 // There might be an issue with the fact that a session is created but the
@@ -609,6 +671,9 @@ int DL_Load_and_Init(API_Slot_t *sltp, CK_SLOT_ID slotID, policy_t policy,
     sltp->TokData->real_pid = Anchor->ClientCred.real_pid;
     sltp->TokData->real_uid = Anchor->ClientCred.real_uid;
     sltp->TokData->real_gid = Anchor->ClientCred.real_gid;
+    sltp->TokData->tokspec_counter.get_tokspec_count = get_tokspec_count;
+    sltp->TokData->tokspec_counter.incr_tokspec_count = incr_tokspec_count;
+    sltp->TokData->tokspec_counter.decr_tokspec_count = decr_tokspec_count;
     sltp->TokData->ro_session_count = 0;
     sltp->TokData->global_login_state = CKS_RO_PUBLIC_SESSION;
     sltp->TokData->spinxplfd = -1;
