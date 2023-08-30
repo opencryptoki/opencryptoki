@@ -122,6 +122,8 @@ static m_SetAttributeValue_t dll_m_SetAttributeValue;
 
 m_Login_t dll_m_Login;
 m_Logout_t dll_m_Logout;
+m_LoginExtended_t dll_m_LoginExtended;
+m_LogoutExtended_t dll_m_LogoutExtended;
 m_admin_t dll_m_admin;
 static m_add_backend_t dll_m_add_backend;
 static m_init_t dll_m_init;
@@ -2556,6 +2558,17 @@ static CK_RV ep11_resolve_lib_sym(void *hdl)
         dll_m_rm_module = NULL;
     }
 
+    /*
+     * The following are only available since EP11 host library version 4.1.
+     * Ignore if they fail to load.
+     */
+    *(void **)(&dll_m_LoginExtended) = dlsym(hdl, "m_LoginExtended");
+    *(void **)(&dll_m_LogoutExtended) = dlsym(hdl, "m_LogoutExtended");
+    if (dll_m_LoginExtended == NULL || dll_m_LogoutExtended == NULL) {
+        dll_m_LoginExtended = NULL;
+        dll_m_LogoutExtended = NULL;
+    }
+
     return CKR_OK;
 }
 
@@ -2626,6 +2639,9 @@ CK_RV ep11tok_init(STDLL_TokData_t * tokdata, CK_SLOT_ID SlotNumber,
 {
     CK_RV rc;
     ep11_private_data_t *ep11_data;
+#ifndef EP11_HSMSIM
+    const CK_VERSION ver4_1 = { .major = 4, .minor = 1 };
+#endif
 
     TRACE_INFO("ep11 %s slot=%lu running\n", __func__, SlotNumber);
 
@@ -2696,6 +2712,22 @@ CK_RV ep11tok_init(STDLL_TokData_t * tokdata, CK_SLOT_ID SlotNumber,
                ep11_data->ep11_lib_version.major,
                (ep11_data->ep11_lib_version.minor & 0xF0) >> 4,
                (ep11_data->ep11_lib_version.minor & 0x0F));
+
+#ifndef EP11_HSMSIM
+    if (ep11_data->fips_session_mode) {
+        if (compare_ck_version(&ep11_data->ep11_lib_version, &ver4_1) < 0 ||
+            dll_m_LoginExtended == NULL || dll_m_LogoutExtended == NULL) {
+            TRACE_ERROR("%s EP11 host library does not support LoginExtended "
+                        "but this is required for FIPS-session mode\n",
+                        __func__);
+            OCK_SYSLOG(LOG_ERR,
+                       "The EP11 host library does not support LoginExtended "
+                       "but this is required for FIPS-session mode\n");
+            rc = CKR_DEVICE_ERROR;
+            goto error;
+        }
+    }
+#endif
 
     rc = ep11tok_mk_change_check_pending_ops(tokdata);
     if (rc != CKR_OK) {
