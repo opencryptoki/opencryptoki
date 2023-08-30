@@ -14830,3 +14830,36 @@ static CK_RV update_ep11_attrs_from_blob(STDLL_TokData_t *tokdata,
 
     return CKR_OK;
 }
+
+CK_RV token_specific_check_obj_access(STDLL_TokData_t *tokdata,
+                                      OBJECT *obj, CK_BBOOL create)
+{
+    ep11_private_data_t *ep11_data = tokdata->private_data;
+    CK_OBJECT_CLASS class;
+    CK_RV rc;
+
+    UNUSED(create);
+
+    if (ep11_data->fips_session_mode == 0)
+        return CKR_OK;
+
+   rc = template_attribute_get_ulong(obj->template, CKA_CLASS, &class);
+   if (rc != CKR_OK) {
+       TRACE_ERROR("Class attribute not found\n");
+       return rc;
+   }
+
+   switch (class) {
+   case CKO_SECRET_KEY:
+   case CKO_PUBLIC_KEY:
+   case CKO_PRIVATE_KEY:
+       break;
+   default:
+       return CKR_OK;
+   }
+
+   if (!session_mgr_user_session_exists(tokdata))
+       return CKR_USER_NOT_LOGGED_IN;
+
+   return CKR_OK;
+}
