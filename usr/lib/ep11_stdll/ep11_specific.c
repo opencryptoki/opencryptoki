@@ -12364,6 +12364,11 @@ static CK_RV read_adapter_config_file(STDLL_TokData_t * tokdata,
             continue;
         }
 
+        if (strcmp(bare->base.key, "FIPS_SESSION_MODE") == 0) {
+            ep11_data->fips_session_mode = 1;
+            continue;
+        }
+
         if (strcmp(bare->base.key, "OPTIMIZE_SINGLE_PART_OPERATIONS") == 0) {
             ep11_data->optimize_single_ops = 1;
             continue;
@@ -12427,6 +12432,16 @@ static CK_RV read_adapter_config_file(STDLL_TokData_t * tokdata,
         return rc;
 
     /* do some checks: */
+    if (ep11_data->fips_session_mode &&
+        (ep11_data->strict_mode || ep11_data->vhsm_mode)) {
+        TRACE_ERROR("%s FIPS_SESSION_MODE can not be enabled together with "
+                    "STRICT_MODE or VHSM_MODE\n", __func__);
+        OCK_SYSLOG(LOG_ERR, "%s: FIPS_SESSION_MODE can not be enabled together "
+                   "with STRICT_MODE or VHSM_MODE in config file '%s'\n",
+                   __func__, fname);
+        return CKR_FUNCTION_FAILED;
+    }
+
     if (!(whitemode || anymode)) {
         TRACE_ERROR("%s At least one APQN mode needs to be present in "
                     "config file: APQN_ALLOWLIST or APQN_ANY\n", __func__);
