@@ -1550,6 +1550,16 @@ static CK_RV ab_unwrap_update_template(STDLL_TokData_t * tokdata,
         return CKR_TEMPLATE_INCONSISTENT;
     }
     for (i = 0; i < sizeof(attrs) / sizeof(CK_ATTRIBUTE); ++i) {
+        if (attrs[i].type == CKA_VALUE_LEN) {
+            switch (keytype) {
+            case CKK_GENERIC_SECRET:
+            case CKK_AES:
+                break;
+            default:
+                continue;
+            }
+        }
+
         rc = build_attribute(attrs[i].type, attrs[i].pValue,
                              attrs[i].ulValueLen, &attr);
         if (rc != CKR_OK) {
