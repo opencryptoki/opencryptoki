@@ -263,6 +263,7 @@ typedef struct {
     cp_config_t *cp_config;
     int strict_mode;
     int vhsm_mode;
+    int fips_session_mode;
     int optimize_single_ops;
     int pkey_mode;
     int pkey_wrap_supported;
