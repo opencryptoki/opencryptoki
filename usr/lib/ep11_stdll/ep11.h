@@ -1,5 +1,5 @@
 /*
- * (C) Copyright IBM Corp. 2012, 2022
+ * (C) Copyright IBM Corp. 2012, 2024
  *
  * This program is provided under the terms of the Common Public License,
  * version 1.0 (CPL-1.0). Any use, reproduction or distribution for this
@@ -100,11 +100,11 @@
 #define XCP_COMMON_PUBLIC_H__
 
 
-#define  XCP_API_VERSION  0x0810     /* major[8] minor[8] */
-#define  XCP_API_ORDINAL  0x0004
+#define  XCP_API_VERSION  0x081e     /* major[8] minor[8] */
+#define  XCP_API_ORDINAL  0x0006
                        /* increment this with every major/minor change */
 
-#define  XCP_HOST_API_VER  0x040000   /* major[8] minor[8] fixpack[8] */
+#define  XCP_HOST_API_VER  0x040100   /* major[8] minor[8] fixpack[8] */
 
 /* HSM connection information; not for PKCS11 user consumption */
 #define  XCP_HSM_AGENT_ID   0x5843           /* ASCII "XC" */
@@ -112,6 +112,16 @@
 
 // protected key requires API ordinal greater or equal to 4
 #define XCP_API_ALLOW_PROTKEY  0x0004
+
+// Support for extended FIPS2021 attributes
+//
+// Requests for card/domain attributes (XCP_ADMQ_ATTRS/XCP_ADMQ_DOM_ATTRS)
+// will contain the extended attributes (key-types, adm FIPS2021 compliance)
+// only with API ordinal 5 (or higher) for compatibility reasons.
+// Also, the module sub-queries CK_IBM_XCPMSQ_ATTRLIST, CK_IBM_XCPMSQ_ATTRS
+// and CK_IBM_XCPMSQ_ATTRCOUNT will contain the information related to the
+// extended attributes only with this API ordinal.
+#define XCP_API_ALLOW_FIPS2021  0x0005
 
 
 // function sub-variants
@@ -189,6 +199,9 @@ typedef enum {
 
 #define  CKR_IBM_PQC_PARAMS_NOT_SUPPORTED  (CKR_VENDOR_DEFINED +0x10031)
 
+#define  CKR_IBM_PARAM_NOT_SUPPORTED   (CKR_VENDOR_DEFINED +0x10032)
+
+#define  CKR_IBM_SESSION_IMMUTABLE   (CKR_VENDOR_DEFINED +0x10033)
 
 // Error returned if internal verification of crypto engines fail
 #define CKR_IBM_ERROR_STATE       (CKR_VENDOR_DEFINED +0x10101)
@@ -298,11 +311,38 @@ typedef enum {
 	                              // compressed public key format and
 	                              // including signers public key
 
-	ECSG_IBM_MAX                = ECSG_IBM_ECSDSA_COMPR_MULTI,
+	ECSG_IBM_BLS                = 6,
+	                              // Boneh-Lynn-Shacham signatures
+	                              // RFC draft-irtf-cfrg-bls-signature-05
+
+
+	ECSG_IBM_MAX                = ECSG_IBM_BLS,
 } ECSG_Var_t;
+
+
+
+typedef enum {
+	EC_AGG_BLS12_381_SIGN = 1, // size of signature is sufficient indicator
+	EC_AGG_BLS12_381_PKEY = 2,
+	EC_AGG_BLS12_381_MAX  = EC_AGG_BLS12_381_PKEY,
+} ECAgg_Var_t;
+
+#define  CK_IBM_EC_AGG_BLS12_381_SIGN  EC_AGG_BLS12_381_SIGN
+#define  CK_IBM_EC_AGG_BLS12_381_PKEY  EC_AGG_BLS12_381_PKEY
+
+typedef struct XCP_EC_AGGREGATE_PARAMS {
+	CK_ULONG version;
+	CK_ULONG mode;
+	CK_ULONG perElementSize;
+	CK_BYTE_PTR pElements;
+	CK_ULONG ulElementsLen;
+} XCP_EC_AGGREGATE_PARAMS;
+
+
 
 #define  CK_IBM_ECSG_IBM_ECSDSA_S256             ECSG_IBM_ECSDSA_S256
 #define  CK_IBM_ECSG_IBM_ECDSA_COMPR_MULTI_S256  ECSG_IBM_ECDSA_COMPR_MULTI_S256
+#define  CK_IBM_ECSG_IBM_BLS                     ECSG_IBM_BLS
 #define  CK_IBM_ECSG_IBM_MAX                     ECSG_IBM_MAX
 
 
@@ -336,12 +376,16 @@ typedef enum {
 #define  CKM_IBM_RETAINKEY             (CKM_VENDOR_DEFINED +0x40001)
 
 
+
 // IBM protkey data key import mechanism (WrapKey)
 #define  CKM_IBM_CPACF_WRAP            (CKM_VENDOR_DEFINED +0x60001)
 
 
 // bitcoin key derivation
 #define  CKM_IBM_BTC_DERIVE            (CKM_VENDOR_DEFINED +0x70001)
+
+// etherium key derivation
+#define  CKM_IBM_ETH_DERIVE            (CKM_VENDOR_DEFINED +0x70002)
 
 /*---  attributes  ---------------------------------------------------------*/
 
@@ -382,12 +426,15 @@ typedef enum {
 
 
 // key is extractable only as protected key
-#define CKA_IBM_PROTKEY_EXTRACTABLE        (CKA_VENDOR_DEFINED +0x1000c)
+#define  CKA_IBM_PROTKEY_EXTRACTABLE        (CKA_VENDOR_DEFINED +0x1000c)
 
 // key is never extractable as protected key
-#define CKA_IBM_PROTKEY_NEVER_EXTRACTABLE  (CKA_VENDOR_DEFINED +0x1000d)
+#define  CKA_IBM_PROTKEY_NEVER_EXTRACTABLE  (CKA_VENDOR_DEFINED +0x1000d)
 
-#define CKA_IBM_PQC_PARAMS (CKA_VENDOR_DEFINED +0x1000e)
+#define  CKA_IBM_PQC_PARAMS        (CKA_VENDOR_DEFINED +0x1000e)
+
+// query or modify login session an object is bound to
+#define  CKA_IBM_LOGIN_SESSION     (CKA_VENDOR_DEFINED +0x1000f)
 
 // query or modify login session an object is bound to
 #define  CKA_IBM_LOGIN_SESSION     (CKA_VENDOR_DEFINED +0x1000f)
@@ -436,9 +483,17 @@ typedef enum {
 #define  XCP_WRAP_BLOCKSIZE ((size_t) (128 /8)) /* blob crypt block bytecount */
 #define  XCP_MACKEY_BYTES       (256 /8)   /* derived from controlling WK     */
 //
-#define  XCP_PIN_SALT_BYTES  XCP_WRAP_BLOCKSIZE
+#define  XCP_PIN_SALT_BYTES      XCP_WRAP_BLOCKSIZE
 #define  XCP_PINBLOB_BYTES  \
         (XCP_WK_BYTES +XCP_PIN_SALT_BYTES +XCP_HMAC_BYTES)
+#define  XCP_SESSION_SALT_BYTES  ((size_t) 128 /8)
+				/* salt used in PIN blob rewrapping */
+#define  XCP_SESSION_TCTR_BYTES   ((size_t) (128/8))  /* transaction counter */
+#define  XCP_SESSION_MAC1_BYTES  ((size_t) 64 /8)             /* AES/KW MAC */
+//
+// full v1 (FIPS/2021) PIN, AESKW/pad ciphertext size
+#define  XCP_PINBLOB_V1_BYTES  \
+        (XCP_WK_BYTES +XCP_SESSION_SALT_BYTES +XCP_SESSION_MAC1_BYTES)
 
 #define  XCP_PBE_TYPE_CLEAR           0  /* clear passphrase                */
 #define  XCP_PBE_TYPE_BLOB            1  /* passphrase as generic secretkey */
@@ -498,6 +553,17 @@ typedef enum {
 
 #define  XCP_BTC_VERSION  1
 
+#define  XCP_ETH_MIN_WIRE_BYTES  (4+4+4+4+4)     /* type[32]          ||
+                                                    childKeyIndex[32] ||
+                                                    KeyInfo[32]       ||
+                                                    version[32]       ||
+                                                    sigVersion[32] */
+#define  XCP_EIP2333_KEYINFO_BYTES  32
+
+#define  XCP_ETH_VERSION  1
+
+#define  XCP_ETH_SIG_VERSION  4
+
 #define  XCP_KYBER_KEM_VERSION  0
 
 #define  XCP_KYBER_KEM_MIN_WIRE_BYTES (4 + 4 + 4 + 4 + 4 + 4) /* version[32] ||
@@ -554,6 +620,9 @@ typedef enum {
 
 #define  XCP_SERIALNR_CHARS        8
 #define  XCP_DOMAIN_INSTANCE_BYTES 4
+#define  XCP_DOMAIN_NUMBER_BYTES   4
+#define  XCP_DOMAIN_REVISION_BYTES 4
+#define  XCP_DOMAIN_FLAGS_BYTES    4
 
 #define  XCP_WRAPKEY_BYTES        32   /* keep integer blocks of blob cipher */
 
@@ -565,6 +634,15 @@ typedef enum {
 
 #define  XCP_MIN_PINBYTES          8
 #define  XCP_MAX_PINBYTES         16
+//
+// v1 PINs, LoginExtended(FIPS/2021), specific limits
+#define  XCP_MIN_ALG1_PINBYTES         ((size_t)  8)
+#define  XCP_MAX_ALG1_PINBYTES         ((size_t) 64)
+#define  XCP_MAX_LXTD_CONTEXT_BYTES   ((size_t) 128)           /* addl.context */
+
+//
+// max(...all possible PIN sizes...)
+#define  XCP_MAX_ANY_PINBYTES           XCP_MAX_ALG1_PINBYTES
 
 // ~arbitrary limit on acceptable admin. certificates
 // additional limits, such as transport-bytecount, may restrict further
@@ -829,7 +907,17 @@ typedef enum {
                                        /* of strength                  */
                                        /* see: XCP_PQCStrength_t       */
 
-	CK_IBM_XCPQ_MAX         = CK_IBM_XCPQ_PQC_STRENGTHS
+	CK_IBM_XCPQ_LOGIN_IMPORTER
+	                        = 15,  /* current session importer key */
+	                               /* and it's transaction counter */
+	                               /* for given curve type         */
+	                               /* see: XCP_ECCurve_t and       */
+	                               /*  CK_IBM_XCPXQ_LOGIN_KEYTYPES */
+
+	CK_IBM_XCPQ_COMPAT_ADM  = 16,  /* domains' administrative      */
+	                               /* compatibility modes          */
+
+	CK_IBM_XCPQ_MAX         = CK_IBM_XCPQ_COMPAT_ADM
 } CK_IBM_XCPQUERY_t;
 
 //---  module sub-query sub-types  --------------------------------------------
@@ -842,16 +930,28 @@ typedef enum {
 	                                 /* module query                 */
 	CK_IBM_XCPMSQ_ATTRLIST    =  5,  /* supported administrative     */
 	                                 /* attributes bitmask           */
-	CK_IBM_XCPMSQ_ATTRS       =  6,  /* number of supported          */
+	CK_IBM_XCPMSQ_ATTRS       =  6,  /* list of supported attribute  */
+	                                 /* bits (1 byte / attribute)    */
 	                                 /* administrative attributes    */
 	CK_IBM_XCPMSQ_MOD_V2      =  7,  /* add version two fields to    */
 	                                 /* module query                 */
-	CK_IBM_XCPMSQ_MAX         =  CK_IBM_XCPMSQ_MOD_V2
+	CK_IBM_XCPMSQ_ATTRCOUNT   =  8,  /* number of supported          */
+	                                 /* administrative attributes    */
+	CK_IBM_XCPMSQ_MAX         = CK_IBM_XCPMSQ_ATTRCOUNT
 } CK_IBM_XCPMSUBQUERY_t;
+
+
+//---  selftest sub-query sub-types  ------------------------------------------
+typedef enum {
+	CK_IBM_XCPSSQ_DEFAULT    =  0,  /* run non-failing POST tests   */
+	CK_IBM_XCPSSQ_POST_F     =  1,  /* run failing POST tests       */
+} CK_IBM_XCPSSUBQUERY_t;
+
 
 // byte sizes of queries which are not represented as structures
 #define XCP_MSQ_FNLIST_SIZE      16
 #define XCP_XCPMSQ_FNS_SIZE       1
+#define XCP_XCPMSQ_ATTRCOUNT_SIZE 4
 
 
 
@@ -927,7 +1027,20 @@ typedef enum {
 	CK_IBM_XCPXQ_OA_CAP         = 16, /* bitmask of supported outbound
 	                                     authority signing mechanisms */
 
-	CK_IBM_XCPXQ_MAXIDX         = CK_IBM_XCPXQ_OA_CAP,
+	CK_IBM_XCPXQ_LOGIN_ALG      = 18, /* bitmask of login algorithms     */
+	                                  /* supported with LoginExtended    */
+	CK_IBM_XCPXQ_LOGIN_ATTR0    = 19, /* bitmask of supported session    */
+                                          /* attributes with Login Extended  */
+					  /* first double-word               */
+	CK_IBM_XCPXQ_LOGIN_ATTR1    = 20, /* session attributes, 2nd DW      */
+#if 0
+	CK_IBM_XCPXQ_LOGIN_ATTR2    = 21, /* session attributes, 3rd DW      */
+	CK_IBM_XCPXQ_LOGIN_ATTR3    = 22, /* session attributes, 4th DW      */
+#endif
+	CK_IBM_XCPXQ_LOGIN_KEYTYPES = 23, /* bitmask of Login importer types */
+	                                  /* supported for PIN encryption    */
+
+	CK_IBM_XCPXQ_MAXIDX         = CK_IBM_XCPXQ_LOGIN_KEYTYPES,
 } CK_IBM_XCPEXTCAP_t;
 
 
@@ -1014,6 +1127,18 @@ typedef CK_IBM_XCPAPI_INFO    CK_PTR   CK_IBM_XCPAPI_INFO_PTR;
 #define CK_IBM_XCP_ADMATTRCOUNT_MEMBER_V2                                      \
 	CK_BYTE perm_ext01_count;
 
+#define CK_IBM_XCP_ADMATTRLIST_MEMBER_EXT                                      \
+	CK_BYTE gen_ktype_modes[ 8 ];                                          \
+	CK_BYTE ecc_ktype_modes[ 8 ];                                          \
+	CK_BYTE dil_ktype_modes[ 8 ];                                          \
+	CK_BYTE adm_compl_modes[ 8 ];
+
+#define CK_IBM_XCP_ADMATTRCOUNT_MEMBER_EXT                                     \
+	CK_BYTE gen_ktype_count;                                               \
+	CK_BYTE ecc_ktype_count;                                               \
+	CK_BYTE dil_ktype_count;                                               \
+	CK_BYTE adm_compl_count;
+
 // see chapter 5.1.1. in the wire spec
 typedef struct CK_IBM_XCP_INFO {
 	CK_IBM_XCP_INFO_MEMBERS_V0
@@ -1050,13 +1175,26 @@ typedef struct CK_IBM_XCP_DESCINFO {
 typedef struct CK_IBM_XCP_ATTRLIST {
 	CK_IBM_XCP_ADMATTRLIST_MEMBER
 	CK_IBM_XCP_ADMATTRLIST_MEMBER_V2
+	CK_IBM_XCP_ADMATTRLIST_MEMBER_EXT
 } CK_IBM_XCP_ATTRLIST;
 //
 // see chapter 5.1.1.3. in the wire spec
 typedef struct CK_IBM_XCP_ATTRCOUNT {
 	CK_IBM_XCP_ADMATTRCOUNT_MEMBER
 	CK_IBM_XCP_ADMATTRCOUNT_MEMBER_V2
+	CK_IBM_XCP_ADMATTRCOUNT_MEMBER_EXT
 } CK_IBM_XCP_ATTRCOUNT;
+
+typedef struct CK_IBM_XCP_ATTRLIST_LGC {
+	CK_IBM_XCP_ADMATTRLIST_MEMBER
+	CK_IBM_XCP_ADMATTRLIST_MEMBER_V2
+} CK_IBM_XCP_ATTRLIST_LGC;
+
+typedef struct CK_IBM_XCP_ATTRCOUNT_LGC {
+	CK_IBM_XCP_ADMATTRCOUNT_MEMBER
+	CK_IBM_XCP_ADMATTRCOUNT_MEMBER_V2
+} CK_IBM_XCP_ATTRCOUNT_LGC;
+
 
 /**/
 #define CK_IBM_XCP_INFO_INIT0  \
@@ -1116,6 +1254,25 @@ typedef enum {
 	CK_IBM_SLIP0010_MASTERK = 8,
 } CK_IBM_BTC_t;
 
+//---  ETH mechparams  --------------------------------------------------
+typedef struct CK_IBM_ETH_DERIVE_PARAMS {
+	CK_ULONG version;
+	CK_ULONG sigVersion;
+	CK_ULONG type;
+	CK_ULONG childKeyIndex;
+	CK_BYTE_PTR pKeyInfo;
+	CK_ULONG ulKeyInfoLen;
+} CK_IBM_ETH_DERIVE_PARAMS;
+
+typedef CK_IBM_ETH_DERIVE_PARAMS CK_PTR CK_IBM_ETH_DERIVE_PARAMS_PTR;
+
+// sub-variants of EIP-2333 key derivation
+typedef enum {
+	CK_IBM_EIP2333_PRV2PRV  = 1,
+	CK_IBM_EIP2333_PRV2PUB  = 2,
+	CK_IBM_EIP2333_MASTERK  = 3,
+} CK_IBM_ETH_t;
+
 
 typedef enum {
 	XCP_KEM_ENCAPSULATE = 1,
@@ -1139,6 +1296,68 @@ typedef struct XCP_KYBER_KEM_PARAMS {
 	CK_BYTE          *pBlob;
 	CK_ULONG         ulBlobLen;
 } XCP_KYBER_KEM_PARAMS_t;
+
+
+//---  Login Extended Information  -------------------------------------------
+// data types and constants related to LoginExtended and LogoutExtended
+// see wire spec 6.19
+
+// currently known Login Algorithms for Session ID calculation
+typedef enum XCP_LoginAlgorithm {
+	XCP_LOGIN_ALG_PRE_F2021           = 0,
+	XCP_LOGIN_ALG_F2021               = 2,
+	XCP_LOGIN_ALG_MAX                 = XCP_LOGIN_ALG_F2021
+} XCP_LoginAlgorithm_t;
+
+typedef CK_ULONG CK_IBM_LOGIN_ALG;
+
+#define  CK_IBM_LOGIN_ALG_PRE_F2021            XCP_LOGIN_ALG_PRE_F2021
+#define  CK_IBM_LOGIN_ALG_F2021                XCP_LOGIN_ALG_F2021
+
+// currently known Login importer key types for encrypted PIN transport
+typedef enum XCP_LoginImporter {
+	XCP_LOGIN_IMPR_EC_P256 = 1,    /* EC, NIST P-256 */
+	XCP_LOGIN_IMPR_EC_P521 = 2,    /* EC, NIST P-521 */
+} XCP_LoginImporter_t;
+
+// maximum size of login importer structure, assuming DER encoding
+// and EC P-521 as maximum key
+//
+#define  XCP_LOGIN_IMPR_MAX_SIZE  (3 + (2 + XCP_CERTHASH_BYTES)    \
+                                     + (3 + 158)                   \
+				     + (2 + XCP_SESSION_TCTR_BYTES) )
+
+// login session attributes, bit index
+typedef enum XCP_LoginAttribute {
+	XCP_LOGIN_ATTR_SUPERVISOR = 0,
+	XCP_LOGIN_ATTR_MIGRATION  = 1,
+        XCP_LOGIN_ATTR_VOLATILE   = 2,
+        XCP_LOGIN_ATTR_MAX        = XCP_LOGIN_ATTR_VOLATILE,
+} XCP_LoginAttribute_t;
+
+#define CK_IBM_LOGIN_ATTR_SUPERVISOR XCP_LOGIN_ATTR_SUPERVISOR
+#define CK_IBM_LOGIN_ATTR_MIGRATION  XCP_LOGIN_ATTR_MIGRATION
+#define CK_IBM_LOGIN_ATTR_VOLATILE   XCP_LOGIN_ATTR_VOLATILE
+#define CK_IBM_LOGIN_ATTR_MAX        XCP_LOGIN_ATTR_VOLATILE
+
+// login recipient structure
+typedef struct XCP_LoginRecipient {
+	CK_BYTE   recipient_ski[ XCP_CERTHASH_BYTES ];
+	CK_BYTE   sender_spki;
+	CK_ULONG  spkilen;
+} XCP_LoginRecipient_t;
+
+// extended login information structure
+typedef struct XCP_LoginExtendedInfo {
+	CK_BYTE               *version;
+	CK_ULONG              verlen;
+	CK_IBM_LOGIN_ALG      algorithm;
+	CK_BYTE               parent[ XCP_WK_BYTES ];
+	XCP_LoginRecipient_t  *recepient;
+	CK_ULONG              attributes;
+	CK_BYTE               context;
+	CK_ULONG              contlen;
+} XCP_LoginExtendedInfo_t;
 
 
 //---  attribute constants  --------------------------------------------------
@@ -1272,12 +1491,11 @@ typedef enum {
     XCP_CPB_KEYSZ_192BIT     = 27, // allow 192 to 255-bit algorithms
     XCP_CPB_KEYSZ_256BIT     = 28, // allow 256-bit        algorithms
     XCP_CPB_KEYSZ_RSA65536   = 29, // allow RSA public exponents below 0x10001
-
-    XCP_CPB_ALG_RSA         = 30, // RSA private-key or key-encrypt use
-    XCP_CPB_ALG_DSA         = 31, // DSA private-key use
-    XCP_CPB_ALG_EC          = 32, // EC private-key use (see CP on curves)
-    XCP_CPB_ALG_EC_BPOOLCRV = 33, // Brainpool (E.U.) EC curves
-    XCP_CPB_ALG_EC_NISTCRV  = 34, // NIST/SECG EC curves
+    XCP_CPB_ALG_RSA          = 30, // RSA private-key or key-encrypt use
+    XCP_CPB_ALG_DSA          = 31, // DSA private-key use
+    XCP_CPB_ALG_EC           = 32, // EC private-key use (see CP on curves)
+    XCP_CPB_ALG_EC_BPOOLCRV  = 33, // Brainpool (E.U.) EC curves
+    XCP_CPB_ALG_EC_NISTCRV   = 34, // NIST/SECG EC curves
 
     XCP_CPB_ALG_NFIPS2011   = 35, // allow non-FIPS-approved algs (as of 2011)
                                   // including non-FIPS keysizes
@@ -1340,7 +1558,16 @@ typedef enum {
     XCP_CPB_DERIVE_NON_AB_KEYS = 72,  // allow the derivation of a non-AB or raw
                                      // from an AB key. Only relevant if
                                      // XCP_CPB_NON_ATTRBOUND
-    XCP_CPBITS_MAX             = XCP_CPB_DERIVE_NON_AB_KEYS
+    XCP_CPB_ALLOW_LOGIN_PRE_F2021   = 73, // allow usage of basic login sessions
+                                          // or extended login sessions using
+                                          // pre-FIPS2021-algorithms
+    XCP_CPB_ALG_RSA_OAEP       = 74, // allow RSA OAEP
+    XCP_CPB_ALLOW_COMBINED_EXTRACT  = 75, // allow creation and usage of keys
+                                          // with both EXTRACTABLE and
+                                          // PROTKEY_EXTRACTABLE attributes set
+    XCP_CPB_ALG_EC_PAIRING_FRIENDLY = 76,
+    XCP_CPBITS_MAX             = XCP_CPB_ALG_EC_PAIRING_FRIENDLY
+
                                      // marks last used CPB
 } XCP_CPbit_t;
 
@@ -1569,6 +1796,8 @@ typedef enum {
 	                                  // state-related administrative
 	                                  // command (export, import)
 	XCP_ADMQ_SVCADMIN          = 18 | XCP_ADM_QUERY, // svc admin SKI/cert
+	XCP_ADMQ_LOGIN_IMPORTER    = 19 | XCP_ADM_QUERY,
+	                                  // session importer key
 } XCP_Admcmd_t;
 
 typedef enum {
@@ -1578,7 +1807,11 @@ typedef enum {
 	XCP_ADMINT_MODE            = 4,   // operating mode
 	XCP_ADMINT_STD             = 5,   // standards' compliance
 	XCP_ADMINT_PERMS_EXT01     = 6,   // permissions (extension #1)
-	XCP_ADMINT_IDX_MAX         = XCP_ADMINT_PERMS_EXT01
+	XCP_ADMINT_GEN_KTYPES      = 7,   // generic keytypes
+	XCP_ADMINT_ECC_KTYPES      = 8,   // ECC curve types
+	XCP_ADMINT_DIL_KTYPES      = 9,   // Dilithium types
+	XCP_ADMINT_ADM_COMPL       = 10,  // administrative compliance
+	XCP_ADMINT_IDX_MAX         = XCP_ADMINT_ADM_COMPL
 } XCP_AdmAttr_t;
 
 #define XCP_ADMIN_ATTRIBUTE_COUNT  XCP_ADMINT_IDX_MAX
@@ -1658,6 +1891,106 @@ typedef enum {
 #define XCP_ADMP_CHG_QS_ADM_SIGNATURES  \
                                  0x80000  // allow changing the corresponding
                                           // quantum-safe adm signature bit
+
+//
+// generic administrative keytypes
+//
+#define XCP_ADMK_KTYPE_RSA             1  // enable admin key type RSA
+#define XCP_ADMK_KTYPE_ECC             2  // enable admin key type EC
+#define XCP_ADMK_KTYPE_DIL             4  // enable admin key type Dilithium
+#define XCP_ADMK_CHG_KTYPE_RSA   0x10000  // allow changing the corresponding
+                                          // adm key type RSA
+#define XCP_ADMK_CHG_KTYPE_ECC         \
+                                 0x20000  // allow changing the corresponding
+                                          // adm key type EC
+#define XCP_ADMK_CHG_KTYPE_DIL         \
+                                 0x40000  // allow changing the corresponding
+                                          // adm key type Dilithium
+
+#define XCP_ADMK__ALL                  \
+       (XCP_ADMK_KTYPE_RSA           | \
+        XCP_ADMK_KTYPE_ECC           | \
+        XCP_ADMK_KTYPE_DIL)
+
+#define XCP_ADMK__CHGBITS              \
+       (XCP_ADMK_CHG_KTYPE_RSA       | \
+        XCP_ADMK_CHG_KTYPE_ECC       | \
+        XCP_ADMK_CHG_KTYPE_DIL)
+
+#define XCP_ADMK__DEFAULT              \
+       (XCP_ADMK__CHGBITS            | \
+        XCP_ADMK__ALL)
+
+#define XCP__ADMK_SUP  XCP_ADMK__DEFAULT
+
+//
+// supported administrative curve types
+// (depends on XCP_ADMK_KTYPE_ECC)
+//
+#define XCP_ADME_KTYPE_ECC_NIST        1  // enable admin key type EC NIST
+#define XCP_ADME_KTYPE_ECC_BP          2  // enable admin key type EC Brainpool
+#define XCP_ADME_KTYPE_ECC_ED          4  // enable admin key type EC Edwards
+#define XCP_ADME_KTYPE_ECC_MG          8  // enable admin key type EC Montgomery
+#define XCP_ADME_CHG_KTYPE_ECC_NIST    \
+                                 0x10000  // allow changing the corresponding
+                                          // adm key type EC NIST
+#define XCP_ADME_CHG_KTYPE_ECC_BP      \
+                                 0x20000  // allow changing the corresponding
+                                          // adm key type EC Brainpool
+#define XCP_ADME_CHG_KTYPE_ECC_ED      \
+                                 0x40000  // allow changing the corresponding
+                                          // adm key type EC Edwards
+#define XCP_ADME_CHG_KTYPE_ECC_MG      \
+                                 0x80000  // allow changing the corresponding
+                                          // adm key type EC Montgomery
+
+#define XCP_ADME__ALL                  \
+       (XCP_ADME_KTYPE_ECC_NIST      | \
+        XCP_ADME_KTYPE_ECC_BP        | \
+        XCP_ADME_KTYPE_ECC_ED)
+
+#define XCP_ADME__CHGBITS              \
+       (XCP_ADME_CHG_KTYPE_ECC_NIST  | \
+        XCP_ADME_CHG_KTYPE_ECC_BP    | \
+        XCP_ADME_CHG_KTYPE_ECC_ED)
+
+#define XCP_ADME__DEFAULT              \
+       (XCP_ADME__CHGBITS            | \
+        XCP_ADME__ALL)
+
+#define XCP__ADME_SUP  XCP_ADME__DEFAULT
+
+//
+// supported administrative DIL types
+// (depends on XCP_ADMK_KTYPE_DIL)
+//
+#define XCP_ADMQ_KTYPE_DIL_R2          1  // enable admin key type Dilithium R2
+#define XCP_ADMQ_KTYPE_DIL_R3          2  // enable admin key type Dilithium R3
+#define XCP_ADMQ_CHG_KTYPE_DIL_R2      \
+                                 0x10000  // allow changing the corresponding
+                                          // adm key type Dilithium R2
+#define XCP_ADMQ_CHG_KTYPE_DIL_R3      \
+                                 0x20000  // allow changing the corresponding
+                                          // adm key type Dilithium R3
+
+#define XCP_ADMQ__ALL                  \
+       (XCP_ADMQ_KTYPE_DIL_R2        | \
+        XCP_ADMQ_KTYPE_DIL_R3)
+
+#define XCP_ADMQ__CHGBITS              \
+       (XCP_ADMQ_CHG_KTYPE_DIL_R2    | \
+        XCP_ADMQ_CHG_KTYPE_DIL_R3)
+
+#define XCP_ADMQ__DEFAULT              \
+       (XCP_ADMQ__CHGBITS            | \
+        XCP_ADMQ__ALL)
+
+#define XCP__ADMQ_SUP  XCP_ADMQ__DEFAULT
+
+//
+// Administrative compliance
+//
+#define XCP_ADMC_ADM_FIPS2021          1  // NIST SP800-131A REV.2, 2021.01.01
 
 
 //
@@ -1786,10 +2119,17 @@ typedef enum {
 #define XCP_ADMM_BATT_LOW         0x0100U  // module reports low battery
                                            // (read only)
 #define XCP_ADMM_API_ACTIVE       0x0200U  // remove to disable XCP within card
+
+//
+// change-control bits
+#define XCP_ADMM_CHG_KEYSTR      0x040000  // change key strength bits (112-256)
+
+
 //
 #define XCP_ADMM__DEFAULT   \
        (XCP_ADMM_EXTWNG     | \
-        XCP_ADMM_API_ACTIVE)
+        XCP_ADMM_API_ACTIVE | \
+        XCP_ADMM_CHG_KEYSTR)
 //
 // all defined attributes
 #define XCP_ADMM__MASK            \
@@ -1802,7 +2142,8 @@ typedef enum {
          XCP_ADMM_STR_256BIT     | \
          XCP_ADMM_WKCLEAN_EXTWNG | \
          XCP_ADMM_BATT_LOW       | \
-         XCP_ADMM_API_ACTIVE)
+         XCP_ADMM_API_ACTIVE     | \
+         XCP_ADMM_CHG_KEYSTR)
 //
 // infrastructure modes read only on domain level
 #define XCP_ADMM__CARD_ONLY_ATTR  \
@@ -1824,6 +2165,7 @@ typedef enum {
 
 #define XCP__ADMM_SUP XCP_ADMM__MASK
 
+
 // specific standards' compliance suites
 #define XCP_ADMS_FIPS2009              1  // NIST, 80+ bits,  -2011.01.01.
 #define XCP_ADMS_BSI2009               2  // BSI , 80+ bits,  -2011.01.01.
@@ -1838,7 +2180,6 @@ typedef enum {
 //
 #define XCP_ADMS_FIPS2021           0x80  // NIST SP800-131A REV.2, 2021.01.01
 #define XCP_ADMS_FIPS2024          0x100  // NIST SP800-131A REV.2, 2024.01.01
-#define XCP_ADMS_ADM_FIPS2021      0x200  // NIST SP800-131A REV.2, 2021.01.01
 
 #define XCP_ADMS__ALL  \
        (XCP_ADMS_FIPS2009  | \
@@ -1847,13 +2188,10 @@ typedef enum {
         XCP_ADMS_BSI2011   | \
         XCP_ADMS_BSICC2017 | \
         XCP_ADMS_FIPS2021  | \
-        XCP_ADMS_FIPS2024  | \
-        XCP_ADMS_ADM_FIPS2021)
+        XCP_ADMS_FIPS2024)
 
-#define XCP_ADMS__SUPP  (XCP_ADMS__ALL &           \
-                         ~(XCP_ADMS_FIPS2021     | \
-                           XCP_ADMS_ADM_FIPS2021 | \
-                           XCP_ADMS_FIPS2024))
+#define XCP_ADMC__ALL  \
+       (XCP_ADMC_ADM_FIPS2021)
 
 // The following 'legacy' defines are used as default 'supported bit masks'
 // for older devices that do not have native bit masks for that purpose.
@@ -1887,6 +2225,7 @@ typedef enum {
 #define XCP__ADMM_SUP_LEGACY          \
        (XCP_ADMM_AUTHENTICATED      | \
         XCP_ADMM_EXTWNG             | \
+        XCP__ADMM_ADMSTR            | \
         XCP_ADMM_WKCLEAN_EXTWNG     | \
         XCP_ADMM_BATT_LOW           | \
         XCP_ADMM_API_ACTIVE)
@@ -1898,7 +2237,15 @@ typedef enum {
         XCP_ADMS_BSI2011            | \
         XCP_ADMS_BSICC2017)
 
-#define XCP__ADMP_SUP_EXT01_LEGACY (0)
+#define XCP__ADMP_SUP_EXT01_LEGACY        \
+       (XCP_ADMP_NQS_OA_SIGNATURES      | \
+        XCP_ADMP_QS_OA_SIGNATURES       | \
+        XCP_ADMP_CHG_NQS_OA_SIGNATURES  | \
+        XCP_ADMP_CHG_QS_OA_SIGNATURES   | \
+        XCP_ADMP_NQS_ADM_SIGNATURES     | \
+        XCP_ADMP_QS_ADM_SIGNATURES      | \
+        XCP_ADMP_CHG_NQS_ADM_SIGNATURES | \
+        XCP_ADMP_CHG_QS_ADM_SIGNATURES)
 
 // has compliance any BSI mode
 #define XCP_ADMS_IS_BSI(mode)  (!!((mode) & (XCP_ADMS_BSI2009   | \
@@ -2012,9 +2359,11 @@ typedef enum {
 	XCP_STSTYPE_CARD_EXTADM_CERTS = 37, // ext. card admin certs, packed
 	XCP_STSTYPE_DOM_EXTADM_SKIS   = 38, // ext. dom admin SKIs, packed
 	XCP_STSTYPE_DOM_EXTADM_CERTS  = 39, // ext. dom admin certs, packed
+	XCP_STSTYPE_CARD_ATTRS_SUPP   = 40, // supported bits of card attributes
 
-	XCP_STSTYPE_MAX               = XCP_STSTYPE_DOM_EXTADM_CERTS
+	XCP_STSTYPE_MAX               = XCP_STSTYPE_CARD_ATTRS_SUPP
 } XCP_StateSection_t;
+
 
 typedef enum {
 	XCP_STALG_AES256_CBC       = 1
@@ -2030,6 +2379,8 @@ typedef enum {
 
 
 typedef enum {
+	XCP_STDATA_NO_RESTRICTION  = 0,   // no state restrictions to card
+	                                  // or domain data
 	XCP_STDATA_DOMAIN          = 1,   // state restricted to domain data
 	                                  // only, excluding card-specific
 	                                  // sections
@@ -2173,7 +2524,11 @@ typedef enum {
 #define  XCP_EC_DSA448_NAME   "\x65\x64\x34\x34\x38" /* ed448 */
 #define  XCP_EC_DSA448_NAME_BYTES  5
 
-#define  XCP_EC_MAX_ID_BYTES    11   /* fits all EC names/OIDs */
+// 1.3.6.1.4.1.2.267.999.3.2 : 2B0601040102820B87670302 : bls12_381_et
+#define  XCP_EC_BLS12_381_ET  "\x6\xC\x2B\x6\x1\x4\x1\x2\x82\xB\x87\x67\x3\x2"
+#define  XCP_EC_BLS12_381_ET_BYTES  14
+
+#define  XCP_EC_MAX_ID_BYTES    14   /* fits all EC names/OIDs */
 
 
 /*------------------------------------*/
@@ -2206,7 +2561,9 @@ typedef enum {
 	XCP_EC_C_ED25519   = 26,     /* ed25519, EDDSA */
 
 
-	XCP_EC_C_MAX       = 27      /* last possible value */
+	XCP_EC_C_BLS12_381 = 28,     /* pairing-friendly BLS12-381 */
+	XCP_EC_C_MAX       = XCP_EC_C_BLS12_381,
+	                             /* last possible value */
 
 } XCP_ECcurve_t;
 
@@ -2215,12 +2572,15 @@ typedef enum {
  * groups of EC curves, without specific OIDs
  */
 typedef enum {
-	XCP_EC_CG_NIST      = 1,      /* NIST, FP curves */
-	XCP_EC_CG_BPOOL     = 2,      /* Brainpool, FP curves      */
-	XCP_EC_CG_C25519    = 3,      /* curve25519, ed25519 */
-	XCP_EC_CG_SECP256K1 = 4,      /* SECP K-curves, incl. Bitcoin default */
-	XCP_EC_CG_C448      = 6,      /* c448, ed448 ('Goldilocks') */
-	XCP_EC_CG_MAX       = XCP_EC_CG_C448
+	XCP_EC_CG_NIST             = 1,      /* NIST, FP curves */
+	XCP_EC_CG_BPOOL            = 2,      /* Brainpool, FP curves      */
+	XCP_EC_CG_C25519           = 3,      /* curve25519, ed25519 */
+	XCP_EC_CG_SECP256K1        = 4,      /* SECP K-curves, */
+                                             /* incl. Bitcoin default */
+	XCP_EC_CG_C448             = 6,      /* c448, ed448 ('Goldilocks') */
+	XCP_EC_CG_PAIRING_FRIENDLY = 7,      /* pairing-friendly curves,
+	                                        BLS12-381 */
+	XCP_EC_CG_MAX       = XCP_EC_CG_PAIRING_FRIENDLY
 } XCP_ECCurveGrp_t;
 
 
@@ -2442,6 +2802,8 @@ typedef enum {
 	XCP_DEV_FLIP_ERRORSTATE  = 68,  // explicitly flip the setting of the
 	                                // error state of the module
 	XCP_DEV_AESKW            = 69,
+	XCP_DEV_KDF_SP108        = 70,  // NIST SP800-108 KDF
+	XCP_DEV_KDF_SP56C        = 71,  // NIST SP800-56C ECDH+KDF(ECIES)
 	XCP_DEV_UNIT_TEST        = 72,  // run unit tests on module
 
 
@@ -2747,6 +3109,11 @@ CK_RV m_LogoutExtended( CK_UTF8CHAR_PTR pin,    CK_ULONG pinlen,
                     const unsigned char *xstruct, size_t xslen,
                                target_t target) ;
 
+int xcpu_LoginRecipient (uint8_t *result,    size_t *rlen,
+                      uint32_t version,
+                 const uint8_t *rcpt_ski,  size_t rslen,
+                 const uint8_t *send_spki, size_t slen);
+
 CK_RV m_GenerateRandom   (CK_BYTE_PTR rnd, CK_ULONG len,     target_t target) ;
 /**/
 /* note: external seeding not supported */
@@ -2888,6 +3255,15 @@ CK_RV m_DecryptSingle (const unsigned char *key,         size_t klen,
                                CK_BYTE_PTR cipher,     CK_ULONG clen,
                                CK_BYTE_PTR plain,  CK_ULONG_PTR plen,
                                   target_t target) ;
+/**/
+/* de+encrypt in one pass, without exposing cleartext */
+CK_RV m_ReencryptSingle (const unsigned char *dkey,     size_t dklen,
+                         const unsigned char *ekey,     size_t eklen,
+                         CK_MECHANISM_PTR pdecrmech,
+                         CK_MECHANISM_PTR pencrmech,
+                              CK_BYTE_PTR in,       CK_ULONG ilen,
+                              CK_BYTE_PTR out,  CK_ULONG_PTR olen,
+                                 target_t target) ;
 
 CK_RV m_SignInit     (unsigned char *state,     size_t *slen,
                    CK_MECHANISM_PTR alg,
@@ -2962,9 +3338,9 @@ int m_shutdown(void);
 
 /*--  build identification  ------------------------------------------------*/
 
-#define  XCP_BUILD_ID    0xf1d34cc2
-#define  XCP_BUILD_DATE  0x20221214       /* UTC */
-#define  XCP_BUILD_TIME  0x094523         /* UTC */
+#define  XCP_BUILD_ID    0xd5b72359
+#define  XCP_BUILD_DATE  0x20240119       /* UTC */
+#define  XCP_BUILD_TIME  0x125837         /* UTC */
 
 /*--------------------------------------------------------------------------*/
 #define __XCP_REASONCODES_H__ 1
@@ -3114,13 +3490,17 @@ typedef enum {
 	XCP_RSC_KEY_STRENGTH_POLICY_VIOLATION = 141,  /* invalid key strength configuration, a maximum of only one bit may be enabled */
 	XCP_RSC_ADM_SIG_CHANGE_PROHIBITED = 142,  /* ADM signature configuration change prohibited, not enough remaining admins to meet security */
 	XCP_RSC_KEY_STRENGTH_CHANGE_PROHIBITED = 143,  /* Key strength configuration change prohibited, not enough remaining admins to meet security */
-	XCP_RSC_MAX = XCP_RSC_KEY_STRENGTH_CHANGE_PROHIBITED
+	XCP_RSC_ADM_KTYPE_POLICY_VIOLATION = 144,  /* invalid ADM key type config, inconsistent sig/key types or no key type enabled at all */
+	XCP_RSC_ADM_KTYPE_CHANGE_PROHIBITED = 145,  /* Key type configuration change prohibited, not enough remaining admins to meet security */
+	XCP_RSC_ADM_SVC_ADMIN_POLICY_VIOLATION = 146,  /* Changing security policy or thresholds prohibited, not enough svc admins to meet security */
+	XCP_RSC_ADM_EP11_ADMIN_POLICY_VIOLATION = 147,  /* Changing security policy or thresholds prohibited, not enough ep11 admins to meet security */
+	XCP_RSC_MAX = XCP_RSC_ADM_EP11_ADMIN_POLICY_VIOLATION
 } XCP_ReasonCode_t ;
 
 
 /* function identifiers must be consecutive, between: */
 #define  __MIN_MOD_FNID  1
-#define  __MAX_MOD_FNID  42
+#define  __MAX_MOD_FNID  44
 /* selectively disabled functions within that range reported separately */
 
 #define  __FNID_Login              1
@@ -3165,10 +3545,12 @@ typedef enum {
 #define  __FNID_SetAttributeValue  40
 #define  __FNID_admin              41
 #define  __FNID_ReencryptSingle    42
+#define  __FNID_LoginExtended      43
+#define  __FNID_LogoutExtended     44
 //
-#define  __FNID_NEXT_AVAILABLE     43
+#define  __FNID_NEXT_AVAILABLE     45
 //
-#define  __FNID_MAX                __FNID_ReencryptSingle
+#define  __FNID_MAX                __FNID_LogoutExtended
 
 
 //
@@ -3219,7 +3601,9 @@ typedef enum {
 	        (XCP__FNIDS_BIT0 >> __FNID_GetAttributeValue) |\
 	        (XCP__FNIDS_BIT0 >> __FNID_SetAttributeValue) |\
 	        (XCP__FNIDS_BIT0 >> __FNID_admin)             |\
-	        (XCP__FNIDS_BIT0 >> __FNID_ReencryptSingle))
+	        (XCP__FNIDS_BIT0 >> __FNID_ReencryptSingle)   |\
+	        (XCP__FNIDS_BIT0 >> __FNID_LoginExtended)     |\
+	        (XCP__FNIDS_BIT0 >> __FNID_LogoutExtended))
 
 // used for the module query, see CK_IBM_XCPMSQ_FNLIST
 #define XCP__FNIDS_DW1  0
