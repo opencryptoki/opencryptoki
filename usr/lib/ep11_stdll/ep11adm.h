@@ -1,5 +1,5 @@
 /*
- * (C) Copyright IBM Corp. 2012, 2022
+ * (C) Copyright IBM Corp. 2012, 2024
  *
  * This program is provided under the terms of the Common Public License,
  * version 1.0 (CPL-1.0). Any use, reproduction or distribution for this
@@ -207,7 +207,7 @@ static const struct {
 		  XCP_CPB_DERIVE                                          },
 	},
 	{ XCP_ADMS_FIPS2021, "fips2021",
-		15,
+		17,
 		{ XCP_CPB_ALG_NFIPS2011,      XCP_CPB_KEYSZ_80BIT,
 		  XCP_CPB_KEYSZ_RSA65536,
 		  XCP_CPB_ALG_NFIPS2021,      XCP_CPB_ALG_EC_25519,
@@ -215,13 +215,15 @@ static const struct {
 		  XCP_CPB_ECDSA_OTHER,        XCP_CPB_ALLOW_NONSESSION,
 		  XCP_CPB_ALG_EC_SECGCRV,     XCP_CPB_ALG_EC_BPOOLCRV,
 		  XCP_CPB_COMPAT_LEGACY_SHA3, XCP_CPB_DSA_PARAMETER_GEN,
-		  XCP_CPB_WRAP_ASYMM,         XCP_CPB_UNWRAP_ASYMM
+		  XCP_CPB_WRAP_ASYMM,         XCP_CPB_UNWRAP_ASYMM,
+		  XCP_CPB_ALLOW_LOGIN_PRE_F2021,
+		  XCP_CPB_ALG_RSA_OAEP
 		},
 		0,
 		{                                                         },
 	},
 	{ XCP_ADMS_FIPS2024, "fips2024",
-		16,
+		18,
 		{ XCP_CPB_ALG_NFIPS2011,      XCP_CPB_KEYSZ_80BIT,
 		  XCP_CPB_KEYSZ_RSA65536,
 		  XCP_CPB_ALG_NFIPS2021,      XCP_CPB_ALG_EC_25519,
@@ -230,11 +232,12 @@ static const struct {
 		  XCP_CPB_ALG_EC_SECGCRV,     XCP_CPB_ALG_EC_BPOOLCRV,
 		  XCP_CPB_ALG_NFIPS2024,      XCP_CPB_COMPAT_LEGACY_SHA3,
 		  XCP_CPB_DSA_PARAMETER_GEN,  XCP_CPB_WRAP_ASYMM,
-		  XCP_CPB_UNWRAP_ASYMM
+		  XCP_CPB_UNWRAP_ASYMM,       XCP_CPB_ALLOW_LOGIN_PRE_F2021,
+		  XCP_CPB_ALG_RSA_OAEP
 		},
 		0,
 		{                                                         },
-	// XCP_ADMS_ADM_FIPS2021 is not reported here as it is not set with
+	// XCP_ADMC_ADM_FIPS2021 is not reported here as it is not set with
 	// control points
 	}
 } ;
