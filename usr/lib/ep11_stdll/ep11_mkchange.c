@@ -937,12 +937,25 @@ static CK_RV ep11tok_mk_change_reencipher(STDLL_TokData_t *tokdata,
             goto out;
         }
 
-        /* Re-enciper the wrap blob */
-        TRACE_INFO("Re-encipher the wrap blob\n");
-        rc = ep11tok_reencipher_blob(tokdata, NULL, &rd.target_info,
-                                     ep11_data->raw2key_wrap_blob,
-                                     ep11_data->raw2key_wrap_blob_l,
-                                     ep11_data->raw2key_wrap_blob_reenc);
+        /* Re-enciper the wrap blob (if already available) */
+        if (pthread_mutex_lock(&ep11_data->raw2key_wrap_blob_mutex)) {
+            TRACE_ERROR("%s Failed to lock Wrap-Blob lock\n", __func__);
+            rc = CKR_CANT_LOCK;
+            goto out;
+        }
+
+        if (ep11_data->raw2key_wrap_blob_l > 0) {
+            TRACE_INFO("Re-encipher the wrap blob\n");
+            rc = ep11tok_reencipher_blob(tokdata, NULL, &rd.target_info,
+                                         ep11_data->raw2key_wrap_blob,
+                                         ep11_data->raw2key_wrap_blob_l,
+                                         ep11_data->raw2key_wrap_blob_reenc);
+        }
+
+        if (pthread_mutex_unlock(&ep11_data->raw2key_wrap_blob_mutex)) {
+            TRACE_ERROR("%s Failed to unlock Wrap-Blob lock\n", __func__);
+        }
+
         if (rc != CKR_OK) {
             TRACE_ERROR("Re-encipher of wrap blob failed.\n");
             OCK_SYSLOG(LOG_ERR,
@@ -1289,11 +1302,23 @@ static CK_RV ep11tok_mk_change_finalize_cancel(STDLL_TokData_t *tokdata,
             goto out;
         }
 
-        /* Finalize the wrap blob */
-        TRACE_INFO("Finalize the wrap blob\n");
-        memcpy(ep11_data->raw2key_wrap_blob,
-               ep11_data->raw2key_wrap_blob_reenc,
-               ep11_data->raw2key_wrap_blob_l);
+        /* Finalize the wrap blob (if already available) */
+        if (pthread_mutex_lock(&ep11_data->raw2key_wrap_blob_mutex)) {
+            TRACE_ERROR("%s Failed to lock Wrap-Blob lock\n", __func__);
+            rc = CKR_CANT_LOCK;
+            goto out;
+        }
+
+        if (ep11_data->raw2key_wrap_blob_l > 0) {
+            TRACE_INFO("Finalize the wrap blob\n");
+            memcpy(ep11_data->raw2key_wrap_blob,
+                   ep11_data->raw2key_wrap_blob_reenc,
+                   ep11_data->raw2key_wrap_blob_l);
+        }
+
+        if (pthread_mutex_unlock(&ep11_data->raw2key_wrap_blob_mutex)) {
+            TRACE_ERROR("%s Failed to unlock Wrap-Blob lock\n", __func__);
+        }
     }
 
     /*

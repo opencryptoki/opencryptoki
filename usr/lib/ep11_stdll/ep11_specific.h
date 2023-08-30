@@ -258,6 +258,7 @@ typedef struct {
     CK_BYTE raw2key_wrap_blob[MAX_BLOBSIZE];
     CK_BYTE raw2key_wrap_blob_reenc[MAX_BLOBSIZE];
     size_t raw2key_wrap_blob_l;
+    pthread_mutex_t raw2key_wrap_blob_mutex;
     int cka_sensitive_default_true;
     char cp_filter_config_filename[PATH_MAX];
     cp_config_t *cp_config;

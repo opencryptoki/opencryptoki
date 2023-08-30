@@ -140,9 +140,6 @@ const char model[] = "EP11";
 const char descr[] = "IBM EP11 token";
 const char label[] = "ep11tok";
 
-/* wrap_key is used for importing keys */
-static const char wrap_key_name[] = "EP11_wrapkey";
-
 static CK_BBOOL ep11tok_ec_curve_supported2(STDLL_TokData_t *tokdata,
                                             TEMPLATE *template,
                                             const struct _ec **curve);
@@ -2234,32 +2231,51 @@ CK_RV token_specific_rng(STDLL_TokData_t * tokdata, CK_BYTE * output,
  * m_UnwrapKey, use one wrap key for this purpose, can be any key,
  * we use an AES key
  */
-static CK_RV make_wrapblob(STDLL_TokData_t * tokdata, CK_ATTRIBUTE * tmpl_in,
-                           CK_ULONG tmpl_len)
+static CK_RV make_wrapblob(STDLL_TokData_t *tokdata, SESSION *sess)
 {
     ep11_private_data_t *ep11_data = tokdata->private_data;
+    ep11_session_t *ep11_session = (ep11_session_t *)sess->private_data;
+    unsigned char *ep11_pin_blob = NULL;
+    CK_ULONG ep11_pin_blob_len = 0;
     CK_MECHANISM mech = { CKM_AES_KEY_GEN, NULL_PTR, 0 };
-    ep11_target_info_t* target_info;
     CK_BYTE csum[MAX_CSUMSIZE];
     size_t csum_l = sizeof(csum);
-    CK_RV rc;
+    CK_ULONG len = 32;
+    CK_BBOOL cktrue = 1;
+    CK_ATTRIBUTE wrap_tmpl[] = {
+        { CKA_VALUE_LEN, &len, sizeof(CK_ULONG) },
+        { CKA_WRAP, &cktrue, sizeof(cktrue) },
+        { CKA_UNWRAP, &cktrue, sizeof(cktrue) },
+        { CKA_ENCRYPT, &cktrue, sizeof(cktrue) },
+        { CKA_DECRYPT, &cktrue, sizeof(cktrue) },
+        { CKA_EXTRACTABLE, &cktrue, sizeof(cktrue) },
+    };
+    CK_ULONG wrap_tmpl_len = sizeof(wrap_tmpl) / sizeof(CK_ATTRIBUTE);
+    CK_RV rc = CKR_OK;
+
+    if (pthread_mutex_lock(&ep11_data->raw2key_wrap_blob_mutex)) {
+        TRACE_ERROR("%s Failed to lock Wrap-Blob lock\n", __func__);
+        return CKR_CANT_LOCK;
+    }
 
     if (ep11_data->raw2key_wrap_blob_l != 0) {
         TRACE_INFO("%s blob already exists raw2key_wrap_blob_l=0x%zx\n",
                    __func__, ep11_data->raw2key_wrap_blob_l);
-        return CKR_OK;
+        goto out_unlock;
     }
 
-    trace_attributes(__func__, "Generate wrap blog key:", tmpl_in, tmpl_len);
+    trace_attributes(__func__, "Generate wrap blog key:",
+                     wrap_tmpl, wrap_tmpl_len);
 
-    target_info = get_target_info(tokdata);
-    if (target_info == NULL)
-        return CKR_FUNCTION_FAILED;
+    ep11_get_pin_blob(tokdata, ep11_session, FALSE, FALSE,
+                      &ep11_pin_blob, &ep11_pin_blob_len);
 
     ep11_data->raw2key_wrap_blob_l = sizeof(ep11_data->raw2key_wrap_blob);
-    RETRY_SINGLE_APQN_START(tokdata, rc)
+
+    RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
     RETRY_REENC_CREATE_KEY_START()
-        rc = dll_m_GenerateKey(&mech, tmpl_in, tmpl_len, NULL, 0,
+        rc = dll_m_GenerateKey(&mech, wrap_tmpl, wrap_tmpl_len,
+                               ep11_pin_blob, ep11_pin_blob_len,
                                ep11_data->raw2key_wrap_blob,
                                &ep11_data->raw2key_wrap_blob_l, csum, &csum_l,
                                target_info->target);
@@ -2267,7 +2283,7 @@ static CK_RV make_wrapblob(STDLL_TokData_t * tokdata, CK_ATTRIBUTE * tmpl_in,
                                ep11_data->raw2key_wrap_blob,
                                ep11_data->raw2key_wrap_blob_reenc,
                                ep11_data->raw2key_wrap_blob_l, rc)
-    RETRY_SINGLE_APQN_END(rc, tokdata, target_info)
+    RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, sess)
 
     if (rc != CKR_OK) {
         TRACE_ERROR("%s end raw2key_wrap_blob_l=0x%zx rc=0x%lx\n",
@@ -2285,7 +2301,34 @@ static CK_RV make_wrapblob(STDLL_TokData_t * tokdata, CK_ATTRIBUTE * tmpl_in,
     }
 
 out:
-    put_target_info(tokdata, target_info);
+    if (rc == CKR_IBM_WK_NOT_INITIALIZED) {
+        TRACE_ERROR("%s rc is CKR_IBM_WK_NOT_INITIALIZED, "
+                    "no master key set ?\n", __func__);
+        OCK_SYSLOG(LOG_ERR,
+                   "%s: Error: CKR_IBM_WK_NOT_INITIALIZED occurred, no "
+                   "master key set ?\n", __func__);
+        rc = CKR_DEVICE_ERROR;
+    }
+    if (rc == CKR_FUNCTION_CANCELED) {
+        TRACE_ERROR("%s rc is CKR_FUNCTION_CANCELED, "
+                    "control point 13 (generate or derive symmetric "
+                    "keys including DSA parameters) disabled ?\n",
+                    __func__);
+        OCK_SYSLOG(LOG_ERR,
+                   "%s: Error: CKR_FUNCTION_CANCELED occurred, "
+                   "control point 13 (generate or derive symmetric "
+                   "keys including DSA parameters) disabled ?\n", __func__);
+        rc = CKR_DEVICE_ERROR;
+    }
+
+out_unlock:
+    if (pthread_mutex_unlock(&ep11_data->raw2key_wrap_blob_mutex)) {
+        TRACE_ERROR("%s Failed to unlock Wrap-Blob lock\n", __func__);
+    }
+
+    if (rc != CKR_OK)
+        ep11_data->raw2key_wrap_blob_l = 0;
+
     return rc;
 }
 
@@ -2519,24 +2562,6 @@ CK_RV ep11tok_init(STDLL_TokData_t * tokdata, CK_SLOT_ID SlotNumber,
                    char *conf_name)
 {
     CK_RV rc;
-    CK_ULONG len = 16;
-    CK_BBOOL cktrue = 1;
-    CK_ATTRIBUTE wrap_tmpl[] = { {CKA_VALUE_LEN, &len, sizeof(CK_ULONG)}
-    ,
-    {CKA_WRAP, (void *) &cktrue, sizeof(cktrue)}
-    ,
-    {CKA_UNWRAP, (void *) &cktrue, sizeof(cktrue)}
-    ,
-    {CKA_ENCRYPT, (void *) &cktrue, sizeof(cktrue)}
-    ,
-    {CKA_DECRYPT, (void *) &cktrue, sizeof(cktrue)}
-    ,
-    {CKA_EXTRACTABLE, (void *) &cktrue, sizeof(cktrue)}
-    ,
-    {CKA_LABEL, (void *) wrap_key_name, sizeof(wrap_key_name)}
-    ,
-    {CKA_TOKEN, (void *) &cktrue, sizeof(cktrue)}
-    };
     ep11_private_data_t *ep11_data;
 
     TRACE_INFO("ep11 %s slot=%lu running\n", __func__, SlotNumber);
@@ -2636,32 +2661,12 @@ CK_RV ep11tok_init(STDLL_TokData_t * tokdata, CK_SLOT_ID SlotNumber,
     ep11_data->msa_level = get_msa_level();
     TRACE_INFO("MSA level = %i\n", ep11_data->msa_level);
 
-    /* create an AES key needed for importing keys
-     * (encrypt by wrap_key and m_UnwrapKey by wrap key)
-     */
-    rc = make_wrapblob(tokdata, wrap_tmpl, 8);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("%s make_wrapblob failed rc=0x%lx\n", __func__, rc);
-        if (rc == CKR_IBM_WK_NOT_INITIALIZED) {
-            TRACE_ERROR("%s rc is CKR_IBM_WK_NOT_INITIALIZED, "
-                        "no master key set ?\n", __func__);
-            OCK_SYSLOG(LOG_ERR,
-                       "%s: Error: CKR_IBM_WK_NOT_INITIALIZED occurred, no "
-                       "master key set ?\n", __func__);
-        }
-        if (rc == CKR_FUNCTION_CANCELED) {
-            TRACE_ERROR("%s rc is CKR_FUNCTION_CANCELED, "
-                        "control point 13 (generate or derive symmetric "
-                        "keys including DSA parameters) disabled ?\n",
-                        __func__);
-            OCK_SYSLOG(LOG_ERR,
-                       "%s: Error: CKR_FUNCTION_CANCELED occurred, "
-                       "control point 13 (generate or derive symmetric "
-                       "keys including DSA parameters) disabled ?\n", __func__);
-        }
-        rc = CKR_GENERAL_ERROR;
+    if (pthread_mutex_init(&ep11_data->raw2key_wrap_blob_mutex, NULL) != 0) {
+        TRACE_ERROR("Initializing Wrap-Blob lock failed.\n");
+        rc = CKR_CANT_LOCK;
         goto error;
     }
+    ep11_data->raw2key_wrap_blob_l = 0;
 
     if (!ep11tok_pkey_option_disabled(tokdata)) {
         rc = ep11tok_pkey_get_firmware_mk_vp(tokdata);
@@ -2712,6 +2717,7 @@ CK_RV ep11tok_final(STDLL_TokData_t * tokdata, CK_BBOOL in_fork_initializer)
             free((void* )ep11_data->target_info);
         }
         pthread_rwlock_destroy(&ep11_data->target_rwlock);
+        pthread_mutex_destroy(&ep11_data->raw2key_wrap_blob_mutex);
         if (ep11_data->vhsm_mode)
             pthread_mutex_destroy(&ep11_data->session_mutex);
         free_cp_config(ep11_data->cp_config);
@@ -4369,6 +4375,14 @@ CK_RV token_specific_object_add(STDLL_TokData_t * tokdata, SESSION * sess,
         TRACE_ERROR("Cannot create attribute bound private key via C_CreateObject.\n");
         return CKR_ATTRIBUTE_VALUE_INVALID;
     }
+
+    /* Ensure the wrap blob is available */
+    rc = make_wrapblob(tokdata, sess);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s make_wrapblob rc=0x%lx\n", __func__, rc);
+        return rc;
+    }
+
     memset(blob, 0, sizeof(blob));
     memset(blobreenc, 0, sizeof(blobreenc));
 
