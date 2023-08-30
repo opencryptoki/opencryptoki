@@ -352,6 +352,8 @@ typedef struct {
 extern m_DigestSingle_t dll_m_DigestSingle;
 extern m_Login_t dll_m_Login;
 extern m_Logout_t dll_m_Logout;
+extern m_LoginExtended_t dll_m_LoginExtended;
+extern m_LogoutExtended_t dll_m_LogoutExtended;
 extern m_get_xcp_info_t dll_m_get_xcp_info;
 extern m_admin_t dll_m_admin;
 extern xcpa_cmdblock_t dll_xcpa_cmdblock;

@@ -227,6 +227,15 @@ typedef CK_RV (*m_Login_t) (CK_UTF8CHAR_PTR pin, CK_ULONG pinlen,
                             target_t target);
 typedef CK_RV (*m_Logout_t) (const unsigned char *pin, size_t len,
                              target_t target);
+typedef CK_RV (*m_LoginExtended_t) (CK_UTF8CHAR_PTR pin, CK_ULONG pinlen,
+                                    const unsigned char *nonce, size_t nlen,
+                                    const unsigned char *xstruct, size_t xslen,
+                                    unsigned char *pinblob, size_t *pinbloblen,
+                                    target_t target);
+typedef CK_RV (*m_LogoutExtended_t) (CK_UTF8CHAR_PTR pin, CK_ULONG pinlen,
+                                     const unsigned char *nonce, size_t nlen,
+                                     const unsigned char *xstruct, size_t xslen,
+                                     target_t target);
 typedef CK_RV (*m_admin_t) (unsigned char *response1, size_t * r1len,
                             unsigned char *response2, size_t * r2len,
                             const unsigned char *cmd, size_t clen,
