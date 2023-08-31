@@ -13448,8 +13448,48 @@ static CK_RV get_card_type(uint_32 adapter, CK_ULONG *type)
     return CKR_OK;
 }
 
+static CK_RV check_apqn_for_fips_session_mode(uint_32 adapter, uint_32 domain,
+                                              target_t target)
+{
+    CK_BYTE func_bit_mask[16] = { 0 };
+    CK_ULONG func_bit_mask_len = sizeof(func_bit_mask);
+    CK_RV rc;
+
+    /* Check if module supports Login/LogoutExtended */
+    rc = dll_m_get_xcp_info(&func_bit_mask, &func_bit_mask_len,
+                            CK_IBM_XCPQ_MODULE, CK_IBM_XCPMSQ_FNLIST,
+                            target);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s Failed to query function list from adapter %02X.%04X\n",
+                    __func__, adapter, domain);
+       /* card may no longer be online, so ignore this error situation */
+        return CKR_OK;
+    }
+
+    TRACE_DEBUG("Function bitmask of %02X.%04X:\n", adapter, domain);
+    TRACE_DEBUG_DUMP("", func_bit_mask, func_bit_mask_len);
+
+    if (func_bit_mask_len <= (__FNID_LoginExtended / 8) ||
+        (func_bit_mask[__FNID_LoginExtended / 8] &
+                    (0x80 >> (__FNID_LoginExtended % 8))) == 0 ||
+        (func_bit_mask[__FNID_LogoutExtended / 8] &
+                    (0x80 >> (__FNID_LogoutExtended % 8))) == 0) {
+        TRACE_ERROR("%s Adapter %02X.%04X does not support LoginExtended "
+                    "or LogoutExtended but this is required by "
+                    "FIPS-session mode\n", __func__, adapter, domain);
+        OCK_SYSLOG(LOG_ERR,
+                   "Adapter %02X.%04X does not support LoginExtended "
+                   "or LogoutExtended but this is required by "
+                   "FIPS-session mode\n", adapter, domain);
+       return CKR_DEVICE_ERROR;
+    }
+
+    return CKR_OK;
+}
+
 typedef struct query_version
 {
+    STDLL_TokData_t *tokdata;
     ep11_target_info_t *target_info;
     CK_CHAR serialNumber[16];
     CK_BBOOL first;
@@ -13461,6 +13501,7 @@ static CK_RV version_query_handler(uint_32 adapter, uint_32 domain,
                                    void *handler_data)
 {
     query_version_t *qv = (query_version_t *)handler_data;
+    ep11_private_data_t *ep11_data = qv->tokdata->private_data;
     CK_IBM_XCP_INFO xcp_info;
     CK_ULONG xcp_info_len = sizeof(xcp_info);
     CK_BYTE pqc_strength[PQC_BYTES] = { 0 };
@@ -13558,7 +13599,6 @@ static CK_RV version_query_handler(uint_32 adapter, uint_32 domain,
                        xcp_info.firmwareApi);
             qv->error = TRUE;
             rc = CKR_OK;
-            goto out;
         }
 
         if (compare_ck_version(&card_version->firmware_version,
@@ -13576,7 +13616,6 @@ static CK_RV version_query_handler(uint_32 adapter, uint_32 domain,
                        xcp_info.firmwareVersion.minor);
             qv->error = TRUE;
             rc = CKR_OK;
-            goto out;
         }
     }
 
@@ -13608,6 +13647,14 @@ static CK_RV version_query_handler(uint_32 adapter, uint_32 domain,
     }
 
     qv->first = FALSE;
+
+    if (ep11_data->fips_session_mode) {
+        rc = check_apqn_for_fips_session_mode(adapter, domain, target);
+        if (rc != CKR_OK) {
+            qv->error = TRUE;
+            rc = CKR_OK;
+        }
+    }
 
 out:
     free_ep11_target_for_apqn(target);
@@ -13668,6 +13715,7 @@ static CK_RV ep11tok_get_ep11_version(STDLL_TokData_t *tokdata,
     CK_RV rc;
 
     memset(&qv, 0, sizeof(qv));
+    qv.tokdata = tokdata;
     qv.target_info = target_info;
     qv.first = TRUE;
 
