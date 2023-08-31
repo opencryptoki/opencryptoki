@@ -13453,6 +13453,11 @@ static CK_RV check_apqn_for_fips_session_mode(uint_32 adapter, uint_32 domain,
 {
     CK_BYTE func_bit_mask[16] = { 0 };
     CK_ULONG func_bit_mask_len = sizeof(func_bit_mask);
+    uint32_t *res = NULL;
+    CK_ULONG reslen = 0;
+    CK_ULONG i;
+    uint32_t caps = 0;
+    CK_BBOOL alg_found = FALSE,  ktype_found = FALSE;
     CK_RV rc;
 
     /* Check if module supports Login/LogoutExtended */
@@ -13484,7 +13489,69 @@ static CK_RV check_apqn_for_fips_session_mode(uint_32 adapter, uint_32 domain,
        return CKR_DEVICE_ERROR;
     }
 
-    return CKR_OK;
+    /* Check extended capabilities for Login Algorithm and importer key type */
+    reslen = sizeof(caps);
+    rc = dll_m_get_xcp_info(&caps, &reslen, CK_IBM_XCPQ_EXT_CAPS, 0, target);
+    if (rc != CKR_OK || reslen != sizeof(caps)) {
+        TRACE_ERROR("%s Failed to query extended capabilities from adapter %02X.%04X\n",
+                    __func__, adapter, domain);
+        return CKR_DEVICE_ERROR;
+    }
+
+    reslen = caps * sizeof(uint32_t) * 2;
+    res = calloc(1, reslen);
+    if (res == NULL) {
+        TRACE_ERROR("%s Memory allocation failed\n", __func__);
+        return CKR_HOST_MEMORY;
+    }
+
+    rc = dll_m_get_xcp_info(res, &reslen, CK_IBM_XCPQ_EXT_CAPLIST, 0, target);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s Failed to query extended capabilities from adapter %02X.%04X\n",
+                    __func__, adapter, domain);
+        rc = CKR_DEVICE_ERROR;
+        goto out;
+    }
+
+    for (i = 0; i < reslen / 4; i += 2) {
+        switch (res[i]) {
+        case CK_IBM_XCPXQ_LOGIN_ALG:
+            if (res[i + 1] & (0x80000000 >> XCP_LOGIN_ALG_F2021))
+                alg_found = TRUE;
+            break;
+        case CK_IBM_XCPXQ_LOGIN_KEYTYPES:
+            if (res[i + 1] & (0x80000000 >> XCP_LOGIN_IMPR_EC_P521))
+                ktype_found = TRUE;
+            break;
+        }
+    }
+
+    if (!alg_found) {
+        TRACE_ERROR("%s Adapter %02X.%04X does not support the FIPS "
+                    "login algorithm but this is required by "
+                    "FIPS-session mode\n", __func__, adapter, domain);
+        OCK_SYSLOG(LOG_ERR,
+                   "Adapter %02X.%04X does not support the FIPS "
+                   "login algorithm but this is required by "
+                   "FIPS-session mode\n", adapter, domain);
+        rc = CKR_DEVICE_ERROR;
+    }
+
+    if (!ktype_found) {
+        TRACE_ERROR("%s Adapter %02X.%04X does not support the P521 "
+                    "login importer key type but this is required by "
+                    "FIPS-session mode\n", __func__, adapter, domain);
+        OCK_SYSLOG(LOG_ERR,
+                   "Adapter %02X.%04X does not support the P521 "
+                   "login importer key type but this is required by "
+                   "FIPS-session mode\n", adapter, domain);
+        rc = CKR_DEVICE_ERROR;
+    }
+
+out:
+    free(res);
+
+    return rc;
 }
 
 typedef struct query_version
