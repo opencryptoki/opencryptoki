@@ -13244,12 +13244,14 @@ out:
 }
 
 typedef struct cp_handler_data {
+    STDLL_TokData_t *tokdata;
     unsigned char combined_cp[XCP_CP_BYTES];
     unsigned char first_cp[XCP_CP_BYTES];
     uint32_t first_adapter;
     uint32_t first_domain;
     int first;
     size_t max_cp_index;
+    CK_BBOOL error;
 } cp_handler_data_t;
 
 static CK_RV control_point_handler(uint_32 adapter, uint_32 domain,
@@ -13257,6 +13259,7 @@ static CK_RV control_point_handler(uint_32 adapter, uint_32 domain,
 {
     CK_RV rc;
     cp_handler_data_t *data = (cp_handler_data_t *) handler_data;
+    ep11_private_data_t *ep11_data = data->tokdata->private_data;
     unsigned char cp[XCP_CP_BYTES];
     size_t cp_len = sizeof(cp);
     size_t max_cp_index;
@@ -13326,6 +13329,35 @@ static CK_RV control_point_handler(uint_32 adapter, uint_32 domain,
         }
     }
 
+    /* Check FIPS-session related CPs for non-FIPS-session mode */
+    if (!ep11_data->fips_session_mode) {
+        if (max_cp_index >= XCP_CPB_ALLOW_NONSESSION &&
+            (cp[CP_BYTE_NO(XCP_CPB_ALLOW_NONSESSION)] &
+                                CP_BIT_MASK(XCP_CPB_ALLOW_NONSESSION)) == 0) {
+            TRACE_WARNING("%s Adapter %02X.%04X has control point "
+                          "XCP_CPB_ALLOW_NONSESSION off, but FIPS-session mode "
+                          "is not enabled\n", __func__, adapter, domain);
+            OCK_SYSLOG(LOG_ERR,
+                       "Adapter %02X.%04X has control point "
+                       "XCP_CPB_ALLOW_NONSESSION off, but FIPS-session mode "
+                       "is not enabled\n", adapter, domain);
+            data->error = TRUE;
+        }
+
+        if (max_cp_index >= XCP_CPB_ALLOW_LOGIN_PRE_F2021 &&
+            (cp[CP_BYTE_NO(XCP_CPB_ALLOW_LOGIN_PRE_F2021)] &
+                            CP_BIT_MASK(XCP_CPB_ALLOW_LOGIN_PRE_F2021)) == 0) {
+            TRACE_WARNING("%s Adapter %02X.%04X has control point "
+                          "XCP_CPB_ALLOW_LOGIN_PRE_F2021 off, but FIPS-session "
+                          "mode is not enabled\n", __func__, adapter, domain);
+            OCK_SYSLOG(LOG_ERR,
+                       "Adapter %02X.%04X has control point "
+                       "XCP_CPB_ALLOW_LOGIN_PRE_F2021 off, but FIPS-session "
+                       "mode is not enabled\n", adapter, domain);
+            data->error = TRUE;
+        }
+    }
+
     return CKR_OK;
 }
 
@@ -13353,6 +13385,8 @@ static CK_RV get_control_points(STDLL_TokData_t * tokdata,
     ep11_private_data_t *ep11_data = tokdata->private_data;
 
     memset(&data, 0, sizeof(data));
+    data.tokdata = tokdata;
+
     /*
      * Turn all CPs ON by default, so that newer control points that are unknown
      * to older cards default to ON. CPs being OFF disable functionality.
@@ -13376,7 +13410,7 @@ static CK_RV get_control_points(STDLL_TokData_t * tokdata,
     print_control_points(cp, *cp_len, data.max_cp_index);
 #endif
 
-    return CKR_OK;
+    return data.error ? CKR_DEVICE_ERROR : CKR_OK;
 }
 
 CK_BBOOL ep11tok_optimize_single_ops(STDLL_TokData_t *tokdata)
