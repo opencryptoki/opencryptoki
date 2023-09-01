@@ -1,25 +1,35 @@
-.TH PKCSEP11_SESSION 1 "Jan 2018" "@PACKAGE_VERSION@" "openCryptoki"
+.TH PKCSEP11_SESSION 1 "Dec 2023" "@PACKAGE_VERSION@" "openCryptoki"
 .SH NAME
 pkcsep11_session \- manage EP11 sessions.
 
 .SH SYNOPSIS
-\fBpkcep11_session\fP
-[\fB-h\fP]
-[\fBshow|logout|vhsmpin|status\fP [\fB-slot\fP \fIslot-number\fP]
-[\fB-id\fP \fIsession-ID\fP] [\fB-pid\fP \fIprocess-ID\fP]
-[\fB-date\fP \fIyyyy/mm/dd\fP] [\fB-force\fP] ]
+.B pkcep11_session
+.RB [ -h ]
+.RB [ show | logout | vhsmpin | fipspin | status ]
+.RB [ -slot
+.IR slot-number ]
+.RB [ -id
+.IR session-ID ]
+.RB [ -pid
+.IR process-ID ]
+.RB [-date
+.IR yyyy/mm/dd ]
+.RB [ -force ]
 
 .SH DESCRIPTION
-Use pkcep11_session to list and logout leftover EP11 sessions.
+Use
+.B pkcep11_session
+to set the VHSM and FIPS-session pins, and list and logout leftover EP11
+sessions.
 
-EP11 sessions are created and destroyed as a PKCS#11 session is logged
-on and off, respectively. When an application terminates abnormally, without
+EP11 sessions are created and destroyed when a PKCS#11 session is logged
+in and out, respectively. When an application terminates abnormally, without
 logging out or closing the PKCS#11 session, the corresponding EP11 session
-is not destroyed. 
+is not destroyed.
 
-When STRICT_MODE or VHSM_MODE is enabled in the EP11 configuration file, all 
-session-keys belong strictly to the PKCS#11 session or token that created it.
-These PKCS#11 session keys expire when the session ends.
+When STRICT_MODE, VHSM_MODE, or FIPS_SESSION_MODE is enabled in the EP11
+configuration file, all session-keys belong strictly to the PKCS#11 session or
+token that created it. These PKCS#11 session keys expire when the session ends.
 .br
 .SH "COMMAND SUMMARY"
 .IP "\fBshow\fP" 10
@@ -30,9 +40,17 @@ logs out all leftover EP11 sessions. Use the -session-ID, -pid or -date
 options to filter the list of sessions.
 .IP "\fBvhsmpin\fP" 10
 sets the VHSM PIN used for the VHSM_MODE (virtual HSM). The VHSM PIN must
-contain between 8 and 16 alphanumeric characters.
+contain between 8 and 16 alphanumeric characters. Set the VHSM PIN before
+enabling the VHSM_MODE in the EP11 configuration file.
 .br
 \fBNote:\fP When changing the VHSM PIN, all existing keys stored as
+token objects become unusable!
+.IP "\fBfipspin\fP" 10
+sets the FIPS PIN used for the FIPS_SESSION_MODE. The FIPS PIN must
+contain between 8 and 16 alphanumeric characters. Set the FIPS PIN before
+enabling the FIPS_SESSION_MODE in the EP11 configuration file.
+.br
+\fBNote:\fP When changing the FIPS PIN, all existing keys stored as
 token objects become unusable!
 .IP "\fBstatus\fP" 10
 shows the maximum and currently available number of EP11 sessions for each

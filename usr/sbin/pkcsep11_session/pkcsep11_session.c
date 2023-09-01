@@ -67,7 +67,8 @@ CK_VERSION lib_version;
 #define ACTION_SHOW     1
 #define ACTION_LOGOUT   2
 #define ACTION_VHSMPIN  3
-#define ACTION_STATUS   4
+#define ACTION_FIPSPIN  4
+#define ACTION_STATUS   5
 
 static int get_user_pin(CK_BYTE *dest)
 {
@@ -94,37 +95,47 @@ out:
     return ret;
 }
 
-static int get_vhsm_pin(CK_BYTE *dest)
+static int get_pin(CK_BYTE *dest, const char *name)
 {
     int ret = -1;
-    const char *vhsmpin = NULL;
-    char *buf_vhsm = NULL;
-    size_t vhsmpinlen;
+    const char *pin = NULL;
+    char *buf = NULL;
+    size_t pinlen;
+    char *msg1 = NULL, *msg2 = NULL;
 
-    vhsmpin = pin_prompt_new(&buf_vhsm,
-                             "Enter the new VHSM PIN: ",
-                             "Re-enter the new VHSM PIN: ");
-    if (!vhsmpin) {
-        fprintf(stderr, "Could not get VHSM PIN.\n");
+    if (asprintf(&msg1, "Enter the new %s: ", name) < 0 ||
+        asprintf(&msg2, "Re-enter the new %s: ", name) < 0) {
+        fprintf(stderr, "Failed to allocate memory.\n");
         goto out;
     }
-    vhsmpinlen = strlen(vhsmpin);
 
-    if (vhsmpinlen < XCP_MIN_PINBYTES) {
-        fprintf(stderr, "The VHSM PIN must be at least %d chars in length.\n",
+    pin = pin_prompt_new(&buf, msg1, msg2);
+    if (!pin) {
+        fprintf(stderr, "Could not get %sN.\n", name);
+        goto out;
+    }
+    pinlen = strlen(pin);
+
+    if (pinlen < XCP_MIN_PINBYTES) {
+        fprintf(stderr, "The %s must be at least %d chars in length.\n", name,
                 (int) XCP_MIN_PINBYTES);
         goto out;
     }
-    if (vhsmpinlen > XCP_MAX_PINBYTES) {
-        fprintf(stderr, "The VHSM PIN must be less than %d chars in length.\n",
+    if (pinlen > XCP_MAX_PINBYTES) {
+        fprintf(stderr, "The %s must be less than %d chars in length.\n", name,
                 (int) XCP_MAX_PINBYTES);
         goto out;
     }
 
-    memcpy(dest, vhsmpin, vhsmpinlen + 1);
+    memcpy(dest, pin, pinlen + 1);
     ret = 0;
 out:
-    pin_free(&buf_vhsm);
+    pin_free(&buf);
+    if (msg1 != NULL)
+        free(msg1);
+    if(msg2 != NULL)
+        free(msg2);
+
     return ret;
 }
 
@@ -170,8 +181,8 @@ int is_ep11_token(CK_SLOT_ID slot_id)
 
 static void usage(char *fct)
 {
-    printf("usage:  %s show|logout|vhsmpin|status [-date <yyyy/mm/dd>] [-pid <pid>] "
-           "[-id <sess-id>] [-slot <num>] [-force] [-h]\n\n", fct);
+    printf("usage:  %s show|logout|vhsmpin|fipspin|status [-date <yyyy/mm/dd>] "
+           "[-pid <pid>] [-id <sess-id>] [-slot <num>] [-force] [-h]\n\n", fct);
     return;
 }
 
@@ -197,6 +208,8 @@ static int do_ParseArgs(int argc, char **argv)
         action = ACTION_LOGOUT;
     } else if (strcmp(argv[1], "vhsmpin") == 0) {
         action = ACTION_VHSMPIN;
+    } else if (strcmp(argv[1], "fipspin") == 0) {
+        action = ACTION_FIPSPIN;
     } else if (strcmp(argv[1], "status") == 0) {
         action = ACTION_STATUS;
     } else {
@@ -812,14 +825,13 @@ static CK_RV logout_sessions(CK_SESSION_HANDLE session)
     return rc;
 }
 
-static CK_RV find_vhsmpin_object(CK_SESSION_HANDLE session,
-                                 CK_OBJECT_HANDLE *obj)
+static CK_RV find_pin_object(CK_SESSION_HANDLE session, CK_HW_FEATURE_TYPE type,
+                             CK_OBJECT_HANDLE *obj)
 {
     CK_RV rc;
     CK_OBJECT_HANDLE obj_store[16];
     CK_ULONG objs_found = 0;
     CK_OBJECT_CLASS class = CKO_HW_FEATURE;
-    CK_HW_FEATURE_TYPE type = CKH_IBM_EP11_VHSMPIN;
     CK_BBOOL ck_true = TRUE;
     CK_ATTRIBUTE vhsmpin_template[] = {
         { CKA_CLASS, &class, sizeof(class) },
@@ -857,21 +869,32 @@ out:
     return rc;
 }
 
+static const char *hwtype2str(CK_HW_FEATURE_TYPE type) {
+    switch (type) {
+    case CKH_IBM_EP11_VHSMPIN:
+        return "VHSM PIN";
+    case CKH_IBM_EP11_FIPSPIN:
+        return "FIPS PIN";
+    default:
+        return "unknown";
+    }
+}
 
-static CK_RV set_vhsmpin(CK_SESSION_HANDLE session)
+static CK_RV set_pin(CK_SESSION_HANDLE session, CK_HW_FEATURE_TYPE type)
 {
     CK_RV rc;
-    CK_BYTE vhsm_pin[XCP_MAX_PINBYTES + 1];
+    CK_BYTE pin[XCP_MAX_PINBYTES + 1];
     CK_OBJECT_HANDLE obj = CK_INVALID_HANDLE;
     CK_OBJECT_CLASS class = CKO_HW_FEATURE;
-    CK_HW_FEATURE_TYPE type = CKH_IBM_EP11_VHSMPIN;
-    CK_BYTE subject[] = "EP11 VHSM-Pin Object";
+    char subject[200];
     CK_BBOOL ck_true = TRUE;
 
-    if (get_vhsm_pin(vhsm_pin)) {
-        fprintf(stderr, "get_vhsm_pin() failed\n");
+    if (get_pin(pin, hwtype2str(type))) {
+        fprintf(stderr, "get_pin() failed\n");
         return CKR_FUNCTION_FAILED;
     }
+
+    snprintf(subject, sizeof(subject), "EP11 %s Object", hwtype2str(type));
 
     CK_ATTRIBUTE attrs[] = {
         { CKA_CLASS, &class, sizeof(class) },
@@ -879,13 +902,13 @@ static CK_RV set_vhsmpin(CK_SESSION_HANDLE session)
         { CKA_PRIVATE, &ck_true, sizeof(ck_true) },
         { CKA_HIDDEN, &ck_true, sizeof(ck_true) },
         { CKA_HW_FEATURE_TYPE, &type, sizeof(type) },
-        { CKA_SUBJECT, &subject, sizeof(subject) },
-        { CKA_VALUE, vhsm_pin, strlen((char *)vhsm_pin) },
+        { CKA_SUBJECT, &subject, strlen(subject) },
+        { CKA_VALUE, pin, strlen((char *)pin) },
     };
 
-    rc = find_vhsmpin_object(session, &obj);
+    rc = find_pin_object(session, type, &obj);
     if (rc != CKR_OK) {
-        fprintf(stderr, "find_vhsmpin_object() failed\n");
+        fprintf(stderr, "find_pin_object() failed\n");
         return CKR_FUNCTION_FAILED;
     }
 
@@ -906,7 +929,7 @@ static CK_RV set_vhsmpin(CK_SESSION_HANDLE session)
                 p11_get_ckr(rc));
         return rc;
     }
-    printf("VHSM-pin successfully set.\n");
+    printf("%s successfully set.\n", hwtype2str(type));
 
     return CKR_OK;
 }
@@ -1192,7 +1215,10 @@ int main(int argc, char **argv)
         rc = logout_sessions(session);
         break;
     case ACTION_VHSMPIN:
-        rc = set_vhsmpin(session);
+        rc = set_pin(session, CKH_IBM_EP11_VHSMPIN);
+        break;
+    case ACTION_FIPSPIN:
+        rc = set_pin(session, CKH_IBM_EP11_FIPSPIN);
         break;
     }
 
