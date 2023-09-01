@@ -94,6 +94,7 @@ typedef struct {
 #define DEFAULT_EP11_PIN            "        "
 
 #define VHSM_NONCE_PURPOSE          "VHSM-session"
+#define FIPS_NONCE_PURPOSE          "FIPS-session"
 
 #define CKH_IBM_EP11_SESSION        CKH_VENDOR_DEFINED + 1
 #define CKH_IBM_EP11_VHSMPIN        CKH_VENDOR_DEFINED + 2
@@ -299,6 +300,8 @@ typedef struct {
     CK_BBOOL vhsm_pin_blob_valid;
     CK_BYTE fips_pin[XCP_MAX_PINBYTES];
     CK_BBOOL fips_pin_valid;
+    CK_BYTE fips_pin_blob[XCP_PINBLOB_V1_BYTES];
+    CK_BBOOL fips_pin_blob_valid;
     uint32 session_refcount;
     uint32_t (*get_session_refcount)(STDLL_TokData_t *tokdata);
     void (*incr_session_refcount)(STDLL_TokData_t *tokdata);
