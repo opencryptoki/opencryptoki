@@ -139,6 +139,10 @@ void ep11_get_pin_blob(STDLL_TokData_t *tokdata, ep11_session_t *ep11_session,
         *pin_blob_len = sizeof(ep11_data->vhsm_pin_blob);
         TRACE_DEVEL("%s VHSM mode with CKA_PRIVATE=TRUE -> pass VHSM pin_blob\n",
                     __func__);
+    } else if (ep11_data->fips_session_mode && ep11_data->fips_pin_blob_valid) {
+        *pin_blob = ep11_data->fips_pin_blob;
+        *pin_blob_len = sizeof(ep11_data->fips_pin_blob);
+        TRACE_DEVEL("%s FIPS session mode -> pass FIPS pin_blob\n", __func__);
     } else {
         *pin_blob = NULL;
         *pin_blob_len = 0;
@@ -353,8 +357,9 @@ CK_RV ep11_login_handler(uint_32 adapter, uint_32 domain, void *handler_data)
     ep11_private_data_t *ep11_data = data->tokdata->private_data;
     target_t target;
     CK_RV rc;
-    CK_BYTE pin_blob[MAX(sizeof(ep11_data->vhsm_pin_blob),
-                         sizeof(data->ep11_session->session_pin_blob))];
+    CK_BYTE pin_blob[MAX(sizeof(ep11_data->fips_pin_blob),
+                         MAX(sizeof(ep11_data->vhsm_pin_blob),
+                             sizeof(data->ep11_session->session_pin_blob)))];
     CK_ULONG pin_blob_len;
     CK_BYTE *pin = (CK_BYTE *)DEFAULT_EP11_PIN;
     CK_ULONG pin_len = strlen(DEFAULT_EP11_PIN);
@@ -368,6 +373,53 @@ CK_RV ep11_login_handler(uint_32 adapter, uint_32 domain, void *handler_data)
     if (rc != CKR_OK)
         return rc;
 
+    if (ep11_data->fips_session_mode &&
+        (ep11_data->session_refcount == 0 || data->relogin)) {
+        session_nonce.slot_id = htobe32(data->tokdata->slot_id);
+        memcpy(session_nonce.purpose, FIPS_NONCE_PURPOSE, 12);
+        nonce = (CK_BYTE *)&session_nonce;
+        nonce_len = sizeof(session_nonce);
+
+        pin_blob_len = sizeof(ep11_data->fips_pin_blob);
+        rc = do_LoginExtended(XCP_LOGIN_ALG_F2021, XCP_LOGIN_IMPR_EC_P521,
+                              ep11_data->fips_pin, sizeof(ep11_data->fips_pin),
+                              nonce, nonce_len, pin_blob, &pin_blob_len,
+                              NULL, target);
+        if (rc != CKR_OK || pin_blob_len != sizeof(ep11_data->fips_pin_blob)) {
+            rc = ep11_error_to_pkcs11_error(rc, NULL);
+            TRACE_ERROR("%s do_LoginExtended failed: 0x%lx pin_blob_len: %lu\n",
+                        __func__, rc, pin_blob_len);
+            /* ignore the error here, the adapter may not be able to perform
+             * m_Login at this moment */
+            rc = CKR_OK;
+            goto vhsm_mode;
+        }
+
+#ifdef DEBUG
+        TRACE_DEBUG("EP11 FIPS Pin blob:\n");
+        TRACE_DEBUG_DUMP("    ", pin_blob, pin_blob_len);
+#endif
+
+        if (ep11_data->fips_pin_blob_valid) {
+            /* First part of pin-blob (keypart and session) must be equal */
+            if (memcmp(ep11_data->fips_pin_blob, pin_blob, XCP_WK_BYTES) !=
+                0) {
+                TRACE_ERROR("%s FIPS-Pin blob not equal to previous one\n",
+                            __func__);
+                OCK_SYSLOG(LOG_ERR,
+                           "%s: Error: FIPS-Pin blob of adapter %02X.%04X is "
+                           "not equal to other adapters for same session\n",
+                           __func__, adapter, domain);
+                rc = CKR_DEVICE_ERROR;
+                goto out;
+            }
+        } else {
+            memcpy(ep11_data->fips_pin_blob, pin_blob, pin_blob_len);
+            ep11_data->fips_pin_blob_valid = TRUE;
+        }
+    }
+
+vhsm_mode:
     if (ep11_data->vhsm_mode) {
         pin = ep11_data->vhsm_pin;
         pin_len = sizeof(ep11_data->vhsm_pin);
@@ -473,6 +525,7 @@ static CK_RV ep11_logout_handler(uint_32 adapter, uint_32 domain,
     login_logout_data_t *data = (login_logout_data_t *)handler_data;
     ep11_private_data_t *ep11_data = data->tokdata->private_data;
     target_t target;
+    session_nonce_t session_nonce;
     CK_RV rc;
 
     TRACE_INFO("Logging out adapter %02X.%04X\n", adapter, domain);
@@ -514,6 +567,30 @@ static CK_RV ep11_logout_handler(uint_32 adapter, uint_32 domain,
         if (rc != CKR_OK) {
             rc = ep11_error_to_pkcs11_error(rc, NULL);
             TRACE_ERROR("%s dll_m_Logout failed: 0x%lx\n", __func__, rc);
+            /* ignore any errors during m_logout */
+        }
+    }
+
+    if (ep11_data->fips_session_mode &&
+        ep11_data->get_session_refcount(data->tokdata) == 0 &&
+        ep11_data->fips_pin_blob_valid) {
+#ifdef DEBUG
+        TRACE_DEBUG("EP11 FIPS Pin blob:\n");
+        TRACE_DEBUG_DUMP("    ", ep11_data->fips_pin_blob,
+                         sizeof(ep11_data->fips_pin_blob));
+#endif
+
+        session_nonce.slot_id = htobe32(data->tokdata->slot_id);
+        memcpy(session_nonce.purpose, FIPS_NONCE_PURPOSE, 12);
+
+        rc = do_LogoutExtended(XCP_LOGIN_ALG_F2021, XCP_LOGIN_IMPR_EC_P521,
+                               ep11_data->fips_pin, sizeof(ep11_data->fips_pin),
+                               (CK_BYTE *)&session_nonce, sizeof(session_nonce),
+                               target);
+        if (rc != CKR_OK) {
+            rc = ep11_error_to_pkcs11_error(rc, NULL);
+            TRACE_ERROR("%s do_LogoutExtended failed: 0x%lx\n",
+                        __func__, rc);
             /* ignore any errors during m_logout */
         }
     }
@@ -678,10 +755,19 @@ CK_RV ep11tok_login_session(STDLL_TokData_t *tokdata, SESSION *session)
         }
     }
 
+    if (ep11_data->fips_session_mode) {
+        if (!ep11_data->fips_pin_blob_valid) {
+            rc = CKR_DEVICE_ERROR;
+            TRACE_ERROR("%s no FIPS pinblob available\n", __func__);
+            goto done;
+        }
+    }
+
 done:
     if (rc != CKR_OK) {
         if ((ep11_session != NULL && ep11_session->pin_blob_valid) ||
-            ep11_data->vhsm_pin_blob_valid) {
+            ep11_data->vhsm_pin_blob_valid ||
+            ep11_data->fips_pin_blob_valid) {
             if (cnt_incr) {
                 if (ep11_data->session_refcount > 0)
                     ep11_data->session_refcount--;
@@ -822,6 +908,9 @@ free_session:
             ep11_data->vhsm_pin_blob_valid = FALSE;
             memset(ep11_data->vhsm_pin_blob, 0,
                    sizeof(ep11_data->vhsm_pin_blob));
+            ep11_data->fips_pin_blob_valid = FALSE;
+            memset(ep11_data->fips_pin_blob, 0,
+                   sizeof(ep11_data->fips_pin_blob));
         }
 
         if (pthread_mutex_unlock(&ep11_data->session_mutex)) {
