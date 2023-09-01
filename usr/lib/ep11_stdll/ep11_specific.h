@@ -292,6 +292,8 @@ typedef struct {
     CK_BBOOL vhsm_pin_valid;
     CK_BYTE vhsm_pin_blob[XCP_PINBLOB_BYTES];
     CK_BBOOL vhsm_pin_blob_valid;
+    CK_BYTE fips_pin[XCP_MAX_PINBYTES];
+    CK_BBOOL fips_pin_valid;
     uint32 session_refcount;
     uint32_t (*get_session_refcount)(STDLL_TokData_t *tokdata);
     void (*incr_session_refcount)(STDLL_TokData_t *tokdata);

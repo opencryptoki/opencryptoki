@@ -88,7 +88,8 @@ CK_RV ep11tok_relogin_session(STDLL_TokData_t *tokdata, SESSION *session)
 
     TRACE_INFO("%s session=%lu\n", __func__, session->handle);
 
-    if (!ep11_data->strict_mode && !ep11_data->vhsm_mode)
+    if (!ep11_data->strict_mode && !ep11_data->vhsm_mode &&
+        !ep11_data->fips_session_mode)
         return CKR_OK;
 
     if (ep11_data->strict_mode && ep11_session == NULL) {
@@ -96,7 +97,7 @@ CK_RV ep11tok_relogin_session(STDLL_TokData_t *tokdata, SESSION *session)
         return CKR_USER_NOT_LOGGED_IN;
     }
 
-    if (ep11_data->vhsm_mode) {
+    if (ep11_data->vhsm_mode || ep11_data->fips_session_mode) {
         if (pthread_mutex_lock(&ep11_data->session_mutex)) {
             TRACE_ERROR("%s Failed to lock session lock\n", __func__);
             return CKR_CANT_LOCK;
@@ -111,7 +112,7 @@ CK_RV ep11tok_relogin_session(STDLL_TokData_t *tokdata, SESSION *session)
     if (rc != CKR_OK)
         TRACE_ERROR("%s handle_all_ep11_cards failed: 0x%lx\n", __func__, rc);
 
-    if (ep11_data->vhsm_mode) {
+    if (ep11_data->vhsm_mode || ep11_data->fips_session_mode) {
         if (pthread_mutex_unlock(&ep11_data->session_mutex)) {
             TRACE_ERROR("%s Failed to unlock session lock\n", __func__);
         }
@@ -292,9 +293,9 @@ static CK_RV create_ep11_object(STDLL_TokData_t *tokdata,
     return CKR_OK;
 }
 
-static CK_RV get_vhsmpin(STDLL_TokData_t *tokdata, SESSION *session)
+static CK_RV get_pin(STDLL_TokData_t *tokdata, SESSION *session,
+                     CK_HW_FEATURE_TYPE type, CK_BYTE *pin, CK_ULONG pin_len)
 {
-    ep11_private_data_t *ep11_data = tokdata->private_data;
     CK_RV rc;
     ST_SESSION_HANDLE handle = {
         .slotID = session->session_info.slotID,
@@ -303,9 +304,8 @@ static CK_RV get_vhsmpin(STDLL_TokData_t *tokdata, SESSION *session)
     CK_OBJECT_HANDLE obj_store[16];
     CK_ULONG objs_found = 0;
     CK_OBJECT_CLASS class = CKO_HW_FEATURE;
-    CK_HW_FEATURE_TYPE type = CKH_IBM_EP11_VHSMPIN;
-    CK_BYTE cktrue = TRUE;
-    CK_ATTRIBUTE vhsmpin_template[] = {
+    CK_BBOOL cktrue = TRUE;
+    CK_ATTRIBUTE pinobj_template[] = {
         { CKA_CLASS, &class, sizeof(class) },
         { CKA_TOKEN, &cktrue, sizeof(cktrue) },
         { CKA_PRIVATE, &cktrue, sizeof(cktrue) },
@@ -313,12 +313,11 @@ static CK_RV get_vhsmpin(STDLL_TokData_t *tokdata, SESSION *session)
         { CKA_HW_FEATURE_TYPE, &type, sizeof(type) },
     };
     CK_ATTRIBUTE attrs[] = {
-        { CKA_VALUE, ep11_data->vhsm_pin, sizeof(ep11_data->vhsm_pin) },
+        { CKA_VALUE, pin, pin_len },
     };
 
-    rc = SC_FindObjectsInit(tokdata, &handle,
-                            vhsmpin_template,
-                            sizeof(vhsmpin_template) / sizeof(CK_ATTRIBUTE));
+    rc = SC_FindObjectsInit(tokdata, &handle, pinobj_template,
+                            sizeof(pinobj_template) / sizeof(CK_ATTRIBUTE));
     if (rc != CKR_OK) {
         TRACE_ERROR("%s SC_FindObjectsInit failed: 0x%lx\n", __func__, rc);
         goto out;
@@ -342,8 +341,6 @@ static CK_RV get_vhsmpin(STDLL_TokData_t *tokdata, SESSION *session)
         TRACE_ERROR("%s SC_GetAttributeValue failed: 0x%lx\n", __func__, rc);
         goto out;
     }
-
-    ep11_data->vhsm_pin_valid = TRUE;
 
 out:
     SC_FindObjectsFinal(tokdata, &handle);
@@ -541,7 +538,8 @@ CK_RV ep11tok_login_session(STDLL_TokData_t *tokdata, SESSION *session)
 
     TRACE_INFO("%s session=%lu\n", __func__, session->handle);
 
-    if (!ep11_data->strict_mode && !ep11_data->vhsm_mode)
+    if (!ep11_data->strict_mode && !ep11_data->vhsm_mode &&
+        !ep11_data->fips_session_mode)
         return CKR_OK;
 
     if (session->session_info.flags & CKF_EP11_HELPER_SESSION)
@@ -569,7 +567,7 @@ CK_RV ep11tok_login_session(STDLL_TokData_t *tokdata, SESSION *session)
         goto done_no_lock;
     }
 
-    if (ep11_data->vhsm_mode) {
+    if (ep11_data->vhsm_mode || ep11_data->fips_session_mode) {
         if (pthread_mutex_lock(&ep11_data->session_mutex)) {
             TRACE_ERROR("%s Failed to lock session lock\n", __func__);
             rc = CKR_CANT_LOCK;
@@ -607,15 +605,30 @@ CK_RV ep11tok_login_session(STDLL_TokData_t *tokdata, SESSION *session)
     #endif
     }
 
-    if (ep11_data->vhsm_mode && !ep11_data->vhsm_pin_valid) {
-        rc = get_vhsmpin(tokdata, session);
+    if (ep11_data->fips_session_mode && !ep11_data->fips_pin_valid) {
+        rc = get_pin(tokdata, session, CKH_IBM_EP11_FIPSPIN,
+                     ep11_data->fips_pin, sizeof(ep11_data->fips_pin));
         if (rc != CKR_OK) {
-            TRACE_ERROR("%s get_vhsmpin failed: 0x%lx\n", __func__, rc);
+            TRACE_ERROR("%s get_pin(FIPS) failed: 0x%lx\n", __func__, rc);
+            OCK_SYSLOG(LOG_ERR,
+                       "%s: Error: A FIPS-PIN is required for FIPS_SESSION_MODE.\n",
+                       __func__);
+            goto done;
+        }
+        ep11_data->fips_pin_valid = TRUE;
+    }
+
+    if (ep11_data->vhsm_mode && !ep11_data->vhsm_pin_valid) {
+        rc = get_pin(tokdata, session, CKH_IBM_EP11_VHSMPIN,
+                     ep11_data->vhsm_pin, sizeof(ep11_data->vhsm_pin));
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s get_pin(VHSM) failed: 0x%lx\n", __func__, rc);
             OCK_SYSLOG(LOG_ERR,
                        "%s: Error: A VHSM-PIN is required for VHSM_MODE.\n",
                        __func__);
             goto done;
         }
+        ep11_data->vhsm_pin_valid = TRUE;
     }
 
     data.tokdata = tokdata;
@@ -627,7 +640,7 @@ CK_RV ep11tok_login_session(STDLL_TokData_t *tokdata, SESSION *session)
         goto done;
     }
 
-    if (ep11_data->vhsm_mode) {
+    if (ep11_data->vhsm_mode || ep11_data->fips_session_mode) {
         ep11_data->session_refcount++;
         ep11_data->incr_session_refcount(tokdata);
 
@@ -701,7 +714,7 @@ done:
         TRACE_ERROR("%s: failed: 0x%lx\n", __func__, rc);
     }
 
-    if (ep11_data->vhsm_mode) {
+    if (ep11_data->vhsm_mode || ep11_data->fips_session_mode) {
         if (pthread_mutex_unlock(&ep11_data->session_mutex)) {
             TRACE_ERROR("%s Failed to unlock session lock\n", __func__);
         }
@@ -733,7 +746,8 @@ CK_RV ep11tok_logout_session(STDLL_TokData_t *tokdata, SESSION *session,
 
     TRACE_INFO("%s session=%lu\n", __func__, session->handle);
 
-    if (!ep11_data->strict_mode && !ep11_data->vhsm_mode)
+    if (!ep11_data->strict_mode && !ep11_data->vhsm_mode &&
+        !ep11_data->fips_session_mode)
         return CKR_OK;
 
     if (session->session_info.flags & CKF_EP11_HELPER_SESSION)
@@ -764,7 +778,7 @@ CK_RV ep11tok_logout_session(STDLL_TokData_t *tokdata, SESSION *session,
         goto done_no_lock;
     }
 
-    if (ep11_data->vhsm_mode) {
+    if (ep11_data->vhsm_mode || ep11_data->fips_session_mode) {
         if (pthread_mutex_lock(&ep11_data->session_mutex)) {
             TRACE_ERROR("%s Failed to lock session lock\n", __func__);
             rc = CKR_CANT_LOCK;
@@ -803,7 +817,7 @@ free_session:
         session->private_data = NULL;
     }
 
-    if (ep11_data->vhsm_mode) {
+    if (ep11_data->vhsm_mode || ep11_data->fips_session_mode) {
         if (ep11_data->session_refcount == 0) {
             ep11_data->vhsm_pin_blob_valid = FALSE;
             memset(ep11_data->vhsm_pin_blob, 0,
