@@ -29,45 +29,23 @@
 #include <errno.h>
 
 #define OCK_NO_EP11_DEFINES
-#include "../../include/pkcs11types.h"
-#include "../../lib/common/p11util.h"
-#include "../../lib/ep11_stdll/ep11_func.h"
+#include "pkcs11types.h"
+#include "defs.h"
+#include "host_defs.h"
+#include "h_extern.h"
+#include "ep11_specific.h"
 #include "pin_prompt.h"
+#include "p11util.h"
 
-#define EP11SHAREDLIB_NAME "OCK_EP11_LIBRARY"
-#define EP11SHAREDLIB_V4 "libep11.so.4"
-#define EP11SHAREDLIB_V3 "libep11.so.3"
-#define EP11SHAREDLIB_V2 "libep11.so.2"
-#define EP11SHAREDLIB_V1 "libep11.so.1"
-#define EP11SHAREDLIB "libep11.so"
-#define PKCS11_MAX_PIN_LEN 128
-
-#define CKH_IBM_EP11_SESSION     CKH_VENDOR_DEFINED + 1
-#define CKH_IBM_EP11_VHSMPIN     CKH_VENDOR_DEFINED + 2
-#define CKA_HIDDEN               CKA_VENDOR_DEFINED + 0x01000000
-
-#define UNUSED(var)            ((void)(var))
-
-#define SHA256_HASH_SIZE        32
 #define EP11_SESSION_ID_SIZE    16
-#define SYSFS_DEVICES_AP        "/sys/devices/ap/"
-#define REGEX_CARD_PATTERN      "card[0-9a-fA-F]+"
-#define REGEX_SUB_CARD_PATTERN  "[0-9a-fA-F]+\\.[0-9a-fA-F]+"
-#define MASK_EP11               0x04000000
 
-typedef struct {
-    short format;
-    short length;
-    short apqns[512];
-} __attribute__ ((packed)) ep11_target_t;
+#define PKCS11_MAX_PIN_LEN      128
 
 typedef CK_RV (*handler_t) (CK_SESSION_HANDLE session, CK_OBJECT_HANDLE obj,
                             CK_BYTE *pin_blob, CK_ULONG pin_blob_size,
                             CK_BYTE *session_id, CK_ULONG session_id_len,
                             ep11_target_t *ep11_targets,
                             pid_t pid, CK_DATE *date);
-typedef CK_RV (*adapter_handler_t) (uint_32 adapter, uint_32 domain,
-                                    void *handler_data);
 
 CK_FUNCTION_LIST *funcs;
 m_init_t dll_m_init;
@@ -558,9 +536,8 @@ static CK_RV scan_for_ep11_cards(adapter_handler_t handler, void *handler_data)
     return CKR_OK;
 }
 
-static CK_RV handle_all_ep11_cards(ep11_target_t *ep11_targets,
-                                   adapter_handler_t handler,
-                                   void *handler_data)
+CK_RV handle_all_ep11_cards(ep11_target_t * ep11_targets,
+                            adapter_handler_t handler, void *handler_data)
 {
     int i;
     CK_RV rc;
@@ -769,12 +746,12 @@ static CK_RV find_sessions(CK_SESSION_HANDLE session, handler_t handler)
     CK_ULONG obj;
     CK_OBJECT_CLASS class = CKO_HW_FEATURE;
     CK_HW_FEATURE_TYPE type = CKH_IBM_EP11_SESSION;
-    CK_BYTE true = TRUE;
+    CK_BYTE ck_true = TRUE;
     CK_ATTRIBUTE session_template[] = {
         { CKA_CLASS, &class, sizeof(class) },
-        { CKA_TOKEN, &true, sizeof(true) },
-        { CKA_PRIVATE, &true, sizeof(true) },
-        { CKA_HIDDEN, &true, sizeof(true) },
+        { CKA_TOKEN, &ck_true, sizeof(ck_true) },
+        { CKA_PRIVATE, &ck_true, sizeof(ck_true) },
+        { CKA_HIDDEN, &ck_true, sizeof(ck_true) },
         { CKA_HW_FEATURE_TYPE, &type, sizeof(type) },
     };
 
@@ -843,12 +820,12 @@ static CK_RV find_vhsmpin_object(CK_SESSION_HANDLE session,
     CK_ULONG objs_found = 0;
     CK_OBJECT_CLASS class = CKO_HW_FEATURE;
     CK_HW_FEATURE_TYPE type = CKH_IBM_EP11_VHSMPIN;
-    CK_BYTE true = TRUE;
+    CK_BBOOL ck_true = TRUE;
     CK_ATTRIBUTE vhsmpin_template[] = {
         { CKA_CLASS, &class, sizeof(class) },
-        { CKA_TOKEN, &true, sizeof(true) },
-        { CKA_PRIVATE, &true, sizeof(true) },
-        { CKA_HIDDEN, &true, sizeof(true) },
+        { CKA_TOKEN, &ck_true, sizeof(ck_true) },
+        { CKA_PRIVATE, &ck_true, sizeof(ck_true) },
+        { CKA_HIDDEN, &ck_true, sizeof(ck_true) },
         { CKA_HW_FEATURE_TYPE, &type, sizeof(type) },
     };
 
@@ -889,7 +866,7 @@ static CK_RV set_vhsmpin(CK_SESSION_HANDLE session)
     CK_OBJECT_CLASS class = CKO_HW_FEATURE;
     CK_HW_FEATURE_TYPE type = CKH_IBM_EP11_VHSMPIN;
     CK_BYTE subject[] = "EP11 VHSM-Pin Object";
-    CK_BYTE true = TRUE;
+    CK_BBOOL ck_true = TRUE;
 
     if (get_vhsm_pin(vhsm_pin)) {
         fprintf(stderr, "get_vhsm_pin() failed\n");
@@ -898,9 +875,9 @@ static CK_RV set_vhsmpin(CK_SESSION_HANDLE session)
 
     CK_ATTRIBUTE attrs[] = {
         { CKA_CLASS, &class, sizeof(class) },
-        { CKA_TOKEN, &true, sizeof(true) },
-        { CKA_PRIVATE, &true, sizeof(true) },
-        { CKA_HIDDEN, &true, sizeof(true) },
+        { CKA_TOKEN, &ck_true, sizeof(ck_true) },
+        { CKA_PRIVATE, &ck_true, sizeof(ck_true) },
+        { CKA_HIDDEN, &ck_true, sizeof(ck_true) },
         { CKA_HW_FEATURE_TYPE, &type, sizeof(type) },
         { CKA_SUBJECT, &subject, sizeof(subject) },
         { CKA_VALUE, vhsm_pin, strlen((char *)vhsm_pin) },
@@ -1169,16 +1146,17 @@ int main(int argc, char **argv)
         CK_SESSION_HANDLE hsess = 0;
         rc = funcs->C_GetFunctionStatus(hsess);
         if (rc != CKR_FUNCTION_NOT_PARALLEL)
-            return rc;
+            goto done;
 
         rc = funcs->C_CancelFunction(hsess);
         if (rc != CKR_FUNCTION_NOT_PARALLEL)
-            return rc;
+            goto done;
     }
 
     if (!is_ep11_token(SLOT_ID)) {
         fprintf(stderr, "ERROR Slot %lu is not an EP11 token\n", SLOT_ID);
-        return CKR_FUNCTION_FAILED;
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
     }
 
     flags = CKF_SERIAL_SESSION | CKF_RW_SESSION;
@@ -1187,7 +1165,7 @@ int main(int argc, char **argv)
         fprintf(stderr, "C_OpenSession() rc = 0x%02x [%s]\n", rc,
                 p11_get_ckr(rc));
         session = CK_INVALID_HANDLE;
-        return rc;
+        goto done;
     }
 
     if (get_user_pin(user_pin)) {
@@ -1196,14 +1174,14 @@ int main(int argc, char **argv)
         if (rc != CKR_OK)
             fprintf(stderr, "C_CloseAllSessions() rc = 0x%02x [%s]\n", rc,
                     p11_get_ckr(rc));
-        return rc;
+        goto done;
     }
 
     user_pin_len = (CK_ULONG) strlen((char *) user_pin);
     rc = funcs->C_Login(session, CKU_USER, user_pin, user_pin_len);
     if (rc != CKR_OK) {
         fprintf(stderr, "C_Login() rc = 0x%02x [%s]\n", rc, p11_get_ckr(rc));
-        return rc;
+        goto done;
     }
 
     switch (action) {
@@ -1217,11 +1195,11 @@ int main(int argc, char **argv)
         rc = set_vhsmpin(session);
         break;
     }
-    if (rc != CKR_OK)
-        return rc;
 
-    rc = funcs->C_Logout(session);
-    rc = funcs->C_CloseAllSessions(SLOT_ID);
+    funcs->C_Logout(session);
+done:
+    funcs->C_CloseAllSessions(SLOT_ID);
+    funcs->C_Finalize(NULL);
 
     return rc;
 }
