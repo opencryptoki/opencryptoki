@@ -2777,7 +2777,7 @@ CK_RV ep11tok_init(STDLL_TokData_t * tokdata, CK_SLOT_ID SlotNumber,
             goto error;
     }
 
-    if (ep11_data->vhsm_mode) {
+    if (ep11_data->vhsm_mode || ep11_data->fips_session_mode) {
         if (pthread_mutex_init(&ep11_data->session_mutex, NULL) != 0) {
             TRACE_ERROR("Initializing session lock failed.\n");
             rc = CKR_CANT_LOCK;
@@ -2812,7 +2812,7 @@ CK_RV ep11tok_final(STDLL_TokData_t * tokdata, CK_BBOOL in_fork_initializer)
         }
         pthread_rwlock_destroy(&ep11_data->target_rwlock);
         pthread_mutex_destroy(&ep11_data->raw2key_wrap_blob_mutex);
-        if (ep11_data->vhsm_mode)
+        if (ep11_data->vhsm_mode || ep11_data->fips_session_mode)
             pthread_mutex_destroy(&ep11_data->session_mutex);
         pthread_mutex_destroy(&ep11_data->pkey_mutex);
         free_cp_config(ep11_data->cp_config);
