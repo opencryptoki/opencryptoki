@@ -489,6 +489,20 @@ static CK_BBOOL ep11_pqc_obj_strength_supported(ep11_target_info_t *target_info,
 }
 
 /**
+ * Return true if PKEY_MODE DISABLED is set in the token specific
+ * config file, false otherwise.
+ */
+static CK_BBOOL ep11tok_pkey_option_disabled(STDLL_TokData_t *tokdata)
+{
+    ep11_private_data_t *ep11_data = tokdata->private_data;
+
+    if (ep11_data->pkey_mode == PKEY_MODE_DISABLED)
+        return CK_TRUE;
+
+    return CK_FALSE;
+}
+
+/**
  * Callback function used by handle_all_ep11_cards() for creating a protected
  * key via the given APQN (adaper,domain).
  * Note that this function only works with an ep11 host lib v3 or later,
@@ -774,7 +788,8 @@ done:
  * create a dummy test key, transform it into a protected key, and store the MK
  * verification pattern in the tokdata.
  */
-static CK_RV ep11tok_pkey_get_firmware_mk_vp(STDLL_TokData_t *tokdata)
+static CK_RV ep11tok_pkey_get_firmware_mk_vp(STDLL_TokData_t *tokdata,
+                                             SESSION *session)
 {
     CK_BBOOL btrue = CK_TRUE;
     CK_ULONG len = AES_KEY_SIZE_256;
@@ -785,18 +800,36 @@ static CK_RV ep11tok_pkey_get_firmware_mk_vp(STDLL_TokData_t *tokdata)
     };
     CK_ULONG tmpl_len = sizeof(tmpl) / sizeof(CK_ATTRIBUTE);
     ep11_private_data_t *ep11_data = tokdata->private_data;
+    ep11_session_t *ep11_session;
     CK_BYTE csum[MAX_CSUMSIZE];
     size_t csum_l = sizeof(csum);
     CK_BYTE blob[MAX_BLOBSIZE];
     size_t blobsize = sizeof(blob);
     CK_BYTE blob_reenc[MAX_BLOBSIZE];
     CK_ATTRIBUTE *pkey_attr = NULL, *blob_attr = NULL, *blob_reenc_attr = NULL;
-    ep11_target_info_t* target_info;
-    CK_RV ret;
+    ep11_target_info_t* target_info = NULL;
+    unsigned char *ep11_pin_blob = NULL;
+    CK_ULONG ep11_pin_blob_len = 0;
+    CK_RV ret = CKR_OK;
 
-    target_info = get_target_info(tokdata);
-    if (target_info == NULL)
-        return CKR_FUNCTION_FAILED;
+    if (ep11tok_pkey_option_disabled(tokdata))
+        return CKR_OK;
+
+    if (pthread_mutex_lock(&ep11_data->pkey_mutex)) {
+        TRACE_ERROR("%s Failed to lock pkey lock\n", __func__);
+        return CKR_CANT_LOCK;
+    }
+
+    if (ep11_data->pkey_wrap_support_checked)
+        goto unlock;
+
+    if (session == NULL) {
+        target_info = get_target_info(tokdata);
+        if (target_info == NULL) {
+            ret = CKR_FUNCTION_FAILED;
+            goto unlock;
+        }
+    }
 
     /* Check if CPACF_WRAP mech supported */
     if (ep11tok_is_mechanism_supported(tokdata, CKM_IBM_CPACF_WRAP) != CKR_OK) {
@@ -809,15 +842,35 @@ static CK_RV ep11tok_pkey_get_firmware_mk_vp(STDLL_TokData_t *tokdata)
 
     trace_attributes(__func__, "Generate prot. test key:", tmpl, tmpl_len);
 
+    if (session != NULL) {
+        ep11_session = (ep11_session_t *)session->private_data;
+
+        ep11_get_pin_blob(tokdata, ep11_session, FALSE, FALSE,
+                          &ep11_pin_blob, &ep11_pin_blob_len);
+    }
+
     /* Create an AES testkey with CKA_IBM_PROTKEY_EXTRACTABLE */
-    RETRY_SINGLE_APQN_START(tokdata, ret)
-    RETRY_REENC_CREATE_KEY_START()
-        ret = dll_m_GenerateKey(&mech, tmpl, tmpl_len, NULL, 0,
-                                blob, &blobsize, csum, &csum_l,
-                                target_info->target);
-    RETRY_REENC_CREATE_KEY_END(tokdata, NULL, target_info,
-                               blob, blob_reenc, blobsize, ret)
-    RETRY_SINGLE_APQN_END(ret, tokdata, target_info)
+    if (session != NULL) {
+        RETRY_SESSION_SINGLE_APQN_START(ret, tokdata)
+        RETRY_REENC_CREATE_KEY_START()
+            ret = dll_m_GenerateKey(&mech, tmpl, tmpl_len,
+                                    ep11_pin_blob, ep11_pin_blob_len,
+                                    blob, &blobsize, csum, &csum_l,
+                                    target_info->target);
+        RETRY_REENC_CREATE_KEY_END(tokdata, NULL, target_info,
+                                   blob, blob_reenc, blobsize, ret)
+        RETRY_SESSION_SINGLE_APQN_END(ret, tokdata, session)
+    } else {
+        RETRY_SINGLE_APQN_START(tokdata, ret)
+        RETRY_REENC_CREATE_KEY_START()
+            ret = dll_m_GenerateKey(&mech, tmpl, tmpl_len,
+                                    ep11_pin_blob, ep11_pin_blob_len,
+                                    blob, &blobsize, csum, &csum_l,
+                                    target_info->target);
+        RETRY_REENC_CREATE_KEY_END(tokdata, NULL, target_info,
+                                   blob, blob_reenc, blobsize, ret)
+        RETRY_SINGLE_APQN_END(ret, tokdata, target_info)
+    }
     if (ret != CKR_OK) {
         TRACE_ERROR("dll_m_GenerateKey failed with rc=0x%lx\n",ret);
         goto done;
@@ -845,13 +898,27 @@ static CK_RV ep11tok_pkey_get_firmware_mk_vp(STDLL_TokData_t *tokdata)
         }
     }
 
-    /* Create a protected key from this blob to obtain the LPAR MK vp. When
+    /*
+     * Create a protected key from this blob to obtain the LPAR MK vp. When
      * this function returns ok, we have a 64 byte pkey value: 32 bytes
-     * encrypted key + 32 bytes vp. */
+     * encrypted key + 32 bytes vp.
+     */
     ret = ep11tok_pkey_skey2pkey(tokdata, NULL, blob_attr, blob_reenc_attr,
                                  &pkey_attr, FALSE);
     if (ret != CKR_OK) {
-        TRACE_ERROR("ep11tok_pkey_skey2pkey failed with rc=0x%lx\n", ret);
+        /*
+         * Could not transform secure key into protected key, pkey support is
+         * not available.
+         * We are just running without protected key support, i.e. the
+         * pkey_wrap_supported flag in tokdata remains off, but the
+         * pkey_wrap_support_checked flag is turned on
+         */
+        OCK_SYSLOG(LOG_WARNING,
+                   "%s: Warning: Could not get mk_vp, protected key support is "
+                   "not available.\n", __func__);
+        TRACE_WARNING("%s: Could not get mk_vp, protected key support is not "
+                      "available.\n", __func__);
+        ret = CKR_OK;
         goto done;
     }
 
@@ -861,7 +928,6 @@ static CK_RV ep11tok_pkey_get_firmware_mk_vp(STDLL_TokData_t *tokdata)
     __sync_or_and_fetch(&ep11_data->pkey_wrap_supported, 1);
 
 done:
-
     if (blob_attr)
         free(blob_attr);
     if (blob_reenc_attr)
@@ -871,21 +937,14 @@ done:
 
     put_target_info(tokdata, target_info);
 
+    __sync_or_and_fetch(&ep11_data->pkey_wrap_support_checked, 1);
+
+unlock:
+    if (pthread_mutex_unlock(&ep11_data->pkey_mutex)) {
+        TRACE_ERROR("%s Failed to lock pkey lock\n", __func__);
+    }
+
     return ret;
-}
-
-/**
- * Return true if PKEY_MODE DISABLED is set in the token specific
- * config file, false otherwise.
- */
-static CK_BBOOL ep11tok_pkey_option_disabled(STDLL_TokData_t *tokdata)
-{
-    ep11_private_data_t *ep11_data = tokdata->private_data;
-
-    if (ep11_data->pkey_mode == PKEY_MODE_DISABLED)
-        return CK_TRUE;
-
-    return CK_FALSE;
 }
 
 /**
@@ -1083,6 +1142,10 @@ CK_RV ep11tok_pkey_check(STDLL_TokData_t *tokdata, SESSION *session,
             ret = CKR_OK;
             goto done;
         }
+
+        /* Ensure the firmware master key verification pattern is available */
+        if (ep11tok_pkey_get_firmware_mk_vp(tokdata, session) != CKR_OK)
+            goto done;
 
         if (object_is_extractable(key_obj) ||
             !object_is_pkey_extractable(key_obj) ||
@@ -2668,19 +2731,18 @@ CK_RV ep11tok_init(STDLL_TokData_t * tokdata, CK_SLOT_ID SlotNumber,
     }
     ep11_data->raw2key_wrap_blob_l = 0;
 
-    if (!ep11tok_pkey_option_disabled(tokdata)) {
-        rc = ep11tok_pkey_get_firmware_mk_vp(tokdata);
-        if (rc != CKR_OK) {
-            /* Could not save mk_vp in ep11_data, pkey support not available.
-             * But the token should initialize ok, even if this happens.
-             * We are just running without protected key support, i.e. the
-             * pkey_wrap_supported flag in tokdata remains off. */
-            OCK_SYSLOG(LOG_WARNING,
-                "%s: Warning: Could not get mk_vp, protected key support not available.\n",
-                __func__);
-            TRACE_WARNING("Could not get mk_vp, protected key support not available.\n");
-            rc = CKR_OK;
-        }
+
+    if (pthread_mutex_init(&ep11_data->pkey_mutex, NULL) != 0) {
+        TRACE_ERROR("Initializing PKEY lock failed.\n");
+        rc = CKR_CANT_LOCK;
+        goto error;
+    }
+
+    if (!ep11tok_pkey_option_disabled(tokdata) &&
+        !ep11_data->fips_session_mode) {
+        rc = ep11tok_pkey_get_firmware_mk_vp(tokdata, NULL);
+        if (rc != CKR_OK && rc != CKR_FUNCTION_NOT_SUPPORTED)
+            goto error;
     }
 
     if (ep11_data->vhsm_mode) {
@@ -2720,6 +2782,7 @@ CK_RV ep11tok_final(STDLL_TokData_t * tokdata, CK_BBOOL in_fork_initializer)
         pthread_mutex_destroy(&ep11_data->raw2key_wrap_blob_mutex);
         if (ep11_data->vhsm_mode)
             pthread_mutex_destroy(&ep11_data->session_mutex);
+        pthread_mutex_destroy(&ep11_data->pkey_mutex);
         free_cp_config(ep11_data->cp_config);
         if (ep11_data->libica.ica_cleanup != NULL && !in_fork_initializer)
             ep11_data->libica.ica_cleanup();
@@ -4383,6 +4446,11 @@ CK_RV token_specific_object_add(STDLL_TokData_t * tokdata, SESSION * sess,
         return rc;
     }
 
+    /* Ensure the firmware master key verification pattern is available */
+    rc = ep11tok_pkey_get_firmware_mk_vp(tokdata, sess);
+    if (rc != CKR_OK && rc != CKR_FUNCTION_NOT_SUPPORTED)
+        return rc;
+
     memset(blob, 0, sizeof(blob));
     memset(blobreenc, 0, sizeof(blobreenc));
 
@@ -4612,6 +4680,11 @@ CK_RV ep11tok_generate_key(STDLL_TokData_t * tokdata, SESSION * session,
                     __func__, rc);
         goto error;
     }
+
+    /* Ensure the firmware master key verification pattern is available */
+    rc = ep11tok_pkey_get_firmware_mk_vp(tokdata, session);
+    if (rc != CKR_OK && rc != CKR_FUNCTION_NOT_SUPPORTED)
+        goto error;
 
     rc = object_mgr_create_skel(tokdata, session, new_attrs, new_attrs_len,
                                 MODE_KEYGEN, CKO_SECRET_KEY, ktype, &key_obj);
@@ -6640,6 +6713,11 @@ CK_RV ep11tok_derive_key(STDLL_TokData_t *tokdata, SESSION *session,
         goto error;
     }
 
+    /* Ensure the firmware master key verification pattern is available */
+    rc = ep11tok_pkey_get_firmware_mk_vp(tokdata, session);
+    if (rc != CKR_OK && rc != CKR_FUNCTION_NOT_SUPPORTED)
+        goto error;
+
     /* Start creating the key object */
     rc = object_mgr_create_skel(tokdata, session, new_attrs1, new_attrs1_len,
                                 MODE_DERIVE, class, ktype, &key_obj);
@@ -8358,6 +8436,11 @@ CK_RV ep11tok_generate_key_pair(STDLL_TokData_t * tokdata, SESSION * sess,
     rc = check_ab_pair(pPublicKeyTemplate, ulPublicKeyAttributeCount,
                        pPrivateKeyTemplate, ulPrivateKeyAttributeCount);
     if (rc != CKR_OK)
+        goto error;
+
+    /* Ensure the firmware master key verification pattern is available */
+    rc = ep11tok_pkey_get_firmware_mk_vp(tokdata, sess);
+    if (rc != CKR_OK && rc != CKR_FUNCTION_NOT_SUPPORTED)
         goto error;
 
     /* Now build the skeleton key. */
@@ -10950,6 +11033,11 @@ CK_RV ep11tok_unwrap_key(STDLL_TokData_t * tokdata, SESSION * session,
         rc = CKR_KEY_TYPE_INCONSISTENT;
         goto done;
     }
+
+    /* Ensure the firmware master key verification pattern is available */
+    rc = ep11tok_pkey_get_firmware_mk_vp(tokdata, session);
+    if (rc != CKR_OK && rc != CKR_FUNCTION_NOT_SUPPORTED)
+        goto error;
 
     /* Start creating the key object */
     rc = object_mgr_create_skel(tokdata, session, new_attrs, new_attrs_len,
@@ -14310,6 +14398,11 @@ CK_RV token_specific_set_attribute_values(STDLL_TokData_t *tokdata,
         }
     }
 
+    /* Ensure the firmware master key verification pattern is available */
+    rc = ep11tok_pkey_get_firmware_mk_vp(tokdata, session);
+    if (rc != CKR_OK && rc != CKR_FUNCTION_NOT_SUPPORTED)
+        return rc;
+
     node = new_tmpl->attribute_list;
     while (node) {
         attr = (CK_ATTRIBUTE *)node->data;
@@ -14539,17 +14632,26 @@ static CK_RV ep11tok_handle_apqn_event(STDLL_TokData_t *tokdata,
     /* Re-check after APQN set change if CPACF_WRAP mech is supported */
     if (ep11tok_is_mechanism_supported(tokdata, CKM_IBM_CPACF_WRAP) != CKR_OK) {
         TRACE_INFO("CKM_IBM_CPACF_WRAP not supported on this system.\n");
+        if (pthread_mutex_lock(&ep11_data->pkey_mutex)) {
+            TRACE_ERROR("%s Failed to lock pkey lock\n", __func__);
+            return CKR_CANT_LOCK;
+        }
         /* Disable pkey */
         __sync_and_and_fetch(&ep11_data->pkey_wrap_supported, 0);
+        __sync_and_and_fetch(&ep11_data->pkey_wrap_support_checked, 1);
+        if (pthread_mutex_unlock(&ep11_data->pkey_mutex)) {
+            TRACE_ERROR("%s Failed to lock pkey lock\n", __func__);
+        }
     } else if (ep11_data->pkey_wrap_supported == 0 &&
                !ep11tok_pkey_option_disabled(tokdata)) {
-        /* get firmware MKVP, this will enable PKEY on success */
-        rc = ep11tok_pkey_get_firmware_mk_vp(tokdata);
-        if (rc != CKR_OK) {
-            OCK_SYSLOG(LOG_WARNING,
-                "%s: Warning: Could not get mk_vp, protected key support not available.\n",
-                __func__);
-            TRACE_WARNING("Could not get mk_vp, protected key support not available.\n");
+        if (pthread_mutex_lock(&ep11_data->pkey_mutex)) {
+            TRACE_ERROR("%s Failed to lock pkey lock\n", __func__);
+            return CKR_CANT_LOCK;
+        }
+        /* Will be re-checked at next usage attempt */
+        __sync_and_and_fetch(&ep11_data->pkey_wrap_support_checked, 0);
+        if (pthread_mutex_unlock(&ep11_data->pkey_mutex)) {
+            TRACE_ERROR("%s Failed to lock pkey lock\n", __func__);
         }
     }
 

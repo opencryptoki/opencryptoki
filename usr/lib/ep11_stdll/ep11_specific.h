@@ -267,8 +267,10 @@ typedef struct {
     int fips_session_mode;
     int optimize_single_ops;
     int pkey_mode;
-    int pkey_wrap_supported;
+    volatile int pkey_wrap_supported;
+    int pkey_wrap_support_checked;
     char pkey_mk_vp[PKEY_MK_VP_LENGTH];
+    pthread_mutex_t pkey_mutex;
     int msa_level;
     int digest_libica;
     char digest_libica_path[PATH_MAX];
