@@ -99,6 +99,11 @@ typedef struct {
 #define CKH_IBM_EP11_VHSMPIN        CKH_VENDOR_DEFINED + 2
 #define CKH_IBM_EP11_FIPSPIN        CKH_VENDOR_DEFINED + 3
 
+#define EP11_PINBLOB_MARKER_OFS 4
+
+#define EP11_PINBLOB_V0_MARKER  0xaa
+#define EP11_PINBLOB_V1_MARKER  0xab
+
 #define PUBLIC_SESSION_ID_LENGTH    16
 
 #define CKF_EP11_HELPER_SESSION     0x80000000
@@ -574,6 +579,19 @@ CK_BBOOL ep11tok_pkey_usage_ok(STDLL_TokData_t *tokdata, SESSION *session,
                                CK_OBJECT_HANDLE hkey, CK_MECHANISM *mech);
 
 CK_RV ep11tok_set_operation_state(STDLL_TokData_t *tokdata, SESSION *session);
+
+CK_RV do_LoginExtended(XCP_LoginAlgorithm_t alg,
+                       XCP_LoginImporter_t imp_keytype,
+                       const CK_BYTE *pin, CK_ULONG pin_len,
+                       const CK_BYTE *nonce, CK_ULONG nonce_len,
+                       CK_BYTE *pin_blob, CK_ULONG *pin_blob_len,
+                       const CK_BYTE *parent_session_id, target_t target);
+
+CK_RV do_LogoutExtended(XCP_LoginAlgorithm_t alg,
+                        XCP_LoginImporter_t imp_keytype,
+                        const CK_BYTE *pin, CK_ULONG pin_len,
+                        const CK_BYTE *nonce, CK_ULONG nonce_len,
+                        target_t target);
 
 /*
  * Macros to enclose EP11 library calls involving session bound blobs.
