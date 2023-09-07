@@ -45,6 +45,8 @@ typedef CK_RV (*handler_t) (CK_SESSION_HANDLE session, CK_OBJECT_HANDLE obj,
                             CK_BYTE *pin_blob, CK_ULONG pin_blob_size,
                             CK_BYTE *session_id, CK_ULONG session_id_len,
                             ep11_target_t *ep11_targets,
+                            ep11_serialno_t *serial_numbers,
+                            CK_ULONG num_serial_numbers,
                             pid_t pid, CK_DATE *date);
 
 CK_FUNCTION_LIST *funcs;
@@ -329,11 +331,65 @@ static CK_RV get_ep11_library_version(CK_VERSION *lib_version)
     return CKR_OK;
 }
 
+static CK_RV get_serial_number(target_t target, ep11_serialno_t serial_number)
+{
+    CK_IBM_XCP_INFO xcp_info;
+    CK_ULONG xcp_info_len = sizeof(xcp_info);
+    CK_RV rc;
+
+    rc = dll_m_get_xcp_info(&xcp_info, &xcp_info_len, CK_IBM_XCPQ_MODULE, 0,
+                            target);
+    if (rc != CKR_OK)
+        return rc;
+
+    memcpy(serial_number, xcp_info.serialNumber, sizeof(ep11_serialno_t));
+
+    return CKR_OK;
+}
+
+static void remove_serial_number(ep11_serialno_t serial_number,
+                                 ep11_serialno_t *serial_numbers,
+                                 CK_ULONG *num_serial_numbers)
+{
+    CK_ULONG i;
+    CK_BOOL found = FALSE;
+
+    for(i = 0; i < *num_serial_numbers; i++) {
+        if (memcmp(serial_numbers[i], serial_number,
+                   sizeof(ep11_serialno_t)) == 0) {
+            found = TRUE;
+            break;
+        }
+    }
+
+    if (!found)
+        return;
+
+    memmove(serial_numbers[i],
+            serial_numbers[i + 1],
+            (*num_serial_numbers - i) * sizeof(ep11_serialno_t));
+    memset(serial_numbers[*num_serial_numbers - 1],
+           0, sizeof(ep11_serialno_t));
+
+   (*num_serial_numbers)--;
+
+    return;
+}
+
+struct logout_data {
+    CK_BYTE *pin_blob;
+    CK_ULONG pin_blob_size;
+    ep11_serialno_t *serial_numbers;
+    CK_ULONG num_serial_numbers;
+};
+
 static CK_RV logout_handler(uint_32 adapter, uint_32 domain, void *handler_data)
 {
     ep11_target_t target_list;
     struct XCP_Module module;
     target_t target = XCP_TGT_INIT;
+    struct logout_data *data = handler_data;
+    ep11_serialno_t serial_number;
     CK_RV rc;
 
     if (dll_m_add_module != NULL) {
@@ -355,14 +411,28 @@ static CK_RV logout_handler(uint_32 adapter, uint_32 domain, void *handler_data)
         target = (target_t)&target_list;
     }
 
-    rc = dll_m_Logout(handler_data, XCP_PINBLOB_BYTES, target);
+    rc = get_serial_number(target, serial_number);
+    if (rc != CKR_OK) {
+        fprintf(stderr,
+                "WARNING: Querying adapter %02X.%04X failed: 0x%lx [%s]\n",
+                adapter, domain, rc, p11_get_ckr(rc));
+        error = rc;
+        goto out;
+    }
+
+    rc = dll_m_Logout(data->pin_blob, data->pin_blob_size, target);
     if (rc != CKR_OK && rc != CKR_SESSION_CLOSED) {
         fprintf(stderr,
                 "WARNING: Logout failed for adapter %02X.%04X: 0x%lx [%s]\n",
                 adapter, domain, rc, p11_get_ckr(rc));
         error = rc;
+        goto out;
     }
 
+    remove_serial_number(serial_number,
+                         data->serial_numbers, &data->num_serial_numbers);
+
+out:
     if (dll_m_rm_module != NULL)
         dll_m_rm_module(&module, target);
 
@@ -571,16 +641,13 @@ CK_RV handle_all_ep11_cards(ep11_target_t * ep11_targets,
     return CKR_OK;
 }
 
-static CK_RV logout_session_obj(CK_SESSION_HANDLE session, CK_OBJECT_HANDLE obj,
-                                CK_BYTE *pin_blob, CK_ULONG pin_blob_size,
-                                CK_BYTE *session_id, CK_ULONG session_id_len,
+static void print_session_info(CK_BYTE *session_id, CK_ULONG session_id_len,
                                 ep11_target_t *ep11_targets,
+                                ep11_serialno_t *serial_numbers,
+                                CK_ULONG num_serial_numbers,
                                 pid_t pid, CK_DATE *date)
 {
-    CK_RV rc;
     CK_ULONG i;
-
-    UNUSED(pin_blob_size);
 
     for (i = 0; i < session_id_len; i++)
         printf("%02X", session_id[i]);
@@ -590,6 +657,75 @@ static CK_RV logout_session_obj(CK_SESSION_HANDLE session, CK_OBJECT_HANDLE obj,
     else
         printf("\tPid:\t%u\n", pid);
     printf("\tDate:\t%.4s/%.2s/%.2s\n", date->year, date->month, date->day);
+    if (ep11_targets->length == 0) {
+        printf("\tAPQNs:\tANY\n");
+    } else {
+        printf("\tAPQNs:\n");
+        for (i = 0; i < (CK_ULONG)ep11_targets->length; i++)
+            printf("\t\t%02X.%04X\n", ep11_targets->apqns[2 * i],
+                   ep11_targets->apqns[2 * i + 1]);
+    }
+    if (num_serial_numbers) {
+        printf("\tAdapter serial numbers:\n");
+        for (i = 0; i < num_serial_numbers; i++)
+            printf("\t\t%.16s\n", serial_numbers[i]);
+    }
+}
+
+static CK_RV update_ep11_object(CK_SESSION_HANDLE session,
+                                CK_OBJECT_HANDLE obj,
+                                ep11_target_t *ep11_targets,
+                                ep11_serialno_t *serial_numbers,
+                                CK_ULONG num_serial_numbers)
+{;
+    CK_RV rc;
+    CK_BYTE *app_data = NULL;
+    CK_ULONG app_data_len;
+    CK_ATTRIBUTE attr = { CKA_APPLICATION, NULL, 0 };
+
+    app_data_len = sizeof(ep11_target_t) +
+                                num_serial_numbers * sizeof(ep11_serialno_t);
+    app_data = malloc(app_data_len);
+    if (app_data == NULL) {
+        fprintf(stderr, "Failed to allocate memory\n");
+        rc = CKR_HOST_MEMORY;
+        goto out;
+    }
+
+    memcpy(app_data, ep11_targets, sizeof(ep11_target_t));
+    if (num_serial_numbers > 0)
+        memcpy(app_data + sizeof(ep11_target_t), serial_numbers,
+                                num_serial_numbers * sizeof(ep11_serialno_t));
+    attr.pValue = app_data;
+    attr.ulValueLen = app_data_len;
+
+    rc = funcs->C_SetAttributeValue(session, obj, &attr, 1);
+    if (rc != CKR_OK) {
+        fprintf(stderr, "C_SetAttributeValue() rc = 0x%02lx [%s]\n", rc,
+               p11_get_ckr(rc));
+    }
+
+out:
+    if (app_data != NULL)
+        free(app_data);
+
+    return rc;
+}
+
+static CK_RV logout_session_obj(CK_SESSION_HANDLE session, CK_OBJECT_HANDLE obj,
+                                CK_BYTE *pin_blob, CK_ULONG pin_blob_size,
+                                CK_BYTE *session_id, CK_ULONG session_id_len,
+                                ep11_target_t *ep11_targets,
+                                ep11_serialno_t *serial_numbers,
+                                CK_ULONG num_serial_numbers,
+                                pid_t pid, CK_DATE *date)
+{
+    CK_RV rc;
+    struct logout_data data;
+    CK_ULONG i;
+
+    print_session_info(session_id, session_id_len, ep11_targets,
+                       serial_numbers, num_serial_numbers, pid, date);
 
     if (is_process_running(pid)) {
         printf("\tSession is not logged out, process %u is still running\n",
@@ -598,36 +734,58 @@ static CK_RV logout_session_obj(CK_SESSION_HANDLE session, CK_OBJECT_HANDLE obj,
     }
 
     error = CKR_OK;
-    rc = handle_all_ep11_cards(ep11_targets, logout_handler, pin_blob);
+    data.pin_blob = pin_blob;
+    data.pin_blob_size = pin_blob_size;
+    data.serial_numbers = serial_numbers;
+    data.num_serial_numbers = num_serial_numbers;
+    rc = handle_all_ep11_cards(ep11_targets, logout_handler, &data);
     if (rc != CKR_OK) {
         fprintf(stderr, "handle_all_ep11_cards() rc = 0x%02lx [%s]\n", rc,
                 p11_get_ckr(rc));
         return rc;
     }
+
     if (error != CKR_OK) {
         fprintf(stderr,
-                "WARNING: Not all APQNs were successfully logged out.\n");
-        if (!force) {
+                "\tWARNING: Not all APQNs were successfully logged out.\n");
+        if (!force)
             fprintf(stderr,
-                    "         Session is not deleted. Specify -force to delete"
-                    "it anyway.\n");
+                    "\t         Session is not deleted. Specify -force to "
+                    "delete it anyway.\n");
+    }
+
+    if ((error == CKR_OK && data.num_serial_numbers == 0) || force) {
+        rc = funcs->C_DestroyObject(session, obj);
+        if (rc != CKR_OK) {
+            fprintf(stderr, "C_DestroyObject() rc = 0x%02lx [%s]\n", rc,
+                    p11_get_ckr(rc));
             return rc;
         }
+    } else {
+        rc = update_ep11_object(session, obj, ep11_targets,
+                                data.serial_numbers, data.num_serial_numbers);
+        if (rc != CKR_OK)
+            return rc;
     }
 
-    rc = funcs->C_DestroyObject(session, obj);
-    if (rc != CKR_OK) {
-        fprintf(stderr, "C_DestroyObject() rc = 0x%02lx [%s]\n", rc,
-                p11_get_ckr(rc));
-        return rc;
-    }
-
-    if (!force)
-        printf("\tSession logged out successfully\n");
-    else
+    if (!force) {
+        if (data.num_serial_numbers == 0) {
+            printf("\tSession logged out successfully\n");
+            count++;
+        } else {
+            fprintf(stderr,
+                    "\tWARNING: Session not logged out on the adapters with\n"
+                    "\t         the following serial numbers:\n");
+            for (i = 0; i < data.num_serial_numbers; i++)
+                printf("\t\t\t%.16s\n", data.serial_numbers[i]);
+            fprintf(stderr,
+                    "\t         Session is not deleted. Specify -force to "
+                    "delete it anyway.\n");
+        }
+    } else {
         printf("\tSession deleted due to -force option\n");
-
-    count++;
+        count++;
+    }
 
     return CKR_OK;
 }
@@ -638,24 +796,17 @@ static CK_RV show_session_obj(CK_SESSION_HANDLE session, CK_OBJECT_HANDLE obj,
                               CK_BYTE *pin_blob, CK_ULONG pin_blob_size,
                               CK_BYTE *session_id, CK_ULONG session_id_len,
                               ep11_target_t *ep11_targets,
+                              ep11_serialno_t *serial_numbers,
+                              CK_ULONG num_serial_numbers,
                               pid_t pid, CK_DATE *date)
 {
-    CK_ULONG i;
-
     UNUSED(session);
     UNUSED(obj);
     UNUSED(pin_blob);
     UNUSED(pin_blob_size);
-    UNUSED(ep11_targets);
 
-    for (i = 0; i < session_id_len; i++)
-        printf("%02X", session_id[i]);
-    printf(":\n");
-    if (is_process_running(pid))
-        printf("\tPid:\t%u (still running)\n", pid);
-    else
-        printf("\tPid:\t%u\n", pid);
-    printf("\tDate:\t%.4s/%.2s/%.2s\n", date->year, date->month, date->day);
+    print_session_info(session_id, session_id_len, ep11_targets,
+                       serial_numbers, num_serial_numbers, pid, date);
 
     count++;
 
@@ -713,13 +864,17 @@ static CK_RV process_session_obj(CK_SESSION_HANDLE session,
     CK_BBOOL match;
     CK_BYTE pin_blob[XCP_PINBLOB_BYTES];
     CK_BYTE session_id[EP11_SESSION_ID_SIZE];
-    ep11_target_t ep11_targets;
+    struct {
+        ep11_target_t ep11_targets;
+        ep11_serialno_t serial_numbers[MAX_APQN];
+    } app_data;
+    CK_ULONG num_serial_numbers = 0;
     pid_t pid;
     CK_DATE date;
     CK_ATTRIBUTE attrs[] = {
         { CKA_VALUE, pin_blob, sizeof(pin_blob) },
         { CKA_ID, session_id, sizeof(session_id) },
-        { CKA_APPLICATION, &ep11_targets, sizeof(ep11_targets) },
+        { CKA_APPLICATION, &app_data, sizeof(app_data) }, // keep at index 2
         { CKA_OWNER, &pid, sizeof(pid) },
         { CKA_START_DATE, &date, sizeof(date) },
     };
@@ -735,6 +890,9 @@ static CK_RV process_session_obj(CK_SESSION_HANDLE session,
         return CKR_OK;
     }
 
+    num_serial_numbers = (attrs[2].ulValueLen - sizeof(ep11_target_t)) /
+                                                    sizeof(ep11_serialno_t);
+
     /* Ignore our own EP11 session */
     if (pid == getpid())
         return CKR_OK;
@@ -743,7 +901,9 @@ static CK_RV process_session_obj(CK_SESSION_HANDLE session,
 
     if (match) {
         rc = handler(session, obj, pin_blob, sizeof(pin_blob),
-                     session_id, sizeof(session_id), &ep11_targets, pid, &date);
+                     session_id, sizeof(session_id), &app_data.ep11_targets,
+                     app_data.serial_numbers, num_serial_numbers,
+                     pid, &date);
         if (rc != CKR_OK)
             return rc;
     }

@@ -71,12 +71,16 @@ typedef struct {
     CK_ULONG card_type;
 } version_req_t;
 
+typedef CK_CHAR ep11_serialno_t[16];
+
 typedef struct {
     SESSION *session;
     CK_BYTE session_id[SHA256_HASH_SIZE];
     CK_BBOOL pin_blob_valid;
     CK_BYTE session_pin_blob[XCP_PINBLOB_BYTES];
     CK_OBJECT_HANDLE session_object;
+    ep11_serialno_t *serial_numbers;
+    CK_ULONG num_serial_numbers;
 } ep11_session_t;
 
 
