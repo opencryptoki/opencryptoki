@@ -43,10 +43,25 @@ CK_RV SC_GetAttributeValue(STDLL_TokData_t *tokdata,
                            ST_SESSION_HANDLE *sSession,
                            CK_OBJECT_HANDLE hObject, CK_ATTRIBUTE_PTR pTemplate,
                            CK_ULONG ulCount);
+CK_RV SC_SetAttributeValue(STDLL_TokData_t *tokdata,
+                           ST_SESSION_HANDLE *sSession,
+                           CK_OBJECT_HANDLE hObject, CK_ATTRIBUTE_PTR pTemplate,
+                           CK_ULONG ulCount);
 CK_RV SC_OpenSession(STDLL_TokData_t *tokdata, CK_SLOT_ID sid, CK_FLAGS flags,
                      CK_SESSION_HANDLE_PTR phSession);
 CK_RV SC_CloseSession(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
                       CK_BBOOL in_fork_initializer);
+
+static CK_RV ep11_open_helper_session(STDLL_TokData_t *tokdata, SESSION *sess,
+                                      CK_SESSION_HANDLE_PTR phSession);
+static CK_RV ep11_close_helper_session(STDLL_TokData_t *tokdata,
+                                       ST_SESSION_HANDLE *sSession,
+                                       CK_BBOOL in_fork_initializer);
+static CK_RV update_ep11_object(STDLL_TokData_t *tokdata,
+                                ST_SESSION_HANDLE *handle,
+                                CK_OBJECT_HANDLE obj,
+                                ep11_serialno_t *serial_numbers,
+                                CK_ULONG num_serial_numbers);
 
 CK_BOOL ep11_is_session_object(CK_ATTRIBUTE_PTR attrs, CK_ULONG attrs_len)
 {
@@ -84,7 +99,13 @@ CK_RV ep11tok_relogin_session(STDLL_TokData_t *tokdata, SESSION *session)
     ep11_private_data_t *ep11_data = tokdata->private_data;
     ep11_session_t *ep11_session = (ep11_session_t *)session->private_data;
     login_logout_data_t data = { 0 };
-    CK_RV rc;
+    ST_SESSION_HANDLE handle = {
+        .slotID = session->session_info.slotID,
+        .sessionh = session->handle
+    };
+    CK_SESSION_HANDLE helper_session = CK_INVALID_HANDLE;
+    CK_ULONG num_serial_numbers_before = 0;
+    CK_RV rc, rc2;
 
     TRACE_INFO("%s session=%lu\n", __func__, session->handle);
 
@@ -104,21 +125,62 @@ CK_RV ep11tok_relogin_session(STDLL_TokData_t *tokdata, SESSION *session)
         }
     }
 
+    if (ep11_data->strict_mode)
+        num_serial_numbers_before = ep11_session->num_serial_numbers;
+
     data.tokdata = tokdata;
     data.ep11_session = ep11_session;
     data.relogin = TRUE;
     rc = handle_all_ep11_cards(&ep11_data->target_list, ep11_login_handler,
                                &data);
-    if (rc != CKR_OK)
+    if (rc != CKR_OK) {
         TRACE_ERROR("%s handle_all_ep11_cards failed: 0x%lx\n", __func__, rc);
+        goto unlock;
+    }
 
+    /* Update Session object if list of serial numbers changed */
+    if (ep11_data->strict_mode &&
+        num_serial_numbers_before != ep11_session->num_serial_numbers) {
+        switch (session->session_info.state) {
+        case CKS_RW_SO_FUNCTIONS:
+        case CKS_RO_PUBLIC_SESSION:
+        case CKS_RW_PUBLIC_SESSION:
+            TRACE_INFO("%s Public or SO session\n", __func__);
+            return CKR_OK;
+        case CKS_RO_USER_FUNCTIONS:
+            rc = ep11_open_helper_session(tokdata, session, &helper_session);
+            if (rc != CKR_OK)
+                goto unlock;
+            handle.sessionh = helper_session;
+            break;
+        default:
+            break;
+        }
+
+        rc = update_ep11_object(tokdata, &handle, ep11_session->session_object,
+                                ep11_session->serial_numbers,
+                                ep11_session->num_serial_numbers);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s update_ep11_object failed: 0x%lx\n", __func__, rc);
+            goto unlock;
+        }
+    }
+
+unlock:
     if (ep11_data->vhsm_mode || ep11_data->fips_session_mode) {
         if (pthread_mutex_unlock(&ep11_data->session_mutex)) {
             TRACE_ERROR("%s Failed to unlock session lock\n", __func__);
         }
     }
 
-    return CKR_OK;
+    if (helper_session != CK_INVALID_HANDLE) {
+        rc2 = ep11_close_helper_session(tokdata, &handle, FALSE);
+        if (rc2 != CKR_OK)
+            TRACE_ERROR("%s ep11_close_helper_session failed: 0x%lx\n",
+                        __func__, rc2);
+    }
+
+    return rc;
 }
 
 void ep11_get_pin_blob(STDLL_TokData_t *tokdata, ep11_session_t *ep11_session,
@@ -251,6 +313,8 @@ static CK_RV create_ep11_object(STDLL_TokData_t *tokdata,
                                 CK_BYTE *session_id,
                                 CK_ULONG session_id_len,
                                 CK_BYTE *pin_blob, CK_ULONG pin_blob_len,
+                                ep11_serialno_t *serial_numbers,
+                                CK_ULONG num_serial_numbers,
                                 CK_OBJECT_HANDLE *obj)
 {
     ep11_private_data_t *ep11_data = tokdata->private_data;
@@ -264,6 +328,8 @@ static CK_RV create_ep11_object(STDLL_TokData_t *tokdata,
     time_t t;
     struct tm *tm;
     char tmp[40];
+    CK_BYTE *app_data = NULL;
+    CK_ULONG app_data_len;
 
     CK_ATTRIBUTE attrs[] = {
         { CKA_CLASS, &class, sizeof(class) },
@@ -274,10 +340,26 @@ static CK_RV create_ep11_object(STDLL_TokData_t *tokdata,
         { CKA_SUBJECT, &subject, sizeof(subject) },
         { CKA_VALUE, pin_blob, pin_blob_len },
         { CKA_ID, session_id, session_id_len },
-        { CKA_APPLICATION, &ep11_data->target_list, sizeof(ep11_target_t) },
+        { CKA_APPLICATION, NULL, 0 }, // Keep at index 8
         { CKA_OWNER, &pid, sizeof(pid) },
         { CKA_START_DATE, &date, sizeof(date) }
     };
+
+    app_data_len = sizeof(ep11_target_t) +
+                                num_serial_numbers * sizeof(ep11_serialno_t);
+    app_data = malloc(app_data_len);
+    if (app_data == NULL) {
+        TRACE_ERROR("%s Failed to allocate memory\n", __func__);
+        rc = CKR_HOST_MEMORY;
+        goto out;
+    }
+
+    memcpy(app_data, &ep11_data->target_list, sizeof(ep11_target_t));
+    if (num_serial_numbers > 0)
+        memcpy(app_data + sizeof(ep11_target_t), serial_numbers,
+                                num_serial_numbers * sizeof(ep11_serialno_t));
+    attrs[8].pValue = app_data;
+    attrs[8].ulValueLen = app_data_len;
 
     pid = tokdata->real_pid;
     time(&t);
@@ -291,10 +373,53 @@ static CK_RV create_ep11_object(STDLL_TokData_t *tokdata,
                          attrs, sizeof(attrs) / sizeof(CK_ATTRIBUTE), obj);
     if (rc != CKR_OK) {
         TRACE_ERROR("%s SC_CreateObject failed: 0x%lx\n", __func__, rc);
-        return rc;
     }
 
-    return CKR_OK;
+out:
+    if (app_data != NULL)
+        free(app_data);
+
+    return rc;
+}
+
+static CK_RV update_ep11_object(STDLL_TokData_t *tokdata,
+                                ST_SESSION_HANDLE *handle,
+                                CK_OBJECT_HANDLE obj,
+                                ep11_serialno_t *serial_numbers,
+                                CK_ULONG num_serial_numbers)
+{
+    ep11_private_data_t *ep11_data = tokdata->private_data;
+    CK_RV rc;
+    CK_BYTE *app_data = NULL;
+    CK_ULONG app_data_len;
+    CK_ATTRIBUTE attr = { CKA_APPLICATION, NULL, 0 };
+
+    app_data_len = sizeof(ep11_target_t) +
+                                num_serial_numbers * sizeof(ep11_serialno_t);
+    app_data = malloc(app_data_len);
+    if (app_data == NULL) {
+        TRACE_ERROR("%s Failed to allocate memory\n", __func__);
+        rc = CKR_HOST_MEMORY;
+        goto out;
+    }
+
+    memcpy(app_data, &ep11_data->target_list, sizeof(ep11_target_t));
+    if (num_serial_numbers > 0)
+        memcpy(app_data + sizeof(ep11_target_t), serial_numbers,
+                                num_serial_numbers * sizeof(ep11_serialno_t));
+    attr.pValue = app_data;
+    attr.ulValueLen = app_data_len;
+
+    rc = SC_SetAttributeValue(tokdata, handle, obj, &attr, 1);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s SC_SetAttributeValue failed: 0x%lx\n", __func__, rc);
+    }
+
+out:
+    if (app_data != NULL)
+        free(app_data);
+
+    return rc;
 }
 
 static CK_RV get_pin(STDLL_TokData_t *tokdata, SESSION *session,
@@ -351,6 +476,108 @@ out:
     return rc;
 }
 
+static CK_RV get_serial_number(STDLL_TokData_t *tokdata, target_t target,
+                               uint_32 adapter, uint_32 domain,
+                               ep11_serialno_t serial_number)
+{
+    CK_IBM_XCP_INFO xcp_info;
+    CK_ULONG xcp_info_len = sizeof(xcp_info);
+    CK_RV rc;
+
+    UNUSED(tokdata);
+
+    rc = dll_m_get_xcp_info(&xcp_info, &xcp_info_len, CK_IBM_XCPQ_MODULE, 0,
+                            target);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s Failed to query module version from adapter %02X.%04X\n",
+                           __func__, adapter, domain);
+       /* card may no longer be online, so ignore this error situation */
+        return rc;
+    }
+
+    memcpy(serial_number, xcp_info.serialNumber, sizeof(ep11_serialno_t));
+
+    TRACE_DEVEL("%s serial number of adapter %02X.%04X: %.16s\n",
+                __func__, adapter, domain, serial_number);
+
+    return CKR_OK;
+}
+
+static CK_RV add_serial_number(STDLL_TokData_t *tokdata,
+                               ep11_session_t *ep11_session,
+                               ep11_serialno_t serial_number)
+{
+    CK_ULONG i;
+    ep11_serialno_t *tmp;
+
+    UNUSED(tokdata);
+
+    for (i = 0; i < ep11_session->num_serial_numbers; i++) {
+        if (memcmp(ep11_session->serial_numbers[i], serial_number, 16) == 0)
+            return CKR_OK;
+    }
+
+    TRACE_DEVEL("%s adding serial number : %.16s\n", __func__, serial_number);
+
+    tmp = realloc(ep11_session->serial_numbers, sizeof(ep11_serialno_t) *
+                                    (ep11_session->num_serial_numbers + 1));
+    if (tmp == NULL) {
+        TRACE_ERROR("%s Failed allocate serial number list\n",__func__);
+        return CKR_HOST_MEMORY;
+    }
+
+    memcpy(tmp[ep11_session->num_serial_numbers], serial_number,
+           sizeof(ep11_serialno_t));
+
+    ep11_session->num_serial_numbers++;
+    ep11_session->serial_numbers = tmp;
+
+    return CKR_OK;
+}
+
+static void remove_serial_number(STDLL_TokData_t *tokdata,
+                                 ep11_session_t *ep11_session,
+                                 ep11_serialno_t serial_number)
+{
+    CK_ULONG i;
+    CK_BOOL found = FALSE;
+
+    UNUSED(tokdata);
+
+    for (i = 0; i < ep11_session->num_serial_numbers; i++) {
+        if (memcmp(ep11_session->serial_numbers[i], serial_number,
+                   sizeof(ep11_serialno_t)) == 0) {
+            found = TRUE;
+            break;
+        }
+    }
+
+    if (!found)
+        return;
+
+    TRACE_DEVEL("%s removing serial number : %.16s\n", __func__, serial_number);
+
+    memmove(ep11_session->serial_numbers[i],
+            ep11_session->serial_numbers[i + 1],
+            (ep11_session->num_serial_numbers - i) * sizeof(ep11_serialno_t));
+    memset(ep11_session->serial_numbers[ep11_session->num_serial_numbers - 1],
+           0, sizeof(ep11_serialno_t));
+
+    /* Don't shrink the area, just leave it allocated as is */
+    ep11_session->num_serial_numbers--;
+
+    return;
+}
+
+static void free_ep11_session(ep11_session_t *ep11_session)
+{
+    memset(ep11_session->session_pin_blob, 0,
+           sizeof(ep11_session->session_pin_blob));
+    if (ep11_session->serial_numbers != NULL)
+        free(ep11_session->serial_numbers);
+    free(ep11_session);
+}
+
 CK_RV ep11_login_handler(uint_32 adapter, uint_32 domain, void *handler_data)
 {
     login_logout_data_t *data = (login_logout_data_t *)handler_data;
@@ -366,6 +593,7 @@ CK_RV ep11_login_handler(uint_32 adapter, uint_32 domain, void *handler_data)
     CK_BYTE *nonce = NULL;
     CK_ULONG nonce_len = 0;
     session_nonce_t session_nonce;
+    ep11_serialno_t serial_number;
 
     TRACE_INFO("Logging in adapter %02X.%04X\n", adapter, domain);
 
@@ -471,6 +699,15 @@ vhsm_mode:
 
 strict_mode:
     if (ep11_data->strict_mode && data->ep11_session != NULL) {
+        rc = get_serial_number(data->tokdata, target, adapter, domain,
+                               serial_number);
+        if (rc != CKR_OK) {
+            /* ignore the error here, the adapter may not be able to perform
+             * the query at this moment */
+            rc = CKR_OK;
+            goto out;
+        }
+
         nonce = data->ep11_session->session_id;
         nonce_len = sizeof(data->ep11_session->session_id);
         /* pin is already set to default pin or vhsm pin (if VHSM mode) */
@@ -512,6 +749,9 @@ strict_mode:
                    sizeof(data->ep11_session->session_pin_blob));
             data->ep11_session->pin_blob_valid = TRUE;
         }
+
+        rc = add_serial_number(data->tokdata, data->ep11_session,
+                               serial_number);
     }
 
 out:
@@ -526,6 +766,7 @@ static CK_RV ep11_logout_handler(uint_32 adapter, uint_32 domain,
     ep11_private_data_t *ep11_data = data->tokdata->private_data;
     target_t target;
     session_nonce_t session_nonce;
+    ep11_serialno_t serial_number;
     CK_RV rc;
 
     TRACE_INFO("Logging out adapter %02X.%04X\n", adapter, domain);
@@ -536,6 +777,15 @@ static CK_RV ep11_logout_handler(uint_32 adapter, uint_32 domain,
 
     if (ep11_data->strict_mode && data->ep11_session != NULL &&
         data->ep11_session->pin_blob_valid) {
+        rc = get_serial_number(data->tokdata, target, adapter, domain,
+                               serial_number);
+        if (rc != CKR_OK) {
+            /* ignore the error here, the adapter may not be able to perform
+             * the query at this moment */
+            rc = CKR_OK;
+            goto vhsm_mode;
+        }
+
 #ifdef DEBUG
         TRACE_DEBUG("EP11 Session Pin blob\n");
         TRACE_DEBUG_DUMP("    ", data->ep11_session->session_pin_blob,
@@ -549,9 +799,13 @@ static CK_RV ep11_logout_handler(uint_32 adapter, uint_32 domain,
             rc = ep11_error_to_pkcs11_error(rc, NULL);
             TRACE_ERROR("%s dll_m_Logout failed: 0x%lx\n", __func__, rc);
           /* ignore any errors during m_logout */
+        } else {
+            remove_serial_number(data->tokdata, data->ep11_session,
+                                       serial_number);
         }
     }
 
+vhsm_mode:
     if (ep11_data->vhsm_mode &&
         ep11_data->get_session_refcount(data->tokdata) == 0 &&
         ep11_data->vhsm_pin_blob_valid) {
@@ -740,6 +994,8 @@ CK_RV ep11tok_login_session(STDLL_TokData_t *tokdata, SESSION *session)
                                 PUBLIC_SESSION_ID_LENGTH,
                                 ep11_session->session_pin_blob,
                                 sizeof(ep11_session->session_pin_blob),
+                                ep11_session->serial_numbers,
+                                ep11_session->num_serial_numbers,
                                 &ep11_session->session_object);
         if (rc != CKR_OK) {
             TRACE_ERROR("%s _create_ep11_object failed: 0x%lx\n", __func__, rc);
@@ -784,7 +1040,8 @@ done:
         }
 
         if (ep11_data->strict_mode && ep11_session != NULL &&
-            ep11_session->session_object != CK_INVALID_HANDLE) {
+            ep11_session->session_object != CK_INVALID_HANDLE &&
+            ep11_session->num_serial_numbers == 0) {
             rc2 = SC_DestroyObject(tokdata, &handle,
                                    ep11_session->session_object);
             if (rc2 != CKR_OK)
@@ -793,7 +1050,7 @@ done:
         }
 
         if (ep11_session != NULL) {
-            free(ep11_session);
+            free_ep11_session(ep11_session);
             session->private_data = NULL;
         }
 
@@ -890,16 +1147,26 @@ CK_RV ep11tok_logout_session(STDLL_TokData_t *tokdata, SESSION *session,
 
     if (ep11_data->strict_mode && ep11_session != NULL &&
         ep11_session->session_object != CK_INVALID_HANDLE) {
-        rc = SC_DestroyObject(tokdata, &handle, ep11_session->session_object);
-        if (rc != CKR_OK)
-            TRACE_ERROR("%s SC_DestroyObject failed: 0x%lx\n", __func__, rc);
+        if (ep11_session->num_serial_numbers == 0) {
+            rc = SC_DestroyObject(tokdata, &handle,
+                                  ep11_session->session_object);
+            if (rc != CKR_OK)
+                TRACE_ERROR("%s SC_DestroyObject failed: 0x%lx\n",
+                            __func__, rc);
+        } else {
+            rc = update_ep11_object(tokdata, &handle,
+                                    ep11_session->session_object,
+                                    ep11_session->serial_numbers,
+                                    ep11_session->num_serial_numbers);
+            if (rc != CKR_OK)
+                TRACE_ERROR("%s update_ep11_object failed: 0x%lx\n",
+                            __func__, rc);
+        }
     }
 
 free_session:
     if (ep11_session != NULL) {
-        memset(ep11_session->session_pin_blob, 0,
-               sizeof(ep11_session->session_pin_blob));
-        free(ep11_session);
+        free_ep11_session(ep11_session);
         session->private_data = NULL;
     }
 
