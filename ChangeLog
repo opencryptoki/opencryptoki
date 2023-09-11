@@ -1,3 +1,13 @@
++ openCryptoki 3.22
+- CCA: Add support for the AES-XTS key type using CPACF protected keys
+- p11sak: Add support for managing certificate objects
+- p11sak: Add support for public sessions (no-login option)
+- p11sak: Add support for logging in as SO (security Officer)
+- p11sak: Add support for importing/exporting Edwards and Montgomery keys
+- p11sak: Add support for importing of RSA-PSS keys and certificates
+- CCA/EP11/Soft/ICA: Ensure that the 2 key parts of an AES-XTS key are different
+- Bug fixes
+
 + openCryptoki 3.21
 - EP11 and CCA: Support concurrent HSM master key changes
 - CCA: protected-key option
