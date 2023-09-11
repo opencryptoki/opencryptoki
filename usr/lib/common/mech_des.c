@@ -940,15 +940,12 @@ CK_RV des_ecb_encrypt_final(STDLL_TokData_t *tokdata,
 
     UNUSED(tokdata);
     UNUSED(out_data);
+    UNUSED(length_only);
 
     if (!sess || !ctx || !out_data_len) {
         TRACE_ERROR("%s received bad argument(s)\n", __func__);
         return CKR_FUNCTION_FAILED;
     }
-    // satisfy the compiler
-    //
-    if (length_only)
-        context = NULL;
 
     context = (DES_CONTEXT *) ctx->context;
 
@@ -979,15 +976,12 @@ CK_RV des_ecb_decrypt_final(STDLL_TokData_t *tokdata,
 
     UNUSED(tokdata);
     UNUSED(out_data);
+    UNUSED(length_only);
 
     if (!sess || !ctx || !out_data_len) {
         TRACE_ERROR("%s received bad argument(s)\n", __func__);
         return CKR_FUNCTION_FAILED;
     }
-    // satisfy the compiler
-    //
-    if (length_only)
-        context = NULL;
 
     context = (DES_CONTEXT *) ctx->context;
 
@@ -1018,15 +1012,12 @@ CK_RV des_cbc_encrypt_final(STDLL_TokData_t *tokdata,
 
     UNUSED(tokdata);
     UNUSED(out_data);
+    UNUSED(length_only);
 
     if (!sess || !ctx || !out_data_len) {
         TRACE_ERROR("%s received bad argument(s)\n", __func__);
         return CKR_FUNCTION_FAILED;
     }
-    // satisfy the compiler
-    //
-    if (length_only)
-        context = NULL;
 
     context = (DES_CONTEXT *) ctx->context;
 
@@ -1057,15 +1048,12 @@ CK_RV des_cbc_decrypt_final(STDLL_TokData_t *tokdata,
 
     UNUSED(tokdata);
     UNUSED(out_data);
+    UNUSED(length_only);
 
     if (!sess || !ctx || !out_data_len) {
         TRACE_ERROR("%s received bad argument(s)\n", __func__);
         return CKR_FUNCTION_FAILED;
     }
-    // satisfy the compiler
-    //
-    if (length_only)
-        context = NULL;
 
     context = (DES_CONTEXT *) ctx->context;
 
