@@ -1218,6 +1218,11 @@ CK_BBOOL template_get_class(TEMPLATE *tmpl, CK_ULONG *class,
             attr->pValue != NULL)
             *subclass = *(CK_KEY_TYPE *) attr->pValue;
 
+        if (attr->type == CKA_HW_FEATURE_TYPE &&
+            attr->ulValueLen == sizeof(CK_HW_FEATURE_TYPE) &&
+            attr->pValue != NULL)
+            *subclass = *(CK_HW_FEATURE_TYPE *) attr->pValue;
+
         node = node->next;
     }
 
