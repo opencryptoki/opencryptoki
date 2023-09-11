@@ -121,10 +121,7 @@ CK_RV key_object_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     CK_ATTRIBUTE *pkey_attr = NULL;
     CK_RV rc;
 
-    // satisfy the compiler
-    //
-    if (mode)
-        id_attr = NULL;
+    UNUSED(mode);
 
     id_attr = (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE));
     sdate_attr = (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE));
@@ -2248,11 +2245,6 @@ CK_RV rsa_priv_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     CK_ATTRIBUTE *type_attr = NULL;
     CK_RV rc;
 
-    // satisfy the compiler
-    //
-    if (mode)
-        modulus_attr = NULL;
-
     priv_key_set_default_attributes(tmpl, mode);
 
     type_attr =
@@ -3455,9 +3447,6 @@ CK_RV dsa_publ_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     CK_ATTRIBUTE *type_attr = NULL;
     CK_RV rc;
 
-    if (mode)
-        prime_attr = NULL;
-
     publ_key_set_default_attributes(tmpl, mode);
 
     type_attr =
@@ -3696,9 +3685,6 @@ CK_RV dsa_priv_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     CK_ATTRIBUTE *value_attr = NULL;
     CK_ATTRIBUTE *type_attr = NULL;
     CK_RV rc;
-
-    if (mode)
-        prime_attr = NULL;
 
     priv_key_set_default_attributes(tmpl, mode);
 
@@ -4088,9 +4074,6 @@ CK_RV ecdsa_publ_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     CK_ATTRIBUTE *type_attr = NULL;
     CK_RV rc;
 
-    if (mode)
-        params_attr = NULL;
-
     publ_key_set_default_attributes(tmpl, mode);
 
     type_attr =
@@ -4293,9 +4276,6 @@ CK_RV ecdsa_priv_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     CK_ATTRIBUTE *value_attr = NULL;
     CK_ATTRIBUTE *type_attr = NULL;
     CK_RV rc;
-
-    if (mode)
-        params_attr = NULL;
 
     priv_key_set_default_attributes(tmpl, mode);
 
@@ -4598,9 +4578,6 @@ CK_RV dh_publ_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     CK_ATTRIBUTE *value_attr = NULL;
     CK_ATTRIBUTE *type_attr = NULL;
     CK_RV rc;
-
-    if (mode)
-        prime_attr = NULL;
 
     publ_key_set_default_attributes(tmpl, mode);
 
@@ -5898,11 +5875,6 @@ CK_RV generic_secret_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     CK_ULONG len = 0L;
     CK_RV rc;
 
-    if (mode) {
-        value_attr = NULL;
-        id_attr = NULL;
-    }
-
     /* First set the Common Key Attributes's defaults for Generic Secret Keys */
 
     id_attr = (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE));
@@ -6461,9 +6433,6 @@ CK_RV des_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     CK_ATTRIBUTE *type_attr = NULL;
     CK_RV rc;
 
-    if (mode)
-        value_attr = NULL;
-
     secret_key_set_default_attributes(tmpl, mode);
 
     value_attr = (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE));
@@ -6690,9 +6659,6 @@ CK_RV des2_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     CK_ATTRIBUTE *type_attr = NULL;
     CK_RV rc;
 
-    if (mode)
-        value_attr = NULL;
-
     secret_key_set_default_attributes(tmpl, mode);
 
     value_attr = (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE));
@@ -6838,9 +6804,6 @@ CK_RV des3_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     CK_ATTRIBUTE *value_attr = NULL;
     CK_ATTRIBUTE *type_attr = NULL;
     CK_RV rc;
-
-    if (mode)
-        value_attr = NULL;
 
     secret_key_set_default_attributes(tmpl, mode);
 
@@ -7046,9 +7009,6 @@ CK_RV aes_set_default_attributes(TEMPLATE *tmpl, TEMPLATE *basetmpl,
     CK_ATTRIBUTE *len_attr = NULL;
     CK_ULONG keysize;
     CK_RV rc;
-
-    if (mode)
-        value_attr = NULL;
 
     secret_key_set_default_attributes(tmpl, mode);
 

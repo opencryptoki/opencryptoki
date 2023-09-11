@@ -55,10 +55,7 @@ CK_RV data_object_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     CK_ATTRIBUTE *objid_attr = NULL;
     CK_RV rc;
 
-    // satisfy the compiler
-    //
-    if (mode)
-        app_attr = NULL;
+    UNUSED(mode);
 
     // add the default CKO_DATA attributes
     //
