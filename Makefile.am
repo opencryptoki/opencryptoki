@@ -183,6 +183,7 @@ if ENABLE_CCATOK
 	if test -d $(DESTDIR)/$(libdir)/opencryptoki/stdll; then \
 		cd $(DESTDIR)/$(libdir)/opencryptoki/stdll && \
 		rm -f PKCS11_CCA.so; fi
+	rm -f $(DESTDIR)$(sysconfdir)/opencryptoki/ccatok.conf 
 endif
 if ENABLE_EP11TOK
 	if test -d $(DESTDIR)$(libdir)/opencryptoki/stdll; then \
