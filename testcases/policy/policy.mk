@@ -6,7 +6,7 @@ testcases_policy_policytest_SOURCES = testcases/policy/policytest.c
 
 noinst_SCRIPTS += testcases/policy/policytest.sh
 CLEANFILES += testcases/policy/policytest.sh
-EXTRA_DIST += testcases/policy/policytest.sh
+EXTRA_DIST += testcases/policy/policytest.sh.in
 
 testcases/policy/policytest.sh: testcases/policy/policytest.sh.in
 	$(AM_V_GEN)@SED@	-e s!\@sysconfdir\@!"@sysconfdir@"!g	\

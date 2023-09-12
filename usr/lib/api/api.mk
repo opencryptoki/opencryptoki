@@ -1,7 +1,8 @@
 nobase_lib_LTLIBRARIES += opencryptoki/libopencryptoki.la
 
 noinst_HEADERS += usr/lib/api/apiproto.h usr/lib/api/policy.h		\
-	usr/lib/api/statistics.h
+	usr/lib/api/statistics.h usr/lib/api/hashmap.h			\
+	usr/lib/api/mechtable.h usr/lib/api/supportedstrengths.h
 
 SO_CURRENT=0
 SO_REVISION=0

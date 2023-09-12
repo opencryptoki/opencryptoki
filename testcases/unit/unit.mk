@@ -8,6 +8,9 @@ TESTS = testcases/unit/policytest testcases/unit/hashmaptest		\
 	testcases/unit/buffertest testcases/unit/uritest		\
 	testcases/unit/pintest.sh
 
+EXTRA_DIST += testcases/unit/pintest.sh
+noinst_HEADERS += testcases/unit/unittest.h
+
 testcases_unit_policytest_CFLAGS=-I${top_srcdir}/usr/lib/common		\
 	-I${top_srcdir}/usr/lib/api -I${top_srcdir}/usr/include		\
 	-DSTDLL_NAME=\"policytest\" -I${top_srcdir}/usr/lib/config	\
@@ -58,7 +61,9 @@ testcases_unit_uritest_SOURCES=testcases/unit/uritest.c		\
 	usr/lib/common/p11util.c
 
 testcases_unit_uritest_CFLAGS=-I${top_srcdir}/usr/lib/common	\
-	-I${top_srcdir}/usr/include -I${top_builddir}/usr/lib/api
+	-I${top_srcdir}/usr/include -I${top_builddir}/usr/lib/api \
+	-I${srcdir}/usr/lib/common -I${srcdir}/usr/include 	\
+	-I${srcdir}/usr/lib/api
 
 testcases_unit_pintest_SOURCES=testcases/unit/pintest.c		\
 	usr/lib/common/buffer.c usr/lib/common/pin_prompt.c

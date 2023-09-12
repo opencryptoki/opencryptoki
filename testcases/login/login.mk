@@ -3,6 +3,8 @@ noinst_PROGRAMS +=							\
 	testcases/login/set_pin testcases/login/init_pin		\
 	testcases/login/digest_init testcases/login/login_flags_test
 
+EXTRA_DIST += testcases/login/login_test.sh
+
 testcases_login_login_CFLAGS = ${testcases_inc}
 testcases_login_login_LDADD = testcases/common/libcommon.la
 testcases_login_login_SOURCES =						\

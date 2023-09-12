@@ -1,4 +1,5 @@
-noinst_HEADERS += usr/lib/config/configuration.h usr/lib/config/cfglex.h usr/lib/config/cfgparse.h
+noinst_HEADERS += usr/lib/config/configuration.h usr/lib/config/cfglex.h 	\
+	usr/lib/config/cfgparse.h usr/lib/config/cfgparser.h
 
 EXTRA_DIST += usr/lib/config/cfgparse.y usr/lib/config/cfglex.l
 

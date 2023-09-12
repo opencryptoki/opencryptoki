@@ -1,6 +1,8 @@
 sbin_PROGRAMS += usr/sbin/p11sak/p11sak
 noinst_HEADERS += usr/sbin/p11sak/p11sak.h
 
+EXTRA_DIST += usr/sbin/p11sak/p11sak_defined_attrs.conf
+
 usr_sbin_p11sak_p11sak_LDFLAGS = -ldl -lcrypto
 
 usr_sbin_p11sak_p11sak_CFLAGS = -DLINUX -DPROGRAM_NAME=\"$(@)\"		\
