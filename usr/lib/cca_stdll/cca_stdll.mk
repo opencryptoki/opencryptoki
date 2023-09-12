@@ -1,5 +1,7 @@
 nobase_lib_LTLIBRARIES += opencryptoki/stdll/libpkcs11_cca.la
 
+EXTRA_DIST += usr/lib/cca_stdll/ccatok.conf
+
 noinst_HEADERS +=							\
 	usr/lib/cca_stdll/defs.h usr/lib/cca_stdll/csulincl.h		\
 	usr/lib/cca_stdll/cca_stdll.h usr/lib/cca_stdll/cca_func.h	\

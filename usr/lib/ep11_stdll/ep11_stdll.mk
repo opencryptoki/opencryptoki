@@ -1,5 +1,7 @@
 nobase_lib_LTLIBRARIES += opencryptoki/stdll/libpkcs11_ep11.la
 
+EXTRA_DIST += usr/lib/ep11_stdll/ep11tok.conf usr/lib/ep11_stdll/ep11cpfilter.conf
+
 noinst_HEADERS +=							\
 	usr/lib/ep11_stdll/ep11.h usr/lib/ep11_stdll/ep11adm.h 		\
 	usr/lib/ep11_stdll/ep11_func.h usr/lib/ep11_stdll/ep11_specific.h \

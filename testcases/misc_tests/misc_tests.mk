@@ -10,6 +10,37 @@ noinst_PROGRAMS +=							\
 	testcases/misc_tests/cca_export_import_test			\
 	testcases/misc_tests/events testcases/misc_tests/dual_functions
 
+EXTRA_DIST += testcases/misc_tests/dh-key.pem				\
+	testcases/misc_tests/dsa-key.pem				\
+	testcases/misc_tests/dsa-param.pem				\
+	testcases/misc_tests/ec-key-prime256v1.pem			\
+	testcases/misc_tests/ec-key-secp521r1.pem			\
+	testcases/misc_tests/ed25519-private-key.pem			\
+	testcases/misc_tests/ed25519-public-key.pem			\
+	testcases/misc_tests/ibm-dilithium-key.pem			\
+	testcases/misc_tests/ibm-kyber-key.pem				\
+	testcases/misc_tests/p11sak_dsa3072cert.pem			\
+	testcases/misc_tests/p11sak_dsa4096cert.pem			\
+	testcases/misc_tests/p11sak_ecp256cert.pem			\
+	testcases/misc_tests/p11sak_ecp384cert.pem			\
+	testcases/misc_tests/p11sak_ecp521cert.pem			\
+	testcases/misc_tests/p11sak_rsa2048cert.pem			\
+	testcases/misc_tests/p11sak_rsa4096cert.pem			\
+	testcases/misc_tests/rsa-key.pem				\
+	testcases/misc_tests/aes.key					\
+	testcases/misc_tests/p11sak_dsa3072cert.crt			\
+	testcases/misc_tests/p11sak_dsa4096cert.crt			\
+	testcases/misc_tests/p11sak_ecp256cert.crt			\
+	testcases/misc_tests/p11sak_ecp384cert.crt			\
+	testcases/misc_tests/p11sak_ecp521cert.crt			\
+	testcases/misc_tests/p11sak_rsa2048cert.crt			\
+	testcases/misc_tests/p11sak_rsa4096cert.crt			\
+	testcases/misc_tests/migration.sh				\
+	testcases/misc_tests/p11sak_test.sh				\
+	testcases/misc_tests/pkcsconf_test.sh				\
+	testcases/misc_tests/spinlock_tests.sh				\
+	testcases/misc_tests/spinlock_child.sh
+
 testcases_misc_tests_obj_mgmt_tests_CFLAGS = ${testcases_inc}
 testcases_misc_tests_obj_mgmt_tests_LDADD =				\
 	testcases/common/libcommon.la
