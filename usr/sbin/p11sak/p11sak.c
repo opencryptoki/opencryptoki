@@ -264,6 +264,9 @@ static void print_x509_name_attr(const char *attr, const CK_ATTRIBUTE *val,
                                  int indent, bool sensitive);
 static void print_x509_attr(const char *attr, const CK_ATTRIBUTE *val,
                             int indent, bool sensitive);
+static void print_x509_serial_number_attr(const char *attr,
+                                          const CK_ATTRIBUTE *val,
+                                          int indent, bool sensitive);
 static void print_byte_array_attr(const char *attr, const CK_ATTRIBUTE *val,
                                   int indent, bool sensitive);
 static void print_ulong_attr(const char *attr, const CK_ATTRIBUTE *val,
@@ -330,7 +333,7 @@ static const struct p11sak_attr p11sak_x509_attrs[] = {
       .print_long = print_x509_name_attr, },
     { .name = "CKA_SERIAL_NUMBER", .type = CKA_SERIAL_NUMBER,
       .secret = true, .public = false, .private = false, .settable = true,
-      .print_long = print_byte_array_attr, },
+      .print_long = print_x509_serial_number_attr, },
     { .name = "CKA_VALUE", .type = CKA_VALUE,
       .secret = true, .public = false, .private = false, .settable = true,
       .print_long = print_x509_attr, },
@@ -5056,6 +5059,50 @@ static void print_x509_attr(const char *attr, const CK_ATTRIBUTE *val,
         X509_free(x509);
 }
 
+static void print_x509_serial_number_attr(const char *attr,
+                                          const CK_ATTRIBUTE *val,
+                                          int indent, bool sensitive)
+{
+    ASN1_INTEGER *serialno = NULL;
+    const unsigned char *tmp_ptr;
+    BIGNUM *bn_serialno = NULL;
+    CK_BYTE *serial_buf = NULL;
+    CK_ULONG serial_len;
+
+    if (sensitive) {
+        printf("%*s%s: [sensitive]\n", indent, "", attr);
+        return;
+    } else if (val->ulValueLen == 0) {
+        printf("%*s%s: [no value]\n", indent, "", attr);
+        return;
+    }
+
+    tmp_ptr = (const unsigned char *)val->pValue;
+    serialno = d2i_ASN1_INTEGER(NULL, &tmp_ptr, val->ulValueLen);
+    if (serialno != NULL &&
+        (bn_serialno = ASN1_INTEGER_to_BN(serialno, NULL)) != NULL) {
+        serial_len = BN_num_bytes(bn_serialno);
+        serial_buf = OPENSSL_malloc(serial_len);
+        if (serial_buf != NULL &&
+            BN_bn2bin(bn_serialno, serial_buf) == (int)serial_len) {
+            printf("%*s%s: len=%lu value:", indent, "", attr,
+                   serial_len);
+            print_dump(serial_buf, serial_len, indent + 4);
+        } else {
+            print_byte_array_attr(attr, val, indent, false);
+        }
+    } else {
+        print_byte_array_attr(attr, val, indent, false);
+    }
+
+    if (bn_serialno != NULL)
+        BN_free(bn_serialno);
+    if (serial_buf != NULL)
+        OPENSSL_free(serial_buf);
+    if (serialno != NULL)
+        ASN1_INTEGER_free(serialno);
+}
+
 static void print_ulong_attr(const char *attr, const CK_ATTRIBUTE *val,
                              int indent, bool sensitive)
 {
@@ -6611,7 +6658,7 @@ static CK_RV p11sak_import_cert_attrs(const struct p11sak_objtype *certtype,
     CK_DATE start_date, end_date;
     EVP_PKEY *pkey = NULL;
     CK_BYTE *spki = NULL;
-    CK_ULONG spki_len, value_len;
+    int spki_len, value_len;
     EVP_MD_CTX *ctx = NULL;
     unsigned int digest_len;
     CK_RV rc = CKR_OK;
@@ -6706,9 +6753,8 @@ static CK_RV p11sak_import_x509_attrs(const struct p11sak_objtype *certtype,
                                       X509 *x509, CK_ATTRIBUTE **attrs,
                                       CK_ULONG *num_attrs)
 {
-    const ASN1_INTEGER *serialno;
+    ASN1_INTEGER *serialno;
     unsigned char *serial_buf = NULL;
-    BIGNUM *bn_serialno = NULL;
     X509_NAME *name;
     const unsigned char *subj_name = NULL, *issuer_name = NULL;
     size_t subj_name_len, issuer_name_len;
@@ -6716,7 +6762,8 @@ static CK_RV p11sak_import_x509_attrs(const struct p11sak_objtype *certtype,
     EVP_PKEY *pkey = NULL;
     unsigned char *spki = NULL;
     unsigned char spki_hash[32];
-    CK_ULONG spki_len, spki_hash_len, serial_len, value_len;
+    CK_ULONG spki_hash_len;
+    int spki_len, serial_len, value_len;
     EVP_MD_CTX *ctx = NULL;
     CK_MECHANISM_TYPE name_hash_algo = CKM_SHA256;
     unsigned int hash_len;
@@ -6744,19 +6791,11 @@ static CK_RV p11sak_import_x509_attrs(const struct p11sak_objtype *certtype,
 
     /* CKA_SERIAL_NUMBER: serial number */
     serialno = X509_get_serialNumber(x509);
-    bn_serialno = ASN1_INTEGER_to_BN(serialno, NULL);
-    serial_len = BN_num_bytes(bn_serialno);
-    serial_buf = OPENSSL_malloc(serial_len);
-    if (serial_buf == NULL) {
-        warnx("OPENSSL_malloc failed to allocate a buffer for the certificate's serial no");
+    serial_len = i2d_ASN1_INTEGER(serialno, &serial_buf);
+    if (serial_len <= 0 || serial_buf == NULL) {
+        warnx("i2d_ASN1_INTEGER failed for the certificate's serial no");
         ERR_print_errors_cb(openssl_err_cb, NULL);
         rc = CKR_HOST_MEMORY;
-        goto done;
-    }
-    if (BN_bn2bin(bn_serialno, serial_buf) != (int)serial_len) {
-        warnx("OpenSSL BN_bn2bin failed to get the serial no length");
-        ERR_print_errors_cb(openssl_err_cb, NULL);
-        rc = CKR_FUNCTION_FAILED;
         goto done;
     }
 
@@ -6829,8 +6868,6 @@ done:
         EVP_PKEY_free(pkey);
     if (ctx != NULL)
         EVP_MD_CTX_free(ctx);
-    if (bn_serialno!= NULL)
-        BN_free(bn_serialno);
 
     return rc;
 }
