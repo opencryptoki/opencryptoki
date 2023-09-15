@@ -876,12 +876,38 @@ static int is_numeric_attr(CK_ULONG type)
     case CKA_CLASS:
     case CKA_KEY_TYPE:
     case CKA_CERTIFICATE_TYPE:
+    case CKA_HW_FEATURE_TYPE:
     case CKA_KEY_GEN_MECHANISM:
     case CKA_VALUE_LEN:
+    case CKA_VALUE_BITS:
     case CKA_MODULUS_BITS:
+    case CKA_PRIME_BITS:
+    case CKA_SUBPRIME_BITS:
+    case CKA_CERTIFICATE_CATEGORY:
+    case CKA_JAVA_MIDP_SECURITY_DOMAIN:
         return 1;
     }
     return 0;
+}
+
+static CK_RV find_ulong_attribute(CK_ATTRIBUTE *attrs, CK_ULONG attrs_len,
+                                  CK_ATTRIBUTE_TYPE type, CK_ULONG *value)
+{
+    CK_ULONG i;
+
+    for (i = 0; i < attrs_len; i++) {
+        if (attrs[i].type == type) {
+            /* Check size */
+            if (attrs[i].ulValueLen != sizeof(*value) ||
+                attrs[i].pValue == NULL)
+                return CKR_ATTRIBUTE_VALUE_INVALID;
+
+            /* Get value */
+            *value = *((CK_ULONG *) attrs[i].pValue);
+        }
+    }
+
+    return CKR_FUNCTION_FAILED;
 }
 
 /*
@@ -906,8 +932,30 @@ static int icsf_ber_put_attribute_list(BerElement * ber, CK_ATTRIBUTE * attrs,
                                        CK_ULONG attrs_len)
 {
     size_t i;
+    CK_OBJECT_CLASS class = CK_UNAVAILABLE_INFORMATION;
+
+    find_ulong_attribute(attrs, attrs_len, CKA_CLASS, &class);
 
     for (i = 0; i < attrs_len; i++) {
+        /* Filter attributes not supported by ICSF */
+        switch (class) {
+        case CKO_CERTIFICATE:
+            switch (attrs[i].type) {
+            case CKA_START_DATE:
+            case CKA_END_DATE:
+            case CKA_PUBLIC_KEY_INFO:
+            case CKA_CHECK_VALUE:
+            case CKA_NAME_HASH_ALGORITHM:
+            case CKA_HASH_OF_SUBJECT_PUBLIC_KEY:
+                continue; /* ignore this attribute */
+            default:
+                break;
+            }
+            break;
+        default:
+            break;
+        }
+
         if (!is_numeric_attr(attrs[i].type)) {
             /* Non numeric attributes are encode as octet strings */
             if (attrs[i].type & CKA_VENDOR_DEFINED)
