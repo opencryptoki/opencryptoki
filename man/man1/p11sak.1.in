@@ -1551,7 +1551,7 @@ option.
 .IR ATTRS ]
 .BR \-\-file | \-F
 .I FILENAME
-.RB [ \-\-ca-cert | \-C ]
+.RB [ \-\-ca\-cert | \-C ]
 .RB [ \-\-help | \-h ]
 .PP
 Use the
@@ -1594,8 +1594,10 @@ imported. Supported input formats are PEM and binary (DER-encoded). The format
 is automatically detected.
 .PP
 The
-.BR \-\-ca-cert | \-C
+.BR \-\-ca\-cert | \-C
 option flags the certificate as a Certificate Authority (CA) certificate.
+If the certificate has the \fBBasicConstraints CA\fP flag on, it is also flagged
+as Certificate Authority (CA) certificate.
 .
 .SS "Exporting certificates to a file"
 .
@@ -2381,8 +2383,10 @@ tool and then exits.
 .
 .
 .TP 8
-.BR \-\-ca-cert | \-C
+.BR \-\-ca\-cert | \-C
 Flag the certificate as a Certificate Authority (CA) certificate.
+If the certificate has the \fBBasicConstraints CA\fP flag on, it is also flagged
+as Certificate Authority (CA) certificate.
 .RE
 .PP
 .
