@@ -35,6 +35,7 @@
 #include <openssl/ec.h>
 #include <openssl/pem.h>
 #include <openssl/err.h>
+#include <openssl/x509v3.h>
 
 #define P11SAK_DECLARE_CURVES
 #include "p11sak.h"
@@ -9962,8 +9963,12 @@ static CK_RV p11sak_import_cert(void)
     if (rc != CKR_OK)
         goto done;
 
-    /* Set CA-cert attribute dependent on input option */
-    if (opt_cacert) {
+    /*
+     * Set CA-cert attribute dependent on input option or BasicConstraints CA
+     * flag of the certificate
+     */
+    if (opt_cacert ||
+        (X509_get_extension_flags(x509) & EXFLAG_CA) != 0) {
         cert_category = CK_CERTIFICATE_CATEGORY_AUTHORITY;
         rc = add_attribute(CKA_CERTIFICATE_CATEGORY, &cert_category,
                            sizeof(CK_CERTIFICATE_CATEGORY), &attrs, &num_attrs);
