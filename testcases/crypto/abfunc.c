@@ -20,7 +20,7 @@
 #include "mech_to_str.h"
 #include "ec_curves.h"
 
-#define NUMKEYS 15
+#define NUMKEYS 16
 
 struct keys {
     union keysunion {
