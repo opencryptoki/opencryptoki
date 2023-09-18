@@ -359,7 +359,7 @@ static CK_RV cca_des_data_export_import_tests(void)
     CK_BYTE key[] = { 0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef };
     CK_BYTE iv[] = { 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08 };
     CK_MECHANISM mech = { CKM_DES_CBC, iv, sizeof(iv) };
-    CK_OBJECT_HANDLE hkey, hikey;
+    CK_OBJECT_HANDLE hkey = CK_INVALID_HANDLE, hikey = CK_INVALID_HANDLE;
     CK_BYTE data[80], encdata1[80], encdata2[80];
     CK_ULONG ilen, len;
     CK_BYTE *opaquekey = NULL;
@@ -456,6 +456,10 @@ static CK_RV cca_des_data_export_import_tests(void)
 testcase_cleanup:
     testcase_close_session();
     free(opaquekey);
+    if (hkey != CK_INVALID_HANDLE)
+        funcs->C_DestroyObject(session, hkey);
+    if (hikey != CK_INVALID_HANDLE)
+        funcs->C_DestroyObject(session, hikey);
 out:
     return rc;
 }
@@ -473,7 +477,7 @@ static CK_RV cca_des3_data_export_import_tests(void)
                       0xa7, 0x54, 0xd6, 0x5e, 0x8a, 0xe9, 0x97, 0xe3 };
     CK_BYTE iv[] = { 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08 };
     CK_MECHANISM mech = { CKM_DES3_CBC, iv, sizeof(iv) };
-    CK_OBJECT_HANDLE hkey, hikey;
+    CK_OBJECT_HANDLE hkey = CK_INVALID_HANDLE, hikey = CK_INVALID_HANDLE;
     CK_BYTE data[80], encdata1[80], encdata2[80];
     CK_ULONG ilen, len;
     CK_BYTE *opaquekey = NULL;
@@ -570,6 +574,10 @@ static CK_RV cca_des3_data_export_import_tests(void)
 testcase_cleanup:
     testcase_close_session();
     free(opaquekey);
+    if (hkey != CK_INVALID_HANDLE)
+        funcs->C_DestroyObject(session, hkey);
+    if (hikey != CK_INVALID_HANDLE)
+        funcs->C_DestroyObject(session, hikey);
 out:
     return rc;
 }
@@ -588,7 +596,7 @@ static CK_RV cca_aes_data_export_import_tests(void)
     CK_BYTE iv[] = { 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
                      0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f };
     CK_MECHANISM mech = { CKM_AES_CBC, iv, sizeof(iv) };
-    CK_OBJECT_HANDLE hkey, hikey;
+    CK_OBJECT_HANDLE hkey = CK_INVALID_HANDLE, hikey = CK_INVALID_HANDLE;
     CK_BYTE data[160], encdata1[160], encdata2[160];
     CK_ULONG ilen, len;
     CK_BYTE *opaquekey = NULL;
@@ -688,6 +696,14 @@ static CK_RV cca_aes_data_export_import_tests(void)
 error:
         free(opaquekey);
         opaquekey = NULL;
+        if (hkey != CK_INVALID_HANDLE) {
+            funcs->C_DestroyObject(session, hkey);
+            hkey = CK_INVALID_HANDLE;
+        }
+        if (hikey != CK_INVALID_HANDLE) {
+            funcs->C_DestroyObject(session, hikey);
+            hikey = CK_INVALID_HANDLE;
+        }
     }
 
 testcase_cleanup:
@@ -714,7 +730,7 @@ static CK_RV cca_aes_xts_data_export_import_tests(void)
     CK_BYTE iv[] = { 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
                      0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f };
     CK_MECHANISM mech = { CKM_AES_XTS, iv, sizeof(iv) };
-    CK_OBJECT_HANDLE hkey, hikey;
+    CK_OBJECT_HANDLE hkey = CK_INVALID_HANDLE, hikey = CK_INVALID_HANDLE;
     CK_BYTE data[160], encdata1[160], encdata2[160];
     CK_ULONG ilen, len;
     CK_BYTE *opaquekey = NULL;
@@ -823,6 +839,14 @@ static CK_RV cca_aes_xts_data_export_import_tests(void)
 error:
         free(opaquekey);
         opaquekey = NULL;
+        if (hkey != CK_INVALID_HANDLE) {
+            funcs->C_DestroyObject(session, hkey);
+            hkey = CK_INVALID_HANDLE;
+        }
+        if (hikey != CK_INVALID_HANDLE) {
+            funcs->C_DestroyObject(session, hikey);
+            hikey = CK_INVALID_HANDLE;
+        }
     }
 
 testcase_cleanup:
@@ -843,7 +867,7 @@ static CK_RV cca_aes_cipher_import_tests(void)
     CK_BYTE iv[] = { 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
                      0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f };
     CK_MECHANISM mech = { CKM_AES_CBC, iv, sizeof(iv) };
-    CK_OBJECT_HANDLE hkey;;
+    CK_OBJECT_HANDLE hkey = CK_INVALID_HANDLE;
     CK_BYTE data[160], encdata[160];
     CK_ULONG ilen, len, keylen;
     unsigned int i, keybitlen[] = { 128, 192, 256, 0 };
@@ -913,7 +937,10 @@ static CK_RV cca_aes_cipher_import_tests(void)
         testcase_pass("CCA import test with AES%u cipher key: ok", keybitlen[i]);
 
 error:
-        ;
+        if (hkey != CK_INVALID_HANDLE) {
+            funcs->C_DestroyObject(session, hkey);
+            hkey = CK_INVALID_HANDLE;
+        }
     }
 
 testcase_cleanup:
@@ -931,7 +958,7 @@ static CK_RV cca_hmac_data_export_import_tests(void)
     CK_BYTE user_pin[PKCS11_MAX_PIN_LEN];
     CK_ULONG user_pin_len;
     CK_BYTE key[512] = { 0x00 };
-    CK_OBJECT_HANDLE hkey, hikey;
+    CK_OBJECT_HANDLE hkey = CK_INVALID_HANDLE, hikey = CK_INVALID_HANDLE;
     CK_MECHANISM mech = { CKM_SHA_1_HMAC, 0, 0 };
     CK_BYTE data[4096], mac1[4096], mac2[4096];
     CK_BYTE *opaquekey = NULL;
@@ -1040,6 +1067,14 @@ static CK_RV cca_hmac_data_export_import_tests(void)
 error:
         free(opaquekey);
         opaquekey = NULL;
+        if (hkey != CK_INVALID_HANDLE) {
+            funcs->C_DestroyObject(session, hkey);
+            hkey = CK_INVALID_HANDLE;
+        }
+        if (hikey != CK_INVALID_HANDLE) {
+            funcs->C_DestroyObject(session, hikey);
+            hikey = CK_INVALID_HANDLE;
+        }
     }
 
 testcase_cleanup:
@@ -1056,8 +1091,8 @@ static CK_RV cca_rsa_export_import_tests(void)
     CK_BYTE user_pin[PKCS11_MAX_PIN_LEN];
     CK_ULONG user_pin_len;
     CK_BYTE exp[] = { 0x01, 0x00, 0x01 };
-    CK_OBJECT_HANDLE publ_key, priv_key;
-    CK_OBJECT_HANDLE imp_priv_key, imp_publ_key;
+    CK_OBJECT_HANDLE publ_key = CK_INVALID_HANDLE, priv_key = CK_INVALID_HANDLE;
+    CK_OBJECT_HANDLE imp_priv_key = CK_INVALID_HANDLE, imp_publ_key = CK_INVALID_HANDLE;
     CK_BYTE msg[512], sig[512];
     CK_ULONG msglen, siglen;
     CK_MECHANISM mech = {CKM_RSA_PKCS, 0, 0};
@@ -1259,6 +1294,23 @@ error:
         priv_opaquekey = NULL;
         free(publ_opaquekey);
         publ_opaquekey = NULL;
+
+        if (publ_key != CK_INVALID_HANDLE) {
+            funcs->C_DestroyObject(session, publ_key);
+            publ_key = CK_INVALID_HANDLE;
+        }
+        if (priv_key != CK_INVALID_HANDLE) {
+            funcs->C_DestroyObject(session, priv_key);
+            priv_key = CK_INVALID_HANDLE;
+        }
+        if (imp_publ_key != CK_INVALID_HANDLE) {
+            funcs->C_DestroyObject(session, imp_publ_key);
+            imp_publ_key = CK_INVALID_HANDLE;
+        }
+        if (imp_priv_key != CK_INVALID_HANDLE) {
+            funcs->C_DestroyObject(session, imp_priv_key);
+            imp_priv_key = CK_INVALID_HANDLE;
+        }
     }
 
 testcase_cleanup:
@@ -1331,8 +1383,8 @@ static CK_RV cca_ecc_export_import_tests(void)
     CK_SESSION_HANDLE session;
     CK_BYTE user_pin[PKCS11_MAX_PIN_LEN];
     CK_ULONG user_pin_len;
-    CK_OBJECT_HANDLE publ_key, priv_key;
-    CK_OBJECT_HANDLE imp_priv_key, imp_publ_key;
+    CK_OBJECT_HANDLE publ_key = CK_INVALID_HANDLE, priv_key = CK_INVALID_HANDLE;
+    CK_OBJECT_HANDLE imp_priv_key = CK_INVALID_HANDLE, imp_publ_key = CK_INVALID_HANDLE;
     CK_BYTE msg[32], sig[256];
     CK_ULONG msglen, siglen;
     CK_MECHANISM mech = { CKM_ECDSA, 0, 0};
@@ -1533,6 +1585,23 @@ error:
         priv_opaquekey = NULL;
         free(publ_opaquekey);
         publ_opaquekey = NULL;
+
+        if (publ_key != CK_INVALID_HANDLE) {
+            funcs->C_DestroyObject(session, publ_key);
+            publ_key = CK_INVALID_HANDLE;
+        }
+        if (priv_key != CK_INVALID_HANDLE) {
+            funcs->C_DestroyObject(session, priv_key);
+            priv_key = CK_INVALID_HANDLE;
+        }
+        if (imp_publ_key != CK_INVALID_HANDLE) {
+            funcs->C_DestroyObject(session, imp_publ_key);
+            imp_publ_key = CK_INVALID_HANDLE;
+        }
+        if (imp_priv_key != CK_INVALID_HANDLE) {
+            funcs->C_DestroyObject(session, imp_priv_key);
+            imp_priv_key = CK_INVALID_HANDLE;
+        }
     }
 
 testcase_cleanup:
