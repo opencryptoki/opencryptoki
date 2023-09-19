@@ -1025,7 +1025,7 @@ static int parseArgs(int argc, char **argv, CK_SLOT_ID *slot,
             break;
         case 'h':
             usage(argv[0]);
-            return 0;
+            return 1;
         default:
             usage(argv[0]);
             return -1;
