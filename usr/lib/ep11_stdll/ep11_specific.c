@@ -505,8 +505,8 @@ repeat:
                         NULL, 0, NULL, 0, &mech,
                         data->pkey_buf, data->pkey_buflen_p,
                         target | XCP_TGTFL_SET_SCMD);
-    if (ret == CKR_SESSION_CLOSED && retry == FALSE &&
-        data->ep11_session != NULL) {
+    if ((ret == CKR_SESSION_CLOSED || ret == CKR_PIN_INCORRECT) &&
+        retry == FALSE && data->ep11_session != NULL) {
         /* Re-login the EP11 session and retry once */
         ret = ep11_login_handler(adapter, domain, data->ep11_session);
         if (ret == CKR_OK) {
@@ -534,8 +534,8 @@ repeat2:
                             NULL, 0, NULL, 0, &mech,
                             data->pkey_buf2, data->pkey_buflen_p2,
                             target | XCP_TGTFL_SET_SCMD);
-        if (ret == CKR_SESSION_CLOSED && retry == FALSE &&
-            data->ep11_session != NULL) {
+        if ((ret == CKR_SESSION_CLOSED || ret == CKR_PIN_INCORRECT) &&
+            retry == FALSE && data->ep11_session != NULL) {
             /* Re-login the EP11 session and retry once */
             ret = ep11_login_handler(adapter, domain, data->ep11_session);
             if (ret == CKR_OK) {

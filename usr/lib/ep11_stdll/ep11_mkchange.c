@@ -125,7 +125,8 @@ retry:
         rc = dll_m_admin(resp, &resp_len, NULL, 0, req, req_len, NULL, 0,
                          (*target_info)->target);
 
-        if (session != NULL && rc == CKR_SESSION_CLOSED) {
+        if (session != NULL &&
+            (rc == CKR_SESSION_CLOSED || rc == CKR_PIN_INCORRECT)) {
             rc = ep11tok_relogin_session(tokdata, session);
             if (rc != CKR_OK)
                 break;
@@ -142,7 +143,8 @@ retry:
         return CKR_FUNCTION_FAILED;
     }
 
-    if (session != NULL && rc == CKR_SESSION_CLOSED &&
+    if (session != NULL &&
+        (rc == CKR_SESSION_CLOSED || rc == CKR_PIN_INCORRECT) &&
         retry_count < MAX_RETRY_COUNT) {
         rc = ep11tok_relogin_session(tokdata, session);
         if (rc == CKR_OK) {
