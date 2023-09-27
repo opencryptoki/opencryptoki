@@ -556,8 +556,8 @@ CK_RV ep11tok_set_operation_state(STDLL_TokData_t *tokdata, SESSION *session);
  * Obtain a target_info to be used with the EP11 library call.
  * If in single-APQN mode, and that APQN went offline, select another APQN and
  * retry the library call.
- * In case of EP11 library function failed with CKR_SESSION_CLOSED, relogin
- * all APQNs and retry the library call.
+ * In case of EP11 library function failed with CKR_SESSION_CLOSED or
+ * CKR_PIN_INCORRECT, relogin all APQNs and retry the library call.
  */
 #define RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)                     \
                 do {                                                     \
@@ -602,7 +602,8 @@ CK_RV ep11tok_set_operation_state(STDLL_TokData_t *tokdata, SESSION *session);
                              }                                           \
                              continue;                                   \
                          }                                               \
-                         if ((rc) != CKR_SESSION_CLOSED)                 \
+                         if ((rc) != CKR_SESSION_CLOSED &&               \
+                             (rc) != CKR_PIN_INCORRECT)                  \
                              break;                                      \
                          rc2 = ep11tok_relogin_session((tokdata),        \
                                                        (session));       \
