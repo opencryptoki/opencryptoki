@@ -992,7 +992,7 @@ static const struct p11sak_opt p11sak_generic_opts[] = {
       .arg =  { .type = ARG_TYPE_STRING, .required = true,                     \
                 .value.string = &opt_attr, .name = "ATTRS", },                 \
       .description = "Filter the key by its boolean attribute values:\n"       \
-                     "P L M B Y R E D G C V O W U S A X N T I (optional). "    \
+                     "P L M B Y R E D G C V O W U S A X N T I K Z (optional). "\
                      "Specify a set of these letters without any blanks in "   \
                      "between. See below for the meaning of the attribute "    \
                      "letters. Attributes that are not specified are not "     \
@@ -1080,7 +1080,7 @@ static const struct p11sak_opt p11sak_generate_key_opts[] = {
       .arg =  { .type = ARG_TYPE_STRING, .required = true,
                 .value.string = &opt_attr, .name = "ATTRS", },
       .description = "The boolean attributes to set for the key:\n"
-                     "P L M B Y R E D G C V O W U S A X N T I (optional). "
+                     "P M B Y R E D G C V O W U S X T I K (optional). "
                      "Specify a set of these letters without any blanks in "
                      "between. See below for the meaning of the attribute "
                      "letters. For asymmetric keys set individual key "
@@ -1512,7 +1512,7 @@ static const struct p11sak_opt p11sak_set_key_attr_opts[] = {
       .arg =  { .type = ARG_TYPE_STRING, .required = true,
                 .value.string = &opt_new_attr, .name = "ATTRS", },
       .description = "The boolean attributes to set for the key (optional):\n"
-                     "P L M B Y R E D G C V O W U S A X N T I. "
+                     "P M B Y R E D G C V O W U S X T I K. "
                      "Specify a set of these letters without any blanks in "
                      "between. See below for the meaning of the attribute "
                      "letters. Restrictions on attribute values may apply.", },
@@ -1663,7 +1663,7 @@ static const struct p11sak_opt p11sak_import_key_opts[] = {
       .arg =  { .type = ARG_TYPE_STRING, .required = true,
                 .value.string = &opt_attr, .name = "ATTRS", },
       .description = "The boolean attributes to set for the key:\n"
-                     "P L M B Y R E D G C V O W U S A X N T I (optional). "
+                     "P M B Y R E D G C V O W U S X T I K (optional). "
                      "Specify a set of these letters without any blanks in "
                      "between. See below for the meaning of the attribute "
                      "letters.", },
@@ -1865,7 +1865,7 @@ static const struct p11sak_opt p11sak_extract_pubkey_opts[] = {
       .arg =  { .type = ARG_TYPE_STRING, .required = true,
                 .value.string = &opt_new_attr, .name = "ATTRS", },
       .description = "The boolean attributes to set for the extracted public "
-                     "key (optional): P L M B Y R E D G C V O W U S A X N T I. "
+                     "key (optional): P M B Y R E D G C V O W U S X T I K. "
                      "Specify a set of these letters without any blanks in "
                      "between. See below for the meaning of the attribute "
                      "letters. Restrictions on attribute values may apply.", },
@@ -1923,7 +1923,7 @@ static const struct p11sak_opt p11sak_extract_cert_pubkey_opts[] = {
       .arg =  { .type = ARG_TYPE_STRING, .required = true,
                 .value.string = &opt_new_attr, .name = "ATTRS", },
       .description = "The boolean attributes to set for the extracted public "
-                     "key (optional): P L M B Y R E D G C V O W U S A X N T I. "
+                     "key (optional): P M B Y R E D G C V O W U S X T I K. "
                      "Specify a set of these letters without any blanks in "
                      "between. See below for the meaning of the attribute "
                      "letters. Restrictions on attribute values may apply.", },
@@ -2819,7 +2819,8 @@ static void print_set_copy_extract_key_attr_help(void)
 
     printf("    ");
     print_indented("Keys can be filtered by all attributes, setting "
-                   "is possible for all except L A N T Z.\n"
+                   "is possible for all except L A N Z. T can be set to TRUE "
+                   "by SO only.\n"
                    "An uppercase letter sets the corresponding attribute to "
                    "CK_TRUE, a lower case letter to CK_FALSE.\n"
                    "If an attribute is not set explicitly, its value is not "
@@ -2843,7 +2844,8 @@ static void print_set_copy_cert_attr_help(void)
 
     printf("    ");
     print_indented("Certificates can be filtered by all attributes, setting "
-                   "is possible for all except T.\n"
+                   "is also possible for all, but T can be set to TRUE by SO "
+                   "only.\n"
                    "An uppercase letter sets the corresponding attribute to "
                    "CK_TRUE, a lower case letter to CK_FALSE.\n"
                    "If an attribute is not set explicitly, its value is not "
