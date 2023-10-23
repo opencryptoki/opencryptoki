@@ -1,25 +1,3 @@
-TOKENS = swtok
-
-if ENABLE_ICATOK
-TOKENS += lite
-endif
-
-if ENABLE_EP11TOK
-TOKENS += ep11tok
-endif
-
-if ENABLE_TPMTOK
-TOKENS += tpm
-endif
-
-if ENABLE_CCATOK
-TOKENS += ccatok
-endif
-
-if ENABLE_ICSFTOK
-TOKENS += icsf
-endif
-
 EXTRA_DIST += misc/pkcsslotd.in misc/pkcsslotd.service.in 		\
 	misc/tmpfiles.conf.in misc/opencryptoki.pc.in
 	
@@ -49,8 +27,6 @@ ${srcdir}/misc/opencryptoki.conf: ${srcdir}/misc/tmpfiles.conf.in
 	      -e s!\@localstatedir\@!$(localstatedir)!g  \
 	      -e s!\@pkcsslotd_user\@!$(pkcsslotd_user)!g \
 	      -e s!\@pkcs_group\@!$(pkcs_group)!g< $< > $@-t
-	$(foreach TOK,$(TOKENS),\
-		echo "D $(lockdir)/$(TOK) 0770 root $(pkcs_group) -" >> $@-t;)
 	mv $@-t $@
 else
 initddir = $(sysconfdir)/rc.d/init.d
