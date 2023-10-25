@@ -12535,6 +12535,18 @@ CK_BBOOL is_apqn_online(uint_32 card, uint_32 domain)
     if (strcmp(buf, "1") != 0)
         return CK_FALSE;
 
+    sprintf(fname, "%s/card%02x/%02x.%04x/config", SYSFS_DEVICES_AP,
+            card, card, domain);
+    rc = file_fgets(fname, buf, sizeof(buf));
+    if (rc == CKR_OK && strcmp(buf, "1") != 0)
+        return CK_FALSE;
+
+    sprintf(fname, "%s/card%02x/%02x.%04x/chkstop", SYSFS_DEVICES_AP,
+            card, card, domain);
+    rc = file_fgets(fname, buf, sizeof(buf));
+    if (rc == CKR_OK && strcmp(buf, "0") != 0)
+        return CK_FALSE;
+
     return CK_TRUE;
 }
 
@@ -12554,6 +12566,16 @@ static CK_RV is_card_ep11_and_online(const char *name)
     if (rc != CKR_OK)
         return rc;
     if (strcmp(buf, "1") != 0)
+        return CKR_FUNCTION_FAILED;
+
+    sprintf(fname, "%s%s/config", SYSFS_DEVICES_AP, name);
+    rc = file_fgets(fname, buf, sizeof(buf));
+    if (rc == CKR_OK && strcmp(buf, "1") != 0)
+        return CKR_FUNCTION_FAILED;
+
+    sprintf(fname, "%s%s/chkstop", SYSFS_DEVICES_AP, name);
+    rc = file_fgets(fname, buf, sizeof(buf));
+    if (rc == CKR_OK && strcmp(buf, "0") != 0)
         return CKR_FUNCTION_FAILED;
 
     sprintf(fname, "%s%s/ap_functions", SYSFS_DEVICES_AP, name);
