@@ -432,6 +432,16 @@ static CK_RV is_card_ep11_and_online(const char *name)
     if (strcmp(buf, "1") != 0)
         return CKR_FUNCTION_FAILED;
 
+    sprintf(fname, "%s%s/config", SYSFS_DEVICES_AP, name);
+    rc = file_fgets(fname, buf, sizeof(buf));
+    if (rc == CKR_OK && strcmp(buf, "1") != 0)
+        return CKR_FUNCTION_FAILED;
+
+    sprintf(fname, "%s%s/chkstop", SYSFS_DEVICES_AP, name);
+    rc = file_fgets(fname, buf, sizeof(buf));
+    if (rc == CKR_OK && strcmp(buf, "0") != 0)
+        return CKR_FUNCTION_FAILED;
+
     sprintf(fname, "%s%s/ap_functions", SYSFS_DEVICES_AP, name);
     rc = file_fgets(fname, buf, sizeof(buf));
     if (rc != CKR_OK)
