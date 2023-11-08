@@ -2950,6 +2950,7 @@ CK_RV C_Initialize(CK_VOID_PTR pVoid)
     CK_SLOT_ID slotID;
     API_Slot_t *sltp;
     CK_ULONG stat_flags = 0;
+    API_Proc_Struct_t *before_anchor;
 
     /*
      * Lock so that only one thread can run C_Initialize or C_Finalize at
@@ -2958,6 +2959,37 @@ CK_RV C_Initialize(CK_VOID_PTR pVoid)
     if (pthread_mutex_lock(&GlobMutex)) {
         TRACE_ERROR("Global Mutex Lock failed.\n");
         return CKR_CANT_LOCK;
+    }
+
+    /*
+     * Ensure OpenSSL is initialized and the OpenSSL config is loaded
+     * at the very beginning of C_Initialize(). Loading the OpenSSL config
+     * may cause engines or providers to be loaded, which in turn may initialize
+     * Opencryptoki again, if an engine or provider calls C_Initialize as
+     * part of its initialization.
+     * Special handling is required to allow this recursive use of C_Initialize
+     * to avoid a CKR_CRYPTOKI_ALREADY_INITIALIZED error.
+     * OPENSSL_init_crypto must be called without holding the GlobMutex as this
+     * would cause a deadlock for such recursive calls of C_Initialize.
+     */
+    before_anchor = Anchor;
+    pthread_mutex_unlock(&GlobMutex);
+
+    OPENSSL_init_crypto(OPENSSL_INIT_LOAD_CONFIG, NULL);
+
+    if (pthread_mutex_lock(&GlobMutex)) {
+        TRACE_ERROR("Global Mutex Lock failed.\n");
+        return CKR_CANT_LOCK;
+    }
+
+    if (before_anchor == NULL && Anchor != NULL) {
+        /*
+         * An engine or provider loaded during OPENSSL_init_crypto has
+         * recursively called C_Initialize. Thus, Opencryptoki is already
+         * initialized by now, and we are done.
+         */
+        rc = CKR_OK;
+        goto done;
     }
 
     trace_initialize();
@@ -3104,13 +3136,10 @@ CK_RV C_Initialize(CK_VOID_PTR pVoid)
      *   -> PKCS11-provider -> Opencryptoki -> ...
      * Explicitly using the 'default' provider only for Opencrypoki's OpenSSL
      * usage breaks this loop.
-     * Ensure OpenSSL is initialized and the OpenSSL config is loaded
-     * BEFORE creating the library context. Otherwise the OpenSSL config
-     * is loaded later, which may cause that all configured providers
-     * are also loaded into the library context. We need to make sure that
-     * only the default and legacy provider is loaded in the library context.
+     * OpenSSL has already been initialized above, and the OpenSSL config has
+     * been loaded already, thus all configured providers also have already been
+     * loaded.
      */
-    OPENSSL_init_crypto(OPENSSL_INIT_LOAD_CONFIG, NULL);
     ERR_set_mark();
     Anchor->openssl_libctx = OSSL_LIB_CTX_new();
     if (Anchor->openssl_libctx == NULL) {
