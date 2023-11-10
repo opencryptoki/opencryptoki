@@ -240,10 +240,10 @@ int openssl_get_modulus_and_prime(EVP_PKEY *pkey, unsigned int *size_n,
                                   unsigned char *p)
 {
 #if !OPENSSL_VERSION_PREREQ(3, 0)
-    const BIGNUM *n_tmp, *p_tmp;
+    const BIGNUM *n_tmp = NULL, *p_tmp = NULL;
     RSA *rsa;
 #else
-    BIGNUM *n_tmp, *p_tmp;
+    BIGNUM *n_tmp = NULL, *p_tmp = NULL;
 #endif
     int len;
 
