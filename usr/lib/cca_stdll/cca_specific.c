@@ -381,7 +381,7 @@ CK_BBOOL analyse_cca_key_token(const CK_BYTE *t, CK_ULONG tlen,
             return FALSE;
         }
         *keytype = sec_aes_data_key;
-        *keybitsize = *((uint16_t *)(t + 56));
+        *keybitsize = be16toh(*((uint16_t *)(t + 56)));
         if (*keybitsize != 128 && *keybitsize != 192 && *keybitsize != 256) {
             TRACE_DEVEL("CCA AES data key token has invalid/unknown keybitsize %u\n", *keybitsize);
             return FALSE;
@@ -392,7 +392,7 @@ CK_BBOOL analyse_cca_key_token(const CK_BYTE *t, CK_ULONG tlen,
 
     if (t[0] == 0x01 && t[4] == 0x05 && t[41] == 0x02) {
         /* internal variable length secure cca aes cipher key */
-        uint16_t key_type = *((uint16_t*)(t + 42));
+        uint16_t key_type = be16toh(*((uint16_t*)(t + 42)));
         if (key_type != 0x0001) {
             TRACE_DEVEL("CCA AES cipher key token has invalid/unknown keytype 0x%04hx\n", key_type);
             return FALSE;
@@ -405,7 +405,7 @@ CK_BBOOL analyse_cca_key_token(const CK_BYTE *t, CK_ULONG tlen,
 
     if (t[0] == 0x01 && t[4] == 0x05 && t[41] == 0x03) {
         /* internal variable length HMAC key */
-        uint16_t key_type = *((uint16_t*)(t + 42));
+        uint16_t key_type = be16toh(*((uint16_t*)(t + 42)));
         if (key_type != 0x0002) {
             TRACE_DEVEL("CCA HMAC key token has invalid/unknown keytype 0x%04hx\n", key_type);
             return FALSE;
@@ -427,7 +427,7 @@ CK_BBOOL analyse_cca_key_token(const CK_BYTE *t, CK_ULONG tlen,
             return FALSE;
         }
         *keytype = sec_hmac_key;
-        *keybitsize = *((uint16_t *)(t + CCA_HMAC_INTTOK_PAYLOAD_LENGTH_OFFSET));
+        *keybitsize = be16toh(*((uint16_t *)(t + CCA_HMAC_INTTOK_PAYLOAD_LENGTH_OFFSET)));
         /* this is not really the bitsize but the bitsize of the payload */
         if (*keybitsize < 80 || *keybitsize > 2432) {
             TRACE_DEVEL("CCA HMAC key token has invalid/unknown payload bit size %u\n", *keybitsize);
@@ -442,7 +442,7 @@ CK_BBOOL analyse_cca_key_token(const CK_BYTE *t, CK_ULONG tlen,
          t[CCA_RSA_INTTOK_PRIVKEY_OFFSET] == 0x31)) {
         /* internal secure cca private rsa key, ME or CRT format */
         uint16_t n, privsec_len;
-        privsec_len = *((uint16_t *)(t + CCA_RSA_INTTOK_PRIVKEY_OFFSET + 2));
+        privsec_len = be16toh(*((uint16_t *)(t + CCA_RSA_INTTOK_PRIVKEY_OFFSET + 2)));
         if (CCA_RSA_INTTOK_PRIVKEY_OFFSET + privsec_len >= (int) tlen) {
             TRACE_DEVEL("CCA RSA key token has invalid priv section len or token size\n");
             return FALSE;
@@ -451,7 +451,7 @@ CK_BBOOL analyse_cca_key_token(const CK_BYTE *t, CK_ULONG tlen,
             TRACE_DEVEL("CCA RSA key token has invalid pub section marker\n");
             return FALSE;
         }
-        n = *((uint16_t *)(t + CCA_RSA_INTTOK_PRIVKEY_OFFSET + privsec_len + 8));
+        n = be16toh(*((uint16_t *)(t + CCA_RSA_INTTOK_PRIVKEY_OFFSET + privsec_len + 8)));
         *keytype = sec_rsa_priv_key;
         *keybitsize = n;
         if (t[CCA_RSA_INTTOK_PRIVKEY_OFFSET] == 0x30)
@@ -464,7 +464,7 @@ CK_BBOOL analyse_cca_key_token(const CK_BYTE *t, CK_ULONG tlen,
     if (t[0] == 0x1e && t[CCA_RSA_INTTOK_HDR_LENGTH] == 0x04) {
         /* external RSA public key token */
         uint16_t n;
-        n = *((uint16_t *)(t + CCA_RSA_INTTOK_HDR_LENGTH + 8));
+        n = be16toh(*((uint16_t *)(t + CCA_RSA_INTTOK_HDR_LENGTH + 8)));
         *keytype = sec_rsa_publ_key;
         *keybitsize = n;
         *mkvp = NULL;
@@ -482,7 +482,7 @@ CK_BBOOL analyse_cca_key_token(const CK_BYTE *t, CK_ULONG tlen,
             TRACE_DEVEL("CCA private ECC key token has invalid key format 0x%02hhx\n", t[8+10]);
             return FALSE;
         }
-        ec_curve_bits = *((uint16_t *)(t + 8 + 12));
+        ec_curve_bits = be16toh(*((uint16_t *)(t + 8 + 12)));
         *keytype = sec_ecc_priv_key;
         *keybitsize = ec_curve_bits;
         *mkvp = &t[8+16];
@@ -492,7 +492,7 @@ CK_BBOOL analyse_cca_key_token(const CK_BYTE *t, CK_ULONG tlen,
     if (t[0] == 0x1e && t[8] == 0x21) {
         /* external ECC public key token */
         uint16_t ec_curve_bits;
-        ec_curve_bits = *((uint16_t *)(t + 8 + 10));
+        ec_curve_bits = be16toh(*((uint16_t *)(t + 8 + 10)));
         *keytype = sec_ecc_publ_key;
         *keybitsize = ec_curve_bits;
         *mkvp = NULL;
@@ -931,7 +931,7 @@ CK_RV cca_get_mkvps(unsigned char *cur_sym, unsigned char *new_sym,
 
     if (cur_sym != NULL) {
         id = (unsigned short *)(verb_data + CCA_STATICSB_SYM_CMK_ID_OFFSET);
-        if (*id != CCA_STATICSB_SYM_CMK_ID) {
+        if (be16toh(*id) != CCA_STATICSB_SYM_CMK_ID) {
             TRACE_ERROR("CSUACFQ (STATICSB) current SYM MKVP not available\n");
             return CKR_FUNCTION_FAILED;
         }
@@ -942,7 +942,7 @@ CK_RV cca_get_mkvps(unsigned char *cur_sym, unsigned char *new_sym,
 
     if (new_sym != NULL) {
         id = (unsigned short *)(verb_data + CCA_STATICSB_SYM_NMK_ID_OFFSET);
-        if (*id != CCA_STATICSB_SYM_NMK_ID) {
+        if (be16toh(*id) != CCA_STATICSB_SYM_NMK_ID) {
             TRACE_ERROR("CSUACFQ (STATICSB) new SYM MKVP not available\n");
             return CKR_FUNCTION_FAILED;
         }
@@ -953,7 +953,7 @@ CK_RV cca_get_mkvps(unsigned char *cur_sym, unsigned char *new_sym,
 
     if (cur_aes != NULL) {
         id = (unsigned short *)(verb_data + CCA_STATICSB_AES_CMK_ID_OFFSET);
-        if (*id != CCA_STATICSB_AES_CMK_ID) {
+        if (be16toh(*id) != CCA_STATICSB_AES_CMK_ID) {
             TRACE_ERROR("CSUACFQ (STATICSB) current AES MKVP not available\n");
             return CKR_FUNCTION_FAILED;
         }
@@ -964,7 +964,7 @@ CK_RV cca_get_mkvps(unsigned char *cur_sym, unsigned char *new_sym,
 
     if (new_aes != NULL) {
         id = (unsigned short *)(verb_data + CCA_STATICSB_AES_NMK_ID_OFFSET);
-        if (*id != CCA_STATICSB_AES_NMK_ID) {
+        if (be16toh(*id) != CCA_STATICSB_AES_NMK_ID) {
             TRACE_ERROR("CSUACFQ (STATICSB) new AES MKVP not available\n");
             return CKR_FUNCTION_FAILED;
         }
@@ -975,7 +975,7 @@ CK_RV cca_get_mkvps(unsigned char *cur_sym, unsigned char *new_sym,
 
     if (cur_apka != NULL) {
         id = (unsigned short *)(verb_data + CCA_STATICSB_APKA_CMK_ID_OFFSET);
-        if (*id != CCA_STATICSB_APKA_CMK_ID) {
+        if (be16toh(*id) != CCA_STATICSB_APKA_CMK_ID) {
             TRACE_ERROR("CSUACFQ (STATICSB) current APKA MKVP not available\n");
             return CKR_FUNCTION_FAILED;
         }
@@ -986,7 +986,7 @@ CK_RV cca_get_mkvps(unsigned char *cur_sym, unsigned char *new_sym,
 
     if (new_apka != NULL) {
         id = (unsigned short *)(verb_data + CCA_STATICSB_APKA_NMK_ID_OFFSET);
-        if (*id != CCA_STATICSB_APKA_NMK_ID) {
+        if (be16toh(*id) != CCA_STATICSB_APKA_NMK_ID) {
             TRACE_ERROR("CSUACFQ (STATICSB) new APKA MKVP not available\n");
             return CKR_FUNCTION_FAILED;
         }
@@ -1633,6 +1633,7 @@ static CK_RV cca_get_adapter_domain_selection_infos(STDLL_TokData_t *tokdata)
                     return_code, reason_code);
         return CKR_FUNCTION_FAILED;
     }
+    cca_private->num_domains = be32toh(cca_private->num_domains);
     TRACE_DEVEL("num_domains: %u\n", cca_private->num_domains);
 
     /* Get usage domain mask */
@@ -1653,6 +1654,7 @@ static CK_RV cca_get_adapter_domain_selection_infos(STDLL_TokData_t *tokdata)
     for (i = 0; i < cca_private->num_domains &&
                 (i + 1) * (unsigned int)sizeof(unsigned short) <=
                                                 verb_data_length; i++) {
+        cca_private->usage_domains[i] = be32toh(cca_private->usage_domains[i]);
         TRACE_DEVEL("usage_domains[%u] = %u\n", i, cca_private->usage_domains[i]);
     }
     cca_private->num_usagedoms = i;
@@ -3952,7 +3954,7 @@ CK_RV token_specific_tdes_cbc(STDLL_TokData_t * tokdata,
 
 static uint16_t cca_rsa_inttok_privkey_get_len(CK_BYTE * tok)
 {
-    return *(uint16_t *) & tok[CCA_RSA_INTTOK_PRIVKEY_LENGTH_OFFSET];
+    return be16toh(*(uint16_t *)&tok[CCA_RSA_INTTOK_PRIVKEY_LENGTH_OFFSET]);
 }
 
 /* Extract modulus n from a priv key section within an CCA internal RSA private key token */
@@ -3974,7 +3976,7 @@ static CK_RV cca_rsa_inttok_privkeysec_get_n(CK_BYTE *sec, CK_ULONG *n_len, CK_B
         return CKR_FUNCTION_FAILED;
     }
 
-    n_length = *(uint16_t *) &sec[n_len_offset];
+    n_length = be16toh(*(uint16_t *)&sec[n_len_offset]);
     if (n_length > (*n_len)) {
         TRACE_ERROR("Not enough room to return n (Got %lu, need %hu).\n",
                     *n_len, n_length);
@@ -3997,7 +3999,7 @@ static CK_RV cca_rsa_inttok_pubkeysec_get_e(CK_BYTE *sec, CK_ULONG *e_len, CK_BY
         return CKR_FUNCTION_FAILED;
     }
 
-    e_length = *((uint16_t *) &sec[CCA_RSA_INTTOK_PUBKEY_E_LENGTH_OFFSET]);
+    e_length = be16toh(*((uint16_t *) &sec[CCA_RSA_INTTOK_PUBKEY_E_LENGTH_OFFSET]));
     if (e_length > (*e_len)) {
         TRACE_ERROR("Not enough room to return e (Got %lu, need %hu).\n",
                     *e_len, e_length);
@@ -4020,8 +4022,8 @@ static CK_RV cca_rsa_exttok_pubkeysec_get_n(CK_BYTE *sec, CK_ULONG *n_len, CK_BY
         return CKR_FUNCTION_FAILED;
     }
 
-    n_length = *((uint16_t *)&sec[CCA_RSA_EXTTOK_PUBKEY_N_LENGTH_OFFSET]);
-    e_length = *((uint16_t *)&sec[CCA_RSA_INTTOK_PUBKEY_E_LENGTH_OFFSET]);
+    n_length = be16toh(*((uint16_t *)&sec[CCA_RSA_EXTTOK_PUBKEY_N_LENGTH_OFFSET]));
+    e_length = be16toh(*((uint16_t *)&sec[CCA_RSA_INTTOK_PUBKEY_E_LENGTH_OFFSET]));
     n_offset = CCA_RSA_INTTOK_PUBKEY_E_OFFSET + e_length;
 
     if (n_length == 0) {
@@ -4050,7 +4052,7 @@ static CK_RV cca_rsa_exttok_pubkeysec_get_e(CK_BYTE *sec, CK_ULONG *e_len, CK_BY
         return CKR_FUNCTION_FAILED;
     }
 
-    e_length = *((uint16_t *) &sec[CCA_RSA_INTTOK_PUBKEY_E_LENGTH_OFFSET]);
+    e_length = be16toh(*((uint16_t *) &sec[CCA_RSA_INTTOK_PUBKEY_E_LENGTH_OFFSET]));
     if (e_length > (*e_len)) {
         TRACE_ERROR("Not enough room to return e (Got %lu, need %hu).\n",
                     *e_len, e_length);
@@ -4187,7 +4189,7 @@ CK_RV token_specific_rsa_generate_keypair(STDLL_TokData_t * tokdata,
     unsigned char publ_key_token[CCA_KEY_TOKEN_SIZE] = { 0, };
 
     uint16_t size_of_e;
-    uint16_t mod_bits;
+    uint16_t mod_bits, be_mod_bits;
     CK_ATTRIBUTE *pub_exp = NULL;
     CK_RV rv;
     CK_BYTE_PTR ptr;
@@ -4236,7 +4238,7 @@ CK_RV token_specific_rsa_generate_keypair(STDLL_TokData_t * tokdata,
             return CKR_TEMPLATE_INCONSISTENT;
 
 
-        size_of_e = (uint16_t) tmpsize;
+        size_of_e = htobe16((uint16_t)tmpsize);
 
         memcpy(&key_value_structure[CCA_PKB_E_SIZE_OFFSET],
                &size_of_e, (size_t) CCA_PKB_E_SIZE);
@@ -4244,7 +4246,8 @@ CK_RV token_specific_rsa_generate_keypair(STDLL_TokData_t * tokdata,
     }
 
     key_value_structure_length = CCA_KEY_VALUE_STRUCT_SIZE;
-    memcpy(key_value_structure, &mod_bits, sizeof(uint16_t));
+    be_mod_bits = htobe16(mod_bits);
+    memcpy(key_value_structure, &be_mod_bits, sizeof(uint16_t));
 
     /* One last check. CCA can't auto-generate a random public      *
      * exponent if the modulus length is more than 2048 bits        *
@@ -4956,7 +4959,7 @@ CK_RV token_specific_rsa_pss_sign(STDLL_TokData_t *tokdata,
         goto done;
     }
 
-    *((uint32_t *)message) = htonl(pss->sLen);
+    *((uint32_t *)message) = htobe32(pss->sLen);
     memcpy(message + 4, in_data, in_data_len);
 
     /* The max value allowable by CCA for out_data_len is 512, so cap the
@@ -5099,7 +5102,7 @@ CK_RV token_specific_rsa_pss_verify(STDLL_TokData_t *tokdata,
         goto done;
     }
 
-    *((uint32_t *)message) = pss->sLen;
+    *((uint32_t *)message) = htobe32(pss->sLen);
     memcpy(message + 4, in_data, in_data_len);
 
     /* The max value allowable by CCA for out_data_len is 512, so cap the
@@ -5699,7 +5702,7 @@ static CK_RV curve_supported(TEMPLATE *templ, uint8_t *curve_type,
 uint16_t cca_ec_privkey_offset(CK_BYTE * tok)
 {
     uint8_t privkey_id = CCA_PRIVKEY_ID, privkey_rec;
-    privkey_rec = ntohs(*(uint8_t *) & tok[CCA_EC_HEADER_SIZE]);
+    privkey_rec = *(uint8_t *)&tok[CCA_EC_HEADER_SIZE];
 
     if ((memcmp(&privkey_rec, &privkey_id, sizeof(uint8_t)) == 0)) {
         return CCA_EC_HEADER_SIZE;
@@ -5716,8 +5719,8 @@ uint16_t cca_ec_publkey_offset(CK_BYTE * tok)
 
     priv_offset = cca_ec_privkey_offset(tok);
     privSec_len =
-        ntohs(*(uint16_t *) & tok[priv_offset + CCA_SECTION_LEN_OFFSET]);
-    publkey_rec = ntohs(*(uint8_t *) & tok[priv_offset + privSec_len]);
+        be16toh(*(uint16_t *)&tok[priv_offset + CCA_SECTION_LEN_OFFSET]);
+    publkey_rec = *(uint8_t *)&tok[priv_offset + privSec_len];
 
     if ((memcmp(&publkey_rec, &publkey_id, sizeof(uint8_t)) == 0)) {
         return (priv_offset + privSec_len);
@@ -5759,7 +5762,7 @@ CK_RV token_create_ec_keypair(TEMPLATE * publ_tmpl,
 
     qlen_offset = pubkey_offset + CCA_EC_INTTOK_PUBKEY_Q_LEN_OFFSET;
     q_len = *(uint16_t *) & priv_tok[qlen_offset];
-    q_len = ntohs(q_len);
+    q_len = be16toh(q_len);
 
     if (q_len > CCATOK_EC_MAX_Q_LEN) {
         TRACE_ERROR("Not enough room to return q. (Got %d, need %ld)\n",
@@ -5836,7 +5839,7 @@ CK_RV token_specific_ec_generate_keypair(STDLL_TokData_t * tokdata,
     long param1 = 0;
     unsigned char *param2 = NULL;
     uint8_t curve_type;
-    uint16_t curve_bitlen;
+    uint16_t curve_bitlen, be_curve_bitlen;
     int curve_nid;
     enum cca_token_type keytype;
     unsigned int keybitsize;
@@ -5859,8 +5862,9 @@ CK_RV token_specific_ec_generate_keypair(STDLL_TokData_t * tokdata,
      */
     memcpy(key_value_structure,
            &curve_type, sizeof(uint8_t));
+    be_curve_bitlen = be16toh(curve_bitlen);
     memcpy(&key_value_structure[CCA_PKB_EC_LEN_OFFSET],
-           &curve_bitlen, sizeof(uint16_t));
+           &be_curve_bitlen, sizeof(uint16_t));
 
     key_value_structure_length = CCA_EC_KEY_VALUE_STRUCT_SIZE;
 
@@ -7334,37 +7338,37 @@ static CK_RV import_rsa_privkey(STDLL_TokData_t *tokdata, TEMPLATE * priv_tmpl)
         memset(key_value_structure, 0, key_value_structure_length);
 
         /* Field #1 - Length of modulus in bits */
-        mod_bits = htons(mod->ulValueLen * 8);
+        mod_bits = htobe16(mod->ulValueLen * 8);
         memcpy(&key_value_structure[0], &mod_bits, sizeof(uint16_t));
 
         /* Field #2 - Length of modulus field in bytes */
-        mod_bytes = htons(mod->ulValueLen);
+        mod_bytes = htobe16(mod->ulValueLen);
         memcpy(&key_value_structure[2], &mod_bytes, sizeof(uint16_t));
 
         /* Field #3 - Length of public exponent field in bytes */
-        size_of_e = htons(pub_exp->ulValueLen);
+        size_of_e = htobe16(pub_exp->ulValueLen);
         memcpy(&key_value_structure[4], &size_of_e, sizeof(uint16_t));
 
         /* Field #4 - Reserved, binary zero, two bytes */
 
         /* Field #5 - Length of prime P */
-        bytes = htons(p_prime->ulValueLen);
+        bytes = htobe16(p_prime->ulValueLen);
         memcpy(&key_value_structure[8], &bytes, sizeof(uint16_t));
 
         /* Field #6 - Length of prime Q */
-        bytes = htons(q_prime->ulValueLen);
+        bytes = htobe16(q_prime->ulValueLen);
         memcpy(&key_value_structure[10], &bytes, sizeof(uint16_t));
 
         /* Field #7 - Length of dp in bytes */
-        bytes = htons(dmp1->ulValueLen);
+        bytes = htobe16(dmp1->ulValueLen);
         memcpy(&key_value_structure[12], &bytes, sizeof(uint16_t));
 
         /* Field #8 - Length of dq in bytes */
-        bytes = htons(dmq1->ulValueLen);
+        bytes = htobe16(dmq1->ulValueLen);
         memcpy(&key_value_structure[14], &bytes, sizeof(uint16_t));
 
         /* Field #9 - Length of U in bytes */
-        bytes = htons(iqmp->ulValueLen);
+        bytes = htobe16(iqmp->ulValueLen);
         memcpy(&key_value_structure[16], &bytes, sizeof(uint16_t));
 
         /* Field #10 - Modulus */
@@ -7608,9 +7612,9 @@ static CK_RV import_rsa_pubkey(STDLL_TokData_t *tokdata, TEMPLATE *publ_tmpl)
 
         /* In case the application hasn't filled it */
         if (*(CK_ULONG *) attr->pValue == 0)
-            mod_bits = htons(pub_mod->ulValueLen * 8);
+            mod_bits = htobe16(pub_mod->ulValueLen * 8);
         else
-            mod_bits = htons(*(CK_ULONG *) attr->pValue);
+            mod_bits = htobe16(*(CK_ULONG *) attr->pValue);
 
         /* Build key token for RSA-PUBL format */
         memset(key_value_structure, 0, key_value_structure_length);
@@ -7623,11 +7627,11 @@ static CK_RV import_rsa_pubkey(STDLL_TokData_t *tokdata, TEMPLATE *publ_tmpl)
         memcpy(&key_value_structure[0], &mod_bits, sizeof(uint16_t));
 
         /* Field #2 - Length of modulus field in bytes */
-        mod_bytes = htons(pub_mod->ulValueLen);
+        mod_bytes = htobe16(pub_mod->ulValueLen);
         memcpy(&key_value_structure[2], &mod_bytes, sizeof(uint16_t));
 
         /* Field #3 - Length of public exponent field in bytes */
-        size_of_e = htons((uint16_t) pub_exp->ulValueLen);
+        size_of_e = htobe16((uint16_t) pub_exp->ulValueLen);
         memcpy(&key_value_structure[4], &size_of_e, sizeof(uint16_t));
 
         /* Field #4 - private key exponent length; skip */
@@ -8046,8 +8050,8 @@ static CK_RV build_private_EC_key_value_structure(CK_BYTE *privkey, CK_ULONG pri
 
     ecc_pair.curve_type = curve_type;
     ecc_pair.reserved = 0x00;
-    ecc_pair.p_bitlen = curve_bitlen;
-    ecc_pair.d_length = privlen;
+    ecc_pair.p_bitlen = htobe16(curve_bitlen);
+    ecc_pair.d_length = htobe16(privlen);
 
     /* Adjust public key if necessary: there may be an indication if the public
      * key is compressed, uncompressed, or hybrid. */
@@ -8056,7 +8060,7 @@ static CK_RV build_private_EC_key_value_structure(CK_BYTE *privkey, CK_ULONG pri
             pubkey[0] == POINT_CONVERSION_HYBRID ||
             pubkey[0] == POINT_CONVERSION_HYBRID+1) {
             /* uncompressed or hybrid EC public key */
-            ecc_pair.q_length = publen;
+            ecc_pair.q_length = htobe16(publen);
             memcpy(key_value_structure, &ecc_pair, sizeof(ECC_PAIR));
             memcpy(key_value_structure + sizeof(ECC_PAIR), privkey, privlen);
             memcpy(key_value_structure + sizeof(ECC_PAIR) + privlen, pubkey, publen);
@@ -8067,7 +8071,7 @@ static CK_RV build_private_EC_key_value_structure(CK_BYTE *privkey, CK_ULONG pri
         }
     } else if (publen == 2 * privlen) {
         /* uncompressed or hybrid EC public key without leading indication */
-        ecc_pair.q_length = publen + 1;
+        ecc_pair.q_length = htobe16(publen + 1);
         memcpy(key_value_structure, &ecc_pair, sizeof(ECC_PAIR));
         memcpy(key_value_structure + sizeof(ECC_PAIR), privkey, privlen);
         memset(key_value_structure + sizeof(ECC_PAIR) + privlen, POINT_CONVERSION_UNCOMPRESSED, 1);
@@ -8104,14 +8108,14 @@ static CK_RV build_public_EC_key_value_structure(CK_BYTE *pubkey, CK_ULONG puble
 
     ecc_publ.curve_type = curve_type;
     ecc_publ.reserved = 0x00;
-    ecc_publ.p_bitlen = curve_bitlen;
+    ecc_publ.p_bitlen = htobe16(curve_bitlen);
 
     if (publen == 2 * bitlen2bytelen(curve_bitlen) + 1) {
         if (pubkey[0] == POINT_CONVERSION_UNCOMPRESSED ||
             pubkey[0] == POINT_CONVERSION_HYBRID ||
             pubkey[0] == POINT_CONVERSION_HYBRID+1) {
             /* uncompressed or hybrid EC public key */
-            ecc_publ.q_length = publen;
+            ecc_publ.q_length = htobe16(publen);
             memcpy(key_value_structure, &ecc_publ, sizeof(ECC_PUBL));
             memcpy(key_value_structure + sizeof(ECC_PUBL), pubkey, publen);
             *key_value_structure_length = sizeof(ECC_PUBL) + publen;
@@ -8121,7 +8125,7 @@ static CK_RV build_public_EC_key_value_structure(CK_BYTE *pubkey, CK_ULONG puble
          }
     } else if (publen == 2 * bitlen2bytelen(curve_bitlen)) {
         /* uncompressed or hybrid EC public key without leading 0x04 */
-        ecc_publ.q_length = publen + 1;
+        ecc_publ.q_length = htobe16(publen + 1);
         memcpy(key_value_structure, &ecc_publ, sizeof(ECC_PUBL));
         memset(key_value_structure + sizeof(ECC_PUBL), POINT_CONVERSION_UNCOMPRESSED, 1);
         memcpy(key_value_structure + sizeof(ECC_PUBL) + 1, pubkey, publen);
@@ -8194,11 +8198,11 @@ static CK_RV build_public_EC_key_value_structure(CK_BYTE *pubkey, CK_ULONG puble
             goto done;
         }
 
-        ecc_publ.q_length = publen + bitlen2bytelen(curve_bitlen);
+        ecc_publ.q_length = htobe16(publen + bitlen2bytelen(curve_bitlen));
         memcpy(key_value_structure, &ecc_publ, sizeof(ECC_PUBL));
         memset(key_value_structure + sizeof(ECC_PUBL),
                POINT_CONVERSION_UNCOMPRESSED, 1);
-        *key_value_structure_length = sizeof(ECC_PUBL) + ecc_publ.q_length;
+        *key_value_structure_length = sizeof(ECC_PUBL) + be16toh(ecc_publ.q_length);
     } else {
         TRACE_ERROR("Unsupported public key length %ld\n",publen);
         return CKR_TEMPLATE_INCONSISTENT;
@@ -8612,7 +8616,7 @@ static CK_RV import_ec_pubkey(STDLL_TokData_t *tokdata, TEMPLATE *pub_templ)
 
         /* we need to add the CKA_EC_POINT attribute */
         q = (CK_BYTE *)(t + 8 + 14);
-        q_len = ntohs(*((uint16_t *)(t + 8 + 12)));
+        q_len = be16toh(*((uint16_t *)(t + 8 + 12)));
         if (q_len > CCATOK_EC_MAX_Q_LEN) {
             TRACE_ERROR("Invalid Q len %hu\n", q_len);
             return CKR_ATTRIBUTE_VALUE_INVALID;
@@ -9356,7 +9360,7 @@ static CK_RV ccatok_unwrap_key_rsa_pkcs(STDLL_TokData_t *tokdata,
     case 0x04:/* AES key token */
         cca_key_type = CKK_AES;
         memcpy(&val, &buffer[56], sizeof(val));
-        key_size = ntohs(val) / 8;
+        key_size = be16toh(val) / 8;
         break;
     default:
         TRACE_DEVEL("key token invalid\n");

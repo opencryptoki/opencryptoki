@@ -196,7 +196,7 @@ int adjust_secret_key_attributes(OBJECT *obj, CK_ULONG key_type)
     ibm_opaque_attr = NULL;
 
     /* Provide dummy CKA_VAUE attribute in (clear) key size */
-    key_size = aes_token->bitsize / 8;
+    key_size = be16toh(aes_token->bitsize) / 8;
     zero = (CK_BYTE *)calloc(key_size, 1);
     if (zero == NULL) {
         fprintf(stderr, "Failed to allocate zero value\n");

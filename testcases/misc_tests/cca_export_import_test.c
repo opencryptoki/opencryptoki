@@ -11,11 +11,13 @@
  * by Harald Freudenberger <freude@de.ibm.com>
  */
 
+#define _GNU_SOURCE
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <memory.h>
 #include <stdint.h>
+#include <endian.h>
 
 #include "pkcs11types.h"
 #include "ec_curves.h"
@@ -217,7 +219,7 @@ static CK_RV import_cca_gen_sec_key(CK_SESSION_HANDLE session,
     // calculate expected payloadbitsize based on keybitsize
     calc_pl = (((keybitsize + 32) + 63) & (~63)) + 320;
     // pull payloadbitsize from the cca hmac token
-    pl = *((uint16_t *)(ccatoken + 38));
+    pl = be16toh(*((uint16_t *)(ccatoken + 38)));
     if (calc_pl != pl) {
         testcase_error("mismatch keybitsize %u - expected pl bitsize %u / cca pl bitsize %u",
                        keybitsize, calc_pl, pl);
