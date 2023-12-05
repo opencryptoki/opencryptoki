@@ -3000,6 +3000,46 @@ CK_RV C_Initialize(CK_VOID_PTR pVoid)
     if (rc != CKR_OK)
         goto done;
 
+    /*
+     * Register an atexit handler to gracefully terminate openCryptoki and
+     * close all open sessions during termination. This is also done in the
+     * destructor of the OpenCryptoki library. However, the library destructor
+     * is called after the atexit handlers.
+     *
+     * The atexit handler registration must be AFTER OpenSSL initialization,
+     * because OpenSSL also registers its own atexit handler during its
+     * initialization. The atexit handlers are called in the reverse order of
+     * their registration. So if we register our at-exit handler AFTER OpenSSL
+     * registered its atexit handler, we are sure that ours gets called BEFORE
+     * the OpenSSL atexit handler.
+     *
+     * This is important because we need to use OpenSSL services during our
+     * atexit termination, so this works only before OpenSSL has performed its
+     * cleanup in its atexit handler. This is also the reason why we need our
+     * own atexit handler at all, because the library destructor is called
+     * after OpenSSLs atexit handler, and thus OpenSSL services are no longer
+     * available at that point in time.
+     *
+     * Note that if the calling application has already initialized OpenSSL
+     * before initializing OpenCryptoki, then above OpenSSL initialization
+     * done by OpenCryptoki is a no-operation, but still OpenSSL has already
+     * registered its atexit handler during an earlier OpenSSL initialization,
+     * i.e. before we register ours.
+     *
+     * Further note that when the OpenCryptoki library is unloaded by means of
+     * dlclose(), then the atexit handler (which is located inside the unloaded
+     * library) is unregistered automatically. Otherwise this would cause
+     * segfaults when the no longer existent atexit handler would be called.
+     * Nevertheless, the library destructor is called to perform termination
+     * in that case. Here, OpenSSL services are still available, so it is safe
+     * to use them during the library destructor.
+     */
+    if (atexit(Call_Finalize) != 0) {
+        TRACE_ERROR("atexit failed\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+
     if (!Anchor) {
         Anchor = (API_Proc_Struct_t *) malloc(sizeof(API_Proc_Struct_t));
         if (Anchor == NULL) {
