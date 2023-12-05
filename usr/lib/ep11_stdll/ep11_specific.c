@@ -13369,7 +13369,7 @@ static void print_control_points(unsigned char *cp, size_t cp_len,
 
     for (i = 0; i <= max_cp_index && CP_BYTE_NO(i) < cp_len; i++) {
         if ((cp[CP_BYTE_NO(i)] & CP_BIT_MASK(i)) == 0)
-            TRACE_INFO("CP %u (%s)is off\n", i, ep11_get_cp(i));
+            TRACE_INFO("CP %u (%s) is off\n", i, ep11_get_cp(i));
         else
             TRACE_INFO("CP %u (%s) is on\n", i, ep11_get_cp(i));
     }
