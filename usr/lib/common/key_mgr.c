@@ -42,7 +42,65 @@
 
 #include <openssl/crypto.h>
 
-static CK_BBOOL true = TRUE, false = FALSE;
+static CK_BBOOL true = TRUE;
+
+CK_RV key_mgr_apply_always_sensitive_never_extractable_attrs(
+                                    STDLL_TokData_t *tokdata, OBJECT *key_obj)
+{
+    CK_BBOOL ck_true = TRUE;
+    CK_ATTRIBUTE *new_attr = NULL;
+    CK_BBOOL flag;
+    CK_RV rc;
+
+    UNUSED(tokdata);
+
+    rc = template_attribute_get_bool(key_obj->template, CKA_SENSITIVE, &flag);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Failed to find CKA_SENSITIVE in key object template.\n");
+        goto error;
+    }
+
+    rc = build_attribute(CKA_ALWAYS_SENSITIVE, &flag, sizeof(CK_BBOOL),
+                         &new_attr);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("build attribute failed.\n");
+        goto error;
+    }
+    rc = template_update_attribute(key_obj->template, new_attr);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("template_update_attribute failed.\n");
+        goto error;
+    }
+    new_attr = NULL;
+
+    rc = template_attribute_get_bool(key_obj->template, CKA_EXTRACTABLE, &flag);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Failed to find CKA_EXTRACTABLE in key object template.\n");
+        goto error;
+    }
+
+    rc = build_attribute(CKA_NEVER_EXTRACTABLE, &ck_true, sizeof(CK_BBOOL),
+                         &new_attr);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("build_attribute failed\n");
+        goto error;
+    }
+    if (flag == TRUE)
+        *(CK_BBOOL *)new_attr->pValue = FALSE;
+
+    rc = template_update_attribute(key_obj->template, new_attr);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("template_update_attribute failed.\n");
+        goto error;
+    }
+    new_attr = NULL;
+
+error:
+    if (new_attr != NULL)
+        free(new_attr);
+
+    return rc;
+}
 
 //
 //
@@ -55,9 +113,7 @@ CK_RV key_mgr_generate_key(STDLL_TokData_t *tokdata,
     OBJECT *key_obj = NULL;
     CK_ATTRIBUTE *new_attr = NULL;
     CK_ULONG keyclass, subclass = 0;
-    CK_BBOOL flag;
     CK_RV rc;
-
 
     if (!sess || !mech || !handle) {
         TRACE_ERROR("%s received bad argument(s)\n", __func__);
@@ -204,46 +260,13 @@ CK_RV key_mgr_generate_key(STDLL_TokData_t *tokdata,
     // to their appropriate values.  this only applies to CKO_SECRET_KEY
     // and CKO_PRIVATE_KEY objects
     //
-    rc = template_attribute_get_bool(key_obj->template, CKA_SENSITIVE, &flag);
+    rc = key_mgr_apply_always_sensitive_never_extractable_attrs(tokdata,
+                                                                 key_obj);
     if (rc != CKR_OK) {
-        TRACE_ERROR("Failed to find CKA_SENSITIVE in key object template.\n");
+        TRACE_ERROR("%s key_mgr_apply_always_sensitive_never_extractable_attrs "
+                    "failed with rc=0x%lx\n", __func__, rc);
         goto error;
     }
-
-    rc = build_attribute(CKA_ALWAYS_SENSITIVE, &flag, sizeof(CK_BBOOL),
-                         &new_attr);
-    if (rc != CKR_OK) {
-        TRACE_DEVEL("build attribute failed.\n");
-        goto error;
-    }
-    rc = template_update_attribute(key_obj->template, new_attr);
-    if (rc != CKR_OK) {
-        TRACE_DEVEL("template_update_attribute failed.\n");
-        goto error;
-    }
-    new_attr = NULL;
-
-    rc = template_attribute_get_bool(key_obj->template, CKA_EXTRACTABLE, &flag);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("Failed to find CKA_EXTRACTABLE in key object template.\n");
-        goto error;
-    }
-
-    rc = build_attribute(CKA_NEVER_EXTRACTABLE, &true, sizeof(CK_BBOOL),
-                         &new_attr);
-    if (rc != CKR_OK) {
-        TRACE_DEVEL("build_attribute failed\n");
-        goto error;
-    }
-    if (flag == TRUE)
-        *(CK_BBOOL *) new_attr->pValue = FALSE;
-
-    rc = template_update_attribute(key_obj->template, new_attr);
-    if (rc != CKR_OK) {
-        TRACE_DEVEL("template_update_attribute failed.\n");
-        goto error;
-    }
-    new_attr = NULL;
 
     /* add/update CKA_LOCAL with value true to the template */
     rc = build_attribute(CKA_LOCAL, &true, sizeof(CK_BBOOL), &new_attr);
@@ -316,7 +339,6 @@ CK_RV key_mgr_generate_key_pair(STDLL_TokData_t *tokdata,
     CK_ULONG keyclass, subclass = 0;
     CK_BYTE *spki = NULL;
     CK_ULONG temp, spki_length = 0;
-    CK_BBOOL flag;
     CK_RV rc;
 
     if (!sess || !mech || !publ_key_handle || !priv_key_handle) {
@@ -486,47 +508,13 @@ CK_RV key_mgr_generate_key_pair(STDLL_TokData_t *tokdata,
     // to their appropriate values.  this only applies to CKO_SECRET_KEY
     // and CKO_PRIVATE_KEY objects
     //
-    rc = template_attribute_get_bool(priv_key_obj->template, CKA_SENSITIVE,
-                                     &flag);
+    rc = key_mgr_apply_always_sensitive_never_extractable_attrs(tokdata,
+                                                                priv_key_obj);
     if (rc != CKR_OK) {
-        TRACE_ERROR("Failed to find CKA_SENSITIVE in key object template.\n");
+        TRACE_ERROR("%s key_mgr_apply_always_sensitive_never_extractable_attrs "
+                    "failed with rc=0x%lx\n", __func__, rc);
         goto error;
     }
-
-    rc = build_attribute(CKA_ALWAYS_SENSITIVE, &flag, sizeof(CK_BBOOL),
-                         &new_attr);
-    if (rc != CKR_OK) {
-        TRACE_DEVEL("build_attribute failed.\n");
-        goto error;
-    }
-    rc = template_update_attribute(priv_key_obj->template, new_attr);
-    if (rc != CKR_OK) {
-        TRACE_DEVEL("template_update_attribute failed.\n");
-        goto error;
-    }
-    new_attr = NULL;
-
-    rc = template_attribute_get_bool(priv_key_obj->template, CKA_EXTRACTABLE,
-                                     &flag);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("Failed to find CKA_EXTRACTABLE in key object template.\n");
-        goto error;
-    }
-    rc = build_attribute(CKA_NEVER_EXTRACTABLE, &true, sizeof(CK_BBOOL),
-                         &new_attr);
-    if (rc != CKR_OK) {
-        TRACE_DEVEL("build_attribute failed.\n");
-        goto error;
-    }
-    if (flag == TRUE)
-        *(CK_BBOOL *) new_attr->pValue = false;
-
-    rc = template_update_attribute(priv_key_obj->template, new_attr);
-    if (rc != CKR_OK) {
-        TRACE_DEVEL("template_update_attribute failed.\n");
-        goto error;
-    }
-    new_attr = NULL;
 
     /* add/update CKA_LOCAL with value true to the keypair templates */
     rc = build_attribute(CKA_LOCAL, &true, sizeof(CK_BBOOL), &new_attr);

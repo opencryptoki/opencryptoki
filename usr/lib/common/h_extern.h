@@ -1974,6 +1974,9 @@ CK_RV digest_mgr_digest_final(STDLL_TokData_t *tokdata,
 
 // key manager routines
 //
+CK_RV key_mgr_apply_always_sensitive_never_extractable_attrs(
+                                    STDLL_TokData_t *tokdata, OBJECT *key_obj);
+
 CK_RV key_mgr_generate_key(STDLL_TokData_t *tokdata,
                            SESSION *sess,
                            CK_MECHANISM *mech,
