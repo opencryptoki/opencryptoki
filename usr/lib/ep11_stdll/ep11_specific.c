@@ -4661,6 +4661,15 @@ retry_xts:
     }
     attr = NULL;
 
+    /* Set CKA_ALWAYS_SENSITIVE and CKA_NEVER_EXTRACTABLE */
+    rc = key_mgr_apply_always_sensitive_never_extractable_attrs(tokdata,
+                                                                key_obj);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s key_mgr_apply_always_sensitive_never_extractable_attrs "
+                    "failed  with rc=0x%lx\n", __func__, rc);
+        goto error;
+    }
+
     /* key should be fully constructed.
      * Assign an object handle and store key.
      * Enforce policy.
@@ -8246,6 +8255,15 @@ CK_RV ep11tok_generate_key_pair(STDLL_TokData_t * tokdata, SESSION * sess,
     n_attr = NULL;
     free(spki);
     spki = NULL;
+
+    /* Set CKA_ALWAYS_SENSITIVE and CKA_NEVER_EXTRACTABLE */
+    rc = key_mgr_apply_always_sensitive_never_extractable_attrs(tokdata,
+                                                            private_key_obj);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s key_mgr_apply_always_sensitive_never_extractable_attrs "
+                    "failed with rc=0x%lx\n", __func__, rc);
+        goto error;
+    }
 
     /* Keys should be fully constructed,
      * assign object handles and store keys.
