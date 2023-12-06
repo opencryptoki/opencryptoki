@@ -263,6 +263,7 @@ struct cca_private_data {
     char pkey_mk_vp[PKEY_MK_VP_LENGTH];
     int pkeyfd;
     int msa_level;
+    CK_BBOOL cka_sensitive_default_true;
 };
 
 #define CCA_CFG_EXPECTED_MKVPS  "EXPECTED_MKVPS"

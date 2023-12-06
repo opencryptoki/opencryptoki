@@ -1937,11 +1937,19 @@ CK_RV cca_load_config_file(STDLL_TokData_t *tokdata, char *conf_name)
             continue;
         }
 
+        if (confignode_hastype(c, CT_BARECONST)) {
+            /* single keyword tokens */
+            if (strcasecmp(c->key, "FORCE_SENSITIVE") == 0) {
+                cca_private->cka_sensitive_default_true = TRUE;
+                continue;
+            }
+        }
+
         if (confignode_hastype(c, CT_BAREVAL)) {
             /* New style (key = value) tokens */
             strval = confignode_getstr(c);
 
-            if (strcmp(c->key, "PKEY_MODE") == 0) {
+            if (strcasecmp(c->key, "PKEY_MODE") == 0) {
                 rc = cca_config_set_pkey_mode(cca_private, fname, strval);
                 if (rc != CKR_OK)
                     break;
@@ -2735,17 +2743,23 @@ done:
 }
 
 /*
- * This function is called whenever a new object is created. It currently sets
+ * This function is called whenever a new object is created. It sets
  * attribute CKA_IBM_PROTKEY_EXTRACTABLE according to the PKEY_MODE token
- * option, but may also be used for other token options and attrs in future.
+ * option.
+ * If the FORCE_SENSITIVE token option is enabled, it sets attribute
+ * CKA_SENSITIVE to TRUE for secret keys (CKO_SECRET_KEY) if it is not
+ * specified in the template. For private keys (CKO_PRIVATE_KEY) it always
+ * sets CKA_SENSITIVE to TRUE if it is not specified in the template,
+ * regardless of the FORCE_SENSITIVE option.
  */
 CK_RV token_specific_set_attrs_for_new_object(STDLL_TokData_t *tokdata,
                                               CK_OBJECT_CLASS class,
                                               CK_ULONG mode, TEMPLATE *tmpl)
 {
     struct cca_private_data *cca_data = tokdata->private_data;
-    CK_ATTRIBUTE *pkey_attr = NULL, *ecp_attr = NULL;
+    CK_ATTRIBUTE *pkey_attr = NULL, *ecp_attr = NULL, *sensitive_attr = NULL;
     CK_BBOOL add_pkey_extractable = CK_FALSE;
+    CK_BBOOL sensitive;
     CK_BBOOL btrue = CK_TRUE;
     CK_RV ret;
 
@@ -2754,6 +2768,27 @@ CK_RV token_specific_set_attrs_for_new_object(STDLL_TokData_t *tokdata,
     if (class != CKO_SECRET_KEY && class != CKO_PRIVATE_KEY &&
         class != CKO_PUBLIC_KEY)
         return CKR_OK;
+
+    if (class == CKO_PRIVATE_KEY ||
+        (class == CKO_SECRET_KEY && cca_data->cka_sensitive_default_true)) {
+        /* private key, or secret key and FORCE_SENSITIVE is enabled */
+        ret = template_attribute_get_bool(tmpl, CKA_SENSITIVE, &sensitive);
+        if (ret == CKR_TEMPLATE_INCOMPLETE) {
+            /* Not in template, supply default (TRUE) */
+            ret = build_attribute(CKA_SENSITIVE, &btrue, sizeof(CK_BBOOL),
+                                  &sensitive_attr);
+            if (ret != CKR_OK) {
+                TRACE_ERROR("build_attribute failed with ret=0x%lx\n", ret);
+                goto done;
+            }
+            ret = template_update_attribute(tmpl, sensitive_attr);
+            if (ret != CKR_OK) {
+                TRACE_ERROR("update_attribute failed with ret=0x%lx\n", ret);
+                free(sensitive_attr);
+                goto done;
+            }
+        }
+    }
 
     switch (cca_data->pkey_mode) {
     case PKEY_MODE_DISABLED:
