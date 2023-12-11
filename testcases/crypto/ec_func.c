@@ -320,23 +320,28 @@ static unsigned int too_many_key_bytes_requested(unsigned int curve,
  * Perform a HMAC sign to verify that the key is usable.
  */
 CK_RV run_HMACSign(CK_SESSION_HANDLE session, CK_OBJECT_HANDLE h_key,
-                   CK_ULONG key_len)
+                   CK_ULONG key_len, CK_MECHANISM_TYPE hmac_mech,
+                   CK_BYTE *mac, CK_ULONG *mac_len)
 {
-    CK_MECHANISM mech = { .mechanism = CKM_SHA_1_HMAC,
+    CK_MECHANISM mech = { .mechanism = hmac_mech,
                           .pParameter = NULL, .ulParameterLen = 0 };
     CK_BYTE data[32] = { 0 };
-    CK_BYTE mac[SHA1_HASH_SIZE] = { 0 };
-    CK_ULONG mac_len = sizeof(mac);
     CK_RV rc = CKR_OK;
 
-    if (!mech_supported(SLOT_ID, CKM_SHA_1_HMAC)) {
-        testcase_notice("Mechanism CKM_SHA_1_HMAC is not supported with slot "
-                        "%lu. Skipping key check", SLOT_ID);
+    if (!mech_supported(SLOT_ID, mech.mechanism)) {
+        testcase_notice("Mechanism %s is not supported with slot "
+                        "%lu. Skipping key check",
+                        p11_get_ckm(&mechtable_funcs, mech.mechanism),
+                        SLOT_ID);
+        *mac_len = 0;
         return CKR_OK;
     }
-    if (!check_supp_keysize(SLOT_ID, CKM_SHA_1_HMAC, key_len * 8)) {
-        testcase_notice("Mechanism CKM_SHA_1_HMAC can not be used with keys "
-                        "of size %lu. Skipping key check", key_len);
+    if (!check_supp_keysize(SLOT_ID, mech.mechanism, key_len * 8)) {
+        testcase_notice("Mechanism %s can not be used with keys "
+                        "of size %lu. Skipping key check",
+                        p11_get_ckm(&mechtable_funcs, mech.mechanism),
+                        key_len);
+        *mac_len = 0;
         return CKR_OK;
     }
 
@@ -347,7 +352,7 @@ CK_RV run_HMACSign(CK_SESSION_HANDLE session, CK_OBJECT_HANDLE h_key,
     }
 
     /** do signing  **/
-    rc = funcs->C_Sign(session, data, sizeof(data), mac, &mac_len);
+    rc = funcs->C_Sign(session, data, sizeof(data), mac, mac_len);
     if (rc != CKR_OK) {
         testcase_notice("C_Sign rc=%s", p11_get_ckr(rc));
         goto error;
@@ -689,6 +694,11 @@ CK_RV run_DeriveECDHKey(void)
                 CK_ULONG secret_tmpl_len =
                     sizeof(derive_tmpl) / sizeof(CK_ATTRIBUTE);
 
+                CK_BYTE mac1[SHA1_HASH_SIZE] = { 0 };
+                CK_ULONG mac1_len = sizeof(mac1);
+                CK_BYTE mac2[SHA1_HASH_SIZE] = { 0 };
+                CK_ULONG mac2_len = sizeof(mac2);
+
                 if (secret_key_len[k] == 0)
                     secret_tmpl_len--;
 
@@ -744,9 +754,11 @@ CK_RV run_DeriveECDHKey(void)
                         goto testcase_cleanup;
                     }
 
+                    mac1_len = sizeof(mac1);
                     rc = run_HMACSign(session, secret_keyA,
                                       secret_key_len[k] > 0 ?
-                                          secret_key_len[k] : curve_len(i));
+                                          secret_key_len[k] : curve_len(i),
+                                      CKM_SHA_1_HMAC, mac1, &mac1_len);
                     if (rc != CKR_OK) {
                         testcase_fail("Derived key #1 is not usable: %s",
                                       p11_get_ckr(rc));
@@ -800,55 +812,67 @@ CK_RV run_DeriveECDHKey(void)
                     }
 
                     testcase_new_assertion();
+                    mac2_len = sizeof(mac2);
                     rc = run_HMACSign(session, secret_keyB,
                                       secret_key_len[k] > 0 ?
-                                          secret_key_len[k] : curve_len(i));
+                                          secret_key_len[k] : curve_len(i),
+                                      CKM_SHA_1_HMAC, mac2, &mac2_len);
                     if (rc != CKR_OK) {
                         testcase_fail("Derived key #2 is not usable: %s",
                                       p11_get_ckr(rc));
                         goto testcase_cleanup;
                     }
 
-                    // Extract the derived secret A
-                    rc = funcs->C_GetAttributeValue(session, secret_keyA,
-                                                    secretA_tmpl,
-                                                    secretA_tmpl_len);
-                    if (rc != CKR_OK) {
-                        testcase_error("C_GetAttributeValue #3:rc = %s",
-                                       p11_get_ckr(rc));
+                    if (mac1_len != mac2_len ||
+                        memcmp(mac1, mac2, mac1_len) != 0) {
+                        testcase_fail("ERROR: derived keys do not produce the "
+                                      "same HMAC");
                         goto testcase_cleanup;
                     }
 
-                    // Extract the derived secret B
-                    rc = funcs->C_GetAttributeValue(session, secret_keyB,
-                                                    secretB_tmpl,
-                                                    secretB_tmpl_len);
-                    if (rc != CKR_OK) {
-                        testcase_error("C_GetAttributeValue #4:rc = %s",
-                                       p11_get_ckr(rc));
-                        goto testcase_cleanup;
-                    }
+                    /* A secure key token won't reveal the key value in clear */
+                    if (!is_ep11_token(SLOT_ID) && !is_cca_token(SLOT_ID)) {
+                        // Extract the derived secret A
+                        rc = funcs->C_GetAttributeValue(session, secret_keyA,
+                                                        secretA_tmpl,
+                                                        secretA_tmpl_len);
+                        if (rc != CKR_OK) {
+                            testcase_error("C_GetAttributeValue #3:rc = %s",
+                                           p11_get_ckr(rc));
+                            goto testcase_cleanup;
+                        }
 
-                    // Compare lengths of derived secrets from key object
-                    if (secretA_tmpl[0].ulValueLen !=
-                        secretB_tmpl[0].ulValueLen) {
-                        testcase_fail("ERROR: derived key #1 length = %lu, "
-                                      "derived key #2 length = %lu",
-                                      secretA_tmpl[0].ulValueLen,
-                                      secretB_tmpl[0].ulValueLen);
-                        goto testcase_cleanup;
-                    }
+                        // Extract the derived secret B
+                        rc = funcs->C_GetAttributeValue(session, secret_keyB,
+                                                        secretB_tmpl,
+                                                        secretB_tmpl_len);
+                        if (rc != CKR_OK) {
+                            testcase_error("C_GetAttributeValue #4:rc = %s",
+                                           p11_get_ckr(rc));
+                            goto testcase_cleanup;
+                        }
 
-                    // Compare derive secrets A and B
-                    if (memcmp(secretA_tmpl[0].pValue,
-                               secretB_tmpl[0].pValue,
-                               secretA_tmpl[0].ulValueLen) != 0) {
-                        testcase_fail("ERROR: derived key mismatch, curve=%s, "
-                                      "kdf=%s, keylen=%lu, shared_data=%u",
-                                      der_ec_supported[i].name,
-                                      p11_get_ckd(kdfs[j]), secret_key_len[k],
-                                      shared_data[m].length);
-                        goto testcase_cleanup;
+                        // Compare lengths of derived secrets from key object
+                        if (secretA_tmpl[0].ulValueLen !=
+                            secretB_tmpl[0].ulValueLen) {
+                            testcase_fail("ERROR: derived key #1 length = %lu, "
+                                          "derived key #2 length = %lu",
+                                          secretA_tmpl[0].ulValueLen,
+                                          secretB_tmpl[0].ulValueLen);
+                            goto testcase_cleanup;
+                        }
+
+                        // Compare derive secrets A and B
+                        if (memcmp(secretA_tmpl[0].pValue,
+                                   secretB_tmpl[0].pValue,
+                                   secretA_tmpl[0].ulValueLen) != 0) {
+                            testcase_fail("ERROR: derived key mismatch, curve=%s, "
+                                          "kdf=%s, keylen=%lu, shared_data=%u",
+                                          der_ec_supported[i].name,
+                                          p11_get_ckd(kdfs[j]), secret_key_len[k],
+                                          shared_data[m].length);
+                            goto testcase_cleanup;
+                        }
                     }
 
                     testcase_pass("*Derive shared secret curve=%s, kdf=%s, "
