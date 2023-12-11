@@ -93,7 +93,9 @@
 /* CCA spec: page 460 & 470 & 471 */
 #define CCA_PRIVKEY_ID                  0x20
 #define CCA_PUBLKEY_ID                  0x21
+#define CCA_ECCDERIVEINFO_ID            0x23
 #define CCA_SECTION_LEN_OFFSET          2
+#define CCA_SECTION_HEADER_LEN          4
 #define CCA_EC_HEADER_SIZE              8
 #define CCA_PRIV_P_LEN_OFFSET           12
 #define CCA_PUBL_P_LEN_OFFSET           10
@@ -101,6 +103,9 @@
 #define CCA_EC_INTTOK_PUBKEY_Q_LEN_OFFSET 12
 /* Offset into the EC public key section to q */
 #define CCA_EC_INTTOK_PUBKEY_Q_OFFSET   14
+#define CCA_EC_INTTOK_PRIVKEY_KEY_SOURCE_OFFSET   11
+
+#define CCA_EC_INTTOK_PRIVKEY_KEY_SOURCE_RANDOM     0x24
 
 /* CCA Internal Key Token parsing constants */
 
@@ -194,14 +199,23 @@
 /* CCA internal HMAC token payload bit length field offset */
 #define CCA_HMAC_INTTOK_PAYLOAD_LENGTH_OFFSET 38
 
+struct cca_key_derivation_data {
+    uint8_t key_algorithm; /* CCA_AES_KEY or CCA_DES_KEY */
+    uint8_t key_type;      /* CCA_KEY_DERIVE_TYPE_xxx values */
+    uint16_t key_size;     /* in bits */
+} __attribute__ ((__packed__));
+
+#define CCA_KEY_DERIVE_TYPE_DATA     0x01 /* DATA key */
+#define CCA_KEY_DERIVE_TYPE_CIPHER   0x04 /* CIPHER key */
+
 /* CCA STDLL constants */
 
 #define CCATOK_MAX_N_LEN  512
 #define CCATOK_MAX_E_LEN  256
 
 enum cca_key_type {
-    CCA_AES_KEY,
-    CCA_DES_KEY
+    CCA_AES_KEY = 0x02,
+    CCA_DES_KEY = 0x01,
 };
 
 #define CCA_DEFAULT_ADAPTER_ENVAR   "CSU_DEFAULT_ADAPTER"
