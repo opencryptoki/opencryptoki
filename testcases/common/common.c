@@ -670,7 +670,8 @@ CK_RV create_ECPrivateKey(CK_SESSION_HANDLE session,
                           CK_BYTE privatekey[],
                           CK_ULONG privatekey_len,
                           CK_OBJECT_HANDLE * priv_key,
-                          CK_BBOOL extractable)
+                          CK_BBOOL extractable,
+                          CK_BBOOL derive)
 {
 
     CK_OBJECT_CLASS class = CKO_PRIVATE_KEY;
@@ -692,7 +693,7 @@ CK_RV create_ECPrivateKey(CK_SESSION_HANDLE session,
         {CKA_ID, id, sizeof(id)},
         {CKA_SENSITIVE, &true, sizeof(true)},
         {CKA_SIGN, &true, sizeof(true)},
-        {CKA_DERIVE, &true, sizeof(true)},
+        {CKA_DERIVE, &derive, sizeof(derive)},
         {CKA_EC_PARAMS, params, params_len},
         {CKA_VALUE, privatekey, privatekey_len},
         {CKA_EXTRACTABLE, &extractable, sizeof(CK_BBOOL)},

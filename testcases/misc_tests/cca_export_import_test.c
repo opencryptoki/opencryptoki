@@ -355,6 +355,7 @@ static CK_RV import_ecc_priv_key(CK_SESSION_HANDLE session,
         {CKA_KEY_TYPE, &keyType, sizeof(keyType)},
         {CKA_LABEL, (char *) label, strlen(label) + 1},
         {CKA_SIGN, &true, sizeof(true)},
+        {CKA_DERIVE, &true, sizeof(true)},
         {CKA_TOKEN, &false, sizeof(false)},
         {CKA_IBM_OPAQUE, ccatoken, tokenlen}
     };
@@ -1491,6 +1492,11 @@ static CK_RV cca_ecc_export_import_tests(void)
     CK_MECHANISM mech = { CKM_ECDSA, 0, 0};
     CK_BYTE *priv_opaquekey = NULL, *publ_opaquekey = NULL;
     CK_ULONG priv_opaquekeylen, publ_opaquekeylen;
+    CK_BBOOL ck_true = TRUE;
+    CK_ATTRIBUTE tmpl_derive[] = {
+            { CKA_DERIVE, &ck_true, sizeof(ck_true)}
+    };
+    CK_ULONG tmpl_derive_len = sizeof(tmpl_derive) / sizeof(CK_ATTRIBUTE);
     char label[80];
     int i;
 
@@ -1682,6 +1688,15 @@ static CK_RV cca_ecc_export_import_tests(void)
             goto error;
         } else {
             testcase_error("C_Verify() with re-imported pub key on signature failed, rc=%s",
+                           p11_get_ckr(rc));
+            goto error;
+        }
+
+        /* Try to change CKA_DERIVE to TRUE of private key */
+        rc = funcs->C_SetAttributeValue(session, priv_key,
+                                        tmpl_derive, tmpl_derive_len);
+        if (rc != CKR_OK) {
+            testcase_error("C_SetAttributeValue() with CKA_DERIVE=TRUE failed, rc=%s",
                            p11_get_ckr(rc));
             goto error;
         }
