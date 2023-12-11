@@ -54,6 +54,7 @@
 #ifndef NO_PKEY
 #include "pkey_utils.h"
 #endif
+#include "attributes.h"
 
 /**
  * EC definitions
@@ -194,6 +195,7 @@ static CSNBCTT2_t dll_CSNBCTT2;
 static CSUACFV_t dll_CSUACFV;
 static CSNBRKA_t dll_CSNBRKA;
 static CSNBKTR2_t dll_CSNBKTR2;
+static CSNDEDH_t dll_CSNDEDH;
 
 /*
  * The CCA adapter lock is shared between all CCA token instances within the
@@ -294,6 +296,7 @@ static const MECH_LIST_ELEMENT cca_mech_list[] = {
                         CKF_EC_NAMEDCURVE | CKF_EC_F_P}},
     {CKM_ECDSA_SHA3_512, {160, 521, CKF_HW | CKF_SIGN | CKF_VERIFY |
                         CKF_EC_NAMEDCURVE | CKF_EC_F_P}},
+    {CKM_ECDH1_DERIVE, {160, 521, CKF_DERIVE | CKF_EC_NAMEDCURVE | CKF_EC_F_P}},
     {CKM_GENERIC_SECRET_KEY_GEN, {80, 2048, CKF_HW | CKF_GENERATE}},
     {CKM_IBM_DILITHIUM, {256, 256, CKF_HW | CKF_GENERATE_KEY_PAIR |
                          CKF_SIGN | CKF_VERIFY}},
@@ -905,6 +908,7 @@ static CK_RV cca_resolve_lib_sym(void *hdl)
     LDSYM_VERIFY(hdl, CSNBSKY);
     LDSYM_VERIFY(hdl, CSNBSPN);
     LDSYM_VERIFY(hdl, CSNBPCU);
+    LDSYM_VERIFY(hdl, CSNDEDH);
     LDSYM_VERIFY(hdl, CSUAPRB);
     LDSYM_VERIFY(hdl, CSNDTBC);
     LDSYM_VERIFY(hdl, CSNDRKX);
@@ -7086,6 +7090,29 @@ uint16_t cca_ec_publkey_offset(CK_BYTE * tok)
     return (priv_offset + privSec_len);
 }
 
+struct cca_key_derivation_data *cca_ec_ecc_key_derivation_info(CK_BYTE *tok)
+{
+    uint16_t pub_offset, pubsec_len, tok_len, ecc_offset;
+    struct cca_key_derivation_data *eccinfo;
+
+    tok_len = be16toh(*(uint16_t *)&tok[CCA_SECTION_LEN_OFFSET]);
+
+    pub_offset = cca_ec_publkey_offset(tok);
+    pubsec_len =
+        be16toh(*(uint16_t *)&tok[pub_offset + CCA_SECTION_LEN_OFFSET]);
+
+    ecc_offset = pub_offset + pubsec_len;
+    if (ecc_offset >= tok_len)
+        return NULL;
+
+    if (tok[ecc_offset] != CCA_ECCDERIVEINFO_ID)
+        return NULL;
+
+    eccinfo = (struct cca_key_derivation_data *)
+                    (&tok[ecc_offset] + CCA_SECTION_HEADER_LEN);
+    return eccinfo;
+}
+
 CK_RV token_create_ec_keypair(TEMPLATE * publ_tmpl,
                               TEMPLATE * priv_tmpl,
                               CK_ULONG priv_tok_len, CK_BYTE *priv_tok,
@@ -7174,6 +7201,244 @@ CK_RV token_create_ec_keypair(TEMPLATE * publ_tmpl,
     return CKR_OK;
 }
 
+static CK_RV ccatok_get_key_info_from_derive_template(TEMPLATE *priv_tmpl,
+                                                      CK_KEY_TYPE *key_type,
+                                                      CK_ULONG *value_len,
+                                      CK_IBM_CCA_AES_KEY_MODE_TYPE *key_mode)
+{
+    CK_ATTRIBUTE *derive_tmpl_attr = NULL;
+    CK_RV rv;
+
+    *key_type = (CK_ULONG)-1;
+    *value_len = 0;
+    *key_mode = (CK_ULONG)-1;
+
+    if (template_attribute_find(priv_tmpl, CKA_DERIVE_TEMPLATE,
+                                &derive_tmpl_attr) != TRUE)
+        return CKR_OK;
+
+    rv = get_ulong_attribute_by_type((CK_ATTRIBUTE_PTR)derive_tmpl_attr->pValue,
+                                     derive_tmpl_attr->ulValueLen /
+                                                         sizeof(CK_ATTRIBUTE),
+                                     CKA_KEY_TYPE, key_type);
+    if (rv != CKR_OK && rv != CKR_TEMPLATE_INCOMPLETE)
+        return rv;
+
+    rv = get_ulong_attribute_by_type((CK_ATTRIBUTE_PTR)derive_tmpl_attr->pValue,
+                                     derive_tmpl_attr->ulValueLen /
+                                                sizeof(CK_ATTRIBUTE),
+                                     CKA_VALUE_LEN, value_len);
+    if (rv != CKR_OK && rv != CKR_TEMPLATE_INCOMPLETE)
+        return rv;
+
+    rv = get_ulong_attribute_by_type((CK_ATTRIBUTE_PTR)derive_tmpl_attr->pValue,
+                                     derive_tmpl_attr->ulValueLen /
+                                                sizeof(CK_ATTRIBUTE),
+                                     CKA_IBM_CCA_AES_KEY_MODE, key_mode);
+    if (rv != CKR_OK && rv != CKR_TEMPLATE_INCOMPLETE)
+        return rv;
+
+    return CKR_OK;
+}
+
+/*
+ * Try to get derive key type and size for CKA_DERIVE_TEMPLATE.
+ * If CKA_DERIVE_TEMPLATE is not available, or it does not contain attribute
+ * CKA_KEY_TYPE, then the default is AES-256.
+ * If CKA_KEY_TYPE is contained and is CKK_AES, it also checks if attribute
+ * CKA_VALUE_LEN is contained and specifies a valid AES key size.
+ * If CKA_IBM_CCA_AES_KEY_MODE is contained, it determines the CCA key mode,
+ * otherwise the global default from the CCA config file is used.
+ * The CCA token only supports to derive AES keys.
+ */
+static CK_RV ccatok_build_ec_derive_info(STDLL_TokData_t *tokdata,
+                                         TEMPLATE *priv_tmpl,
+                                         struct cca_key_derivation_data
+                                                                 *derive_info)
+{
+    struct cca_private_data *cca_private = tokdata->private_data;
+    CK_IBM_CCA_AES_KEY_MODE_TYPE key_mode;
+    CK_KEY_TYPE key_type;
+    CK_ULONG value_len;
+    CK_RV rv;
+
+    /* Defaults: AES-256, DATA or CIPHER as per global setting */
+    switch (cca_private->aes_key_mode) {
+    case AES_KEY_MODE_DATA:
+        derive_info->key_type = CCA_KEY_DERIVE_TYPE_DATA;
+        break;
+    case AES_KEY_MODE_CIPHER:
+        derive_info->key_type = CCA_KEY_DERIVE_TYPE_CIPHER;
+        break;
+    default:
+        TRACE_DEVEL("Invalid AES key mode: %d\n", cca_private->aes_key_mode);
+        return CKR_FUNCTION_FAILED;
+    }
+
+    derive_info->key_algorithm = CCA_AES_KEY;
+    derive_info->key_size = 256;
+
+    rv = ccatok_get_key_info_from_derive_template(priv_tmpl,
+                                                  &key_type, &value_len,
+                                                  &key_mode);
+    if (rv != CKR_OK)
+        return rv;
+
+    switch (key_mode) {
+    case CK_IBM_CCA_AES_DATA_KEY:
+        derive_info->key_type = CCA_KEY_DERIVE_TYPE_DATA;
+        break;
+    case CK_IBM_CCA_AES_CIPHER_KEY:
+        derive_info->key_type = CCA_KEY_DERIVE_TYPE_CIPHER;
+        break;
+    default:
+        /* Use global default as set above */
+        break;
+    }
+
+    if (key_type == (CK_ULONG)-1)
+        return CKR_OK;
+
+    switch (key_type) {
+    case CKK_AES:
+       switch (value_len) {
+        case 0:
+            derive_info->key_size = 256; /* Default to AES-256 */
+            break;
+        case AES_KEY_SIZE_128:
+        case AES_KEY_SIZE_192:
+        case AES_KEY_SIZE_256:
+            derive_info->key_size = value_len * 8;
+            break;
+        default:
+            TRACE_ERROR("Unsupported AES key size %lu\n", value_len);
+            return CKR_ATTRIBUTE_VALUE_INVALID;
+        }
+        break;
+    default:
+        TRACE_ERROR("CCA does not support to derive keys of type 0x%lx as "
+                    "DATA keys\n", key_type);
+        return CKR_ATTRIBUTE_VALUE_INVALID;
+    }
+
+    return CKR_OK;
+}
+
+static CK_RV ccatok_check_ec_derive_info(STDLL_TokData_t *tokdata, OBJECT *obj,
+                                         TEMPLATE *new_tmpl)
+{
+    CK_ATTRIBUTE *opaque_attr, *derive_tmpl_attr = NULL;
+    CK_IBM_CCA_AES_KEY_MODE_TYPE derive_key_mode;
+    CK_KEY_TYPE derive_key_type;
+    CK_ULONG derive_value_len;
+    CK_BBOOL derive = FALSE;
+    struct cca_key_derivation_data *ecc_info;
+    CK_RV rc;
+
+    UNUSED(tokdata);
+
+    rc = template_attribute_get_non_empty(obj->template,
+                                          CKA_IBM_OPAQUE, &opaque_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_IBM_OPAQUE for the key.\n");
+        return rc;
+    }
+
+    ecc_info = cca_ec_ecc_key_derivation_info(opaque_attr->pValue);
+
+    rc = template_attribute_get_bool(new_tmpl, CKA_DERIVE, &derive);
+    if (rc == CKR_OK && derive == TRUE) {
+        /*
+         * CKA_DERIVE of an ECC private key is set to TRUE.
+         * Check if the key has an ECC key derivation section (X'23').
+         * This is required to be able to support ECDH key derivation.
+         */
+        if (ecc_info == NULL) {
+            TRACE_ERROR("ECC private key does not have an ECC key derivation "
+                        "info section X'23'\n");
+            return CKR_ATTRIBUTE_VALUE_INVALID;
+        }
+
+        if (ecc_info->key_type != CCA_KEY_DERIVE_TYPE_DATA &&
+            ecc_info->key_type != CCA_KEY_DERIVE_TYPE_CIPHER &&
+            ecc_info->key_algorithm != CCA_AES_KEY) {
+            TRACE_ERROR("CCA can not derive keys other than AES DATA or "
+                        "AES CIPHER key tokens\n");
+            return CKR_ATTRIBUTE_VALUE_INVALID;
+        }
+    }
+
+    if (template_attribute_find(new_tmpl, CKA_DERIVE_TEMPLATE,
+                                &derive_tmpl_attr)) {
+        /*
+         * CKA_DERIVE_TEMPLATE is changed.
+         * Check if the key has an ECC key derivation section (X'23'),
+         * and if it matches the CKA_KEY_TYPE, CKA_VALUE_LEN and
+         * CKA_IBM_CCA_AES_KEY_MODE attributes in the derive template.
+         */
+        rc = ccatok_get_key_info_from_derive_template(new_tmpl,
+                                                      &derive_key_type,
+                                                      &derive_value_len,
+                                                      &derive_key_mode);
+        if (rc == CKR_OK && ecc_info != NULL) {
+            switch (derive_key_type) {
+            case (CK_ULONG)-1:
+            case CKK_AES:
+                if (ecc_info->key_algorithm != CCA_AES_KEY) {
+                    TRACE_ERROR("The EC private key can not derive keys "
+                                "other than AES keys\n");
+                    return CKR_ATTRIBUTE_VALUE_INVALID;
+                }
+                /* Also check key size, if specified in template */
+                if (derive_value_len != 0 &&
+                    derive_value_len * 8 != ecc_info->key_size) {
+                    TRACE_ERROR("The EC private key can not derive keys "
+                                "other than AES-%u keys\n",
+                                ecc_info->key_size);
+                    return CKR_ATTRIBUTE_VALUE_INVALID;
+                }
+                break;
+            default:
+                TRACE_ERROR("CCA does not support to derive keys of type "
+                            "0x%lx\n", derive_key_type);
+                return CKR_ATTRIBUTE_VALUE_INVALID;
+            }
+
+            switch (derive_key_mode) {
+            case (CK_ULONG)-1:
+                if (ecc_info->key_type != CCA_KEY_DERIVE_TYPE_DATA &&
+                    ecc_info->key_type != CCA_KEY_DERIVE_TYPE_CIPHER) {
+                    TRACE_ERROR("The EC private key can not derive keys "
+                                "other than AES DATA or AES CIPHER keys\n");
+                    return CKR_ATTRIBUTE_VALUE_INVALID;
+                }
+                break;
+            case CK_IBM_CCA_AES_DATA_KEY:
+                if (ecc_info->key_type != CCA_KEY_DERIVE_TYPE_DATA) {
+                    TRACE_ERROR("The EC private key can not derive keys "
+                                "other than AES DATA keys\n");
+                    return CKR_ATTRIBUTE_VALUE_INVALID;
+                }
+                break;
+            case CK_IBM_CCA_AES_CIPHER_KEY:
+                if (ecc_info->key_type != CCA_KEY_DERIVE_TYPE_CIPHER) {
+                    TRACE_ERROR("The EC private key can not derive keys "
+                                "other than AES CIPHER keys\n");
+                    return CKR_ATTRIBUTE_VALUE_INVALID;
+                }
+                break;
+            default:
+                TRACE_ERROR("CCA does not support to derive keys of mode "
+                            "0x%lx\n", derive_key_mode);
+                return CKR_ATTRIBUTE_VALUE_INVALID;
+            }
+        }
+    }
+
+    return CKR_OK;
+}
+
+
 CK_RV token_specific_ec_generate_keypair(STDLL_TokData_t * tokdata,
                                          TEMPLATE * publ_tmpl,
                                          TEMPLATE * priv_tmpl)
@@ -7191,6 +7456,8 @@ CK_RV token_specific_ec_generate_keypair(STDLL_TokData_t * tokdata,
     unsigned char transport_key_identifier[CCA_KEY_ID_SIZE] = { 0, };
     unsigned char priv_key_token[CCA_KEY_TOKEN_SIZE] = { 0, };
     unsigned char publ_key_token[CCA_KEY_TOKEN_SIZE] = { 0, };
+    struct cca_key_derivation_data deriv_data;
+    long deriv_data_size;
     CK_RV rv;
     long param1 = 0;
     unsigned char *param2 = NULL;
@@ -7225,8 +7492,9 @@ CK_RV token_specific_ec_generate_keypair(STDLL_TokData_t * tokdata,
 
     key_value_structure_length = CCA_EC_KEY_VALUE_STRUCT_SIZE;
 
-    rule_array_count = 1;
-    memcpy(rule_array, "ECC-PAIR", (size_t) (CCA_KEYWORD_SIZE));
+    /* Enable ECDH key derivation with keys generated by the CCA token */
+    rule_array_count = 3;
+    memcpy(rule_array, "ECC-PAIRKEY-MGMTECC-VER1", 3 * CCA_KEYWORD_SIZE);
 
 #ifndef NO_PKEY
     /* Add protected key related attributes to the rule array */
@@ -7241,6 +7509,15 @@ CK_RV token_specific_ec_generate_keypair(STDLL_TokData_t * tokdata,
 
     private_key_name_length = 0;
 
+    /* Enable the ECC private key to derive keys */
+    rv = ccatok_build_ec_derive_info(tokdata, priv_tmpl, &deriv_data);
+    if (rv != CKR_OK) {
+        TRACE_ERROR("%s ccatok_build_derive_info failed with rc=0x%lx\n",
+                    __func__, rv);
+        return rv;
+    }
+
+    deriv_data_size = sizeof(deriv_data);
     key_token_length = CCA_KEY_TOKEN_SIZE;
 
     USE_CCA_ADAPTER_START(tokdata, return_code, reason_code)
@@ -7256,8 +7533,8 @@ CK_RV token_specific_ec_generate_keypair(STDLL_TokData_t * tokdata,
                     private_key_name,
                     &param1,
                     param2,
-                    &param1,
-                    param2,
+                    &deriv_data_size,
+                    (unsigned char *)&deriv_data,
                     &param1,
                     param2,
                     &param1, param2,
@@ -10483,6 +10760,7 @@ static CK_RV import_ec_privkey(STDLL_TokData_t *tokdata, TEMPLATE *priv_templ)
 #ifndef NO_PKEY
     CK_BBOOL cpacf_exp;
 #endif
+    CK_BBOOL derive = FALSE;
 
     rc = template_attribute_find(priv_templ, CKA_IBM_OPAQUE, &opaque_attr);
     if (rc == TRUE) {
@@ -10492,6 +10770,8 @@ static CK_RV import_ec_privkey(STDLL_TokData_t *tokdata, TEMPLATE *priv_templ)
          */
         CK_BBOOL true = TRUE;
         CK_BYTE *t;
+        struct cca_key_derivation_data *ecc_info;
+        uint16_t priv_offset;
 
         if (analyse_cca_key_token(opaque_attr->pValue, opaque_attr->ulValueLen,
                                   &token_type, &token_keybitsize, &mkvp) != TRUE) {
@@ -10522,6 +10802,44 @@ static CK_RV import_ec_privkey(STDLL_TokData_t *tokdata, TEMPLATE *priv_templ)
             return rc;
         }
 #endif /* NO_PKEY */
+
+        /*
+         * The CCA token only supports to derive DATA and CIPHER keys. So if
+         * the ECC private key token has an ECC key derivation info section, the
+         * to-be-derived key type must be DATA or CIPHER.
+         * Furthermore, check if CKA_DERIVE is TRUE. If so, the ECC private key
+         * token must have an ECC key derivation info section (requires V1 ECC
+         * key token), and must have been generated by random (see pedigree/
+         * key-source field).
+         */
+        ecc_info = cca_ec_ecc_key_derivation_info(opaque_attr->pValue);
+        if (ecc_info != NULL &&
+            ecc_info->key_algorithm != CCA_AES_KEY &&
+            ecc_info->key_type != CCA_KEY_DERIVE_TYPE_DATA &&
+            ecc_info->key_type != CCA_KEY_DERIVE_TYPE_CIPHER) {
+            TRACE_ERROR("ECC private key has an ECC key derivation info section "
+                        "(X'23'), but the key type is not AES DATA or "
+                        "AES CIPHER\n");
+            return CKR_ATTRIBUTE_VALUE_INVALID;
+        }
+
+        rc = template_attribute_get_bool(priv_templ, CKA_DERIVE, &derive);
+        if (rc == CKR_OK && derive == TRUE) {
+            if (ecc_info == NULL) {
+                TRACE_ERROR("CKA_DERIVE is TRUE, but ECC private key does not "
+                            "have an ECC key derivation info section (X'23')\n");
+                return CKR_ATTRIBUTE_VALUE_INVALID;
+            }
+
+            priv_offset = cca_ec_privkey_offset(opaque_attr->pValue);
+            if (((CK_BYTE *)opaque_attr->pValue)[priv_offset +
+                         CCA_EC_INTTOK_PRIVKEY_KEY_SOURCE_OFFSET] !=
+                                    CCA_EC_INTTOK_PRIVKEY_KEY_SOURCE_RANDOM) {
+                TRACE_ERROR("CKA_DERIVE is TRUE, but ECC private key was not "
+                            "generated by random\n");
+                return CKR_ATTRIBUTE_VALUE_INVALID;
+            }
+        }
 
         rc = cca_reencipher_created_key(tokdata, priv_templ,
                                         opaque_attr->pValue,
@@ -10577,6 +10895,18 @@ static CK_RV import_ec_privkey(STDLL_TokData_t *tokdata, TEMPLATE *priv_templ)
             return rc;
         }
 
+        /*
+         * Check if CKA_DERIVE is TRUE. An ECC key imported from clear text
+         * can not be used for ECDH. CCA allows ECDH only for randomly
+         * generated keys.
+         */
+        rc = template_attribute_get_bool(priv_templ, CKA_DERIVE, &derive);
+        if (rc == CKR_OK && derive == TRUE) {
+            TRACE_ERROR("CKA_DERIVE is TRUE. CCA does not allow ECDH key "
+                        "derivation with keys imported from clear\n");
+            return CKR_TEMPLATE_INCONSISTENT;
+        }
+
         /* Find private key data in template */
         rc = template_attribute_get_non_empty(priv_templ, CKA_VALUE, &attr);
         if (rc != CKR_OK) {
@@ -10613,7 +10943,12 @@ static CK_RV import_ec_privkey(STDLL_TokData_t *tokdata, TEMPLATE *priv_templ)
         if (rc != CKR_OK)
             return rc;
 
-        /* Build key token */
+        /*
+         * Build key token.
+         * An ECC key imported from clear text can not be used for ECDH.
+         * CCA allows ECDH only for randomly generated keys.
+         * Thus no need for keywords KEY-MGMT and ECC-VER1 here.
+         */
         rule_array_count = 1;
         memcpy(rule_array, "ECC-PAIR", (size_t)(CCA_KEYWORD_SIZE));
         private_key_name_length = 0;
@@ -10862,6 +11197,378 @@ static CK_RV import_ec_pubkey(STDLL_TokData_t *tokdata, TEMPLATE *pub_templ)
     TRACE_DEBUG_DUMPTEMPL(pub_templ);
 
     return CKR_OK;
+}
+
+/*
+ * ECDH key derivation.
+ * CCA requires that the ECC private key used for ECDH with keyword DERIV02
+ * has an ECC key derivation section (X'23') that contains the type and size
+ * of keys that can be derived with that key.
+ * The CCA token generates or imports ECC keys with an ECC key derivation
+ * section allowing to derive AES keys only. Thus, the derivation is restricted
+ * to just that one key type and size that is contained in the private key's
+ * ECC key derivation section.
+ * For ECC key generation, the to be derived key type and size can be specified
+ * using the CKA_DERIVE_TEMPLATE containing CKA_KEY_TYPE, CKA_VALUE_LEN and
+ * CKA_IBM_CCA_AES_KEY_MODE. This information will then be added as ECC key
+ * derivation section to the private key. The default derivation key type and
+ * size is is AES-256. The default CCA key mode is determined by the global
+ * configuration setting.
+ * Furthermore, CCA allows ECDH key derivation with keyword DERIV02 only
+ * with ECC private keys that were generated by random. Keys imported from
+ * clear can not be used for ECDH.
+ */
+CK_RV token_specific_ecdh_pkcs_derive_kdf(STDLL_TokData_t *tokdata,
+                                          SESSION *session,
+                                          OBJECT *base_key_obj,
+                                          CK_ECDH1_DERIVE_PARAMS *params,
+                                          OBJECT *derived_key_obj,
+                                          CK_ULONG derived_key_class,
+                                          CK_ULONG derived_key_type)
+{
+    long return_code, reason_code, rule_array_count, exit_data_len = 0;
+    long private_key_name_length, pubkey_token_length, param1 = 0;
+    unsigned char *exit_data = NULL;
+    unsigned char *param2 = NULL;
+    unsigned char rule_array[CCA_RULE_ARRAY_SIZE] = { 0, };
+    long key_value_structure_length, key_bit_length;
+    unsigned char key_value_structure[CCA_KEY_VALUE_STRUCT_SIZE] = { 0, };
+    unsigned char private_key_name[CCA_PRIVATE_KEY_NAME_SIZE] = { 0, };
+    unsigned char pubkey_token[CCA_KEY_TOKEN_SIZE] = { 0, };
+    unsigned char symkey_token[CCA_MAX_AES_CIPHER_KEY_SIZE] = { 0, };
+    CK_ULONG symkey_token_size = sizeof(symkey_token);
+    long symkey_token_length = sizeof(symkey_token);
+    long shared_data_length, privkey_token_length;
+    CK_ATTRIBUTE *opaque_attr;
+    CK_ULONG base_key_class, base_key_type, key_len = 0;
+    struct cca_key_derivation_data *ecc_info;
+    CK_BYTE dummy[AES_KEY_SIZE_256] = { 0, };
+    CK_IBM_CCA_AES_KEY_MODE_TYPE key_mode;
+    enum cca_token_type keytype;
+    unsigned int keybitsize;
+    const CK_BYTE *mkvp;
+    CK_BBOOL new_mk;
+    uint8_t curve_type;
+    uint16_t curve_bitlen;
+    int curve_nid;
+    CK_ULONG privlen;
+    CK_BBOOL allocated = FALSE;
+    CK_BYTE *ecpoint = NULL;
+    CK_ULONG ecpoint_len;
+    CK_RV rc;
+
+    UNUSED(session);
+
+    if (((struct cca_private_data *)tokdata->private_data)->inconsistent) {
+        TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
+        return CKR_DEVICE_ERROR;
+    }
+
+    /* Check the ECDH params */
+    if (params->pPublicData == NULL || params->ulPublicDataLen == 0 ||
+        (params->ulSharedDataLen >0 && params->pSharedData == NULL)) {
+        TRACE_ERROR("Invalid mechanism parameter\n");
+        return CKR_MECHANISM_PARAM_INVALID;
+    }
+
+    switch (params->kdf) {
+        case CKD_SHA224_KDF:
+        case CKD_SHA256_KDF:
+        case CKD_SHA384_KDF:
+        case CKD_SHA512_KDF:
+            break;
+        default:
+            TRACE_ERROR("CCA does not support KDFs other than "
+                        "SHA224/256/384/512\n");
+            return CKR_MECHANISM_PARAM_INVALID;
+    }
+
+    if (params->ulSharedDataLen > 256) {
+        TRACE_ERROR("CCA does not support shared data > 256 bytes\n");
+        return CKR_MECHANISM_PARAM_INVALID;
+    }
+
+    /* Get private key token */
+    rc = template_attribute_get_non_empty(base_key_obj->template,
+                                          CKA_IBM_OPAQUE, &opaque_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_IBM_OPAQUE for the key.\n");
+        return rc;
+    }
+
+    /* Check base key: must be an EC private key */
+    if (!template_get_class(base_key_obj->template,
+                            &base_key_class, &base_key_type)) {
+        TRACE_ERROR("Could not find CKA_CLASS in the template\n");
+        return CKR_TEMPLATE_INCOMPLETE;
+    }
+
+    if (base_key_class != CKO_PRIVATE_KEY || base_key_type != CKK_EC) {
+        TRACE_ERROR("Base key is not an EC private key\n");
+        return CKR_KEY_TYPE_INCONSISTENT;
+    }
+
+    /* Check the EC curve used */
+    rc = curve_supported(tokdata, base_key_obj->template,
+                         &curve_type, &curve_bitlen, &curve_nid);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Curve not supported\n");
+        return rc;
+    }
+
+    rc = get_ecsiglen(base_key_obj, &privlen);
+    privlen /= 2;
+
+    if (derived_key_class != CKO_SECRET_KEY || derived_key_type != CKK_AES) {
+        TRACE_ERROR("CCA can not derive keys of type other than AES\n");
+        return CKR_KEY_TYPE_INCONSISTENT;
+    }
+
+    /* Must have a ECC key derivation info section */
+    ecc_info = cca_ec_ecc_key_derivation_info(opaque_attr->pValue);
+    if (ecc_info == NULL) {
+        TRACE_ERROR("ECC private key does not have an ECC key derivation info "
+                    "section X'23'\n");
+        return CKR_KEY_FUNCTION_NOT_PERMITTED;
+    }
+
+    /* Check the derived key: Must match the ECC key derivation info */
+    if (ecc_info->key_algorithm != CCA_AES_KEY &&
+        ecc_info->key_type != CCA_KEY_DERIVE_TYPE_DATA &&
+        ecc_info->key_type != CCA_KEY_DERIVE_TYPE_CIPHER) {
+        TRACE_ERROR("The EC private key can not derive keys other than AES "
+                    "DATA or AES CIPHER key tokens\n");
+        return CKR_KEY_TYPE_INCONSISTENT;
+    }
+
+    rc = template_attribute_get_ulong(derived_key_obj->template,
+                                      CKA_VALUE_LEN, &key_len);
+    if (rc == CKR_TEMPLATE_INCOMPLETE)
+        key_len = privlen; /* curve can derive that many bytes */
+    else if (rc != CKR_OK)
+        return rc;
+
+    if (key_len != ecc_info->key_size / 8) {
+        TRACE_ERROR("The EC private key can not derive keys of type other than "
+                    "AES-%u\n", ecc_info->key_size);
+        return CKR_ATTRIBUTE_VALUE_INVALID;
+    }
+
+    rc = template_attribute_get_ulong(derived_key_obj->template,
+                                      CKA_IBM_CCA_AES_KEY_MODE, &key_mode);
+    if (rc == CKR_OK) {
+        switch (key_mode) {
+        case CK_IBM_CCA_AES_DATA_KEY:
+            if (ecc_info->key_type != CCA_KEY_DERIVE_TYPE_DATA) {
+                TRACE_ERROR("The EC private key can not derive keys "
+                            "other than AES DATA keys\n");
+                return CKR_ATTRIBUTE_VALUE_INVALID;
+            }
+            break;
+        case CK_IBM_CCA_AES_CIPHER_KEY:
+            if (ecc_info->key_type != CCA_KEY_DERIVE_TYPE_CIPHER) {
+                TRACE_ERROR("The EC private key can not derive keys "
+                            "other than AES CIPHER keys\n");
+                return CKR_ATTRIBUTE_VALUE_INVALID;
+            }
+            break;
+        default:
+            TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
+            return CKR_ATTRIBUTE_VALUE_INVALID;
+        }
+    }
+
+    /* Get the public key as CCA key token */
+    rc = ec_point_from_public_data(params->pPublicData,
+                                   params->ulPublicDataLen,
+                                   privlen, TRUE, &allocated,
+                                   &ecpoint, &ecpoint_len);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("ec_point_from_public_data failed\n");
+        return rc;
+    }
+
+    memset(key_value_structure, 0, CCA_KEY_VALUE_STRUCT_SIZE);
+    rc = build_public_EC_key_value_structure(ecpoint, ecpoint_len,
+                                             curve_type, curve_bitlen,
+                                             curve_nid,
+                                             (unsigned char *)
+                                                     &key_value_structure,
+                                             &key_value_structure_length);
+    if (rc != CKR_OK)
+        goto done;
+
+    /* Build public key token */
+    rule_array_count = 1;
+    memcpy(rule_array, "ECC-PUBL", CCA_KEYWORD_SIZE);
+    private_key_name_length = 0;
+    pubkey_token_length = CCA_KEY_TOKEN_SIZE;
+    key_value_structure_length = CCA_KEY_VALUE_STRUCT_SIZE;
+
+    USE_CCA_ADAPTER_START(tokdata, return_code, reason_code)
+        dll_CSNDPKB(&return_code, &reason_code,
+                    &exit_data_len, exit_data,
+                    &rule_array_count, rule_array,
+                    &key_value_structure_length, key_value_structure,
+                    &private_key_name_length, private_key_name,
+                    &param1, param2, &param1, param2, &param1, param2,
+                    &param1, param2, &param1, param2,
+                    &pubkey_token_length,
+                    pubkey_token);
+    USE_CCA_ADAPTER_END(tokdata, return_code, reason_code)
+
+    if (return_code != CCA_SUCCESS) {
+        TRACE_ERROR("CSNDPKB (EC KEY TOKEN BUILD) failed. return:%ld,"
+                    " reason:%ld\n", return_code, reason_code);
+        if (is_curve_error(return_code, reason_code))
+            rc = CKR_CURVE_NOT_SUPPORTED;
+        else
+            rc = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+
+    /* Build the output key skeleton */
+    if (ecc_info->key_type != CCA_KEY_DERIVE_TYPE_DATA) {
+        key_mode = CK_IBM_CCA_AES_DATA_KEY;
+        rc = cca_build_aes_cipher_token(tokdata, derived_key_obj->template,
+                                        symkey_token, &symkey_token_size);
+    } else {
+        key_mode = CK_IBM_CCA_AES_DATA_KEY;
+        rc = cca_build_aes_data_token(tokdata, key_len,
+                                      symkey_token, &symkey_token_size);
+    }
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Failed to build CCA key token");
+        goto done;
+    }
+
+    /* Build rule array for CSNDEDH */
+    rule_array_count = 3;
+    memcpy(rule_array, "DERIV02 KEY-AES ", 2 * CCA_KEYWORD_SIZE);
+
+    switch (params->kdf) {
+        case CKD_SHA224_KDF:
+            memcpy(rule_array + 2 * CCA_KEYWORD_SIZE, "SHA-224 ",
+                   (size_t)(CCA_KEYWORD_SIZE));
+            break;
+        case CKD_SHA256_KDF:
+            memcpy(rule_array + 2 * CCA_KEYWORD_SIZE, "SHA-256 ",
+                   (size_t)(CCA_KEYWORD_SIZE));
+            break;
+        case CKD_SHA384_KDF:
+            memcpy(rule_array + 2 * CCA_KEYWORD_SIZE, "SHA-384 ",
+                   (size_t)(CCA_KEYWORD_SIZE));
+            break;
+        case CKD_SHA512_KDF:
+            memcpy(rule_array + 2 * CCA_KEYWORD_SIZE, "SHA-512 ",
+                   (size_t)(CCA_KEYWORD_SIZE));
+            break;
+        default:
+            TRACE_ERROR("CCA does not support KDFs other than "
+                        "SHA224/256/384/512\n");
+            rc = CKR_MECHANISM_PARAM_INVALID;
+            goto done;
+    }
+
+    key_bit_length = key_len * 8;
+
+    shared_data_length = params->ulSharedDataLen;
+    privkey_token_length = opaque_attr->ulValueLen;
+
+    USE_CCA_ADAPTER_START(tokdata, return_code, reason_code)
+        dll_CSNDEDH(&return_code,
+                    &reason_code,
+                    &exit_data_len,
+                    exit_data,
+                    &rule_array_count,
+                    rule_array,
+                    &privkey_token_length, opaque_attr->pValue,
+                    &param1, param2,
+                    &pubkey_token_length, pubkey_token,
+                    &param1, param2,
+                    &shared_data_length, params->pSharedData,
+                    &key_bit_length,
+                    &param1, param2, &param1, param2,
+                    &param1, param2, &param1, param2,
+                    &param1, param2, &param1, param2,
+                    &symkey_token_length, symkey_token);
+    USE_CCA_ADAPTER_END(tokdata, return_code, reason_code)
+
+    if (return_code != CCA_SUCCESS) {
+        TRACE_ERROR("CSNDEDH (EC Diffie-Hellman) failed. return:%ld,"
+                    " reason:%ld\n", return_code, reason_code);
+        if (return_code == 8 &&
+            reason_code >= 2243 && reason_code <= 2246)
+            rc = CKR_KEY_FUNCTION_NOT_PERMITTED;
+        else
+           rc = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+
+    if (analyse_cca_key_token(symkey_token, symkey_token_length,
+                              &keytype, &keybitsize, &mkvp) == FALSE ||
+        mkvp == NULL) {
+        TRACE_ERROR("Invalid/unknown cca token has been unwrapped\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+
+    if (check_expected_mkvp(tokdata, keytype, mkvp, &new_mk) != CKR_OK) {
+        TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
+        rc = CKR_DEVICE_ERROR;
+        goto done;
+    }
+
+    rc = cca_reencipher_created_key(tokdata, derived_key_obj->template,
+                                    symkey_token, symkey_token_length,
+                                    new_mk, keytype, FALSE);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("cca_reencipher_created_key failed: 0x%lx\n", rc);
+        goto done;
+    }
+
+    /* Add CKA_IBM_OPAQUE */
+    rc = build_update_attribute(derived_key_obj->template, CKA_IBM_OPAQUE,
+                                symkey_token, symkey_token_length);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s build_update_attribute failed with rc=0x%lx\n",
+                    __func__, rc);
+        goto done;
+    }
+
+    /* Add CKA_VALUE as all zeros */
+    rc = build_update_attribute(derived_key_obj->template, CKA_VALUE,
+                                dummy, key_len);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s build_update_attribute failed with rc=0x%lx\n",
+                    __func__, rc);
+        goto done;
+    }
+
+    /* Add CKA_VALUE_LEN */
+    rc = build_update_attribute(derived_key_obj->template, CKA_VALUE_LEN,
+                                (CK_BYTE *)&key_len, sizeof(key_len));
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s build_update_attribute failed with rc=0x%lx\n",
+                    __func__, rc);
+        goto done;
+    }
+
+    /* Add CKA_IBM_CCA_AES_KEY_MODE */
+    rc = build_update_attribute(derived_key_obj->template,
+                                CKA_IBM_CCA_AES_KEY_MODE,
+                                (CK_BYTE *)&key_mode, sizeof(key_mode));
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s build_update_attribute failed with rc=0x%lx\n",
+                    __func__, rc);
+        goto done;
+    }
+
+done:
+    if (allocated && ecpoint != NULL)
+        free(ecpoint);
+
+    return rc;
 }
 
 static CK_RV build_ibm_dilithium_import_key_value_struct(
@@ -13091,6 +13798,10 @@ CK_RV token_specific_set_attribute_values(STDLL_TokData_t *tokdata,
         memcpy(rule_array, "HMAC    ", CCA_KEYWORD_SIZE);
         rule_array_count = 1;
         break;
+    case CKK_EC:
+        if (class != CKO_PRIVATE_KEY)
+            return CKR_OK;
+        return ccatok_check_ec_derive_info(tokdata, obj, new_tmpl);
     default:
         /* Not an AES or HMAC key, nothing to do */
         return CKR_OK;
