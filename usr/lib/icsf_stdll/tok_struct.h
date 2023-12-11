@@ -86,6 +86,7 @@ token_spec_t token_specific = {
     NULL,                       // ec_verify
     NULL,                       // ec_generate_keypair
     NULL,                       // ecdh_derive
+    NULL,                       // ecdh_derive_kdf
     // DH
     NULL,                       // dh_pkcs_derive
     NULL,                       // dh_pkcs_key_pair_gen

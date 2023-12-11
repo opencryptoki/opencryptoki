@@ -167,6 +167,10 @@ struct token_specific_struct {
                                 CK_BYTE *, CK_ULONG, CK_BYTE *, CK_ULONG *,
                                 CK_BYTE *, CK_ULONG);
 
+    CK_RV (*t_ecdh_pkcs_derive_kdf) (STDLL_TokData_t *, SESSION *, OBJECT *,
+                                     CK_ECDH1_DERIVE_PARAMS *, OBJECT *,
+                                     CK_ULONG, CK_ULONG);
+
     /* Begin code contributed by Corrent corp. */
 
     // Token Specific DH functions
