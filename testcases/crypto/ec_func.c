@@ -420,6 +420,44 @@ error:
     return rc;
 }
 
+CK_RV run_AESEncrypt(CK_SESSION_HANDLE session, CK_OBJECT_HANDLE h_key,
+                     CK_BYTE *enc, CK_ULONG *enc_len)
+{
+    char aes_iv[] = { 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
+                      0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f
+    };
+    CK_MECHANISM mech = { .mechanism = CKM_AES_CBC,
+                          .pParameter = &aes_iv,
+                          .ulParameterLen = AES_INIT_VECTOR_SIZE };
+    CK_BYTE data[AES_BLOCK_SIZE] = { 0 };
+    CK_RV rc = CKR_OK;
+
+    if (!mech_supported(SLOT_ID, mech.mechanism)) {
+        testcase_notice("Mechanism %s is not supported with slot "
+                        "%lu. Skipping key check",
+                        p11_get_ckm(&mechtable_funcs, mech.mechanism),
+                        SLOT_ID);
+        *enc_len = 0;
+        return CKR_OK;
+    }
+
+    rc = funcs->C_EncryptInit(session, &mech, h_key);
+    if (rc != CKR_OK) {
+        testcase_notice("C_EncryptInit rc=%s", p11_get_ckr(rc));
+        goto error;
+    }
+
+    /** do encrypting  **/
+    rc = funcs->C_Encrypt(session, data, sizeof(data), enc, enc_len);
+    if (rc != CKR_OK) {
+        testcase_notice("C_Encrypt rc=%s", p11_get_ckr(rc));
+        goto error;
+    }
+
+error:
+    return rc;
+}
+
 /*
  * Perform a HMAC sign to verify that the key is usable.
  */
@@ -516,6 +554,14 @@ CK_RV run_DeriveECDHKey(void)
             {CKA_PRIVATE, &true, sizeof(true)},
             {CKA_EXTRACTABLE, &true, sizeof(true)},
         };
+        CK_ULONG derive_key_type = CKK_AES;
+        CK_ULONG derive_value_len = 256 / 8;
+        CK_ATTRIBUTE cka_derive_tmpl_cca[] = {
+            {CKA_PRIVATE, &true, sizeof(true)},
+            {CKA_EXTRACTABLE, &true, sizeof(true)},
+            {CKA_KEY_TYPE, &derive_key_type, sizeof(derive_key_type)},
+            {CKA_VALUE_LEN, &derive_value_len, sizeof(derive_value_len)},
+        };
         CK_ATTRIBUTE prv_attr[] = {
             {CKA_SIGN, &true, sizeof(true)},
             {CKA_EXTRACTABLE, &true, sizeof(true)},
@@ -555,6 +601,10 @@ CK_RV run_DeriveECDHKey(void)
 
         if (is_icsf_token(SLOT_ID))
             prv_attr_len -= 1; /* ICSF does not support array attributes */
+        if (is_cca_token(SLOT_ID)) {
+            prv_attr[3].pValue = cka_derive_tmpl_cca;
+            prv_attr[3].ulValueLen = sizeof(cka_derive_tmpl_cca);
+        }
 
         CK_ATTRIBUTE *prv_attr_gen = prv_attr;
         CK_ULONG prv_attr_gen_len = prv_attr_len;
@@ -810,6 +860,19 @@ CK_RV run_DeriveECDHKey(void)
                     continue;
                 }
 
+                if (is_cca_token(SLOT_ID)) {
+                    if (secret_key_len[k] == derive_value_len) {
+                        key_type = derive_key_type; /* CCA can only derive AES-256 keys */
+                    } else if (secret_key_len[k] == 0 &&
+                               der_ec_supported[i].bit_len == derive_value_len * 8) {
+                        key_type = derive_key_type; /* CCA can only derive AES-256 keys */
+                    } else {
+                        testcase_skip("CCA token can not derive keys of size %lu\n",
+                                      secret_key_len[k]);
+                        continue;
+                    }
+                }
+
                 CK_ATTRIBUTE  secretA_tmpl[] = {
                     {CKA_VALUE, secretA_value, sizeof(secretA_value)},
                 };
@@ -835,11 +898,27 @@ CK_RV run_DeriveECDHKey(void)
                 CK_ULONG mac1_len = sizeof(mac1);
                 CK_BYTE mac2[SHA1_HASH_SIZE] = { 0 };
                 CK_ULONG mac2_len = sizeof(mac2);
+                CK_BYTE enc1[AES_BLOCK_SIZE] = { 0 };
+                CK_ULONG enc1_len = sizeof(enc1);
+                CK_BYTE enc2[AES_BLOCK_SIZE] = { 0 };
+                CK_ULONG enc2_len = sizeof(enc2);
 
                 if (secret_key_len[k] == 0)
                     secret_tmpl_len--;
 
                 for (m=0; m < (kdfs[j] == CKD_NULL ? 1 : NUM_SHARED_DATA); m++) {
+
+                    if (is_cca_token(SLOT_ID)) {
+                       switch (kdfs[j]) {
+                       case CKD_SHA224_KDF:
+                       case CKD_SHA256_KDF:
+                       case CKD_SHA384_KDF:
+                       case CKD_SHA512_KDF:
+                           break;
+                       default:
+                           continue;
+                       }
+                    }
 
                     testcase_begin("Starting with curve=%s, kdf=%s, keylen=%lu, "
                                   "shared_data=%u, mech=%s, pkey=%X",
@@ -892,15 +971,30 @@ CK_RV run_DeriveECDHKey(void)
                         goto testcase_cleanup;
                     }
 
-                    mac1_len = sizeof(mac1);
-                    rc = run_HMACSign(session, secret_keyA,
-                                      secret_key_len[k] > 0 ?
-                                          secret_key_len[k] : curve_len(i),
-                                      CKM_SHA_1_HMAC, mac1, &mac1_len);
-                    if (rc != CKR_OK) {
-                        testcase_fail("Derived key #1 is not usable: %s",
-                                      p11_get_ckr(rc));
-                        goto testcase_cleanup;
+                    switch (key_type) {
+                    case CKK_GENERIC_SECRET:
+                        mac1_len = sizeof(mac1);
+                        rc = run_HMACSign(session, secret_keyA,
+                                          secret_key_len[k] > 0 ?
+                                              secret_key_len[k] : curve_len(i),
+                                          CKM_SHA_1_HMAC, mac1, &mac1_len);
+                        if (rc != CKR_OK) {
+                            testcase_fail("Derived key #1 is not usable: %s",
+                                          p11_get_ckr(rc));
+                            goto testcase_cleanup;
+                        }
+                        break;
+
+                    case CKK_AES:
+                        enc1_len = sizeof(enc1);
+                        rc = run_AESEncrypt(session, secret_keyA,
+                                            enc1, &enc1_len);
+                        if (rc != CKR_OK) {
+                            testcase_fail("Derived key #1 is not usable: %s",
+                                          p11_get_ckr(rc));
+                            goto testcase_cleanup;
+                        }
+                        break;
                     }
 
                     // Now, derive a generic secret key using B's private key
@@ -951,22 +1045,45 @@ CK_RV run_DeriveECDHKey(void)
                     }
 
                     testcase_new_assertion();
-                    mac2_len = sizeof(mac2);
-                    rc = run_HMACSign(session, secret_keyB,
-                                      secret_key_len[k] > 0 ?
-                                          secret_key_len[k] : curve_len(i),
-                                      CKM_SHA_1_HMAC, mac2, &mac2_len);
-                    if (rc != CKR_OK) {
-                        testcase_fail("Derived key #2 is not usable: %s",
-                                      p11_get_ckr(rc));
-                        goto testcase_cleanup;
-                    }
 
-                    if (mac1_len != mac2_len ||
-                        memcmp(mac1, mac2, mac1_len) != 0) {
-                        testcase_fail("ERROR: derived keys do not produce the "
-                                      "same HMAC");
-                        goto testcase_cleanup;
+                    switch (key_type) {
+                    case CKK_GENERIC_SECRET:
+                        mac2_len = sizeof(mac2);
+                        rc = run_HMACSign(session, secret_keyB,
+                                          secret_key_len[k] > 0 ?
+                                              secret_key_len[k] : curve_len(i),
+                                          CKM_SHA_1_HMAC, mac2, &mac2_len);
+                        if (rc != CKR_OK) {
+                            testcase_fail("Derived key #2 is not usable: %s",
+                                          p11_get_ckr(rc));
+                            goto testcase_cleanup;
+                        }
+
+                        if (mac1_len != mac2_len ||
+                            memcmp(mac1, mac2, mac1_len) != 0) {
+                            testcase_fail("ERROR: derived keys do not produce the "
+                                          "same HMAC");
+                            goto testcase_cleanup;
+                        }
+                        break;
+
+                    case CKK_AES:
+                        enc2_len = sizeof(enc2);
+                        rc = run_AESEncrypt(session, secret_keyA,
+                                            enc2, &enc2_len);
+                        if (rc != CKR_OK) {
+                            testcase_fail("Derived key #1 is not usable: %s",
+                                          p11_get_ckr(rc));
+                            goto testcase_cleanup;
+                        }
+
+                        if (enc1_len != enc2_len ||
+                            memcmp(enc1, enc2, mac1_len) != 0) {
+                            testcase_fail("ERROR: derived keys do not produce the "
+                                          "same encrypted cipher text");
+                            goto testcase_cleanup;
+                        }
+                        break;
                     }
 
                     /* A secure key token won't reveal the key value in clear */
@@ -1115,6 +1232,15 @@ CK_RV run_DeriveECDHKeyKAT(void)
         goto testcase_cleanup;
     }
 
+    if (is_cca_token(SLOT_ID)) {
+        testcase_skip("The CCA token in slot %u doesn't support ECDH with EC "
+                      "keys imported from clear, only with randomly generated "
+                      "keys. KATs not possible because of that\n",
+                      (unsigned int) SLOT_ID);
+        goto testcase_cleanup;
+    }
+
+
     for (i=0; i<ECDH_TV_NUM; i++) {
 
         testcase_begin("Starting with shared secret i=%lu, pkey=%X", i, pkey);
@@ -1226,7 +1352,7 @@ CK_RV run_DeriveECDHKeyKAT(void)
         rc = create_ECPrivateKey(session,
                                  ecdh_tv[i].params, ecdh_tv[i].params_len,
                                  ecdh_tv[i].privkeyA, ecdh_tv[i].privkey_len,
-                                 &priv_keyA, !pkey);
+                                 &priv_keyA, !pkey, CK_TRUE);
         if (rc != CKR_OK) {
             if (rc == CKR_POLICY_VIOLATION) {
                 testcase_skip("EC key import is not allowed by policy");
@@ -1268,7 +1394,7 @@ CK_RV run_DeriveECDHKeyKAT(void)
         rc = create_ECPrivateKey(session,
                                  ecdh_tv[i].params, ecdh_tv[i].params_len,
                                  ecdh_tv[i].privkeyB, ecdh_tv[i].privkey_len,
-                                 &priv_keyB, !pkey);
+                                 &priv_keyB, !pkey, CK_TRUE);
         if (rc != CKR_OK) {
             if (rc == CKR_CURVE_NOT_SUPPORTED) {
                 testcase_skip("Slot %u doesn't support this curve: %s",
@@ -1997,7 +2123,7 @@ CK_RV run_ImportECCKeyPairSignVerify(void)
 
         rc = create_ECPrivateKey(session, ec_tv[i].params, ec_tv[i].params_len,
                                  ec_tv[i].privkey, ec_tv[i].privkey_len,
-                                 &priv_key, !pkey);
+                                 &priv_key, !pkey, CK_FALSE);
         if (rc != CKR_OK) {
             if (rc == CKR_POLICY_VIOLATION) {
                 testcase_skip("EC key import is not allowed by policy");
@@ -2205,7 +2331,8 @@ CK_RV run_TransferECCKeyPairSignVerify(void)
 
         rc = create_ECPrivateKey(session, ec_tv[i].params, ec_tv[i].params_len,
                                  ec_tv[i].privkey, ec_tv[i].privkey_len,
-                                 &priv_key, CK_TRUE); // key to be wrapped must be extractable
+                                 &priv_key, CK_TRUE, // key to be wrapped must be extractable
+                                 CK_FALSE);
 
         if (rc != CKR_OK) {
             if (rc == CKR_POLICY_VIOLATION) {
