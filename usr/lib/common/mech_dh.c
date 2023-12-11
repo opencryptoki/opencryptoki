@@ -113,7 +113,7 @@ CK_RV dh_pkcs_derive(STDLL_TokData_t *tokdata,
 
     rc = object_mgr_create_skel(tokdata, sess,
                                 pTemplate, ulCount,
-                                MODE_KEYGEN, keyclass, keytype, &temp_obj);
+                                MODE_DERIVE, keyclass, keytype, &temp_obj);
     if (rc != CKR_OK) {
         TRACE_DEVEL("Object Mgr create skeleton failed.\n");
         free(new_attr);
