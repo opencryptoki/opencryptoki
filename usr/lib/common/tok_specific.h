@@ -162,6 +162,12 @@ CK_RV token_specific_ecdh_pkcs_derive(STDLL_TokData_t *tokdata, CK_BYTE *,
                                       CK_ULONG, CK_BYTE *, CK_ULONG, CK_BYTE *,
                                       CK_ULONG *, CK_BYTE *, CK_ULONG);
 
+CK_RV token_specific_ecdh_pkcs_derive_kdf(STDLL_TokData_t *, SESSION *,
+                                          OBJECT *,
+                                          CK_ECDH1_DERIVE_PARAMS *,
+                                          OBJECT *,
+                                          CK_ULONG, CK_ULONG);
+
 CK_RV token_specific_copy_object(SESSION *, CK_ATTRIBUTE_PTR, CK_ULONG,
                                  CK_OBJECT_HANDLE, CK_OBJECT_HANDLE_PTR);
 
