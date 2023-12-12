@@ -29,6 +29,7 @@
 #include "constant_time.h"
 
 #include <openssl/crypto.h>
+#include <openssl/rsa.h>
 
 CK_BBOOL is_rsa_mechanism(CK_MECHANISM_TYPE mech)
 {
@@ -293,13 +294,16 @@ static CK_RV rsa_parse_block_type_2(CK_BYTE *in_data,
                                     CK_BYTE *out_data,
                                     CK_ULONG *out_data_len)
 {
-    unsigned int ok = 0, found, zero;
-    size_t zero_index = 0, msg_index, mlen;
-    size_t i, j;
+    int i;
+    unsigned char *em = NULL;
+    unsigned int good, found_zero_byte, mask, equals0;
+    int zero_index = 0, msg_index, mlen = -1;
+    int out_len = *out_data_len;
+    int rsa_size = in_data_len;
 
     /*
      * The implementation of this function is copied from OpenSSL's function
-     * ossl_rsa_padding_check_PKCS1_type_2() in crypto/rsa/rsa_pk1.c
+     * RSA_padding_check_PKCS1_type_2() in crypto/rsa/rsa_pk1.c
      * and is slightly modified to fit to the OpenCryptoki environment.
      *
      * The OpenSSL code is licensed under the Apache License 2.0.
@@ -324,55 +328,86 @@ static CK_RV rsa_parse_block_type_2(CK_BYTE *in_data,
      * PKCS#1 v1.5 decryption. See "PKCS #1 v2.2: RSA Cryptography Standard",
      * section 7.2.2.
      */
-    if (in_data_len < 11) {
+    if (rsa_size < RSA_PKCS1_PADDING_SIZE) {
         TRACE_DEVEL("%s\n", ock_err(ERR_FUNCTION_FAILED));
         return CKR_FUNCTION_FAILED;
     }
 
-    ok = constant_time_is_zero(in_data[0]);
-    ok &= constant_time_eq(in_data[1], 2);
+    em = malloc(rsa_size);
+    if (em == NULL) {
+        TRACE_DEVEL("%s\n", ock_err(ERR_HOST_MEMORY));
+        return CKR_HOST_MEMORY;
+    }
+
+    /* in_data_len is always equal to rsa_size */
+    memcpy(em, in_data, rsa_size);
+
+    good = constant_time_is_zero(em[0]);
+    good &= constant_time_eq(em[1], 2);
 
     /* scan over padding data */
-    found = 0;
-    for (i = 2; i < in_data_len; i++) {
-        zero = constant_time_is_zero(in_data[i]);
+    found_zero_byte = 0;
+    for (i = 2; i < rsa_size; i++) {
+        equals0 = constant_time_is_zero(em[i]);
 
-        zero_index = constant_time_select_int(~found & zero, i, zero_index);
-        found |= zero;
+        zero_index = constant_time_select_int(~found_zero_byte & equals0,
+                                              i, zero_index);
+        found_zero_byte |= equals0;
     }
 
     /*
-     * PS must be at least 8 bytes long, and it starts two bytes into |enc_msg|.
+     * PS must be at least 8 bytes long, and it starts two bytes into |em|.
      * If we never found a 0-byte, then |zero_index| is 0 and the check
      * also fails.
      */
-    ok &= constant_time_ge(zero_index, 2 + 8);
+    good &= constant_time_ge(zero_index, 2 + 8);
 
     /*
      * Skip the zero byte. This is incorrect if we never found a zero-byte
      * but in this case we also do not copy the message out.
      */
     msg_index = zero_index + 1;
-    mlen = in_data_len - msg_index;
+    mlen = rsa_size - msg_index;
 
     /*
      * For good measure, do this check in constant time as well.
      */
-    ok &= constant_time_ge(*out_data_len, mlen);
+    good &= constant_time_ge(out_len, mlen);
 
     /*
-     * since at this point the |msg_index| does not provide the signal
-     * indicating if the padding check failed or not, we don't have to worry
-     * about leaking the length of returned message, we still need to ensure
-     * that we read contents of both buffers so that cache accesses don't leak
-     * the value of |good|
+     * Move the result in-place by |rsa_size|-RSA_PKCS1_PADDING_SIZE-|mlen|
+     * bytes to the left.
+     * Then if |good| move |mlen| bytes from |em|+RSA_PKCS1_PADDING_SIZE to
+     * |out_data|. Otherwise leave |out_data| unchanged.
+     * Copy the memory back in a way that does not reveal the size of
+     * the data being copied via a timing side channel. This requires copying
+     * parts of the buffer multiple times based on the bits set in the real
+     * length. Clear bits do a non-copy with identical access pattern.
+     * The loop below has overall complexity of O(N*log(N)).
      */
-    for (i = msg_index, j = 0; i < in_data_len && j < *out_data_len; i++, j++)
-        out_data[j] = constant_time_select_8(ok, in_data[i], out_data[j]);
+    out_len = constant_time_select_int(
+            constant_time_lt(rsa_size - RSA_PKCS1_PADDING_SIZE, out_len),
+            rsa_size - RSA_PKCS1_PADDING_SIZE,
+            out_len);
+    for (msg_index = 1; msg_index < rsa_size - RSA_PKCS1_PADDING_SIZE;
+                                                            msg_index <<= 1) {
+        mask = ~constant_time_eq(
+                    msg_index & (rsa_size - RSA_PKCS1_PADDING_SIZE - mlen), 0);
+        for (i = RSA_PKCS1_PADDING_SIZE; i < rsa_size - msg_index; i++)
+            em[i] = constant_time_select_8(mask, em[i + msg_index], em[i]);
+    }
+    for (i = 0; i < out_len; i++) {
+        mask = good & constant_time_lt(i, mlen);
+        out_data[i] = constant_time_select_8(
+                        mask, em[i + RSA_PKCS1_PADDING_SIZE], out_data[i]);
+    }
 
-    *out_data_len = j;
+    OPENSSL_cleanse(em, rsa_size);
+    free(em);
 
-   return constant_time_select_int(ok, CKR_OK, CKR_ENCRYPTED_DATA_INVALID);
+    *out_data_len = constant_time_select_int(good, mlen, 0);
+
+    return constant_time_select_int(good, CKR_OK, CKR_ENCRYPTED_DATA_INVALID);
 }
 
 CK_RV rsa_parse_block(CK_BYTE *in_data,
