@@ -1715,10 +1715,12 @@ CK_RV do_SHA_derive_key(void)
                     continue;
                 }
 
+                testcase_new_assertion();
                 testcase_fail("Derive key with %s keytype=0x%lx, value_len=%lu: rc: %s",
                               mech_to_str(derive_mechs[i].mechanism),
                               key_type, key_len, p11_get_ckr(rc));
             } else {
+                testcase_new_assertion();
                 testcase_pass("Derive key with %s keytype=0x%lx, value_len=%lu",
                               mech_to_str(derive_mechs[i].mechanism),
                               key_type, key_len);
