@@ -338,7 +338,6 @@ CK_RV run_GenerateDilithiumKeyPairSignVerify(void)
                        dilithium_attr_public, num_dilithium_attrs,
                        dilithium_attr_private, num_dilithium_attrs,
                        &publ_key, &priv_key);
-        testcase_new_assertion();
         if (rc != CKR_OK) {
             if (rc == CKR_KEY_SIZE_RANGE) {
                 testcase_skip("C_GenerateKeyPair with %s (%s) not supported",
@@ -346,12 +345,14 @@ CK_RV run_GenerateDilithiumKeyPairSignVerify(void)
                      i < num_variants ? "KEYFORM" : "MODE");
                 goto next;
             } else {
+                testcase_new_assertion();
                 testcase_fail("C_GenerateKeyPair with %s (%s) and valid input failed, rc=%s",
                      variants[i % num_variants].name,
                      i < num_variants ? "KEYFORM" : "MODE", p11_get_ckr(rc));
                 goto testcase_cleanup;
             }
         }
+        testcase_new_assertion();
         testcase_pass("*Generate Dilithium key pair with %s (%s) passed.",
                       variants[i % num_variants].name,
                       i < num_variants ? "KEYFORM" : "MODE");
@@ -444,7 +445,6 @@ CK_RV run_ImportDilithiumKeyPairSignVerify(void)
                             dilithium_tv[i].t0, dilithium_tv[i].t0_len,
                             dilithium_tv[i].t1, dilithium_tv[i].t1_len,
                             &priv_key);
-        testcase_new_assertion();
         if (rc != CKR_OK) {
             if (rc == CKR_KEY_SIZE_RANGE) {
                 testcase_skip("C_CreateObject with %s not supported",
@@ -454,10 +454,12 @@ CK_RV run_ImportDilithiumKeyPairSignVerify(void)
                 testcase_skip("Dilithium key import is not allowed by policy");
                 continue;
             }
+            testcase_new_assertion();
             testcase_fail("C_CreateObject (Dilithium Private Key) failed at i=%lu, "
                           "rc=%s", i, p11_get_ckr(rc));
             goto testcase_cleanup;
         }
+        testcase_new_assertion();
         testcase_pass("*Import Dilithium private key (%s) index=%lu passed.",
                       dilithium_tv[i].name, i);
 
@@ -468,7 +470,6 @@ CK_RV run_ImportDilithiumKeyPairSignVerify(void)
                                 dilithium_tv[i].rho, dilithium_tv[i].rho_len,
                                 dilithium_tv[i].t1, dilithium_tv[i].t1_len,
                                 &publ_key);
-        testcase_new_assertion();
         if (rc != CKR_OK) {
             if (rc == CKR_KEY_SIZE_RANGE) {
                 testcase_skip("C_CreateObject with %s not supported",
@@ -478,10 +479,12 @@ CK_RV run_ImportDilithiumKeyPairSignVerify(void)
                 testcase_skip("Dilithium key import is not allowed by policy");
                 goto testcase_cleanup;
             }
+            testcase_new_assertion();
             testcase_fail("C_CreateObject (Dilithium Public Key) failed at i=%lu, "
                           "rc=%s", i, p11_get_ckr(rc));
             goto testcase_cleanup;
         }
+        testcase_new_assertion();
         testcase_pass("*Import Dilithium public key (%s) index=%lu passed.",
                       dilithium_tv[i].name, i);
 
@@ -665,7 +668,6 @@ CK_RV run_TransferDilithiumKeyPairSignVerify(void)
                             dilithium_tv[i].t0, dilithium_tv[i].t0_len,
                             dilithium_tv[i].t1, dilithium_tv[i].t1_len,
                             &priv_key);
-        testcase_new_assertion();
         if (rc != CKR_OK) {
             if (rc == CKR_KEY_SIZE_RANGE) {
                 testcase_skip("C_CreateObject with %s not supported",
@@ -675,11 +677,13 @@ CK_RV run_TransferDilithiumKeyPairSignVerify(void)
                 testcase_skip("Dilithium key import is not allowed by policy");
                 continue;
             }
+            testcase_new_assertion();
             testcase_fail
                 ("C_CreateObject (Dilithium Private Key) failed at i=%lu, rc=%s", i,
                  p11_get_ckr(rc));
             goto testcase_cleanup;
         }
+        testcase_new_assertion();
         testcase_pass("*Import Dilithium private key (%s) index=%lu passed.",
                       dilithium_tv[i].name, i);
 
@@ -690,7 +694,6 @@ CK_RV run_TransferDilithiumKeyPairSignVerify(void)
                                 dilithium_tv[i].rho, dilithium_tv[i].rho_len,
                                 dilithium_tv[i].t1, dilithium_tv[i].t1_len,
                                 &publ_key);
-        testcase_new_assertion();
         if (rc != CKR_OK) {
             if (rc == CKR_KEY_SIZE_RANGE) {
                 testcase_skip("C_CreateObject with %s not supported",
@@ -700,11 +703,13 @@ CK_RV run_TransferDilithiumKeyPairSignVerify(void)
                 testcase_skip("Dilithium key import is not allowed by policy");
                 goto testcase_cleanup;
             }
+            testcase_new_assertion();
             testcase_fail
                 ("C_CreateObject (Dilithium Public Key) failed at i=%lu, rc=%s", i,
                  p11_get_ckr(rc));
             goto testcase_cleanup;
         }
+        testcase_new_assertion();
         testcase_pass("*Import Dilithium public key (%s) index=%lu passed.",
                       dilithium_tv[i].name, i);
 
