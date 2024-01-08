@@ -136,6 +136,8 @@ typedef unsigned int (*ica_aes_xts_ex_t)(const unsigned char *in_data,
                                          unsigned char *iv,
                                          unsigned int direction);
 
+typedef void (*ica_allow_external_gcm_iv_in_fips_mode_t)(int allow);
+
 /*
  * These symbols loaded from libica via dlsym() can be static, even if
  * multiple instances of the ICA token are used. The libica library loaded
@@ -158,6 +160,8 @@ static ica_ec_key_free_t               p_ica_ec_key_free;
 #endif
 static ica_cleanup_t                   p_ica_cleanup;
 static ica_aes_xts_ex_t                p_ica_aes_xts_ex;
+static ica_allow_external_gcm_iv_in_fips_mode_t
+                                       p_ica_allow_external_gcm_iv_in_fips_mode;
 
 static CK_RV mech_list_ica_initialize(STDLL_TokData_t *tokdata);
 
@@ -329,6 +333,15 @@ static CK_RV load_libica(ica_private_data_t *ica_data)
     BIND(ica_data->libica_dso, ica_cleanup);
 
     BIND(ica_data->libica_dso, ica_aes_xts_ex);
+
+    /*
+     * Allow external AES-GCM IV when libica runs in FIPS mode.
+     * ica_allow_external_gcm_iv_in_fips_mode() is not always present and only
+     * available with newer libraries.
+     */
+    BIND(ica_data->libica_dso, ica_allow_external_gcm_iv_in_fips_mode);
+    if (p_ica_allow_external_gcm_iv_in_fips_mode != NULL)
+        p_ica_allow_external_gcm_iv_in_fips_mode(1);
 
     return CKR_OK;
 }
