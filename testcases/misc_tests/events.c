@@ -75,6 +75,8 @@ int main(int argc, char **argv)
     }
     testcase_pass("send_event (simple, one-shot)");
 
+    testcase_new_assertion();
+
     rc = send_event(-1, 0x12345, EVENT_FLAGS_NONE, sizeof(payload), payload,
                     NULL, NULL);
     if (rc != 0) {
@@ -83,6 +85,8 @@ int main(int argc, char **argv)
         goto out;
     }
     testcase_pass("send_event (payload, one-shot)");
+
+    testcase_new_assertion();
 
     init_event_destination(&dest, EVENT_TOK_TYPE_CCA, NULL, 0);
 
@@ -94,6 +98,8 @@ int main(int argc, char **argv)
     }
     testcase_pass("send_event (token-type, one-shot)");
 
+    testcase_new_assertion();
+
     init_event_destination(&dest, EVENT_TOK_TYPE_ALL, "cca", 0);
 
     rc = send_event(-1, 0x12345, EVENT_FLAGS_NONE, 0, NULL, &dest, NULL);
@@ -104,6 +110,8 @@ int main(int argc, char **argv)
     }
     testcase_pass("send_event (token-label, one-shot)");
 
+    testcase_new_assertion();
+
     init_event_destination(&dest, EVENT_TOK_TYPE_ALL, NULL, 12345);
 
     rc = send_event(-1, 0x12345, EVENT_FLAGS_NONE, 0, NULL, &dest, NULL);
@@ -113,6 +121,8 @@ int main(int argc, char **argv)
         goto out;
     }
     testcase_pass("send_event (pid, one-shot)");
+
+    testcase_new_assertion();
 
     memset(&reply, 0, sizeof(reply));
 
@@ -132,6 +142,7 @@ int main(int argc, char **argv)
     }
     testcase_pass("send_event (reply, one-shot)");
 
+    testcase_new_assertion();
 
     fd = init_event_client();
     if (fd < 0) {
@@ -140,12 +151,16 @@ int main(int argc, char **argv)
     }
     testcase_pass("init_event_client()");
 
+    testcase_new_assertion();
+
     rc = send_event(fd, 0x12345, EVENT_FLAGS_NONE, 0, NULL, NULL, NULL);
     if (rc != 0) {
         testcase_fail("send_event (simple) rc = %d (%s)", rc, strerror(-rc));
         goto out;
     }
     testcase_pass("send_event (simple)");
+
+    testcase_new_assertion();
 
     rc = send_event(fd, 0x12345, EVENT_FLAGS_NONE, sizeof(payload), payload,
                     NULL, NULL);
@@ -155,6 +170,8 @@ int main(int argc, char **argv)
         goto out;
     }
     testcase_pass("send_event (payload)");
+
+    testcase_new_assertion();
 
     memset(&reply, 0, sizeof(reply));
 
