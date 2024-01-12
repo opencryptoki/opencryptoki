@@ -47,6 +47,7 @@
 #include "trace.h"
 #include "slotmgr.h"
 #include "attributes.h"
+#include "constant_time.h"
 
 #include "../api/apiproto.h"
 #include "../api/policy.h"
@@ -2345,6 +2346,7 @@ CK_RV SC_Decrypt(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
     SESSION *sess = NULL;
     CK_BBOOL length_only = FALSE;
     CK_RV rc = CKR_OK;
+    unsigned int mask;
 
     if (tokdata->initialized == FALSE) {
         TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
@@ -2377,11 +2379,19 @@ CK_RV SC_Decrypt(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
     rc = decr_mgr_decrypt(tokdata, sess, length_only, &sess->decr_ctx,
                           pEncryptedData, ulEncryptedDataLen, pData,
                           pulDataLen);
-    if (!is_rsa_mechanism(sess->decr_ctx.mech.mechanism) && rc != CKR_OK)
+    /* (!is_rsa_mechanism(sess->decr_ctx.mech.mechanism) && rc != CKR_OK) */
+    mask = ~constant_time_is_zero(
+                            is_rsa_mechanism(sess->decr_ctx.mech.mechanism));
+    mask &= ~constant_time_eq(rc, CKR_OK);
+    if (mask)
         TRACE_DEVEL("decr_mgr_decrypt() failed.\n");
 
 done:
-    if (rc != CKR_BUFFER_TOO_SMALL && (rc != CKR_OK || length_only != TRUE)) {
+    /* (rc != CKR_BUFFER_TOO_SMALL && (rc != CKR_OK || length_only != TRUE)) */
+    mask = ~constant_time_eq(rc, CKR_OK);
+    mask |= constant_time_is_zero(length_only);
+    mask &= ~constant_time_eq(rc, CKR_BUFFER_TOO_SMALL);
+    if (mask) {
         if (sess)
             decr_mgr_cleanup(tokdata, sess, &sess->decr_ctx);
     }
@@ -2404,6 +2414,7 @@ CK_RV SC_DecryptUpdate(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
     SESSION *sess = NULL;
     CK_BBOOL length_only = FALSE;
     CK_RV rc = CKR_OK;
+    unsigned int mask;
 
     if (tokdata->initialized == FALSE) {
         TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
@@ -2436,11 +2447,18 @@ CK_RV SC_DecryptUpdate(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
     rc = decr_mgr_decrypt_update(tokdata, sess, length_only,
                                  &sess->decr_ctx, pEncryptedPart,
                                  ulEncryptedPartLen, pPart, pulPartLen);
-    if (!is_rsa_mechanism(sess->decr_ctx.mech.mechanism) && rc != CKR_OK)
+    /* (!is_rsa_mechanism(sess->decr_ctx.mech.mechanism) && rc != CKR_OK) */
+    mask = ~constant_time_is_zero(
+                            is_rsa_mechanism(sess->decr_ctx.mech.mechanism));
+    mask &= ~constant_time_eq(rc, CKR_OK);
+    if (mask)
         TRACE_DEVEL("decr_mgr_decrypt_update() failed.\n");
 
 done:
-    if (rc != CKR_OK && rc != CKR_BUFFER_TOO_SMALL && sess != NULL) {
+    /* (rc != CKR_OK && rc != CKR_BUFFER_TOO_SMALL */
+    mask = ~constant_time_eq(rc, CKR_OK);
+    mask &= ~constant_time_eq(rc, CKR_BUFFER_TOO_SMALL);
+    if (mask) {
         if (sess)
             decr_mgr_cleanup(tokdata, sess, &sess->decr_ctx);
     }
@@ -2462,6 +2480,7 @@ CK_RV SC_DecryptFinal(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
     SESSION *sess = NULL;
     CK_BBOOL length_only = FALSE;
     CK_RV rc = CKR_OK;
+    unsigned int mask;
 
     if (tokdata->initialized == FALSE) {
         TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
@@ -2493,11 +2512,19 @@ CK_RV SC_DecryptFinal(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
 
     rc = decr_mgr_decrypt_final(tokdata, sess, length_only, &sess->decr_ctx,
                                 pLastPart, pulLastPartLen);
-    if (!is_rsa_mechanism(sess->decr_ctx.mech.mechanism) && rc != CKR_OK)
+    /* (!is_rsa_mechanism(sess->decr_ctx.mech.mechanism) && rc != CKR_OK) */
+    mask = ~constant_time_is_zero(
+                            is_rsa_mechanism(sess->decr_ctx.mech.mechanism));
+    mask &= ~constant_time_eq(rc, CKR_OK);
+    if (mask)
         TRACE_DEVEL("decr_mgr_decrypt_final() failed.\n");
 
 done:
-    if (rc != CKR_BUFFER_TOO_SMALL && (rc != CKR_OK || length_only != TRUE)) {
+    /* (rc != CKR_BUFFER_TOO_SMALL && (rc != CKR_OK || length_only != TRUE)) */
+    mask = ~constant_time_eq(rc, CKR_OK);
+    mask |= constant_time_is_zero(length_only);
+    mask &= ~constant_time_eq(rc, CKR_BUFFER_TOO_SMALL);
+    if (mask) {
         if (sess)
             decr_mgr_cleanup(tokdata, sess, &sess->decr_ctx);
     }
