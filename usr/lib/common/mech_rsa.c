@@ -289,21 +289,34 @@ static CK_RV rsa_parse_block_type_1(CK_BYTE *in_data,
     return rc;
 }
 
+#define MAX_LEN_GEN_TRIES 128
+
 static CK_RV rsa_parse_block_type_2(CK_BYTE *in_data,
                                     CK_ULONG in_data_len,
                                     CK_BYTE *out_data,
-                                    CK_ULONG *out_data_len)
+                                    CK_ULONG *out_data_len,
+                                    CK_BYTE *kdk, CK_ULONG kdklen)
 {
-    int i;
-    unsigned char *em = NULL;
-    unsigned int good, found_zero_byte, mask, equals0;
-    int zero_index = 0, msg_index, mlen = -1;
-    int out_len = *out_data_len;
-    int rsa_size = in_data_len;
+    unsigned int good = 0, found_zero_byte, equals0;
+    size_t zero_index = 0, msg_index;
+    unsigned char *synthetic = NULL;
+    int synthetic_length;
+    uint16_t len_candidate;
+    unsigned char candidate_lengths[MAX_LEN_GEN_TRIES * sizeof(len_candidate)];
+    uint16_t len_mask;
+    uint16_t max_sep_offset;
+    int synth_msg_index = 0;
+    size_t i, j;
+    CK_RV rc;
+
+    if (kdk == NULL || kdklen == 0) {
+        TRACE_DEVEL("%s\n", ock_err(ERR_ARGUMENTS_BAD));
+        return CKR_ARGUMENTS_BAD;
+    }
 
     /*
      * The implementation of this function is copied from OpenSSL's function
-     * RSA_padding_check_PKCS1_type_2() in crypto/rsa/rsa_pk1.c
+     * ossl_rsa_padding_check_PKCS1_type_2() in crypto/rsa/rsa_pk1.c
      * and is slightly modified to fit to the OpenCryptoki environment.
      *
      * The OpenSSL code is licensed under the Apache License 2.0.
@@ -328,27 +341,67 @@ static CK_RV rsa_parse_block_type_2(CK_BYTE *in_data,
      * PKCS#1 v1.5 decryption. See "PKCS #1 v2.2: RSA Cryptography Standard",
      * section 7.2.2.
      */
-    if (rsa_size < RSA_PKCS1_PADDING_SIZE) {
+    if (in_data_len < RSA_PKCS1_PADDING_SIZE) {
         TRACE_DEVEL("%s\n", ock_err(ERR_FUNCTION_FAILED));
         return CKR_FUNCTION_FAILED;
     }
 
-    em = malloc(rsa_size);
-    if (em == NULL) {
-        TRACE_DEVEL("%s\n", ock_err(ERR_HOST_MEMORY));
+    /* Generate a random message to return in case the padding checks fail. */
+    synthetic = calloc(1, in_data_len);
+    if (synthetic == NULL) {
+        TRACE_ERROR("Failed to allocate synthetic buffer");
         return CKR_HOST_MEMORY;
     }
 
-    /* in_data_len is always equal to rsa_size */
-    memcpy(em, in_data, rsa_size);
+    rc = openssl_specific_rsa_prf(synthetic, in_data_len, "message", 7,
+                                  kdk, kdklen, in_data_len * 8);
+    if (rc != CKR_OK)
+        goto out;
 
-    good = constant_time_is_zero(em[0]);
-    good &= constant_time_eq(em[1], 2);
+    /* decide how long the random message should be */
+    rc = openssl_specific_rsa_prf(candidate_lengths,
+                                  sizeof(candidate_lengths),
+                                  "length", 6, kdk, kdklen,
+                                  MAX_LEN_GEN_TRIES *
+                                              sizeof(len_candidate) * 8);
+    if (rc != CKR_OK)
+        goto out;
+
+    /*
+     * max message size is the size of the modulus size minus 2 bytes for
+     * version and padding type and a minimum of 8 bytes padding
+     */
+    len_mask = max_sep_offset = in_data_len - 2 - 8;
+    /*
+     * we want a mask so let's propagate the high bit to all positions less
+     * significant than it
+     */
+    len_mask |= len_mask >> 1;
+    len_mask |= len_mask >> 2;
+    len_mask |= len_mask >> 4;
+    len_mask |= len_mask >> 8;
+
+    synthetic_length = 0;
+    for (i = 0; i < MAX_LEN_GEN_TRIES * (int)sizeof(len_candidate);
+                                            i += sizeof(len_candidate)) {
+        len_candidate = (candidate_lengths[i] << 8) |
+                                                candidate_lengths[i + 1];
+        len_candidate &= len_mask;
+
+        synthetic_length = constant_time_select_int(
+                        constant_time_lt(len_candidate, max_sep_offset),
+                                         len_candidate, synthetic_length);
+    }
+
+    synth_msg_index = in_data_len - synthetic_length;
+
+    good = constant_time_is_zero(in_data[0]);
+    good &= constant_time_eq(in_data[1], 2);
 
     /* scan over padding data */
     found_zero_byte = 0;
-    for (i = 2; i < rsa_size; i++) {
-        equals0 = constant_time_is_zero(em[i]);
+    for (i = 2; i < in_data_len; i++) {
+        equals0 = constant_time_is_zero(in_data[i]);
 
         zero_index = constant_time_select_int(~found_zero_byte & equals0,
                                               i, zero_index);
@@ -356,7 +409,7 @@ static CK_RV rsa_parse_block_type_2(CK_BYTE *in_data,
     }
 
     /*
-     * PS must be at least 8 bytes long, and it starts two bytes into |em|.
+     * PS must be at least 8 bytes long, and it starts two bytes into |in_data|.
      * If we never found a 0-byte, then |zero_index| is 0 and the check
      * also fails.
      */
@@ -367,53 +420,41 @@ static CK_RV rsa_parse_block_type_2(CK_BYTE *in_data,
      * but in this case we also do not copy the message out.
      */
     msg_index = zero_index + 1;
-    mlen = rsa_size - msg_index;
 
     /*
-     * For good measure, do this check in constant time as well.
+     * old code returned an error in case the decrypted message wouldn't fit
+     * into the |out_data|, since that would leak information, return the
+     * synthetic message instead
      */
-    good &= constant_time_ge(out_len, mlen);
+    good &= constant_time_ge(*out_data_len, in_data_len - msg_index);
+
+    msg_index = constant_time_select_int(good, msg_index, synth_msg_index);
 
     /*
-     * Move the result in-place by |rsa_size|-RSA_PKCS1_PADDING_SIZE-|mlen|
-     * bytes to the left.
-     * Then if |good| move |mlen| bytes from |em|+RSA_PKCS1_PADDING_SIZE to
-     * |out_data|. Otherwise leave |out_data| unchanged.
-     * Copy the memory back in a way that does not reveal the size of
-     * the data being copied via a timing side channel. This requires copying
-     * parts of the buffer multiple times based on the bits set in the real
-     * length. Clear bits do a non-copy with identical access pattern.
-     * The loop below has overall complexity of O(N*log(N)).
+     * since at this point the |msg_index| does not provide the signal
+     * indicating if the padding check failed or not, we don't have to worry
+     * about leaking the length of returned message, we still need to ensure
+     * that we read contents of both buffers so that cache accesses don't leak
+     * the value of |good|
      */
-    out_len = constant_time_select_int(
-            constant_time_lt(rsa_size - RSA_PKCS1_PADDING_SIZE, out_len),
-            rsa_size - RSA_PKCS1_PADDING_SIZE,
-            out_len);
-    for (msg_index = 1; msg_index < rsa_size - RSA_PKCS1_PADDING_SIZE;
-                                                            msg_index <<= 1) {
-        mask = ~constant_time_eq(
-                    msg_index & (rsa_size - RSA_PKCS1_PADDING_SIZE - mlen), 0);
-        for (i = RSA_PKCS1_PADDING_SIZE; i < rsa_size - msg_index; i++)
-            em[i] = constant_time_select_8(mask, em[i + msg_index], em[i]);
-    }
-    for (i = 0; i < out_len; i++) {
-        mask = good & constant_time_lt(i, mlen);
-        out_data[i] = constant_time_select_8(
-                        mask, em[i + RSA_PKCS1_PADDING_SIZE], out_data[i]);
-    }
+    for (i = msg_index, j = 0; i < in_data_len && j < *out_data_len;
+                                                                i++, j++)
+        out_data[j] = constant_time_select_8(good, in_data[i], synthetic[i]);
 
-    OPENSSL_cleanse(em, rsa_size);
-    free(em);
+    *out_data_len = j;
 
-    *out_data_len = constant_time_select_int(good, mlen, 0);
+out:
+    if (synthetic != NULL)
+        free(synthetic);
 
-    return constant_time_select_int(good, CKR_OK, CKR_ENCRYPTED_DATA_INVALID);
+    return rc;
 }
 
 CK_RV rsa_parse_block(CK_BYTE *in_data,
                       CK_ULONG in_data_len,
                       CK_BYTE *out_data,
-                      CK_ULONG *out_data_len, CK_ULONG type)
+                      CK_ULONG *out_data_len, CK_ULONG type,
+                      CK_BYTE *kdk, CK_ULONG kdklen)
 {
     switch (type) {
     case PKCS_BT_1:
@@ -421,7 +462,7 @@ CK_RV rsa_parse_block(CK_BYTE *in_data,
                                         out_data, out_data_len);
     case PKCS_BT_2:
         return rsa_parse_block_type_2(in_data, in_data_len,
-                                       out_data, out_data_len);
+                                       out_data, out_data_len, kdk, kdklen);
     }
 
     return CKR_ARGUMENTS_BAD;

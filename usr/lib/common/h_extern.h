@@ -731,7 +731,8 @@ CK_RV rsa_format_block(STDLL_TokData_t *tokdata,
 CK_RV rsa_parse_block(CK_BYTE *in_data,
                       CK_ULONG in_data_len,
                       CK_BYTE *out_data,
-                      CK_ULONG *out_data_len, CK_ULONG type);
+                      CK_ULONG *out_data_len, CK_ULONG type,
+                      CK_BYTE *kdk, CK_ULONG kdklen);
 
 CK_RV get_mgf_mech(CK_RSA_PKCS_MGF_TYPE mgf, CK_MECHANISM_TYPE *mech);
 
@@ -3181,6 +3182,14 @@ CK_RV openssl_specific_hmac_update(SIGN_VERIFY_CONTEXT *ctx, CK_BYTE *in_data,
                                    CK_ULONG in_data_len, CK_BBOOL sign);
 CK_RV openssl_specific_hmac_final(SIGN_VERIFY_CONTEXT *ctx, CK_BYTE *signature,
                                   CK_ULONG *sig_len, CK_BBOOL sign);
+
+CK_RV openssl_specific_rsa_derive_kdk(STDLL_TokData_t *tokdata, OBJECT *key_obj,
+                                      const CK_BYTE *in, CK_ULONG inlen,
+                                      CK_BYTE *kdk, CK_ULONG kdklen);
+CK_RV openssl_specific_rsa_prf(CK_BYTE *out, CK_ULONG outlen,
+                               const char *label, CK_ULONG labellen,
+                               const CK_BYTE *kdk, CK_ULONG kdklen,
+                               uint16_t bitlen);
 
 #include "tok_spec_struct.h"
 extern token_spec_t token_specific;

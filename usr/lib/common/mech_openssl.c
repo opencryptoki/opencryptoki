@@ -1154,6 +1154,7 @@ CK_RV openssl_specific_rsa_pkcs_decrypt(STDLL_TokData_t *tokdata,
     CK_RV rc;
     CK_BYTE out[MAX_RSA_KEYLEN];
     CK_ULONG modulus_bytes;
+    unsigned char kdk[SHA256_HASH_SIZE] = { 0 };
 
     modulus_bytes = in_data_len;
 
@@ -1163,7 +1164,16 @@ CK_RV openssl_specific_rsa_pkcs_decrypt(STDLL_TokData_t *tokdata,
         goto done;
     }
 
-    rc = rsa_parse_block(out, modulus_bytes, out_data, out_data_len, PKCS_BT_2);
+    rc = openssl_specific_rsa_derive_kdk(tokdata, key_obj,
+                                         in_data, in_data_len,
+                                         kdk, sizeof(kdk));
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("openssl_specific_rsa_derive_kdk failed\n");
+        goto done;
+    }
+
+    rc = rsa_parse_block(out, modulus_bytes, out_data, out_data_len, PKCS_BT_2,
+                         kdk, sizeof(kdk));
 
 done:
     OPENSSL_cleanse(out, sizeof(out));
@@ -1254,7 +1264,7 @@ CK_RV openssl_specific_rsa_pkcs_verify(STDLL_TokData_t *tokdata, SESSION *sess,
     }
 
     rc = rsa_parse_block(out, modulus_bytes, out_data, &out_data_len,
-                         PKCS_BT_1);
+                         PKCS_BT_1, NULL, 0);
     if (rc == CKR_ENCRYPTED_DATA_INVALID) {
         TRACE_ERROR("%s\n", ock_err(ERR_SIGNATURE_INVALID));
         return CKR_SIGNATURE_INVALID;
@@ -1318,7 +1328,8 @@ CK_RV openssl_specific_rsa_pkcs_verify_recover(STDLL_TokData_t *tokdata,
         return rc;
     }
 
-    rc = rsa_parse_block(out, modulus_bytes, out_data, out_data_len, PKCS_BT_1);
+    rc = rsa_parse_block(out, modulus_bytes, out_data, out_data_len, PKCS_BT_1,
+                         NULL, 0);
     if (rc == CKR_ENCRYPTED_DATA_INVALID) {
         TRACE_ERROR("%s\n", ock_err(ERR_SIGNATURE_INVALID));
         return CKR_SIGNATURE_INVALID;
@@ -4983,3 +4994,388 @@ done:
     ctx->context = NULL;
     return rv;
 }
+
+static CK_RV calc_rsa_priv_exp(STDLL_TokData_t *tokdata, OBJECT *key_obj,
+                               CK_BYTE *priv_exp, CK_ULONG priv_exp_len)
+{
+    CK_ATTRIBUTE *modulus = NULL, *pub_exp = NULL;
+    CK_ATTRIBUTE *prime1 = NULL, *prime2 = NULL;
+    BN_CTX *bn_ctx;
+    BIGNUM *n, *e, *p, *q, *d;
+    CK_RV rc;
+
+    UNUSED(tokdata);
+
+    bn_ctx = BN_CTX_secure_new();
+    if (bn_ctx == NULL) {
+        TRACE_ERROR("BN_CTX_secure_new failed\n");
+        return CKR_FUNCTION_FAILED;
+    }
+
+    /* Get modulus a BIGNUM */
+    rc = template_attribute_get_non_empty(key_obj->template, CKA_MODULUS,
+                                          &modulus);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Failed to get CKA_MODULUS\n");
+        goto done;
+    }
+
+    n = BN_CTX_get(bn_ctx);
+    if (n == NULL ||
+        BN_bin2bn(modulus->pValue, modulus->ulValueLen, n) == NULL) {
+        TRACE_ERROR("BN_CTX_get/BN_bin2bn failed for modulus\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+    BN_set_flags(n, BN_FLG_CONSTTIME);
+
+    /* Get public exponent a BIGNUM */
+    rc = template_attribute_get_non_empty(key_obj->template,
+                                          CKA_PUBLIC_EXPONENT, &pub_exp);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Failed to get CKA_PUBLIC_EXPONENT\n");
+        goto done;
+    }
+
+    e = BN_CTX_get(bn_ctx);
+    if (e == NULL ||
+        BN_bin2bn(pub_exp->pValue, pub_exp->ulValueLen, e) == NULL) {
+        TRACE_ERROR("BN_CTX_get/BN_bin2bn failed for public exponent\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+    BN_set_flags(e, BN_FLG_CONSTTIME);
+
+    /* Get prime1 a BIGNUM */
+    rc = template_attribute_get_non_empty(key_obj->template, CKA_PRIME_1,
+                                          &prime1);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Failed to get CKA_PRIME_1\n");
+        goto done;
+    }
+
+    p = BN_CTX_get(bn_ctx);
+    if (p == NULL ||
+        BN_bin2bn(prime1->pValue, prime1->ulValueLen, p) == NULL) {
+        TRACE_ERROR("BN_CTX_get/BN_bin2bn failed for prime1\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+    BN_set_flags(p, BN_FLG_CONSTTIME);
+
+    /* Get prime2 a BIGNUM */
+    rc = template_attribute_get_non_empty(key_obj->template, CKA_PRIME_2,
+                                          &prime2);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Failed to get CKA_PRIME_2\n");
+        goto done;
+    }
+
+    q = BN_CTX_get(bn_ctx);
+    if (q == NULL ||
+        BN_bin2bn(prime2->pValue, prime2->ulValueLen, q) == NULL) {
+        TRACE_ERROR("BN_CTX_get/BN_bin2bn failed for prime2\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+    BN_set_flags(q, BN_FLG_CONSTTIME);
+
+    d = BN_CTX_get(bn_ctx);
+    if (d == NULL) {
+        TRACE_ERROR("BN_CTX_get failed to get d\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+    BN_set_flags(d, BN_FLG_CONSTTIME);
+
+    /*
+     * phi(n) = (p - 1 )(q - 1) = n - p - q + 1
+     * d = e ^{-1} mod phi(n).
+     */
+    if (BN_copy(d, n) == NULL ||
+        BN_sub(d, d, p) == 0 ||
+        BN_sub(d, d, q) == 0 ||
+        BN_add_word(d, 1) == 0 ||
+        BN_mod_inverse(d, e, d, bn_ctx) == NULL) {
+        TRACE_ERROR("Failed to calculate private key part d\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+
+    if (BN_bn2binpad(d, priv_exp, priv_exp_len) <= 0) {
+        TRACE_ERROR("BN_bn2binpad failed\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+
+done:
+    BN_CTX_free(bn_ctx);
+
+    return rc;
+}
+
+CK_RV openssl_specific_rsa_derive_kdk(STDLL_TokData_t *tokdata, OBJECT *key_obj,
+                                      const CK_BYTE *in, CK_ULONG inlen,
+                                      CK_BYTE *kdk, CK_ULONG kdklen)
+{
+    CK_ATTRIBUTE *priv_exp_attr = NULL, *modulus = NULL;
+    CK_BYTE *priv_exp = NULL, *buf = NULL;
+    EVP_PKEY *pkey = NULL;
+    EVP_MD_CTX *mdctx = NULL;
+    const EVP_MD *md = NULL;
+    size_t md_len;
+    unsigned char d_hash[SHA256_HASH_SIZE] = { 0 };
+    CK_RV rc;
+
+    /*
+     * The implementation of this function is copied from OpenSSL's function
+     * derive_kdk() in crypto/rsa/rsa_ossl.c and is slightly modified to fit to
+     * the OpenCryptoki environment.
+     * Changes include:
+     * - Different variable and define names.
+     * - Usage of TRACE_ERROR to report errors and issue debug messages.
+     * - Different return codes.
+     * - Different code to get the private key component 'd'.
+     * - Use of the EVP APIs instead of the internal APIs for Digest and HMAC
+     *   operations.
+     */
+
+    if (kdklen != SHA256_HASH_SIZE) {
+        TRACE_ERROR("KDK length is wrong\n");
+        return CKR_ARGUMENTS_BAD;
+    }
+
+    rc = template_attribute_get_non_empty(key_obj->template, CKA_MODULUS,
+                                          &modulus);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Failed to get CKA_MODULUS\n");
+        return rc;
+    }
+
+    buf = calloc(1, modulus->ulValueLen);
+    if (buf == NULL) {
+        TRACE_ERROR("Failed to allocate a buffer for private exponent\n");
+        return CKR_HOST_MEMORY;
+    }
+
+    rc = template_attribute_get_non_empty(key_obj->template,
+                                          CKA_PRIVATE_EXPONENT, &priv_exp_attr);
+    if (rc != CKR_OK && rc != CKR_TEMPLATE_INCOMPLETE) {
+        TRACE_ERROR("Failed to get CKA_PRIVATE_EXPONENT\n");
+        goto out;
+    }
+
+    if (priv_exp_attr == NULL) {
+        rc = calc_rsa_priv_exp(tokdata, key_obj, buf, modulus->ulValueLen);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("calc_rsa_priv_exp failed\n");
+            goto out;
+        }
+        priv_exp = buf;
+    } else {
+        if (priv_exp_attr->ulValueLen < modulus->ulValueLen) {
+            memcpy(buf + modulus->ulValueLen - priv_exp_attr->ulValueLen,
+                   priv_exp_attr->pValue, priv_exp_attr->ulValueLen);
+            priv_exp = buf;
+        } else {
+            priv_exp = (CK_BYTE *)priv_exp_attr->pValue +
+                            priv_exp_attr->ulValueLen - modulus->ulValueLen;
+        }
+    }
+
+    /*
+     * we use hardcoded hash so that migrating between versions that use
+     * different hash doesn't provide a Bleichenbacher oracle:
+     * if the attacker can see that different versions return different
+     * messages for the same ciphertext, they'll know that the message is
+     * synthetically generated, which means that the padding check failed
+     */
+    md = EVP_sha256();
+    if (md == NULL) {
+        TRACE_ERROR("EVP_sha256 failed\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+
+    if (EVP_Digest(priv_exp, modulus->ulValueLen, d_hash, NULL,
+                   md, NULL) <= 0) {
+        TRACE_ERROR("EVP_Digest failed\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+
+    pkey = EVP_PKEY_new_mac_key(EVP_PKEY_HMAC, NULL, d_hash, sizeof(d_hash));
+    if (pkey == NULL) {
+        TRACE_ERROR("EVP_PKEY_new_mac_key() failed.\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+
+    mdctx = EVP_MD_CTX_create();
+    if (mdctx == NULL) {
+        TRACE_ERROR("EVP_MD_CTX_create() failed.\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+
+    if (EVP_DigestSignInit(mdctx, NULL, md, NULL, pkey) != 1) {
+        TRACE_ERROR("EVP_DigestSignInit failed\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+
+    if (inlen < modulus->ulValueLen) {
+        memset(buf, 0, modulus->ulValueLen - inlen);
+        if (EVP_DigestSignUpdate(mdctx, buf, modulus->ulValueLen - inlen)!= 1) {
+            TRACE_ERROR("EVP_DigestSignUpdate failed\n");
+            rc = CKR_FUNCTION_FAILED;
+            goto out;
+        }
+    }
+    if (EVP_DigestSignUpdate(mdctx, in, inlen) != 1) {
+        TRACE_ERROR("EVP_DigestSignUpdate failed\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+
+    md_len = kdklen;
+    if (EVP_DigestSignFinal(mdctx, kdk, &md_len) != 1 ||
+        md_len != kdklen) {
+        TRACE_ERROR("EVP_DigestSignFinal failed\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+
+    rc = CKR_OK;
+
+out:
+    if (buf != NULL)
+        free(buf);
+    if (pkey != NULL)
+        EVP_PKEY_free(pkey);
+    if (mdctx != NULL)
+        EVP_MD_CTX_free(mdctx);
+
+    return rc;
+}
+
+CK_RV openssl_specific_rsa_prf(CK_BYTE *out, CK_ULONG outlen,
+                               const char *label, CK_ULONG labellen,
+                               const CK_BYTE *kdk, CK_ULONG kdklen,
+                               uint16_t bitlen)
+{
+    CK_RV rc;
+    CK_ULONG pos;
+    uint16_t iter = 0;
+    unsigned char be_iter[sizeof(iter)];
+    unsigned char be_bitlen[sizeof(bitlen)];
+    EVP_PKEY *pkey = NULL;
+    EVP_MD_CTX *mdctx = NULL;
+    unsigned char hmac_out[SHA256_HASH_SIZE];
+    size_t md_len;
+
+    /*
+     * The implementation of this function is copied from OpenSSL's function
+     * ossl_rsa_prf() in crypto/rsa/rsapk1.c and is slightly modified to fit to
+     * the providers environment.
+     * Changes include:
+     * - Different variable and define names.
+     * - Usage of TRACE_ERROR report errors and issue debug messages.
+     * - Different return codes.
+     * - Use of the EVP API instead of the internal APIs for HMAC operations.
+     */
+
+    if (kdklen != SHA256_HASH_SIZE) {
+        TRACE_ERROR("invalid kdklen\n");
+        return CKR_ARGUMENTS_BAD;
+    }
+    if (outlen * 8 != bitlen) {
+        TRACE_ERROR("invalid outlen\n");
+        return CKR_ARGUMENTS_BAD;
+    }
+
+    be_bitlen[0] = (bitlen >> 8) & 0xff;
+    be_bitlen[1] = bitlen & 0xff;
+
+    pkey = EVP_PKEY_new_mac_key(EVP_PKEY_HMAC, NULL, kdk, kdklen);
+    if (pkey == NULL) {
+        TRACE_ERROR("EVP_PKEY_new_mac_key() failed.\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+
+    mdctx = EVP_MD_CTX_create();
+    if (mdctx == NULL) {
+        TRACE_ERROR("EVP_MD_CTX_create() failed.\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+
+    /*
+     * we use hardcoded hash so that migrating between versions that use
+     * different hash doesn't provide a Bleichenbacher oracle:
+     * if the attacker can see that different versions return different
+     * messages for the same ciphertext, they'll know that the message is
+     * synthetically generated, which means that the padding check failed
+     */
+    for (pos = 0; pos < outlen; pos += SHA256_HASH_SIZE, iter++) {
+        if (EVP_DigestSignInit(mdctx, NULL, EVP_sha256(), NULL, pkey) != 1) {
+            TRACE_ERROR("EVP_DigestSignInit failed\n");
+            rc = CKR_FUNCTION_FAILED;
+            goto out;
+        }
+
+        be_iter[0] = (iter >> 8) & 0xff;
+        be_iter[1] = iter & 0xff;
+
+        if (EVP_DigestSignUpdate(mdctx, be_iter, sizeof(be_iter)) != 1) {
+            TRACE_ERROR("EVP_DigestSignUpdate failed\n");
+            rc = CKR_FUNCTION_FAILED;
+            goto out;
+        }
+        if (EVP_DigestSignUpdate(mdctx, (unsigned char *)label, labellen) != 1) {
+            TRACE_ERROR("EVP_DigestSignUpdate failed\n");
+            rc = CKR_FUNCTION_FAILED;
+            goto out;
+        }
+        if (EVP_DigestSignUpdate(mdctx, be_bitlen, sizeof(be_bitlen)) != 1) {
+            TRACE_ERROR("EVP_DigestSignUpdate failed\n");
+            rc = CKR_FUNCTION_FAILED;
+            goto out;
+        }
+
+        /*
+         * HMAC_Final requires the output buffer to fit the whole MAC
+         * value, so we need to use the intermediate buffer for the last
+         * unaligned block
+         */
+        md_len = SHA256_HASH_SIZE;
+        if (pos + SHA256_HASH_SIZE > outlen) {
+            md_len = sizeof(hmac_out);
+            if (EVP_DigestSignFinal(mdctx, hmac_out, &md_len) != 1) {
+                TRACE_ERROR("EVP_DigestSignFinal failed\n");
+                rc = CKR_FUNCTION_FAILED;
+                goto out;
+            }
+            memcpy(out + pos, hmac_out, outlen - pos);
+        } else {
+            md_len = outlen - pos;
+            if (EVP_DigestSignFinal(mdctx, out + pos, &md_len) != 1) {
+                TRACE_ERROR("EVP_DigestSignFinal failed\n");
+                rc = CKR_FUNCTION_FAILED;
+                goto out;
+            }
+        }
+    }
+
+    rc = CKR_OK;
+
+out:
+    if (pkey != NULL)
+        EVP_PKEY_free(pkey);
+    if (mdctx != NULL)
+        EVP_MD_CTX_free(mdctx);
+
+    return rc;
+}
+

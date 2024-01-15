@@ -12,19 +12,29 @@ For code originating from OpenSSL:
  *   Note that in OpenSSL the file crypto/bn/rsa_sup_mul.c does no longer
  *   exist, it was removed with commit https://github.com/openssl/openssl/commit/4209ce68d8fe8b1506494efa03d378d05baf9ff8
  * - usr/lib/common/constant_time.h: Copied unchanged from OpenSSL from
-     include/internal/constant_time.h
+ *   include/internal/constant_time.h
  * - The implementation of function rsa_parse_block_type_2() in 
  *   usr/lib/common/mech_rsa.c is copied from OpenSSL's function
  *   ossl_rsa_padding_check_PKCS1_type_2() in crypto/rsa/rsa_pk1.c
  *   and is slightly modified to fit to the OpenCryptoki environment.
  *   See comment in function rsa_parse_block_type_2() for a list of changes.
+ * - The implementation of function openssl_specific_rsa_derive_kdk() in
+ *   usr/lib/common/mech_openssl.c is copied from OpenSSL's function
+ *   derive_kdk() in crypto/rsa/rsa_ossl.c and is slightly modified to fit to 
+ *   the OpenCryptoki environment. See comment in function 
+ *   openssl_specific_rsa_derive_kdk() for a list of changes.
+ * - The implementation of function openssl_specific_rsa_prf() in
+ *   usr/lib/common/mech_openssl.c is copied from OpenSSL's function
+ *   ossl_rsa_prf() in crypto/rsa/rsapk1.c and is slightly modified to fit to 
+ *   the OpenCryptoki environment. See comment in function 
+ *   openssl_specific_rsa_prf() for a list of changes.
  * - The implementation of function decode_eme_oaep() in
  *   usr/lib/common/mech_rsa.c is copied from OpenSSL's function
  *   RSA_padding_check_PKCS1_OAEP_mgf1() in crypto/rsa/rsa_oaep.c and is
  *   slightly modified to fit to the OpenCryptoki environment. See comment in
  *   function decode_eme_oaep() for a list of changes.
  *
- * Copyright 1999-2023 The OpenSSL Project Authors. All Rights Reserved.
+ * Copyright 1999-2024 The OpenSSL Project Authors. All Rights Reserved.
  *
  * The OpenSSL code is licensed under the Apache License 2.0 (the "License"). 
  * You can obtain a copy in the file LICENSE in the OpenSSL source distribution
