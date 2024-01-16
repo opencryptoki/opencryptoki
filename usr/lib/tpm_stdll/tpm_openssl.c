@@ -274,14 +274,16 @@ int openssl_get_modulus_and_prime(EVP_PKEY *pkey, unsigned int *size_n,
     *size_n = len;
     BN_free(n_tmp);
 
-    if (!EVP_PKEY_get_bn_param(pkey, OSSL_PKEY_PARAM_RSA_FACTOR1, &p_tmp) ||
+    p_tmp = BN_secure_new();
+    if (p_tmp == NULL ||
+        !EVP_PKEY_get_bn_param(pkey, OSSL_PKEY_PARAM_RSA_FACTOR1, &p_tmp) ||
         (len = BN_bn2bin(p_tmp, p)) <= 0) {
         DEBUG_openssl_print_errors();
-        BN_free(p_tmp);
+        BN_clear_free(p_tmp);
         return -1;
     }
     *size_p = len;
-    BN_free(p_tmp);
+    BN_clear_free(p_tmp);
 #endif
 
     return 0;

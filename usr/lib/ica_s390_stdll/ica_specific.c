@@ -1988,15 +1988,23 @@ static CK_RV rsa_calc_private_exponent(ica_rsa_key_mod_expo_t *publKey,
     CK_BYTE *buff = NULL;
     CK_RV rc = CKR_OK;
 
+    d = BN_secure_new();
+    e = BN_secure_new();
+    p = BN_secure_new();
+    q = BN_secure_new();
+    if (d == NULL || e == NULL || p == NULL || q == NULL) {
+        TRACE_DEVEL("BN_secure_new failed\n");
+        rc = CKR_HOST_MEMORY;
+        goto done;
+    }
     /*
      * Calculate ϕ(n) = (p − 1) * (q − 1) = n − p − q + 1.
      * Then d = e ^−1 mod ϕ(n)
      */
-    d = BN_bin2bn(publKey->modulus, publKey->key_length, NULL);
-    e = BN_bin2bn(publKey->exponent, publKey->key_length, NULL);
-    p = BN_bin2bn(privKey->p + 8, privKey->key_length / 2, NULL);
-    q = BN_bin2bn(privKey->q, privKey->key_length / 2, NULL);
-    if (d == NULL || e == NULL || p == NULL || q == NULL) {
+    if (BN_bin2bn(publKey->modulus, publKey->key_length, d) == NULL ||
+        BN_bin2bn(publKey->exponent, publKey->key_length, e) == NULL ||
+        BN_bin2bn(privKey->p + 8, privKey->key_length / 2, p) == NULL ||
+        BN_bin2bn(privKey->q, privKey->key_length / 2, q) == NULL) {
         TRACE_DEVEL("BN_bin2bn failed\n");
         rc = CKR_FUNCTION_FAILED;
         goto done;
@@ -2039,13 +2047,13 @@ static CK_RV rsa_calc_private_exponent(ica_rsa_key_mod_expo_t *publKey,
 
 done:
     if (d != NULL)
-        BN_free(d);
+        BN_clear_free(d);
     if (e != NULL)
-        BN_free(e);
+        BN_clear_free(e);
     if (p != NULL)
-        BN_free(p);
+        BN_clear_free(p);
     if (q != NULL)
-        BN_free(q);
+        BN_clear_free(q);
     if (buff != NULL)
         free(buff);
     if (attr != NULL)
