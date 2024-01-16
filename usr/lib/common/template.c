@@ -103,6 +103,8 @@ CK_RV template_add_attributes(TEMPLATE *tmpl, CK_ATTRIBUTE *pTemplate,
                                 attr->ulValueLen / sizeof(CK_ATTRIBUTE),
                                 (CK_ATTRIBUTE_PTR)attr->pValue);
                 if (rc !=CKR_OK) {
+                    if (attr->pValue != NULL)
+                        OPENSSL_cleanse(attr->pValue, attr->ulValueLen);
                     free(attr);
                     TRACE_DEVEL("dup_attribute_array_no_alloc failed.\n");
                     return rc;
@@ -116,6 +118,8 @@ CK_RV template_add_attributes(TEMPLATE *tmpl, CK_ATTRIBUTE *pTemplate,
 
         rc = template_update_attribute(tmpl, attr);
         if (rc != CKR_OK) {
+            if (attr->pValue != NULL)
+                OPENSSL_cleanse(attr->pValue, attr->ulValueLen);
             free(attr);
             TRACE_DEVEL("template_update_attribute failed.\n");
             return rc;
@@ -588,6 +592,8 @@ CK_RV template_copy(TEMPLATE *dest, TEMPLATE *src)
                                     attr->ulValueLen / sizeof(CK_ATTRIBUTE),
                                     (CK_ATTRIBUTE_PTR)new_attr->pValue);
             if (rc != CKR_OK) {
+                if (new_attr->pValue != NULL)
+                    OPENSSL_cleanse(new_attr->pValue, new_attr->ulValueLen);
                 free(new_attr);
                 TRACE_ERROR("dup_attribute_array_no_alloc failed\n");
                 return rc;
@@ -596,11 +602,15 @@ CK_RV template_copy(TEMPLATE *dest, TEMPLATE *src)
 
         if (attr->type == CKA_UNIQUE_ID) {
             if (attr->ulValueLen < 2 * UNIQUE_ID_LEN) {
+                if (new_attr->pValue != NULL)
+                    OPENSSL_cleanse(new_attr->pValue, new_attr->ulValueLen);
                 free(new_attr);
                 TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
                 return CKR_ATTRIBUTE_VALUE_INVALID;
             }
             if (get_unique_id_str(unique_id_str) != CKR_OK) {
+                if (new_attr->pValue != NULL)
+                    OPENSSL_cleanse(new_attr->pValue, new_attr->ulValueLen);
                 free(new_attr);
                 TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
                 return CKR_FUNCTION_FAILED;
@@ -616,6 +626,8 @@ CK_RV template_copy(TEMPLATE *dest, TEMPLATE *src)
                                 (CK_ATTRIBUTE_PTR)new_attr->pValue,
                                 new_attr->ulValueLen / sizeof(CK_ATTRIBUTE),
                                 FALSE);
+            if (new_attr->pValue != NULL)
+                OPENSSL_cleanse(new_attr->pValue, new_attr->ulValueLen);
             free(new_attr);
             TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
             return CKR_HOST_MEMORY;
@@ -1170,6 +1182,8 @@ CK_RV template_free(TEMPLATE *tmpl)
                                     attr->ulValueLen / sizeof(CK_ATTRIBUTE),
                                     FALSE);
             }
+            if (attr->pValue != NULL)
+                OPENSSL_cleanse(attr->pValue, attr->ulValueLen);
             free(attr);
         }
 
@@ -1601,6 +1615,8 @@ CK_RV template_remove_attribute(TEMPLATE *tmpl, CK_ATTRIBUTE_TYPE type)
                                      attr->ulValueLen / sizeof(CK_ATTRIBUTE),
                                      FALSE);
             }
+            if (attr->pValue != NULL)
+                OPENSSL_cleanse(attr->pValue, attr->ulValueLen);
             free(attr);
             tmpl->attribute_list =
                 dlist_remove_node(tmpl->attribute_list, node);

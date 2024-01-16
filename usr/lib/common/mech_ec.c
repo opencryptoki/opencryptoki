@@ -1329,8 +1329,12 @@ CK_RV ec_point_from_priv_key(CK_BYTE *parms, CK_ULONG parms_len,
     if (nid == -1)
         return CKR_CURVE_NOT_SUPPORTED;
 
-    bn_d = BN_bin2bn(d, d_len, NULL);
+    bn_d = BN_secure_new();
     if (bn_d == NULL) {
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+    if (BN_bin2bn(d, d_len, bn_d) == NULL) {
         rc = CKR_FUNCTION_FAILED;
         goto done;
     }

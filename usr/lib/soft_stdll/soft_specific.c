@@ -712,7 +712,7 @@ CK_RV token_specific_dh_pkcs_derive(STDLL_TokData_t *tokdata,
 
     //  Create and Init the BIGNUM structures.
     bn_y = BN_new();
-    bn_x = BN_new();
+    bn_x = BN_secure_new();
     bn_p = BN_new();
     bn_z = BN_new();
 
@@ -720,7 +720,7 @@ CK_RV token_specific_dh_pkcs_derive(STDLL_TokData_t *tokdata,
         if (bn_y)
             BN_free(bn_y);
         if (bn_x)
-            BN_free(bn_x);
+            BN_clear_free(bn_x);
         if (bn_p)
             BN_free(bn_p);
         if (bn_z)
@@ -731,20 +731,34 @@ CK_RV token_specific_dh_pkcs_derive(STDLL_TokData_t *tokdata,
     // Initialize context
     ctx = BN_CTX_new();
     if (ctx == NULL) {
+        BN_free(bn_z);
+        BN_free(bn_y);
+        BN_clear_free(bn_x);
+        BN_free(bn_p);
+
         TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
         return CKR_FUNCTION_FAILED;
     }
-    // Add data into these new BN structures
 
-    BN_bin2bn((unsigned char *) y, y_len, bn_y);
-    BN_bin2bn((unsigned char *) x, x_len, bn_x);
-    BN_bin2bn((unsigned char *) p, p_len, bn_p);
+    // Add data into these new BN structures
+    if (BN_bin2bn((unsigned char *) y, y_len, bn_y) == NULL ||
+        BN_bin2bn((unsigned char *) x, x_len, bn_x) == NULL ||
+        BN_bin2bn((unsigned char *) p, p_len, bn_p) == NULL) {
+        BN_free(bn_z);
+        BN_free(bn_y);
+        BN_clear_free(bn_x);
+        BN_free(bn_p);
+        BN_CTX_free(ctx);
+
+        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
+        return CKR_FUNCTION_FAILED;
+    }
 
     rc = BN_mod_exp(bn_z, bn_y, bn_x, bn_p, ctx);
     if (rc == 0) {
         BN_free(bn_z);
         BN_free(bn_y);
-        BN_free(bn_x);
+        BN_clear_free(bn_x);
         BN_free(bn_p);
         BN_CTX_free(ctx);
 
@@ -757,7 +771,7 @@ CK_RV token_specific_dh_pkcs_derive(STDLL_TokData_t *tokdata,
 
     BN_free(bn_z);
     BN_free(bn_y);
-    BN_free(bn_x);
+    BN_clear_free(bn_x);
     BN_free(bn_p);
     BN_CTX_free(ctx);
 

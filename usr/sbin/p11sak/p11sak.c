@@ -3943,8 +3943,10 @@ static void free_attributes(CK_ATTRIBUTE *attrs, CK_ULONG num_attrs)
         return;
 
     for (i = 0; i < num_attrs; i++) {
-        if (attrs[i].pValue != NULL)
+        if (attrs[i].pValue != NULL) {
+            OPENSSL_cleanse(attrs[i].pValue, attrs[i].ulValueLen);
             free(attrs[i].pValue);
+        }
     }
 
     free(attrs);
@@ -4068,10 +4070,13 @@ static CK_RV get_bignum_attr(CK_OBJECT_HANDLE key, CK_ATTRIBUTE_TYPE type,
     if (attr.ulValueLen == 0 || attr.pValue == NULL)
         return CKR_ATTRIBUTE_VALUE_INVALID;
 
-    *bn = BN_new();
+    /* Caller may supply an already allocated BIGNUM, allocate if NULL. */
     if (*bn == NULL) {
-        rc = CKR_HOST_MEMORY;
-        goto done;
+        *bn = BN_new();
+        if (*bn == NULL) {
+            rc = CKR_HOST_MEMORY;
+            goto done;
+        }
     }
 
     if (BN_bin2bn((unsigned char *)attr.pValue, attr.ulValueLen, *bn) == NULL) {
@@ -4082,6 +4087,7 @@ static CK_RV get_bignum_attr(CK_OBJECT_HANDLE key, CK_ATTRIBUTE_TYPE type,
     }
 
 done:
+    OPENSSL_cleanse(attr.pValue, attr.ulValueLen);
     free(attr.pValue);
 
     return rc;
@@ -7024,6 +7030,21 @@ static CK_RV p11sak_import_rsa_pkey(const struct p11sak_objtype *keytype,
     }
 
 #if OPENSSL_VERSION_PREREQ(3, 0)
+    if (private) {
+        bn_d = BN_secure_new();
+        bn_p = BN_secure_new();
+        bn_q = BN_secure_new();
+        bn_dmp1 = BN_secure_new();
+        bn_dmq1 = BN_secure_new();
+        bn_iqmp = BN_secure_new();
+        if (bn_d == NULL || bn_p == NULL || bn_q == NULL ||
+            bn_dmp1 == NULL || bn_dmq1 == NULL || bn_iqmp == NULL) {
+            warnx("Failed to allocate OpenSSL BIGNUM");
+            rc = CKR_HOST_MEMORY;
+            goto done;
+        }
+    }
+
     if (!EVP_PKEY_get_bn_param(pkey, OSSL_PKEY_PARAM_RSA_N, &bn_n) ||
         !EVP_PKEY_get_bn_param(pkey, OSSL_PKEY_PARAM_RSA_E, &bn_e) ||
         (private &&
@@ -7105,17 +7126,17 @@ done:
     if (bn_e != NULL)
         BN_free(bn_e);
     if (bn_d != NULL)
-        BN_free(bn_d);
+        BN_clear_free(bn_d);
     if (bn_p != NULL)
-        BN_free(bn_p);
+        BN_clear_free(bn_p);
     if (bn_q != NULL)
-        BN_free(bn_q);
+        BN_clear_free(bn_q);
     if (bn_dmp1 != NULL)
-        BN_free(bn_dmp1);
+        BN_clear_free(bn_dmp1);
     if (bn_dmq1 != NULL)
-        BN_free(bn_dmq1);
+        BN_clear_free(bn_dmq1);
     if (bn_iqmp != NULL)
-        BN_free(bn_iqmp);
+        BN_clear_free(bn_iqmp);
 #endif
 
     return rc;
@@ -7140,6 +7161,15 @@ static CK_RV p11sak_import_dh_pkey(const struct p11sak_objtype *keytype,
     }
 
 #if OPENSSL_VERSION_PREREQ(3, 0)
+    if (private) {
+        bn_priv = BN_secure_new();
+        if (bn_priv == NULL) {
+            warnx("Failed to allocate OpenSSL BIGNUM");
+            rc = CKR_HOST_MEMORY;
+            goto done;
+        }
+    }
+
     if (!EVP_PKEY_get_bn_param(pkey, OSSL_PKEY_PARAM_FFC_P, &bn_p) ||
         !EVP_PKEY_get_bn_param(pkey, OSSL_PKEY_PARAM_FFC_G, &bn_g) ||
         (!private &&
@@ -7192,7 +7222,7 @@ done:
     if (bn_pub != NULL)
         BN_free(bn_pub);
     if (bn_priv != NULL)
-        BN_free(bn_priv);
+        BN_clear_free(bn_priv);
 #endif
 
     return rc;
@@ -7219,6 +7249,15 @@ static CK_RV p11sak_import_dsa_pkey(const struct p11sak_objtype *keytype,
     }
 
 #if OPENSSL_VERSION_PREREQ(3, 0)
+    if (private) {
+        bn_priv = BN_secure_new();
+        if (bn_priv == NULL) {
+            warnx("Failed to allocate OpenSSL BIGNUM");
+            rc = CKR_HOST_MEMORY;
+            goto done;
+        }
+    }
+
     if (!EVP_PKEY_get_bn_param(pkey, OSSL_PKEY_PARAM_FFC_P, &bn_p) ||
         !EVP_PKEY_get_bn_param(pkey, OSSL_PKEY_PARAM_FFC_Q, &bn_q) ||
         !EVP_PKEY_get_bn_param(pkey, OSSL_PKEY_PARAM_FFC_G, &bn_g) ||
@@ -7278,7 +7317,7 @@ done:
     if (bn_pub != NULL)
         BN_free(bn_pub);
     if (bn_priv != NULL)
-        BN_free(bn_priv);
+        BN_clear_free(bn_priv);
 #endif
 
     return rc;
@@ -7419,6 +7458,15 @@ static CK_RV p11sak_import_ec_pkey(const struct p11sak_objtype *keytype,
     }
 
 #if OPENSSL_VERSION_PREREQ(3, 0)
+    if (private) {
+        bn_priv = BN_secure_new();
+        if (bn_priv == NULL) {
+            warnx("Failed to allocate OpenSSL BIGNUM");
+            rc = CKR_HOST_MEMORY;
+            goto done;
+        }
+    }
+
     if (!EVP_PKEY_get_utf8_string_param(pkey, OSSL_PKEY_PARAM_GROUP_NAME,
                                         group, sizeof(group), NULL) ||
         (!private &&          /* leave 3 bytes space for DER encoding */
@@ -7547,7 +7595,7 @@ static CK_RV p11sak_import_ec_pkey(const struct p11sak_objtype *keytype,
 done:
 #if OPENSSL_VERSION_PREREQ(3, 0)
     if (bn_priv != NULL)
-        BN_free(bn_priv);
+        BN_clear_free(bn_priv);
     if (ec_group != NULL)
         EC_GROUP_free(ec_group);
 #else
@@ -7743,8 +7791,10 @@ static CK_RV p11sak_import_opaque_key(const struct p11sak_objtype *keytype,
         goto done;
 
 done:
-    if (value != NULL)
+    if (value != NULL) {
+        OPENSSL_cleanse(value, value_len);
         free(value);
+    }
     if (fp != NULL)
         fclose(fp);
 
@@ -7818,7 +7868,7 @@ done:
     if (pkey != NULL)
         EVP_PKEY_free(pkey);
     if (data != NULL)
-        OPENSSL_free(data);
+        OPENSSL_clear_free(data, data_len);
     if (header != NULL)
         OPENSSL_free(header);
 
@@ -7873,10 +7923,10 @@ static CK_RV p11sak_import_sym_key(const struct p11sak_objtype *keytype,
 
     rc = keytype->import_sym_clear(keytype, data, data_len,
                                    attrs, num_attrs);
-    if (rc != CKR_OK)
-        return rc;
 
-    return CKR_OK;
+    OPENSSL_cleanse(data, sizeof(data));
+
+    return rc;
 }
 
 static CK_RV p11sak_import_key(void)
@@ -8020,6 +8070,19 @@ static CK_RV p11sak_export_rsa_pkey(const struct p11sak_objtype *keytype,
     }
 
     if (private) {
+        bn_d = BN_secure_new();
+        bn_p = BN_secure_new();
+        bn_q = BN_secure_new();
+        bn_dmp1 = BN_secure_new();
+        bn_dmq1 = BN_secure_new();
+        bn_iqmp = BN_secure_new();
+        if (bn_d == NULL || bn_p == NULL || bn_q == NULL ||
+            bn_dmp1 == NULL || bn_dmq1 == NULL || bn_iqmp == NULL) {
+            warnx("Failed to allocate OpenSSL BIGNUM");
+            rc = CKR_HOST_MEMORY;
+            goto done;
+        }
+
         rc = get_bignum_attr(key, CKA_PRIVATE_EXPONENT, &bn_d);
         if (rc == CKR_ATTRIBUTE_SENSITIVE)
             goto done;
@@ -8161,17 +8224,17 @@ done:
     if (bn_e != NULL)
         BN_free(bn_e);
     if (bn_d != NULL)
-        BN_free(bn_d);
+        BN_clear_free(bn_d);
     if (bn_p != NULL)
-        BN_free(bn_p);
+        BN_clear_free(bn_p);
     if (bn_q != NULL)
-        BN_free(bn_q);
+        BN_clear_free(bn_q);
     if (bn_dmp1 != NULL)
-        BN_free(bn_dmp1);
+        BN_clear_free(bn_dmp1);
     if (bn_dmq1 != NULL)
-        BN_free(bn_dmq1);
+        BN_clear_free(bn_dmq1);
     if (bn_iqmp != NULL)
-        BN_free(bn_iqmp);
+        BN_clear_free(bn_iqmp);
 #if !OPENSSL_VERSION_PREREQ(3, 0)
     if (rsa != NULL)
         RSA_free(rsa);
@@ -8223,6 +8286,15 @@ static CK_RV p11sak_export_dh_pkey(const struct p11sak_objtype *keytype,
               "object \"%s\": 0x%lX: %s", keytype->name, label, rc,
               p11_get_ckr(rc));
         goto done;
+    }
+
+    if (private) {
+        bn_priv = BN_secure_new();
+        if (bn_priv == NULL) {
+            warnx("Failed to allocate OpenSSL BIGNUM");
+            rc = CKR_HOST_MEMORY;
+            goto done;
+        }
     }
 
     rc = get_bignum_attr(key, CKA_VALUE, private ? &bn_priv : &bn_pub);
@@ -8329,7 +8401,7 @@ done:
     if (bn_g != NULL)
         BN_free(bn_g);
     if (bn_priv != NULL)
-        BN_free(bn_priv);
+        BN_clear_free(bn_priv);
     if (bn_pub != NULL)
         BN_free(bn_pub);
 #if !OPENSSL_VERSION_PREREQ(3, 0)
@@ -8395,6 +8467,15 @@ static CK_RV p11sak_export_dsa_pkey(const struct p11sak_objtype *keytype,
               "object \"%s\": 0x%lX: %s", keytype->name, label, rc,
               p11_get_ckr(rc));
         goto done;
+    }
+
+    if (private) {
+        bn_priv = BN_secure_new();
+        if (bn_priv == NULL) {
+            warnx("Failed to allocate OpenSSL BIGNUM");
+            rc = CKR_HOST_MEMORY;
+            goto done;
+        }
     }
 
     rc = get_bignum_attr(key, CKA_VALUE, private ? &bn_priv : &bn_pub);
@@ -8504,7 +8585,7 @@ done:
     if (bn_g != NULL)
         BN_free(bn_g);
     if (bn_priv != NULL)
-        BN_free(bn_priv);
+        BN_clear_free(bn_priv);
     if (bn_pub != NULL)
         BN_free(bn_pub);
 #if !OPENSSL_VERSION_PREREQ(3, 0)
@@ -8808,6 +8889,13 @@ static CK_RV p11sak_export_ec_pkey(const struct p11sak_objtype *keytype,
     }
 
     if (private) {
+        bn_priv = BN_secure_new();
+        if (bn_priv == NULL) {
+            warnx("Failed to allocate OpenSSL BIGNUM");
+            rc = CKR_HOST_MEMORY;
+            goto done;
+        }
+
         rc = get_bignum_attr(key, CKA_VALUE, &bn_priv);
         if (rc == CKR_ATTRIBUTE_SENSITIVE)
             goto done;
@@ -9002,7 +9090,7 @@ static CK_RV p11sak_export_ec_pkey(const struct p11sak_objtype *keytype,
 
 done:
     if (bn_priv != NULL)
-        BN_free(bn_priv);
+        BN_clear_free(bn_priv);
     if (ecparams_attr.pValue != NULL)
         free(ecparams_attr.pValue);
     if (ecpoint_attr.pValue != NULL)
@@ -9194,8 +9282,10 @@ static CK_RV p11sak_export_asym_key(const struct p11sak_objtype *keytype,
 done:
     if (pkey != NULL)
         EVP_PKEY_free(pkey);
-    if (data != NULL)
+    if (data != NULL) {
+        OPENSSL_cleanse(data, data_len);
         free(data);
+    }
 
     return rc;
 }
@@ -9235,7 +9325,10 @@ static CK_RV p11sak_export_sym_key(const struct p11sak_objtype *keytype,
     }
 
 done:
-    free(data);
+    if (data != NULL) {
+        OPENSSL_cleanse(data, data_len);
+        free(data);
+    }
 
     return rc;
 }
