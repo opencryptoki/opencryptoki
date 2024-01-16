@@ -1963,6 +1963,164 @@ testcase_cleanup:
     return rc;
 }
 
+CK_RV do_RSAImplicitRejection(struct PUBLISHED_TEST_SUITE_INFO *tsuite)
+{
+    unsigned int i;
+    CK_BYTE decrypt[BIG_REQUEST];
+    CK_ULONG decrypt_len;
+    CK_MECHANISM mech;
+    CK_OBJECT_HANDLE priv_key = CK_INVALID_HANDLE;
+    CK_SLOT_ID slot_id = SLOT_ID;
+    CK_SESSION_HANDLE session;
+    CK_FLAGS flags;
+    CK_BYTE user_pin[PKCS11_MAX_PIN_LEN];
+    CK_ULONG user_pin_len;
+    CK_RV rc, loc_rc;
+
+    char *s;
+
+    // begin testsuite
+    testsuite_begin("%s Implicit Rejection.", tsuite->name);
+    testcase_rw_session();
+    testcase_user_login();
+
+    if (!is_ica_token(slot_id) && !is_soft_token(slot_id)) {
+        testsuite_skip(tsuite->tvcount,
+                       "Slot %u doesn't support Implicit Rejection",
+                       (unsigned int) slot_id);
+        goto testcase_cleanup;
+    }
+    // skip tests if the slot doesn't support this mechanism
+    if (!mech_supported(slot_id, tsuite->mech.mechanism)) {
+        testsuite_skip(tsuite->tvcount,
+                       "Slot %u doesn't support %s (0x%x)",
+                       (unsigned int) slot_id,
+                       mech_to_str(tsuite->mech.mechanism),
+                       (unsigned int) tsuite->mech.mechanism);
+        goto testcase_cleanup;
+    }
+
+    // iterate over test vectors
+    for (i = 0; i < tsuite->tvcount; i++) {
+
+        // get public exponent from test vector
+        if (p11_ahex_dump(&s, tsuite->tv[i].pub_exp,
+                          tsuite->tv[i].pubexp_len) == NULL) {
+            testcase_error("p11_ahex_dump() failed");
+            rc = -1;
+            goto testcase_cleanup;
+        }
+        // begin testcase
+        testcase_begin("%s Implicit Rejection with test vector %u."
+                       "\npubl_exp='%s', modbits=%lu, publ_exp_len=%lu.",
+                       tsuite->name, i, s,
+                       tsuite->tv[i].mod_len * 8,
+                       tsuite->tv[i].pubexp_len);
+
+        rc = CKR_OK;
+
+        if (!keysize_supported(slot_id, tsuite->mech.mechanism,
+                               tsuite->tv[i].mod_len * 8)) {
+            testcase_skip("Token in slot %lu cannot be used with modbits='%lu'",
+                          SLOT_ID, tsuite->tv[i].mod_len * 8);
+            free(s);
+            continue;
+        }
+
+        free(s);
+
+        // clear buffers
+        memset(decrypt, 0, BIG_REQUEST);
+
+        // create (private) key handle
+        rc = create_RSAPrivateKey(session,
+                                  tsuite->tv[i].mod,
+                                  tsuite->tv[i].pub_exp,
+                                  tsuite->tv[i].priv_exp,
+                                  tsuite->tv[i].prime1,
+                                  tsuite->tv[i].prime2,
+                                  tsuite->tv[i].exp1,
+                                  tsuite->tv[i].exp2,
+                                  tsuite->tv[i].coef,
+                                  tsuite->tv[i].mod_len,
+                                  tsuite->tv[i].pubexp_len,
+                                  tsuite->tv[i].privexp_len,
+                                  tsuite->tv[i].prime1_len,
+                                  tsuite->tv[i].prime2_len,
+                                  tsuite->tv[i].exp1_len,
+                                  tsuite->tv[i].exp2_len,
+                                  tsuite->tv[i].coef_len, &priv_key);
+        if (rc != CKR_OK) {
+            if (rc == CKR_POLICY_VIOLATION) {
+                testcase_skip("RSA key import is not allowed by policy");
+                continue;
+            }
+
+            testcase_error("create_RSAPrivateKey(), rc=%s", p11_get_ckr(rc));
+            goto error;
+        }
+
+        // set cipher buffer length
+        decrypt_len = BIG_REQUEST;
+
+        // get mech
+        mech = tsuite->mech;
+
+        // initialize (private key) decryption
+        rc = funcs->C_DecryptInit(session, &mech, priv_key);
+        if (rc != CKR_OK) {
+            testcase_error("C_DecryptInit, rc=%s", p11_get_ckr(rc));
+            goto tv_cleanup;
+        }
+        // do (private key) decryption
+        rc = funcs->C_Decrypt(session, tsuite->tv[i].msg, tsuite->tv[i].msg_len,
+                              decrypt, &decrypt_len);
+        if (rc != CKR_OK) {
+            testcase_error("C_Decrypt, rc=%s", p11_get_ckr(rc));
+            goto tv_cleanup;
+        }
+
+        // check results
+        testcase_new_assertion();
+
+        if (decrypt_len != tsuite->tv[i].sig_len) {
+            testcase_fail("decrypted length does not match"
+                          "expected data length.\n expected length = %lu, "
+                          "but found length=%lu.\n",
+                          tsuite->tv[i].sig_len, decrypt_len);
+        } else if (memcmp(decrypt, tsuite->tv[i].sig, tsuite->tv[i].sig_len)) {
+            testcase_fail("decrypted data does not match expected data.");
+        } else {
+            testcase_pass("Implicit Rejection.");
+        }
+
+        // clean up
+tv_cleanup:
+
+        rc = funcs->C_DestroyObject(session, priv_key);
+        if (rc != CKR_OK) {
+            testcase_error("C_DestroyObject(), rc=%s.", p11_get_ckr(rc));
+            goto error;
+        }
+    }
+
+    goto testcase_cleanup;
+error:
+    loc_rc = funcs->C_DestroyObject(session, priv_key);
+    if (loc_rc != CKR_OK) {
+        testcase_error("C_DestroyObject(), rc=%s.", p11_get_ckr(loc_rc));
+    }
+
+testcase_cleanup:
+    testcase_user_logout();
+    loc_rc = funcs->C_CloseAllSessions(slot_id);
+    if (loc_rc != CKR_OK) {
+        testcase_error("C_CloseAllSessions, rc=%s", p11_get_ckr(loc_rc));
+    }
+
+    return rc;
+}
+
 CK_RV rsa_funcs(void)
 {
     unsigned int i;
@@ -2028,6 +2186,13 @@ CK_RV rsa_funcs(void)
     // key import tests
     for (i = 0; i < NUM_OF_ENCDEC_IMPORT_TESTSUITES; i++) {
         rv = do_EncryptDecryptImportRSA(&rsa_encdec_import_test_suites[i]);
+        if (rv != CKR_OK && (!no_stop))
+            break;
+    }
+
+    // Implicit rejection tests
+    for (i = 0; i < NUM_OF_IMPLICIT_REJECTION_TESTSUITES; i++) {
+        rv = do_RSAImplicitRejection(&rsa_implicit_rejection_test_suites[i]);
         if (rv != CKR_OK && (!no_stop))
             break;
     }
