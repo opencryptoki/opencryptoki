@@ -3,13 +3,13 @@
 
 # openCryptoki
 
-Package version 3.22
+Package version 3.23
 
 Please see [ChangeLog](ChangeLog) for release specific information.
 
 ## OVERVIEW
 
-openCryptoki version 3.22 implements the PKCS#11 specification version 3.0.
+openCryptoki version 3.23 implements the PKCS#11 specification version 3.0.
 
 This package includes several cryptographic tokens:
 CCA, ICA, TPM , SWToken, ICSF and EP11.
@@ -53,7 +53,7 @@ directory and do the following:
     $ ./bootstrap.sh
 ```
 
-** Note: ** This package used the `AX_PROG_CC_FOR_BUILD` autoconf macro
+**Note:** This package used the `AX_PROG_CC_FOR_BUILD` autoconf macro
 from the autoconf archive to support cross compiler builds.
 If your system does not provide this macro, you might need to install the
 `autoconf-archive` package or download the macro and place it into the
