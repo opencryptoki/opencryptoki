@@ -1,3 +1,8 @@
++ openCryptoki 3.23
+- EP11: Add support for FIPS-session mode
+- Updates to harden against RSA timing attacks
+- Bug fixes
+
 + openCryptoki 3.22
 - CCA: Add support for the AES-XTS key type using CPACF protected keys
 - p11sak: Add support for managing certificate objects
