@@ -1530,3 +1530,73 @@ check_encoded:
 
     return CKR_OK;
 }
+
+/*
+ * Like ec_point_from_public_data(), but returns the EC point in uncompressed
+ * form. If the public data is in compressed form, it uncompresses it.
+ * If it is in hybrid form, convert it into uncompressed form.
+ */
+int ec_point_uncompressed_from_public_data(const CK_BYTE *data,
+                                           CK_ULONG data_len,
+                                           CK_ULONG prime_len,
+                                           CK_BYTE *curve_oid,
+                                           CK_ULONG curve_oid_len,
+                                           CK_BBOOL allow_raw,
+                                           CK_BBOOL *allocated,
+                                           CK_BYTE **ec_point,
+                                           CK_ULONG *ec_point_len)
+{
+    CK_RV rc;
+    CK_BYTE form;
+    CK_ULONG ec_point2_len;
+    CK_BYTE *ec_point2 = NULL;
+
+    rc = ec_point_from_public_data(data, data_len, prime_len, allow_raw,
+                                   allocated, ec_point, ec_point_len);
+    if (rc != CKR_OK)
+        return rc;
+
+    form  = (*ec_point)[0] & ~0x01;
+    switch (form) {
+    case POINT_CONVERSION_COMPRESSED:
+    case POINT_CONVERSION_HYBRID:
+        ec_point2_len = 1 + 2 * prime_len;
+        ec_point2 = malloc(ec_point2_len);
+        if (ec_point2 == NULL) {
+            TRACE_ERROR("Malloc failed\n");
+            rc = CKR_HOST_MEMORY;
+            break;
+        }
+
+        rc = ec_uncompress_public_key(curve_oid, curve_oid_len,
+                                      *ec_point, *ec_point_len, prime_len,
+                                      ec_point2, &ec_point2_len);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("Failed to uncompress\n");
+            break;
+        }
+
+        if (*allocated)
+            free(*ec_point);
+        *ec_point = ec_point2;
+        *ec_point_len = ec_point2_len;
+        *allocated = TRUE;
+        ec_point2 = NULL;
+        break;
+
+    case POINT_CONVERSION_UNCOMPRESSED:
+    default:
+        break;
+    }
+
+    if (rc != CKR_OK && *allocated) {
+        free(*ec_point);
+        *ec_point = NULL;
+        *ec_point_len = 0;
+        *allocated = FALSE;
+    }
+    if (ec_point2 != NULL)
+        free(ec_point2);
+
+    return rc;
+}
