@@ -6282,6 +6282,8 @@ CK_RV ep11tok_derive_key(STDLL_TokData_t *tokdata, SESSION *session,
          * The EP11 host library only accepts the raw form, thus convert
          * it to the raw format if the caller specified it in the DER-encoded
          * form.
+         * Also, the EP11 host library only accepts EC points in uncompressed
+         * form, so uncompress it if in compressed or hybrid form.
          */
         if (ecdh1_parms->pPublicData != NULL &&
             ecdh1_parms->ulPublicDataLen > 0) {
@@ -6299,22 +6301,34 @@ CK_RV ep11tok_derive_key(STDLL_TokData_t *tokdata, SESSION *session,
                 rc = get_ecsiglen(base_key_obj, &privlen);
                 privlen /= 2;
 
-                object_put(tokdata, base_key_obj, TRUE);
-                base_key_obj = NULL;
-
                 if (rc != CKR_OK) {
                     TRACE_ERROR("%s get_ecsiglen failed\n", __func__);
-                    return rc;
+                    goto error;
                 }
 
-                rc = ec_point_from_public_data(ecdh1_parms->pPublicData,
+                rc = template_attribute_get_non_empty(base_key_obj->template,
+                                                      CKA_EC_PARAMS,
+                                                      &ec_parms_attr);
+                if (rc != CKR_OK) {
+                    TRACE_ERROR("Could not find CKA_EC_PARAMS in base key\n");
+                    goto error;
+                }
+
+                rc = ec_point_uncompressed_from_public_data(
+                                               ecdh1_parms->pPublicData,
                                                ecdh1_parms->ulPublicDataLen,
-                                               privlen, TRUE, &allocated,
+                                               privlen,
+                                               (CK_BYTE *)ec_parms_attr->pValue,
+                                               ec_parms_attr->ulValueLen,
+                                               TRUE, &allocated,
                                                &ecpoint, &ecpoint_len);
                 if (rc != CKR_OK) {
                     TRACE_DEVEL("ec_point_from_public_data failed\n");
                     goto error;
                 }
+
+                object_put(tokdata, base_key_obj, TRUE);
+                base_key_obj = NULL;
             } else {
                 rc = ber_decode_OCTET_STRING(ecdh1_parms->pPublicData, &ecpoint,
                                              &ecpoint_len, &field_len);
@@ -6349,8 +6363,10 @@ CK_RV ep11tok_derive_key(STDLL_TokData_t *tokdata, SESSION *session,
          * need to use the old way.
          */
         target_info = get_target_info(tokdata);
-        if (target_info == NULL)
-            return CKR_FUNCTION_FAILED;
+        if (target_info == NULL) {
+            rc = CKR_FUNCTION_FAILED;
+            goto error;
+        }
 
         used_firmware_API_version = target_info->used_firmware_API_version;
 
@@ -6360,14 +6376,16 @@ CK_RV ep11tok_derive_key(STDLL_TokData_t *tokdata, SESSION *session,
             if (ecdh1_parms->kdf != CKD_NULL) {
                 TRACE_ERROR("%s KDF for CKM_ECDH1_DERIVE not supported: %lu\n",
                             __func__, ecdh1_parms->kdf);
-                return CKR_MECHANISM_PARAM_INVALID;
+                rc = CKR_MECHANISM_PARAM_INVALID;
+                goto error;
             }
 
             if (ecdh1_parms->pSharedData != NULL ||
                 ecdh1_parms->ulSharedDataLen > 0) {
                 TRACE_ERROR("%s Shared data for CKM_ECDH1_DERIVE not "
                             "supported\n", __func__);
-                return CKR_MECHANISM_PARAM_INVALID;
+                rc = CKR_MECHANISM_PARAM_INVALID;
+                goto error;
             }
 
             ecdh1_mech.mechanism = mech->mechanism;
@@ -6381,7 +6399,7 @@ CK_RV ep11tok_derive_key(STDLL_TokData_t *tokdata, SESSION *session,
                          &base_key_obj, READ_LOCK);
     if (rc != CKR_OK) {
         TRACE_ERROR("%s failedL hBaseKey=0x%lx\n", __func__, hBaseKey);
-        return rc;
+        goto error;
     }
 
     rc = template_attribute_get_ulong(base_key_obj->template, CKA_KEY_TYPE, &keytype);
@@ -6450,7 +6468,7 @@ CK_RV ep11tok_derive_key(STDLL_TokData_t *tokdata, SESSION *session,
                                               &ec_parms_attr);
         if (rc != CKR_OK) {
             TRACE_ERROR("Could not find CKA_EC_PARAMS in base key\n");
-            return rc;
+            goto error;
         }
 
         /* Get CKA_VALUE_LEN if , otherwise key_len remains 0 */

@@ -1834,6 +1834,15 @@ int ec_point_from_public_data(const CK_BYTE *data, CK_ULONG data_len,
                               CK_ULONG prime_len, CK_BBOOL allow_raw,
                               CK_BBOOL *allocated, CK_BYTE **ec_point,
                               CK_ULONG *ec_point_len);
+int ec_point_uncompressed_from_public_data(const CK_BYTE *data,
+                                           CK_ULONG data_len,
+                                           CK_ULONG prime_len,
+                                           CK_BYTE *curve_oid,
+                                           CK_ULONG curve_oid_len,
+                                           CK_BBOOL allow_raw,
+                                           CK_BBOOL *allocated,
+                                           CK_BYTE **ec_point,
+                                           CK_ULONG *ec_point_len);
 
 CK_RV attach_shm(STDLL_TokData_t *tokdata, CK_SLOT_ID slot_id);
 CK_RV detach_shm(STDLL_TokData_t *tokdata, CK_BBOOL ignore_ref_count);
