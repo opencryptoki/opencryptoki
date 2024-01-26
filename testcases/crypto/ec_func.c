@@ -15,6 +15,8 @@
 #include <string.h>
 #include <memory.h>
 
+#include <openssl/hmac.h>
+
 #include "pkcs11types.h"
 #include "regress.h"
 #include "common.c"
@@ -360,6 +362,50 @@ CK_RV run_HMACSign(CK_SESSION_HANDLE session, CK_OBJECT_HANDLE h_key,
 
 error:
     return rc;
+}
+
+/*
+ * Perform a HMAC sign to verify that the key is usable.
+ */
+CK_RV run_HMACSign_OpenSSL(CK_BYTE *key, CK_ULONG key_len,
+                           CK_MECHANISM_TYPE hmac_mech,
+                           CK_BYTE *mac, CK_ULONG *mac_len)
+{
+    CK_BYTE data[32] = { 0 };
+    const EVP_MD *md;
+    unsigned int out_len;
+
+    switch (hmac_mech) {
+    case CKM_SHA_1_HMAC:
+        md = EVP_sha1();
+        break;
+    case CKM_SHA224_HMAC:
+        md = EVP_sha224();
+        break;
+    case CKM_SHA256_HMAC:
+        md = EVP_sha256();
+        break;
+    case CKM_SHA384_HMAC:
+        md = EVP_sha384();
+        break;
+    case CKM_SHA512_HMAC:
+        md = EVP_sha512();
+        break;
+    default:
+        testcase_notice("Mechanism %s is not supported. Skipping key check",
+                        p11_get_ckm(&mechtable_funcs, hmac_mech));
+        *mac_len = 0;
+        return CKR_OK;
+    }
+
+    out_len = *mac_len;
+    if (HMAC(md, key, key_len, data, sizeof(data), mac, &out_len) == NULL) {
+        testcase_notice("HMAC (OpenSSL) failed");
+        return CKR_OK;
+    }
+    *mac_len = out_len;
+
+    return CKR_OK;
 }
 
 /*
@@ -943,6 +989,12 @@ CK_RV run_DeriveECDHKeyKAT(void)
     CK_RV rc = CKR_OK;
     CK_BYTE secretA_value[1000] = { 0 }; // enough space for key lengths in ecdh_tv[]
     CK_BYTE secretB_value[1000] = { 0 };
+    CK_BYTE mac1[SHA1_HASH_SIZE] = { 0 };
+    CK_ULONG mac1_len = sizeof(mac1);
+    CK_BYTE mac2[SHA1_HASH_SIZE] = { 0 };
+    CK_ULONG mac2_len = sizeof(mac2);
+    CK_BYTE macexpected[SHA1_HASH_SIZE] = { 0 };
+    CK_ULONG macexpected_len = sizeof(macexpected);
     CK_ULONG i;
 
     testcase_begin("starting run_DeriveECDHKeyKAT with pkey=%X ...", pkey);
@@ -962,9 +1014,10 @@ CK_RV run_DeriveECDHKeyKAT(void)
         goto testcase_cleanup;
     }
 
-    if (is_ep11_token(SLOT_ID) || is_cca_token(SLOT_ID)) {
-        testcase_skip("Slot %u is a secure key token, can not run known answer "
-                      "tests with CKM_ECDH1_DERIVE on it\n",
+    if ((is_ep11_token(SLOT_ID) || is_cca_token(SLOT_ID)) &&
+        !mech_supported(SLOT_ID, CKM_SHA_1_HMAC)) {
+        testcase_skip("Slot %u doesn't support CKM_SHA_1_HMAC, correctness "
+                      "of derived keys can not be verified\n",
                       (unsigned int) SLOT_ID);
         goto testcase_cleanup;
     }
@@ -1011,6 +1064,23 @@ CK_RV run_DeriveECDHKeyKAT(void)
             break;
         default:
             break;
+        }
+
+        if (is_ep11_token(SLOT_ID) && ecdh_tv[i].derived_key_len > 256) {
+            testcase_skip("EP11 cannot provide %lu key bytes with "
+                          "curve %s\n", ecdh_tv[i].derived_key_len,
+                          ecdh_tv[i].name);
+            continue;
+        }
+
+        if ((is_ep11_token(SLOT_ID) || is_cca_token(SLOT_ID)) &&
+            !check_supp_keysize(SLOT_ID, CKM_SHA_1_HMAC,
+                                ecdh_tv[i].derived_key_len * 8)) {
+            testcase_skip("Mechanism CKM_SHA_1_HMAC can not be used with "
+                          "keys of size %lu. Correctness of derived key "
+                          "can not be verified.",
+                          ecdh_tv[i].derived_key_len);
+            continue;
         }
 
         // First, import the EC key pair for party A
@@ -1207,51 +1277,104 @@ CK_RV run_DeriveECDHKeyKAT(void)
 
         testcase_new_assertion();
 
-        // Extract the derived secret A
-        rc = funcs->C_GetAttributeValue(session, secret_keyA,
-                                        secretA_tmpl, secretA_tmpl_len);
-        if (rc != CKR_OK) {
-            testcase_error("C_GetAttributeValue #3:rc = %s", p11_get_ckr(rc));
-            goto testcase_cleanup;
-        }
+        /* A secure key token won't reveal the key value in clear */
+        if (!is_ep11_token(SLOT_ID) && !is_cca_token(SLOT_ID)) {
+            // Extract the derived secret A
+            rc = funcs->C_GetAttributeValue(session, secret_keyA,
+                                            secretA_tmpl, secretA_tmpl_len);
+            if (rc != CKR_OK) {
+                testcase_error("C_GetAttributeValue #3:rc = %s",
+                               p11_get_ckr(rc));
+                goto testcase_cleanup;
+            }
 
-        // Compare lengths of derived secret from key object
-        if (ecdh_tv[i].derived_key_len != secretA_tmpl[0].ulValueLen) {
-            testcase_fail("ERROR:derived key #1 length = %lu, "
-                          "derived key #2 length = %lu",
-                          ecdh_tv[i].derived_key_len,
-                          secretA_tmpl[0].ulValueLen);
-            goto testcase_cleanup;
-        }
+            // Compare lengths of derived secret from key object
+            if (ecdh_tv[i].derived_key_len != secretA_tmpl[0].ulValueLen) {
+                testcase_fail("ERROR:derived key #1 length = %lu, "
+                              "derived key #2 length = %lu",
+                              ecdh_tv[i].derived_key_len,
+                              secretA_tmpl[0].ulValueLen);
+                goto testcase_cleanup;
+            }
 
-        // Compare with known value
-        if (memcmp(secretA_tmpl[0].pValue,
-                   ecdh_tv[i].derived_key, ecdh_tv[i].derived_key_len) != 0) {
-            testcase_fail("ERROR:derived key mismatch, i=%lu",i);
-            goto testcase_cleanup;
-        }
+            // Compare with known value
+            if (memcmp(secretA_tmpl[0].pValue,
+                       ecdh_tv[i].derived_key,
+                       ecdh_tv[i].derived_key_len) != 0) {
+                testcase_fail("ERROR:derived key mismatch, i=%lu",i);
+                goto testcase_cleanup;
+            }
 
-        // Extract the derived secret B
-        rc = funcs->C_GetAttributeValue(session, secret_keyB,
-                                        secretB_tmpl, secretB_tmpl_len);
-        if (rc != CKR_OK) {
-            testcase_error("C_GetAttributeValue #4:rc = %s", p11_get_ckr(rc));
-            goto testcase_cleanup;
-        }
+            // Extract the derived secret B
+            rc = funcs->C_GetAttributeValue(session, secret_keyB,
+                                            secretB_tmpl, secretB_tmpl_len);
+            if (rc != CKR_OK) {
+                testcase_error("C_GetAttributeValue #4:rc = %s",
+                               p11_get_ckr(rc));
+                goto testcase_cleanup;
+            }
 
-        // Compare lengths of derived secret from key object
-        if (ecdh_tv[i].derived_key_len != secretB_tmpl[0].ulValueLen) {
-            testcase_fail("ERROR:derived key #1 length = %lu, derived key #2 "
-                          "length = %lu", ecdh_tv[i].derived_key_len,
-                          secretB_tmpl[0].ulValueLen);
-            goto testcase_cleanup;
-        }
+            // Compare lengths of derived secret from key object
+            if (ecdh_tv[i].derived_key_len != secretB_tmpl[0].ulValueLen) {
+                testcase_fail("ERROR:derived key #1 length = %lu, derived key "
+                              "#2 length = %lu", ecdh_tv[i].derived_key_len,
+                              secretB_tmpl[0].ulValueLen);
+                goto testcase_cleanup;
+            }
 
-        // Compare with known value
-        if (memcmp(secretB_tmpl[0].pValue,
-                   ecdh_tv[i].derived_key, ecdh_tv[i].derived_key_len) != 0) {
-            testcase_fail("ERROR:derived key mismatch, i=%lu",i);
-            goto testcase_cleanup;
+            // Compare with known value
+            if (memcmp(secretB_tmpl[0].pValue,
+                       ecdh_tv[i].derived_key,
+                       ecdh_tv[i].derived_key_len) != 0) {
+                testcase_fail("ERROR:derived key mismatch, i=%lu",i);
+                goto testcase_cleanup;
+            }
+        } else {
+            /* Secure key:
+             * Calculate HMAC with derived keys and expected key and compare
+             * the MAC.
+             */
+            rc = run_HMACSign_OpenSSL(ecdh_tv[i].derived_key,
+                                      ecdh_tv[i].derived_key_len,
+                                      CKM_SHA_1_HMAC,
+                                      macexpected, &macexpected_len);
+            if (rc != CKR_OK) {
+                testcase_fail("HMAC for expected key failed: %s",
+                              p11_get_ckr(rc));
+                goto testcase_cleanup;
+            }
+
+            rc = run_HMACSign(session, secret_keyA, ecdh_tv[i].derived_key_len,
+                              CKM_SHA_1_HMAC, mac1, &mac1_len);
+            if (rc != CKR_OK) {
+                testcase_fail("HMAC for derived key #1 failed: %s",
+                              p11_get_ckr(rc));
+                goto testcase_cleanup;
+            }
+
+            if (mac1_len != 0 && /* skip check if mac can't be calcualted */
+                (mac1_len != macexpected_len ||
+                 memcmp(mac1, macexpected, mac1_len) != 0)) {
+                testcase_fail("ERROR: derived key #1 does not produce the "
+                              "expected HMAC");
+                goto testcase_cleanup;
+            }
+
+            rc = run_HMACSign(session, secret_keyB, ecdh_tv[i].derived_key_len,
+                              CKM_SHA_1_HMAC, mac2, &mac2_len);
+            if (rc != CKR_OK) {
+                testcase_fail("HMAC for derived key #2 failed: %s",
+                              p11_get_ckr(rc));
+                goto testcase_cleanup;
+            }
+
+            if (mac2_len != 0 && /* skip check if mac can't be calcualted */
+                (mac2_len != macexpected_len ||
+                 memcmp(mac2, macexpected, mac2_len) != 0)) {
+                testcase_fail("ERROR: derived key #2 does not produce the "
+                              "expected HMAC");
+                goto testcase_cleanup;
+            }
         }
 
         testcase_pass("*Derive shared secret i=%lu passed.", i);
