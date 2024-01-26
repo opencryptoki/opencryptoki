@@ -46,6 +46,7 @@ testcases_crypto_ssl3_tests_LDADD = testcases/common/libcommon.la
 testcases_crypto_ssl3_tests_SOURCES = testcases/crypto/ssl3_func.c
 
 testcases_crypto_ec_tests_CFLAGS = ${testcases_inc}
+testcases_crypto_ec_tests_LDFLAGS = -lcrypto
 testcases_crypto_ec_tests_LDADD = testcases/common/libcommon.la
 testcases_crypto_ec_tests_SOURCES = testcases/crypto/ec_func.c
 
