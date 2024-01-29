@@ -551,12 +551,12 @@ static int icsf_call(LDAP * ld, int *reason, char *handle, size_t handle_len,
 
     /* Check sizes */
     if (handle_len != ICSF_HANDLE_LEN) {
-        TRACE_ERROR("Invalid handle length: %lu\n", handle_len);
+        TRACE_ERROR("Invalid handle length: %zu\n", handle_len);
         return -1;
     }
 
     if ((rule_array_len % ICSF_RULE_ITEM_LEN)) {
-        TRACE_ERROR("Invalid rule array length: %lu\n", rule_array_len);
+        TRACE_ERROR("Invalid rule array length: %zu\n", rule_array_len);
         return -1;
     }
     rule_array_count = rule_array_len / ICSF_RULE_ITEM_LEN;
@@ -1738,9 +1738,9 @@ static const char *get_cipher_mode(CK_MECHANISM_PTR mech)
 /*
  * Get the block size of supported algorithms/mechanism.
  */
-CK_RV icsf_block_size(CK_MECHANISM_TYPE mech_type, CK_ULONG_PTR p_block_size)
+CK_RV icsf_block_size(CK_MECHANISM_TYPE mech_type, size_t *p_block_size)
 {
-    CK_ULONG block_size;
+    size_t block_size;
 
     switch (mech_type) {
     case CKM_DES_CBC:
@@ -1831,7 +1831,7 @@ static CK_RV icsf_encrypt_initial_vector(CK_MECHANISM_PTR mech, char *iv,
             memcpy(iv, mech->pParameter, expected_iv_len);
     }
     if (iv_len)
-        *iv_len = expected_iv_len;
+        *iv_len = (size_t)expected_iv_len;
 
     return 0;
 }

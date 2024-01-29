@@ -1463,7 +1463,7 @@ CK_RV do_WrapUnwrapRSA(struct GENERATED_TEST_SUITE_INFO * tsuite)
         testcase_new_assertion();       /* assertion #1 */
 
         // allocate memory for wrapped_key
-        wrapped_key = calloc(sizeof(CK_BYTE), wrapped_keylen);
+        wrapped_key = calloc(wrapped_keylen, sizeof(CK_BYTE));
         if (wrapped_key == NULL) {
             testcase_error("Can't allocate memory for %lu bytes.",
                            sizeof(CK_BYTE) * wrapped_keylen);

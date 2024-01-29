@@ -2537,7 +2537,7 @@ CK_RV icsftok_encrypt(STDLL_TokData_t * tokdata,
     struct session_state *session_state;
     struct icsf_object_mapping *mapping = NULL;
     char chain_data[ICSF_CHAINING_DATA_LEN] = { 0, };
-    size_t chain_data_len = sizeof(chain_data);
+    size_t chain_data_len = sizeof(chain_data), output_data_len;
     int reason = 0;
     int symmetric = 0;
 
@@ -2574,21 +2574,23 @@ CK_RV icsftok_encrypt(STDLL_TokData_t * tokdata,
     }
 
     /* Encrypt data using remote token. */
+    output_data_len = *p_output_data_len;
     if (symmetric) {
         rc = icsf_secret_key_encrypt(session_state->ld, &reason,
                                      &mapping->icsf_object,
                                      &encr_ctx->mech,
                                      ICSF_CHAINING_ONLY, (char *)input_data,
                                      input_data_len, (char *)output_data,
-                                     p_output_data_len, chain_data,
+                                     &output_data_len, chain_data,
                                      &chain_data_len);
     } else {
         rc = icsf_public_key_verify(session_state->ld, &reason, TRUE,
                                     &mapping->icsf_object,
                                     &encr_ctx->mech, (char *)input_data,
                                     input_data_len, (char *)output_data,
-                                    p_output_data_len);
+                                    &output_data_len);
     }
+    *p_output_data_len = output_data_len;
     if (rc) {
         if (reason == ICSF_REASON_OUTPUT_PARAMETER_TOO_SHORT) {
             if (is_length_only) {
@@ -2636,7 +2638,7 @@ CK_RV icsftok_encrypt_update(STDLL_TokData_t * tokdata,
     struct session_state *session_state;
     struct icsf_object_mapping *mapping = NULL;
     char chain_data[ICSF_CHAINING_DATA_LEN] = { 0, };
-    size_t chain_data_len = sizeof(chain_data);
+    size_t chain_data_len = sizeof(chain_data), output_part_len;
     CK_ULONG total, remaining;
     char *buffer = NULL;
     int chaining;
@@ -2725,12 +2727,14 @@ CK_RV icsftok_encrypt_update(STDLL_TokData_t * tokdata,
                input_part_len - remaining);
 
     /* Encrypt data using remote token. */
+    output_part_len = *p_output_part_len;
     rc = icsf_secret_key_encrypt(session_state->ld, &reason,
                                  &mapping->icsf_object,
                                  &encr_ctx->mech, chaining,
                                  buffer, total - remaining,
-                                 (char *)output_part, p_output_part_len,
+                                 (char *)output_part, &output_part_len,
                                  chain_data, &chain_data_len);
+    *p_output_part_len = output_part_len;
     if (rc) {
         if (reason == ICSF_REASON_OUTPUT_PARAMETER_TOO_SHORT) {
             if (is_length_only) {
@@ -2821,7 +2825,7 @@ CK_RV icsftok_encrypt_final(STDLL_TokData_t * tokdata,
     struct session_state *session_state;
     struct icsf_object_mapping *mapping = NULL;
     char chain_data[ICSF_CHAINING_DATA_LEN] = { 0, };
-    size_t chain_data_len = sizeof(chain_data);
+    size_t chain_data_len = sizeof(chain_data), output_part_len;
     int chaining;
     int reason = 0;
     int symmetric = 0;
@@ -2887,13 +2891,15 @@ CK_RV icsftok_encrypt_final(STDLL_TokData_t * tokdata,
      *
      * All the data in multi-part context should be sent.
      */
+    output_part_len = *p_output_part_len;
     rc = icsf_secret_key_encrypt(session_state->ld, &reason,
                                  &mapping->icsf_object,
                                  &encr_ctx->mech, chaining,
                                  multi_part_ctx->data,
                                  multi_part_ctx->used_data_len,
-                                 (char *)output_part, p_output_part_len,
+                                 (char *)output_part, &output_part_len,
                                  chain_data, &chain_data_len);
+    *p_output_part_len = output_part_len;
     if (rc) {
         if (reason == ICSF_REASON_OUTPUT_PARAMETER_TOO_SHORT) {
             if (is_length_only) {
@@ -3057,7 +3063,7 @@ CK_RV icsftok_decrypt(STDLL_TokData_t * tokdata,
     struct session_state *session_state;
     struct icsf_object_mapping *mapping = NULL;
     char chain_data[ICSF_CHAINING_DATA_LEN] = { 0, };
-    size_t chain_data_len = sizeof(chain_data);
+    size_t chain_data_len = sizeof(chain_data), output_data_len;
     int reason = 0;
     int symmetric = 0;
 
@@ -3094,21 +3100,23 @@ CK_RV icsftok_decrypt(STDLL_TokData_t * tokdata,
     }
 
     /* Decrypt data using remote token. */
+    output_data_len = *p_output_data_len;
     if (symmetric) {
         rc = icsf_secret_key_decrypt(session_state->ld, &reason,
                                      &mapping->icsf_object,
                                      &decr_ctx->mech,
                                      ICSF_CHAINING_ONLY, (char *)input_data,
                                      input_data_len, (char *)output_data,
-                                     p_output_data_len, chain_data,
+                                     &output_data_len, chain_data,
                                      &chain_data_len);
     } else {
         rc = icsf_private_key_sign(session_state->ld, &reason, TRUE,
                                    &mapping->icsf_object,
                                    &decr_ctx->mech, (char *)input_data,
                                    input_data_len, (char *)output_data,
-                                   p_output_data_len);
+                                   &output_data_len);
     }
+    *p_output_data_len = output_data_len;
     if (rc) {
         if (reason == ICSF_REASON_OUTPUT_PARAMETER_TOO_SHORT) {
             if (is_length_only) {
@@ -3156,7 +3164,7 @@ CK_RV icsftok_decrypt_update(STDLL_TokData_t * tokdata,
     struct session_state *session_state;
     struct icsf_object_mapping *mapping = NULL;
     char chain_data[ICSF_CHAINING_DATA_LEN] = { 0, };
-    size_t chain_data_len = sizeof(chain_data);
+    size_t chain_data_len = sizeof(chain_data), output_part_len;
     CK_ULONG total, remaining;
     char *buffer = NULL;
     int chaining;
@@ -3262,12 +3270,14 @@ CK_RV icsftok_decrypt_update(STDLL_TokData_t * tokdata,
                input_part_len - remaining);
 
     /* Decrypt data using remote token. */
+    output_part_len = *p_output_part_len;
     rc = icsf_secret_key_decrypt(session_state->ld, &reason,
                                  &mapping->icsf_object,
                                  &decr_ctx->mech, chaining,
                                  buffer, total - remaining,
-                                 (char *)output_part, p_output_part_len,
+                                 (char *)output_part, &output_part_len,
                                  chain_data, &chain_data_len);
+    *p_output_part_len = output_part_len;
     if (rc) {
         if (reason == ICSF_REASON_OUTPUT_PARAMETER_TOO_SHORT) {
             if (is_length_only) {
@@ -3357,7 +3367,7 @@ CK_RV icsftok_decrypt_final(STDLL_TokData_t * tokdata,
     struct session_state *session_state;
     struct icsf_object_mapping *mapping = NULL;
     char chain_data[ICSF_CHAINING_DATA_LEN] = { 0, };
-    size_t chain_data_len = sizeof(chain_data);
+    size_t chain_data_len = sizeof(chain_data), output_part_len;
     int chaining;
     int reason = 0;
     int symmetric = 0;
@@ -3423,13 +3433,15 @@ CK_RV icsftok_decrypt_final(STDLL_TokData_t * tokdata,
      *
      * All the data in multi-part context should be sent.
      */
+    output_part_len = *p_output_part_len;
     rc = icsf_secret_key_decrypt(session_state->ld, &reason,
                                  &mapping->icsf_object,
                                  &decr_ctx->mech, chaining,
                                  multi_part_ctx->data,
                                  multi_part_ctx->used_data_len,
-                                 (char *)output_part, p_output_part_len,
+                                 (char *)output_part, &output_part_len,
                                  chain_data, &chain_data_len);
+    *p_output_part_len = output_part_len;
     if (rc) {
         if (reason == ICSF_REASON_OUTPUT_PARAMETER_TOO_SHORT) {
             if (is_length_only) {
@@ -4117,7 +4129,7 @@ CK_RV icsftok_sign(STDLL_TokData_t * tokdata,
     SIGN_VERIFY_CONTEXT *ctx = &session->sign_ctx;
     struct icsf_object_mapping *mapping = NULL;
     char chain_data[ICSF_CHAINING_DATA_LEN] = { 0, };
-    size_t chain_data_len = sizeof(chain_data);
+    size_t chain_data_len = sizeof(chain_data), slen;
     CK_RV rc = CKR_OK;
     int hlen, reason;
     CK_BBOOL length_only = (signature == NULL);
@@ -4170,11 +4182,13 @@ CK_RV icsftok_sign(STDLL_TokData_t * tokdata,
             goto done;
         }
 
+        slen = *sig_len;
         rc = icsf_hmac_sign(session_state->ld, &reason,
                             &mapping->icsf_object, &ctx->mech, "ONLY",
                             (char *)in_data, in_data_len,
-                            (char *)signature, sig_len,
+                            (char *)signature, &slen,
                             chain_data, &chain_data_len);
+        *sig_len = slen;
         if (rc != 0)
             rc = icsf_to_ock_err(rc, reason);
         break;
@@ -4182,10 +4196,12 @@ CK_RV icsftok_sign(STDLL_TokData_t * tokdata,
     case CKM_RSA_PKCS:
     case CKM_DSA:
     case CKM_ECDSA:
+        slen = *sig_len;
         rc = icsf_private_key_sign(session_state->ld, &reason, FALSE,
                                    &mapping->icsf_object, &ctx->mech,
                                    (char *)in_data, in_data_len,
-                                   (char *)signature, sig_len);
+                                   (char *)signature, &slen);
+        *sig_len = slen;
         if (rc != 0) {
             if (reason == ICSF_REASON_OUTPUT_PARAMETER_TOO_SHORT &&
                 length_only) {
@@ -4417,7 +4433,7 @@ CK_RV icsftok_sign_final(STDLL_TokData_t * tokdata,
     struct icsf_object_mapping *mapping = NULL;
     struct icsf_multi_part_context *multi_part_ctx = NULL;
     char chain_data[ICSF_CHAINING_DATA_LEN] = { 0, };
-    size_t chain_data_len = sizeof(chain_data);
+    size_t chain_data_len = sizeof(chain_data), slen;
     char *buffer = NULL;
     CK_RV rc = CKR_OK;
     int hlen, reason;
@@ -4474,11 +4490,13 @@ CK_RV icsftok_sign_final(STDLL_TokData_t * tokdata,
             return CKR_OK;
         }
 
+        slen = *sig_len;
         rc = icsf_hmac_sign(session_state->ld, &reason,
                             &mapping->icsf_object, &ctx->mech,
                             multi_part_ctx->initiated ? "LAST" : "ONLY", "",
-                            0, (char *)signature, sig_len,
+                            0, (char *)signature, &slen,
                             chain_data, &chain_data_len);
+        *sig_len = slen;
         if (rc != 0)
             rc = icsf_to_ock_err(rc, reason);
         break;
@@ -4741,7 +4759,7 @@ CK_RV icsftok_verify(STDLL_TokData_t * tokdata,
     SIGN_VERIFY_CONTEXT *ctx = &session->verify_ctx;
     struct icsf_object_mapping *mapping = NULL;
     char chain_data[ICSF_CHAINING_DATA_LEN] = { 0, };
-    size_t chain_data_len = sizeof(chain_data);
+    size_t chain_data_len = sizeof(chain_data), slen;
     CK_RV rc = CKR_OK;
     int reason;
 
@@ -4794,10 +4812,12 @@ CK_RV icsftok_verify(STDLL_TokData_t * tokdata,
     case CKM_RSA_PKCS:
     case CKM_DSA:
     case CKM_ECDSA:
+        slen = sig_len;
         rc = icsf_public_key_verify(session_state->ld, &reason, FALSE,
                                     &mapping->icsf_object, &ctx->mech,
                                     (char *)in_data, in_data_len,
-                                    (char *)signature, &sig_len);
+                                    (char *)signature, &slen);
+        sig_len = slen;
         if (rc != 0)
             rc = icsf_to_ock_err(rc, reason);
         break;

@@ -336,7 +336,7 @@ CK_RV run_EnDecapsulateKyber(CK_SESSION_HANDLE session,
     }
 
     cipher_len = kyber_params.ulCipherLen;
-    cipher = calloc(sizeof(CK_BYTE), cipher_len);
+    cipher = calloc(cipher_len, sizeof(CK_BYTE));
     if (cipher == NULL) {
         testcase_error("Can't allocate memory for %lu bytes",
                        sizeof(CK_BYTE) * cipher_len);
@@ -451,7 +451,7 @@ CK_RV run_EncrypDecryptKyber(CK_SESSION_HANDLE session,
         }
     }
 
-    data = calloc(sizeof(CK_BYTE), datalen);
+    data = calloc(datalen, sizeof(CK_BYTE));
     if (data == NULL) {
         testcase_error("Can't allocate memory for %lu bytes",
                        sizeof(CK_BYTE) * datalen);
@@ -476,7 +476,7 @@ CK_RV run_EncrypDecryptKyber(CK_SESSION_HANDLE session,
         goto testcase_cleanup;
     }
 
-    encrypted = calloc(sizeof(CK_BYTE), encrypted_len);
+    encrypted = calloc(encrypted_len, sizeof(CK_BYTE));
     if (encrypted == NULL) {
         testcase_error("Can't allocate memory for %lu bytes",
                        sizeof(CK_BYTE) * encrypted_len);
@@ -504,7 +504,7 @@ CK_RV run_EncrypDecryptKyber(CK_SESSION_HANDLE session,
         goto testcase_cleanup;
     }
 
-    decrypted = calloc(sizeof(CK_BYTE), decrypted_len);
+    decrypted = calloc(decrypted_len, sizeof(CK_BYTE));
     if (decrypted == NULL) {
         testcase_error("Can't allocate memory for %lu bytes",
                        sizeof(CK_BYTE) * decrypted_len);
@@ -845,7 +845,7 @@ CK_RV wrapKey(CK_SESSION_HANDLE session, CK_MECHANISM *wrap_mech,
         goto done;
 
     /* Allocate memory for wrapped_key */
-    tmp_key = calloc(sizeof(CK_BYTE), tmp_len);
+    tmp_key = calloc(tmp_len, sizeof(CK_BYTE));
     if (!tmp_key) {
         rc = CKR_HOST_MEMORY;
         goto done;

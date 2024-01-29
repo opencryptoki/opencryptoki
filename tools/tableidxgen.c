@@ -512,7 +512,7 @@ static void dumpnumericfun(FILE *fp)
     fputs("    if (o3 < 0) return -1;\n", fp);
     fputs("    midx = numerictable[o3 + idx4];\n", fp);
     fputs("    midx = -(midx + 1);\n", fp);
-    fprintf(fp, "    if (0 <= midx && midx < %lu && mechtable_rows[midx].numeric == mech)\n",
+    fprintf(fp, "    if (0 <= midx && midx < %zu && mechtable_rows[midx].numeric == mech)\n",
             ARRAY_SIZE(mechtable_rows));
     fputs("        return midx;\n", fp);
     fputs("    return -1;\n", fp);
@@ -531,7 +531,7 @@ static void dumpstringfun(FILE *fp)
 {
     size_t i;
 
-    fprintf(fp, "static const size_t commonprefixlength = %lu;\n\n",
+    fprintf(fp, "static const size_t commonprefixlength = %zu;\n\n",
             commonprefixlength);
     fputs("int mechtable_idx_from_string(const char *mech)\n", fp);
     fputs("{\n", fp);
@@ -613,7 +613,7 @@ static void generateheader(char *hname)
     generatelicense(fp);
     fputs("#ifndef OCK_MECHTABLE_GEN_H\n", fp);
     fputs("#define OCK_MECHTABLE_GEN_H\n\n", fp);
-    fprintf(fp, "#define MECHTABLE_NUM_ELEMS %lu\n\n", ARRAY_SIZE(mechtable_rows));
+    fprintf(fp, "#define MECHTABLE_NUM_ELEMS %zu\n\n", ARRAY_SIZE(mechtable_rows));
     fputs("#endif\n\n", fp);
     closefile(fp);
 }

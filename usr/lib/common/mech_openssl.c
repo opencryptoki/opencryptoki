@@ -2362,7 +2362,8 @@ CK_RV openssl_specific_ec_generate_keypair(STDLL_TokData_t *tokdata,
     int len;
 #endif
     CK_BYTE *ecpoint = NULL, *enc_ecpoint = NULL, *d = NULL;
-    CK_ULONG ecpoint_len, enc_ecpoint_len, d_len;
+    CK_ULONG enc_ecpoint_len, d_len;
+    size_t ecpoint_len;
     EVP_PKEY_CTX *ctx = NULL;
     EVP_PKEY *ec_pkey = NULL;
     int nid;
