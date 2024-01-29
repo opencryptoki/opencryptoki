@@ -187,7 +187,7 @@ static int parse_mkvp(char *mkvp_str, size_t min_size, unsigned char *mkvp,
         mkvp_str += 2;
 
     if (strlen(mkvp_str) < min_size * 2) {
-        warnx("option %s must specify at least %lu bytes", option, min_size);
+        warnx("option %s must specify at least %zu bytes", option, min_size);
         return EINVAL;
     }
 
@@ -200,7 +200,7 @@ static int parse_mkvp(char *mkvp_str, size_t min_size, unsigned char *mkvp,
     }
 
     if (strlen(mkvp_str) > min_size * 2)
-        warnx("option %s specifies more than %lu bytes, remaining bytes are ignored",
+        warnx("option %s specifies more than %zu bytes, remaining bytes are ignored",
               option, min_size);
 
     *set = true;

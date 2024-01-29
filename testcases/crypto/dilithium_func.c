@@ -104,7 +104,7 @@ CK_RV run_SignVerifyDilithium(CK_SESSION_HANDLE session,
         }
     }
 
-    data = calloc(sizeof(CK_BYTE), inputlen);
+    data = calloc(inputlen, sizeof(CK_BYTE));
     if (data == NULL) {
         testcase_error("Can't allocate memory for %lu bytes",
                        sizeof(CK_BYTE) * inputlen);
@@ -128,7 +128,7 @@ CK_RV run_SignVerifyDilithium(CK_SESSION_HANDLE session,
         testcase_error("C_Sign rc=%s", p11_get_ckr(rc));
         goto testcase_cleanup;
     }
-    signature = calloc(sizeof(CK_BYTE), signaturelen);
+    signature = calloc(signaturelen, sizeof(CK_BYTE));
     if (signature == NULL) {
         testcase_error("Can't allocate memory for %lu bytes",
                        sizeof(CK_BYTE) * signaturelen);
@@ -213,7 +213,7 @@ CK_RV run_SignVerifyDilithiumKAT(CK_SESSION_HANDLE session,
     }
 
     /* Allocate buffer for signature */
-    signature = calloc(sizeof(CK_BYTE), siglen);
+    signature = calloc(siglen, sizeof(CK_BYTE));
     if (signature == NULL) {
         testcase_error("Can't allocate memory for %lu bytes",
                        sizeof(CK_BYTE) *siglen);
@@ -543,7 +543,7 @@ CK_RV wrapKey(CK_SESSION_HANDLE session, CK_MECHANISM *wrap_mech,
         goto done;
 
     /* Allocate memory for wrapped_key */
-    tmp_key = calloc(sizeof(CK_BYTE), tmp_len);
+    tmp_key = calloc(tmp_len, sizeof(CK_BYTE));
     if (!tmp_key) {
         rc = CKR_HOST_MEMORY;
         goto done;

@@ -587,7 +587,7 @@ static CK_RV read_object(const char *data_store, const char *name,
     /* Read 32-bit size field */
     read_size = fread(&size, sizeof(CK_ULONG_32), 1, fp);
     if (read_size != 1) {
-        TRACE_ERROR("Cannot read %ld bytes from %s, read_size = %ld. "
+        TRACE_ERROR("Cannot read %zu bytes from %s, read_size = %zu. "
                     "Object probably empty or corrupted.\n",
                     sizeof(CK_ULONG_32), name, read_size);
         ret = CKR_FUNCTION_FAILED;
@@ -735,7 +735,7 @@ static CK_RV load_masterkey_312(const char *data_store, const char *mkfile,
     /* Read wrapped key from file */
     rc = fread(inbuf, sizeof(inbuf), 1, fp);
     if (rc != 1) {
-        TRACE_ERROR("Cannot read %ld bytes from %s.\n", sizeof(inbuf), fname);
+        TRACE_ERROR("Cannot read %zu bytes from %s.\n", sizeof(inbuf), fname);
         ret = CKR_FUNCTION_FAILED;
         goto done;
     }
@@ -2678,7 +2678,7 @@ int main(int argc, char **argv)
 
     /* Limit datastore path length because of appended suffixes */
     if (strlen(data_store) > PKCSTOK_MIGRATE_MAX_PATH_LEN) {
-        warnx("Datastore path (%ld characters) is too long (max = %d).\n",
+        warnx("Datastore path (%zu characters) is too long (max = %u).\n",
               strlen(data_store), PKCSTOK_MIGRATE_MAX_PATH_LEN);
         ret = CKR_FUNCTION_FAILED;
         goto done;
@@ -2692,7 +2692,7 @@ int main(int argc, char **argv)
 
     /* Limit path to config file because of appended suffixes */
     if (strlen(conf_dir) > PKCSTOK_MIGRATE_MAX_PATH_LEN) {
-        warnx("Path to config file (%ld characters) is too long (max = %d).\n",
+        warnx("Path to config file (%zd characters) is too long (max = %u).\n",
               strlen(conf_dir), PKCSTOK_MIGRATE_MAX_PATH_LEN);
         ret = CKR_FUNCTION_FAILED;
         goto done;

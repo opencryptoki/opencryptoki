@@ -738,7 +738,7 @@ CK_RV hsm_mk_change_op_load(const char *id, struct hsm_mk_change_op *op)
         goto out;
 
     if (info_read + slots_read != len) {
-        TRACE_ERROR("Not all data read for file %s: len: %lu read: %lu\n",
+        TRACE_ERROR("Not all data read for file %s: len: %zu read: %zu\n",
                     op->id, len, info_read + slots_read);
         rc = CKR_FUNCTION_FAILED;
         goto out;
@@ -868,7 +868,7 @@ CK_RV hsm_mk_change_token_mkvps_load(const char *id, CK_SLOT_ID slot_id,
         goto out;
 
     if (read != len) {
-        TRACE_ERROR("Not all datta read for file %s-%lu: len: %lu read: %lu\n",
+        TRACE_ERROR("Not all data read for file %s-%lu: len: %zu read: %zu\n",
                     id, slot_id, len, read);
         rc = CKR_FUNCTION_FAILED;
         hsm_mk_change_mkvps_clean(*mkvps, *num_mkvps);

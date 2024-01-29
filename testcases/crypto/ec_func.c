@@ -1493,7 +1493,7 @@ CK_RV run_GenerateSignVerifyECC(CK_SESSION_HANDLE session,
     }
 
     if (inputlen > 0) {
-        data = calloc(sizeof(CK_BYTE), inputlen);
+        data = calloc(inputlen, sizeof(CK_BYTE));
         if (data == NULL) {
             testcase_error("Can't allocate memory for %lu bytes",
                            sizeof(CK_BYTE) * inputlen);
@@ -1544,7 +1544,7 @@ CK_RV run_GenerateSignVerifyECC(CK_SESSION_HANDLE session,
         }
     }
 
-    signature = calloc(sizeof(CK_BYTE), signaturelen);
+    signature = calloc(signaturelen, sizeof(CK_BYTE));
     if (signature == NULL) {
         testcase_error("Can't allocate memory for %lu bytes",
                        sizeof(CK_BYTE) * signaturelen);
@@ -2209,7 +2209,7 @@ CK_RV run_TransferECCKeyPairSignVerify(void)
             goto testcase_cleanup;
         }
         // allocate memory for wrapped_key
-        wrapped_key = calloc(sizeof(CK_BYTE), wrapped_keylen);
+        wrapped_key = calloc(wrapped_keylen, sizeof(CK_BYTE));
         if (wrapped_key == NULL) {
             testcase_error("Can't allocate memory for %lu bytes.",
                            sizeof(CK_BYTE) * wrapped_keylen);
@@ -2467,7 +2467,7 @@ CK_RV run_ImportSignVerify_Pkey(void)
                 goto testcase_cleanup;
             }
 
-            sig = calloc(sizeof(CK_BYTE), sig_len);
+            sig = calloc(sig_len, sizeof(CK_BYTE));
             if (sig == NULL) {
                 testcase_error("Can't allocate memory for %lu bytes", sig_len);
                 rc = CKR_HOST_MEMORY;

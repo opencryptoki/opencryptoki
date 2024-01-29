@@ -178,7 +178,7 @@ int icsf_generate_key_pair(LDAP * ld, int *reason, const char *token_name,
                            struct icsf_object_record *pub_key_object,
                            struct icsf_object_record *priv_key_object);
 
-CK_RV icsf_block_size(CK_MECHANISM_TYPE mech_type, CK_ULONG_PTR p_block_size);
+CK_RV icsf_block_size(CK_MECHANISM_TYPE mech_type, size_t *p_block_size);
 
 int icsf_get_attribute(LDAP * ld, int *reason,
                        struct icsf_object_record *object, CK_ATTRIBUTE * attrs,

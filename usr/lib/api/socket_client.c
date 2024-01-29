@@ -373,7 +373,7 @@ static void *event_thread(void *arg)
 
         num = read_all(anchor->socketfd, (char *)&event, sizeof(event));
         if (num != sizeof(event)) {
-            TRACE_ERROR("Error receiving the event, rc: %ld\n", num);
+            TRACE_ERROR("Error receiving the event, rc: %zd\n", num);
             break;
         }
 
@@ -399,8 +399,8 @@ static void *event_thread(void *arg)
             }
 
             num = read_all(anchor->socketfd, payload, event.payload_len);
-            if (num != event.payload_len) {
-                TRACE_ERROR("Error receiving the event payload, rc: %ld\n", num);
+            if (num != (ssize_t)event.payload_len) {
+                TRACE_ERROR("Error receiving the event payload, rc: %zd\n", num);
                 if (payload != NULL)
                     free(payload);
                 break;
@@ -428,7 +428,7 @@ static void *event_thread(void *arg)
         if (event.flags & EVENT_FLAGS_REPLY_REQ) {
             num = send_all(anchor->socketfd, (char *)&reply, sizeof(reply));
             if (num != sizeof(reply)) {
-                TRACE_ERROR("Error sending the event reply, rc: %ld\n", num);
+                TRACE_ERROR("Error sending the event reply, rc: %zd\n", num);
                 if (payload != NULL)
                     free(payload);
                 break;

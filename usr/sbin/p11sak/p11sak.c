@@ -243,11 +243,11 @@ static CK_RV p11sak_export_ec_pkey(const struct p11sak_objtype *keytype,
                                    CK_OBJECT_HANDLE key, const char *label);
 static CK_RV p11sak_export_dilithium_kyber_pem_data(
                                         const struct p11sak_objtype *keytype,
-                                        unsigned char **data, size_t *data_len,
+                                        CK_BYTE **data, CK_ULONG *data_len,
                                         bool private, CK_OBJECT_HANDLE key,
                                         const char *label);
 static CK_RV p11sak_export_x509(const struct p11sak_objtype *certtype,
-                                unsigned char **data, size_t *data_len,
+                                CK_BYTE **data, CK_ULONG *data_len,
                                 CK_OBJECT_HANDLE cert, const char *label);
 static CK_RV p11sak_extract_x509_pk(const struct p11sak_objtype *certtype,
                                     CK_ATTRIBUTE **attrs, CK_ULONG *num_attrs,
@@ -8653,7 +8653,7 @@ done:
 }
 
 static CK_RV p11sak_export_x509(const struct p11sak_objtype *certtype,
-                                unsigned char **data, size_t *data_len,
+                                CK_BYTE **data, CK_ULONG *data_len,
                                 CK_OBJECT_HANDLE cert,
                                 const char *label)
 {
@@ -9122,7 +9122,7 @@ done:
 
 static CK_RV p11sak_export_dilithium_kyber_pem_data(
                                         const struct p11sak_objtype *keytype,
-                                        unsigned char **data, size_t *data_len,
+                                        CK_BYTE **data, CK_ULONG *data_len,
                                         bool private, CK_OBJECT_HANDLE key,
                                         const char *label)
 {

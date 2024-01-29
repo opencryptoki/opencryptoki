@@ -34,7 +34,7 @@ static int get_interface_test(void)
         goto ret;
     }
 
-    flags = ~0ULL;
+    flags = ~0UL;
     rv = funcs3->C_GetInterface((CK_UTF8CHAR *)"PKCS 11",
                                 NULL, &interface, flags);
     if (rv != CKR_FUNCTION_FAILED) {
