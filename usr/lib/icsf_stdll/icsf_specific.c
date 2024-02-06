@@ -81,9 +81,13 @@ static const MECH_LIST_ELEMENT icsf_mech_list[] = {
     {CKM_SHA512_RSA_PKCS, {512, 4096, CKF_HW | CKF_SIGN | CKF_VERIFY}},
     {CKM_SHA_1, {0, 0, CKF_HW | CKF_DIGEST}},
     {CKM_SHA_1_HMAC, {0, 0, CKF_HW | CKF_SIGN | CKF_VERIFY}},
+    {CKM_SHA224, {0, 0, CKF_HW | CKF_DIGEST}},
     {CKM_SHA224_HMAC, {0, 0, CKF_HW | CKF_SIGN | CKF_VERIFY}},
+    {CKM_SHA256, {0, 0, CKF_HW | CKF_DIGEST}},
     {CKM_SHA256_HMAC, {0, 0, CKF_HW | CKF_SIGN | CKF_VERIFY}},
+    {CKM_SHA384, {0, 0, CKF_HW | CKF_DIGEST}},
     {CKM_SHA384_HMAC, {0, 0, CKF_HW | CKF_SIGN | CKF_VERIFY}},
+    {CKM_SHA512, {0, 0, CKF_HW | CKF_DIGEST}},
     {CKM_SHA512_HMAC, {0, 0, CKF_HW | CKF_SIGN | CKF_VERIFY}},
     {CKM_MD5, {0, 0, CKF_DIGEST}},
     {CKM_MD5_HMAC, {0, 0, CKF_SIGN | CKF_VERIFY}},
@@ -5628,3 +5632,30 @@ done:
 
     return rc;
 }
+
+CK_RV token_specific_sha_init(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *ctx,
+                              CK_MECHANISM *mech)
+{
+    return openssl_specific_sha_init(tokdata, ctx, mech);
+}
+
+CK_RV token_specific_sha(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *ctx,
+                         CK_BYTE *in_data, CK_ULONG in_data_len,
+                         CK_BYTE *out_data, CK_ULONG *out_data_len)
+{
+    return openssl_specific_sha(tokdata, ctx, in_data, in_data_len,
+                                out_data, out_data_len);
+}
+
+CK_RV token_specific_sha_update(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *ctx,
+                                CK_BYTE *in_data, CK_ULONG in_data_len)
+{
+    return openssl_specific_sha_update(tokdata, ctx, in_data, in_data_len);
+}
+
+CK_RV token_specific_sha_final(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *ctx,
+                               CK_BYTE *out_data, CK_ULONG *out_data_len)
+{
+    return openssl_specific_sha_final(tokdata, ctx, out_data, out_data_len);
+}
+
