@@ -9977,7 +9977,7 @@ CK_RV ep11tok_decrypt_final(STDLL_TokData_t * tokdata, SESSION * session,
     rc = constant_time_select(constant_time_eq(rc, CKR_OK),
                               ep11_error_to_pkcs11_error(rc, session),
                               rc);
-    if (!is_rsa_mechanism(ctx->mech.mechanism)) {
+    if (!is_rsa_mechanism((&session->decr_ctx)->mech.mechanism)) {
         if (rc != CKR_OK) {
             TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
         } else {
