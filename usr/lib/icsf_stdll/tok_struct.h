@@ -90,10 +90,10 @@ token_spec_t token_specific = {
     NULL,                       // dh_pkcs_derive
     NULL,                       // dh_pkcs_key_pair_gen
     // SHA
-    NULL,                       // sha_init
-    NULL,                       // sha
-    NULL,                       // sha_update
-    NULL,                       // sha_final
+    &token_specific_sha_init,
+    &token_specific_sha,
+    &token_specific_sha_update,
+    &token_specific_sha_final,
     //HMAC
     NULL,                       // hmac_sign_init
     NULL,                       // hmac_sign
