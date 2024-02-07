@@ -166,6 +166,8 @@ struct icsf_multi_part_context {
 struct icsf_policy_attr {
     LDAP *ld;
     struct icsf_object_record *icsf_object;
+    unsigned int attr_count;
+    BerElement *get_attrs_result;
 };
 
 int icsf_to_ock_err(int icsf_return_code, int icsf_reason_code);
@@ -180,39 +182,68 @@ static CK_RV icsf_policy_get_attr(void *data,
     CK_ATTRIBUTE *a;
     CK_ATTRIBUTE s = { .type = type, .ulValueLen = 0, .pValue = NULL };
     
-    rc = icsf_get_attribute(d->ld, &reason, d->icsf_object, &s, 1);
+    rc = icsf_get_attribute(d->ld, &reason, &d->get_attrs_result,
+                            d->icsf_object, &s, 1);
     if (rc != CKR_OK) {
         TRACE_DEVEL("icsf_get_attribute failed\n");
-        return icsf_to_ock_err(rc, reason);
+        rc = icsf_to_ock_err(rc, reason);
+        goto done;
     }
+
     if (s.ulValueLen == CK_UNAVAILABLE_INFORMATION) {
         TRACE_DEVEL("Size information for attribute 0x%lx not available\n",
                     type);
-        return CKR_FUNCTION_FAILED;
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
     }
+
     a = (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE) + s.ulValueLen);
     if (!a) {
         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-        return CKR_HOST_MEMORY;
+        rc = CKR_HOST_MEMORY;
+        goto done;
     }
+
     a->type = type;
     a->ulValueLen = s.ulValueLen;
     a->pValue = (CK_BYTE *) a + sizeof(CK_ATTRIBUTE);
-    rc = icsf_get_attribute(d->ld, &reason, d->icsf_object, a, 1);
+
+    rc = icsf_get_attribute(d->ld, &reason, &d->get_attrs_result,
+                            d->icsf_object, a, 1);
     if (rc != CKR_OK) {
         TRACE_DEVEL("icsf_get_attribute failed\n");
         free(a);
-        return icsf_to_ock_err(rc, reason);
+        rc = icsf_to_ock_err(rc, reason);
+        goto done;
     }
+
     *attr = a;
+
+    d->attr_count++;
+
+done:
+    if (d->attr_count == 0 && d->get_attrs_result != NULL) {
+        ber_free(d->get_attrs_result, 1);
+        d->get_attrs_result = NULL;
+    }
+
     return rc;
 }
 
 static void icsf_policy_free_attr(void *data, CK_ATTRIBUTE *attr)
 {
-    UNUSED(data);
+    struct icsf_policy_attr *d = data;
 
     free(attr);
+
+    if (d->attr_count > 0) {
+        d->attr_count--;
+
+        if (d->attr_count == 0 && d->get_attrs_result != NULL) {
+            ber_free(d->get_attrs_result, 1);
+            d->get_attrs_result = NULL;
+        }
+    }
 }
 
 /*
@@ -1777,7 +1808,7 @@ CK_RV icsftok_copy_object(STDLL_TokData_t * tokdata,
         goto done;
     }
 
-    rc = icsf_get_attribute(session_state->ld, &reason,
+    rc = icsf_get_attribute(session_state->ld, &reason, NULL,
                             &mapping_src->icsf_object, priv_attrs, 2);
     if (rc != CKR_OK) {
         TRACE_ERROR("icsf_get_attribute failed\n");
@@ -1855,7 +1886,7 @@ CK_RV icsftok_create_object(STDLL_TokData_t * tokdata, SESSION * session,
     CK_ULONG node_number;
     char token_name[sizeof(tokdata->nv_token_data->token_info.label) + 1];
     int reason = 0;
-    struct icsf_policy_attr pattr;
+    struct icsf_policy_attr pattr = { 0 };
 
     /* Check permissions based on attributes and session */
     rc = check_session_permissions(session, attrs, attrs_len);
@@ -2058,7 +2089,7 @@ CK_RV icsftok_generate_key_pair(STDLL_TokData_t * tokdata, SESSION * session,
     CK_ATTRIBUTE_PTR new_priv_attrs = NULL;
     CK_ULONG new_priv_attrs_len = 0;
     CK_ULONG key_type;
-    struct icsf_policy_attr pattr;
+    struct icsf_policy_attr pattr = { 0 };
 
     /* Check and set default attributes based on mech */
     if ((key_type = get_generate_key_type(mech)) == (CK_ULONG)-1) {
@@ -2203,7 +2234,7 @@ CK_RV icsftok_generate_key(STDLL_TokData_t * tokdata, SESSION * session,
     CK_ULONG class = CKO_SECRET_KEY;
     CK_ULONG key_type = 0;
     int reason = 0;
-    struct icsf_policy_attr pattr;
+    struct icsf_policy_attr pattr = { 0 };
 
     /* Check attributes */
     if ((key_type = get_generate_key_type(mech)) == (CK_ULONG)-1) {
@@ -3518,7 +3549,7 @@ CK_RV icsftok_get_attribute_value(STDLL_TokData_t * tokdata,
     }
 
     /* get the private attribute so we can check the permissions */
-    rc = icsf_get_attribute(session_state->ld, &reason,
+    rc = icsf_get_attribute(session_state->ld, &reason, NULL,
                             &mapping->icsf_object, priv_attr, 1);
     if (rc != CKR_OK) {
         TRACE_DEVEL("icsf_get_attribute failed\n");
@@ -3537,7 +3568,7 @@ CK_RV icsftok_get_attribute_value(STDLL_TokData_t * tokdata,
     // get requested attributes and values if the obj_size ptr is not set
     if (!obj_size) {
         /* Now call icsf to get the attribute values */
-        rc = icsf_get_attribute(session_state->ld, &reason,
+        rc = icsf_get_attribute(session_state->ld, &reason, NULL,
                                 &mapping->icsf_object, pTemplate, ulCount);
 
         if (rc != CKR_OK) {
@@ -3611,7 +3642,7 @@ CK_RV icsftok_set_attribute_value(STDLL_TokData_t * tokdata,
      * first get CKA_PRIVATE since we need to check againse session
      * icsf will check if the attributes are modifiable
      */
-    rc = icsf_get_attribute(session_state->ld, &reason,
+    rc = icsf_get_attribute(session_state->ld, &reason, NULL,
                             &mapping->icsf_object, priv_attrs, 2);
     if (rc != CKR_OK) {
         TRACE_DEVEL("icsf_get_attribute failed\n");
@@ -3660,7 +3691,7 @@ CK_RV icsftok_find_objects_init(STDLL_TokData_t * tokdata, SESSION * sess,
     int node_number, rc;
     int reason = 0;
     CK_RV rv = CKR_OK;
-    struct icsf_policy_attr pattr;
+    struct icsf_policy_attr pattr = { 0 };
 
     /* Whether we retrieve public or private objects is determined by
      * the caller's SAF authority on the token, something ock doesn't
@@ -5281,7 +5312,7 @@ CK_RV icsftok_unwrap_key(STDLL_TokData_t * tokdata,
     struct icsf_object_mapping *key_mapping = NULL;
     CK_ULONG node_number;
     size_t expected_block_size = 0;
-    struct icsf_policy_attr pattr;
+    struct icsf_policy_attr pattr = { 0 };
 
     /* Check session */
     if (!(session_state = get_session_state(tokdata, session->handle))) {
@@ -5419,7 +5450,7 @@ CK_RV icsftok_derive_key(STDLL_TokData_t * tokdata, SESSION * session,
     CK_SSL3_KEY_MAT_PARAMS *params = { 0 };
     unsigned int i;
     int reason = 0;
-    struct icsf_policy_attr pattr;
+    struct icsf_policy_attr pattr = { 0 };
 
     /* Variable for multiple keys derivation */
     int multiple = 0;
