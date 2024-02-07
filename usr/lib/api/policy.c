@@ -181,7 +181,7 @@ static CK_RV policy_get_curve_args(get_attr_val_f getattr, void *d,
     }
  out:
     if (free_attr && ec_params)
-        free_attr(ec_params);
+        free_attr(d, ec_params);
     return rv;
 }
 
@@ -236,9 +236,9 @@ static CK_RV policy_get_pqc_args(CK_KEY_TYPE key_type,
 out:
     if (free_attr) {
         if (keyform)
-            free_attr(keyform);
+            free_attr(d, keyform);
         if (mode)
-            free_attr(mode);
+            free_attr(d, mode);
     }
 
     return rv;
@@ -357,11 +357,11 @@ static CK_RV policy_extract_key_data(get_attr_val_f getattr, void *d,
  out:
     if (free_attr) {
         if (keytype)
-            free_attr(keytype);
+            free_attr(d, keytype);
         if (keysize)
-            free_attr(keysize);
+            free_attr(d, keysize);
         if (sigsize)
-            free_attr(sigsize);
+            free_attr(d, sigsize);
     }
     return rv;
 }

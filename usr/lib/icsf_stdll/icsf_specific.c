@@ -208,8 +208,10 @@ static CK_RV icsf_policy_get_attr(void *data,
     return rc;
 }
 
-static void icsf_policy_free_attr(CK_ATTRIBUTE *attr)
+static void icsf_policy_free_attr(void *data, CK_ATTRIBUTE *attr)
 {
+    UNUSED(data);
+
     free(attr);
 }
 

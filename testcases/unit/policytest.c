@@ -15,6 +15,8 @@
 #include <stdlib.h>
 #include <openssl/obj_mac.h>
 
+#define UNUSED(var)            ((void)(var))
+
 /* Inlined strength definitions */
 static const char niststrength[] =
     "version strength-0\n"
@@ -474,8 +476,10 @@ static CK_RV getdetattr(void *d, CK_ATTRIBUTE_TYPE type, CK_ATTRIBUTE **attr)
     }
 }
 
-static void freedetattr(CK_ATTRIBUTE *a)
+static void freedetattr(void *d, CK_ATTRIBUTE *a)
 {
+    UNUSED(d);
+
     --attrcalls;
     free(a);
 }
