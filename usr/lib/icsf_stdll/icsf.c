@@ -2246,6 +2246,7 @@ decode_error:
 }
 
 int icsf_get_attribute(LDAP * ld, int *reason,
+                       BerElement **cached_result,
                        struct icsf_object_record *object, CK_ATTRIBUTE * attrs,
                        CK_ULONG attrs_len)
 {
@@ -2254,36 +2255,53 @@ int icsf_get_attribute(LDAP * ld, int *reason,
     BerElement *msg = NULL;
     BerElement *result = NULL;
     unsigned int i;
-    int rc = 0;
+    int rc = 0, allocated = 0;
 
     CHECK_ARG_NON_NULL(ld);
     CHECK_ARG_NON_NULL(attrs);
     CHECK_ARG_NON_NULL(object);
 
-    object_record_to_handle(handle, object);
+    if (cached_result == NULL || *cached_result == NULL) {
+        object_record_to_handle(handle, object);
 
-    if (!(msg = ber_alloc_t(LBER_USE_DER))) {
-        TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-        return CKR_HOST_MEMORY;
-    }
+        if (!(msg = ber_alloc_t(LBER_USE_DER))) {
+            TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+            return CKR_HOST_MEMORY;
+        }
 
-    /* Encode message:
-     *
-     * GAVInput ::= attrListLen
-     *
-     * attrListLen ::= INTEGER (0 .. MaxCSFPInteger)
-     *
-     */
+        /* Encode message:
+         *
+         * GAVInput ::= attrListLen
+         *
+         * attrListLen ::= INTEGER (0 .. MaxCSFPInteger)
+         *
+         */
 
-    rc = ber_printf(msg, "i", attrs_len);
-    if (rc < 0)
-        goto cleanup;
+        rc = ber_printf(msg, "i", attrs_len);
+        if (rc < 0)
+            goto cleanup;
 
-    rc = icsf_call(ld, reason, handle, sizeof(handle), "", 0,
-                   ICSF_TAG_CSFPGAV, msg, &result);
-    if (rc != 0) {
-        TRACE_DEVEL("icsf_call failed.\n");
-        goto cleanup;
+        rc = icsf_call(ld, reason, handle, sizeof(handle), "", 0,
+                       ICSF_TAG_CSFPGAV, msg, &result);
+        if (rc != 0) {
+            TRACE_DEVEL("icsf_call failed.\n");
+            goto cleanup;
+        }
+
+        if (cached_result != NULL) {
+            *cached_result = ber_dup(result);
+            if (*cached_result == NULL) {
+                TRACE_ERROR("ber_dup failed.\n");
+                goto cleanup;
+            }
+            allocated = 1;
+        }
+    } else {
+        result = ber_dup(*cached_result);
+        if (result == NULL) {
+            TRACE_DEVEL("ber_dup failed.\n");
+            goto cleanup;
+        }
     }
 
     /* Before decoding the result, initialize the attribute values length.
@@ -2313,7 +2331,13 @@ cleanup:
         ber_free(msg, 1);
 
     if (result)
-        ber_free(result, 1);
+        ber_free(result, cached_result == NULL ? 1 : 0);
+
+    if (rc != 0 && allocated &&
+        cached_result != NULL && *cached_result != NULL) {
+        ber_free(*cached_result, 1);
+        *cached_result = NULL;
+    }
 
     return rc;
 }
