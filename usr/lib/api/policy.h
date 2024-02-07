@@ -55,7 +55,7 @@ typedef CK_RV (*get_attr_val_f)(void *data,
 /*
  * Helper function to free a returned attribute.
  */
-typedef void (*free_attr_f)(CK_ATTRIBUTE *attr);
+typedef void (*free_attr_f)(void *data, CK_ATTRIBUTE *attr);
 
 /*
  * Stores into `obj` the strength and whether or not the EC is
