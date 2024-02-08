@@ -2157,6 +2157,13 @@ static int icsf_ber_decode_get_attribute_list(BerElement * berbuf,
     CK_ULONG found = 0;
     ber_tag_t tag;
     int rc = 0;
+    CK_BBOOL *attr_set = NULL;
+
+    attr_set = calloc(attrs_len, sizeof(CK_BBOOL));
+    if (attr_set == NULL) {
+        TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+        goto decode_error;
+    }
 
     if (ber_scanf(berbuf, "{{") == LBER_ERROR)
         goto decode_error;
@@ -2205,9 +2212,11 @@ static int icsf_ber_decode_get_attribute_list(BerElement * berbuf,
             } else {
                 rc = 8;
                 *reason = 3003; /* CKR_BUFFER_TOO_SMALL */
-                attrs[i].ulValueLen = -1;
+                attrs[i].ulValueLen = CK_UNAVAILABLE_INFORMATION;
                 goto decode_error;
             }
+
+            attr_set[i] = TRUE;
 
             /* keep count of how many are found. */
             found++;
@@ -2231,8 +2240,15 @@ static int icsf_ber_decode_get_attribute_list(BerElement * berbuf,
         TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_TYPE_INVALID));
         rc = 8;
         *reason = 3029; /* CKR_ATTRIBUTE_TYPE_INVALID */
-        goto decode_error;
+
+        /* Update those attributes that have not been found */
+        for (i = 0; i < attrs_len; i++) {
+            if (attr_set[i] == FALSE)
+                attrs[i].ulValueLen = CK_UNAVAILABLE_INFORMATION;
+        }
     }
+
+    free(attr_set);
 
     return rc;
 
@@ -2241,6 +2257,14 @@ decode_error:
 
     if (attrbval.bv_val != NULL)
         ber_memfree(attrbval.bv_val);
+
+    if (attr_set != NULL)
+        free(attr_set);
+
+    if (rc == 0) {
+        rc = 8;
+        *reason = 0; /* CKR_FUNCTION_FAILED */
+    }
 
     return rc;
 }
@@ -2254,7 +2278,6 @@ int icsf_get_attribute(LDAP * ld, int *reason,
     char handle[ICSF_HANDLE_LEN];
     BerElement *msg = NULL;
     BerElement *result = NULL;
-    unsigned int i;
     int rc = 0, allocated = 0;
 
     CHECK_ARG_NON_NULL(ld);
@@ -2303,13 +2326,6 @@ int icsf_get_attribute(LDAP * ld, int *reason,
             goto cleanup;
         }
     }
-
-    /* Before decoding the result, initialize the attribute values length.
-     * This will help to indicate which attributes were not found
-     * or not enough storage was allocated for the value.
-     */
-    for (i = 0; i < attrs_len; i++)
-        attrs[i].ulValueLen = (CK_ULONG) - 1;
 
     /* Decode the result:
      *
