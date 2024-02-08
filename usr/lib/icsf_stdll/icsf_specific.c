@@ -3520,6 +3520,7 @@ CK_RV icsftok_get_attribute_value(STDLL_TokData_t * tokdata,
     CK_BBOOL priv_obj;
     struct session_state *session_state;
     struct icsf_object_mapping *mapping = NULL;
+    BerElement *cached_result = NULL;
     int reason = 0;
 
     CK_ATTRIBUTE priv_attr[] = {
@@ -3549,7 +3550,7 @@ CK_RV icsftok_get_attribute_value(STDLL_TokData_t * tokdata,
     }
 
     /* get the private attribute so we can check the permissions */
-    rc = icsf_get_attribute(session_state->ld, &reason, NULL,
+    rc = icsf_get_attribute(session_state->ld, &reason, &cached_result,
                             &mapping->icsf_object, priv_attr, 1);
     if (rc != CKR_OK) {
         TRACE_DEVEL("icsf_get_attribute failed\n");
@@ -3568,7 +3569,7 @@ CK_RV icsftok_get_attribute_value(STDLL_TokData_t * tokdata,
     // get requested attributes and values if the obj_size ptr is not set
     if (!obj_size) {
         /* Now call icsf to get the attribute values */
-        rc = icsf_get_attribute(session_state->ld, &reason, NULL,
+        rc = icsf_get_attribute(session_state->ld, &reason, &cached_result,
                                 &mapping->icsf_object, pTemplate, ulCount);
 
         if (rc != CKR_OK) {
@@ -3591,6 +3592,9 @@ done:
         bt_put_node_value(&icsf_data->objects, mapping);
         mapping = NULL;
     }
+
+    if (cached_result != NULL)
+        ber_free(cached_result, 1);
 
     return rc;
 }
