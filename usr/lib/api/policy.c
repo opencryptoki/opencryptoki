@@ -160,18 +160,21 @@ static CK_RV policy_get_curve_args(get_attr_val_f getattr, void *d,
 
     rv = getattr(d, CKA_EC_PARAMS, &ec_params);
     if (rv == CKR_OK) {
-        *oid = ec_params->pValue;
-        *oidlen = ec_params->ulValueLen;
-        if (*oid == NULL || *oidlen == 0) {
+        if (ec_params->pValue == NULL || ec_params->ulValueLen == 0) {
             TRACE_ERROR("Invalid CKA_EC_PARAMS value\n");
             rv = CKR_FUNCTION_FAILED;
             goto out;
         }
+
+        rv = CKR_CURVE_NOT_SUPPORTED;
         for (i = 0; i < NUMEC; ++i) {
             if (der_ec_supported[i].data_size == ec_params->ulValueLen &&
                 memcmp(ec_params->pValue, der_ec_supported[i].data,
                        ec_params->ulValueLen) == 0) {
                 *size = der_ec_supported[i].prime_bits;
+                *oid = der_ec_supported[i].data;
+                *oidlen = der_ec_supported[i].data_size;
+                rv = CKR_OK;
                 break;
             }
         }
