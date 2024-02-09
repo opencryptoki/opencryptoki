@@ -65,8 +65,11 @@ const char *pin_prompt(char **buf, const char *msg)
     fflush(stdout);
 
     /* delayed getline() error handling */
-    if (n == -1)
+    if (n == -1) {
+        free(*buf);
+        *buf = NULL;
         return NULL;
+    }
 
     /* strip on first occurence of CR/LF */
     (*buf)[strcspn(*buf, "\r\n")] = '\0';
