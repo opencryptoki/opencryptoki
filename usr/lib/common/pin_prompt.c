@@ -24,7 +24,8 @@ static void echo(bool on)
 {
     struct termios term;
 
-    tcgetattr(fileno(stdin), &term);
+    if (tcgetattr(fileno(stdin), &term))
+        return;
 
     if (on)
         term.c_lflag |= ECHO;
