@@ -5161,7 +5161,8 @@ CK_RV openssl_specific_rsa_derive_kdk(STDLL_TokData_t *tokdata, OBJECT *key_obj,
 
     rc = template_attribute_get_non_empty(key_obj->template,
                                           CKA_PRIVATE_EXPONENT, &priv_exp_attr);
-    if (rc != CKR_OK && rc != CKR_TEMPLATE_INCOMPLETE) {
+    if (rc != CKR_OK && rc != CKR_TEMPLATE_INCOMPLETE &&
+        rc != CKR_ATTRIBUTE_VALUE_INVALID) {
         TRACE_ERROR("Failed to get CKA_PRIVATE_EXPONENT\n");
         goto out;
     }
