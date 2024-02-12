@@ -507,7 +507,7 @@ static CK_BBOOL ica_need_wr_lock_rsa_pubkey(OBJECT *obj, void *ex_data,
 
     UNUSED(obj);
 
-    if (ex_data == NULL || ex_data_len < sizeof(ica_private_data_t))
+    if (ex_data == NULL || ex_data_len < sizeof(ica_ex_data_t))
         return FALSE;
 
     return data->modexpoKey == NULL;
@@ -520,7 +520,7 @@ static CK_BBOOL ica_need_wr_lock_rsa_privkey(OBJECT *obj, void *ex_data,
 
     UNUSED(obj);
 
-    if (ex_data == NULL || ex_data_len < sizeof(ica_private_data_t))
+    if (ex_data == NULL || ex_data_len < sizeof(ica_ex_data_t))
         return FALSE;
 
     if (data->blinding == NULL || data->blinding_mont_ctx == NULL)
@@ -536,7 +536,7 @@ static CK_BBOOL ica_need_wr_lock_ec_key(OBJECT *obj, void *ex_data,
 
     UNUSED(obj);
 
-    if (ex_data == NULL || ex_data_len < sizeof(ica_private_data_t))
+    if (ex_data == NULL || ex_data_len < sizeof(ica_ex_data_t))
         return FALSE;
 
     return data->eckey == NULL;
