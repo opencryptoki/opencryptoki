@@ -241,6 +241,8 @@ typedef struct {
 #define PKEY_MODE_DISABLED          0
 #define PKEY_MODE_DEFAULT           1
 #define PKEY_MODE_ENABLE4NONEXTR    2
+#define PKEY_MODE_ENABLE4EXTR       3
+#define PKEY_MODE_ENABLE4ALL        4
 
 #define PQC_BYTE_NO(idx)            (((idx) - 1) / 8)
 #define PQC_BIT_IN_BYTE(idx)        (((idx - 1)) % 8)
@@ -278,6 +280,7 @@ typedef struct {
     int fips_session_mode;
     int optimize_single_ops;
     int pkey_mode;
+    volatile int pkey_combined_extract_supported;
     volatile int pkey_wrap_supported;
     int pkey_wrap_support_checked;
     char pkey_mk_vp[PKEY_MK_VP_LENGTH];

@@ -1239,6 +1239,33 @@ CK_RV ep11tok_pkey_check_aes_xts(STDLL_TokData_t *tokdata, OBJECT *key_obj,
     return CKR_OK;
 }
 
+CK_RV ep11tok_pkey_add_protkey_attr_to_tmpl(TEMPLATE *tmpl)
+{
+    CK_ATTRIBUTE *pkey_attr = NULL;
+    CK_BBOOL btrue = CK_TRUE;
+    CK_RV ret;
+
+    if (!template_attribute_find(tmpl, CKA_IBM_PROTKEY_EXTRACTABLE, &pkey_attr)) {
+        ret = build_attribute(CKA_IBM_PROTKEY_EXTRACTABLE, &btrue,
+                              sizeof(CK_BBOOL), &pkey_attr);
+        if (ret != CKR_OK) {
+            TRACE_ERROR("build_attribute failed with ret=0x%lx\n", ret);
+            goto done;
+        }
+        ret = template_update_attribute(tmpl, pkey_attr);
+        if (ret != CKR_OK) {
+            TRACE_ERROR("update_attribute failed with ret=0x%lx\n", ret);
+            free(pkey_attr);
+            goto done;
+        }
+    }
+
+    ret = CKR_OK;
+
+done:
+    return ret;
+}
+
 /**
  * This function is called whenever a new object is created. It sets
  * attribute CKA_IBM_PROTKEY_EXTRACTABLE according to the PKEY_MODE token
@@ -1254,7 +1281,7 @@ CK_RV token_specific_set_attrs_for_new_object(STDLL_TokData_t *tokdata,
                                               CK_ULONG mode, TEMPLATE *tmpl)
 {
     ep11_private_data_t *ep11_data = tokdata->private_data;
-    CK_ATTRIBUTE *pkey_attr = NULL, *ecp_attr = NULL, *sensitive_attr = NULL;
+    CK_ATTRIBUTE *ecp_attr = NULL, *sensitive_attr = NULL;
     CK_BBOOL extractable, sensitive, btrue = CK_TRUE;
     CK_BBOOL add_pkey_extractable = CK_FALSE;
     CK_RV ret;
@@ -1314,23 +1341,62 @@ CK_RV token_specific_set_attrs_for_new_object(STDLL_TokData_t *tokdata,
                 add_pkey_extractable = CK_TRUE;
             break;
         }
-
         if (add_pkey_extractable) {
-            if (!template_attribute_find(tmpl, CKA_IBM_PROTKEY_EXTRACTABLE, &pkey_attr)) {
-                ret = build_attribute(CKA_IBM_PROTKEY_EXTRACTABLE,
-                                      (CK_BBOOL *)&btrue, sizeof(CK_BBOOL),
-                                      &pkey_attr);
-                if (ret != CKR_OK) {
-                    TRACE_ERROR("build_attribute failed with ret=0x%lx\n", ret);
-                    goto done;
-                }
-                ret = template_update_attribute(tmpl, pkey_attr);
-                if (ret != CKR_OK) {
-                    TRACE_ERROR("update_attribute failed with ret=0x%lx\n", ret);
-                    free(pkey_attr);
-                    goto done;
-                }
-            }
+            ret = ep11tok_pkey_add_protkey_attr_to_tmpl(tmpl);
+            if (ret != CKR_OK)
+                goto done;
+        }
+        break;
+    case PKEY_MODE_ENABLE4EXTR:
+        /* If the application did not specify CKA_IBM_PROTKEY_EXTRACTABLE in
+         * its template, new keys of any type with CKA_EXTRACTABLE=true get
+         * CKA_IBM_PROTKEY_EXTRACTABLE=true and a protected key is automatically
+         * created at first use of the key.
+         */
+        switch (class) {
+        case CKO_PUBLIC_KEY:
+            if (template_attribute_get_non_empty(tmpl, CKA_EC_PARAMS, &ecp_attr) == CKR_OK &&
+                pkey_op_supported_by_cpacf(ep11_data->msa_level, CKM_ECDSA, tmpl))
+                add_pkey_extractable = CK_TRUE;
+                /* Note that the explicit parm CKM_ECDSA just tells the
+                 * function that it's not AES here. It covers all EC and ED
+                 * mechs */
+            break;
+        default:
+            ret = template_attribute_get_bool(tmpl, CKA_EXTRACTABLE, &extractable);
+            if (ret == CKR_OK && extractable) // Einziger Unterschied: extractable, statt !extractable
+                add_pkey_extractable = CK_TRUE;
+            break;
+        }
+        if (add_pkey_extractable) {
+            ret = ep11tok_pkey_add_protkey_attr_to_tmpl(tmpl);
+            if (ret != CKR_OK)
+                goto done;
+        }
+        break;
+    case PKEY_MODE_ENABLE4ALL:
+        /* If the application did not specify CKA_IBM_PROTKEY_EXTRACTABLE in
+         * its template, new keys of any type, regardless of CKA_EXTRACTABLE,
+         * get CKA_IBM_PROTKEY_EXTRACTABLE=true and a protected key is
+         * automatically created at first use of the key.
+         */
+        switch (class) {
+        case CKO_PUBLIC_KEY:
+            if (template_attribute_get_non_empty(tmpl, CKA_EC_PARAMS, &ecp_attr) == CKR_OK &&
+                pkey_op_supported_by_cpacf(ep11_data->msa_level, CKM_ECDSA, tmpl))
+                add_pkey_extractable = CK_TRUE;
+                /* Note that the explicit parm CKM_ECDSA just tells the
+                 * function that it's not AES here. It covers all EC and ED
+                 * mechs */
+            break;
+        default:
+            add_pkey_extractable = CK_TRUE;
+            break;
+        }
+        if (add_pkey_extractable) {
+            ret = ep11tok_pkey_add_protkey_attr_to_tmpl(tmpl);
+            if (ret != CKR_OK)
+                goto done;
         }
         break;
     default:
@@ -12188,6 +12254,10 @@ static CK_RV ep11_config_set_pkey_mode(ep11_private_data_t *ep11_data,
         ep11_data->pkey_mode = PKEY_MODE_DEFAULT;
     else if (strcmp(strval, "ENABLE4NONEXTR") == 0)
         ep11_data->pkey_mode = PKEY_MODE_ENABLE4NONEXTR;
+    else if (strcmp(strval, "ENABLE4EXTR") == 0)
+        ep11_data->pkey_mode = PKEY_MODE_ENABLE4EXTR;
+    else if (strcmp(strval, "ENABLE4ALL") == 0)
+        ep11_data->pkey_mode = PKEY_MODE_ENABLE4ALL;
     else {
         TRACE_ERROR("%s unsupported PKEY mode : '%s'\n", __func__, strval);
         OCK_SYSLOG(LOG_ERR,"%s: Error: unsupported PKEY mode '%s' "
@@ -13252,6 +13322,7 @@ typedef struct cp_handler_data {
     int first;
     size_t max_cp_index;
     CK_BBOOL error;
+    CK_BBOOL allow_combined_extract;
 } cp_handler_data_t;
 
 static CK_RV control_point_handler(uint_32 adapter, uint_32 domain,
@@ -13329,6 +13400,27 @@ static CK_RV control_point_handler(uint_32 adapter, uint_32 domain,
         }
     }
 
+    /* Combined extract is only supported if all APQNs support it */
+    if (max_cp_index < XCP_CPB_ALLOW_COMBINED_EXTRACT ||
+        (cp[CP_BYTE_NO(XCP_CPB_ALLOW_COMBINED_EXTRACT)] &
+         CP_BIT_MASK(XCP_CPB_ALLOW_COMBINED_EXTRACT)) == 0) {
+        data->allow_combined_extract = CK_FALSE;
+
+        if (ep11_data->pkey_mode == PKEY_MODE_ENABLE4EXTR ||
+            ep11_data->pkey_mode == PKEY_MODE_ENABLE4ALL) {
+            TRACE_ERROR("Control point setting for adapter %02X.%04X does not "
+                        "allow combined extract, but PKEY_MODE ENABLE4EXTR or "
+                        "ENABLE4ALL specified in ep11 token config file.\n",
+                        adapter, domain);
+            OCK_SYSLOG(LOG_ERR,
+                        "Control point setting for adapter %02X.%04X does not "
+                        "allow combined extract, but PKEY_MODE ENABLE4EXTR or "
+                        "ENABLE4ALL specified in ep11 token config file.\n",
+                        adapter, domain);
+            data->error = TRUE;
+        }
+    }
+
     /* Check FIPS-session related CPs for non-FIPS-session mode */
     if (!ep11_data->fips_session_mode) {
         if (max_cp_index >= XCP_CPB_ALLOW_NONSESSION &&
@@ -13392,6 +13484,7 @@ static CK_RV get_control_points(STDLL_TokData_t * tokdata,
      * to older cards default to ON. CPs being OFF disable functionality.
      */
     memset(data.combined_cp, 0xff, sizeof(data.combined_cp));
+    data.allow_combined_extract = CK_TRUE;
     data.first = 1;
     rc = handle_all_ep11_cards(&ep11_data->target_list, control_point_handler,
                                &data);
@@ -13409,6 +13502,11 @@ static CK_RV get_control_points(STDLL_TokData_t * tokdata,
     TRACE_DEBUG("Max control point index: %lu\n", data.max_cp_index);
     print_control_points(cp, *cp_len, data.max_cp_index);
 #endif
+
+    if (data.allow_combined_extract == CK_FALSE)
+        __sync_or_and_fetch(&ep11_data->pkey_combined_extract_supported, 0);
+    else
+        __sync_or_and_fetch(&ep11_data->pkey_combined_extract_supported, 1);
 
     return data.error ? CKR_DEVICE_ERROR : CKR_OK;
 }
