@@ -11,4 +11,7 @@ noinst_HEADERS +=							\
 	usr/lib/common/pqc_defs.h usr/lib/common/constant_time.h	\
 	usr/lib/common/dlist.h usr/lib/common/p11util.h			\
 	usr/lib/common/pkcs_utils.h usr/lib/common/pkey_utils.h		\
-	usr/lib/common/stringtranslations.h
+	usr/lib/common/stringtranslations.h usr/lib/common/aix/asprintf.h \
+	usr/lib/common/aix/endian.h usr/lib/common/aix/err.h \
+	usr/lib/common/aix/getopt.h usr/lib/common/aix/secure_getenv.h \
+	usr/lib/common/platform.h

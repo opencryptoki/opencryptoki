@@ -8,6 +8,7 @@
  * https://opensource.org/licenses/cpl1.0.php
  */
 
+#include <limits.h>
 #include "pkcs11types.h"
 #include "defs.h"
 #include "trace.h"

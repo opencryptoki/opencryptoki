@@ -19,7 +19,6 @@
 
 ****************************************************************************/
 
-#define _GNU_SOURCE
 #include <pthread.h>
 #include <stdio.h>
 #include <time.h>
