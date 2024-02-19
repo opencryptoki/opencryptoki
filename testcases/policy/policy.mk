@@ -4,6 +4,10 @@ testcases_policy_policytest_CFLAGS = ${testcases_inc}
 testcases_policy_policytest_LDFLAGS = -ldl
 testcases_policy_policytest_SOURCES = testcases/policy/policytest.c
 
+if AIX
+testcases_policy_policytest_SOURCES += usr/lib/common/aix/getopt_long.c
+endif
+
 noinst_SCRIPTS += testcases/policy/policytest.sh
 CLEANFILES += testcases/policy/policytest.sh
 EXTRA_DIST += testcases/policy/policytest.sh.in
