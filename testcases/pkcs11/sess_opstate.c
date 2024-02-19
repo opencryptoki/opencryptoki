@@ -97,7 +97,7 @@ int sess_opstate_funcs(int loops)
     // now loop over some digest updates
     for (counter = 0; counter < loops; counter++) {
         // create some random data
-        rbytes = random() % sizeof(rdata);
+        rbytes = 1 + random() % sizeof(rdata);
         rdata = alloc_random_buf(s1, rbytes);
         if (!rdata)
             goto out;
@@ -184,7 +184,7 @@ int sess_opstate_funcs(int loops)
         }
 
         for (i = 0; i < (unsigned int)loops; i++) {
-            rbytes = random() % sizeof(rdata);
+            rbytes = 1 + random() % sizeof(rdata);
             rdata = alloc_random_buf(s1, rbytes);
             if (!rdata)
                 goto out;

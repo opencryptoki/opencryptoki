@@ -11,14 +11,13 @@
  * by Harald Freudenberger <freude@de.ibm.com>
  */
 
-#define _GNU_SOURCE
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <memory.h>
 #include <stdint.h>
-#include <endian.h>
 
+#include "platform.h"
 #include "pkcs11types.h"
 #include "ec_curves.h"
 

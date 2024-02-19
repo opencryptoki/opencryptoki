@@ -1,15 +1,12 @@
-#ifndef _GNU_SOURCE
-#  define _GNU_SOURCE
-#endif
 #include <limits.h>
 #include <errno.h>
-#include <getopt.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <dlfcn.h>
 #include <stdint.h>
 
+#include "platform.h"
 #include "pkcs11types.h"
 #include "ec_curves.h"
 
@@ -117,14 +114,14 @@ static void logoutUser(void)
 
 static int doLoadLib(void)
 {
-    const char *lib = "libopencryptoki.so";
+    const char *lib = OCK_API_LIBNAME;
     const char *envlib;
     CK_RV (*pGetFuncList)(CK_FUNCTION_LIST **);
     CK_RV rc;
 
     if ((envlib = getenv("PKCSLIB")) != NULL)
         lib = envlib;
-    pkcs11lib = dlopen(lib, RTLD_NOW);
+    pkcs11lib = dlopen(lib, DYNLIB_LDFLAGS);
     if (pkcs11lib == NULL) {
         fprintf(stderr, "Failed to open %s: %s\n", lib, dlerror());
         return -1;

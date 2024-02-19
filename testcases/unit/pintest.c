@@ -22,11 +22,12 @@ int main(int argc, char *argv[])
 	switch(getopt(argc, argv, "pn")) {
 	case 'p':
 		pin = pin_prompt(&buf, "Enter the PIN: ");
-		printf("pin: %s\n", pin);
+		/* AIX prints an empty string instead of Linux-style (null) */
+		printf("pin: %s\n", pin != NULL ? pin : "(null)");
 		break;
 	case 'n':
 		pin = pin_prompt_new(&buf, "Enter new PIN: ", "Re-enter new PIN: ");
-		printf("pin: %s\n", pin);
+		printf("pin: %s\n", pin != NULL ? pin : "(null)");
 		break;
 	default:
 		break;
