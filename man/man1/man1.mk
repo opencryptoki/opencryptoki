@@ -1,4 +1,8 @@
-man1_MANS += man/man1/pkcsconf.1 man/man1/pkcsicsf.1
+man1_MANS += man/man1/pkcsconf.1
+
+if ENABLE_ICSFTOK
+man1_MANS += man/man1/pkcsicsf.1
+endif
 
 if ENABLE_PKCSHSM_MK_CHANGE
 man1_MANS += man/man1/pkcshsm_mk_change.1
@@ -21,7 +25,9 @@ man1_MANS += man/man1/pkcsep11_session.1
 endif
 
 if ENABLE_CCATOK
+if ENABLE_PKCSCCA
 man1_MANS += man/man1/pkcscca.1
+endif
 endif
 
 if ENABLE_P11SAK
