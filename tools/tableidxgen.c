@@ -7,19 +7,20 @@
  * found in the file LICENSE file or at
  * https://opensource.org/licenses/cpl1.0.php
  */
-#ifndef _GNU_SOURCE
-#  define _GNU_SOURCE
+
+#if defined(_AIX)
+    const char *__progname = "tableidxgen";
 #endif
+
+#include "platform.h"
 #include <assert.h>
-#include <err.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
 #include <unistd.h>
-#include <getopt.h>
 
-#include <pkcs11types.h>
+#include "pkcs11types.h"
 
 #define MECHTABLE_IN_GEN
 #include <mechtable.h>

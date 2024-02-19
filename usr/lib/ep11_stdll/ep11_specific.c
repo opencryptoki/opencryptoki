@@ -8,9 +8,6 @@
  * https://opensource.org/licenses/cpl1.0.php
  */
 
-
-/* Declaration of secure_getenv requires _GNU_SOURCE */
-#define _GNU_SOURCE
 #include <pthread.h>
 #include <string.h>
 #include <stdlib.h>
