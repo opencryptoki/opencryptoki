@@ -12,7 +12,6 @@
  * Some routines that are shared between the pkcs utilities in usr/sbin.
  */
 
-#define _GNU_SOURCE
 #include <dlfcn.h>
 #include <errno.h>
 #include <string.h>

@@ -1,8 +1,14 @@
 noinst_PROGRAMS += tools/tableidxgen tools/policyexamplegen
 
-TOOLS_CFLAGS = -I${srcdir}/usr/include -I${srcdir}/usr/lib/api -I${top_builddir}/usr/lib/api
+TOOLS_CFLAGS = -I${srcdir}/usr/include -I${srcdir}/usr/lib/api \
+	-I${top_builddir}/usr/lib/api -I${srcdir}/usr/lib/common
 
 tools_tableidxgen_SOURCES = tools/tableidxgen.c usr/lib/api/mechtable.inc
+
+if AIX
+tools_tableidxgen_SOURCES += usr/lib/common/aix/err.c \
+	usr/lib/common/aix/getopt_long.c
+endif
 
 tools_policyexamplegen_SOURCES = tools/policyexamplegen.c usr/lib/api/mechtable.c
 

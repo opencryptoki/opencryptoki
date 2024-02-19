@@ -8,7 +8,6 @@
  * https://opensource.org/licenses/cpl1.0.php
  */
 
-#define _GNU_SOURCE
 #include <stdint.h>
 
 #define OCK_NO_EP11_DEFINES
