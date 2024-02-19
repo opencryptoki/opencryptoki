@@ -5,6 +5,7 @@ AC_CONFIG_SRCDIR([testcases/common/common.c])
 
 dnl Needed for $target!
 AC_CANONICAL_TARGET
+AC_CANONICAL_HOST
 
 AM_INIT_AUTOMAKE([-Wall -Wno-override -Wno-portability foreign subdir-objects])
 
@@ -49,7 +50,7 @@ AC_CHECK_FUNCS([atexit ftruncate gettimeofday localtime_r memchr memmove \
 dnl Used in various scripts
 AC_PATH_PROG([ID], [id], [/us/bin/id])
 AC_PATH_PROG([USERMOD], [usermod], [/usr/sbin/usermod])
-AC_PATH_PROG([GROUPADD], [groupadd], [/usr/sbin/groupadd])
+AC_PATH_PROG([GROUPADD], [mkgroup], [/usr/sbin/groupadd])
 AC_PATH_PROG([USERADD], [useradd], [/usr/sbin/useradd])
 AC_PATH_PROG([CAT], [cat], [/bin/cat])
 AC_PATH_PROG([CHMOD], [chmod], [/bin/chmod])
@@ -69,26 +70,6 @@ AC_CHECK_PROG([YACC], [bison], [bison], [no])
 if test "x$YACC" = "xno"; then
     AC_MSG_ERROR(['bison' program is missing on your system. Please install 'bison'.])
 fi
-
-LIBCAP_LIBS=
-AC_CHECK_LIB([cap], [cap_get_proc], [LIBCAP_LIBS="-lcap"],
-		[AC_MSG_ERROR(['libcap' library is missing on your system. Please install 'libcap-devel'.])])
-AC_SUBST([LIBCAP_LIBS])
-
-OPENLDAP_LIBS=
-AC_CHECK_HEADERS([lber.h ldap.h],
-		[OPENLDAP_LIBS="-llber -lldap"],
-		[AC_MSG_ERROR([lber.h and ldap.h are missing. Please install
-			      'openldap-devel'.])])
-AC_SUBST([OPENLDAP_LIBS])
-
-dnl Define custom variables
-
-lockdir=$localstatedir/lock/opencryptoki
-AC_SUBST(lockdir)
-
-logdir=$localstatedir/log/opencryptoki
-AC_SUBST(logdir)
 
 AM_CONDITIONAL([CROSS], [test "x$cross_compiling" = xyes])
 
@@ -200,6 +181,12 @@ AC_ARG_ENABLE([pkcsstats],
 	AS_HELP_STRING([--enable-pkcsstats],[build pkcsstats tool @<:@default=enabled@:>@]),
 	[],
 	[enable_pkcsstats=yes])
+
+dnl --- pkcscca
+AC_ARG_ENABLE([pkcscca],
+	AS_HELP_STRING([--enable-pkcscca],[build pkcscca tool @<:@default=enabled@:>@ on non-AIX platforms]),
+	[],
+	[enable_pkcscca=yes])
 	
 dnl --- support for MD2
 AC_ARG_ENABLE([md2],
@@ -267,28 +254,103 @@ dnl --- enable_pkey
 enable_pkey=no
 
 case $target in
-     *s390x*)
-	  enable_pkey=yes
-	  ;;
-     *s390*)
-	  CFLAGS="$CFLAGS -m31 -DNO_PKEY"
-	  ;;
-     *ppc64* | *x86_64*)
-	  CFLAGS="$CFLAGS -DNO_PKEY"
-	  ;;
-     *ppc* | i*86*)
-	  CFLAGS="$CFLAGS -m32 -DNO_PKEY"
-	  ;;
-     *)
-	  CFLAGS="$CFLAGS -DNO_PKEY"
-	  ;;
+	*s390x*)
+		enable_pkey=yes
+	;;
+	*s390*)
+		CFLAGS="$CFLAGS -m31"
+		AC_DEFINE([NO_PKEY])
+	;;
+	*ppc64* | *x86_64*)
+		AC_DEFINE([NO_PKEY])
+	;;
+	*ppc* | i*86*)
+		CFLAGS="$CFLAGS -m32"
+		AC_DEFINE([NO_PKEY])
+	;;
+	*)
+		AC_DEFINE([NO_PKEY])
+	;;
 esac
 AM_CONDITIONAL([NO_PKEY], [test "x$enable_pkey" != "xyes"])
 
+dnl Check and save whether the platform is AIX
+dnl Using the pthread library requires the _THREAD_SAFE macro to be set
+build_aix=no
+case "${host_os}" in
+	aix*)
+		build_aix=yes
+		AC_DEFINE([_ALL_SOURCE])
+		AC_DEFINE([_THREAD_SAFE])
+		with_systemd=no
+		with_libica=no
+		enable_ccatok=yes
+		enable_swtok=yes
+		enable_tpmtok=no
+		enable_icsftok=no
+		enable_ep11tok=no
+		echo "Disabling migration utilities on AIX: pkcscca pkcstok_migrate"
+		enable_pkcscca=no
+		enable_pkcstok_migrate=no
+		echo "Disabling the following unsupported features on AIX: systemd libica tpmtok icsftok ep11tok"
+		pkcsslotd_user=slotd
+		echo "Shortening username to $pkcsslotd_user due to platform restrictions"
+		function parse_map {
+			grep -E '^[ ]+' $1 | tr -d ';' | tr -d ' ' > "$1".sym
+		}
+		parse_map opencryptoki.map
+		parse_map opencryptoki_tok.map
+		;;
+esac
+
+dnl Define custom variables
+lockdir=${localstatedir}/lock/opencryptoki
+logdir=${localstatedir}/log/opencryptoki
+
+dnl runstatedir is only defined starting from autoconf 2.70
+dnl this script has a prereq of 2.69, so instead build it from localstatedir
+if test "x$build_aix" = "xyes"; then
+	run_path=${localstatedir}/run
+else
+	run_path=/run
+fi
+
+AC_SUBST([lockdir])
+AC_SUBST([logdir])
+AC_SUBST(RUN_PATH, [$run_path])
+AM_CONDITIONAL([AIX], [test "x$build_aix" = "xyes" ])
+
+dnl define _GNU_SOURCE on non-AIX platforms
+if test "x$build_aix" = "xno"; then
+	AC_DEFINE([_GNU_SOURCE])
+fi
+
 dnl --- enable_debug
 if test "x$enable_debug" = "xyes"; then
-	CFLAGS="$CFLAGS -gdwarf-2 -g3 -O0 -DDEBUG"
+	if test "x$build_aix" = "xyes"; then
+		CFLAGS="$CFLAGS -g3 -O0"
+	else
+		CFLAGS="$CFLAGS -gdwarf-2 -g3 -O0"
+	fi
+	AC_DEFINE([DEBUG])
+else
+	CFLAGS="$CFLAGS -O2 -g3"
 fi
+
+if test "x$build_aix" = "xno"; then
+	LIBCAP_LIBS=
+	AC_CHECK_LIB([cap], [cap_get_proc], [LIBCAP_LIBS="-lcap"],
+			[AC_MSG_ERROR(['libcap' library is missing on your system. Please install 'libcap-devel'.])])
+	AC_SUBST([LIBCAP_LIBS])
+fi
+
+dnl --- cca and soft tokens need lber, icsf needs only ldap
+OPENLDAP_LIBS=
+AC_CHECK_HEADERS([lber.h ldap.h],
+		[OPENLDAP_LIBS="-llber -lldap"],
+		[AC_MSG_ERROR([lber.h and ldap.h are missing. Please install
+			      'openldap-devel'.])])
+AC_SUBST([OPENLDAP_LIBS])
 
 dnl --- first, check what external software is present or specified
 dnl --- with --with-package=DIR
@@ -431,7 +493,7 @@ if test "x$with_libudev" != "xno"; then
 	# Use libudev only on s390 platforms, only s390 emits AP related uevents
 	case $target in
 	     *s390x* | *s390*)
-		CFLAGS="$CFLAGS -DWITH_LIBUDEV"
+		AC_DEFINE([WITH_LIBUDEV])
 		;;
 	     *)
 		if test "x$with_libudev" != "xyes"; then
@@ -639,6 +701,9 @@ AM_CONDITIONAL([ENABLE_PKCSTOK_MIGRATE], [test "x$enable_pkcstok_migrate" = "xye
 dnl --- enable_pkcsstats
 AM_CONDITIONAL([ENABLE_PKCSSTATS], [test "x$enable_pkcsstats" = "xyes"])
 
+dnl --- enable_pkcscca
+AM_CONDITIONAL([ENABLE_PKCSCCA], [test "x$enable_pkcscca" = "xyes"])
+
 dnl --- enable_pkcshsm_mk_change
 AM_CONDITIONAL([ENABLE_PKCSHSM_MK_CHANGE], [test "x$enable_pkcshsm_mk_change" = "xyes"])
 
@@ -652,23 +717,38 @@ if test "x$enable_md2" = "xyes"; then
 	enable_md2=yes
 else
 	enable_md2=no
-	CFLAGS="$CFLAGS -DNOMD2"
+	AC_DEFINE([NOMD2])
 fi
 AM_CONDITIONAL([ENABLE_MD2], [test "x$enable_md2" = "xyes"])
 
 AC_SUBST([pkcsslotd_user])
 AC_SUBST([pkcs_group])
+AC_DEFINE([PKCS64])
+AC_DEFINE([_XOPEN_SOURCE], [600], [POSIX 2004])
+AC_PROG_CC([xlc xlc_r gcc clang])
+AC_PROG_CC_STDC
+if test "x$build_aix" = "xyes"; then
+	CFLAGS="$CFLAGS -qinfo=pro:cns:lan:nocmp:nocnv:nogot:notrd -qalign=natural -qarch=pwr7 -qsuppress=1506-1527:1500-029 -qlanglvl=stdc99 -qsrcmsg -lbsd -q64"
+	# msg is used to ensure compilers that ignore the error pragma are still caught
+	AC_COMPILE_IFELSE([AC_LANG_PROGRAM(
+		[[#if (__xlC__ >> 8) < 16
+			#msg "xlc 16.x or newer required"
+			#endif]]
+		)],,
+		[AC_MSG_ERROR([xlc 16.x or newer is required. Please install a newer release of the xlc compiler.])])
+else
+	CFLAGS="$CFLAGS -Wall -Wextra"
+	CFLAGS+=" -std=c99 -Werror=implicit-int -Werror=implicit-function-declaration -Werror=int-conversion -Werror=strict-prototypes -Werror=old-style-definition -pedantic"
+fi
 
-CFLAGS="$CFLAGS -DPKCS64 -D_XOPEN_SOURCE=600 -Wall -Wextra"
+AC_DEFINE_UNQUOTED([PKCSSLOTD_USER], "$pkcsslotd_user")
+AC_DEFINE_UNQUOTED([PKCS_GROUP], "$pkcs_group")
 
-CFLAGS+=' -DCONFIG_PATH=\"$(localstatedir)/lib/opencryptoki\" -DSBIN_PATH=\"$(sbindir)\" -DLIB_PATH=\"$(libdir)\" -DLOCKDIR_PATH=\"$(lockdir)\" -DOCK_CONFDIR=\"$(sysconfdir)/opencryptoki\" -DOCK_LOGDIR=\"$(logdir)\"'
-CFLAGS+=' -DPKCSSLOTD_USER=\"$(pkcsslotd_user)\" -DPKCS_GROUP=\"$(pkcs_group)\"'
-CFLAGS+=" -std=c99 -Werror=implicit-int -Werror=implicit-function-declaration -Werror=int-conversion -Werror=strict-prototypes -Werror=old-style-definition -pedantic"
+CFLAGS="$CFLAGS"' -DCONFIG_PATH=\"$(localstatedir)/lib/opencryptoki\" -DSBIN_PATH=\"$(sbindir)\" -DLIB_PATH=\"$(libdir)\" -DRUN_PATH=\"$(RUN_PATH)\" -DLOCKDIR_PATH=\"$(lockdir)\" -DOCK_CONFDIR=\"$(sysconfdir)/opencryptoki\" -DOCK_LOGDIR=\"$(logdir)\"'
 
 # At this point, CFLAGS is set to something sensible
-AC_PROG_CC
 AX_PROG_CC_FOR_BUILD
-AC_PROG_CXX
+AC_PROG_CXX([xlC_r xlC g++ clang++])
 # AC_PROG_CXX will return "g++" even if no c++ compiler is installed.
 # Check for that case, and issue an error if so.
 AC_LANG_PUSH([C++])
@@ -681,18 +761,27 @@ AC_LANG_POP([C++])
 
 AC_CONFIG_MACRO_DIRS([m4])
 
+AM_COND_IF([ENABLE_ICSFTOK],
+           [AC_CONFIG_FILES([man/man1/pkcsicsf.1])])
+AM_COND_IF([ENABLE_PKCSCCA],
+           [AC_CONFIG_FILES([man/man1/pkcscca.1])])
+AM_COND_IF([ENABLE_PKCSHSM_MK_CHANGE],
+           [AC_CONFIG_FILES([man/man1/pkcshsm_mk_change.1])])
+AM_COND_IF([ENABLE_PKCSSTATS],
+           [AC_CONFIG_FILES([man/man1/pkcsstats.1])])
+AM_COND_IF([ENABLE_P11SAK],
+           [AC_CONFIG_FILES([man/man1/p11sak.1])])
+AM_COND_IF([ENABLE_PKCSEP11_MIGRATE],
+           [AC_CONFIG_FILES([man/man1/pkcsep11_migrate.1])])
+AM_COND_IF([ENABLE_PKCSEP11_SESSION],
+           [AC_CONFIG_FILES([man/man1/pkcsep11_session.1])])
+AM_COND_IF([ENABLE_PKCSTOK_MIGRATE],
+           [AC_CONFIG_FILES([man/man1/pkcstok_migrate.1])])
+
 AC_CONFIG_FILES([Makefile				\
 		 misc/opencryptoki.pc			\
 		 usr/lib/api/shrd_mem.c			\
 		 man/man1/pkcsconf.1			\
-		 man/man1/pkcsicsf.1			\
-		 man/man1/pkcscca.1			\
-		 man/man1/p11sak.1			\
-		 man/man1/pkcsep11_migrate.1		\
-		 man/man1/pkcsep11_session.1		\
-		 man/man1/pkcstok_migrate.1		\
-		 man/man1/pkcsstats.1			\
-		 man/man1/pkcshsm_mk_change.1		\
 		 man/man5/opencryptoki.conf.5		\
 		 man/man5/p11sak_defined_attrs.conf.5	\
 		 man/man5/strength.conf.5		\
@@ -725,6 +814,7 @@ echo
 echo "Token-specific features:"
 echo "	pkcsep11migrate build:	$enable_pkcsep11_migrate"
 echo "	pkcsep11session build:	$enable_pkcsep11_session"
+echo "	pkcscca build:		$enable_pkcscca"
 echo
 echo "pkcsslotd user:		$pkcsslotd_user"
 echo "pkcs group:		$pkcs_group"
