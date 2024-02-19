@@ -15,6 +15,7 @@
 
 #include "pkcs11types.h"
 #include "regress.h"
+#include "platform.h"
 
 #define UNUSED(var)            ((void)(var))
 
@@ -1407,7 +1408,7 @@ CK_BBOOL do_GetFunctionList(void)
     CK_RV(*getinterface)(CK_UTF8CHAR_PTR name, CK_VERSION_PTR version,
                          CK_INTERFACE_PTR_PTR interface, CK_FLAGS flags);
     char *e;
-    char *f = "libopencryptoki.so";
+    char *f = OCK_API_LIBNAME;
     CK_ULONG nmemb = 0;
 
     rv = FALSE;
@@ -1416,7 +1417,7 @@ CK_BBOOL do_GetFunctionList(void)
     if (e == NULL)
         e = f;
 
-    pkcs11lib = dlopen(e, RTLD_NOW);
+    pkcs11lib = dlopen(e, DYNLIB_LDFLAGS);
     if (pkcs11lib == NULL)
         goto ret;
 

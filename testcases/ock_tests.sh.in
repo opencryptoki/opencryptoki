@@ -36,6 +36,21 @@ PKCSCONFBIN="@sbindir@/pkcsconf"
 TESTCONF="$TESTDIR/ock-tests.config"
 TOKTYPE=""
 NONEED_TOKEN_INIT=0
+PLATFORM=$(uname)
+LSFLAGS="-U"
+
+if [ $PLATFORM = "AIX" ]; then
+    unset LSFLAGS
+    function pgrep {
+        local progname="$1"
+        if [ -z "$progname" ]; then
+                echo "No program name specified."
+                return 1
+        fi
+
+        ps -eo pid,comm | grep -w $progname | awk '{print $1}'
+    }
+fi
 
 #
 # This is the list of the tests we'll be running once everything is initialized
@@ -187,7 +202,7 @@ check_env()
         exit 1
     fi
 
-    if [ ! -f $PKCSLIB ]; then
+    if [ ! $PLATFORM = "AIX" -a ! -f $PKCSLIB ]; then
         echo "FATAL: PKCSLIB=$PKCSLIB is invalid"
         exit 1
     fi
@@ -235,7 +250,7 @@ run_tests()
     if [ -n "$OCK_TEST" ]; then
         OCK_TESTS="$OCK_TEST"
     fi
-    echo "***** Will run the following tests for slot $1: $(ls -U $OCK_TESTS)"
+    echo "***** Will run the following tests for slot $1: $(ls $LSFLAGS $OCK_TESTS)"
     ALLRES=0
     COMBINED_EXTRACT=""
     for item in "$(cat test_combined_extract.slots 2>/dev/null)"; do
@@ -243,7 +258,7 @@ run_tests()
             COMBINED_EXTRACT="-combined-extract"
         fi
     done
-    for j in $( ls -U $OCK_TESTS ); do
+    for j in $( ls $LSFLAGS $OCK_TESTS ); do
         echo "** Now executing '$j -slot $1 $NO_STOP $COMBINED_EXTRACT'"
         $j -slot $1 $NO_STOP $COMBINED_EXTRACT 2>&1
         RES=$?
@@ -263,9 +278,9 @@ run_tests()
 ###
 run_benchs()
 {
-    echo "***** Will run the following benchmarks for slot $1: $(ls -U $OCK_BENCHS)"
+    echo "***** Will run the following benchmarks for slot $1: $(ls $LSFLAGS $OCK_BENCHS)"
     ALLRES=0
-    for i in $( ls -U $OCK_BENCHS ); do
+    for i in $( ls $LSFLAGS $OCK_BENCHS ); do
         echo "** Now executing '$i"
         $i -slot $1 $NO_STOP 2>&1
         RES=$?
@@ -292,9 +307,6 @@ main_script()
         LOGFILE=1
     fi
 
-    # Turn space separated list into array
-    totrace=($OCK_TRACE_TOKENS)
-
     rm -f error_file.*
 
     for i in $SLOT; do (
@@ -303,7 +315,7 @@ main_script()
         if [ $NONEED_TOKEN_INIT -eq 0 ]; then
             init_slot $i || { echo "SKIPPING slot $i"; exit; }
         fi
-        for item in "${totrace[@]}"; do
+        for item in $OCK_TRACE_TOKENS; do
             [[ "$i" == "$item" ]] && export OPENCRYPTOKI_TRACE_LEVEL=4
         done
         if [ "$LOGFILE" = "1" ]; then
