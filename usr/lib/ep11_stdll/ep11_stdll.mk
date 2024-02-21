@@ -41,7 +41,7 @@ opencryptoki_stdll_libpkcs11_ep11_la_SOURCES = usr/lib/common/asn1.c	\
 	usr/lib/common/trace.c usr/lib/common/mech_list.c		\
 	usr/lib/common/shared_memory.c usr/lib/common/attributes.c	\
 	usr/lib/common/sw_crypt.c usr/lib/common/profile_obj.c		\
-	usr/lib/common/dlist.c usr/lib/common/pkey_utils.c		\
+	usr/lib/common/dlist.c						\
 	usr/lib/ep11_stdll/new_host.c usr/lib/common/mech_openssl.c	\
 	usr/lib/ep11_stdll/ep11_specific.c 				\
 	usr/lib/ep11_stdll/ep11_session.c				\
@@ -53,3 +53,8 @@ opencryptoki_stdll_libpkcs11_ep11_la_SOURCES = usr/lib/common/asn1.c	\
 	usr/lib/common/pqc_supported.c					\
 	usr/lib/hsm_mk_change/hsm_mk_change.c				\
 	usr/lib/common/btree.c usr/lib/common/sess_mgr.c
+
+if !NO_PKEY
+opencryptoki_stdll_libpkcs11_ep11_la_SOURCES +=				\
+	usr/lib/common/pkey_utils.c
+endif
