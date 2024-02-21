@@ -115,8 +115,13 @@ token_spec_t token_specific = {
     // AES
     NULL,                       // aes_key_gen,
     NULL,                       // aes_xts_key_gen
+#ifndef NO_PKEY
     &token_specific_aes_ecb,
     &token_specific_aes_cbc,
+#else
+    NULL,                       // aes_ecb
+    NULL,                       // aes_cbc
+#endif
     NULL,                       // aes_ctr
     NULL,                       // aes_gcm_init
     NULL,                       // aes_gcm
@@ -125,8 +130,13 @@ token_spec_t token_specific = {
     NULL,                       // aes_ofb
     NULL,                       // aes_cfb
     NULL,                       // aes_mac
+#ifndef NO_PKEY
     &token_specific_aes_cmac,
     &token_specific_aes_xts,    // aes_xts
+#else
+    NULL,                       // aes_cmac
+    NULL,                       // aes_xts
+#endif
     // DSA
     NULL,                       // dsa_generate_keypair,
     NULL,                       // dsa_sign

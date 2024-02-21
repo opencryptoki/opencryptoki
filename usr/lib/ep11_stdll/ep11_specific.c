@@ -60,7 +60,9 @@
 #include <openssl/ec.h>
 
 #include "ep11_specific.h"
+#ifndef NO_PKEY
 #include "pkey_utils.h"
+#endif
 
 CK_RV ep11tok_get_mechanism_list(STDLL_TokData_t * tokdata,
                                  CK_MECHANISM_TYPE_PTR mlist,
@@ -256,11 +258,13 @@ static const version_req_t reencrypt_single_req_versions[] = {
 #define NUM_REENCRYPT_SINGLE_REQ (sizeof(reencrypt_single_req_versions) / \
                                                 sizeof(version_req_t))
 
+#ifndef NO_PKEY
 static const CK_VERSION ibm_cex7p_cpacf_wrap_support = { .major = 7, .minor = 15 };
 static const version_req_t ibm_cpacf_wrap_req_versions[] = {
         { .card_type = 7, .min_firmware_version = &ibm_cex7p_cpacf_wrap_support }
 };
 #define NUM_CPACF_WRAP_REQ (sizeof(ibm_cpacf_wrap_req_versions) / sizeof(version_req_t))
+#endif /* NO_PKEY */
 
 static const CK_ULONG ibm_cex_ab_ecdh_api_version = 3;
 static const version_req_t ibm_ab_ecdh_req_versions[] = {
@@ -504,6 +508,7 @@ static CK_BBOOL ep11tok_pkey_option_disabled(STDLL_TokData_t *tokdata)
     return CK_FALSE;
 }
 
+#ifndef NO_PKEY
 /**
  * Callback function used by handle_all_ep11_cards() for creating a protected
  * key via the given APQN (adaper,domain).
@@ -1283,6 +1288,7 @@ CK_RV ep11tok_pkey_add_protkey_attr_to_tmpl(TEMPLATE *tmpl)
 done:
     return ret;
 }
+#endif /* NO_PKEY */
 
 /**
  * This function is called whenever a new object is created. It sets
@@ -1299,9 +1305,12 @@ CK_RV token_specific_set_attrs_for_new_object(STDLL_TokData_t *tokdata,
                                               CK_ULONG mode, TEMPLATE *tmpl)
 {
     ep11_private_data_t *ep11_data = tokdata->private_data;
-    CK_ATTRIBUTE *ecp_attr = NULL, *sensitive_attr = NULL;
-    CK_BBOOL extractable, sensitive, btrue = CK_TRUE;
-    CK_BBOOL add_pkey_extractable = CK_FALSE;
+    CK_ATTRIBUTE *sensitive_attr = NULL;
+    CK_BBOOL sensitive, btrue = CK_TRUE;
+#ifndef NO_PKEY
+    CK_ATTRIBUTE *ecp_attr = NULL;
+    CK_BBOOL extractable, add_pkey_extractable = CK_FALSE;
+#endif
     CK_RV ret;
 
     UNUSED(mode);
@@ -1331,6 +1340,7 @@ CK_RV token_specific_set_attrs_for_new_object(STDLL_TokData_t *tokdata,
         }
     }
 
+#ifndef NO_PKEY
     switch (ep11_data->pkey_mode) {
     case PKEY_MODE_DISABLED:
         /* Nothing to do */
@@ -1423,6 +1433,7 @@ CK_RV token_specific_set_attrs_for_new_object(STDLL_TokData_t *tokdata,
         goto done;
         break;
     }
+#endif /* NO_PKEY */
 
     ret = CKR_OK;
 
@@ -1430,6 +1441,19 @@ done:
 
     return ret;
 }
+
+#ifdef NO_PKEY
+CK_BBOOL ep11tok_pkey_usage_ok(STDLL_TokData_t *tokdata, SESSION *session,
+                               CK_OBJECT_HANDLE hkey, CK_MECHANISM *mech)
+{
+    UNUSED(tokdata);
+    UNUSED(session);
+    UNUSED(hkey);
+    UNUSED(mech);
+
+    return CK_FALSE;
+}
+#endif /* NO_PKEY */
 
 static CK_RV check_ab_supported(CK_KEY_TYPE type) {
     switch(type) {
@@ -2837,8 +2861,10 @@ CK_RV ep11tok_init(STDLL_TokData_t * tokdata, CK_SLOT_ID SlotNumber,
             goto error;
     }
 
+#ifndef NO_PKEY
     ep11_data->msa_level = get_msa_level();
     TRACE_INFO("MSA level = %i\n", ep11_data->msa_level);
+#endif
 
     if (pthread_mutex_init(&ep11_data->raw2key_wrap_blob_mutex, NULL) != 0) {
         TRACE_ERROR("Initializing Wrap-Blob lock failed.\n");
@@ -2847,19 +2873,20 @@ CK_RV ep11tok_init(STDLL_TokData_t * tokdata, CK_SLOT_ID SlotNumber,
     }
     ep11_data->raw2key_wrap_blob_l = 0;
 
-
     if (pthread_mutex_init(&ep11_data->pkey_mutex, NULL) != 0) {
         TRACE_ERROR("Initializing PKEY lock failed.\n");
         rc = CKR_CANT_LOCK;
         goto error;
     }
 
+#ifndef NO_PKEY
     if (!ep11tok_pkey_option_disabled(tokdata) &&
         !ep11_data->fips_session_mode) {
         rc = ep11tok_pkey_get_firmware_mk_vp(tokdata, NULL);
         if (rc != CKR_OK && rc != CKR_FUNCTION_NOT_SUPPORTED)
             goto error;
     }
+#endif /* NO_PKEY */
 
     if (ep11_data->vhsm_mode || ep11_data->fips_session_mode) {
         if (pthread_mutex_init(&ep11_data->session_mutex, NULL) != 0) {
@@ -3178,7 +3205,11 @@ static CK_RV import_aes_xts_key(STDLL_TokData_t *tokdata, SESSION *sess,
     if (rc != CKR_OK)
         goto import_aes_xts_key_end;
 
+#ifndef NO_PKEY
     rc = ep11tok_pkey_check_aes_xts(tokdata, aes_xts_key_obj, CKM_AES_XTS);
+#else
+    rc = CKR_FUNCTION_NOT_SUPPORTED;
+#endif
     if (rc != CKR_OK) {
         TRACE_ERROR("%s EP11 AES XTS is not supported: rc=0x%lx\n", __func__, rc);
         goto import_aes_xts_key_end;
@@ -4562,10 +4593,12 @@ CK_RV token_specific_object_add(STDLL_TokData_t * tokdata, SESSION * sess,
         return rc;
     }
 
+#ifndef NO_PKEY
     /* Ensure the firmware master key verification pattern is available */
     rc = ep11tok_pkey_get_firmware_mk_vp(tokdata, sess);
     if (rc != CKR_OK && rc != CKR_FUNCTION_NOT_SUPPORTED)
         return rc;
+#endif /* NO_PKEY */
 
     memset(blob, 0, sizeof(blob));
     memset(blobreenc, 0, sizeof(blobreenc));
@@ -4797,10 +4830,12 @@ CK_RV ep11tok_generate_key(STDLL_TokData_t * tokdata, SESSION * session,
         goto error;
     }
 
+#ifndef NO_PKEY
     /* Ensure the firmware master key verification pattern is available */
     rc = ep11tok_pkey_get_firmware_mk_vp(tokdata, session);
     if (rc != CKR_OK && rc != CKR_FUNCTION_NOT_SUPPORTED)
         goto error;
+#endif /* NO_PKEY */
 
     rc = object_mgr_create_skel(tokdata, session, new_attrs, new_attrs_len,
                                 MODE_KEYGEN, CKO_SECRET_KEY, ktype, &key_obj);
@@ -4820,7 +4855,11 @@ CK_RV ep11tok_generate_key(STDLL_TokData_t * tokdata, SESSION * session,
 
     if (mech->mechanism == CKM_AES_XTS_KEY_GEN) {
         xts = TRUE;
+#ifndef NO_PKEY
         rc = ep11tok_pkey_check_aes_xts(tokdata, key_obj, mech->mechanism);
+#else
+        rc = CKR_FUNCTION_NOT_SUPPORTED;
+#endif
         if (rc != CKR_OK) {
             TRACE_ERROR("%s EP11 AES XTS is not supported: rc=0x%lx\n",
                         __func__, rc);
@@ -5812,7 +5851,9 @@ CK_RV token_specific_ec_sign(STDLL_TokData_t *tokdata, SESSION  *session,
                              CK_BYTE *out_data, CK_ULONG *out_data_len,
                              OBJECT *key_obj )
 {
+#ifndef NO_PKEY
     SIGN_VERIFY_CONTEXT *ctx = &(session->sign_ctx);
+#endif
     CK_RV rc;
     size_t keyblobsize = 0;
     CK_BYTE *keyblob;
@@ -5826,6 +5867,7 @@ CK_RV token_specific_ec_sign(STDLL_TokData_t *tokdata, SESSION  *session,
         return rc;
     }
 
+#ifndef NO_PKEY
     rc = ep11tok_pkey_check(tokdata, session, key_obj, &ctx->mech);
     switch (rc) {
     case CKR_OK:
@@ -5837,6 +5879,7 @@ CK_RV token_specific_ec_sign(STDLL_TokData_t *tokdata, SESSION  *session,
     default:
         goto done;
     }
+#endif /* NO_PKEY */
 
     mech.mechanism = CKM_ECDSA;
     mech.pParameter = NULL;
@@ -5856,7 +5899,9 @@ CK_RV token_specific_ec_sign(STDLL_TokData_t *tokdata, SESSION  *session,
         TRACE_INFO("%s rc=0x%lx\n", __func__, rc);
     }
 
+#ifndef NO_PKEY
 done:
+#endif
 
     return rc;
 }
@@ -5866,7 +5911,9 @@ CK_RV token_specific_ec_verify(STDLL_TokData_t *tokdata, SESSION  *session,
                                CK_BYTE *out_data, CK_ULONG out_data_len,
                                OBJECT *key_obj )
 {
+#ifndef NO_PKEY
     SIGN_VERIFY_CONTEXT *ctx = &(session->verify_ctx);
+#endif
     CK_RV rc;
     CK_BYTE *spki;
     size_t spki_len = 0;
@@ -5880,6 +5927,7 @@ CK_RV token_specific_ec_verify(STDLL_TokData_t *tokdata, SESSION  *session,
         return rc;
     }
 
+#ifndef NO_PKEY
     rc = ep11tok_pkey_check(tokdata, session, key_obj, &ctx->mech);
     switch (rc) {
     case CKR_OK:
@@ -5891,6 +5939,7 @@ CK_RV token_specific_ec_verify(STDLL_TokData_t *tokdata, SESSION  *session,
     default:
         goto done;
     }
+#endif /* NO_PKEY */
 
     mech.mechanism = CKM_ECDSA;
     mech.pParameter = NULL;
@@ -5911,7 +5960,9 @@ CK_RV token_specific_ec_verify(STDLL_TokData_t *tokdata, SESSION  *session,
         TRACE_INFO("%s rc=0x%lx\n", __func__, rc);
     }
 
+#ifndef NO_PKEY
 done:
+#endif
 
     return rc;
 }
@@ -5981,6 +6032,7 @@ CK_RV token_specific_reencrypt_single(STDLL_TokData_t *tokdata,
     return rc;
 }
 
+#ifndef NO_PKEY
 /**
  * This routine is currently only used when the operation is performed using
  * a protected key. Therefore we don't have (and don't need) an ep11
@@ -6062,6 +6114,7 @@ CK_RV token_specific_aes_xts(STDLL_TokData_t *tokdata, SESSION *session,
     return pkey_aes_xts(key_obj, init_v, in_data, in_data_len,
                         out_data, out_data_len, encrypt, initial, final, iv);
 }
+#endif /* NO_PKEY */
 
 struct EP11_KYBER_MECH {
     CK_MECHANISM mech;
@@ -6829,10 +6882,12 @@ CK_RV ep11tok_derive_key(STDLL_TokData_t *tokdata, SESSION *session,
         goto error;
     }
 
+#ifndef NO_PKEY
     /* Ensure the firmware master key verification pattern is available */
     rc = ep11tok_pkey_get_firmware_mk_vp(tokdata, session);
     if (rc != CKR_OK && rc != CKR_FUNCTION_NOT_SUPPORTED)
         goto error;
+#endif /* NO_PKEY */
 
     /* Start creating the key object */
     rc = object_mgr_create_skel(tokdata, session, new_attrs1, new_attrs1_len,
@@ -8554,10 +8609,12 @@ CK_RV ep11tok_generate_key_pair(STDLL_TokData_t * tokdata, SESSION * sess,
     if (rc != CKR_OK)
         goto error;
 
+#ifndef NO_PKEY
     /* Ensure the firmware master key verification pattern is available */
     rc = ep11tok_pkey_get_firmware_mk_vp(tokdata, sess);
     if (rc != CKR_OK && rc != CKR_FUNCTION_NOT_SUPPORTED)
         goto error;
+#endif /* NO_PKEY */
 
     /* Now build the skeleton key. */
     rc = object_mgr_create_skel(tokdata, sess, pPublicKeyTemplate,
@@ -9202,6 +9259,7 @@ CK_RV ep11tok_sign_init(STDLL_TokData_t * tokdata, SESSION * session,
         goto done;
     }
 
+#ifndef NO_PKEY
     rc = ep11tok_pkey_check(tokdata, session, key_obj, mech);
     switch (rc) {
     case CKR_OK:
@@ -9239,6 +9297,7 @@ CK_RV ep11tok_sign_init(STDLL_TokData_t * tokdata, SESSION * session,
         free(ep11_sign_state);
         goto done;
     }
+#endif /* NO_PKEY */
 
     if (mech->mechanism == CKM_IBM_ECDSA_OTHER) {
         rc = ep11tok_ecdsa_other_mech_adjust(mech, &mech_ep11);
@@ -9340,6 +9399,9 @@ CK_RV ep11tok_sign(STDLL_TokData_t * tokdata, SESSION * session,
                    CK_ULONG in_data_len, CK_BYTE * signature,
                    CK_ULONG * sig_len)
 {
+#ifdef NO_PKEY
+    UNUSED(length_only);
+#endif
     CK_RV rc;
     SIGN_VERIFY_CONTEXT *ctx = &session->sign_ctx;
     size_t keyblobsize = 0;
@@ -9355,6 +9417,7 @@ CK_RV ep11tok_sign(STDLL_TokData_t * tokdata, SESSION * session,
         return rc;
     }
 
+#ifndef NO_PKEY
     if (ctx->pkey_active) {
         /* Note that Edwards curves in general are not yet supported in
          * opencryptoki. These two special IBM specific ED mechs are only
@@ -9372,6 +9435,7 @@ CK_RV ep11tok_sign(STDLL_TokData_t * tokdata, SESSION * session,
         }
         goto done; /* no ep11 fallback possible */
     }
+#endif /* NO_PKEY */
 
     RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
     RETRY_UPDATE_BLOB_START(tokdata, target_info,
@@ -9394,7 +9458,9 @@ CK_RV ep11tok_sign(STDLL_TokData_t * tokdata, SESSION * session,
         TRACE_INFO("%s rc=0x%lx\n", __func__, rc);
     }
 
+#ifndef NO_PKEY
 done:
+#endif
 
     object_put(tokdata, key_obj, TRUE);
     key_obj = NULL;
@@ -9638,6 +9704,7 @@ CK_RV ep11tok_verify_init(STDLL_TokData_t * tokdata, SESSION * session,
         goto done;
     }
 
+#ifndef NO_PKEY
     rc = ep11tok_pkey_check(tokdata, session, key_obj, mech);
     switch (rc) {
     case CKR_OK:
@@ -9675,6 +9742,7 @@ CK_RV ep11tok_verify_init(STDLL_TokData_t * tokdata, SESSION * session,
         free(ep11_sign_state);
         goto done;
     }
+#endif /* NO_PKEY */
 
     if (mech->mechanism == CKM_IBM_ECDSA_OTHER) {
         rc = ep11tok_ecdsa_other_mech_adjust(mech, &mech_ep11);
@@ -9787,6 +9855,7 @@ CK_RV ep11tok_verify(STDLL_TokData_t * tokdata, SESSION * session,
         return rc;
     }
 
+#ifndef NO_PKEY
     if (ctx->pkey_active) {
         /* Note that Edwards curves in general are not yet supported in
          * opencryptoki. These two special IBM specific ED mechs are only
@@ -9805,6 +9874,7 @@ CK_RV ep11tok_verify(STDLL_TokData_t * tokdata, SESSION * session,
         }
         goto done; /* no ep11 fallback possible */
     }
+#endif /* NO_PKEY */
 
     RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
     RETRY_UPDATE_BLOB_START(tokdata, target_info,
@@ -9827,7 +9897,9 @@ CK_RV ep11tok_verify(STDLL_TokData_t * tokdata, SESSION * session,
         TRACE_INFO("%s rc=0x%lx\n", __func__, rc);
     }
 
+#ifndef NO_PKEY
 done:
+#endif
 
     object_put(tokdata, key_obj, TRUE);
     key_obj = NULL;
@@ -10561,6 +10633,7 @@ static CK_RV ep11_ende_crypt_init(STDLL_TokData_t * tokdata, SESSION * session,
         goto error;
     }
 
+#ifndef NO_PKEY
     rc = ep11tok_pkey_check(tokdata, session, key_obj, mech);
     switch (rc) {
     case CKR_OK:
@@ -10604,6 +10677,7 @@ static CK_RV ep11_ende_crypt_init(STDLL_TokData_t * tokdata, SESSION * session,
         free(ep11_state);
         goto done;
     }
+#endif /* NO_PKEY */
 
     /*
      * ep11_state is allocated large enough to hold 2 times the max state blob.
@@ -11150,10 +11224,12 @@ CK_RV ep11tok_unwrap_key(STDLL_TokData_t * tokdata, SESSION * session,
         goto done;
     }
 
+#ifndef NO_PKEY
     /* Ensure the firmware master key verification pattern is available */
     rc = ep11tok_pkey_get_firmware_mk_vp(tokdata, session);
     if (rc != CKR_OK && rc != CKR_FUNCTION_NOT_SUPPORTED)
         goto error;
+#endif /* NO_PKEY */
 
     /* Start creating the key object */
     rc = object_mgr_create_skel(tokdata, session, new_attrs, new_attrs_len,
@@ -11878,6 +11954,7 @@ CK_RV ep11tok_is_mechanism_supported(STDLL_TokData_t *tokdata,
         }
         break;
 
+#ifndef NO_PKEY
     case CKM_IBM_CPACF_WRAP:
         if (compare_ck_version(&ep11_data->ep11_lib_version, &ver3) <= 0) {
             TRACE_INFO("%s Mech '%s' banned due to host library version\n",
@@ -11895,6 +11972,7 @@ CK_RV ep11tok_is_mechanism_supported(STDLL_TokData_t *tokdata,
             goto out;
         }
         break;
+#endif /* NO_PKEY */
 
     case CKM_IBM_BTC_DERIVE:
         if (compare_ck_version(&ep11_data->ep11_lib_version, &ver3_1) < 0) {
@@ -12268,6 +12346,7 @@ static CK_RV ep11_config_set_pkey_mode(ep11_private_data_t *ep11_data,
 {
     if (strcmp(strval, "DISABLED") == 0)
         ep11_data->pkey_mode = PKEY_MODE_DISABLED;
+#ifndef NO_PKEY
     else if (strcmp(strval, "DEFAULT") == 0)
         ep11_data->pkey_mode = PKEY_MODE_DEFAULT;
     else if (strcmp(strval, "ENABLE4NONEXTR") == 0)
@@ -12276,6 +12355,7 @@ static CK_RV ep11_config_set_pkey_mode(ep11_private_data_t *ep11_data,
         ep11_data->pkey_mode = PKEY_MODE_ENABLE4EXTR;
     else if (strcmp(strval, "ENABLE4ALL") == 0)
         ep11_data->pkey_mode = PKEY_MODE_ENABLE4ALL;
+#endif /* NO_PKEY */
     else {
         TRACE_ERROR("%s unsupported PKEY mode : '%s'\n", __func__, strval);
         OCK_SYSLOG(LOG_ERR,"%s: Error: unsupported PKEY mode '%s' "
@@ -12456,7 +12536,11 @@ static CK_RV read_adapter_config_file(STDLL_TokData_t * tokdata,
                     sizeof(ep11_data->token_config_filename) - 1] = '\0';
 
     ep11_data->target_list.length = 0;
+#ifndef NO_PKEY
     ep11_data->pkey_mode = PKEY_MODE_DEFAULT;
+#else
+    ep11_data->pkey_mode = PKEY_MODE_DISABLED;
+#endif
 
     /* Default to use default libica library for digests */
     ep11_data->digest_libica = 1;
@@ -14695,10 +14779,12 @@ CK_RV token_specific_set_attribute_values(STDLL_TokData_t *tokdata,
         }
     }
 
+#ifndef NO_PKEY
     /* Ensure the firmware master key verification pattern is available */
     rc = ep11tok_pkey_get_firmware_mk_vp(tokdata, session);
     if (rc != CKR_OK && rc != CKR_FUNCTION_NOT_SUPPORTED)
         return rc;
+#endif /* NO_PKEY */
 
     node = new_tmpl->attribute_list;
     while (node) {
@@ -14734,6 +14820,7 @@ CK_RV token_specific_set_attribute_values(STDLL_TokData_t *tokdata,
                 goto out;
             }
             break;
+#ifndef NO_PKEY
         case CKA_IBM_PROTKEY_EXTRACTABLE:
             if (ep11_data->pkey_wrap_supported) {
                 rc = add_to_attribute_array(&attributes, &num_attributes,
@@ -14746,6 +14833,7 @@ CK_RV token_specific_set_attribute_values(STDLL_TokData_t *tokdata,
                 }
             }
             break;
+#endif /* NO_PKEY */
         default:
             /* Either non-boolean, or read-only */
             break;
