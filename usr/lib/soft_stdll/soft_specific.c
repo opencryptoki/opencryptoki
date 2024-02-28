@@ -26,6 +26,7 @@
 
 #include <openssl/opensslv.h>
 
+#include "platform.h"
 #include "pkcs11types.h"
 #include "defs.h"
 #include "host_defs.h"
@@ -38,7 +39,6 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
-#include <endian.h>
 
 #include <openssl/rand.h>
 #include <openssl/dh.h>
