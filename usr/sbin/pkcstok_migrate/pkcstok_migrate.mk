@@ -2,6 +2,10 @@ sbin_PROGRAMS += usr/sbin/pkcstok_migrate/pkcstok_migrate
 
 usr_sbin_pkcstok_migrate_pkcstok_migrate_LDFLAGS = -lcrypto -ldl -lrt
 
+if AIX
+usr_sbin_pkcstok_migrate_pkcstok_migrate_LDFLAGS += -lpthread
+endif
+
 usr_sbin_pkcstok_migrate_pkcstok_migrate_CFLAGS  =		\
 	-DSTDLL_NAME=\"pkcstok_migrate\"			\
 	-I${srcdir}/usr/include 				\
@@ -22,6 +26,11 @@ usr_sbin_pkcstok_migrate_pkcstok_migrate_SOURCES =		\
 	usr/lib/config/configuration.c				\
 	usr/lib/config/cfgparse.y 				\
 	usr/lib/config/cfglex.l
+
+if AIX
+usr_sbin_pkcstok_migrate_pkcstok_migrate_SOURCES += usr/lib/common/aix/err.c \
+	usr/lib/common/aix/getopt_long.c
+endif
 
 nodist_usr_sbin_pkcstok_migrate_pkcstok_migrate_SOURCES = \
 	usr/lib/api/mechtable.c
