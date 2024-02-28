@@ -15,7 +15,6 @@
  *
  */
 
-#define _GNU_SOURCE
 #include <stdio.h>
 #include <string.h>
 #include <strings.h>
@@ -30,13 +29,13 @@
 #include <dlfcn.h>
 #include <arpa/inet.h>
 #include <errno.h>
-#include <err.h>
 #include <regex.h>
 #include <dirent.h>
 #ifndef NO_PKEY
 #include <sys/ioctl.h>
 #include <asm/pkey.h>
 #endif
+#include "platform.h"
 #include "cca_stdll.h"
 #include "p11util.h"
 #include "tok_specific.h"
@@ -81,7 +80,19 @@ const char model[] = "CCA";
 const char descr[] = "IBM CCA Token";
 const char label[] = "ccatok";
 
+#if defined(_AIX)
+    /* GNU extension, provides a replacement */
+    void populate_progname(void);
+    extern char *program_invocation_short_name;
+
+    #if defined(__64BIT__) /* -q64 was passed */
+         #define CCASHAREDLIB "libcsufcca.a(sapi64)"
+    #else
+         #define CCASHAREDLIB "libcsufcca.a(sapi)"
+    #endif /* __64BIT__ */
+#else
 #define CCASHAREDLIB "libcsulcca.so"
+#endif
 
 #define CCA_MIN_VERSION     7
 #define CCA_MIN_RELEASE     1
@@ -172,10 +183,12 @@ static CSNBTRV_t dll_CSNBTRV;
 static CSNBSKY_t dll_CSNBSKY;
 static CSNBSPN_t dll_CSNBSPN;
 static CSNBPCU_t dll_CSNBPCU;
+#if !defined(_AIX)
 static CSUAPCV_t dll_CSUAPCV;
-static CSUAPRB_t dll_CSUAPRB;
 static CSUADHK_t dll_CSUADHK;
 static CSUADHQ_t dll_CSUADHQ;
+#endif
+static CSUAPRB_t dll_CSUAPRB;
 static CSNDTBC_t dll_CSNDTBC;
 static CSNDRKX_t dll_CSNDRKX;
 static CSNBKET_t dll_CSNBKET;
@@ -296,6 +309,7 @@ static CK_RV init_cca_adapter_lock(STDLL_TokData_t *tokdata)
     if (cnt > 1)
         return CKR_OK;
 
+#if !defined(_AIX)
     if (pthread_rwlockattr_init(&attr) != 0) {
         TRACE_ERROR("pthread_rwlockattr_init failed\n");
         OCK_SYSLOG(LOG_ERR, "%s: Failed to initialize the CCA adapter lock\n",
@@ -311,6 +325,7 @@ static CK_RV init_cca_adapter_lock(STDLL_TokData_t *tokdata)
         pthread_rwlockattr_destroy(&attr);
         return CKR_CANT_LOCK;
     }
+#endif
 
     if (pthread_rwlock_init(&cca_adapter_rwlock, &attr) != 0) {
         TRACE_ERROR("pthread_rwlock_init failed\n");
@@ -360,15 +375,49 @@ CK_BBOOL analyse_cca_key_token(const CK_BYTE *t, CK_ULONG tlen,
             return FALSE;
         }
         *keytype = sec_des_data_key;
-        if (t[4] == 0x00)
-            *keybitsize = 8 * 8;
-        else if (t[59] == 0x10)
-            *keybitsize = 16 * 8;
-        else if (t[59] == 0x20)
-            *keybitsize = 24 * 8;
-        else {
-            TRACE_DEVEL("CCA DES data key token has invalid/unknown keysize 0x%02x\n", (int)t[59]);
-            return FALSE;
+        if (t[4] == 0x00) { /* version 0 */
+            /* CV base is at offset 32, regardless of the type of key */
+            uint64_t *cv = ((uint64_t *)&(t[32]));
+            /* make it endian-safe */
+            *cv = be64toh(*cv);
+            /* bits 40-42, but numbered starting from the MSB */
+            uint64_t keyform_mask = 0xE00000;
+            /* rshift keyform to a form that'll fit in a byte */
+            uint8_t keyform = (*cv & keyform_mask) >> 21;
+
+            /*
+             * refer to Figure 37 of LoZ CCA Programmer's Guide, v8 (2014)
+             * also available online at https://www.ibm.com/docs/en/linux-on-systems?topic=table-control-vector-base-bit-maps#l0wskc02_cvbbmap__wskc_cv_base_bit_map_1_of_4
+             */
+            switch (keyform) {
+                case 0: {
+                    *keybitsize = 8 * 8;
+                    break;
+                }
+                case 2:   /* DOUBLE */
+                case 6: { /* DOUBLE-O */
+                    *keybitsize = 2 * 8 * 8;
+                    break;
+                }
+                case 3:   /* TRIPLE */
+                case 7: { /* TRIPLE-O */
+                    *keybitsize = 3 * 8 * 8;
+                    break;
+                }
+                default: {
+                    TRACE_DEVEL("CCA DES DATA CV keyform has invalid value (%02d) for version 0 format specifications.\n", keyform);
+                    return FALSE;
+                }
+            }
+        } else if (t[4] == 0x01) { /* version 1 */
+            if (t[59] == 0x10)
+                *keybitsize = 16 * 8;
+            else if (t[59] == 0x20)
+                *keybitsize = 24 * 8;
+            else {
+                TRACE_DEVEL("CCA DES data key token has invalid/unknown keysize 0x%02x for version 1 format specifications.\n", (int)t[59]);
+                return FALSE;
+            }
         }
         *mkvp = &t[8];
         return TRUE;
@@ -631,113 +680,121 @@ CK_RV token_specific_rng(STDLL_TokData_t * tokdata, CK_BYTE * output,
 
 static CK_RV cca_resolve_lib_sym(void *hdl)
 {
+    #define LDSYM_VERIFY(handle, verb)                     \
+    *(void **)(&dll_##verb) = dlsym(handle, #verb);        \
+    if ((error = dlerror()) != NULL) {                     \
+        OCK_SYSLOG(LOG_ERR,                                \
+            "Loading verb %s failed: %s\n", #verb, error); \
+        TRACE_ERROR("%s: Loading verb %s failed: %s\n",    \
+            __func__, #verb, error);                       \
+        return CKR_FUNCTION_FAILED;                        \
+    }
+
     char *error = NULL;
 
     dlerror();                  /* Clear existing error */
 
-    *(void **)(&dll_CSNBCKI) = dlsym(hdl, "CSNBCKI");
-    *(void **)(&dll_CSNBCKM) = dlsym(hdl, "CSNBCKM");
-    *(void **)(&dll_CSNBDKX) = dlsym(hdl, "CSNBDKX");
-    *(void **)(&dll_CSNBDKM) = dlsym(hdl, "CSNBDKM");
-    *(void **)(&dll_CSNBMKP) = dlsym(hdl, "CSNBMKP");
-    *(void **)(&dll_CSNBKEX) = dlsym(hdl, "CSNBKEX");
-    *(void **)(&dll_CSNBKGN) = dlsym(hdl, "CSNBKGN");
-    *(void **)(&dll_CSNBKGN2) = dlsym(hdl, "CSNBKGN2");
-    *(void **)(&dll_CSNBKIM) = dlsym(hdl, "CSNBKIM");
-    *(void **)(&dll_CSNBKPI) = dlsym(hdl, "CSNBKPI");
-    *(void **)(&dll_CSNBKPI2) = dlsym(hdl, "CSNBKPI2");
-    *(void **)(&dll_CSNBKSI) = dlsym(hdl, "CSNBKSI");
-    *(void **)(&dll_CSNBKRC) = dlsym(hdl, "CSNBKRC");
-    *(void **)(&dll_CSNBAKRC) = dlsym(hdl, "CSNBAKRC");
-    *(void **)(&dll_CSNBKRD) = dlsym(hdl, "CSNBKRD");
-    *(void **)(&dll_CSNBKRL) = dlsym(hdl, "CSNBKRL");
-    *(void **)(&dll_CSNBKRR) = dlsym(hdl, "CSNBKRR");
-    *(void **)(&dll_CSNBKRW) = dlsym(hdl, "CSNBKRW");
-    *(void **)(&dll_CSNDKRC) = dlsym(hdl, "CSNDKRC");
-    *(void **)(&dll_CSNDKRD) = dlsym(hdl, "CSNDKRD");
-    *(void **)(&dll_CSNDKRL) = dlsym(hdl, "CSNDKRL");
-    *(void **)(&dll_CSNDKRR) = dlsym(hdl, "CSNDKRR");
-    *(void **)(&dll_CSNDKRW) = dlsym(hdl, "CSNDKRW");
-    *(void **)(&dll_CSNBKYT) = dlsym(hdl, "CSNBKYT");
-    *(void **)(&dll_CSNBKYTX) = dlsym(hdl, "CSNBKYTX");
-    *(void **)(&dll_CSNBKTC) = dlsym(hdl, "CSNBKTC");
-    *(void **)(&dll_CSNBKTC2) = dlsym(hdl, "CSNBKTC2");
-    *(void **)(&dll_CSNBKTR) = dlsym(hdl, "CSNBKTR");
-    *(void **)(&dll_CSNBRNG) = dlsym(hdl, "CSNBRNG");
-    *(void **)(&dll_CSNBRNGL) = dlsym(hdl, "CSNBRNGL");
-    *(void **)(&dll_CSNBSAE) = dlsym(hdl, "CSNBSAE");
-    *(void **)(&dll_CSNBSAD) = dlsym(hdl, "CSNBSAD");
-    *(void **)(&dll_CSNBDEC) = dlsym(hdl, "CSNBDEC");
-    *(void **)(&dll_CSNBENC) = dlsym(hdl, "CSNBENC");
-    *(void **)(&dll_CSNBMGN) = dlsym(hdl, "CSNBMGN");
-    *(void **)(&dll_CSNBMVR) = dlsym(hdl, "CSNBMVR");
-    *(void **)(&dll_CSNBKTB) = dlsym(hdl, "CSNBKTB");
-    *(void **)(&dll_CSNBKTB2) = dlsym(hdl, "CSNBKTB2");
-    *(void **)(&dll_CSNDPKG) = dlsym(hdl, "CSNDPKG");
-    *(void **)(&dll_CSNDPKB) = dlsym(hdl, "CSNDPKB");
-    *(void **)(&dll_CSNBOWH) = dlsym(hdl, "CSNBOWH");
-    *(void **)(&dll_CSNDPKI) = dlsym(hdl, "CSNDPKI");
-    *(void **)(&dll_CSNDDSG) = dlsym(hdl, "CSNDDSG");
-    *(void **)(&dll_CSNDDSV) = dlsym(hdl, "CSNDDSV");
-    *(void **)(&dll_CSNDKTC) = dlsym(hdl, "CSNDKTC");
-    *(void **)(&dll_CSNDPKX) = dlsym(hdl, "CSNDPKX");
-    *(void **)(&dll_CSNDSYI) = dlsym(hdl, "CSNDSYI");
-    *(void **)(&dll_CSNDSYX) = dlsym(hdl, "CSNDSYX");
-    *(void **)(&dll_CSUACFQ) = dlsym(hdl, "CSUACFQ");
-    *(void **)(&dll_CSUACFC) = dlsym(hdl, "CSUACFC");
-    *(void **)(&dll_CSNDSBC) = dlsym(hdl, "CSNDSBC");
-    *(void **)(&dll_CSNDSBD) = dlsym(hdl, "CSNDSBD");
-    *(void **)(&dll_CSUALCT) = dlsym(hdl, "CSUALCT");
-    *(void **)(&dll_CSUAACM) = dlsym(hdl, "CSUAACM");
-    *(void **)(&dll_CSUAACI) = dlsym(hdl, "CSUAACI");
-    *(void **)(&dll_CSNDPKH) = dlsym(hdl, "CSNDPKH");
-    *(void **)(&dll_CSNDPKR) = dlsym(hdl, "CSNDPKR");
-    *(void **)(&dll_CSUAMKD) = dlsym(hdl, "CSUAMKD");
-    *(void **)(&dll_CSNDRKD) = dlsym(hdl, "CSNDRKD");
-    *(void **)(&dll_CSNDRKL) = dlsym(hdl, "CSNDRKL");
-    *(void **)(&dll_CSNDSYG) = dlsym(hdl, "CSNDSYG");
-    *(void **)(&dll_CSNBPTR) = dlsym(hdl, "CSNBPTR");
-    *(void **)(&dll_CSNBCPE) = dlsym(hdl, "CSNBCPE");
-    *(void **)(&dll_CSNBCPA) = dlsym(hdl, "CSNBCPA");
-    *(void **)(&dll_CSNBPGN) = dlsym(hdl, "CSNBPGN");
-    *(void **)(&dll_CSNBPVR) = dlsym(hdl, "CSNBPVR");
-    *(void **)(&dll_CSNBDKG) = dlsym(hdl, "CSNBDKG");
-    *(void **)(&dll_CSNBEPG) = dlsym(hdl, "CSNBEPG");
-    *(void **)(&dll_CSNBCVE) = dlsym(hdl, "CSNBCVE");
-    *(void **)(&dll_CSNBCSG) = dlsym(hdl, "CSNBCSG");
-    *(void **)(&dll_CSNBCSV) = dlsym(hdl, "CSNBCSV");
-    *(void **)(&dll_CSNBCVG) = dlsym(hdl, "CSNBCVG");
-    *(void **)(&dll_CSNBKTP) = dlsym(hdl, "CSNBKTP");
-    *(void **)(&dll_CSNDPKE) = dlsym(hdl, "CSNDPKE");
-    *(void **)(&dll_CSNDPKD) = dlsym(hdl, "CSNDPKD");
-    *(void **)(&dll_CSNBPEX) = dlsym(hdl, "CSNBPEX");
-    *(void **)(&dll_CSNBPEXX) = dlsym(hdl, "CSNBPEXX");
-    *(void **)(&dll_CSUARNT) = dlsym(hdl, "CSUARNT");
-    *(void **)(&dll_CSNBCVT) = dlsym(hdl, "CSNBCVT");
-    *(void **)(&dll_CSNBMDG) = dlsym(hdl, "CSNBMDG");
-    *(void **)(&dll_CSUACRA) = dlsym(hdl, "CSUACRA");
-    *(void **)(&dll_CSUACRD) = dlsym(hdl, "CSUACRD");
-    *(void **)(&dll_CSNBTRV) = dlsym(hdl, "CSNBTRV");
-    *(void **)(&dll_CSNBSKY) = dlsym(hdl, "CSNBSKY");
-    *(void **)(&dll_CSNBSPN) = dlsym(hdl, "CSNBSPN");
-    *(void **)(&dll_CSNBPCU) = dlsym(hdl, "CSNBPCU");
-    *(void **)(&dll_CSUAPCV) = dlsym(hdl, "CSUAPCV");
-    *(void **)(&dll_CSUAPRB) = dlsym(hdl, "CSUAPRB");
-    *(void **)(&dll_CSUADHK) = dlsym(hdl, "CSUADHK");
-    *(void **)(&dll_CSUADHQ) = dlsym(hdl, "CSUADHQ");
-    *(void **)(&dll_CSNDTBC) = dlsym(hdl, "CSNDTBC");
-    *(void **)(&dll_CSNDRKX) = dlsym(hdl, "CSNDRKX");
-    *(void **)(&dll_CSNBKET) = dlsym(hdl, "CSNBKET");
-    *(void **)(&dll_CSNBHMG) = dlsym(hdl, "CSNBHMG");
-    *(void **)(&dll_CSNBHMV) = dlsym(hdl, "CSNBHMV");
-    *(void **)(&dll_CSNBCTT2) = dlsym(hdl, "CSNBCTT2");
-    *(void **)(&dll_CSUACFV) = dlsym(hdl, "CSUACFV");
+    LDSYM_VERIFY(hdl, CSNBCKI);
+    LDSYM_VERIFY(hdl, CSNBCKM);
+    LDSYM_VERIFY(hdl, CSNBDKX);
+    LDSYM_VERIFY(hdl, CSNBDKM);
+    LDSYM_VERIFY(hdl, CSNBMKP);
+    LDSYM_VERIFY(hdl, CSNBKEX);
+    LDSYM_VERIFY(hdl, CSNBKGN);
+    LDSYM_VERIFY(hdl, CSNBKGN2);
+    LDSYM_VERIFY(hdl, CSNBKIM);
+    LDSYM_VERIFY(hdl, CSNBKPI);
+    LDSYM_VERIFY(hdl, CSNBKPI2);
+    LDSYM_VERIFY(hdl, CSNBKSI);
+    LDSYM_VERIFY(hdl, CSNBKRC);
+    LDSYM_VERIFY(hdl, CSNBAKRC);
+    LDSYM_VERIFY(hdl, CSNBKRD);
+    LDSYM_VERIFY(hdl, CSNBKRL);
+    LDSYM_VERIFY(hdl, CSNBKRR);
+    LDSYM_VERIFY(hdl, CSNBKRW);
+    LDSYM_VERIFY(hdl, CSNDKRC);
+    LDSYM_VERIFY(hdl, CSNDKRD);
+    LDSYM_VERIFY(hdl, CSNDKRL);
+    LDSYM_VERIFY(hdl, CSNDKRR);
+    LDSYM_VERIFY(hdl, CSNDKRW);
+    LDSYM_VERIFY(hdl, CSNBKYT);
+    LDSYM_VERIFY(hdl, CSNBKYTX);
+    LDSYM_VERIFY(hdl, CSNBKTC);
+    LDSYM_VERIFY(hdl, CSNBKTC2);
+    LDSYM_VERIFY(hdl, CSNBKTR);
+    LDSYM_VERIFY(hdl, CSNBRNG);
+    LDSYM_VERIFY(hdl, CSNBRNGL);
+    LDSYM_VERIFY(hdl, CSNBSAE);
+    LDSYM_VERIFY(hdl, CSNBSAD);
+    LDSYM_VERIFY(hdl, CSNBDEC);
+    LDSYM_VERIFY(hdl, CSNBENC);
+    LDSYM_VERIFY(hdl, CSNBMGN);
+    LDSYM_VERIFY(hdl, CSNBMVR);
+    LDSYM_VERIFY(hdl, CSNBKTB);
+    LDSYM_VERIFY(hdl, CSNBKTB2);
+    LDSYM_VERIFY(hdl, CSNDPKG);
+    LDSYM_VERIFY(hdl, CSNDPKB);
+    LDSYM_VERIFY(hdl, CSNBOWH);
+    LDSYM_VERIFY(hdl, CSNDPKI);
+    LDSYM_VERIFY(hdl, CSNDDSG);
+    LDSYM_VERIFY(hdl, CSNDDSV);
+    LDSYM_VERIFY(hdl, CSNDKTC);
+    LDSYM_VERIFY(hdl, CSNDPKX);
+    LDSYM_VERIFY(hdl, CSNDSYI);
+    LDSYM_VERIFY(hdl, CSNDSYX);
+    LDSYM_VERIFY(hdl, CSUACFQ);
+    LDSYM_VERIFY(hdl, CSUACFC);
+    LDSYM_VERIFY(hdl, CSNDSBC);
+    LDSYM_VERIFY(hdl, CSNDSBD);
+    LDSYM_VERIFY(hdl, CSUALCT);
+    LDSYM_VERIFY(hdl, CSUAACM);
+    LDSYM_VERIFY(hdl, CSUAACI);
+    LDSYM_VERIFY(hdl, CSNDPKH);
+    LDSYM_VERIFY(hdl, CSNDPKR);
+    LDSYM_VERIFY(hdl, CSUAMKD);
+    LDSYM_VERIFY(hdl, CSNDRKD);
+    LDSYM_VERIFY(hdl, CSNDRKL);
+    LDSYM_VERIFY(hdl, CSNDSYG);
+    LDSYM_VERIFY(hdl, CSNBPTR);
+    LDSYM_VERIFY(hdl, CSNBCPE);
+    LDSYM_VERIFY(hdl, CSNBCPA);
+    LDSYM_VERIFY(hdl, CSNBPGN);
+    LDSYM_VERIFY(hdl, CSNBPVR);
+    LDSYM_VERIFY(hdl, CSNBDKG);
+    LDSYM_VERIFY(hdl, CSNBEPG);
+    LDSYM_VERIFY(hdl, CSNBCVE);
+    LDSYM_VERIFY(hdl, CSNBCSG);
+    LDSYM_VERIFY(hdl, CSNBCSV);
+    LDSYM_VERIFY(hdl, CSNBCVG);
+    LDSYM_VERIFY(hdl, CSNBKTP);
+    LDSYM_VERIFY(hdl, CSNDPKE);
+    LDSYM_VERIFY(hdl, CSNDPKD);
+    LDSYM_VERIFY(hdl, CSNBPEX);
+    LDSYM_VERIFY(hdl, CSNBPEXX);
+    LDSYM_VERIFY(hdl, CSUARNT);
+    LDSYM_VERIFY(hdl, CSNBCVT);
+    LDSYM_VERIFY(hdl, CSNBMDG);
+    LDSYM_VERIFY(hdl, CSUACRA);
+    LDSYM_VERIFY(hdl, CSUACRD);
+    LDSYM_VERIFY(hdl, CSNBTRV);
+    LDSYM_VERIFY(hdl, CSNBSKY);
+    LDSYM_VERIFY(hdl, CSNBSPN);
+    LDSYM_VERIFY(hdl, CSNBPCU);
 
-    if ((error = dlerror()) != NULL) {
-        OCK_SYSLOG(LOG_ERR, "%s\n", error);
-        TRACE_ERROR("%s %s\n", __func__, error);
-        return CKR_FUNCTION_FAILED;
-    }
+#if !defined(_AIX)
+    LDSYM_VERIFY(hdl, CSUAPCV);
+    LDSYM_VERIFY(hdl, CSUADHK);
+    LDSYM_VERIFY(hdl, CSUADHQ);
+#endif
+
+    LDSYM_VERIFY(hdl, CSUAPRB);
+    LDSYM_VERIFY(hdl, CSNDTBC);
+    LDSYM_VERIFY(hdl, CSNDRKX);
+    LDSYM_VERIFY(hdl, CSNBKET);
+    LDSYM_VERIFY(hdl, CSNBHMG);
+    LDSYM_VERIFY(hdl, CSNBHMV);
+    LDSYM_VERIFY(hdl, CSNBCTT2);
+    LDSYM_VERIFY(hdl, CSUACFV);
 
     return CKR_OK;
 }
@@ -753,6 +810,12 @@ static CK_RV cca_get_version(STDLL_TokData_t *tokdata)
     long exit_data_len = 0;
     char date[20];
 
+#if defined(_AIX)
+    const char *verstrfmt = "%u.%u.%uc %s";
+#else
+    const char *verstrfmt = "%u.%u.%uz%s";
+#endif
+
     /* Get CCA host library version */
     version_data_length = sizeof(version_data);
     dll_CSUACFV(&return_code, &reason_code,
@@ -764,10 +827,10 @@ static CK_RV cca_get_version(STDLL_TokData_t *tokdata)
         return CKR_FUNCTION_FAILED;
     }
 
-    version_data[sizeof(version_data) - 1] = '\0';
+    /* CSUACFV returns a null-terminated version string */
     TRACE_DEVEL("CCA Version string: %s\n", version_data);
 
-    if (sscanf((char *)version_data, "%u.%u.%uz%s",
+    if (sscanf((char *)version_data, verstrfmt,
                &cca_private->cca_lib_version.ver,
                &cca_private->cca_lib_version.rel,
                &cca_private->cca_lib_version.mod, date) != 4) {
@@ -1057,6 +1120,11 @@ static CK_RV cca_get_and_check_mkvps(STDLL_TokData_t *tokdata,
 
     UNUSED(private);
 
+#if defined(_AIX)
+    /* populate program_invocation_short_name for later use */
+    populate_progname();
+#endif
+
     /* Get current adapter serial number */
     rc = cca_get_adapter_serial_number(serialno);
     if (rc != CKR_OK) {
@@ -1268,6 +1336,9 @@ static CK_RV cca_get_and_check_mkvps(STDLL_TokData_t *tokdata,
 
 static CK_RV cca_get_current_domain(unsigned short *domain)
 {
+#if defined(_AIX)
+    *domain = 0;
+#else
     const char *val;
     unsigned int num;
     char fname[290];
@@ -1298,6 +1369,7 @@ static CK_RV cca_get_current_domain(unsigned short *domain)
         return CKR_FUNCTION_FAILED;
 
     *domain = num;
+#endif
     return CKR_OK;
 }
 
@@ -1321,6 +1393,11 @@ static CK_RV cca_get_current_card(unsigned short *card, char *serialret)
 
     TRACE_DEVEL("serialno: %s\n", serialno);
 
+#if defined(_AIX)
+    /* default card is always the first card */
+    *card = 0;
+    found = TRUE;
+#else
     if (regcomp(&reg_buf, REGEX_CARD_PATTERN, REG_EXTENDED) != 0) {
         TRACE_ERROR("Failed to compile regular expression '%s'\n",
                     REGEX_CARD_PATTERN);
@@ -1365,6 +1442,7 @@ static CK_RV cca_get_current_card(unsigned short *card, char *serialret)
 
     closedir(d);
     regfree(&reg_buf);
+#endif /* _AIX */
 
     if (found && serialret != NULL)
         strcpy(serialret, serialno);
@@ -1533,7 +1611,7 @@ CK_RV cca_iterate_adapters(STDLL_TokData_t *tokdata,
 {
     struct cca_private_data *cca_private = tokdata->private_data;
     unsigned int adapter, num_found = 0;
-    char device_name[9];
+    char device_name[9] = {0, };
     unsigned short card, domain;
     CK_RV rc, rc2;
 
@@ -1585,6 +1663,17 @@ static CK_RV cca_get_adapter_domain_selection_infos(STDLL_TokData_t *tokdata)
     unsigned int i;
     const char *val;
 
+#if !defined(_AIX)
+    /*
+     * AIX does not have the luxury to identify the default card/domain
+     * combination that is assigned to an LPAR/host - this data is exposed
+     * through sysfs, but only in case of Linux on Z. Because of this, we must
+     * lean on the host library to decide which card to use when there is no
+     * user preference - the default card we use is the one that is the first
+     * entry written to the data buffer by the host library.
+     *
+     * That's why we force ANY device/domain usage onto the host library
+     */
     /* Check if adapter and/or domain auto-selection is used */
     val = getenv(CCA_DEFAULT_ADAPTER_ENVAR);
     if (val != NULL && strcmp(val, CCA_DEVICE_ANY) == 0)
@@ -1595,7 +1684,7 @@ static CK_RV cca_get_adapter_domain_selection_infos(STDLL_TokData_t *tokdata)
     if (val != NULL && strcmp(val, CCA_DOMAIN_ANY) == 0)
         cca_private->dom_any = TRUE;
     TRACE_DEVEL("dom_any: %d\n", cca_private->dom_any);
-
+#endif
     /* Get number of adapters, current adapter serial number */
     memcpy(rule_array, "STATCRD2", CCA_KEYWORD_SIZE);
     rule_array_count = 1;
@@ -1619,6 +1708,17 @@ static CK_RV cca_get_adapter_domain_selection_infos(STDLL_TokData_t *tokdata)
     }
     TRACE_DEVEL("num_adapters: %u\n", cca_private->num_adapters);
 
+#if defined(_AIX)
+   /*
+    * Short-circuit! If we're on AIX, it means the card does not support CCA
+    * DOMAINs. Therefore we force a single domain and skip all future tests.
+    *
+    * Future commits might remove conditional compilation if Z-hosted cards are
+    * enabled to be used remotely on AIX.
+    */
+    cca_private->num_usagedoms = 1;
+    cca_private->num_domains = 1;
+#else
     /* Get number of domains */
     memcpy(rule_array, "DOM-NUMS", CCA_KEYWORD_SIZE);
     rule_array_count = 1;
@@ -1659,6 +1759,7 @@ static CK_RV cca_get_adapter_domain_selection_infos(STDLL_TokData_t *tokdata)
     }
     cca_private->num_usagedoms = i;
     TRACE_DEVEL("num_usagedoms: %u\n", cca_private->num_usagedoms);
+#endif
 
     return CKR_OK;
 }
@@ -3529,6 +3630,7 @@ static CK_RV cca_get_min_card_level(STDLL_TokData_t *tokdata)
         ret = CKR_CANT_LOCK;
         goto done;
     }
+
     cca_private->min_card_version = card_level_data.min_card_version;
     if (pthread_rwlock_unlock(&cca_private->min_card_version_rwlock) != 0) {
         TRACE_ERROR("CCA min_card_version RW-unlock failed.\n");
@@ -3583,7 +3685,7 @@ CK_RV token_specific_init(STDLL_TokData_t * tokdata, CK_SLOT_ID SlotNumber,
         goto error;
     }
 
-    cca_private->lib_csulcca = dlopen(CCASHAREDLIB, RTLD_GLOBAL | RTLD_NOW);
+    cca_private->lib_csulcca = dlopen(CCASHAREDLIB, RTLD_GLOBAL | DYNLIB_LDFLAGS);
     if (cca_private->lib_csulcca == NULL) {
         OCK_SYSLOG(LOG_ERR, "%s: Error loading library: '%s' [%s]\n",
                    __func__, CCASHAREDLIB, dlerror());
@@ -3622,6 +3724,12 @@ CK_RV token_specific_init(STDLL_TokData_t * tokdata, CK_SLOT_ID SlotNumber,
     if (rc != CKR_OK)
         goto error;
 
+    if (pthread_rwlock_init(&cca_private->min_card_version_rwlock, NULL) != 0) {
+        TRACE_ERROR("Initializing the min_card_version RW-Lock failed\n");
+        rc = CKR_CANT_LOCK;
+        goto error;
+    }
+
     rc = cca_get_min_card_level(tokdata);
     if (rc != CKR_OK)
         goto error;
@@ -3629,12 +3737,6 @@ CK_RV token_specific_init(STDLL_TokData_t * tokdata, CK_SLOT_ID SlotNumber,
 #ifndef NO_PKEY
     cca_private->msa_level = get_msa_level();
     TRACE_INFO("MSA level = %i\n", cca_private->msa_level);
-
-    if (pthread_rwlock_init(&cca_private->min_card_version_rwlock, NULL) != 0) {
-        TRACE_ERROR("Initializing the min_card_version RW-Lock failed\n");
-        rc = CKR_CANT_LOCK;
-        goto error;
-    }
 
     if (!ccatok_pkey_option_disabled(tokdata)) {
         cca_private->pkeyfd = open(PKEYDEVICE, O_RDWR);
@@ -3729,8 +3831,11 @@ static CK_RV cca_key_gen(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
         case 8:
             memcpy(key_length, "KEYLN8  ", (size_t) CCA_KEYWORD_SIZE);
             break;
+        case 16:
+            memcpy(key_length, "DOUBLE-O", (size_t) CCA_KEYWORD_SIZE);
+            break;
         case 24:
-            memcpy(key_length, "KEYLN24 ", (size_t) CCA_KEYWORD_SIZE);
+            memcpy(key_length, "TRIPLE-O", (size_t) CCA_KEYWORD_SIZE);
             break;
         default:
             TRACE_ERROR("Invalid key length: %lu\n", key_size);
@@ -7572,7 +7677,7 @@ err:
 
     if (rc == CKR_OK) {
         TRACE_DEBUG("%s: imported object template attributes:\n", __func__);
-	TRACE_DEBUG_DUMPTEMPL(priv_tmpl);
+        TRACE_DEBUG_DUMPTEMPL(priv_tmpl);
     }
 
     return rc;
@@ -9318,25 +9423,31 @@ static CK_RV ccatok_unwrap_key_rsa_pkcs(STDLL_TokData_t *tokdata,
 
     switch (buffer[4]) {
     case 0x00: /* DES key token */
-    case 0x01: /* DES3 key token */
-        switch (buffer[59] & 0x30) {
-        case 0x00:
+    case 0x01: { /* DES3 key token */
+        /* analyse_cca_key_token has already reliably identified
+           the token type, so use that */
+        switch(keybitsize) {
+        case (1 * DES_KEY_SIZE * 8):
             cca_key_type = CKK_DES;
             key_size = DES_KEY_SIZE;
             break;
-        case 0x10:
+
+        case (2 * DES_KEY_SIZE * 8):
             cca_key_type = CKK_DES2;
             key_size = 2 * DES_KEY_SIZE;
             break;
-        case 0x20:
+
+        case (3 * DES_KEY_SIZE * 8):
             cca_key_type = CKK_DES3;
             key_size = 3 * DES_KEY_SIZE;
             break;
+
         default:
             TRACE_DEVEL("key token invalid\n");
             return CKR_FUNCTION_FAILED;
         }
         break;
+    }
     case 0x04:/* AES key token */
         cca_key_type = CKK_AES;
         memcpy(&val, &buffer[56], sizeof(val));
