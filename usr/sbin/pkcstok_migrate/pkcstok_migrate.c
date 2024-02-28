@@ -14,13 +14,20 @@
  *
  */
 
-#define _GNU_SOURCE
 #include <dlfcn.h>
 #include <err.h>
 #include <errno.h>
-#include <getopt.h>
 #include <memory.h>
-#include <linux/limits.h>
+
+#if defined(_AIX)
+    #include <limits.h>
+    #include <endian.h>
+    const char *__progname = "pkcstok_migrate";
+#else
+    #include <getopt.h>
+    #include <linux/limits.h>
+#endif
+
 #include <openssl/evp.h>
 #include <string.h>
 #include <stdio.h>
@@ -2302,7 +2309,27 @@ static CK_RV folder_copy(char *dst, const char *src)
 
     /* Copy folder recursively, skip the "." and ".." entries */
     while ((entry = readdir(dir)) != NULL) {
+#if defined(_AIX)
+        /* POSIX does not mandate the d_type member, so get that with stat */
+        struct stat buf;
+        int rc;
+
+        strncpy(s, src, PATH_MAX - NAME_MAX - 1);
+        /* strncpy will NOT include NULL if it copied exactly n bytes */
+        s[PATH_MAX - NAME_MAX] = '\0';
+        strncat(s, "/", 1);
+        strncat(s, entry->d_name, NAME_MAX);
+
+        rc = stat(s, &buf);
+        if (rc != 0) {
+            TRACE_ERROR("Cannot stat file %s: %d", entry->d_name, rc);
+            continue; /* something went wrong, skip */
+        }
+
+        if (S_ISDIR(buf.st_mode)) {
+#else
         if (entry->d_type == DT_DIR) {
+#endif
             if (strncmp(entry->d_name, ".", 1) != 0) {
                 snprintf(d, PATH_MAX, "%s/%s", dst, entry->d_name);
                 snprintf(s, PATH_MAX, "%s/%s", src, entry->d_name);
