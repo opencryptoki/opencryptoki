@@ -15,10 +15,17 @@ opencryptoki_libopencryptoki_la_CFLAGS =				\
 	-DSTDLL_NAME=\"api\" -DHASHMAP_JENKINS_MIX  			\
 	-I${top_builddir}/usr/lib/api
 
+if AIX
+opencryptoki_libopencryptoki_la_LDFLAGS =				\
+	-shared -lc -ldl -lpthread -lcrypto -lrt -Wl,-binitfini:api_init:api_fini \
+	-version-info $(SO_CURRENT):$(SO_REVISION):$(SO_AGE) \
+	-Wl,-bnoautoexp -export-symbols ${srcdir}/opencryptoki.map.sym
+else
 opencryptoki_libopencryptoki_la_LDFLAGS =				\
 	-shared	-Wl,-z,defs,-Bsymbolic -lc -ldl -lpthread -lcrypto -lrt	\
 	-version-info $(SO_CURRENT):$(SO_REVISION):$(SO_AGE)		\
 	-Wl,--version-script=${srcdir}/opencryptoki.map
+endif
 
 opencryptoki_libopencryptoki_la_SOURCES = usr/lib/api/api_interface.c	\
 	usr/lib/api/shrd_mem.c usr/lib/api/socket_client.c		\
