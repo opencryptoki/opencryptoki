@@ -13,7 +13,11 @@
 #define _HOST_DEFS_H
 
 #include <pthread.h>
-#include <endian.h>
+#if defined(_AIX)
+    #include <sys/machine.h>
+#else
+    #include <endian.h>
+#endif
 
 #include "pkcs32.h"
 #include <stdint.h>
