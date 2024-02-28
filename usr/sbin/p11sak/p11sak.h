@@ -14,7 +14,7 @@
 #include "pkcs11types.h"
 #include "ec_curves.h"
 
-#define P11SAK_DEFAULT_PKCS11_LIB           "libopencryptoki.so";
+#define P11SAK_DEFAULT_PKCS11_LIB           OCK_API_LIBNAME;
 #define P11SAK_PKCSLIB_ENV_NAME             "PKCSLIB"
 #define PKCS11_USER_PIN_ENV_NAME            "PKCS11_USER_PIN"
 #define PKCS11_SO_PIN_ENV_NAME              "PKCS11_SO_PIN"
