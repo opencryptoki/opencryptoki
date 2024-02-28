@@ -10,9 +10,15 @@ opencryptoki_stdll_libpkcs11_sw_la_CFLAGS =				\
 	-DSTDLL_NAME=\"swtok\" -I${top_builddir}/usr/lib/api		\
 	-I${srcdir}/usr/lib/api
 
+if AIX
+opencryptoki_stdll_libpkcs11_sw_la_LDFLAGS = -qmkshrobj -lc \
+	-lpthread -lcrypto -lrt -Wl,-bnoautoexp -Wl,-bstatic,-llber,-bdynamic \
+	-export-symbols ${srcdir}/opencryptoki_tok.map.sym
+else
 opencryptoki_stdll_libpkcs11_sw_la_LDFLAGS =				\
 	-shared -Wl,-z,defs,-Bsymbolic -lc -lpthread -lcrypto -lrt	\
 	-llber -Wl,--version-script=${srcdir}/opencryptoki_tok.map
+endif
 
 opencryptoki_stdll_libpkcs11_sw_la_SOURCES =				\
 	usr/lib/common/asn1.c usr/lib/common/cert.c			\
