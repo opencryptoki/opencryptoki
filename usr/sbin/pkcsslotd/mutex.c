@@ -25,16 +25,15 @@ static int xplfd = -1;
 int CreateXProcLock(void)
 {
     struct group *grp;
-    mode_t mode = (S_IRUSR | S_IRGRP);
 
     if (xplfd == -1)
-        xplfd = open(OCK_API_LOCK_FILE, O_RDONLY);
+        xplfd = open(OCK_API_LOCK_FILE, OPEN_MODE);
 
     if (xplfd == -1) {
-        xplfd = open(OCK_API_LOCK_FILE, O_CREAT | O_RDONLY, mode);
+        xplfd = open(OCK_API_LOCK_FILE, O_CREAT | OPEN_MODE, MODE_BITS);
 
         if (xplfd != -1) {
-            if (fchmod(xplfd, mode) == -1) {
+            if (fchmod(xplfd, MODE_BITS) == -1) {
                 DbgLog(DL0, "%s:fchmod(%s):%s\n",
                        __func__, OCK_API_LOCK_FILE, strerror(errno));
                 goto error;
@@ -53,7 +52,7 @@ int CreateXProcLock(void)
                        __func__, strerror(errno));
                 goto error;
             }
-        } else  {
+        } else {
             DbgLog(DL0, "open(%s): %s\n", OCK_API_LOCK_FILE, strerror(errno));
             return FALSE;
         }
@@ -71,6 +70,7 @@ error:
 void DestroyXProcLock(void)
 {
     close(xplfd);
+    unlink(OCK_API_LOCK_FILE);
 }
 
 int XProcLock(void)
