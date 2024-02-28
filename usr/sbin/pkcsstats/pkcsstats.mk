@@ -15,3 +15,9 @@ usr_sbin_pkcsstats_pkcsstats_SOURCES =			\
 	usr/lib/common/p11util.c			\
 	usr/lib/api/supportedstrengths.c		\
 	usr/lib/api/mechtable.c
+
+if AIX
+usr_sbin_pkcsstats_pkcsstats_SOURCES += usr/lib/common/aix/err.c \
+	usr/lib/common/aix/getopt_long.c
+usr_sbin_pkcsstats_pkcsstats_LDFLAGS += -Wl,-blibpath:$(libdir)/opencryptoki:$(libdir)/opencryptoki/stdll:/usr/lib:/usr/lib64
+endif
