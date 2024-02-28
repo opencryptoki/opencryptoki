@@ -45,6 +45,12 @@ pthread_rwlock_t xplfd_rwlock = PTHREAD_RWLOCK_INITIALIZER;
 
 #define LIBLOCATION  LIB_PATH
 
+#if defined(_AIX)
+    #define SO_LDFLAGS (RTLD_LOCAL | RTLD_LAZY | RTLD_MEMBER)
+#else
+    #define SO_LDFLAGS (RTLD_LOCAL | RTLD_LAZY)
+#endif
+
 extern API_Proc_Struct_t *Anchor;
 
 #include <stdarg.h>
@@ -58,7 +64,7 @@ CK_RV CreateProcLock(void)
         /* The slot mgr daemon should have already created lock,
          * so just open it so we can get a lock...
          */
-        xplfd = open(OCK_API_LOCK_FILE, O_RDONLY);
+        xplfd = open(OCK_API_LOCK_FILE, OPEN_MODE);
 
         if (xplfd == -1) {
             OCK_SYSLOG(LOG_ERR, "Could not open %s\n", OCK_API_LOCK_FILE);
@@ -589,7 +595,7 @@ int DL_Load(Slot_Info_t *sinfp, API_Slot_t *sltp, DLL_Load_t *dllload)
 
     dllload[i].dll_name = sinfp->dll_location;  // Point to the location
 
-    dllload[i].dlop_p = dlopen(sinfp->dll_location, (RTLD_GLOBAL | RTLD_LAZY));
+    dllload[i].dlop_p = dlopen(sinfp->dll_location, SO_LDFLAGS);
 
     if (dllload[i].dlop_p != NULL) {
         sltp->dlop_p = dllload[i].dlop_p;
