@@ -13,11 +13,9 @@
  *
  */
 
-#define _GNU_SOURCE
+#include "platform.h"
 #include <fcntl.h>
-#include <err.h>
 #include <errno.h>
-#include <getopt.h>
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -34,6 +32,12 @@
 #include <dirent.h>
 #include <pkcs11types.h>
 
+#if defined(_AIX)
+    #include <libgen.h>
+    const char *__progname = "pkcsstats";
+#endif
+
+#include "platform.h"
 #include "statistics.h"
 #include "p11util.h"
 
@@ -152,6 +156,9 @@ typedef int (*user_f)(int user_id, const char *user_name, void *private);
 
 static int for_all_users(user_f user_cb, void *cb_private)
 {
+#if defined(_AIX)
+    return 0;
+#else
     char shm_prefix[PATH_MAX];
     struct dirent *direntp;
     DIR *shmDir;
@@ -186,6 +193,7 @@ static int for_all_users(user_f user_cb, void *cb_private)
 
     closedir(shmDir);
     return rc;
+#endif
 }
 
 typedef int (*slot_f)(CK_SLOT_ID slot_id, CK_BYTE *slot_data,
@@ -713,7 +721,7 @@ int init_ock(void **dll, CK_FUNCTION_LIST_PTR *func_list)
     void (*sym_ptr)(CK_FUNCTION_LIST_PTR_PTR ppFunctionList);
     CK_RV rc;
 
-    *dll = dlopen("libopencryptoki.so", RTLD_NOW);
+    *dll = dlopen(OCK_API_LIBNAME, DYNLIB_LDFLAGS);
     if (*dll == NULL) {
         warnx("Error loading PKCS#11 library: dlopen: %s", dlerror());
         return 1;
@@ -828,18 +836,26 @@ int main(int argc, char **argv)
             user_id = pswd->pw_uid;
             break;
         case 'S':
+#ifdef _AIX
+            warnx("This option is unsupported on AIX; only showing statistics for current user.");
+#else
             if (geteuid() != 0) {
                 warnx("You have no rights to display the statistics from all users");
                 return EXIT_FAILURE;
             }
             summary = true;
+#endif
             break;
         case 'A':
+#ifdef _AIX
+            warnx("This option is unsupported on AIX; only using statistics for current user.");
+#else
             if (geteuid() != 0) {
                 warnx("You have no rights to display the statistics from all users");
                 return EXIT_FAILURE;
             }
             all_users = true;
+#endif
             break;
         case 'a':
             all_mechs = true;
@@ -858,21 +874,29 @@ int main(int argc, char **argv)
             reset = true;
             break;
         case 'R':
+#ifdef _AIX
+            warnx("This option is unsupported on AIX; only showing statistics for current user.");
+#else
             if (geteuid() != 0) {
                 warnx("You have no rights to reset the statistics from all users");
                 return EXIT_FAILURE;
             }
             reset_all = true;
+#endif
             break;
         case 'd':
             delete = true;
             break;
         case 'D':
+#ifdef _AIX
+            warnx("This option is unsupported on AIX; only showing statistics for current user.");
+#else
             if (geteuid() != 0) {
                 warnx("You have no rights to delete the statistics from all users");
                 return EXIT_FAILURE;
             }
             delete_all = true;
+#endif
             break;
         case 'j':
             json = true;
