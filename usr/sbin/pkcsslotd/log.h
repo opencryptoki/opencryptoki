@@ -60,7 +60,9 @@
  *  - SCM
  ************************************************************************/
 
+#if !defined(_ALL_SOURCE)
 typedef unsigned int u_int32;
+#endif
 
 typedef u_int32 LogHandle, *pLogHandle;
 typedef u_int32 BOOL, bool, BOOLEAN, boolean;
