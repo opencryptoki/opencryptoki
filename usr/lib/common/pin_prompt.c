@@ -49,8 +49,8 @@ void pin_free(char **buf)
 
 const char *pin_prompt(char **buf, const char *msg)
 {
-    ssize_t n;
-    size_t s;
+    ssize_t n = 0;
+    size_t s = 0;
 
     if (!buf || *buf)
         return NULL;

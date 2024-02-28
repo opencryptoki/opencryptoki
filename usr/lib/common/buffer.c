@@ -7,13 +7,14 @@
  * found in the file LICENSE file or at
  * https://opensource.org/licenses/cpl1.0.php
  */
-#define _GNU_SOURCE
+
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-#include <buffer.h>
+#include "platform.h"
+#include "buffer.h"
 
 #define BUFFER_INIT_SIZE	(128ul)
 

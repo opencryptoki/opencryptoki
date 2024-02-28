@@ -11,6 +11,12 @@
 #ifndef _TRACE_H
 #define _TRACE_H
 
+#if defined(__GNUC__) && __GNUC__ >= 7 || defined(__clang__) && __clang_major__ >= 12
+    #define PRINTF_FORMAT __attribute__ ((format(printf, 5, 6)))
+#else
+    #define PRINTF_FORMAT
+#endif
+
 #include "defs.h"
 #include "host_defs.h"
 
@@ -123,7 +129,7 @@ CK_RV trace_initialize(void);
 void trace_finalize(void);
 void ock_traceit(trace_level_t level, const char *file, int line,
                  const char *stdll_name, const char *fmt, ...)
-                 __attribute__ ((format(printf, 5, 6)));
+                 PRINTF_FORMAT;
 const char *ock_err(int num);
 
 
