@@ -8,7 +8,9 @@
  * https://opensource.org/licenses/cpl1.0.php
  */
 
-#define _GNU_SOURCE
+#if defined(_AIX)
+    const char *__progname = "p11sak";
+#endif
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -17,12 +19,16 @@
 #include <strings.h>
 #include <stdbool.h>
 #include <unistd.h>
-#include <getopt.h>
-#include <err.h>
 #include <limits.h>
 #include <dlfcn.h>
 #include <pwd.h>
 #include <ctype.h>
+#include "platform.h"
+
+#if !defined(_AIX)
+    #include <linux/limits.h>
+#endif /* _AIX */
+
 #include <fnmatch.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -48,9 +54,9 @@
 #include "uri.h"
 
 #if OPENSSL_VERSION_PREREQ(3, 0)
-#include <openssl/core_names.h>
-#include <openssl/decoder.h>
-#include <openssl/param_build.h>
+    #include <openssl/core_names.h>
+    #include <openssl/decoder.h>
+    #include <openssl/param_build.h>
 #endif
 
 static CK_RV p11sak_generate_key(void);
@@ -2214,6 +2220,10 @@ static const struct p11sak_custom_attr_type custom_attr_types[] = {
     { .type = NULL, },
 };
 
+#if defined(_AIX)
+    static void *global_private = NULL;
+#endif
+
 static const struct p11sak_cmd *find_command(const char *cmd)
 {
     unsigned int i;
@@ -3079,12 +3089,15 @@ static CK_RV add_attribute(CK_ATTRIBUTE_TYPE type, const void *value,
 
     tmp[*num_attrs].type = type;
     tmp[*num_attrs].ulValueLen = value_len;
-    tmp[*num_attrs].pValue = malloc(value_len);
-    if (tmp[*num_attrs].pValue == NULL) {
-        warnx("Failed to allocate memory attribute to add to list");
-        return CKR_HOST_MEMORY;
+    tmp[*num_attrs].pValue = NULL;
+    if (value_len != 0) {
+        tmp[*num_attrs].pValue = malloc(value_len);
+        if (tmp[*num_attrs].pValue == NULL) {
+            warnx("Failed to allocate memory attribute to add to list");
+            return CKR_HOST_MEMORY;
+        }
+        memcpy(tmp[*num_attrs].pValue, value, value_len);
     }
-    memcpy(tmp[*num_attrs].pValue, value, value_len);
 
     (*num_attrs)++;
 
@@ -4567,7 +4580,6 @@ static CK_RV get_obj_infos(CK_OBJECT_HANDLE obj, CK_OBJECT_CLASS *class,
     return CKR_OK;
 }
 
-
 static int iterate_compare(const void *a, const void *b, void *private)
 {
     struct p11sak_iterate_compare_data *data = private;
@@ -4576,7 +4588,7 @@ static int iterate_compare(const void *a, const void *b, void *private)
     int result = 0;
     CK_RV rc;
 
-    if (data->rc!= CKR_OK)
+    if (data->rc != CKR_OK)
         return 0;
 
     rc = data->compare_obj(*obj1, *obj2, &result, data->private);
@@ -4585,6 +4597,13 @@ static int iterate_compare(const void *a, const void *b, void *private)
 
     return result;
 }
+
+#if defined(_AIX)
+static int iterate_compare_aix(const void *a, const void *b)
+{
+    return iterate_compare(a, b, global_private);
+}
+#endif
 
 static CK_BBOOL objclass_expected(CK_OBJECT_HANDLE obj, enum p11sak_objclass objclass)
 {
@@ -4764,9 +4783,14 @@ done_find:
         data.private = private;
         data.rc = CKR_OK;
 
+#if defined(_AIX)
+        global_private = &data;
+        qsort(matched_objs, num_matched_objs, sizeof(CK_OBJECT_HANDLE),
+                iterate_compare_aix);
+#else
         qsort_r(matched_objs, num_matched_objs, sizeof(CK_OBJECT_HANDLE),
                 iterate_compare, &data);
-
+#endif
         rc = data.rc;
         if (rc != CKR_OK)
             goto done;
@@ -10460,7 +10484,7 @@ static CK_RV load_pkcs11_lib(void)
     if (libname == NULL || strlen(libname) < 1)
         libname = P11SAK_DEFAULT_PKCS11_LIB;
 
-    pkcs11_lib = dlopen(libname, RTLD_NOW);
+    pkcs11_lib = dlopen(libname, DYNLIB_LDFLAGS);
     if (pkcs11_lib == NULL) {
         warnx("Failed to load PKCS#11 library '%s': %s", libname, dlerror());
         return CKR_FUNCTION_FAILED;
