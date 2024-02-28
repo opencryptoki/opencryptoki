@@ -5692,7 +5692,7 @@ CK_RV C_IBM_ReencryptSingle(CK_SESSION_HANDLE hSession,
     return rv;
 }
 
-#ifdef __sun
+#if defined(__sun) || defined(_AIX)
 #pragma init(api_init)
 #else
 void api_init(void) __attribute__ ((constructor));
@@ -5708,7 +5708,7 @@ void api_init(void)
     }
 }
 
-#ifdef __sun
+#if defined(__sun) || defined(_AIX)
 #pragma fini(api_fini)
 #else
 void api_fini(void) __attribute__ ((destructor));
@@ -5720,4 +5720,19 @@ void api_fini(void)
         in_destructor = TRUE;
         Call_Finalize();
     }
+#if defined(_AIX)
+    /*
+     * Linux automatically unregisters any atexit handlers that are registered
+     * from within a library when the library is unloaded, while AIX expects
+     * the library to tidy up after itself. So we need to unregister the
+     * handler explicitly when the destructor is called to prevent segfaults.
+     *
+     * Ignore the return code because the outcome is the same - either it was
+     * registered, and it was successfully removed; Or it was never registered,
+     * in which case the unregister call will fail (and that's okay too).
+     *
+     * This function is not defined by POSIX.
+     */
+    (void)unatexit(Call_Finalize);
+#endif
 }
