@@ -8,7 +8,6 @@
  * https://opensource.org/licenses/cpl1.0.php
  */
 
-#define _GNU_SOURCE
 #include <sys/types.h>
 #include <sys/file.h>
 #include <sys/stat.h>
@@ -17,16 +16,17 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <endian.h>
 #include <dirent.h>
 
-#include <slotmgr.h>
+#include "slotmgr.h"
+#include "platform.h"
 
 #ifdef OCK_TOOL
-#include "pkcs_utils.h"
+    #include "pkcs_utils.h"
 #else
-#include "trace.h"
+    #include "trace.h"
 #endif
+
 #include "hsm_mk_change.h"
 #include "pkcs32.h"
 
@@ -46,14 +46,26 @@ static int hsm_mk_change_lock_fd = -1;
 CK_RV hsm_mk_change_lock_create(void)
 {
     struct group *grp;
-    mode_t mode = (S_IRUSR | S_IRGRP);
+#if defined(_AIX)
+   /*
+    * AIX needs the fd that is passed to flock to be opened in different modes
+    * for different lock types - shared locks need O_RDONLY, while exclusive
+    * locks need O_WRONLY. Since the lock type is decided at runtime, we need
+    * to be able to handle both.
+    */
+    const mode_t mode = (S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP);
+    const int open_flags = O_RDWR;
+#else
+    const mode_t mode = (S_IRUSR | S_IRGRP);
+    const int open_flags = O_RDONLY;
+#endif
 
     if (hsm_mk_change_lock_fd == -1)
-        hsm_mk_change_lock_fd = open(OCK_HSM_MK_CHANGE_LOCK_FILE, O_RDONLY);
+        hsm_mk_change_lock_fd = open(OCK_HSM_MK_CHANGE_LOCK_FILE, open_flags);
 
     if (hsm_mk_change_lock_fd == -1) {
         hsm_mk_change_lock_fd = open(OCK_HSM_MK_CHANGE_LOCK_FILE,
-                                     O_CREAT | O_RDONLY, mode);
+                                     (O_CREAT | open_flags), mode);
 
         if (hsm_mk_change_lock_fd != -1) {
             if (fchmod(hsm_mk_change_lock_fd, mode) == -1) {
