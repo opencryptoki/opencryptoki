@@ -46,7 +46,6 @@ CK_RV CreateXProcLock(char *tokname, STDLL_TokData_t *tokdata)
     char lockdir[PATH_MAX];
     struct group *grp;
     struct stat statbuf;
-    mode_t mode = (S_IRUSR | S_IRGRP);
     int ret = -1;
     char *toklockname;
 
@@ -61,7 +60,6 @@ CK_RV CreateXProcLock(char *tokname, STDLL_TokData_t *tokdata)
         }
 
         toklockname = (strlen(tokname) > 0) ? tokname : SUB_DIR;
-            
 
         /** create lock subdir for each token if it doesn't exist.
          *  The root directory should be created in slotmgr daemon **/
@@ -109,15 +107,15 @@ CK_RV CreateXProcLock(char *tokname, STDLL_TokData_t *tokdata)
             OCK_SYSLOG(LOG_ERR, "lock file path too long\n");
             TRACE_ERROR("lock file path too long\n");
             goto err;
-        }        
+        }
 
         if (stat(lockfile, &statbuf) == 0) {
-            tokdata->spinxplfd = open(lockfile, O_RDONLY, mode);
+            tokdata->spinxplfd = open(lockfile, OPEN_MODE);
         } else {
-            tokdata->spinxplfd = open(lockfile, O_CREAT | O_RDONLY, mode);
+            tokdata->spinxplfd = open(lockfile, O_CREAT | OPEN_MODE, MODE_BITS);
             if (tokdata->spinxplfd != -1) {
-                /* umask may prevent correct mode,so set it. */
-                if (fchmod(tokdata->spinxplfd, mode) == -1) {
+                /* umask may prevent correct mode, so set it. */
+                if (fchmod(tokdata->spinxplfd, MODE_BITS) == -1) {
                     OCK_SYSLOG(LOG_ERR, "fchmod(%s): %s\n",
                                lockfile, strerror(errno));
                     goto err;
@@ -949,7 +947,9 @@ CK_RV init_hsm_mk_change_lock(STDLL_TokData_t *tokdata)
     /*
      * Request the API layer to lock against HSM-MK-change state changes.
      * Set lock kind PTHREAD_RWLOCK_PREFER_WRITER_NONRECURSIVE_NP to avoid
-     * writer starvation. Otherwise in a multi-threaded OCK application
+     * writer starvation - but only on Linux. This is a non-portable GNU
+     * extension, with no POSIX mechanism to achieve a similar functionality.
+     * Otherwise in a multi-threaded OCK application
      * with a heavy crypto workload, the event thread would never get the
      * HSM-MK-change lock as writer.
      */
@@ -960,6 +960,8 @@ CK_RV init_hsm_mk_change_lock(STDLL_TokData_t *tokdata)
         return CKR_CANT_LOCK;
     }
 
+#if !defined(_AIX)
+#if _XOPEN_SOURCE >= 500 || _POSIX_C_SOURCE >= 200809L
     if (pthread_rwlockattr_setkind_np(&attr,
                   PTHREAD_RWLOCK_PREFER_WRITER_NONRECURSIVE_NP) != 0) {
         TRACE_ERROR("pthread_rwlockattr_setkind_np failed\n");
@@ -968,6 +970,8 @@ CK_RV init_hsm_mk_change_lock(STDLL_TokData_t *tokdata)
         pthread_rwlockattr_destroy(&attr);
         return CKR_CANT_LOCK;
     }
+#endif /* _XOPEN_SOURCE >= 500 || _POSIX_C_SOURCE >= 200809L */
+#endif /* _AIX */
 
     if (pthread_rwlock_init(&tokdata->hsm_mk_change_rwlock, &attr) != 0) {
         TRACE_ERROR("pthread_rwlock_init failed\n");

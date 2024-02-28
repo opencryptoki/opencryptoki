@@ -20,7 +20,7 @@
 #include <stdio.h>
 #include <malloc.h>
 #include <pthread.h>
-
+#include <stdlib.h>
 #include "pkcs11types.h"
 #include "local_types.h"
 #include "trace.h"

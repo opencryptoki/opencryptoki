@@ -13,7 +13,6 @@
 // routines associated with loading/saving files
 //
 //
-#define _GNU_SOURCE
 #include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -30,8 +29,8 @@
 #include <pwd.h>
 #include <grp.h>
 #include <openssl/evp.h>
-#include <endian.h>
 
+#include "platform.h"
 #include "pkcs11types.h"
 #include "defs.h"
 #include "host_defs.h"

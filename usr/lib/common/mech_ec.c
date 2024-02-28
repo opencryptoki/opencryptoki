@@ -13,12 +13,12 @@
  * Mechanisms for Elliptic Curve (EC)
  */
 
-#define _GNU_SOURCE
-#include <endian.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
+
+#include "platform.h"
 #include "pkcs11types.h"
 #include "defs.h"
 #include "host_defs.h"
