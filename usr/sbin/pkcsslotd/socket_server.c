@@ -10,7 +10,6 @@
 
 /* (C) COPYRIGHT Google Inc. 2013 */
 
-#define _GNU_SOURCE
 #include <errno.h>
 #include <stdio.h>
 #include <unistd.h>
@@ -21,10 +20,16 @@
 #include <sys/time.h>
 #include <sys/socket.h>
 #include <sys/un.h>
-#include <sys/select.h>
 #include <sys/stat.h>
 #include <grp.h>
-#include <sys/epoll.h>
+
+#if defined(_AIX)
+    #include <sys/pollset.h>
+    #include <sys/cred.h>
+#else
+    #include <sys/select.h>
+    #include <sys/epoll.h>
+#endif
 
 #if defined(__GNUC__) && __GNUC__ >= 7 || defined(__clang__) && __clang_major__ >= 12
     #define FALL_THROUGH __attribute__ ((fallthrough))
@@ -55,6 +60,13 @@
 #define UDEV_PROPERTY_DEVTYPE       "DEV_TYPE"
 #define UDEV_PROPERTY_CONFIG        "CONFIG"
 #define UDEV_PROPERTY_ONLINE        "ONLINE"
+#endif
+
+#if defined(_AIX)
+    #define EPOLLHUP POLLHUP
+    #define EPOLLERR POLLERR
+    #define EPOLLIN POLLIN
+    #define EPOLLOUT POLLOUT
 #endif
 
 struct epoll_info {
@@ -144,7 +156,11 @@ struct event_info {
     struct admin_conn_info *admin_ref; /* Admin connection to send reply back */
 };
 
+#if defined(_AIX)
+static pollset_t pollset_fd = -1;
+#else
 static int epoll_fd = -1;
+#endif
 static struct listener_info proc_listener = { .socket = -1 };
 static DL_NODE *proc_connections = NULL;
 static struct listener_info admin_listener = { .socket = -1 };
@@ -256,7 +272,17 @@ static int client_socket_init(int socket, int (* xfer_complete)(void *client),
                               void (* free_cb)(void *client), void *client,
                               struct client_info *client_info)
 {
+#if defined(_AIX)
+    struct poll_ctl_ext evt = {
+        .version = 1,
+        .command = PS_ADD,
+        .events = POLLIN | POLLOUT | POLLET | POLLERR | POLLHUP | POLLRDNORM | POLLWRNORM,
+        .fd = socket,
+        .u.addr = &client_info->ep_info
+    };
+#else
     struct epoll_event evt;
+#endif
     int rc, err;
 
     if (xfer_complete == NULL || hangup == NULL)
@@ -278,10 +304,14 @@ static int client_socket_init(int socket, int (* xfer_complete)(void *client),
                 "%d (%s).", __func__, socket, err, strerror(err));
         return -err;
     }
-
+#if defined(_AIX)
+    evt.fd = socket;
+    rc = pollset_ctl_ext(pollset_fd, &evt, 1);
+#else
     evt.events = EPOLLIN | EPOLLOUT | EPOLLRDHUP | EPOLLERR | EPOLLET;
     evt.data.ptr = &client_info->ep_info;
     rc = epoll_ctl(epoll_fd, EPOLL_CTL_ADD, socket, &evt);
+#endif
     if (rc != 0) {
         err = errno;
         InfoLog("%s: Failed to add client socket %d to epoll, errno %d (%s).",
@@ -305,7 +335,18 @@ static inline void client_socket_put(struct client_info *client_info)
 
 static void client_socket_term(struct client_info *client_info)
 {
+#if defined(_AIX)
+    struct poll_ctl_ext evt = {
+        .version = 1,
+        .command = PS_DELETE,
+        .events = NULL, /* ignored */
+        .fd = client_info->socket,
+        .u.addr = NULL /* ignored */
+    };
+    pollset_ctl_ext(pollset_fd, &evt, 1);
+#else
     epoll_ctl(epoll_fd, EPOLL_CTL_DEL, client_info->socket, NULL);
+#endif
     close(client_info->socket);
     client_info->socket = -1;
 }
@@ -433,6 +474,17 @@ static int client_socket_notify(int events, void *private)
         }
     }
 
+#if defined(_AIX)
+    if (client_info->xfer_state == XFER_IDLE &&
+        (events == (POLLRDNORM | POLLWRNORM | POLLIN))) {
+        DbgLog(DL3, "%s: Graceful shutdown, events 0x%x generated",
+              __func__, events);
+
+        /* No EPOLLHUP-behaviour is available on AIX */
+        client_info->hangup(client_info->client);
+        client_info = NULL; /* freed on return to socket_connection_handler */
+    }
+#endif
     return 0;
 }
 
@@ -645,7 +697,11 @@ static int proc_new_conn(int socket, struct listener_info *listener)
     struct proc_conn_info *conn;
     struct event_info *event;
     DL_NODE *list, *node;
+#if defined(_AIX)
+    struct peercred_struct ucred;
+#else
     struct ucred ucred;
+#endif
     socklen_t  len;
     int rc = 0;
 
@@ -665,7 +721,11 @@ static int proc_new_conn(int socket, struct listener_info *listener)
     DbgLog(DL3, "%s: process conn: %p", __func__, conn);
 
     len = sizeof(ucred);
+#if defined(_AIX)
+    rc = getsockopt(socket, SOL_SOCKET, SO_PEERID, &ucred, &len);
+#else
     rc = getsockopt(socket, SOL_SOCKET, SO_PEERCRED, &ucred, &len);
+#endif
     if (rc != 0 || len != sizeof(ucred)) {
         rc = -errno;
         ErrLog("%s: failed get credentials of peer process: %s",
@@ -674,14 +734,21 @@ static int proc_new_conn(int socket, struct listener_info *listener)
         conn = NULL;
         goto out;
     }
-
+#if defined(_AIX)
+    DbgLog(DL3, "%s: process pid: %u euid: %u egid: %u", __func__,
+        ucred.pid, ucred.euid, ucred.egid);
+#else
     DbgLog(DL3, "%s: process pid: %u uid: %u gid: %u", __func__,
            ucred.pid, ucred.uid, ucred.gid);
-
+#endif
     conn->client_cred.real_pid = ucred.pid;
+#if defined(_AIX)
+    conn->client_cred.real_uid = ucred.euid;
+    conn->client_cred.real_gid = ucred.egid;
+#else
     conn->client_cred.real_uid = ucred.uid;
     conn->client_cred.real_gid = ucred.gid;
-
+#endif
     /* Add currently pending events to this connection */
     node = dlist_get_first(pending_events);
     while (node != NULL) {
@@ -1265,13 +1332,27 @@ static int listener_socket_create(const char *file_path)
     struct group *grp;
     int listener_socket, err;
 
+#if defined(_AIX)
+    listener_socket = socket(PF_UNIX, SOCK_STREAM, 0);
+#else
     listener_socket = socket(PF_UNIX, SOCK_STREAM | SOCK_NONBLOCK, 0);
+#endif
+
     if (listener_socket < 0) {
         err = errno;
         ErrLog("%s: Failed to create listener socket, errno %d (%s).",
                __func__, err, strerror(err));
         return -1;
     }
+#if defined(_AIX)
+    int flags = fcntl(listener_socket, F_GETFL, 0);
+    if (fcntl(listener_socket, F_SETFL, flags | O_NONBLOCK) == -1) {
+        err = errno;
+        ErrLog("%s: Failed to set NONBLOCK on listener socket, errno %d (%s).",
+               __func__, err, strerror(err));
+        goto error;
+    }
+#endif
     if (unlink(file_path) && errno != ENOENT) {
         err = errno;
         ErrLog("%s: Failed to unlink socket file, errno %d (%s).", __func__,
@@ -1399,7 +1480,17 @@ static int listener_create(const char *file_path,
                                             struct listener_info *listener),
                            unsigned long max_num_clients)
 {
+#if defined(_AIX)
+    struct poll_ctl_ext evt = {
+        .version = 1, /* enable opaque data storage */
+        .command = PS_ADD,
+        .events = POLLIN | POLLET,
+        .fd = listener->socket,
+        .u.addr = &listener->ep_info
+    };
+#else
     struct epoll_event evt;
+#endif
     int rc, err;
 
     if (listener == NULL || new_conn == NULL)
@@ -1414,10 +1505,14 @@ static int listener_create(const char *file_path,
     listener->socket = listener_socket_create(file_path);
     if (listener->socket < 0)
         return FALSE;
-
+#if defined(_AIX)
+    evt.fd = listener->socket;
+    rc = pollset_ctl_ext(pollset_fd, &evt, 1);
+#else
     evt.events = EPOLLIN | EPOLLET;
     evt.data.ptr = &listener->ep_info;
     rc = epoll_ctl(epoll_fd, EPOLL_CTL_ADD, listener->socket, &evt);
+#endif
     if (rc != 0) {
         err = errno;
         TraceLog("%s: Failed add listener socket %d to epoll, errno %d (%s).",
@@ -1430,10 +1525,22 @@ static int listener_create(const char *file_path,
 
 static void listener_term(struct listener_info *listener)
 {
+#if defined(_AIX)
+    struct poll_ctl_ext evt = {
+        .version = 1,
+        .command = PS_DELETE,
+        .fd = listener->socket,
+        .u.addr = NULL /* unused */
+    };
+#endif
+
     if (listener == NULL || listener->socket < 0)
         return;
-
+#if defined(_AIX)
+    pollset_ctl_ext(pollset_fd, &evt, 1);
+#else
     epoll_ctl(epoll_fd, EPOLL_CTL_DEL, listener->socket, NULL);
+#endif
     listener_socket_close(listener->socket, listener->file_path);
 }
 
@@ -1709,13 +1816,22 @@ int init_socket_data(Slot_Mgr_Socket_t *socketData)
 
 int socket_connection_handler(int timeout_secs)
 {
+#if defined(_AIX)
+    struct pollfd_ext events[MAX_EPOLL_EVENTS];
+#else
     struct epoll_event events[MAX_EPOLL_EVENTS];
+#endif
     int num_events, i, rc = 0, err;
     struct epoll_info *info;
 
     do {
+#if defined(_AIX)
+        num_events = pollset_poll_ext(pollset_fd, events, MAX_EPOLL_EVENTS,
+                                timeout_secs * 1000);
+#else
         num_events = epoll_wait(epoll_fd, events, MAX_EPOLL_EVENTS,
                                 timeout_secs * 1000);
+#endif
         if (num_events < 0) {
             err = errno;
             if (err == EINTR)
@@ -1732,14 +1848,25 @@ int socket_connection_handler(int timeout_secs)
          * need to avoid them getting freed before we all handled them.
          */
         for (i = 0; i < num_events; i++)
+#if defined(_AIX)
+            epoll_info_get(events[i].u.addr);
+#else
             epoll_info_get(events[i].data.ptr);
+#endif
 
         for (i = 0; i < num_events; i++) {
+#if defined(_AIX)
+            info = events[i].u.addr;
+#else
             info = events[i].data.ptr;
+#endif
             if (info == NULL || info->notify == NULL)
                 continue;
-
+#if defined(_AIX)
+            rc = info->notify(events[i].revents, info->private);
+#else
             rc = info->notify(events[i].events, info->private);
+#endif
             if (rc != 0)
                 TraceLog("%s: notify callback failed, rc: %d", __func__, rc);
 
@@ -1753,9 +1880,13 @@ int socket_connection_handler(int timeout_secs)
 int init_socket_server(int event_support_disabled)
 {
     int err;
-
+#if defined(_AIX)
+    pollset_fd = pollset_create(MAX_EPOLL_EVENTS);
+    if (pollset_fd < 0) {
+#else
     epoll_fd = epoll_create1(0);
     if (epoll_fd < 0) {
+#endif
         err = errno;
         ErrLog("%s: Failed to open epoll socket, errno %d (%s).", __func__, err,
                strerror(err));
@@ -1822,11 +1953,15 @@ int term_socket_server(void)
         node = next;
     }
     dlist_purge(pending_events);
-
+#if defined(_AIX)
+    if (pollset_fd >= 0)
+        close(pollset_fd);
+    pollset_fd = -1;
+#else
     if (epoll_fd >= 0)
         close(epoll_fd);
     epoll_fd = -1;
-
+#endif
     DbgLog(DL0, "%s: Socket server stopped", __func__);
 
     return TRUE;
@@ -1941,8 +2076,11 @@ void dump_socket_handler(void)
     unsigned long i;
 
     DbgLog(DL0, "%s: Dump of socket handler data:", __func__);
+#if defined(_AIX)
+    DbgLog(DL0, "  pollset_fd: %d", pollset_fd);
+#else
     DbgLog(DL0, "  epoll_fd: %d", epoll_fd);
-
+#endif
     DbgLog(DL0, "  proc_listener (%p): ", &proc_listener);
     dump_listener(&proc_listener);
 

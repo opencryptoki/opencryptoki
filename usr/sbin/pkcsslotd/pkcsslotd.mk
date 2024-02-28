@@ -5,7 +5,14 @@ noinst_HEADERS +=							\
 
 EXTRA_DIST += usr/sbin/pkcsslotd/opencryptoki.conf
 
-usr_sbin_pkcsslotd_pkcsslotd_LDFLAGS = -lpthread -lcrypto -lcap
+usr_sbin_pkcsslotd_pkcsslotd_LDFLAGS = -lpthread -lcrypto
+
+if AIX
+usr_sbin_pkcsslotd_pkcsslotd_LDFLAGS += -Wl,-blibpath:$(libdir)/opencryptoki:$(libdir)/opencryptoki/stdll:/usr/lib:/usr/lib64
+else
+usr_sbin_pkcsslotd_pkcsslotd_LDFLAGS += -lcap
+endif
+
 if HAVE_LIBUDEV
 usr_sbin_pkcsslotd_pkcsslotd_LDFLAGS += -ludev
 endif
@@ -24,6 +31,10 @@ usr_sbin_pkcsslotd_pkcsslotd_SOURCES =							\
 	usr/sbin/pkcsslotd/garbage_linux.c usr/sbin/pkcsslotd/pkcsslotd_util.c		\
 	usr/sbin/pkcsslotd/socket_server.c usr/lib/config/configuration.c		\
 	usr/lib/config/cfgparse.y usr/lib/config/cfglex.l
+
+if AIX
+usr_sbin_pkcsslotd_pkcsslotd_LDFLAGS += -lbsd
+endif
 
 nodist_usr_sbin_pkcsslotd_pkcsslotd_SOURCES = \
 	usr/lib/common/dlist.c
