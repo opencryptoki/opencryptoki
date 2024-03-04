@@ -535,13 +535,18 @@ static CK_RV ep11tok_pkey_wrap_handler(uint_32 adapter, uint_32 domain,
     CK_ULONG bloblen;
     CK_BBOOL blobretry = FALSE;
     login_logout_data_t lldata;
+    const CK_VERSION ver40 = { .major = 4, .minor = 0 };
+    uint64_t flags = 0;
 
     if (data->wrap_was_successful)
         goto done;
 
     ep11_data = data->tokdata->private_data;
 
-    ret = get_ep11_target_for_apqn(adapter, domain, &target, XCP_MFL_PROBE);
+    if (compare_ck_version(&ep11_data->ep11_lib_version, &ver40) > 0)
+        flags |= XCP_MFL_PROBE;
+
+    ret = get_ep11_target_for_apqn(adapter, domain, &target, flags);
     if (ret != CKR_OK)
         goto done;
 
