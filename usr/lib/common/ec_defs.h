@@ -15,12 +15,13 @@
 #include <openssl/opensslv.h>
 #include "ec_curves.h"
 
-// Elliptic Curve type
+// Elliptic Curve type (sync with CCA curve type in key value structure)
 //
 #define PRIME_CURVE         0x00
 #define BRAINPOOL_CURVE     0x01
-#define MONTGOMERY_CURVE    0x02
-#define EDWARDS_CURVE       0x03
+#define EDWARDS_CURVE       0x02
+#define KOBLITZ_CURVE       0x03
+#define MONTGOMERY_CURVE    0x04 /* Not used by CCA */
 
 // Elliptic Curve length in bits
 //
