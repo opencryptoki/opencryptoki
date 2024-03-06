@@ -178,7 +178,7 @@ const _ec_struct der_ec_supported[NUMEC] = {
      CURVE384_LENGTH, "secp384r1"},
     {&secp521r1, sizeof(secp521r1), CK_FALSE, CURVE_PRIME,
      CURVE521_LENGTH + 8, "secp521r1"},
-    {&secp256k1, sizeof(secp256k1), CK_FALSE, CURVE_PRIME,
+    {&secp256k1, sizeof(secp256k1), CK_FALSE, CURVE_KOBLITZ,
      CURVE256_LENGTH, "secp256k1"},
     {&curve25519, sizeof(curve25519), CK_FALSE, CURVE_MONTGOMERY,
      CURVE256_LENGTH, "curve25519"},
@@ -296,7 +296,8 @@ static unsigned int curve_len(int index)
 
 static CK_RV curve_supported(const char *name)
 {
-    if (name[strlen(name) - 2] == 'r' || name[strlen(name) - 2] == 'v')
+    if (name[strlen(name) - 2] == 'r' || name[strlen(name) - 2] == 'v' ||
+        name[strlen(name) - 2] == 'k')
         return 1;
 
     return 0;
@@ -520,21 +521,17 @@ CK_RV run_DeriveECDHKey(void)
             continue;
         }
 
-        if (!is_ep11_token(SLOT_ID)) {
+        if (is_cca_token(SLOT_ID)) {
             if (der_ec_supported[i].twisted) {
                 testcase_skip("Slot %u doesn't support this curve: %s",
                               (unsigned int) SLOT_ID, der_ec_supported[i].name);
                 continue;
             }
-            if (der_ec_supported[i].curve == secp256k1) {
-                testcase_skip("Slot %u doesn't support this curve: %s",
-                              (unsigned int) SLOT_ID, der_ec_supported[i].name);
-                continue;
-            }
             if (der_ec_supported[i].type != CURVE_BRAINPOOL &&
-                der_ec_supported[i].type != CURVE_PRIME ) {
+                der_ec_supported[i].type != CURVE_PRIME &&
+                der_ec_supported[i].type != CURVE_KOBLITZ) {
                 testcase_skip("Slot %u doesn't support this curve: %s",
-                              (unsigned int) SLOT_ID, der_ec_supported[i].name);
+                              (unsigned int) SLOT_ID,der_ec_supported[i].name);
                 continue;
             }
         }
@@ -1718,19 +1715,15 @@ CK_RV run_GenerateECCKeyPairSignVerify(void)
             continue;
         }
 
-        if (!is_ep11_token(SLOT_ID)) {
+        if (is_cca_token(SLOT_ID)) {
             if (der_ec_supported[i].twisted) {
                 testcase_skip("Slot %u doesn't support this curve: %s",
                               (unsigned int) SLOT_ID, der_ec_supported[i].name);
                 continue;
             }
-            if (der_ec_supported[i].curve == secp256k1) {
-                testcase_skip("Slot %u doesn't support this curve: %s",
-                              (unsigned int) SLOT_ID, der_ec_supported[i].name);
-                continue;
-            }
             if (der_ec_supported[i].type != CURVE_BRAINPOOL &&
-                der_ec_supported[i].type != CURVE_PRIME ) {
+                der_ec_supported[i].type != CURVE_PRIME &&
+                der_ec_supported[i].type != CURVE_KOBLITZ) {
                 testcase_skip("Slot %u doesn't support this curve: %s",
                               (unsigned int) SLOT_ID,der_ec_supported[i].name);
                 continue;
@@ -1759,7 +1752,8 @@ CK_RV run_GenerateECCKeyPairSignVerify(void)
             goto testcase_cleanup;
         }
         testcase_new_assertion();
-        testcase_pass("*Generate supported key pair index=%lu passed.", i);
+        testcase_pass("*Generate supported key pair index=%lu (%s) passed.", i,
+                      der_ec_supported[i].name);
 
         for (j = 0;
              j < (sizeof(signVerifyInput) / sizeof(_signVerifyParam)); j++) {
@@ -1776,7 +1770,8 @@ CK_RV run_GenerateECCKeyPairSignVerify(void)
                 testcase_fail("run_GenerateSignVerifyECC failed index=%lu.", j);
                 goto testcase_cleanup;
             }
-            testcase_pass("*Sign & verify i=%lu, j=%lu passed.", i, j);
+            testcase_pass("*Sign & verify i=%lu (%s), j=%lu passed.", i,
+                          der_ec_supported[i].name, j);
         }
 
         if (publ_key != CK_INVALID_HANDLE)
@@ -2060,7 +2055,7 @@ CK_RV run_TransferECCKeyPairSignVerify(void)
     }
 
     for (i = 0; i < EC_TV_NUM; i++) {
-        if (!(is_ep11_token(SLOT_ID))) {
+        if (is_cca_token(SLOT_ID)) {
             if (strstr((char *)ec_tv[i].name, "t1") != NULL) {
                 testcase_skip("Slot %u doesn't support curve %s",
                               (unsigned int)SLOT_ID, ec_tv[i].name);
@@ -2536,14 +2531,14 @@ struct btc_test {
 };
 
 static const struct btc_test btc_tests[] = {
-    { .ec = { &secp256k1, sizeof(secp256k1), CK_FALSE, CURVE_PRIME,
+    { .ec = { &secp256k1, sizeof(secp256k1), CK_FALSE, CURVE_KOBLITZ,
               CURVE256_LENGTH, "secp256k1" },
       .master_key_derive = CK_IBM_BTC_BIP0032_MASTERK,
       .priv_to_pub = CK_IBM_BTC_BIP0032_PRV2PUB,
       .priv_to_priv = CK_IBM_BTC_BIP0032_PRV2PRV,
       .pub_to_pub = CK_IBM_BTC_BIP0032_PUB2PUB,
     },
-    { .ec = { &secp256k1, sizeof(secp256k1), CK_FALSE, CURVE_PRIME,
+    { .ec = { &secp256k1, sizeof(secp256k1), CK_FALSE, CURVE_KOBLITZ,
               CURVE256_LENGTH, "secp256k1" },
       .master_key_derive = CK_IBM_BTC_SLIP0010_MASTERK,
       .priv_to_pub = CK_IBM_BTC_SLIP0010_PRV2PUB,
