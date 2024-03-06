@@ -5114,6 +5114,7 @@ static CK_BBOOL ep11tok_ec_curve_supported2(STDLL_TokData_t *tokdata,
     switch ((*curve)->curve_type) {
     case PRIME_CURVE:
     case BRAINPOOL_CURVE:
+    case KOBLITZ_CURVE:
         break;
 
     case MONTGOMERY_CURVE:

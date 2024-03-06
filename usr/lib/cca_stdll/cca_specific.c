@@ -5703,11 +5703,15 @@ CK_BBOOL is_curve_error(long return_code, long reason_code)
     return FALSE;
 }
 
-static CK_RV curve_supported(TEMPLATE *templ, uint8_t *curve_type,
+static CK_RV curve_supported(STDLL_TokData_t *tokdata,
+                             TEMPLATE *templ, uint8_t *curve_type,
                              uint16_t *curve_bitlen, int *curve_nid)
 {
+    struct cca_private_data *cca_private = tokdata->private_data;
+    const struct cca_version cca_v7_2 = { .ver = 7, .rel = 2, .mod = 0 };
     CK_ATTRIBUTE *attr = NULL;
     unsigned int i;
+    int ret;
     CK_RV rc;
 
     /* Check if curve supported */
@@ -5722,8 +5726,40 @@ static CK_RV curve_supported(TEMPLATE *templ, uint8_t *curve_type,
             (memcmp(attr->pValue, der_ec_supported[i].data,
                     attr->ulValueLen) == 0) &&
             (der_ec_supported[i].curve_type == PRIME_CURVE ||
+             der_ec_supported[i].curve_type == KOBLITZ_CURVE ||
              der_ec_supported[i].curve_type == BRAINPOOL_CURVE) &&
              der_ec_supported[i].twisted == CK_FALSE) {
+
+            if (der_ec_supported[i].curve_type == KOBLITZ_CURVE) {
+                /*
+                 * The Koblitz curve is only supported if all configured CCA
+                 * adapters have firmware version 7.2 or later, and if the CCA
+                 * host library has version 7.2 or later.
+                 */
+                if (pthread_rwlock_rdlock(&cca_private->min_card_version_rwlock)
+                                                                    != 0) {
+                    TRACE_ERROR("CCA min_card_version RD-Lock failed.\n");
+                    return CKR_CANT_LOCK;
+                }
+
+                ret = compare_cca_version(&cca_private->min_card_version,
+                                          &cca_v7_2);
+
+                if (pthread_rwlock_unlock(&cca_private->min_card_version_rwlock)
+                                                                    != 0) {
+                    TRACE_ERROR("CCA min_card_version RD-Unlock failed.\n");
+                    return CKR_CANT_LOCK;
+                }
+
+                if (ret < 0 ||
+                    compare_cca_version(&cca_private->cca_lib_version,
+                                        &cca_v7_2) < 0 ) {
+                    TRACE_DEVEL("Koblitz curve is only supported by CCA "
+                                "version 7.2 or later\n");
+                    return CKR_CURVE_NOT_SUPPORTED;
+                }
+            }
+
             *curve_type = der_ec_supported[i].curve_type;
             *curve_bitlen = der_ec_supported[i].len_bits;
             *curve_nid = der_ec_supported[i].nid;
@@ -5886,7 +5922,8 @@ CK_RV token_specific_ec_generate_keypair(STDLL_TokData_t * tokdata,
         return CKR_DEVICE_ERROR;
     }
 
-    rv = curve_supported(publ_tmpl, &curve_type, &curve_bitlen, &curve_nid);
+    rv = curve_supported(tokdata, publ_tmpl, &curve_type, &curve_bitlen,
+                         &curve_nid);
     if (rv != CKR_OK) {
         TRACE_ERROR("Curve not supported\n");
         return rv;
@@ -8474,7 +8511,8 @@ static CK_RV import_ec_privkey(STDLL_TokData_t *tokdata, TEMPLATE *priv_templ)
         int curve_nid;
 
         /* Check if curve supported and determine curve type and bitlen */
-        rc = curve_supported(priv_templ, &curve_type, &curve_bitlen, &curve_nid);
+        rc = curve_supported(tokdata, priv_templ, &curve_type, &curve_bitlen,
+                             &curve_nid);
         if (rc != CKR_OK) {
             TRACE_ERROR("Curve not supported by this token.\n");
             return rc;
@@ -8693,7 +8731,8 @@ static CK_RV import_ec_pubkey(STDLL_TokData_t *tokdata, TEMPLATE *pub_templ)
         CK_ULONG field_len;
 
         /* Check if curve supported and determine curve type and bitlen */
-        rc = curve_supported(pub_templ, &curve_type, &curve_bitlen, &curve_nid);
+        rc = curve_supported(tokdata, pub_templ, &curve_type, &curve_bitlen,
+                             &curve_nid);
         if (rc != CKR_OK) {
             TRACE_ERROR("Curve not supported by this token.\n");
             return rc;

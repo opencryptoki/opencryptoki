@@ -108,7 +108,7 @@ const struct _ec der_ec_supported[NUMEC] = {
             sizeof(secp384r1), &secp384r1},
     {PRIME_CURVE, CURVE521, CURVE521, NID_secp521r1, CK_FALSE,
             sizeof(secp521r1), &secp521r1},
-    {PRIME_CURVE, CURVE256, CURVE256, NID_secp256k1, CK_FALSE,
+    {KOBLITZ_CURVE, CURVE256, CURVE256, NID_secp256k1, CK_FALSE,
             sizeof(secp256k1), &secp256k1},
     {MONTGOMERY_CURVE, CURVE256, CURVE256, NID_X25519, CK_FALSE,
             sizeof(curve25519), &curve25519},
