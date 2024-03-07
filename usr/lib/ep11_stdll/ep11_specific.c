@@ -1369,11 +1369,6 @@ CK_RV token_specific_set_attrs_for_new_object(STDLL_TokData_t *tokdata,
                 add_pkey_extractable = CK_TRUE;
             break;
         }
-        if (add_pkey_extractable) {
-            ret = ep11tok_pkey_add_protkey_attr_to_tmpl(tmpl);
-            if (ret != CKR_OK)
-                goto done;
-        }
         break;
     case PKEY_MODE_ENABLE4EXTR:
         /* If the application did not specify CKA_IBM_PROTKEY_EXTRACTABLE in
@@ -1396,11 +1391,6 @@ CK_RV token_specific_set_attrs_for_new_object(STDLL_TokData_t *tokdata,
                 add_pkey_extractable = CK_TRUE;
             break;
         }
-        if (add_pkey_extractable) {
-            ret = ep11tok_pkey_add_protkey_attr_to_tmpl(tmpl);
-            if (ret != CKR_OK)
-                goto done;
-        }
         break;
     case PKEY_MODE_ENABLE4ALL:
         /* If the application did not specify CKA_IBM_PROTKEY_EXTRACTABLE in
@@ -1421,17 +1411,18 @@ CK_RV token_specific_set_attrs_for_new_object(STDLL_TokData_t *tokdata,
             add_pkey_extractable = CK_TRUE;
             break;
         }
-        if (add_pkey_extractable) {
-            ret = ep11tok_pkey_add_protkey_attr_to_tmpl(tmpl);
-            if (ret != CKR_OK)
-                goto done;
-        }
         break;
     default:
         TRACE_ERROR("PKEY_MODE %i unsupported.\n", ep11_data->pkey_mode);
         ret = CKR_FUNCTION_FAILED;
         goto done;
         break;
+    }
+
+    if (add_pkey_extractable) {
+        ret = ep11tok_pkey_add_protkey_attr_to_tmpl(tmpl);
+        if (ret != CKR_OK)
+            goto done;
     }
 #endif /* NO_PKEY */
 
