@@ -1080,6 +1080,26 @@ static CK_BBOOL ep11tok_pkey_session_ok_for_obj(SESSION *session,
     return CK_TRUE;
 }
 
+/*
+ * Returns true if the given key object is eligible to get a protected key
+ * attribute, false otherwise.
+ */
+CK_BBOOL ep11tok_pkey_obj_eligible_for_pkey_support(ep11_private_data_t *ep11_data,
+                                                    OBJECT *key_obj)
+{
+    if (object_is_attr_bound(key_obj) || !ep11_data->pkey_wrap_supported ||
+        !object_is_pkey_extractable(key_obj)) {
+        return CK_FALSE;
+    }
+
+    if (!ep11_data->pkey_combined_extract_supported &&
+        object_is_extractable(key_obj)) {
+        return CK_FALSE;
+    }
+
+    return CK_TRUE;
+}
+
 /**
  * Checks if the preconditions for using the related protected key of
  * the given secure key object are met. The caller of this routine must
@@ -1135,6 +1155,8 @@ CK_RV ep11tok_pkey_check(STDLL_TokData_t *tokdata, SESSION *session,
         break;
     case PKEY_MODE_DEFAULT:
     case PKEY_MODE_ENABLE4NONEXTR:
+    case PKEY_MODE_ENABLE4EXTR:
+    case PKEY_MODE_ENABLE4ALL:
         /* Use existing pkeys, re-create invalid pkeys, and also create new
          * pkeys for secret/private keys that do not already have one. EC
          * public keys that are pkey-extractable, can always be used via CPACF
@@ -1149,12 +1171,8 @@ CK_RV ep11tok_pkey_check(STDLL_TokData_t *tokdata, SESSION *session,
         if (ep11tok_pkey_get_firmware_mk_vp(tokdata, session) != CKR_OK)
             goto done;
 
-        if (object_is_extractable(key_obj) ||
-            !object_is_pkey_extractable(key_obj) ||
-            object_is_attr_bound(key_obj) ||
-            !ep11_data->pkey_wrap_supported) {
+        if (!ep11tok_pkey_obj_eligible_for_pkey_support(ep11_data, key_obj))
             goto done;
-        }
 
         if (template_attribute_get_non_empty(key_obj->template,
                                              CKA_IBM_OPAQUE_PKEY,
