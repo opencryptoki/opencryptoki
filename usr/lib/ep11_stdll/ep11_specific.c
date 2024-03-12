@@ -10664,7 +10664,7 @@ static CK_RV ep11_ende_crypt_init(STDLL_TokData_t * tokdata, SESSION * session,
     case CKR_FUNCTION_NOT_SUPPORTED:
         /* if mechanism is AES XTS, return error else fallback to ep11 path */
         if (mech->mechanism == CKM_AES_XTS) {
-            TRACE_ERROR("EP11 AES XTS mech is supported only for protected keys");
+            TRACE_ERROR("EP11 AES XTS mech is supported only for protected keys\n");
             rc = CKR_KEY_UNEXTRACTABLE;
             free(ep11_state);
             goto done;
