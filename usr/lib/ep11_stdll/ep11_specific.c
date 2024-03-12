@@ -12007,7 +12007,8 @@ CK_RV ep11tok_is_mechanism_supported(STDLL_TokData_t *tokdata,
 
     case CKM_AES_XTS:
     case CKM_AES_XTS_KEY_GEN:
-        if (ep11tok_pkey_option_disabled(tokdata) || ep11_data->msa_level < 4 ||
+        if ((ep11_data->pkey_wrap_support_checked && !ep11_data->pkey_wrap_supported) ||
+            ep11tok_pkey_option_disabled(tokdata) || ep11_data->msa_level < 4 ||
             ep11tok_is_mechanism_supported(tokdata, CKM_IBM_CPACF_WRAP) != CKR_OK ||
             ep11tok_is_mechanism_supported(tokdata, CKM_AES_KEY_GEN) != CKR_OK) {
             TRACE_INFO("%s Mech '%s' not suppported\n", __func__,
