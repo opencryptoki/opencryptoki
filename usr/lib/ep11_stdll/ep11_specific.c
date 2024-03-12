@@ -543,7 +543,7 @@ static CK_RV ep11tok_pkey_wrap_handler(uint_32 adapter, uint_32 domain,
 
     ep11_data = data->tokdata->private_data;
 
-    if (compare_ck_version(&ep11_data->ep11_lib_version, &ver40) > 0)
+    if (compare_ck_version(&ep11_data->ep11_lib_version, &ver40) <= 0)
         flags |= XCP_MFL_PROBE;
 
     ret = get_ep11_target_for_apqn(adapter, domain, &target, flags);
