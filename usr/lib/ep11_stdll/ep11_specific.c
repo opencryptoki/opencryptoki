@@ -1253,14 +1253,15 @@ CK_BBOOL ep11tok_pkey_usage_ok(STDLL_TokData_t *tokdata, SESSION *session,
 CK_RV ep11tok_pkey_check_aes_xts(STDLL_TokData_t *tokdata, OBJECT *key_obj,
                                  CK_MECHANISM_TYPE type)
 {
+    ep11_private_data_t *ep11_data = tokdata->private_data;
+
     if (ep11tok_is_mechanism_supported(tokdata, type) != CKR_OK) {
         TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
         return CKR_MECHANISM_INVALID;
     }
 
-    if (object_is_extractable(key_obj) ||
-        !object_is_pkey_extractable(key_obj) ||
-        object_is_attr_bound(key_obj)) {
+    if (!ep11tok_pkey_obj_eligible_for_pkey_support(ep11_data, key_obj)) {
+        TRACE_ERROR("Key not eligible for pkey support\n");
         return CKR_TEMPLATE_INCONSISTENT;
     }
 
