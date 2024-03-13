@@ -3760,7 +3760,7 @@ CK_RV token_specific_aes_gcm_update(STDLL_TokData_t *tokdata, SESSION *sess,
 
     context->ulClen += out_len;
 
-    /* AAD only processed in first update seuence,
+    /* AAD only processed in first update sequence,
      * mark it empty for all subsequent calls
      */
     context->ulAlen = 0;
