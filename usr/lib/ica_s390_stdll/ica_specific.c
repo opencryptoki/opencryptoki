@@ -3609,7 +3609,7 @@ CK_RV token_specific_aes_gcm(STDLL_TokData_t *tokdata, SESSION *sess,
     }
 
     if (rc != 0) {
-        TRACE_ERROR("ica_aes_gcm failed with rc = 0x%lx.\n", rc);
+        TRACE_ERROR("ica_aes_gcm failed with rc = %ld.\n", rc);
         (*out_data_len) = 0;
         rc = CKR_FUNCTION_FAILED;
     }
@@ -3751,7 +3751,7 @@ CK_RV token_specific_aes_gcm_update(STDLL_TokData_t *tokdata, SESSION *sess,
     }
 
     if (rc != 0) {
-        TRACE_ERROR("ica_aes_gcm_update failed with rc = 0x%lx.\n", rc);
+        TRACE_ERROR("ica_aes_gcm_update failed with rc = %ld.\n", rc);
         rc = CKR_FUNCTION_FAILED;
         goto done;
     }
@@ -3857,7 +3857,7 @@ CK_RV token_specific_aes_gcm_final(STDLL_TokData_t *tokdata, SESSION *sess,
                               (unsigned int) attr->ulValueLen, subkey, 1);
 
         if (rc != 0) {
-            TRACE_ERROR("ica_aes_gcm_final failed with rc = 0x%lx.\n", rc);
+            TRACE_ERROR("ica_aes_gcm_final failed with rc = %ld.\n", rc);
             rc = CKR_FUNCTION_FAILED;
             goto done;
         }
@@ -3909,7 +3909,7 @@ CK_RV token_specific_aes_gcm_final(STDLL_TokData_t *tokdata, SESSION *sess,
                               tag_data_len, attr->pValue,
                               (unsigned int) attr->ulValueLen, subkey, 0);
         if (rc != 0) {
-            TRACE_ERROR("ica_aes_gcm_final failed with rc = 0x%lx.\n", rc);
+            TRACE_ERROR("ica_aes_gcm_final failed with rc = %ld.\n", rc);
             rc = CKR_FUNCTION_FAILED;
         }
     }
