@@ -66,6 +66,7 @@ typedef struct {
     int ica_sha512_256_available;
     int ica_sha3_available;
     int ica_aes_available;
+    int ica_new_gcm_available;
     int ica_des_available;
     int ica_des3_available;
     MECH_LIST_ELEMENT mech_list[ICA_MAX_MECH_LIST_ENTRIES];
@@ -3124,6 +3125,341 @@ static CK_RV os_specific_rsa_decrypt(STDLL_TokData_t *tokdata,
 
 }
 
+static void new_gcm_specific_aes_gcm_free(STDLL_TokData_t *tokdata,
+                                          struct _SESSION *sess,
+                                          CK_BYTE *context,
+                                          CK_ULONG context_len)
+{
+    AES_GCM_CONTEXT *ctx = (AES_GCM_CONTEXT *)context;
+
+    UNUSED(tokdata);
+    UNUSED(sess);
+    UNUSED(context_len);
+
+    if (ctx == NULL)
+        return;
+
+    if ((kma_ctx *)ctx->ulClen != NULL)
+        ica_aes_gcm_kma_ctx_free((kma_ctx *)ctx->ulClen);
+
+    free(context);
+}
+
+CK_RV new_gcm_specific_aes_gcm_init(STDLL_TokData_t *tokdata, SESSION *sess,
+                                    ENCR_DECR_CONTEXT *ctx, CK_MECHANISM *mech,
+                                    CK_BYTE *key_value, CK_ULONG key_len,
+                                    CK_BYTE encrypt)
+{
+    CK_GCM_PARAMS *aes_gcm_param = NULL;
+    AES_GCM_CONTEXT *context = NULL;
+    kma_ctx *gcm_ctx;
+    CK_RV rc;
+
+    UNUSED(tokdata);
+    UNUSED(sess);
+
+    /* allocate libica gcm context for KMA instruction */
+    gcm_ctx = ica_aes_gcm_kma_ctx_new();
+    if (!gcm_ctx)
+        return CKR_HOST_MEMORY;
+
+    /* initialize gcm context */
+    aes_gcm_param = (CK_GCM_PARAMS *)mech->pParameter;
+    rc = ica_aes_gcm_kma_init(encrypt, aes_gcm_param->pIv, aes_gcm_param->ulIvLen,
+                              key_value, key_len, gcm_ctx);
+    if (rc != 0) {
+        TRACE_ERROR("ica_aes_gcm_kma_init failed, rc=%ld.\n",rc);
+        ica_aes_gcm_kma_ctx_free(gcm_ctx);
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+
+    /* set new ica gcm context in ENCR_DECR_CONTEXT, mis-use ulClen field */
+    context = (AES_GCM_CONTEXT *)ctx->context;
+    context->ulClen = (CK_ULONG)gcm_ctx;
+    ctx->state_unsaveable = CK_TRUE;
+    ctx->context_free_func = new_gcm_specific_aes_gcm_free;
+
+done:
+
+    return rc;
+}
+
+CK_RV new_gcm_specific_aes_gcm(STDLL_TokData_t *tokdata, SESSION *sess,
+                               ENCR_DECR_CONTEXT *ctx, CK_BYTE *in_data,
+                               CK_ULONG in_data_len, CK_BYTE *out_data,
+                               CK_ULONG *out_data_len, CK_BYTE encrypt)
+{
+    AES_GCM_CONTEXT *context = NULL;
+    CK_GCM_PARAMS *aes_gcm_param = NULL;
+    kma_ctx *gcm_ctx = NULL;
+    CK_BYTE *tag_data, *auth_data;
+    CK_ULONG auth_data_len, tag_data_len;
+    CK_RV rc;
+
+    UNUSED(tokdata);
+    UNUSED(sess);
+
+    context = (AES_GCM_CONTEXT *)ctx->context;
+    gcm_ctx = (kma_ctx *)context->ulClen;
+    aes_gcm_param = (CK_GCM_PARAMS *)ctx->mech.pParameter;
+    auth_data = (CK_BYTE *)aes_gcm_param->pAAD;
+    auth_data_len = aes_gcm_param->ulAADLen;
+    tag_data = out_data + in_data_len;
+    tag_data_len = (aes_gcm_param->ulTagBits + 7) / 8;
+
+    /* perform one-part encryption/decryption */
+    rc = ica_aes_gcm_kma_update(in_data, out_data,
+                                encrypt ? in_data_len : in_data_len - tag_data_len,
+                                auth_data, auth_data_len,
+                                1, 1, gcm_ctx);
+    if (rc != 0) {
+        TRACE_ERROR("ica_aes_gcm_kma_update failed, rc=%ld.\n", rc);
+        *out_data_len = 0;
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+
+    if (encrypt) {
+        /* encrypt: provide authentication tag and append it to out_data */
+        rc = ica_aes_gcm_kma_get_tag(tag_data, tag_data_len, gcm_ctx);
+        if (rc == 0) {
+            *out_data_len = in_data_len + tag_data_len;
+        } else {
+            TRACE_ERROR("ica_aes_gcm_kma_get_tag failed, rc=%ld.\n", rc);
+            *out_data_len = 0;
+            rc = CKR_FUNCTION_FAILED;
+            goto done;
+        }
+    } else {
+        /* decrypt: verify tag */
+        tag_data = in_data + in_data_len - tag_data_len;
+        rc = ica_aes_gcm_kma_verify_tag(tag_data, tag_data_len, gcm_ctx);
+        if (rc == 0) {
+            *out_data_len = in_data_len - tag_data_len;
+        } else {
+            TRACE_ERROR("ica_aes_gcm_kma_verify_tag failed, rc=%ld.\n", rc);
+            *out_data_len = 0;
+            rc = CKR_FUNCTION_FAILED;
+            goto done;
+        }
+    }
+
+done:
+
+    ica_aes_gcm_kma_ctx_free(gcm_ctx);
+    context->ulClen = (CK_ULONG)0;
+
+    return rc;
+}
+
+CK_RV new_gcm_specific_aes_gcm_update(STDLL_TokData_t *tokdata, SESSION *sess,
+                                      ENCR_DECR_CONTEXT *ctx, CK_BYTE *in_data,
+                                      CK_ULONG in_data_len, CK_BYTE *out_data,
+                                      CK_ULONG *out_data_len, CK_BYTE encrypt)
+{
+    AES_GCM_CONTEXT *context = NULL;
+    CK_GCM_PARAMS *aes_gcm_param = NULL;
+    kma_ctx *gcm_ctx = NULL;
+    CK_BYTE *auth_data, *buffer = NULL;
+    CK_ULONG total, tag_data_len, remain, auth_data_len, out_len;
+    CK_RV rc;
+
+    UNUSED(tokdata);
+    UNUSED(sess);
+
+    context = (AES_GCM_CONTEXT *)ctx->context;
+    gcm_ctx = (kma_ctx *)context->ulClen;
+    aes_gcm_param = (CK_GCM_PARAMS *)ctx->mech.pParameter;
+    auth_data = (CK_BYTE *)aes_gcm_param->pAAD;
+    auth_data_len = aes_gcm_param->ulAADLen;
+    tag_data_len = (aes_gcm_param->ulTagBits + 7) / 8;
+    total = context->len + in_data_len;
+
+    /* if there isn't enough data to make a block, just save it */
+    if (encrypt) {
+        remain = (total % AES_BLOCK_SIZE);
+        if (total < AES_BLOCK_SIZE) {
+            memcpy(context->data + context->len, in_data, in_data_len);
+            context->len += in_data_len;
+            *out_data_len = 0;
+            return CKR_OK;
+        }
+    } else {
+        /* decrypt */
+        remain = ((total - tag_data_len) % AES_BLOCK_SIZE)
+            + tag_data_len;
+        if (total < AES_BLOCK_SIZE + tag_data_len) {
+            memcpy(context->data + context->len, in_data, in_data_len);
+            context->len += in_data_len;
+            *out_data_len = 0;
+            return CKR_OK;
+        }
+    }
+
+    /* At least we have 1 block */
+    out_len = total - remain;
+
+    buffer = (CK_BYTE *)malloc(out_len);
+    if (!buffer) {
+        TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+        rc = CKR_HOST_MEMORY;
+        goto done;
+    }
+
+    if (encrypt) {
+        /* copy all the leftover data from previous encryption first */
+        memcpy(buffer, context->data, context->len);
+        memcpy(buffer + context->len, in_data, out_len - context->len);
+
+        TRACE_DEVEL("plaintext length (%ld bytes).\n", in_data_len);
+
+        rc = ica_aes_gcm_kma_update(buffer, out_data, out_len,
+                                    auth_data, auth_data_len,
+                                    context->ulAlen ? 0 : 1,
+                                    0, gcm_ctx);
+
+        /* save any remaining data */
+        if (remain != 0)
+            memcpy(context->data, in_data + (in_data_len - remain), remain);
+        context->len = remain;
+    } else {
+        /* decrypt */
+        /* copy all the leftover data from previous decryption first */
+        if (in_data_len >= tag_data_len) {      /* case 1  */
+            /* copy complete context to buffer first */
+            memcpy(buffer, context->data, context->len);
+            /* Append in_data to buffer */
+            memcpy(buffer + context->len, in_data, out_len - context->len);
+            /* copy remaining data to context */
+            memcpy(context->data, in_data + out_len - context->len, remain);
+            context->len = remain;
+        } else {                /* case 2 - partial data */
+            memcpy(buffer, context->data, AES_BLOCK_SIZE);
+            memmove(context->data, context->data + AES_BLOCK_SIZE,
+                    context->len - AES_BLOCK_SIZE);
+            memcpy(context->data + context->len - AES_BLOCK_SIZE,
+                   in_data, in_data_len);
+            context->len = context->len - AES_BLOCK_SIZE + in_data_len;
+        }
+
+        rc = ica_aes_gcm_kma_update(buffer, out_data, out_len,
+                                    auth_data, auth_data_len,
+                                    context->ulAlen ? 0 : 1,
+                                    0, gcm_ctx);
+    }
+
+    if (rc != 0) {
+        TRACE_ERROR("ica_aes_gcm_kma_update failed, rc=%ld.\n", rc);
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+
+    *out_data_len = out_len;
+
+    /* AAD only processed in first update sequence,
+     * mark it empty for all subsequent calls
+     */
+    context->ulAlen = 0;
+
+done:
+    if (buffer)
+        free(buffer);
+
+    return rc;
+}
+
+CK_RV new_gcm_specific_aes_gcm_final(STDLL_TokData_t *tokdata, SESSION *sess,
+                                     ENCR_DECR_CONTEXT *ctx, CK_BYTE *out_data,
+                                     CK_ULONG *out_data_len, CK_BYTE encrypt)
+{
+    CK_RV rc = CKR_OK;
+    AES_GCM_CONTEXT *context = NULL;
+    CK_GCM_PARAMS *aes_gcm_param = NULL;
+    kma_ctx *gcm_ctx = NULL;
+    CK_BYTE *final_tag_data;
+    CK_ULONG tag_data_len;
+    CK_BYTE tmp_tag[16];
+
+    UNUSED(tokdata);
+    UNUSED(sess);
+
+    context = (AES_GCM_CONTEXT *)ctx->context;
+    gcm_ctx = (kma_ctx *)context->ulClen;
+    aes_gcm_param = (CK_GCM_PARAMS *)ctx->mech.pParameter;
+    tag_data_len = (aes_gcm_param->ulTagBits + 7) / 8;
+
+    if (encrypt) {
+        if (context->len != 0) {
+            /* Perform final update with rest of data to calculate final tag */
+            rc = ica_aes_gcm_kma_update(context->data, out_data, context->len,
+                                        NULL, 0, 1,1, gcm_ctx);
+            if (rc != 0) {
+                TRACE_ERROR("ica_aes_gcm_kma_update failed, rc=%ld\n",rc);
+                rc = CKR_FUNCTION_FAILED;
+                goto done;
+            }
+            *out_data_len = context->len + tag_data_len;
+        } else {
+            /* Perform final update without data to calculate final tag */
+            rc = ica_aes_gcm_kma_update(NULL, NULL, 0, NULL, 0, 1, 1, gcm_ctx);
+            *out_data_len = tag_data_len;
+        }
+
+        TRACE_DEVEL("GCM Final: context->len=%ld, tag_data_len=%ld, "
+                    "out_data_len=%ld\n",
+                    context->len, tag_data_len, *out_data_len);
+
+        rc = ica_aes_gcm_kma_get_tag(tmp_tag, tag_data_len, gcm_ctx);
+        if (rc != 0) {
+            TRACE_ERROR("ica_aes_gcm_kma_get_tag failed, rc=%ld.\n", rc);
+            rc = CKR_FUNCTION_FAILED;
+            goto done;
+        }
+
+        memcpy(out_data + context->len, tmp_tag, tag_data_len);
+    } else {
+        /* decrypt */
+        if (context->len > tag_data_len) {
+            /* Perform final update with rest of data to calculate final tag */
+            rc = ica_aes_gcm_kma_update(context->data, out_data,
+                                        context->len - tag_data_len,
+                                        NULL, 0, 1, 1, gcm_ctx);
+            if (rc != 0) {
+                TRACE_ERROR("ica_aes_gcm_kma_update failed, rc=%ld.\n",rc);
+                rc = CKR_FUNCTION_FAILED;
+                goto done;
+            }
+            *out_data_len = context->len - tag_data_len;
+
+        } else if (context->len == tag_data_len) {
+            /* remaining data are tag data */
+            *out_data_len = 0;
+
+            /* Perform final update without data to calculate final tag */
+            rc = ica_aes_gcm_kma_update(NULL, NULL, 0, NULL, 0, 1, 1, gcm_ctx);
+        } else {                /* (context->len < tag_data_len) */
+            TRACE_ERROR("Incoming data are not consistent.\n");
+            rc = CKR_DATA_INVALID;
+            goto done;
+        }
+
+        final_tag_data = context->data + context->len - tag_data_len;
+
+        rc = ica_aes_gcm_kma_verify_tag(final_tag_data, tag_data_len, gcm_ctx);
+        if (rc != 0) {
+            TRACE_ERROR("ica_aes_gcm_kma_verify_tag failed, rc=%ld.\n", rc);
+            rc = CKR_FUNCTION_FAILED;
+        }
+    }
+
+done:
+    ica_aes_gcm_kma_ctx_free(gcm_ctx);
+    context->ulClen = (CK_ULONG)0;
+
+    return rc;
+}
+
 CK_RV token_specific_rsa_encrypt(STDLL_TokData_t *tokdata, CK_BYTE *in_data,
                                  CK_ULONG in_data_len, CK_BYTE *out_data,
                                  CK_ULONG *out_data_len, OBJECT *key_obj)
@@ -3494,6 +3830,13 @@ CK_RV token_specific_aes_gcm_init(STDLL_TokData_t *tokdata, SESSION *sess,
         goto done;
     }
 
+    if (ica_data->ica_new_gcm_available) {
+        rc = new_gcm_specific_aes_gcm_init(tokdata, sess, ctx, mech,
+                                           attr->pValue, attr->ulValueLen,
+                                           encrypt);
+        goto done;
+    }
+
     /* prepare initial counterblock */
     aes_gcm_param = (CK_GCM_PARAMS *) mech->pParameter;
     context = (AES_GCM_CONTEXT *) ctx->context;
@@ -3545,6 +3888,11 @@ CK_RV token_specific_aes_gcm(STDLL_TokData_t *tokdata, SESSION *sess,
 
     if (!ica_data->ica_aes_available)
         return openssl_specific_aes_gcm(tokdata, sess, ctx, in_data,
+                                        in_data_len, out_data, out_data_len,
+                                        encrypt);
+
+    if (ica_data->ica_new_gcm_available)
+        return new_gcm_specific_aes_gcm(tokdata, sess, ctx, in_data,
                                         in_data_len, out_data, out_data_len,
                                         encrypt);
 
@@ -3642,6 +3990,11 @@ CK_RV token_specific_aes_gcm_update(STDLL_TokData_t *tokdata, SESSION *sess,
         return openssl_specific_aes_gcm_update(tokdata, sess, ctx, in_data,
                                                in_data_len, out_data,
                                                out_data_len, encrypt);
+
+    if (ica_data->ica_new_gcm_available)
+        return new_gcm_specific_aes_gcm_update(tokdata, sess, ctx, in_data,
+                                        in_data_len, out_data, out_data_len,
+                                        encrypt);
 
     context = (AES_GCM_CONTEXT *) ctx->context;
     total = (context->len + in_data_len);
@@ -3792,6 +4145,10 @@ CK_RV token_specific_aes_gcm_final(STDLL_TokData_t *tokdata, SESSION *sess,
 
     if (!ica_data->ica_aes_available)
         return openssl_specific_aes_gcm_final(tokdata, sess, ctx, out_data,
+                                              out_data_len, encrypt);
+
+    if (ica_data->ica_new_gcm_available)
+        return new_gcm_specific_aes_gcm_final(tokdata, sess, ctx, out_data,
                                               out_data_len, encrypt);
 
     /* find key object */
@@ -4638,6 +4995,10 @@ static CK_RV mech_list_ica_initialize(STDLL_TokData_t *tokdata)
         /* Remember if libica supports AES mechanisms (HW or SW) */
         if (libica_func_list[i].mech_mode_id == AES_CBC)
             ica_data->ica_aes_available = TRUE;
+
+        /* Remember if libica supports the new AES-GCM API (z14 and later) */
+        if (libica_func_list[i].mech_mode_id == AES_GCM_KMA)
+            ica_data->ica_new_gcm_available = TRUE;
 
         /* Remember if libica supports DES/3DES mechanisms (HW or SW) */
         if (libica_func_list[i].mech_mode_id == DES_CBC)
