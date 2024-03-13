@@ -838,7 +838,6 @@ CK_RV verify_mgr_cleanup(STDLL_TokData_t *tokdata, SESSION *sess,
     ctx->active = FALSE;
     ctx->init_pending = FALSE;
     ctx->recover = FALSE;
-    ctx->context_len = 0;
     ctx->pkey_active = FALSE;
     ctx->state_unsaveable = FALSE;
     ctx->count_statistics = FALSE;
@@ -856,6 +855,7 @@ CK_RV verify_mgr_cleanup(STDLL_TokData_t *tokdata, SESSION *sess,
             free(ctx->context);
         ctx->context = NULL;
     }
+    ctx->context_len = 0;
     ctx->context_free_func = NULL;
 
     return CKR_OK;
