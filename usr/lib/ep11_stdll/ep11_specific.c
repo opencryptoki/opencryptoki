@@ -1393,7 +1393,7 @@ CK_RV token_specific_set_attrs_for_new_object(STDLL_TokData_t *tokdata,
             break;
         default:
             ret = template_attribute_get_bool(tmpl, CKA_EXTRACTABLE, &extractable);
-            if (ret == CKR_OK && extractable) // Einziger Unterschied: extractable, statt !extractable
+            if (ret == CKR_OK && extractable)
                 add_pkey_extractable = CK_TRUE;
             break;
         }
