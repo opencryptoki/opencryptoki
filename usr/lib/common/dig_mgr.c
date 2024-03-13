@@ -150,7 +150,6 @@ CK_RV digest_mgr_cleanup(STDLL_TokData_t *tokdata, SESSION *sess,
     ctx->multi_init = FALSE;
     ctx->multi = FALSE;
     ctx->active = FALSE;
-    ctx->context_len = 0;
     ctx->state_unsaveable = FALSE;
     ctx->count_statistics = FALSE;
 
@@ -167,6 +166,7 @@ CK_RV digest_mgr_cleanup(STDLL_TokData_t *tokdata, SESSION *sess,
             free(ctx->context);
         ctx->context = NULL;
     }
+    ctx->context_len = 0;
     ctx->context_free_func = NULL;
 
     return CKR_OK;
