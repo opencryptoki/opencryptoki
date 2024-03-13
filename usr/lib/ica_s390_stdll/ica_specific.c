@@ -3704,7 +3704,7 @@ CK_RV token_specific_aes_gcm_update(STDLL_TokData_t *tokdata, SESSION *sess,
         memcpy(buffer, context->data, context->len);
         memcpy(buffer + context->len, in_data, out_len - context->len);
 
-        TRACE_DEVEL("Ciphertext length (%ld bytes).\n", in_data_len);
+        TRACE_DEVEL("plaintext length (%ld bytes).\n", in_data_len);
 
         rc = ica_aes_gcm_intermediate(buffer, (unsigned int) out_len,
                                       out_data, ucb, auth_data,
