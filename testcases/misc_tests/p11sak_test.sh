@@ -70,6 +70,22 @@ echo "** Setting SLOT=30 to the Softtoken unless otherwise set - 'p11sak_test.sh
 
 SLOT=${SLOT:-30}
 
+# check if p11sak is available in the current $PATH - if it isn't, ask for
+# SBINDIR to be defined before this script executes.
+# The assumption here is that p11sak and pkcsconf are installed in the same
+# directory - if one is found, the other is assumed to be available as well.
+if [[ -n "$(command -v pkcsconf)" ]]; then
+	PKCSCONF=pkcsconf
+	P11SAK=p11sak
+elif [[ -z "$SBINDIR" ]]; then
+	echo "pkcsconf and/or p11sak were not found in \$PATH."
+	echo "Define \$SBINDIR to the appropriate path and try again."
+	exit 1
+else
+	PKCSCONF=${SBINDIR}/pkcsconf
+	P11SAK=${SBINDIR}/p11sak
+fi
+
 echo "** Using Slot $SLOT with PKCS11_USER_PIN $PKCS11_USER_PIN and PKCSLIB $PKCSLIB - 'p11sak_test.sh'"
 
 
@@ -79,79 +95,79 @@ echo "** Now generating keys - 'p11sak_test.sh'"
 RC_P11SAK_GENERATE=0
 
 # des
-if [[ -n $( pkcsconf -m -c $SLOT | grep CKM_DES_KEY_GEN) ]]; then
-	p11sak generate-key des --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-des"
+if [[ -n $( ${PKCSCONF} -m -c $SLOT | grep CKM_DES_KEY_GEN) ]]; then
+	${P11SAK} generate-key des --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-des"
 	RC_P11SAK_GENERATE=$((RC_P11SAK_GENERATE + $?))
 else
 	echo "Skip generating des keys, slot does not support CKM_DES_KEY_GEN"
 fi
 # 3des
-p11sak generate-key 3des --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-3des"
+${P11SAK} generate-key 3des --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-3des"
 RC_P11SAK_GENERATE=$((RC_P11SAK_GENERATE + $?))
 # generic
-p11sak generate-key generic 256 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-generic"
+${P11SAK} generate-key generic 256 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-generic"
 RC_P11SAK_GENERATE=$((RC_P11SAK_GENERATE + $?))
 # aes [128 | 192 | 256]
-p11sak generate-key aes 128 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-aes-128"
+${P11SAK} generate-key aes 128 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-aes-128"
 RC_P11SAK_GENERATE=$((RC_P11SAK_GENERATE + $?))
-p11sak generate-key aes 192 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-aes-192"
+${P11SAK} generate-key aes 192 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-aes-192"
 RC_P11SAK_GENERATE=$((RC_P11SAK_GENERATE + $?))
-p11sak generate-key aes 256 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-aes-256"
+${P11SAK} generate-key aes 256 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-aes-256"
 RC_P11SAK_GENERATE=$((RC_P11SAK_GENERATE + $?))
 # aes-xts [128 | 256]
-if [[ -n $( pkcsconf -m -c $SLOT | grep CKM_AES_XTS_KEY_GEN) ]]; then
-	if [[ -n $( pkcsconf -t -c $SLOT | grep "Model: EP11") || -n $( pkcsconf -t -c $SLOT | grep "Model: CCA") ]]; then
+if [[ -n $( ${PKCSCONF} -m -c $SLOT | grep CKM_AES_XTS_KEY_GEN) ]]; then
+	if [[ -n $( ${PKCSCONF} -t -c $SLOT | grep "Model: EP11") || -n $( ${PKCSCONF} -t -c $SLOT | grep "Model: CCA") ]]; then
 		# EP11 needs CKA_IBM_PROTKEY_EXTRACTABLE=TRUE and CKA_EXTRACTABLE=FALSE for AES-XTS keys
 		# CCA needs CKA_IBM_PROTKEY_EXTRACTABLE=TRUE for AES-XTS keys
 		P11SAK_ATTR="--attr xK"
 	else
 		P11SAK_ATTR=""
 	fi
-	p11sak generate-key aes-xts 128 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-aes-xts-128" $P11SAK_ATTR
+	${P11SAK} generate-key aes-xts 128 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-aes-xts-128" $P11SAK_ATTR
 	RC_P11SAK_GENERATE=$((RC_P11SAK_GENERATE + $?))
-	p11sak generate-key aes-xts 256 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-aes-xts-256" $P11SAK_ATTR
+	${P11SAK} generate-key aes-xts 256 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-aes-xts-256" $P11SAK_ATTR
 	RC_P11SAK_GENERATE=$((RC_P11SAK_GENERATE + $?))
 else
 	echo "Skip generating aes-xts keys, slot does not support CKM_AES_XTS_KEY_GEN"
 fi
 # rsa [1024 | 2048 | 4096]
-p11sak generate-key rsa 1024 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-rsa-1024"
+${P11SAK} generate-key rsa 1024 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-rsa-1024"
 RC_P11SAK_GENERATE=$((RC_P11SAK_GENERATE + $?))
-p11sak generate-key rsa 2048 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-rsa-2048"
+${P11SAK} generate-key rsa 2048 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-rsa-2048"
 RC_P11SAK_GENERATE=$((RC_P11SAK_GENERATE + $?))
-p11sak generate-key rsa 4096 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-rsa-4096"
+${P11SAK} generate-key rsa 4096 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-rsa-4096"
 RC_P11SAK_GENERATE=$((RC_P11SAK_GENERATE + $?))
 # dh ffdhe2048
-if [[ -n $( pkcsconf -m -c $SLOT | grep CKM_DH_PKCS_KEY_PAIR_GEN) ]]; then
-	p11sak generate-key dh ffdhe2048 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-dh"
+if [[ -n $( ${PKCSCONF} -m -c $SLOT | grep CKM_DH_PKCS_KEY_PAIR_GEN) ]]; then
+	${P11SAK} generate-key dh ffdhe2048 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-dh"
 	RC_P11SAK_GENERATE=$((RC_P11SAK_GENERATE + $?))
 else
 	echo "Skip generating dh keys, slot does not support CKM_DH_PKCS_KEY_PAIR_GEN"
 fi
 # dsa dsa-param.pem
-if [[ -n $( pkcsconf -m -c $SLOT | grep CKM_DSA_KEY_PAIR_GEN) ]]; then
-	p11sak generate-key dsa $DIR/dsa-param.pem --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-dsa"
+if [[ -n $( ${PKCSCONF} -m -c $SLOT | grep CKM_DSA_KEY_PAIR_GEN) ]]; then
+	${P11SAK} generate-key dsa $DIR/dsa-param.pem --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-dsa"
 	RC_P11SAK_GENERATE=$((RC_P11SAK_GENERATE + $?))
 else
 	echo "Skip generating dsa keys, slot does not support CKM_DSA_KEY_PAIR_GEN"
 fi
 # ec [prime256v1 | secp384r1 | secp521r1]
-p11sak generate-key ec prime256v1 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-ec-prime256v1"
+${P11SAK} generate-key ec prime256v1 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-ec-prime256v1"
 RC_P11SAK_GENERATE=$((RC_P11SAK_GENERATE + $?))
-p11sak generate-key ec secp384r1 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-ec-secp384r1"
+${P11SAK} generate-key ec secp384r1 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-ec-secp384r1"
 RC_P11SAK_GENERATE=$((RC_P11SAK_GENERATE + $?))
-p11sak generate-key ec secp521r1 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-ec-secp521r1"
+${P11SAK} generate-key ec secp521r1 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-ec-secp521r1"
 RC_P11SAK_GENERATE=$((RC_P11SAK_GENERATE + $?))
 # ibm-dilithium
-if [[ -n $( pkcsconf -m -c $SLOT | grep CKM_IBM_DILITHIUM) ]]; then
-	p11sak generate-key ibm-dilithium r2_65 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-ibm-dilithium"
+if [[ -n $( ${PKCSCONF} -m -c $SLOT | grep CKM_IBM_DILITHIUM) ]]; then
+	${P11SAK} generate-key ibm-dilithium r2_65 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-ibm-dilithium"
 	RC_P11SAK_GENERATE=$((RC_P11SAK_GENERATE + $?))
 else
 	echo "Skip generating ibm-dilithium keys, slot does not support CKM_IBM_DILITHIUM"
 fi
 # ibm-kyber
-if [[ -n $( pkcsconf -m -c $SLOT | grep CKM_IBM_KYBER) ]]; then
-	p11sak generate-key ibm-kyber r2_1024 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-ibm-kyber"
+if [[ -n $( ${PKCSCONF} -m -c $SLOT | grep CKM_IBM_KYBER) ]]; then
+	${P11SAK} generate-key ibm-kyber r2_1024 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-ibm-kyber"
 	RC_P11SAK_GENERATE=$((RC_P11SAK_GENERATE + $?))
 else
 	echo "Skip generating ibm-kyber keys, slot does not support CKM_IBM_KYBER"
@@ -162,65 +178,65 @@ echo "** Now list keys and redirect output to pre-files - 'p11sak_test.sh'"
 
 # list objects
 RC_P11SAK_LIST=0
-p11sak list-key des --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-des" &> $P11SAK_DES_PRE
+${P11SAK} list-key des --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-des" &> $P11SAK_DES_PRE
 RC_P11SAK_LIST=$((RC_P11SAK_LIST + $?))
-p11sak list-key 3des --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-3des" &> $P11SAK_3DES_PRE
+${P11SAK} list-key 3des --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-3des" &> $P11SAK_3DES_PRE
 RC_P11SAK_LIST=$((RC_P11SAK_LIST + $?))
-p11sak list-key generic --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-generic" &> $P11SAK_GENERIC_PRE
+${P11SAK} list-key generic --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-generic" &> $P11SAK_GENERIC_PRE
 RC_P11SAK_LIST=$((RC_P11SAK_LIST + $?))
-p11sak list-key aes --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-aes-*" &> $P11SAK_AES_PRE
+${P11SAK} list-key aes --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-aes-*" &> $P11SAK_AES_PRE
 RC_P11SAK_LIST=$((RC_P11SAK_LIST + $?))
-p11sak list-key aes-xts --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-aes-xts-*" &> $P11SAK_AES_XTS_PRE
+${P11SAK} list-key aes-xts --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-aes-xts-*" &> $P11SAK_AES_XTS_PRE
 RC_P11SAK_LIST=$((RC_P11SAK_LIST + $?))
-p11sak list-key rsa --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-rsa-*" &> $P11SAK_RSA_PRE
+${P11SAK} list-key rsa --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-rsa-*" &> $P11SAK_RSA_PRE
 RC_P11SAK_LIST=$((RC_P11SAK_LIST + $?))
-p11sak list-key dh --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-dh*" &> $P11SAK_DH_PRE
+${P11SAK} list-key dh --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-dh*" &> $P11SAK_DH_PRE
 RC_P11SAK_LIST=$((RC_P11SAK_LIST + $?))
-p11sak list-key dsa --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-dsa*" &> $P11SAK_DSA_PRE
+${P11SAK} list-key dsa --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-dsa*" &> $P11SAK_DSA_PRE
 RC_P11SAK_LIST=$((RC_P11SAK_LIST + $?))
-p11sak list-key ec --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-ec-*" &> $P11SAK_EC_PRE
+${P11SAK} list-key ec --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-ec-*" &> $P11SAK_EC_PRE
 RC_P11SAK_LIST=$((RC_P11SAK_LIST + $?))
-p11sak list-key ibm-dilithium --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-ibm-dilithium*" &> $P11SAK_IBM_DILITHIUM_PRE
+${P11SAK} list-key ibm-dilithium --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-ibm-dilithium*" &> $P11SAK_IBM_DILITHIUM_PRE
 RC_P11SAK_LIST=$((RC_P11SAK_LIST + $?))
-p11sak list-key ibm-kyber --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-ibm-kyber*" &> $P11SAK_IBM_KYBER_PRE
+${P11SAK} list-key ibm-kyber --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-ibm-kyber*" &> $P11SAK_IBM_KYBER_PRE
 RC_P11SAK_LIST=$((RC_P11SAK_LIST + $?))
 
 RC_P11SAK_LIST_LONG=0
-p11sak list-key des --slot $SLOT --pin $PKCS11_USER_PIN --long --label "p11sak-des" &> $P11SAK_DES_LONG
+${P11SAK} list-key des --slot $SLOT --pin $PKCS11_USER_PIN --long --label "p11sak-des" &> $P11SAK_DES_LONG
 RC_P11SAK_LIST_LONG=$((RC_P11SAK_LIST_LONG + $?))
-p11sak list-key 3des --slot $SLOT --pin $PKCS11_USER_PIN --long --label "p11sak-3des" &> $P11SAK_3DES_LONG
+${P11SAK} list-key 3des --slot $SLOT --pin $PKCS11_USER_PIN --long --label "p11sak-3des" &> $P11SAK_3DES_LONG
 RC_P11SAK_LIST_LONG=$((RC_P11SAK_LIST_LONG + $?))
-p11sak list-key generic --slot $SLOT --pin $PKCS11_USER_PIN --long --label "p11sak-generic" &> $P11SAK_GENERIC_LONG
+${P11SAK} list-key generic --slot $SLOT --pin $PKCS11_USER_PIN --long --label "p11sak-generic" &> $P11SAK_GENERIC_LONG
 RC_P11SAK_LIST_LONG=$((RC_P11SAK_LIST_LONG + $?))
-p11sak list-key aes --slot $SLOT --pin $PKCS11_USER_PIN --long --label "p11sak-aes-*" &> $P11SAK_AES_LONG
+${P11SAK} list-key aes --slot $SLOT --pin $PKCS11_USER_PIN --long --label "p11sak-aes-*" &> $P11SAK_AES_LONG
 RC_P11SAK_LIST_LONG=$((RC_P11SAK_LIST_LONG + $?))
-p11sak list-key aes-xts --slot $SLOT --pin $PKCS11_USER_PIN --long --label "p11sak-aes-xts-*" &> $P11SAK_AES_XTS_LONG
+${P11SAK} list-key aes-xts --slot $SLOT --pin $PKCS11_USER_PIN --long --label "p11sak-aes-xts-*" &> $P11SAK_AES_XTS_LONG
 RC_P11SAK_LIST_LONG=$((RC_P11SAK_LIST_LONG + $?))
-p11sak list-key rsa --slot $SLOT --pin $PKCS11_USER_PIN --long --label "p11sak-rsa-*" &> $P11SAK_RSA_LONG
+${P11SAK} list-key rsa --slot $SLOT --pin $PKCS11_USER_PIN --long --label "p11sak-rsa-*" &> $P11SAK_RSA_LONG
 RC_P11SAK_LIST_LONG=$((RC_P11SAK_LIST_LONG + $?))
-p11sak list-key dh --slot $SLOT --pin $PKCS11_USER_PIN --long --label "p11sak-dh*" &> $P11SAK_DH_LONG
+${P11SAK} list-key dh --slot $SLOT --pin $PKCS11_USER_PIN --long --label "p11sak-dh*" &> $P11SAK_DH_LONG
 RC_P11SAK_LIST_LONG=$((RC_P11SAK_LIST_LONG + $?))
-p11sak list-key dsa --slot $SLOT --pin $PKCS11_USER_PIN --long --label "p11sak-dsa*" &> $P11SAK_DSA_LONG
+${P11SAK} list-key dsa --slot $SLOT --pin $PKCS11_USER_PIN --long --label "p11sak-dsa*" &> $P11SAK_DSA_LONG
 RC_P11SAK_LIST_LONG=$((RC_P11SAK_LIST_LONG + $?))
-p11sak list-key ec --slot $SLOT --pin $PKCS11_USER_PIN --long --label "p11sak-ec-*" &> $P11SAK_EC_LONG
+${P11SAK} list-key ec --slot $SLOT --pin $PKCS11_USER_PIN --long --label "p11sak-ec-*" &> $P11SAK_EC_LONG
 RC_P11SAK_LIST_LONG=$((RC_P11SAK_LIST_LONG + $?))
-p11sak list-key ibm-dilithium --slot $SLOT --pin $PKCS11_USER_PIN --long --label "p11sak-ibm-dilithium*" &> $P11SAK_IBM_DILITHIUM_LONG
+${P11SAK} list-key ibm-dilithium --slot $SLOT --pin $PKCS11_USER_PIN --long --label "p11sak-ibm-dilithium*" &> $P11SAK_IBM_DILITHIUM_LONG
 RC_P11SAK_LIST_LONG=$((RC_P11SAK_LIST_LONG + $?))
-p11sak list-key ibm-kyber --slot $SLOT --pin $PKCS11_USER_PIN --long --label "p11sak-ibm-kyber*" &> $P11SAK_IBM_KYBER_LONG
+${P11SAK} list-key ibm-kyber --slot $SLOT --pin $PKCS11_USER_PIN --long --label "p11sak-ibm-kyber*" &> $P11SAK_IBM_KYBER_LONG
 RC_P11SAK_LIST_LONG=$((RC_P11SAK_LIST_LONG + $?))
 
 
-p11sak list-key all --slot $SLOT --pin $PKCS11_USER_PIN &> $P11SAK_ALL_PINOPT
+${P11SAK} list-key all --slot $SLOT --pin $PKCS11_USER_PIN &> $P11SAK_ALL_PINOPT
 RC_P11SAK_PINOPT=$?
-p11sak list-key all --slot $SLOT &> $P11SAK_ALL_PINENV
+${P11SAK} list-key all --slot $SLOT &> $P11SAK_ALL_PINENV
 RC_P11SAK_PINENV=$?
-printf "${PKCS11_USER_PIN}\n" | p11sak list-key all --slot $SLOT --force-pin-prompt | tail -n +2 &> $P11SAK_ALL_PINCON
+printf "${PKCS11_USER_PIN}\n" | ${P11SAK} list-key all --slot $SLOT --force-pin-prompt | tail -n +2 &> $P11SAK_ALL_PINCON
 RC_P11SAK_PINCON=$?
 
-p11sak list-key all --slot $SLOT --no-login &> $P11SAK_ALL_NOLOGIN
+${P11SAK} list-key all --slot $SLOT --no-login &> $P11SAK_ALL_NOLOGIN
 RC_P11SAK_NOLOGIN=$?
 if [[ -n $PKCS11_SO_PIN ]]; then
-	p11sak list-key all --slot $SLOT --pin $PKCS11_SO_PIN --so &> $P11SAK_ALL_SO
+	${P11SAK} list-key all --slot $SLOT --pin $PKCS11_SO_PIN --so &> $P11SAK_ALL_SO
 	RC_P11SAK_SO=$?
 else
 	echo "Skip login as SO, PKCS11_SO_PIN is not set"
@@ -229,33 +245,33 @@ fi
 echo "** Now updating keys - 'p11sak_test.sh'"
 
 RC_P11SAK_UPDATE=0
-p11sak set-key-attr aes --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-aes-*" --new-attr "ed" --force
+${P11SAK} set-key-attr aes --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-aes-*" --new-attr "ed" --force
 RC_P11SAK_UPDATE=$((RC_P11SAK_UPDATE + $?))
-p11sak set-key-attr rsa --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-rsa-*" --new-id "012345" --force
+${P11SAK} set-key-attr rsa --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-rsa-*" --new-id "012345" --force
 RC_P11SAK_UPDATE=$((RC_P11SAK_UPDATE + $?))
 
 
 echo "** Now copying keys - 'p11sak_test.sh'"
 
 RC_P11SAK_COPY=0
-p11sak copy-key aes --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-aes-*" --new-label "p11sak-aes-copied" --new-attr "ED" --force
+${P11SAK} copy-key aes --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-aes-*" --new-label "p11sak-aes-copied" --new-attr "ED" --force
 RC_P11SAK_COPY=$((RC_P11SAK_COPY + $?))
 
 
 echo "** Now extracting public keys - 'p11sak_test.sh'"
 
 RC_P11SAK_KEY_EXTRACT=0
-p11sak extract-pubkey private --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-rsa-*" --new-label "p11sak-pubkey-extracted" --force
+${P11SAK} extract-pubkey private --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-rsa-*" --new-label "p11sak-pubkey-extracted" --force
 RC_P11SAK_KEY_EXTRACT=$((RC_P11SAK_KEY_EXTRACT + $?))
-p11sak extract-pubkey private --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-dh*" --new-label "p11sak-pubkey-extracted" --force
+${P11SAK} extract-pubkey private --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-dh*" --new-label "p11sak-pubkey-extracted" --force
 RC_P11SAK_KEY_EXTRACT=$((RC_P11SAK_KEY_EXTRACT + $?))
-p11sak extract-pubkey private --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-dsa*" --new-label "p11sak-pubkey-extracted" --force
+${P11SAK} extract-pubkey private --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-dsa*" --new-label "p11sak-pubkey-extracted" --force
 RC_P11SAK_KEY_EXTRACT=$((RC_P11SAK_KEY_EXTRACT + $?))
-p11sak extract-pubkey private --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-ec-prime256v1*" --new-label "p11sak-pubkey-extracted" --force
+${P11SAK} extract-pubkey private --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-ec-prime256v1*" --new-label "p11sak-pubkey-extracted" --force
 RC_P11SAK_KEY_EXTRACT=$((RC_P11SAK_KEY_EXTRACT + $?))
-p11sak extract-pubkey private --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-ibm-dilithium*" --new-label "p11sak-pubkey-extracted" --force
+${P11SAK} extract-pubkey private --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-ibm-dilithium*" --new-label "p11sak-pubkey-extracted" --force
 RC_P11SAK_KEY_EXTRACT=$((RC_P11SAK_KEY_EXTRACT + $?))
-p11sak extract-pubkey private --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-ibm-kyber*" --new-label "p11sak-pubkey-extracted" --force
+${P11SAK} extract-pubkey private --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-ibm-kyber*" --new-label "p11sak-pubkey-extracted" --force
 RC_P11SAK_KEY_EXTRACT=$((RC_P11SAK_KEY_EXTRACT + $?))
 
 
@@ -263,64 +279,64 @@ echo "** Now importing keys - 'p11sak_test.sh'"
 
 RC_P11SAK_IMPORT=0
 # aes
-p11sak import-key aes --slot $SLOT --pin $PKCS11_USER_PIN --label "import-aes" --file $DIR/aes.key --attr sX
+${P11SAK} import-key aes --slot $SLOT --pin $PKCS11_USER_PIN --label "import-aes" --file $DIR/aes.key --attr sX
 RC_P11SAK_IMPORT=$((RC_P11SAK_IMPORT + $?))
 # rsa
-p11sak import-key rsa private --slot $SLOT --pin $PKCS11_USER_PIN --label "import-rsa-private" --file $DIR/rsa-key.pem --attr sX
+${P11SAK} import-key rsa private --slot $SLOT --pin $PKCS11_USER_PIN --label "import-rsa-private" --file $DIR/rsa-key.pem --attr sX
 RC_P11SAK_IMPORT=$((RC_P11SAK_IMPORT + $?))
-p11sak import-key rsa public --slot $SLOT --pin $PKCS11_USER_PIN --label "import-rsa-public" --file $DIR/rsa-key.pem --attr sX
+${P11SAK} import-key rsa public --slot $SLOT --pin $PKCS11_USER_PIN --label "import-rsa-public" --file $DIR/rsa-key.pem --attr sX
 RC_P11SAK_IMPORT=$((RC_P11SAK_IMPORT + $?))
 # dsa
-if [[ -n $( pkcsconf -m -c $SLOT | grep CKM_DSA) ]]; then
-	p11sak import-key dsa private --slot $SLOT --pin $PKCS11_USER_PIN --label "import-dsa-private" --file $DIR/dsa-key.pem --attr sX
+if [[ -n $( ${PKCSCONF} -m -c $SLOT | grep CKM_DSA) ]]; then
+	${P11SAK} import-key dsa private --slot $SLOT --pin $PKCS11_USER_PIN --label "import-dsa-private" --file $DIR/dsa-key.pem --attr sX
 	RC_P11SAK_IMPORT=$((RC_P11SAK_IMPORT + $?))
-	p11sak import-key dsa public --slot $SLOT --pin $PKCS11_USER_PIN --label "import-dsa-public" --file $DIR/dsa-key.pem --attr sX
+	${P11SAK} import-key dsa public --slot $SLOT --pin $PKCS11_USER_PIN --label "import-dsa-public" --file $DIR/dsa-key.pem --attr sX
 	RC_P11SAK_IMPORT=$((RC_P11SAK_IMPORT + $?))
 else
 	echo "Skip importing dsa keys, slot does not support CKM_DSA"
 fi
 # dh
-if [[ -n $( pkcsconf -m -c $SLOT | grep CKM_DH_PKCS_DERIVE) ]]; then
-	p11sak import-key dh private --slot $SLOT --pin $PKCS11_USER_PIN --label "import-dh-private" --file $DIR/dh-key.pem --attr sX
+if [[ -n $( ${PKCSCONF} -m -c $SLOT | grep CKM_DH_PKCS_DERIVE) ]]; then
+	${P11SAK} import-key dh private --slot $SLOT --pin $PKCS11_USER_PIN --label "import-dh-private" --file $DIR/dh-key.pem --attr sX
 	RC_P11SAK_IMPORT=$((RC_P11SAK_IMPORT + $?))
-	p11sak import-key dh public --slot $SLOT --pin $PKCS11_USER_PIN --label "import-dh-public" --file $DIR/dh-key.pem --attr sX
+	${P11SAK} import-key dh public --slot $SLOT --pin $PKCS11_USER_PIN --label "import-dh-public" --file $DIR/dh-key.pem --attr sX
 	RC_P11SAK_IMPORT=$((RC_P11SAK_IMPORT + $?))
 else
 	echo "Skip importing dh keys, slot does not support CKM_DH_PKCS_DERIVE"
 fi
 # ec
-p11sak import-key ec private --slot $SLOT --pin $PKCS11_USER_PIN --label "import-ec-prime256v1-private" --file $DIR/ec-key-prime256v1.pem --attr sX
+${P11SAK} import-key ec private --slot $SLOT --pin $PKCS11_USER_PIN --label "import-ec-prime256v1-private" --file $DIR/ec-key-prime256v1.pem --attr sX
 RC_P11SAK_IMPORT=$((RC_P11SAK_IMPORT + $?))
-p11sak import-key ec public --slot $SLOT --pin $PKCS11_USER_PIN --label "import-ec-prime256v1-public" --file $DIR/ec-key-prime256v1.pem --attr sX
+${P11SAK} import-key ec public --slot $SLOT --pin $PKCS11_USER_PIN --label "import-ec-prime256v1-public" --file $DIR/ec-key-prime256v1.pem --attr sX
 RC_P11SAK_IMPORT=$((RC_P11SAK_IMPORT + $?))
-p11sak import-key ec private --slot $SLOT --pin $PKCS11_USER_PIN --label "import-ec-secp521r1-private" --file $DIR/ec-key-secp521r1.pem --attr sX
+${P11SAK} import-key ec private --slot $SLOT --pin $PKCS11_USER_PIN --label "import-ec-secp521r1-private" --file $DIR/ec-key-secp521r1.pem --attr sX
 RC_P11SAK_IMPORT=$((RC_P11SAK_IMPORT + $?))
-p11sak import-key ec public --slot $SLOT --pin $PKCS11_USER_PIN --label "import-ec-secp521r1-public" --file $DIR/ec-key-secp521r1.pem --attr sX
+${P11SAK} import-key ec public --slot $SLOT --pin $PKCS11_USER_PIN --label "import-ec-secp521r1-public" --file $DIR/ec-key-secp521r1.pem --attr sX
 RC_P11SAK_IMPORT=$((RC_P11SAK_IMPORT + $?))
 # edwards/montgomery
-if [[ -n $(openssl version | grep "OpenSSL 3.") && -n $( pkcsconf -t -c $SLOT | grep "Model: EP11") ]]; then
-	p11sak import-key ec private --slot $SLOT --pin $PKCS11_USER_PIN --label "import-ec-ed25519-private" --file $DIR/ed25519-private-key.pem --attr sX
+if [[ -n $(openssl version | grep "OpenSSL 3.") && -n $( ${PKCSCONF} -t -c $SLOT | grep "Model: EP11") ]]; then
+	${P11SAK} import-key ec private --slot $SLOT --pin $PKCS11_USER_PIN --label "import-ec-ed25519-private" --file $DIR/ed25519-private-key.pem --attr sX
 	RC_P11SAK_IMPORT=$((RC_P11SAK_IMPORT + $?))
-	p11sak import-key ec public --slot $SLOT --pin $PKCS11_USER_PIN --label "import-ec-ed25519-public" --file $DIR/ed25519-public-key.pem --attr sX
+	${P11SAK} import-key ec public --slot $SLOT --pin $PKCS11_USER_PIN --label "import-ec-ed25519-public" --file $DIR/ed25519-public-key.pem --attr sX
 	RC_P11SAK_IMPORT=$((RC_P11SAK_IMPORT + $?))
 else
 	echo "Skip importing edwards/montgomery keys, OpenSSL version not supporting it or not EP11 token"
 fi
 
 # ibm-dilithium
-if [[ -n $( pkcsconf -m -c $SLOT | grep CKM_IBM_DILITHIUM) ]]; then
-	p11sak import-key ibm-dilithium private --slot $SLOT --pin $PKCS11_USER_PIN --label "import-ibm-dilithium-private" --file $DIR/ibm-dilithium-key.pem --attr sX
+if [[ -n $( ${PKCSCONF} -m -c $SLOT | grep CKM_IBM_DILITHIUM) ]]; then
+	${P11SAK} import-key ibm-dilithium private --slot $SLOT --pin $PKCS11_USER_PIN --label "import-ibm-dilithium-private" --file $DIR/ibm-dilithium-key.pem --attr sX
 	RC_P11SAK_IMPORT=$((RC_P11SAK_IMPORT + $?))
-	p11sak import-key ibm-dilithium public --slot $SLOT --pin $PKCS11_USER_PIN --label "import-ibm-dilithium-public" --file $DIR/ibm-dilithium-key.pem --attr sX
+	${P11SAK} import-key ibm-dilithium public --slot $SLOT --pin $PKCS11_USER_PIN --label "import-ibm-dilithium-public" --file $DIR/ibm-dilithium-key.pem --attr sX
 	RC_P11SAK_IMPORT=$((RC_P11SAK_IMPORT + $?))
 else
 	echo "Skip importing ibm-dilithium keys, slot does not support CKM_IBM_DILITHIUM"
 fi
 # ibm-kyber
-if [[ -n $( pkcsconf -m -c $SLOT | grep CKM_IBM_KYBER) ]]; then
-	p11sak import-key ibm-kyber private --slot $SLOT --pin $PKCS11_USER_PIN --label "import-ibm-kyber-private" --file $DIR/ibm-kyber-key.pem --attr sX
+if [[ -n $( ${PKCSCONF} -m -c $SLOT | grep CKM_IBM_KYBER) ]]; then
+	${P11SAK} import-key ibm-kyber private --slot $SLOT --pin $PKCS11_USER_PIN --label "import-ibm-kyber-private" --file $DIR/ibm-kyber-key.pem --attr sX
 	RC_P11SAK_IMPORT=$((RC_P11SAK_IMPORT + $?))
-	p11sak import-key ibm-kyber public --slot $SLOT --pin $PKCS11_USER_PIN --label "import-ibm-kyber-public" --file $DIR/ibm-kyber-key.pem --attr sX
+	${P11SAK} import-key ibm-kyber public --slot $SLOT --pin $PKCS11_USER_PIN --label "import-ibm-kyber-public" --file $DIR/ibm-kyber-key.pem --attr sX
 	RC_P11SAK_IMPORT=$((RC_P11SAK_IMPORT + $?))
 else
 	echo "Skip importing ibm-kyber keys, slot does not support CKM_IBM_KYBER"
@@ -331,23 +347,23 @@ echo "** Now exporting keys - 'p11sak_test.sh'"
 
 RC_P11SAK_EXPORT=0
 # aes
-if [[ -n $( pkcsconf -t -c $SLOT | grep "Model: EP11") || -n $( pkcsconf -t -c $SLOT | grep "Model: CCA") ]]; then
-	p11sak export-key aes --slot $SLOT --pin $PKCS11_USER_PIN --label "import-aes" --file export-aes.opaque --force --opaque
+if [[ -n $( ${PKCSCONF} -t -c $SLOT | grep "Model: EP11") || -n $( ${PKCSCONF} -t -c $SLOT | grep "Model: CCA") ]]; then
+	${P11SAK} export-key aes --slot $SLOT --pin $PKCS11_USER_PIN --label "import-aes" --file export-aes.opaque --force --opaque
 	RC_P11SAK_EXPORT=$((RC_P11SAK_EXPORT + $?))
 else
-	p11sak export-key aes --slot $SLOT --pin $PKCS11_USER_PIN --label "import-aes" --file export-aes.key --force
+	${P11SAK} export-key aes --slot $SLOT --pin $PKCS11_USER_PIN --label "import-aes" --file export-aes.key --force
 	RC_P11SAK_EXPORT=$((RC_P11SAK_EXPORT + $?))
 	diff export-aes.key $DIR/aes.key > /dev/null
 	RC_P11SAK_EXPORT=$((RC_P11SAK_EXPORT + $?))
 fi
 # rsa
-if [[ -n $( pkcsconf -t -c $SLOT | grep "Model: EP11") || -n $( pkcsconf -t -c $SLOT | grep "Model: CCA") ]]; then
-	p11sak export-key rsa --slot $SLOT --pin $PKCS11_USER_PIN --label "import-rsa-public" --file export-rsa-key.pem --force
+if [[ -n $( ${PKCSCONF} -t -c $SLOT | grep "Model: EP11") || -n $( ${PKCSCONF} -t -c $SLOT | grep "Model: CCA") ]]; then
+	${P11SAK} export-key rsa --slot $SLOT --pin $PKCS11_USER_PIN --label "import-rsa-public" --file export-rsa-key.pem --force
 	RC_P11SAK_EXPORT=$((RC_P11SAK_EXPORT + $?))
-	p11sak export-key rsa --slot $SLOT --pin $PKCS11_USER_PIN --label "import-rsa-private" --file export-rsa-key.opaque --force --opaque
+	${P11SAK} export-key rsa --slot $SLOT --pin $PKCS11_USER_PIN --label "import-rsa-private" --file export-rsa-key.opaque --force --opaque
 	RC_P11SAK_EXPORT=$((RC_P11SAK_EXPORT + $?))
 else
-	p11sak export-key rsa --slot $SLOT --pin $PKCS11_USER_PIN --label "import-rsa-*" --file export-rsa-key.pem --force
+	${P11SAK} export-key rsa --slot $SLOT --pin $PKCS11_USER_PIN --label "import-rsa-*" --file export-rsa-key.pem --force
 	RC_P11SAK_EXPORT=$((RC_P11SAK_EXPORT + $?))
 	openssl pkey -in export-rsa-key.pem -check -text > /dev/null
 	RC_P11SAK_EXPORT=$((RC_P11SAK_EXPORT + $?))
@@ -355,14 +371,14 @@ fi
 openssl pkey -in export-rsa-key.pem -pubin -text > /dev/null
 RC_P11SAK_EXPORT=$((RC_P11SAK_EXPORT + $?))
 # dsa
-if [[ -n $( pkcsconf -m -c $SLOT | grep CKM_DSA) ]]; then
-	if [[ -n $( pkcsconf -t -c $SLOT | grep "Model: EP11") || -n $( pkcsconf -t -c $SLOT | grep "Model: CCA") ]]; then
-		p11sak export-key dsa --slot $SLOT --pin $PKCS11_USER_PIN --label "import-dsa-public" --file export-dsa-key.pem --force
+if [[ -n $( ${PKCSCONF} -m -c $SLOT | grep CKM_DSA) ]]; then
+	if [[ -n $( ${PKCSCONF} -t -c $SLOT | grep "Model: EP11") || -n $( ${PKCSCONF} -t -c $SLOT | grep "Model: CCA") ]]; then
+		${P11SAK} export-key dsa --slot $SLOT --pin $PKCS11_USER_PIN --label "import-dsa-public" --file export-dsa-key.pem --force
 		RC_P11SAK_EXPORT=$((RC_P11SAK_EXPORT + $?))
-		p11sak export-key dsa --slot $SLOT --pin $PKCS11_USER_PIN --label "import-dsa-private" --file export-dsa-key.opaque --force --opaque
+		${P11SAK} export-key dsa --slot $SLOT --pin $PKCS11_USER_PIN --label "import-dsa-private" --file export-dsa-key.opaque --force --opaque
 		RC_P11SAK_EXPORT=$((RC_P11SAK_EXPORT + $?))	
 	else
-		p11sak export-key dsa --slot $SLOT --pin $PKCS11_USER_PIN --label "import-dsa-*" --file export-dsa-key.pem --force
+		${P11SAK} export-key dsa --slot $SLOT --pin $PKCS11_USER_PIN --label "import-dsa-*" --file export-dsa-key.pem --force
 		RC_P11SAK_EXPORT=$((RC_P11SAK_EXPORT + $?))
 		openssl pkey -in export-dsa-key.pem -text > /dev/null
 		RC_P11SAK_EXPORT=$((RC_P11SAK_EXPORT + $?))
@@ -373,14 +389,14 @@ else
 	echo "Skip exporting dsa keys, slot does not support CKM_DSA"
 fi
 # dh
-if [[ -n $( pkcsconf -m -c $SLOT | grep CKM_DH_PKCS_DERIVE) ]]; then
-	if [[ -n $( pkcsconf -t -c $SLOT | grep "Model: EP11") || -n $( pkcsconf -t -c $SLOT | grep "Model: CCA") ]]; then
-		p11sak export-key dh --slot $SLOT --pin $PKCS11_USER_PIN --label "import-dh-public" --file export-dh-key.pem --force
+if [[ -n $( ${PKCSCONF} -m -c $SLOT | grep CKM_DH_PKCS_DERIVE) ]]; then
+	if [[ -n $( ${PKCSCONF} -t -c $SLOT | grep "Model: EP11") || -n $( ${PKCSCONF} -t -c $SLOT | grep "Model: CCA") ]]; then
+		${P11SAK} export-key dh --slot $SLOT --pin $PKCS11_USER_PIN --label "import-dh-public" --file export-dh-key.pem --force
 		RC_P11SAK_EXPORT=$((RC_P11SAK_EXPORT + $?))
-		p11sak export-key dh --slot $SLOT --pin $PKCS11_USER_PIN --label "import-dh-private" --file export-dh-key.opaque --force --opaque
+		${P11SAK} export-key dh --slot $SLOT --pin $PKCS11_USER_PIN --label "import-dh-private" --file export-dh-key.opaque --force --opaque
 		RC_P11SAK_EXPORT=$((RC_P11SAK_EXPORT + $?))
 	else	
-		p11sak export-key dh --slot $SLOT --pin $PKCS11_USER_PIN --label "import-dh-*" --file export-dh-key.pem --force
+		${P11SAK} export-key dh --slot $SLOT --pin $PKCS11_USER_PIN --label "import-dh-*" --file export-dh-key.pem --force
 		RC_P11SAK_EXPORT=$((RC_P11SAK_EXPORT + $?))
 		openssl pkey -in export-dh-key.pem -text > /dev/null
 		RC_P11SAK_EXPORT=$((RC_P11SAK_EXPORT + $?))
@@ -391,29 +407,29 @@ else
 	echo "Skip exporting dh keys, slot does not support CKM_DH_PKCS_DERIVE"
 fi
 # ec
-if [[ -n $( pkcsconf -t -c $SLOT | grep "Model: EP11") || -n $( pkcsconf -t -c $SLOT | grep "Model: CCA") ]]; then
-	p11sak export-key ec --slot $SLOT --pin $PKCS11_USER_PIN --label "import-ec-prime256v1-public" --file export-ec-prime256v1-key.pem --force
+if [[ -n $( ${PKCSCONF} -t -c $SLOT | grep "Model: EP11") || -n $( ${PKCSCONF} -t -c $SLOT | grep "Model: CCA") ]]; then
+	${P11SAK} export-key ec --slot $SLOT --pin $PKCS11_USER_PIN --label "import-ec-prime256v1-public" --file export-ec-prime256v1-key.pem --force
 	RC_P11SAK_EXPORT=$((RC_P11SAK_EXPORT + $?))
-	p11sak export-key ec --slot $SLOT --pin $PKCS11_USER_PIN --label "import-ec-prime256v1-private" --file export-ec-prime256v1-key.opaque --force --opaque
+	${P11SAK} export-key ec --slot $SLOT --pin $PKCS11_USER_PIN --label "import-ec-prime256v1-private" --file export-ec-prime256v1-key.opaque --force --opaque
 	RC_P11SAK_EXPORT=$((RC_P11SAK_EXPORT + $?))
-	p11sak export-key ec --slot $SLOT --pin $PKCS11_USER_PIN --label "import-ec-secp521r1-public" --file export-ec-secp521r1-key.pem --force
+	${P11SAK} export-key ec --slot $SLOT --pin $PKCS11_USER_PIN --label "import-ec-secp521r1-public" --file export-ec-secp521r1-key.pem --force
 	RC_P11SAK_EXPORT=$((RC_P11SAK_EXPORT + $?))
-	p11sak export-key ec --slot $SLOT --pin $PKCS11_USER_PIN --label "import-ec-secp521r1-private" --file export-ec-secp521r1-key.opaque --force --opaque
+	${P11SAK} export-key ec --slot $SLOT --pin $PKCS11_USER_PIN --label "import-ec-secp521r1-private" --file export-ec-secp521r1-key.opaque --force --opaque
 	RC_P11SAK_EXPORT=$((RC_P11SAK_EXPORT + $?))
-	if [[ -n $(openssl version | grep "OpenSSL 3.") && -n $( pkcsconf -t -c $SLOT | grep "Model: EP11") ]]; then
-		p11sak export-key ec --slot $SLOT --pin $PKCS11_USER_PIN --label "import-ec-ed25519-public" --file export-ec-ed25519-key.pem --force
+	if [[ -n $(openssl version | grep "OpenSSL 3.") && -n $( ${PKCSCONF} -t -c $SLOT | grep "Model: EP11") ]]; then
+		${P11SAK} export-key ec --slot $SLOT --pin $PKCS11_USER_PIN --label "import-ec-ed25519-public" --file export-ec-ed25519-key.pem --force
 		RC_P11SAK_EXPORT=$((RC_P11SAK_EXPORT + $?))
-		p11sak export-key ec --slot $SLOT --pin $PKCS11_USER_PIN --label "import-ec-ed25519-private" --file export-ec-ed25519-key.opaque --force --opaque
+		${P11SAK} export-key ec --slot $SLOT --pin $PKCS11_USER_PIN --label "import-ec-ed25519-private" --file export-ec-ed25519-key.opaque --force --opaque
 		RC_P11SAK_EXPORT=$((RC_P11SAK_EXPORT + $?))
 	else
 		echo "Skip exporting edwards/montgomery keys, OpenSSL version not supporting it or not EP11 token"
 	fi
 else
-	p11sak export-key ec --slot $SLOT --pin $PKCS11_USER_PIN --label "import-ec-prime256v1-*" --file export-ec-prime256v1-key.pem --force
+	${P11SAK} export-key ec --slot $SLOT --pin $PKCS11_USER_PIN --label "import-ec-prime256v1-*" --file export-ec-prime256v1-key.pem --force
 	RC_P11SAK_EXPORT=$((RC_P11SAK_EXPORT + $?))
 	openssl pkey -in export-ec-prime256v1-key.pem -check -text > /dev/null
 	RC_P11SAK_EXPORT=$((RC_P11SAK_EXPORT + $?))
-	p11sak export-key ec --slot $SLOT --pin $PKCS11_USER_PIN --label "import-ec-secp521r1-*" --file export-ec-secp521r1-key.pem --force
+	${P11SAK} export-key ec --slot $SLOT --pin $PKCS11_USER_PIN --label "import-ec-secp521r1-*" --file export-ec-secp521r1-key.pem --force
 	RC_P11SAK_EXPORT=$((RC_P11SAK_EXPORT + $?))
 	openssl pkey -in export-ec-secp521r1-key.pem -check -text > /dev/null
 	RC_P11SAK_EXPORT=$((RC_P11SAK_EXPORT + $?))
@@ -422,33 +438,33 @@ openssl pkey -in export-ec-prime256v1-key.pem -pubin -text > /dev/null
 RC_P11SAK_EXPORT=$((RC_P11SAK_EXPORT + $?))
 openssl pkey -in export-ec-secp521r1-key.pem -pubin -text > /dev/null
 RC_P11SAK_EXPORT=$((RC_P11SAK_EXPORT + $?))
-if [[ -n $(openssl version | grep "OpenSSL 3.") && -n $( pkcsconf -t -c $SLOT | grep "Model: EP11") ]]; then
+if [[ -n $(openssl version | grep "OpenSSL 3.") && -n $( ${PKCSCONF} -t -c $SLOT | grep "Model: EP11") ]]; then
 	openssl pkey -in export-ec-ed25519-key.pem -pubin -text > /dev/null
 	RC_P11SAK_EXPORT=$((RC_P11SAK_EXPORT + $?))
 fi
 # ibm-dilithium
-if [[ -n $( pkcsconf -m -c $SLOT | grep CKM_IBM_DILITHIUM) ]]; then
-	if [[ -n $( pkcsconf -t -c $SLOT | grep "Model: EP11") || -n $( pkcsconf -t -c $SLOT | grep "Model: CCA") ]]; then
-		p11sak export-key ibm-dilithium --slot $SLOT --pin $PKCS11_USER_PIN --label "import-ibm-dilithium-public" --file export-ibm-dilithium-key.pem --force
+if [[ -n $( ${PKCSCONF} -m -c $SLOT | grep CKM_IBM_DILITHIUM) ]]; then
+	if [[ -n $( ${PKCSCONF} -t -c $SLOT | grep "Model: EP11") || -n $( ${PKCSCONF} -t -c $SLOT | grep "Model: CCA") ]]; then
+		${P11SAK} export-key ibm-dilithium --slot $SLOT --pin $PKCS11_USER_PIN --label "import-ibm-dilithium-public" --file export-ibm-dilithium-key.pem --force
 		RC_P11SAK_EXPORT=$((RC_P11SAK_EXPORT + $?))
-		p11sak export-key ibm-dilithium --slot $SLOT --pin $PKCS11_USER_PIN --label "import-ibm-dilithium-private" --file export-ibm-dilithium-key.opaque --force --opaque
+		${P11SAK} export-key ibm-dilithium --slot $SLOT --pin $PKCS11_USER_PIN --label "import-ibm-dilithium-private" --file export-ibm-dilithium-key.opaque --force --opaque
 		RC_P11SAK_EXPORT=$((RC_P11SAK_EXPORT + $?))
 	else
-		p11sak export-key ibm-dilithium --slot $SLOT --pin $PKCS11_USER_PIN --label "import-ibm-dilithium-*" --file export-ibm-dilithium-key.pem --force
+		${P11SAK} export-key ibm-dilithium --slot $SLOT --pin $PKCS11_USER_PIN --label "import-ibm-dilithium-*" --file export-ibm-dilithium-key.pem --force
 		RC_P11SAK_EXPORT=$((RC_P11SAK_EXPORT + $?))
 	fi
 else
 	echo "Skip exporting ibm-dilithium keys, slot does not support CKM_IBM_DILITHIUM"
 fi
 # ibm-kyber
-if [[ -n $( pkcsconf -m -c $SLOT | grep CKM_IBM_KYBER) ]]; then
-	if [[ -n $( pkcsconf -t -c $SLOT | grep "Model: EP11") || -n $( pkcsconf -t -c $SLOT | grep "Model: CCA") ]]; then
-		p11sak export-key ibm-kyber --slot $SLOT --pin $PKCS11_USER_PIN --label "import-ibm-kyber-public" --file export-ibm-kyber-key.pem --force
+if [[ -n $( ${PKCSCONF} -m -c $SLOT | grep CKM_IBM_KYBER) ]]; then
+	if [[ -n $( ${PKCSCONF} -t -c $SLOT | grep "Model: EP11") || -n $( ${PKCSCONF} -t -c $SLOT | grep "Model: CCA") ]]; then
+		${P11SAK} export-key ibm-kyber --slot $SLOT --pin $PKCS11_USER_PIN --label "import-ibm-kyber-public" --file export-ibm-kyber-key.pem --force
 		RC_P11SAK_EXPORT=$((RC_P11SAK_EXPORT + $?))
-		p11sak export-key ibm-kyber --slot $SLOT --pin $PKCS11_USER_PIN --label "import-ibm-kyber-private" --file export-ibm-kyber-key.opaque --force --opaque
+		${P11SAK} export-key ibm-kyber --slot $SLOT --pin $PKCS11_USER_PIN --label "import-ibm-kyber-private" --file export-ibm-kyber-key.opaque --force --opaque
 		RC_P11SAK_EXPORT=$((RC_P11SAK_EXPORT + $?))
 	else
-		p11sak export-key ibm-kyber --slot $SLOT --pin $PKCS11_USER_PIN --label "import-ibm-kyber-*" --file export-ibm-kyber-key.pem --force
+		${P11SAK} export-key ibm-kyber --slot $SLOT --pin $PKCS11_USER_PIN --label "import-ibm-kyber-*" --file export-ibm-kyber-key.pem --force
 		RC_P11SAK_EXPORT=$((RC_P11SAK_EXPORT + $?))
 	fi
 else
@@ -478,85 +494,85 @@ echo "** Now remove keys - 'p11sak_test.sh'"
 # remove objects
 RC_P11SAK_REMOVE=0
 # des
-p11sak remove-key des --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-des" -f
+${P11SAK} remove-key des --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-des" -f
 RC_P11SAK_REMOVE=$((RC_P11SAK_REMOVE + $?))
 # 3des
-p11sak remove-key 3des --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-3des" -f
+${P11SAK} remove-key 3des --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-3des" -f
 RC_P11SAK_REMOVE=$((RC_P11SAK_REMOVE + $?))
 # generic
-p11sak remove-key generic --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-generic" -f
+${P11SAK} remove-key generic --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-generic" -f
 RC_P11SAK_REMOVE=$((RC_P11SAK_REMOVE + $?))
 # aes [128 | 192 | 256 | copied]
-p11sak remove-key aes --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-aes-128" -f
+${P11SAK} remove-key aes --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-aes-128" -f
 RC_P11SAK_REMOVE=$((RC_P11SAK_REMOVE + $?))
-p11sak remove-key aes --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-aes-192" -f
+${P11SAK} remove-key aes --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-aes-192" -f
 RC_P11SAK_REMOVE=$((RC_P11SAK_REMOVE + $?))
-p11sak remove-key aes --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-aes-256" -f
+${P11SAK} remove-key aes --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-aes-256" -f
 RC_P11SAK_REMOVE=$((RC_P11SAK_REMOVE + $?))
-p11sak remove-key aes --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-aes-copied" -f
+${P11SAK} remove-key aes --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-aes-copied" -f
 RC_P11SAK_REMOVE=$((RC_P11SAK_REMOVE + $?))
 # aes-xts [128 | 256]
-p11sak remove-key aes-xts --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-aes-xts-128" -f
+${P11SAK} remove-key aes-xts --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-aes-xts-128" -f
 RC_P11SAK_REMOVE=$((RC_P11SAK_REMOVE + $?))
-p11sak remove-key aes-xts --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-aes-xts-256" -f
+${P11SAK} remove-key aes-xts --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-aes-xts-256" -f
 RC_P11SAK_REMOVE=$((RC_P11SAK_REMOVE + $?))
 # rsa [1024 | 2048 | 4096]
 # remove public key
-p11sak remove-key rsa --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-rsa-1024:pub" -f
+${P11SAK} remove-key rsa --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-rsa-1024:pub" -f
 RC_P11SAK_REMOVE=$((RC_P11SAK_REMOVE + $?))
-p11sak remove-key rsa --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-rsa-2048:pub" -f
+${P11SAK} remove-key rsa --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-rsa-2048:pub" -f
 RC_P11SAK_REMOVE=$((RC_P11SAK_REMOVE + $?))
-p11sak remove-key rsa --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-rsa-4096:pub" -f
+${P11SAK} remove-key rsa --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-rsa-4096:pub" -f
 RC_P11SAK_REMOVE=$((RC_P11SAK_REMOVE + $?))
 # remove private key
-p11sak remove-key rsa --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-rsa-1024:prv" -f
+${P11SAK} remove-key rsa --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-rsa-1024:prv" -f
 RC_P11SAK_REMOVE=$((RC_P11SAK_REMOVE + $?))
-p11sak remove-key rsa --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-rsa-2048:prv" -f
+${P11SAK} remove-key rsa --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-rsa-2048:prv" -f
 RC_P11SAK_REMOVE=$((RC_P11SAK_REMOVE + $?))
-p11sak remove-key rsa --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-rsa-4096:prv" -f
+${P11SAK} remove-key rsa --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-rsa-4096:prv" -f
 RC_P11SAK_REMOVE=$((RC_P11SAK_REMOVE + $?))
 # dh
 # remove public key
-p11sak remove-key dh --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-dh:pub" -f
+${P11SAK} remove-key dh --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-dh:pub" -f
 RC_P11SAK_REMOVE=$((RC_P11SAK_REMOVE + $?))
 # remove private key
-p11sak remove-key dh --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-dh:prv" -f
+${P11SAK} remove-key dh --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-dh:prv" -f
 RC_P11SAK_REMOVE=$((RC_P11SAK_REMOVE + $?))
 # dsa 
 # remove public key
-p11sak remove-key dsa --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-dsa:pub" -f
+${P11SAK} remove-key dsa --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-dsa:pub" -f
 RC_P11SAK_REMOVE=$((RC_P11SAK_REMOVE + $?))
 # remove private key
-p11sak remove-key dsa --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-dsa:prv" -f
+${P11SAK} remove-key dsa --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-dsa:prv" -f
 RC_P11SAK_REMOVE=$((RC_P11SAK_REMOVE + $?))
 # ec [prime256v1 | secp384r1 | secp521r1]
 #remove public key
-p11sak remove-key ec --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-ec-prime256v1:pub" -f
+${P11SAK} remove-key ec --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-ec-prime256v1:pub" -f
 RC_P11SAK_REMOVE=$((RC_P11SAK_REMOVE + $?))
-p11sak remove-key ec --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-ec-secp384r1:pub" -f
+${P11SAK} remove-key ec --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-ec-secp384r1:pub" -f
 RC_P11SAK_REMOVE=$((RC_P11SAK_REMOVE + $?))
-p11sak remove-key ec --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-ec-secp521r1:pub" -f
+${P11SAK} remove-key ec --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-ec-secp521r1:pub" -f
 RC_P11SAK_REMOVE=$((RC_P11SAK_REMOVE + $?))
 # remove private key
-p11sak remove-key ec --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-ec-prime256v1:prv" -f
+${P11SAK} remove-key ec --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-ec-prime256v1:prv" -f
 RC_P11SAK_REMOVE=$((RC_P11SAK_REMOVE + $?))
-p11sak remove-key ec --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-ec-secp384r1:prv" -f
+${P11SAK} remove-key ec --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-ec-secp384r1:prv" -f
 RC_P11SAK_REMOVE=$((RC_P11SAK_REMOVE + $?))
-p11sak remove-key ec --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-ec-secp521r1:prv" -f
+${P11SAK} remove-key ec --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-ec-secp521r1:prv" -f
 RC_P11SAK_REMOVE=$((RC_P11SAK_REMOVE + $?))
 # remove ibm-dilithium keys
-p11sak remove-key ibm-dilithium --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-ibm-dilithium:pub" -f
+${P11SAK} remove-key ibm-dilithium --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-ibm-dilithium:pub" -f
 RC_P11SAK_REMOVE=$((RC_P11SAK_REMOVE + $?))
-p11sak remove-key ibm-dilithium --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-ibm-dilithium:prv" -f
+${P11SAK} remove-key ibm-dilithium --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-ibm-dilithium:prv" -f
 RC_P11SAK_REMOVE=$((RC_P11SAK_REMOVE + $?))
 # remove ibm-kyber keys
-p11sak remove-key ibm-kyber --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-ibm-kyber:pub" -f
+${P11SAK} remove-key ibm-kyber --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-ibm-kyber:pub" -f
 RC_P11SAK_REMOVE=$((RC_P11SAK_REMOVE + $?))
-p11sak remove-key ibm-kyber --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-ibm-kyber:prv" -f
+${P11SAK} remove-key ibm-kyber --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-ibm-kyber:prv" -f
 RC_P11SAK_REMOVE=$((RC_P11SAK_REMOVE + $?))
-p11sak remove-key --slot $SLOT --pin $PKCS11_USER_PIN --label "import*" -f
+${P11SAK} remove-key --slot $SLOT --pin $PKCS11_USER_PIN --label "import*" -f
 RC_P11SAK_REMOVE=$((RC_P11SAK_REMOVE + $?))
-p11sak remove-key --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-pubkey-extracted" -f
+${P11SAK} remove-key --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-pubkey-extracted" -f
 RC_P11SAK_REMOVE=$((RC_P11SAK_REMOVE + $?))
 
 
@@ -564,33 +580,33 @@ echo "** Now list keys and redirect to post-files - 'p11sak_test.sh'"
 
 # list objects
 RC_P11SAK_LIST_POST=0
-p11sak list-key des --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-des" &> $P11SAK_DES_POST
+${P11SAK} list-key des --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-des" &> $P11SAK_DES_POST
 RC_P11SAK_LIST_POST=$((RC_P11SAK_LIST_POST + $?))
-p11sak list-key 3des --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-3des" &> $P11SAK_3DES_POST
+${P11SAK} list-key 3des --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-3des" &> $P11SAK_3DES_POST
 RC_P11SAK_LIST_POST=$((RC_P11SAK_LIST_POST + $?))
-p11sak list-key generic --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-generic" &> $P11SAK_GENERIC_POST
+${P11SAK} list-key generic --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-generic" &> $P11SAK_GENERIC_POST
 RC_P11SAK_LIST_POST=$((RC_P11SAK_LIST_POST + $?))
-p11sak list-key aes --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-aes-*" &> $P11SAK_AES_POST
+${P11SAK} list-key aes --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-aes-*" &> $P11SAK_AES_POST
 RC_P11SAK_LIST_POST=$((RC_P11SAK_LIST_POST + $?))
-p11sak list-key aes-xts --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-aes-xts-*" &> $P11SAK_AES_XTS_POST
+${P11SAK} list-key aes-xts --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-aes-xts-*" &> $P11SAK_AES_XTS_POST
 RC_P11SAK_LIST_POST=$((RC_P11SAK_LIST_POST + $?))
-p11sak list-key rsa --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-rsa-*" &> $P11SAK_RSA_POST
+${P11SAK} list-key rsa --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-rsa-*" &> $P11SAK_RSA_POST
 RC_P11SAK_LIST_POST=$((RC_P11SAK_LIST_POST + $?))
-p11sak list-key dh --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-dh*" &> $P11SAK_DH_POST
+${P11SAK} list-key dh --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-dh*" &> $P11SAK_DH_POST
 RC_P11SAK_LIST_POST=$((RC_P11SAK_LIST_POST + $?))
-p11sak list-key dsa --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-dsa*" &> $P11SAK_DSA_POST
+${P11SAK} list-key dsa --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-dsa*" &> $P11SAK_DSA_POST
 RC_P11SAK_LIST_POST=$((RC_P11SAK_LIST_POST + $?))
-p11sak list-key ec --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-ec-*" &> $P11SAK_EC_POST
+${P11SAK} list-key ec --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-ec-*" &> $P11SAK_EC_POST
 RC_P11SAK_LIST_POST=$((RC_P11SAK_LIST_POST + $?))
-p11sak list-key ibm-dilithium --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-ibm-dilithium*" &> $P11SAK_IBM_DILITHIUM_POST
+${P11SAK} list-key ibm-dilithium --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-ibm-dilithium*" &> $P11SAK_IBM_DILITHIUM_POST
 RC_P11SAK_LIST_POST=$((RC_P11SAK_LIST_POST + $?))
-p11sak list-key ibm-kyber --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-ibm-kyber*" &> $P11SAK_IBM_KYBER_POST
+${P11SAK} list-key ibm-kyber --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-ibm-kyber*" &> $P11SAK_IBM_KYBER_POST
 RC_P11SAK_LIST_POST=$((RC_P11SAK_LIST_POST + $?))
 
 
 echo "** Now checking output files to determine PASS/FAIL of tests - 'p11sak_test.sh'"
 
-if [[ -n $( pkcsconf -m -c $SLOT | grep CKM_DES_KEY_GEN) ]]; then
+if [[ -n $( ${PKCSCONF} -m -c $SLOT | grep CKM_DES_KEY_GEN) ]]; then
 	# check DES
 	grep -q "p11sak-des" $P11SAK_DES_PRE
 	rc=$?
@@ -613,7 +629,7 @@ else
 	echo "* TESTCASE remove-key des SKIP Deleted generated DES key"
 fi
 
-if [[ -n $( pkcsconf -m -c $SLOT | grep CKM_DES_KEY_GEN) ]]; then
+if [[ -n $( ${PKCSCONF} -m -c $SLOT | grep CKM_DES_KEY_GEN) ]]; then
 	# CK_BBOOL
 	if [[ $(grep -c "CKA_ENCRYPT: CK_TRUE" $P11SAK_DES_LONG) == "1" ]]; then
 		echo "* TESTCASE list-key des PASS Listed random des keys CK_BBOOL attribute"
@@ -834,7 +850,7 @@ else
 	status=1
 fi
 
-if [[ -n $( pkcsconf -m -c $SLOT | grep CKM_AES_XTS_KEY_GEN) ]]; then
+if [[ -n $( ${PKCSCONF} -m -c $SLOT | grep CKM_AES_XTS_KEY_GEN) ]]; then
 	# check AES-XTS 128
 	grep -q "p11sak-aes-xts-128" $P11SAK_AES_XTS_PRE
 	rc=$?
@@ -1053,7 +1069,7 @@ else
 	status=1
 fi
 
-if [[ -n $( pkcsconf -m -c $SLOT | grep CKM_DH_PKCS_KEY_PAIR_GEN) ]]; then
+if [[ -n $( ${PKCSCONF} -m -c $SLOT | grep CKM_DH_PKCS_KEY_PAIR_GEN) ]]; then
 	# check DH public key
 	grep -q "p11sak-dh:pub" $P11SAK_DH_PRE
 	rc=$?
@@ -1131,7 +1147,7 @@ else
 fi
 
 
-if [[ -n $( pkcsconf -m -c $SLOT | grep CKM_DSA_KEY_PAIR_GEN) ]]; then
+if [[ -n $( ${PKCSCONF} -m -c $SLOT | grep CKM_DSA_KEY_PAIR_GEN) ]]; then
 	# check DSA public key
 	grep -q "p11sak-dsa:pub" $P11SAK_DSA_PRE
 	rc=$?
@@ -1352,7 +1368,7 @@ else
 fi
 
 
-if [[ -n $( pkcsconf -m -c $SLOT | grep CKM_IBM_DILITHIUM) ]]; then
+if [[ -n $( ${PKCSCONF} -m -c $SLOT | grep CKM_IBM_DILITHIUM) ]]; then
 	# CK_BBOOL
 	if [[ $(grep -c "CKA_MODIFIABLE: CK_TRUE" $P11SAK_IBM_DILITHIUM_LONG) == "2" ]]; then
 		echo "* TESTCASE list-key ibm-dilithium PASS Listed random ibm-dilithium keys CK_BBOOL attribute"
@@ -1381,7 +1397,7 @@ else
 fi
 
 
-if [[ -n $( pkcsconf -m -c $SLOT | grep CKM_IBM_KYBER) ]]; then
+if [[ -n $( ${PKCSCONF} -m -c $SLOT | grep CKM_IBM_KYBER) ]]; then
 	# CK_BBOOL
 	if [[ $(grep -c "CKA_MODIFIABLE: CK_TRUE" $P11SAK_IBM_KYBER_LONG) == "2" ]]; then
 		echo "* TESTCASE list-key ibm-kyber PASS Listed random ibm-kyber keys CK_BBOOL attribute"
@@ -1412,34 +1428,34 @@ fi
 
 echo "** Import the sample x.509 certificates - 'p11sak_test.sh'"
 RC_P11SAK_X509_IMPORT=0
-p11sak import-cert x509 --slot $SLOT --pin $PKCS11_USER_PIN --id 123 --label "p11sak-x509-rsa2048crt" --file $DIR/p11sak_rsa2048cert.crt
+${P11SAK} import-cert x509 --slot $SLOT --pin $PKCS11_USER_PIN --id 123 --label "p11sak-x509-rsa2048crt" --file $DIR/p11sak_rsa2048cert.crt
 RC_P11SAK_X509_IMPORT=$((RC_P11SAK_X509_IMPORT + $?))
-p11sak import-cert x509 --slot $SLOT --pin $PKCS11_USER_PIN --id 234 --label "p11sak-x509-rsa2048pem" --file $DIR/p11sak_rsa2048cert.pem
+${P11SAK} import-cert x509 --slot $SLOT --pin $PKCS11_USER_PIN --id 234 --label "p11sak-x509-rsa2048pem" --file $DIR/p11sak_rsa2048cert.pem
 RC_P11SAK_X509_IMPORT=$((RC_P11SAK_X509_IMPORT + $?))
-p11sak import-cert x509 --slot $SLOT --pin $PKCS11_USER_PIN --id 345 --label "p11sak-x509-rsa4096crt" --file $DIR/p11sak_rsa4096cert.crt
+${P11SAK} import-cert x509 --slot $SLOT --pin $PKCS11_USER_PIN --id 345 --label "p11sak-x509-rsa4096crt" --file $DIR/p11sak_rsa4096cert.crt
 RC_P11SAK_X509_IMPORT=$((RC_P11SAK_X509_IMPORT + $?))
-p11sak import-cert x509 --slot $SLOT --pin $PKCS11_USER_PIN --id 456 --label "p11sak-x509-rsa4096pem" --file $DIR/p11sak_rsa4096cert.pem
+${P11SAK} import-cert x509 --slot $SLOT --pin $PKCS11_USER_PIN --id 456 --label "p11sak-x509-rsa4096pem" --file $DIR/p11sak_rsa4096cert.pem
 RC_P11SAK_X509_IMPORT=$((RC_P11SAK_X509_IMPORT + $?))
-p11sak import-cert x509 --slot $SLOT --pin $PKCS11_USER_PIN --id 567 --label "p11sak-x509-ecp256crt" --file $DIR/p11sak_ecp256cert.crt
+${P11SAK} import-cert x509 --slot $SLOT --pin $PKCS11_USER_PIN --id 567 --label "p11sak-x509-ecp256crt" --file $DIR/p11sak_ecp256cert.crt
 RC_P11SAK_X509_IMPORT=$((RC_P11SAK_X509_IMPORT + $?))
-p11sak import-cert x509 --slot $SLOT --pin $PKCS11_USER_PIN --id 678 --label "p11sak-x509-ecp256pem" --file $DIR/p11sak_ecp256cert.pem
+${P11SAK} import-cert x509 --slot $SLOT --pin $PKCS11_USER_PIN --id 678 --label "p11sak-x509-ecp256pem" --file $DIR/p11sak_ecp256cert.pem
 RC_P11SAK_X509_IMPORT=$((RC_P11SAK_X509_IMPORT + $?))
-p11sak import-cert x509 --slot $SLOT --pin $PKCS11_USER_PIN --id 789 --label "p11sak-x509-ecp384crt" --file $DIR/p11sak_ecp384cert.crt
+${P11SAK} import-cert x509 --slot $SLOT --pin $PKCS11_USER_PIN --id 789 --label "p11sak-x509-ecp384crt" --file $DIR/p11sak_ecp384cert.crt
 RC_P11SAK_X509_IMPORT=$((RC_P11SAK_X509_IMPORT + $?))
-p11sak import-cert x509 --slot $SLOT --pin $PKCS11_USER_PIN --id 89A --label "p11sak-x509-ecp384pem" --file $DIR/p11sak_ecp384cert.pem
+${P11SAK} import-cert x509 --slot $SLOT --pin $PKCS11_USER_PIN --id 89A --label "p11sak-x509-ecp384pem" --file $DIR/p11sak_ecp384cert.pem
 RC_P11SAK_X509_IMPORT=$((RC_P11SAK_X509_IMPORT + $?))
-p11sak import-cert x509 --slot $SLOT --pin $PKCS11_USER_PIN --id 789 --label "p11sak-x509-ecp521crt" --file $DIR/p11sak_ecp521cert.crt
+${P11SAK} import-cert x509 --slot $SLOT --pin $PKCS11_USER_PIN --id 789 --label "p11sak-x509-ecp521crt" --file $DIR/p11sak_ecp521cert.crt
 RC_P11SAK_X509_IMPORT=$((RC_P11SAK_X509_IMPORT + $?))
-p11sak import-cert x509 --slot $SLOT --pin $PKCS11_USER_PIN --id 89A --label "p11sak-x509-ecp521pem" --file $DIR/p11sak_ecp521cert.pem
+${P11SAK} import-cert x509 --slot $SLOT --pin $PKCS11_USER_PIN --id 89A --label "p11sak-x509-ecp521pem" --file $DIR/p11sak_ecp521cert.pem
 RC_P11SAK_X509_IMPORT=$((RC_P11SAK_X509_IMPORT + $?))
-if [[ -n $( pkcsconf -m -c $SLOT | grep CKM_DSA) ]]; then
-	p11sak import-cert x509 --slot $SLOT --pin $PKCS11_USER_PIN --id 9AB --label "p11sak-x509-dsa3072crt" --file $DIR/p11sak_dsa3072cert.crt
+if [[ -n $( ${PKCSCONF} -m -c $SLOT | grep CKM_DSA) ]]; then
+	${P11SAK} import-cert x509 --slot $SLOT --pin $PKCS11_USER_PIN --id 9AB --label "p11sak-x509-dsa3072crt" --file $DIR/p11sak_dsa3072cert.crt
 	RC_P11SAK_X509_IMPORT=$((RC_P11SAK_X509_IMPORT + $?))
-	p11sak import-cert x509 --slot $SLOT --pin $PKCS11_USER_PIN --id ABC --label "p11sak-x509-dsa3072pem" --file $DIR/p11sak_dsa3072cert.pem
+	${P11SAK} import-cert x509 --slot $SLOT --pin $PKCS11_USER_PIN --id ABC --label "p11sak-x509-dsa3072pem" --file $DIR/p11sak_dsa3072cert.pem
 	RC_P11SAK_X509_IMPORT=$((RC_P11SAK_X509_IMPORT + $?))
-	p11sak import-cert x509 --slot $SLOT --pin $PKCS11_USER_PIN --id 9AB --label "p11sak-x509-dsa4096crt" --file $DIR/p11sak_dsa4096cert.crt
+	${P11SAK} import-cert x509 --slot $SLOT --pin $PKCS11_USER_PIN --id 9AB --label "p11sak-x509-dsa4096crt" --file $DIR/p11sak_dsa4096cert.crt
 	RC_P11SAK_X509_IMPORT=$((RC_P11SAK_X509_IMPORT + $?))
-	p11sak import-cert x509 --slot $SLOT --pin $PKCS11_USER_PIN --id ABC --label "p11sak-x509-dsa4096pem" --file $DIR/p11sak_dsa4096cert.pem
+	${P11SAK} import-cert x509 --slot $SLOT --pin $PKCS11_USER_PIN --id ABC --label "p11sak-x509-dsa4096pem" --file $DIR/p11sak_dsa4096cert.pem
 	RC_P11SAK_X509_IMPORT=$((RC_P11SAK_X509_IMPORT + $?))
 else
 	echo "Skip importing x.509 certs with DSA key, slot does not support CKM_DSA"
@@ -1449,34 +1465,34 @@ fi
 echo "** Now exporting x.509 certificates - 'p11sak_test.sh'"
 RC_P11SAK_X509_EXPORT=0
 # x.509
-p11sak export-cert x509 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-x509-rsa2048crt" --file p11sak_rsa2048cert_exported.crt --der --force
+${P11SAK} export-cert x509 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-x509-rsa2048crt" --file p11sak_rsa2048cert_exported.crt --der --force
 RC_P11SAK_X509_EXPORT=$((RC_P11SAK_X509_EXPORT + $?))
-p11sak export-cert x509 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-x509-rsa2048pem" --file p11sak_rsa2048cert_exported.pem --force
+${P11SAK} export-cert x509 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-x509-rsa2048pem" --file p11sak_rsa2048cert_exported.pem --force
 RC_P11SAK_X509_EXPORT=$((RC_P11SAK_X509_EXPORT + $?))
-p11sak export-cert x509 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-x509-rsa4096crt" --file p11sak_rsa4096cert_exported.crt --der --force
+${P11SAK} export-cert x509 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-x509-rsa4096crt" --file p11sak_rsa4096cert_exported.crt --der --force
 RC_P11SAK_X509_EXPORT=$((RC_P11SAK_X509_EXPORT + $?))
-p11sak export-cert x509 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-x509-rsa4096pem" --file p11sak_rsa4096cert_exported.pem --force
+${P11SAK} export-cert x509 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-x509-rsa4096pem" --file p11sak_rsa4096cert_exported.pem --force
 RC_P11SAK_X509_EXPORT=$((RC_P11SAK_X509_EXPORT + $?))
-p11sak export-cert x509 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-x509-ecp256crt" --file p11sak_ecp256cert_exported.crt --der --force
+${P11SAK} export-cert x509 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-x509-ecp256crt" --file p11sak_ecp256cert_exported.crt --der --force
 RC_P11SAK_X509_EXPORT=$((RC_P11SAK_X509_EXPORT + $?))
-p11sak export-cert x509 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-x509-ecp256pem" --file p11sak_ecp256cert_exported.pem --force
+${P11SAK} export-cert x509 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-x509-ecp256pem" --file p11sak_ecp256cert_exported.pem --force
 RC_P11SAK_X509_EXPORT=$((RC_P11SAK_X509_EXPORT + $?))
-p11sak export-cert x509 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-x509-ecp384crt" --file p11sak_ecp384cert_exported.crt --der --force
+${P11SAK} export-cert x509 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-x509-ecp384crt" --file p11sak_ecp384cert_exported.crt --der --force
 RC_P11SAK_X509_EXPORT=$((RC_P11SAK_X509_EXPORT + $?))
-p11sak export-cert x509 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-x509-ecp384pem" --file p11sak_ecp384cert_exported.pem --force
+${P11SAK} export-cert x509 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-x509-ecp384pem" --file p11sak_ecp384cert_exported.pem --force
 RC_P11SAK_X509_EXPORT=$((RC_P11SAK_X509_EXPORT + $?))
-p11sak export-cert x509 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-x509-ecp521crt" --file p11sak_ecp521cert_exported.crt --der --force
+${P11SAK} export-cert x509 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-x509-ecp521crt" --file p11sak_ecp521cert_exported.crt --der --force
 RC_P11SAK_X509_EXPORT=$((RC_P11SAK_X509_EXPORT + $?))
-p11sak export-cert x509 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-x509-ecp521pem" --file p11sak_ecp521cert_exported.pem --force
+${P11SAK} export-cert x509 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-x509-ecp521pem" --file p11sak_ecp521cert_exported.pem --force
 RC_P11SAK_X509_EXPORT=$((RC_P11SAK_X509_EXPORT + $?))
-if [[ -n $( pkcsconf -m -c $SLOT | grep CKM_DSA) ]]; then
-	p11sak export-cert x509 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-x509-dsa3072crt" --file p11sak_dsa3072cert_exported.crt --der --force
+if [[ -n $( ${PKCSCONF} -m -c $SLOT | grep CKM_DSA) ]]; then
+	${P11SAK} export-cert x509 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-x509-dsa3072crt" --file p11sak_dsa3072cert_exported.crt --der --force
 	RC_P11SAK_X509_EXPORT=$((RC_P11SAK_X509_EXPORT + $?))
-	p11sak export-cert x509 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-x509-dsa3072pem" --file p11sak_dsa3072cert_exported.pem --force
+	${P11SAK} export-cert x509 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-x509-dsa3072pem" --file p11sak_dsa3072cert_exported.pem --force
 	RC_P11SAK_X509_EXPORT=$((RC_P11SAK_X509_EXPORT + $?))
-	p11sak export-cert x509 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-x509-dsa4096crt" --file p11sak_dsa4096cert_exported.crt --der --force
+	${P11SAK} export-cert x509 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-x509-dsa4096crt" --file p11sak_dsa4096cert_exported.crt --der --force
 	RC_P11SAK_X509_EXPORT=$((RC_P11SAK_X509_EXPORT + $?))
-	p11sak export-cert x509 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-x509-dsa4096pem" --file p11sak_dsa4096cert_exported.pem --force
+	${P11SAK} export-cert x509 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-x509-dsa4096pem" --file p11sak_dsa4096cert_exported.pem --force
 	RC_P11SAK_X509_EXPORT=$((RC_P11SAK_X509_EXPORT + $?))
 else
 	echo "Skip exporting x.509 certs with DSA key, slot does not support CKM_DSA"
@@ -1502,34 +1518,34 @@ fi
 
 echo "** Now extracting public keys from x.509 certificates - 'p11sak_test.sh'"
 RC_P11SAK_X509_EXTRACT=0
-p11sak extract-cert-pubkey x509 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-x509-rsa2048crt" --force
+${P11SAK} extract-cert-pubkey x509 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-x509-rsa2048crt" --force
 RC_P11SAK_X509_EXTRACT=$((RC_P11SAK_X509_EXTRACT + $?))
-p11sak extract-cert-pubkey x509 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-x509-rsa2048pem" --force
+${P11SAK} extract-cert-pubkey x509 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-x509-rsa2048pem" --force
 RC_P11SAK_X509_EXTRACT=$((RC_P11SAK_X509_EXTRACT + $?))
-p11sak extract-cert-pubkey x509 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-x509-rsa4096crt" --force
+${P11SAK} extract-cert-pubkey x509 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-x509-rsa4096crt" --force
 RC_P11SAK_X509_EXTRACT=$((RC_P11SAK_X509_EXTRACT + $?))
-p11sak extract-cert-pubkey x509 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-x509-rsa4096pem" --force
+${P11SAK} extract-cert-pubkey x509 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-x509-rsa4096pem" --force
 RC_P11SAK_X509_EXTRACT=$((RC_P11SAK_X509_EXTRACT + $?))
-p11sak extract-cert-pubkey x509 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-x509-ecp256crt" --force
+${P11SAK} extract-cert-pubkey x509 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-x509-ecp256crt" --force
 RC_P11SAK_X509_EXTRACT=$((RC_P11SAK_X509_EXTRACT + $?))
-p11sak extract-cert-pubkey x509 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-x509-ecp256pem" --force
+${P11SAK} extract-cert-pubkey x509 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-x509-ecp256pem" --force
 RC_P11SAK_X509_EXTRACT=$((RC_P11SAK_X509_EXTRACT + $?))
-p11sak extract-cert-pubkey x509 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-x509-ecp384crt" --force
+${P11SAK} extract-cert-pubkey x509 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-x509-ecp384crt" --force
 RC_P11SAK_X509_EXTRACT=$((RC_P11SAK_X509_EXTRACT + $?))
-p11sak extract-cert-pubkey x509 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-x509-ecp384pem" --force
+${P11SAK} extract-cert-pubkey x509 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-x509-ecp384pem" --force
 RC_P11SAK_X509_EXTRACT=$((RC_P11SAK_X509_EXTRACT + $?))
-p11sak extract-cert-pubkey x509 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-x509-ecp521crt" --force
+${P11SAK} extract-cert-pubkey x509 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-x509-ecp521crt" --force
 RC_P11SAK_X509_EXTRACT=$((RC_P11SAK_X509_EXTRACT + $?))
-p11sak extract-cert-pubkey x509 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-x509-ecp521pem" --force
+${P11SAK} extract-cert-pubkey x509 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-x509-ecp521pem" --force
 RC_P11SAK_X509_EXTRACT=$((RC_P11SAK_X509_EXTRACT + $?))
-if [[ -n $( pkcsconf -m -c $SLOT | grep CKM_DSA) ]]; then
-	p11sak extract-cert-pubkey x509 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-x509-dsa3072crt" --force
+if [[ -n $( ${PKCSCONF} -m -c $SLOT | grep CKM_DSA) ]]; then
+	${P11SAK} extract-cert-pubkey x509 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-x509-dsa3072crt" --force
 	RC_P11SAK_X509_EXTRACT=$((RC_P11SAK_X509_EXTRACT + $?))
-	p11sak extract-cert-pubkey x509 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-x509-dsa3072pem" --force
+	${P11SAK} extract-cert-pubkey x509 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-x509-dsa3072pem" --force
 	RC_P11SAK_X509_EXTRACT=$((RC_P11SAK_X509_EXTRACT + $?))
-	p11sak extract-cert-pubkey x509 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-x509-dsa4096crt" --force
+	${P11SAK} extract-cert-pubkey x509 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-x509-dsa4096crt" --force
 	RC_P11SAK_X509_EXTRACT=$((RC_P11SAK_X509_EXTRACT + $?))
-	p11sak extract-cert-pubkey x509 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-x509-dsa4096pem" --force
+	${P11SAK} extract-cert-pubkey x509 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-x509-dsa4096pem" --force
 	RC_P11SAK_X509_EXTRACT=$((RC_P11SAK_X509_EXTRACT + $?))
 else
 	echo "Skip extracting pubkeys from x.509 certs with DSA key, slot does not support CKM_DSA"
@@ -1538,46 +1554,46 @@ fi
 
 echo "** Now copying x.509 certificates to new token objects - 'p11sak_test.sh'"
 RC_P11SAK_X509_COPY=0
-p11sak copy-cert x509 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-x509-*" --new-label "p11sak-x509-copied" --force
+${P11SAK} copy-cert x509 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-x509-*" --new-label "p11sak-x509-copied" --force
 RC_P11SAK_X509_COPY=$((RC_P11SAK_X509_COPY + $?))
 
 
 echo "** Now updating x.509 certs - 'p11sak_test.sh'"
 RC_P11SAK_X509_UPDATE=0
-p11sak set-cert-attr x509 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-x509-*" --new-attr "Yt" --force
+${P11SAK} set-cert-attr x509 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-x509-*" --new-attr "Yt" --force
 RC_P11SAK_X509_UPDATE=$((RC_P11SAK_X509_UPDATE + $?))
-p11sak set-cert-attr x509 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-x509-*" --new-id "012345" --force
+${P11SAK} set-cert-attr x509 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-x509-*" --new-id "012345" --force
 RC_P11SAK_X509_UPDATE=$((RC_P11SAK_X509_UPDATE + $?))
 
 
 echo "** Now list x509 certificates and extracted pubkeys and redirect output to pre-files - 'p11sak_test.sh'"
 RC_P11SAK_X509_LIST=0
-p11sak list-cert x509 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-x509-*" --sort n:a &> $P11SAK_X509_PRE
+${P11SAK} list-cert x509 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-x509-*" --sort n:a &> $P11SAK_X509_PRE
 RC_P11SAK_X509_LIST=$((RC_P11SAK_X509_LIST + $?))
-p11sak list-key all --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-x509-*" &>> $P11SAK_X509_PRE
+${P11SAK} list-key all --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-x509-*" &>> $P11SAK_X509_PRE
 RC_P11SAK_X509_LIST=$((RC_P11SAK_X509_LIST + $?))
 
 RC_P11SAK_X509_LIST_LONG=0
-p11sak list-cert x509 --slot $SLOT --pin $PKCS11_USER_PIN --long --label "p11sak-x509-*" --sort l:d,n:a &> $P11SAK_X509_LONG
+${P11SAK} list-cert x509 --slot $SLOT --pin $PKCS11_USER_PIN --long --label "p11sak-x509-*" --sort l:d,n:a &> $P11SAK_X509_LONG
 RC_P11SAK_X509_LIST_LONG=$((RC_P11SAK_X509_LIST_LONG + $?))
-p11sak list-key all --slot $SLOT --pin $PKCS11_USER_PIN --long --label "p11sak-x509-*" &>> $P11SAK_X509_LONG
+${P11SAK} list-key all --slot $SLOT --pin $PKCS11_USER_PIN --long --label "p11sak-x509-*" &>> $P11SAK_X509_LONG
 RC_P11SAK_X509_LIST_LONG=$((RC_P11SAK_X509_LIST_LONG + $?))
 
 echo "** Now removing x.509 certificates and extracted public keys - 'p11sak_test.sh'"
 # x.509
 RC_P11SAK_X509_REMOVE=0
-p11sak remove-cert x509 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-x509-*" -f
+${P11SAK} remove-cert x509 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-x509-*" -f
 RC_P11SAK_X509_REMOVE=$((RC_P11SAK_X509_REMOVE + $?))
-p11sak remove-key --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-x509-*" -f
+${P11SAK} remove-key --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-x509-*" -f
 RC_P11SAK_X509_REMOVE=$((RC_P11SAK_X509_REMOVE + $?))
 
 
 echo "** Now list certificates and extracted keys and redirect to post-files - 'p11sak_test.sh'"
 # list objects: if remove was successful above, no certs and extracted keys are left
 RC_P11SAK_X509_LIST_POST=0
-p11sak list-cert x509 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-x509-*" --sort n:d,l:a &> $P11SAK_X509_POST
+${P11SAK} list-cert x509 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-x509-*" --sort n:d,l:a &> $P11SAK_X509_POST
 RC_P11SAK_X509_LIST_POST=$((RC_P11SAK_X509_LIST_POST + $?))
-p11sak list-key all --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-x509-*" &> $P11SAK_X509_POST
+${P11SAK} list-key all --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-x509-*" &> $P11SAK_X509_POST
 RC_P11SAK_X509_LIST_POST=$((RC_P11SAK_X509_LIST_POST + $?))
 
 
@@ -1605,7 +1621,7 @@ diff $DIR/p11sak_ecp521cert.crt p11sak_ecp521cert_exported.crt > /dev/null
 RC_P11SAK_X509_DIFF=$((RC_P11SAK_X509_DIFF + $?))
 diff $DIR/p11sak_ecp521cert.pem p11sak_ecp521cert_exported.pem > /dev/null
 RC_P11SAK_X509_DIFF=$((RC_P11SAK_X509_DIFF + $?))
-if [[ -n $( pkcsconf -m -c $SLOT | grep CKM_DSA) ]]; then
+if [[ -n $( ${PKCSCONF} -m -c $SLOT | grep CKM_DSA) ]]; then
 	diff $DIR/p11sak_dsa3072cert.crt p11sak_dsa3072cert_exported.crt > /dev/null
 	RC_P11SAK_X509_DIFF=$((RC_P11SAK_X509_DIFF + $?))
 	diff $DIR/p11sak_dsa3072cert.pem p11sak_dsa3072cert_exported.pem > /dev/null
@@ -1812,7 +1828,7 @@ else
 fi
 
 # DSA-3072
-if [[ -n $( pkcsconf -m -c $SLOT | grep CKM_DSA) ]]; then
+if [[ -n $( ${PKCSCONF} -m -c $SLOT | grep CKM_DSA) ]]; then
 	grep -q "p11sak-x509-dsa3072crt" $P11SAK_X509_PRE
 	rc=$?
 	if [ $rc = 0 ]; then
@@ -1854,7 +1870,7 @@ else
 fi
 
 # DSA-4096
-if [[ -n $( pkcsconf -m -c $SLOT | grep CKM_DSA) ]]; then
+if [[ -n $( ${PKCSCONF} -m -c $SLOT | grep CKM_DSA) ]]; then
 	grep -q "p11sak-x509-dsa4096crt" $P11SAK_X509_PRE
 	rc=$?
 	if [ $rc = 0 ]; then
