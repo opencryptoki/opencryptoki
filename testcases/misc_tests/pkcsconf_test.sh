@@ -31,10 +31,22 @@ PKCSCONF_INFO=${TMP}/pkcsconf-info.out
 PKCSCONF_SLOT=${TMP}/pkcsconf-slot.out
 PKCSCONF_TOKEN=${TMP}/pkcsconf-token.out
 
+# check if pkcsconf is available in the current $PATH - if it isn't, ask for
+# SBINDIR to be defined before this script executes.
+if [[ -n "$(command -v pkcsconf)" ]]; then
+	PKCSCONF=pkcsconf
+elif [[ -z "$SBINDIR" ]]; then
+	echo "pkcsconf was not found in \$PATH."
+	echo "Define \$SBINDIR to the appropriate path and try again."
+	exit 1
+else
+	PKCSCONF=${SBINDIR}/pkcsconf
+fi
+
 # list info/slots/tokens
-pkcsconf -i &> $PKCSCONF_INFO
-pkcsconf -s &> $PKCSCONF_SLOT
-pkcsconf -t &> $PKCSCONF_TOKEN
+${PKCSCONF} -i &> $PKCSCONF_INFO
+${PKCSCONF} -s &> $PKCSCONF_SLOT
+${PKCSCONF} -t &> $PKCSCONF_TOKEN
 
 # extract information elements
 INFO_LIBVERS=$(cat ${PKCSCONF_INFO} | grep -Po 'Library Version:\s+\K[0-9]+.[0-9]+')
