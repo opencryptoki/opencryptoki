@@ -3125,6 +3125,31 @@ static CK_RV os_specific_rsa_decrypt(STDLL_TokData_t *tokdata,
 
 }
 
+static CK_BBOOL save_data_in_context(CK_BYTE *in_data, CK_ULONG in_data_len,
+                                     CK_ULONG tag_data_len,
+                                     AES_GCM_CONTEXT *context, CK_BYTE encrypt,
+                                     CK_ULONG total, CK_ULONG *remain)
+{
+    if (encrypt) {
+        *remain = (total % AES_BLOCK_SIZE);
+        if (total < AES_BLOCK_SIZE) {
+            memcpy(context->data + context->len, in_data, in_data_len);
+            context->len += in_data_len;
+            return CK_TRUE;
+        }
+    } else {
+        /* decrypt */
+        *remain = ((total - tag_data_len) % AES_BLOCK_SIZE) + tag_data_len;
+        if (total < AES_BLOCK_SIZE + tag_data_len) {
+            memcpy(context->data + context->len, in_data, in_data_len);
+            context->len += in_data_len;
+            return CK_TRUE;
+        }
+    }
+
+    return CK_FALSE;
+}
+
 static void new_gcm_specific_aes_gcm_free(STDLL_TokData_t *tokdata,
                                           struct _SESSION *sess,
                                           CK_BYTE *context,
@@ -3232,7 +3257,7 @@ CK_RV new_gcm_specific_aes_gcm(STDLL_TokData_t *tokdata, SESSION *sess,
             goto done;
         }
     } else {
-        /* decrypt: verify tag */
+        /* decrypt: verify tag, which is appended to encrypted data */
         tag_data = in_data + in_data_len - tag_data_len;
         rc = ica_aes_gcm_kma_verify_tag(tag_data, tag_data_len, gcm_ctx);
         if (rc == 0) {
@@ -3277,24 +3302,10 @@ CK_RV new_gcm_specific_aes_gcm_update(STDLL_TokData_t *tokdata, SESSION *sess,
     total = context->len + in_data_len;
 
     /* if there isn't enough data to make a block, just save it */
-    if (encrypt) {
-        remain = (total % AES_BLOCK_SIZE);
-        if (total < AES_BLOCK_SIZE) {
-            memcpy(context->data + context->len, in_data, in_data_len);
-            context->len += in_data_len;
-            *out_data_len = 0;
-            return CKR_OK;
-        }
-    } else {
-        /* decrypt */
-        remain = ((total - tag_data_len) % AES_BLOCK_SIZE)
-            + tag_data_len;
-        if (total < AES_BLOCK_SIZE + tag_data_len) {
-            memcpy(context->data + context->len, in_data, in_data_len);
-            context->len += in_data_len;
-            *out_data_len = 0;
-            return CKR_OK;
-        }
+    if (save_data_in_context(in_data, in_data_len, tag_data_len, context,
+                             encrypt, total, &remain)) {
+        *out_data_len = 0;
+        return CKR_OK;
     }
 
     /* At least we have 1 block */
@@ -4008,24 +4019,10 @@ CK_RV token_specific_aes_gcm_update(STDLL_TokData_t *tokdata, SESSION *sess,
     auth_data = (CK_BYTE *) aes_gcm_param->pAAD;
 
     /* if there isn't enough data to make a block, just save it */
-    if (encrypt) {
-        remain = (total % AES_BLOCK_SIZE);
-        if (total < AES_BLOCK_SIZE) {
-            memcpy(context->data + context->len, in_data, in_data_len);
-            context->len += in_data_len;
-            *out_data_len = 0;
-            return CKR_OK;
-        }
-    } else {
-        /* decrypt */
-        remain = ((total - tag_data_len) % AES_BLOCK_SIZE)
-            + tag_data_len;
-        if (total < AES_BLOCK_SIZE + tag_data_len) {
-            memcpy(context->data + context->len, in_data, in_data_len);
-            context->len += in_data_len;
-            *out_data_len = 0;
-            return CKR_OK;
-        }
+    if (save_data_in_context(in_data, in_data_len, tag_data_len, context,
+                             encrypt, total, &remain)) {
+        *out_data_len = 0;
+        return CKR_OK;
     }
 
     /* At least we have 1 block */
