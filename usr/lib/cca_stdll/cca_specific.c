@@ -8303,7 +8303,7 @@ static CK_RV check_cca_ec_type_and_add_params(uint8_t cca_ec_type,
     CK_RV rc;
 
     switch (cca_ec_type) {
-    case 0x00: /* Prime curve */
+    case PRIME_CURVE:
         switch (cca_ec_bits) {
         case 192:
             {
@@ -8340,7 +8340,7 @@ static CK_RV check_cca_ec_type_and_add_params(uint8_t cca_ec_type,
             return CKR_ATTRIBUTE_VALUE_INVALID;
         }
         break;
-    case 0x01: /* Brainpool curve */
+    case BRAINPOOL_CURVE:
         switch (cca_ec_bits) {
         case 160:
             {
@@ -8389,7 +8389,7 @@ static CK_RV check_cca_ec_type_and_add_params(uint8_t cca_ec_type,
             return CKR_ATTRIBUTE_VALUE_INVALID;
         }
         break;
-    case 0x02: /* Edwards curve */
+    case EDWARDS_CURVE:
         switch (cca_ec_bits) {
         case 255:
             {
@@ -8405,6 +8405,19 @@ static CK_RV check_cca_ec_type_and_add_params(uint8_t cca_ec_type,
             break;
         default:
             TRACE_ERROR("CCA token type with unknown edwards curve bits %hu\n", cca_ec_bits);
+            return CKR_ATTRIBUTE_VALUE_INVALID;
+        }
+        break;
+    case KOBLITZ_CURVE:
+        switch (cca_ec_bits) {
+        case 256:
+            {
+                CK_BYTE curve[] = OCK_SECP256K1;
+                rc = build_update_attribute(templ, CKA_EC_PARAMS, curve, sizeof(curve));
+            }
+            break;
+        default:
+            TRACE_ERROR("CCA token type with unknown koblitz curve bits %hu\n", cca_ec_bits);
             return CKR_ATTRIBUTE_VALUE_INVALID;
         }
         break;
