@@ -20,7 +20,11 @@
 
 #include <stdint.h>
 
-#define CCA_LIBRARY         "libcsulcca.so"
+#if defined(_AIX)
+    #define CCA_LIBRARY         "libcsufcca.a(sapi64)"
+#else
+    #define CCA_LIBRARY         "libcsulcca.so"
+#endif
 #define TOK_DATASTORE       CONFIG_PATH "/ccatok"
 #define CCA_SUCCESS         0
 
