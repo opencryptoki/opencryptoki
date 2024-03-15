@@ -3827,7 +3827,7 @@ static CK_RV parse_id(const char *id_string, CK_ATTRIBUTE **attrs,
     CK_RV rc = CKR_OK;
 
     len = BN_hex2bn(&b, id_string);
-    if (len < (int)strlen(id_string)) {
+    if (len < (int)strlen(id_string) || len == 0 || b == NULL) {
         warnx("Hex string '%s' is not valid", id_string);
         rc = CKR_ARGUMENTS_BAD;
         goto done;
