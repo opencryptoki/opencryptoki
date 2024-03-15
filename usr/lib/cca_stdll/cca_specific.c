@@ -8301,137 +8301,30 @@ static CK_RV check_cca_ec_type_and_add_params(uint8_t cca_ec_type,
                                               TEMPLATE *templ)
 {
     CK_RV rc;
+    CK_ULONG i;
 
-    switch (cca_ec_type) {
-    case PRIME_CURVE:
-        switch (cca_ec_bits) {
-        case 192:
-            {
-                CK_BYTE curve[] = OCK_PRIME192V1;
-                rc = build_update_attribute(templ, CKA_EC_PARAMS, curve, sizeof(curve));
+    for (i = 0; i < NUMEC; i++) {
+        if ((der_ec_supported[i].curve_type == PRIME_CURVE ||
+             der_ec_supported[i].curve_type == BRAINPOOL_CURVE ||
+             der_ec_supported[i].curve_type == KOBLITZ_CURVE) &&
+            !der_ec_supported[i].twisted &&
+            der_ec_supported[i].curve_type == cca_ec_type &&
+            der_ec_supported[i].prime_bits == cca_ec_bits) {
+            rc = build_update_attribute(templ, CKA_EC_PARAMS,
+                                        (CK_BYTE *)der_ec_supported[i].data,
+                                        der_ec_supported[i].data_size);
+            if (rc != CKR_OK) {
+                TRACE_DEVEL("build_update_attribute(CKA_EC_PARAMS) failed\n");
+                return rc;
             }
-            break;
-        case 224:
-            {
-                CK_BYTE curve[] = OCK_SECP224R1;
-                rc = build_update_attribute(templ, CKA_EC_PARAMS, curve, sizeof(curve));
-            }
-            break;
-        case 256:
-            {
-                CK_BYTE curve[] = OCK_PRIME256V1;
-                rc = build_update_attribute(templ, CKA_EC_PARAMS, curve, sizeof(curve));
-            }
-            break;
-        case 384:
-            {
-                CK_BYTE curve[] = OCK_SECP384R1;
-                rc = build_update_attribute(templ, CKA_EC_PARAMS, curve, sizeof(curve));
-            }
-            break;
-        case 521:
-            {
-                CK_BYTE curve[] = OCK_SECP521R1;
-                rc = build_update_attribute(templ, CKA_EC_PARAMS, curve, sizeof(curve));
-            }
-            break;
-        default:
-            TRACE_ERROR("CCA token type with unknown prime curve bits %hu\n", cca_ec_bits);
-            return CKR_ATTRIBUTE_VALUE_INVALID;
+
+            return CKR_OK;
         }
-        break;
-    case BRAINPOOL_CURVE:
-        switch (cca_ec_bits) {
-        case 160:
-            {
-                CK_BYTE curve[] = OCK_BRAINPOOL_P160R1;
-                rc = build_update_attribute(templ, CKA_EC_PARAMS, curve, sizeof(curve));
-            }
-            break;
-        case 192:
-            {
-                CK_BYTE curve[] = OCK_BRAINPOOL_P192R1;
-                rc = build_update_attribute(templ, CKA_EC_PARAMS, curve, sizeof(curve));
-            }
-            break;
-        case 224:
-            {
-                CK_BYTE curve[] = OCK_BRAINPOOL_P224R1;
-                rc = build_update_attribute(templ, CKA_EC_PARAMS, curve, sizeof(curve));
-            }
-            break;
-        case 256:
-            {
-                CK_BYTE curve[] = OCK_BRAINPOOL_P256R1;
-                rc = build_update_attribute(templ, CKA_EC_PARAMS, curve, sizeof(curve));
-            }
-            break;
-        case 320:
-            {
-                CK_BYTE curve[] = OCK_BRAINPOOL_P320R1;
-                rc = build_update_attribute(templ, CKA_EC_PARAMS, curve, sizeof(curve));
-            }
-            break;
-        case 384:
-            {
-                CK_BYTE curve[] = OCK_BRAINPOOL_P384R1;
-                rc = build_update_attribute(templ, CKA_EC_PARAMS, curve, sizeof(curve));
-            }
-            break;
-        case 512:
-            {
-                CK_BYTE curve[] = OCK_BRAINPOOL_P512R1;
-                rc = build_update_attribute(templ, CKA_EC_PARAMS, curve, sizeof(curve));
-            }
-            break;
-        default:
-            TRACE_ERROR("CCA token type with unknown brainpool curve bits %hu\n", cca_ec_bits);
-            return CKR_ATTRIBUTE_VALUE_INVALID;
-        }
-        break;
-    case EDWARDS_CURVE:
-        switch (cca_ec_bits) {
-        case 255:
-            {
-                CK_BYTE curve[] = OCK_ED25519;
-                rc = build_update_attribute(templ, CKA_EC_PARAMS, curve, sizeof(curve));
-            }
-            break;
-        case 448:
-            {
-                CK_BYTE curve[] = OCK_ED448;
-                rc = build_update_attribute(templ, CKA_EC_PARAMS, curve, sizeof(curve));
-            }
-            break;
-        default:
-            TRACE_ERROR("CCA token type with unknown edwards curve bits %hu\n", cca_ec_bits);
-            return CKR_ATTRIBUTE_VALUE_INVALID;
-        }
-        break;
-    case KOBLITZ_CURVE:
-        switch (cca_ec_bits) {
-        case 256:
-            {
-                CK_BYTE curve[] = OCK_SECP256K1;
-                rc = build_update_attribute(templ, CKA_EC_PARAMS, curve, sizeof(curve));
-            }
-            break;
-        default:
-            TRACE_ERROR("CCA token type with unknown koblitz curve bits %hu\n", cca_ec_bits);
-            return CKR_ATTRIBUTE_VALUE_INVALID;
-        }
-        break;
-    default:
-        TRACE_ERROR("CCA token type with invalid/unknown curve type %hhu\n", cca_ec_type);
-        return CKR_ATTRIBUTE_VALUE_INVALID;
     }
 
-    if (rc != CKR_OK) {
-        TRACE_DEVEL("build_update_attribute(CKA_EC_PARAMS) failed\n");
-        return rc;
-    }
-
-    return CKR_OK;
+    TRACE_ERROR("CCA token type with unknown curve type %hhu or length %hu\n",
+                cca_ec_type, cca_ec_bits);
+    return CKR_ATTRIBUTE_VALUE_INVALID;
 }
 
 static CK_RV import_ec_privkey(STDLL_TokData_t *tokdata, TEMPLATE *priv_templ)
