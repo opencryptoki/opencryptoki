@@ -15,12 +15,16 @@
  *
  */
 
-#define _GNU_SOURCE
 #include <dlfcn.h>
 #include <errno.h>
-#include <getopt.h>
 #include <memory.h>
-#include <linux/limits.h>
+
+#if defined(_AIX)
+    #include <limits.h>
+#else
+    #include <linux/limits.h>
+#endif
+
 #include <openssl/evp.h>
 #include <string.h>
 #include <stdio.h>
@@ -28,10 +32,9 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
-#include <unistd.h>
 
-#include <pkcs11types.h>
-
+#include "platform.h"
+#include "pkcs11types.h"
 #include "sw_crypt.h"
 #include "defs.h"
 #include "host_defs.h"
@@ -49,6 +52,10 @@ const char manuf[] = "IBM";
 const char model[] = "CCA";
 const char descr[] = "IBM CCA Token";
 const char label[] = "ccatok";
+
+#if defined(_AIX)
+    const char *__progname = "pkcscca";
+#endif
 
 pkcs_trace_level_t trace_level = TRACE_LEVEL_NONE;
 token_spec_t token_specific;
@@ -648,22 +655,14 @@ CK_FUNCTION_LIST *p11_init(void)
 {
     CK_RV rv;
     CK_RV (*getfunclist)(CK_FUNCTION_LIST_PTR_PTR ppFunctionList);
-    char *loc1_lib = "/usr/lib/pkcs11/PKCS11_API.so64";
-    char *loc2_lib = "libopencryptoki.so";
     CK_FUNCTION_LIST *funcs = NULL;
 
-
-    p11_lib = dlopen(loc1_lib, RTLD_NOW);
-    if (p11_lib != NULL)
-        goto get_list;
-
-    p11_lib = dlopen(loc2_lib, RTLD_NOW);
+    p11_lib = dlopen(OCK_API_LIBNAME, DYNLIB_LDFLAGS);
     if (p11_lib == NULL) {
         print_error("Couldn't get a handle to the PKCS#11 library.");
         return NULL;
     }
 
-get_list:
     *(void **)(&getfunclist) = dlsym(p11_lib, "C_GetFunctionList");
     if (getfunclist == NULL) {
         print_error("Couldn't get the address of the C_GetFunctionList "
@@ -1763,7 +1762,7 @@ int main(int argc, char **argv)
     if (ret)
         goto done;
 
-    lib_csulcca = dlopen(CCA_LIBRARY, (RTLD_GLOBAL | RTLD_NOW));
+    lib_csulcca = dlopen(CCA_LIBRARY, (RTLD_GLOBAL | DYNLIB_LDFLAGS));
     if (lib_csulcca == NULL) {
         fprintf(stderr, "dlopen(%s) failed: %s\n", CCA_LIBRARY,
                 strerror(errno));
