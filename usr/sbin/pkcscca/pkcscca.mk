@@ -9,6 +9,10 @@ noinst_HEADERS += usr/lib/common/pin_prompt.h
 
 usr_sbin_pkcscca_pkcscca_LDFLAGS = -lcrypto -ldl -lrt -llber -lpthread
 
+if AIX
+usr_sbin_pkcscca_pkcscca_LDFLAGS += -lbsd -Wl,-blibpath:$(libdir)/opencryptoki:$(libdir)/opencryptoki/stdll:/usr/lib:/usr/lib64
+endif
+
 usr_sbin_pkcscca_pkcscca_CFLAGS  =					\
 	-DSTDLL_NAME=\"pkcscca\"					\
 	-DTOK_NEW_DATA_STORE=0x0003000c					\
@@ -45,3 +49,8 @@ usr_sbin_pkcscca_pkcscca_SOURCES = usr/lib/common/asn1.c		\
 	usr/lib/common/btree.c usr/lib/common/sess_mgr.c
 
 nodist_usr_sbin_pkcscca_pkcscca_SOURCES = usr/lib/api/mechtable.c
+
+if AIX
+usr_sbin_pkcscca_pkcscca_SOURCES += usr/lib/common/aix/getopt_long.c
+nodist_usr_sbin_pkcscca_pkcscca_SOURCES += usr/lib/common/aix/getopt_long.c
+endif
