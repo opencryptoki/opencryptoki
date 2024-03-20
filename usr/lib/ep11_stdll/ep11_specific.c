@@ -1094,20 +1094,23 @@ static CK_BBOOL ep11tok_pkey_session_ok_for_obj(SESSION *session,
  * Returns true if the given key object is eligible to get a protected key
  * attribute, false otherwise.
  */
-CK_BBOOL ep11tok_pkey_obj_eligible_for_pkey_support(ep11_private_data_t *ep11_data,
-                                                    OBJECT *key_obj)
+static CK_RV ep11tok_pkey_obj_eligible_for_pkey_support(
+                                                ep11_private_data_t *ep11_data,
+                                                OBJECT *key_obj)
 {
     if (object_is_attr_bound(key_obj) || !ep11_data->pkey_wrap_supported ||
         !object_is_pkey_extractable(key_obj)) {
-        return CK_FALSE;
+        return CKR_FUNCTION_NOT_SUPPORTED;
     }
 
     if (!ep11_data->pkey_combined_extract_supported &&
         object_is_extractable(key_obj)) {
-        return CK_FALSE;
+        TRACE_ERROR("Combined extract not supported, but CKA_EXTRACTABLE "
+                    "and CKA_IBM_PROTKEY_EXTRACTABLE are both TRUE\n");
+        return CKR_TEMPLATE_INCONSISTENT;
     }
 
-    return CK_TRUE;
+    return CKR_OK;
 }
 
 /**
@@ -1181,7 +1184,8 @@ CK_RV ep11tok_pkey_check(STDLL_TokData_t *tokdata, SESSION *session,
         if (ep11tok_pkey_get_firmware_mk_vp(tokdata, session) != CKR_OK)
             goto done;
 
-        if (!ep11tok_pkey_obj_eligible_for_pkey_support(ep11_data, key_obj))
+        ret = ep11tok_pkey_obj_eligible_for_pkey_support(ep11_data, key_obj);
+        if (ret != CKR_OK)
             goto done;
 
         if (template_attribute_get_non_empty(key_obj->template,
@@ -1223,11 +1227,14 @@ done:
 /**
  * Wrapper function around ep11tok_pkey_check for the case where we don't
  * have a key object. This function is called externally from new_host.c.
+ * Returns CKR_OK if pkey usage is OK, CKR_FUNCTION_NOT_SUPPORTED if pkey
+ * is not supported, or any other return code in case of an error. In such
+ * cases the calling function should itself return with an error, because
+ * neither the secure key nor the protected key path will work.
  */
-CK_BBOOL ep11tok_pkey_usage_ok(STDLL_TokData_t *tokdata, SESSION *session,
-                               CK_OBJECT_HANDLE hkey, CK_MECHANISM *mech)
+CK_RV ep11tok_pkey_usage_ok(STDLL_TokData_t *tokdata, SESSION *session,
+                            CK_OBJECT_HANDLE hkey, CK_MECHANISM *mech)
 {
-    CK_BBOOL success = CK_FALSE;
     size_t keyblobsize = 0;
     CK_BYTE *keyblob;
     OBJECT *key_obj;
@@ -1237,17 +1244,15 @@ CK_BBOOL ep11tok_pkey_usage_ok(STDLL_TokData_t *tokdata, SESSION *session,
                          READ_LOCK);
     if (ret != CKR_OK) {
         TRACE_ERROR("%s no blob ret=0x%lx\n", __func__, ret);
-        return CK_FALSE;
+        return ret;
     }
 
     ret = ep11tok_pkey_check(tokdata, session, key_obj, mech);
-    if (ret == CKR_OK)
-        success = CK_TRUE;
 
     object_put(tokdata, key_obj, TRUE);
     key_obj = NULL;
 
-    return success;
+    return ret;
 }
 
 CK_RV ep11tok_pkey_check_aes_xts(STDLL_TokData_t *tokdata, OBJECT *key_obj,
@@ -1260,7 +1265,8 @@ CK_RV ep11tok_pkey_check_aes_xts(STDLL_TokData_t *tokdata, OBJECT *key_obj,
         return CKR_MECHANISM_INVALID;
     }
 
-    if (!ep11tok_pkey_obj_eligible_for_pkey_support(ep11_data, key_obj)) {
+    if (ep11tok_pkey_obj_eligible_for_pkey_support(ep11_data,
+                                                   key_obj) != CKR_OK) {
         TRACE_ERROR("Key not eligible for pkey support\n");
         return CKR_TEMPLATE_INCONSISTENT;
     }
@@ -1312,10 +1318,10 @@ CK_RV token_specific_set_attrs_for_new_object(STDLL_TokData_t *tokdata,
 {
     ep11_private_data_t *ep11_data = tokdata->private_data;
     CK_ATTRIBUTE *sensitive_attr = NULL;
-    CK_BBOOL sensitive, btrue = CK_TRUE;
+    CK_BBOOL sensitive, extractable, pkey_extractable, btrue = CK_TRUE;
 #ifndef NO_PKEY
     CK_ATTRIBUTE *ecp_attr = NULL;
-    CK_BBOOL extractable, add_pkey_extractable = CK_FALSE;
+    CK_BBOOL add_pkey_extractable = CK_FALSE;
 #endif
     CK_RV ret;
 
@@ -1343,6 +1349,25 @@ CK_RV token_specific_set_attrs_for_new_object(STDLL_TokData_t *tokdata,
                 free(sensitive_attr);
                 goto done;
             }
+        }
+    }
+
+    if (!ep11_data->pkey_combined_extract_supported) {
+        ret = template_attribute_get_bool(tmpl, CKA_EXTRACTABLE, &extractable);
+        if (ret != CKR_OK)
+            extractable = FALSE;
+
+        ret = template_attribute_get_bool(tmpl, CKA_IBM_PROTKEY_EXTRACTABLE,
+                                          &pkey_extractable);
+        if (ret != CKR_OK)
+            pkey_extractable = FALSE;
+
+        if (extractable && pkey_extractable) {
+            /* The EP11 call would return CKR_FUNCTION_CANCELED in that case */
+            TRACE_ERROR("Combined extract not supported, but CKA_EXTRACTABLE "
+                        "and CKA_IBM_PROTKEY_EXTRACTABLE are both TRUE\n");
+            ret = CKR_TEMPLATE_INCONSISTENT;
+            goto done;
         }
     }
 
