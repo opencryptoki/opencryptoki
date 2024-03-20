@@ -2080,9 +2080,15 @@ CK_RV SC_EncryptInit(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
     sess->encr_ctx.multi_init = FALSE;
     sess->encr_ctx.multi = FALSE;
 
+    rc = ep11tok_pkey_usage_ok(tokdata, sess, hKey, pMechanism);
+    if (rc != CKR_OK && rc != CKR_FUNCTION_NOT_SUPPORTED) {
+        /* CKR_FUNCTION_NOT_SUPPORTED indicates pkey support is not available,
+           but the ep11 fallback can be tried */
+        goto done;
+    }
     if ((ep11tok_optimize_single_ops(tokdata) ||
          ep11tok_mech_single_only(pMechanism)) &&
-        !ep11tok_pkey_usage_ok(tokdata, sess, hKey, pMechanism)) {
+        rc == CKR_FUNCTION_NOT_SUPPORTED) {
         /* In case of a single part encrypt operation we don't need the
          * EncryptInit, instead we can use the EncryptSingle which is much
          * faster. In case of multi-part operations we are doing the EncryptInit
@@ -2179,9 +2185,16 @@ CK_RV SC_Encrypt(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
         goto done;
     }
 
+    rc = ep11tok_pkey_usage_ok(tokdata, sess, sess->encr_ctx.key,
+                               &sess->encr_ctx.mech);
+    if (rc != CKR_OK && rc != CKR_FUNCTION_NOT_SUPPORTED) {
+        /* CKR_FUNCTION_NOT_SUPPORTED indicates pkey support is not available,
+           but the ep11 fallback can be tried */
+        goto done;
+    }
     if ((ep11tok_optimize_single_ops(tokdata) ||
          ep11tok_mech_single_only(&sess->encr_ctx.mech)) &&
-        !ep11tok_pkey_usage_ok(tokdata, sess, sess->encr_ctx.key, &sess->encr_ctx.mech)) {
+        rc == CKR_FUNCTION_NOT_SUPPORTED) {
         rc = ep11tok_encrypt_single(tokdata, sess, &sess->encr_ctx.mech,
                                     length_only, sess->encr_ctx.key,
                                     pData, ulDataLen, pEncryptedData,
@@ -2408,9 +2421,15 @@ CK_RV SC_DecryptInit(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
     sess->decr_ctx.multi_init = FALSE;
     sess->decr_ctx.multi = FALSE;
 
+    rc = ep11tok_pkey_usage_ok(tokdata, sess, hKey, pMechanism);
+    if (rc != CKR_OK && rc != CKR_FUNCTION_NOT_SUPPORTED) {
+        /* CKR_FUNCTION_NOT_SUPPORTED indicates pkey support is not available,
+           but the ep11 fallback can be tried */
+        goto done;
+    }
     if ((ep11tok_optimize_single_ops(tokdata) ||
          ep11tok_mech_single_only(pMechanism)) &&
-        !ep11tok_pkey_usage_ok(tokdata, sess, hKey, pMechanism)) {
+        rc == CKR_FUNCTION_NOT_SUPPORTED) {
         /* In case of a single part decrypt operation we don't need the
          * DecryptInit, instead we can use the EncryptSingle which is much
          * faster. In case of multi-part operations we are doing the DecryptInit
@@ -2508,9 +2527,16 @@ CK_RV SC_Decrypt(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
         goto done;
     }
 
+    rc = ep11tok_pkey_usage_ok(tokdata, sess, sess->decr_ctx.key,
+                               &sess->decr_ctx.mech);
+    if (rc != CKR_OK && rc != CKR_FUNCTION_NOT_SUPPORTED) {
+        /* CKR_FUNCTION_NOT_SUPPORTED indicates pkey support is not available,
+           but the ep11 fallback can be tried */
+        goto done;
+    }
     if ((ep11tok_optimize_single_ops(tokdata) ||
          ep11tok_mech_single_only(&sess->decr_ctx.mech)) &&
-        !ep11tok_pkey_usage_ok(tokdata, sess, sess->decr_ctx.key, &sess->decr_ctx.mech)) {
+        rc == CKR_FUNCTION_NOT_SUPPORTED) {
         rc = ep11tok_decrypt_single(tokdata, sess, &sess->decr_ctx.mech,
                                     length_only, sess->decr_ctx.key,
                                     pEncryptedData, ulEncryptedDataLen,
@@ -2992,9 +3018,15 @@ CK_RV SC_SignInit(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
     sess->sign_ctx.multi_init = FALSE;
     sess->sign_ctx.multi = FALSE;
 
+    rc = ep11tok_pkey_usage_ok(tokdata, sess, hKey, pMechanism);
+    if (rc != CKR_OK && rc != CKR_FUNCTION_NOT_SUPPORTED) {
+        /* CKR_FUNCTION_NOT_SUPPORTED indicates pkey support is not available,
+           but the ep11 fallback can be tried */
+        goto done;
+    }
     if ((ep11tok_optimize_single_ops(tokdata) ||
          ep11tok_mech_single_only(pMechanism)) &&
-        !ep11tok_pkey_usage_ok(tokdata, sess, hKey, pMechanism)) {
+        rc == CKR_FUNCTION_NOT_SUPPORTED) {
         /* In case of a single part sign operation we don't need the SignInit,
          * instead we can use the SignSingle which is much faster.
          * In case of multi-part operations we are doing the SignInit when
@@ -3101,9 +3133,16 @@ CK_RV SC_Sign(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
         goto done;
     }
 
+    rc = ep11tok_pkey_usage_ok(tokdata, sess, sess->sign_ctx.key,
+                               &sess->sign_ctx.mech);
+    if (rc != CKR_OK && rc != CKR_FUNCTION_NOT_SUPPORTED) {
+        /* CKR_FUNCTION_NOT_SUPPORTED indicates pkey support is not available,
+           but the ep11 fallback can be tried */
+        goto done;
+    }
     if ((ep11tok_optimize_single_ops(tokdata) ||
          ep11tok_mech_single_only(&sess->sign_ctx.mech)) &&
-        !ep11tok_pkey_usage_ok(tokdata, sess, sess->sign_ctx.key, &sess->sign_ctx.mech)) {
+        rc == CKR_FUNCTION_NOT_SUPPORTED) {
         rc = ep11tok_sign_single(tokdata, sess, &sess->sign_ctx.mech,
                                  length_only, sess->sign_ctx.key,
                                  pData, ulDataLen, pSignature, pulSignatureLen);
@@ -3391,9 +3430,15 @@ CK_RV SC_VerifyInit(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
     sess->verify_ctx.multi_init = FALSE;
     sess->verify_ctx.multi = FALSE;
 
+    rc = ep11tok_pkey_usage_ok(tokdata, sess, hKey, pMechanism);
+    if (rc != CKR_OK && rc != CKR_FUNCTION_NOT_SUPPORTED) {
+        /* CKR_FUNCTION_NOT_SUPPORTED indicates pkey support is not available,
+           but the ep11 fallback can be tried */
+        goto done;
+    }
     if ((ep11tok_optimize_single_ops(tokdata) ||
          ep11tok_mech_single_only(pMechanism)) &&
-        !ep11tok_pkey_usage_ok(tokdata, sess, hKey, pMechanism)) {
+        rc == CKR_FUNCTION_NOT_SUPPORTED) {
         /* In case of a single part verify operation we don't need the
          * VerifyInit, instead we can use the VerifySingle which is much
          * faster. In case of multi-part operations we are doing the VerifyInit
@@ -3497,9 +3542,16 @@ CK_RV SC_Verify(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
         goto done;
     }
 
+    rc = ep11tok_pkey_usage_ok(tokdata, sess, sess->verify_ctx.key,
+                               &sess->verify_ctx.mech);
+    if (rc != CKR_OK && rc != CKR_FUNCTION_NOT_SUPPORTED) {
+        /* CKR_FUNCTION_NOT_SUPPORTED indicates pkey support is not available,
+           but the ep11 fallback can be tried */
+        goto done;
+    }
     if ((ep11tok_optimize_single_ops(tokdata) ||
          ep11tok_mech_single_only(&sess->verify_ctx.mech)) &&
-        !ep11tok_pkey_usage_ok(tokdata, sess, sess->verify_ctx.key, &sess->verify_ctx.mech)) {
+        rc == CKR_FUNCTION_NOT_SUPPORTED) {
         rc = ep11tok_verify_single(tokdata, sess, &sess->verify_ctx.mech,
                                    sess->verify_ctx.key, pData, ulDataLen,
                                    pSignature, ulSignatureLen);
