@@ -3,6 +3,7 @@
 OCKCONFDIR="$1"
 EPCONFDIR="$2"
 CCACONFDIR="$3"
+COMBINED_EXTRACT_FILE="$4"
 
 LATESTCEXP="CEX8P"
 
@@ -68,7 +69,7 @@ PKEY_MODE = ENABLED
 EOF
 }
 
-if test $(($(date +%j)%2)) == 1; then
+if test $(($(date +%-j)%2)) == 1; then
     USENEWFORMAT=/bin/true
     echo "Using FIPS compliant token store"
 else
@@ -132,3 +133,11 @@ addslot 44 libpkcs11_ep11.so ep4 ep11tok44.conf
 if genlatestep11cfg 45 "PKEY_MODE ENABLE4NONEXTR"; then
     addslot 45 libpkcs11_ep11.so ep5 ep11tok45.conf
 fi
+
+# 6: latest (CEX8 only)
+# PKEY_MODE ENABLE4ALL
+if genlatestep11cfg 46 "PKEY_MODE ENABLE4ALL"; then
+    addslot 46 libpkcs11_ep11.so ep6 ep11tok46.conf
+    echo "46" > $COMBINED_EXTRACT_FILE
+fi
+

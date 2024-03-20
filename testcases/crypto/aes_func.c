@@ -2781,7 +2781,13 @@ int main(int argc, char **argv)
         return rc;
 
     printf("Using slot #%lu...\n\n", SLOT_ID);
-    printf("With option: nostop: %d\n", no_stop);
+    printf("With options: combined_extract: %d, nostop: %d\n",
+           combined_extract, no_stop);
+    if (combined_extract)
+        printf("\n--------------------------------------------------------\n"
+               "Caution: combined_extract does only work on systems with\n"
+               "control point 75 (XCP_CPB_ALLOW_COMBINED_EXTRACT)='on'.\n"
+               "--------------------------------------------------------\n\n");
 
     rc = do_GetFunctionList();
     if (!rc) {

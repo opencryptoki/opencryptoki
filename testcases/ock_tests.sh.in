@@ -237,9 +237,15 @@ run_tests()
     fi
     echo "***** Will run the following tests for slot $1: $(ls -U $OCK_TESTS)"
     ALLRES=0
+    COMBINED_EXTRACT=""
+    for item in "$(cat test_combined_extract.slots 2>/dev/null)"; do
+        if [[ "$1" == "$item" ]]; then
+            COMBINED_EXTRACT="-combined-extract"
+        fi
+    done
     for j in $( ls -U $OCK_TESTS ); do
-        echo "** Now executing '$j'"
-        $j -slot $1 $NO_STOP 2>&1
+        echo "** Now executing '$j -slot $1 $NO_STOP $COMBINED_EXTRACT'"
+        $j -slot $1 $NO_STOP $COMBINED_EXTRACT 2>&1
         RES=$?
         if [ $RES -ne 0 ]; then
             ALLRES=$RES
@@ -282,13 +288,13 @@ main_script()
 
     # where to run
     if [ -z $SLOT ]; then
-	SLOT="`awk '/slot (.*)/ { print $2; }' $PKCONF`"
+        SLOT="`awk '/^slot (.*)/ { print $2; }' $PKCONF`"
         LOGFILE=1
     fi
 
     # Turn space separated list into array
     totrace=($OCK_TRACE_TOKENS)
-    
+
     rm -f error_file.*
 
     for i in $SLOT; do (
