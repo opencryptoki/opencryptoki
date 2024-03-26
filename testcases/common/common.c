@@ -35,6 +35,7 @@ CK_BBOOL securekey;
  * pkey option.
  */
 CK_BBOOL pkey = CK_FALSE;
+CK_BBOOL combined_extract = CK_FALSE;
 
 CK_ULONG t_total = 0;           // total test assertions
 CK_ULONG t_ran = 0;             // number of assertions ran
@@ -185,6 +186,9 @@ CK_RV create_AESKey(CK_SESSION_HANDLE session, CK_BBOOL extractable,
     };
     CK_ULONG keyTemplate_len = sizeof(keyTemplate) / sizeof(CK_ATTRIBUTE);
 
+    if (combined_extract)
+        pkeyextractable = CK_TRUE;
+
     rc = funcs->C_CreateObject(session, keyTemplate, keyTemplate_len, h_key);
     if (rc != CKR_OK) {
         if (is_rejected_by_policy(rc, session))
@@ -208,6 +212,9 @@ CK_RV generate_AESKey(CK_SESSION_HANDLE session,
         {CKA_IBM_PROTKEY_EXTRACTABLE, &pkeyextractable, sizeof(CK_BBOOL)},
     };
     CK_ULONG key_gen_tmpl_len = sizeof(key_gen_tmpl) / sizeof(CK_ATTRIBUTE);
+
+    if (combined_extract)
+        pkeyextractable = CK_TRUE;
 
     CK_RV rc = funcs->C_GenerateKey(session, mechkey,
                                     key_gen_tmpl, key_gen_tmpl_len,
@@ -523,6 +530,9 @@ CK_RV generate_EC_KeyPair(CK_SESSION_HANDLE session,
     CK_ULONG num_publ_attrs = sizeof(publicKeyTemplate)/sizeof(CK_ATTRIBUTE);
     CK_ULONG num_priv_attrs = sizeof(privateKeyTemplate)/sizeof(CK_ATTRIBUTE);
 
+    if (combined_extract)
+        pkeyextractable = CK_TRUE;
+
     // generate keys
     rc = funcs->C_GenerateKeyPair(session,
                                   &mech,
@@ -572,6 +582,9 @@ CK_RV create_ECPrivateKey(CK_SESSION_HANDLE session,
         {CKA_EXTRACTABLE, &extractable, sizeof(CK_BBOOL)},
         {CKA_IBM_PROTKEY_EXTRACTABLE, &pkeyextractable, sizeof(CK_BBOOL)},
     };
+
+    if (combined_extract)
+        pkeyextractable = CK_TRUE;
 
     // create key
     rc = funcs->C_CreateObject(session, template,
@@ -1361,6 +1374,8 @@ int do_ParseArgs(int argc, char **argv)
             no_init = TRUE;
         } else if (strcmp(argv[i], "-nostop") == 0) {
             no_stop = TRUE;
+        } else if (strcmp(argv[i], "-combined-extract") == 0) {
+            combined_extract = TRUE;
         } else {
             printf("Invalid argument passed as option: %s\n", argv[i]);
             usage(argv[0]);
