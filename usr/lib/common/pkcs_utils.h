@@ -58,9 +58,16 @@ typedef enum {
     TRACE_LEVEL_DEBUG
 } pkcs_trace_level_t;
 
+#if defined(__GNUC__) && __GNUC__ >= 7 || defined(__clang__) && __clang_major__ >= 12
+    #define PRINTF_FORMAT __attribute__ ((format(printf, 4, 5)))
+#else
+    #define PRINTF_FORMAT
+#endif
+
+
 void pkcs_trace(pkcs_trace_level_t level, const char * file, int line,
                 const char *fmt, ...)
-                __attribute__ ((format(printf, 4, 5)));
+                PRINTF_FORMAT;
 void pkcs_hexdump(const char *prestr, void *buf, size_t buflen);
 
 #define TRACE_NONE(...)    \

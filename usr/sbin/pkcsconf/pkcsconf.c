@@ -23,8 +23,9 @@
 #include <strings.h>
 #include <pwd.h>
 #include <grp.h>
-#include <err.h>
 #include <openssl/crypto.h>
+
+#include "platform.h"
 #include "slotmgr.h"
 #include "pkcsconf_msg.h"
 #include "p11util.h"
@@ -32,6 +33,10 @@
 #include "mechtable.h"
 #include "uri.h"
 #include "pin_prompt.h"
+
+#if defined(_AIX)
+    const char *__progname = "pkcsconf";
+#endif
 
 #define LEEDS_DEFAULT_PIN "87654321"
 #define PIN_SIZE 80
@@ -975,7 +980,7 @@ CK_RV init(void)
      * error */
     /* The host machine should have the right library in the
      * LD_LIBRARY_PATH */
-    dllPtr = dlopen("libopencryptoki.so", RTLD_NOW);
+    dllPtr = dlopen(OCK_API_LIBNAME, DYNLIB_LDFLAGS);
     if (!dllPtr) {
         warnx("Error loading PKCS#11 library");
         warnx("dlopen error: %s", dlerror());

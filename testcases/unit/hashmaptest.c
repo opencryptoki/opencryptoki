@@ -7,15 +7,14 @@
  * found in the file LICENSE file or at
  * https://opensource.org/licenses/cpl1.0.php
  */
-#define _GNU_SOURCE
 #include "hashmap.h"
 #include "unittest.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>
 #include <unistd.h>
-#include <getopt.h>
 #include <limits.h>
+#include "platform.h"
 
 static int testhashcollisionexpansion(void)
 {

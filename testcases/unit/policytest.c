@@ -7,7 +7,6 @@
  * found in the file LICENSE file or at
  * https://opensource.org/licenses/cpl1.0.php
  */
-#define _GNU_SOURCE
 #include "policy.h"
 #include "ec_defs.h"
 #include "unittest.h"

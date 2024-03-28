@@ -35,8 +35,9 @@
 #define GetSystemTime(x) gettimeofday((x), NULL)
 
 #include <sys/time.h>
-
-#pragma GCC system_header
+#if !defined(_AIX)
+    #pragma GCC system_header
+#endif
 static struct timeval timev1;
 static struct timeval timev2;
 static struct timeval timev3;

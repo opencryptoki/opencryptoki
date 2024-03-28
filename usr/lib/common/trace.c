@@ -8,7 +8,6 @@
  * https://opensource.org/licenses/cpl1.0.php
  */
 
-#define _GNU_SOURCE
 #include <ctype.h>
 #include <errno.h>
 #include <grp.h>
@@ -22,7 +21,12 @@
 #include <unistd.h>
 #include <sys/file.h>
 #include <sys/types.h>
-#include <sys/syscall.h>
+
+#if !defined(_AIX)
+    #include <sys/syscall.h>
+#else
+    #include <pthread.h>
+#endif
 
 #include "pkcs11types.h"
 #include "defs.h"
@@ -32,9 +36,11 @@
 #include "ock_syslog.h"
 
 #ifdef SYS_gettid
-#define __gettid() syscall(SYS_gettid)
+    #define __gettid() syscall(SYS_gettid)
+#elif !defined(_AIX)
+    #define __gettid() gettid()
 #else
-#define __gettid() gettid()
+    #define __gettid() pthread_self()
 #endif
 
 pthread_mutex_t tlmtx = PTHREAD_MUTEX_INITIALIZER;

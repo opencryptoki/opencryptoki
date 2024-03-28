@@ -15,8 +15,6 @@
 #include <errno.h>
 #include <sys/types.h>
 #include <sys/stat.h>
-#include <sys/prctl.h>
-#include <sys/capability.h>
 #include <grp.h>
 #include <pwd.h>
 #include <string.h>
@@ -32,7 +30,19 @@
 #define MD5_HASH_SIZE 16
 
 #define DEF_MANUFID "IBM"
-#define DEF_SLOTDESC    "Linux"
+
+#if defined(_AIX)
+    #define DEF_SLOTDESC    "AIX"
+    #include <sys/types.h>
+    #include <sys/priv.h>
+    #include <sys/procfs.h>
+    #include <userpriv.h>
+    #include <fcntl.h>
+#else
+    #include <sys/prctl.h>
+    #include <sys/capability.h>
+    #define DEF_SLOTDESC    "Linux"
+#endif
 
 typedef char md5_hash_entry[MD5_HASH_SIZE];
 md5_hash_entry tokname_hash_table[NUMBER_SLOTS_MANAGED];
@@ -118,6 +128,32 @@ int compute_hash(int hash_type, int buf_size, char *buf, char *digest)
     return 0;
 }
 
+#if defined(_AIX)
+/*
+ * Naming is hard! What's called capabilities on Linux is called privileges
+ * on AIX. To make matters worse, user privileges are also called privileges.
+ */
+int drop_capabilities(void)
+{
+    privg_t priv_set;
+
+    if (getppriv(-1, PRIV_MAXIMUM, priv_set, sizeof(priv_set)) == -1) {
+        fprintf(stderr,
+            "Failed to get process privileges: %s\n", strerror(errno));
+        return -1;
+    }
+
+    priv_clrall(priv_set);
+    if (setppriv(-1, priv_set, priv_set, priv_set, priv_set) == -1) {
+        fprintf(stderr,
+            "Failed to set process privileges: %s\n", strerror(errno));
+        return -1;
+    }
+
+    DbgLog(DL0, "All privileges sucessfully dropped.\n");
+    return 0;
+}
+#else
 /*
  * Drop any effective and permitted capabilities (if any).
  * This function is called after initialization, but before becoming a daemon.
@@ -128,7 +164,7 @@ int drop_capabilities(void)
 
     caps = cap_get_proc();
     if (caps == NULL) {
-        fprintf(stderr, "Failed to get process's capabilities: %s\n",
+        fprintf(stderr, "Failed to get process capabilities: %s\n",
                 strerror(errno));
         return -1;
     }
@@ -153,6 +189,7 @@ int drop_capabilities(void)
 
     return 0;
 }
+#endif
 
 /*
  * This function is called only when running as root user.
@@ -165,14 +202,41 @@ int drop_capabilities(void)
  */
 void drop_privileges(struct passwd *pwd)
 {
-    char program[PATH_MAX + 1] = { 0 };
+    char program[PATH_MAX + 1] = { 0, };
     char* args[] = { program, NULL };
 
+#if defined(_AIX)
+    struct psinfo ps;
+    char procpath[PATH_MAX + 1] = { NULL, };
+    int psfd;
+
+    snprintf(procpath, PATH_MAX, "/proc/%lld/psinfo", getpid());
+    psfd = open(procpath, O_RDONLY);
+    if (psfd == -1) {
+        fprintf(stderr,
+                "Failed to open procfs to read cmdname: %s\n", strerror(errno));
+        exit(1);
+    }
+
+    if (read(psfd, &ps, sizeof(ps)) == -1) {
+        fprintf(stderr, "Failed to populate psinfo: %s\n", strerror(errno));
+        exit(1);
+    }
+    close(psfd);
+    /*
+     * Copies only argv[0], as maintained by the kernel. This is because
+     * parameters are guaranteed to be separated by NULL, which is where strcpy
+     * stops copying.
+     */
+    strncpy(program, ps.pr_psargs, PATH_MAX);
+
+#else
     if (readlink("/proc/self/exe", program, PATH_MAX) == -1) {
         fprintf(stderr, "Failed to get executable file name: %s\n",
                 strerror(errno));
         exit(1);
     }
+#endif
 
     if (initgroups(pwd->pw_name, pwd->pw_gid) != 0) {
         fprintf(stderr, "Failed to set the group access list: %s\n",
@@ -218,7 +282,7 @@ void run_sanity_checks(void)
     struct group *grp;
     struct stat sbuf;
     struct dircheckinfo_s dircheck[] = {
-        { "/run/opencryptoki", S_IRWXU | S_IXGRP, 1 },
+        { RUN_DIR, S_IRWXU | S_IXGRP, 1 },
         { LOCKDIR_PATH, S_IRWXU | S_IRWXG, 0 },
         { OCK_LOGDIR, S_IRWXU | S_IRWXG, 0 },
         { CONFIG_PATH, S_IRWXU | S_IRWXG, 0 },
@@ -294,14 +358,16 @@ void run_sanity_checks(void)
     if (uid == 0)
         drop_privileges(pwd);
 
+/* AIX setppriv handles this already */
+#if !defined(_AIX)
     /* Do not allow execve() to grant additional privileges */
     if (prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0) != 0) {
         fprintf(stderr, "Failed to set NO_NEW_PRIVS flag: %s\n",
                 strerror(errno));
         exit(1);
     }
-
-    if (chdir("/run/opencryptoki") != 0) {
+#endif
+    if (chdir(RUN_DIR) != 0) {
         fprintf(stderr, "Failed to set current directory: %s\n",
                 strerror(errno));
         exit(1);
@@ -440,7 +506,7 @@ static int create_pid_file(pid_t pid)
     fprintf(pidfile, "%d\n", (int) pid);
     fflush(pidfile);
     fclose(pidfile);
-    InfoLog("PID File created");
+    InfoLog("PID file (" PID_FILE_PATH ") created");
 
     return 0;
 }
@@ -470,7 +536,13 @@ static int config_parse_slot(const char *config_file,
     struct ConfigBaseNode *c;
     int i, slot_no;
     unsigned int vers;
-    char *str;
+#if defined(_AIX)
+    char libname[1025] = {0, };
+    char toktype[5] = {0, };
+    char *substr = NULL;
+    int idx = 0;
+#endif
+    char *str = NULL;
 
     slot_no = slot->idx;
     DbgLog(DL3, "Slot: %d\n", slot_no);
@@ -491,7 +563,27 @@ static int config_parse_slot(const char *config_file,
 
         if (strcmp(c->key, "stdll") == 0 &&
             (str = confignode_getstr(c)) != NULL) {
+#if defined(_AIX)
+           /*
+            * AIX bundles libraries as ranlib archives. The objects therefore
+            * need to be loaded from within the library. Instead of modifying
+            * the parser to handle the new string format, it's easier to just
+            * build the string ourselves - this only happens at daemon init,
+            * so performance isn't a concern here.
+            */
+            substr = strrchr(str, '_');
+            if (substr == NULL) /* no '_', libname is malformed */
+                return 1;
 
+            ++substr;
+            while (*substr != '.' && idx < sizeof(toktype) - 1) {
+                toktype[idx++] = (char)*substr;
+                ++substr;
+            }
+            snprintf(libname, sizeof(libname),
+                    "libpkcs11_%s.a(libpkcs11_%s.so.0)", toktype, toktype);
+            str = (char*)libname;
+#endif
             if (do_str((char *)&sinfo[slot_no].dll_location,
                        sizeof(sinfo[slot_no].dll_location),
                        config_file, c->key, str, 0))
@@ -722,6 +814,40 @@ done:
     return ret;
 }
 
+static int teardown(int rc)
+{
+    term_socket_server();
+    DestroyMutexes();
+    DetachFromSharedMemory();
+    DestroySharedMemory();
+    return rc;
+}
+
+static int setup_sock_server(void)
+{
+    if (!init_socket_server(event_support_disabled)) {
+        DestroyMutexes();
+        DetachFromSharedMemory();
+        DestroySharedMemory();
+        return 5;
+    }
+
+    if (!init_socket_data(&socketData))
+        return teardown(6);
+
+    if (event_support_disabled)
+        socketData.flags |= FLAG_EVENT_SUPPORT_DISABLED;
+
+    /* Create customized token directories */
+    psinfo = &socketData.slot_info[0];
+    for (int i = 0; i < NUMBER_SLOTS_MANAGED; i++, psinfo++) {
+        if (chk_create_tokdir(psinfo))
+            return EACCES;
+    }
+    /* setup completed successfully */
+    return 0;
+}
+
 /*****************************************
  *  main() -
  *      You know what main does.
@@ -732,7 +858,7 @@ done:
 
 int main(int argc, char *argv[], char *envp[])
 {
-    int ret, i;
+    int ret;
 
     /**********************************/
     /* Read in command-line arguments */
@@ -807,30 +933,10 @@ int main(int argc, char *argv[], char *envp[])
     if (!XProcUnLock())
         return 4;
 
-    if (!init_socket_server(event_support_disabled)) {
-        DestroyMutexes();
-        DetachFromSharedMemory();
-        DestroySharedMemory();
-        return 5;
-    }
-
-    if (!init_socket_data(&socketData)) {
-        term_socket_server();
-        DestroyMutexes();
-        DetachFromSharedMemory();
-        DestroySharedMemory();
-        return 6;
-    }
-    if (event_support_disabled)
-        socketData.flags |= FLAG_EVENT_SUPPORT_DISABLED;
-
-    /* Create customized token directories */
-    psinfo = &socketData.slot_info[0];
-    for (i = 0; i < NUMBER_SLOTS_MANAGED; i++, psinfo++) {
-        ret = chk_create_tokdir(psinfo);
-        if (ret)
-            return EACCES;
-    }
+#if !defined(_AIX)
+    if ((ret = setup_sock_server()) != 0)
+        return ret;
+#endif
 
     if (drop_capabilities() != 0)
         return 7;
@@ -841,7 +947,9 @@ int main(int argc, char *argv[], char *envp[])
     if (Daemon) {
         pid_t pid;
         if ((pid = fork()) < 0) {
+#if !defined(_AIX)
             term_socket_server();
+#endif
             DestroyMutexes();
             DetachFromSharedMemory();
             DestroySharedMemory();
@@ -871,6 +979,22 @@ int main(int argc, char *argv[], char *envp[])
 #endif
     }
 
+#if defined(_AIX)
+    /*
+     * Set up the socket server /after/ the fork on AIX. This is because
+     * AIX closes the pollset fd before the fork, with no way of continuing
+     * to use it in the child. Therefore, pollset needs to be initialised
+     * ONLY in the client process to actually be useful.
+     * Quoting from the manpage:
+     * A process can call fork after calling pollset_create. The child process
+     * will already have a pollset ID per pollset, but pollset_destroy,
+     * pollset_ctl, pollset_query, and pollset_poll operations will fail with
+     * an errno value of EACCES.
+     */
+    if ((ret = setup_sock_server()) != 0)
+        return ret;
+#endif
+
     /*****************************************
      *
      * Register Signal Handlers
@@ -885,15 +1009,10 @@ int main(int argc, char *argv[], char *envp[])
      * We have to set up the signal handlers after we daemonize because
      * the daemonization process redefines our handler for (at least) SIGTERM
      */
-    if (!SetupSignalHandlers()) {
-        term_socket_server();
-        DestroyMutexes();
-        DetachFromSharedMemory();
-        DestroySharedMemory();
-        return 8;
-    }
+    if (!SetupSignalHandlers())
+        return teardown(8);
 
-    /* ultimatly we will create a couple of threads which monitor the slot db
+    /* ultimately we will create a couple of threads which monitor the slot db
      * and handle the insertion and removal of tokens from the slot.
      */
 
@@ -905,13 +1024,8 @@ int main(int argc, char *argv[], char *envp[])
 
 #if !defined(NOGARBAGE)
     /* start garbage collection thread */
-    if (!StartGCThread(shmp)) {
-        term_socket_server();
-        DestroyMutexes();
-        DetachFromSharedMemory();
-        DestroySharedMemory();
-        return 9;
-    }
+    if (!StartGCThread(shmp))
+        return teardown(9);
 #endif
 
     /*
@@ -931,7 +1045,7 @@ int main(int argc, char *argv[], char *envp[])
 
     /*************************************************************
      *
-     * Here we need to actualy go through the processes and verify that thye
+     * Here we need to actually go through the processes and verify that they
      * still exist.  If not, then they terminated with out properly calling
      * C_Finalize and therefore need to be removed from the system.
      * Look for a system routine to determine if the shared memory is held by

@@ -10,8 +10,6 @@
 
 /* Modified for S390 by Robert Burroughs                             */
 
-#define _GNU_SOURCE
-
 #include <pthread.h>
 #include <string.h>             // for memcmp() et al
 #include <strings.h>

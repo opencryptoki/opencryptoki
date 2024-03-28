@@ -8,7 +8,6 @@
  * https://opensource.org/licenses/cpl1.0.php
  */
 
-#define _GNU_SOURCE
 #include <pthread.h>
 #include <stdio.h>
 #include <time.h>

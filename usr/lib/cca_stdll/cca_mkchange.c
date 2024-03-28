@@ -8,15 +8,14 @@
  * https://opensource.org/licenses/cpl1.0.php
  */
 
-#define _GNU_SOURCE
 #include <stdio.h>
 #include <string.h>
 #include <strings.h>
 #include <stdlib.h>
 #include <stdint.h>
 #include <errno.h>
-#include <err.h>
 
+#include "platform.h"
 #include "p11util.h"
 #include "defs.h"
 #include "host_defs.h"

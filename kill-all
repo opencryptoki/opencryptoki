@@ -1,0 +1,21 @@
+#!/bin/bash
+
+# Basic script to provide Linux-equivalent killall on AIX
+
+progname=
+sig=
+if [ -z "$2" ]; then
+	# no signal provided, $1 is the progname
+	progname="$1"
+	sig=-TERM
+else
+	# both signal and progname provided, set appropriately
+	progname="$2"
+	sig="$1"
+fi
+
+pids=$(ps -efo pid,comm | grep -w "$progname" | awk '{print $1}')
+
+for pid in $pids; do
+	kill $sig $pid
+done

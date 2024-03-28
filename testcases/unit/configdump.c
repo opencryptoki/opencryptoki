@@ -1,12 +1,13 @@
 #include "unittest.h"
-#ifndef _GNU_SOURCE
-#  define _GNU_SOURCE
-#endif
 #include <stdio.h>
 #include <string.h>
 #include <cfgparser.h>
 #include <configuration.h>
-#include <err.h>
+#include "platform.h"
+
+#if defined(_AIX)
+    const char *__progname = "configdump";
+#endif
 
 static const char test1[] = "foo = 1\nbar = 2\n";
 static const char test2[] = "foo = 1 bar = 2\n";

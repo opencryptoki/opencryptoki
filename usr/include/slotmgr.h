@@ -33,10 +33,32 @@
 #define OCK_HSM_MK_CHANGE_PATH CONFIG_PATH "/HSM_MK_CHANGE"
 #define OCK_HSM_MK_CHANGE_LOCK_FILE LOCKDIR_PATH "/LCK..HSM_MK_CHANGElock"
 
-#define PROC_SOCKET_FILE_PATH "/run/opencryptoki/pkcsslotd.socket"
-#define ADMIN_SOCKET_FILE_PATH "/run/opencryptoki/pkcsslotd.admin.socket"
+#if defined(_AIX)
+   /*
+    * AIX needs the file to be opened in write mode for an exclusive lock.
+    * Mode bits are changed to -w--w---- to allow starting up even when there
+    * is a lock file left over from a previous start.
+    */
+    #define MODE_BITS (S_IWUSR | S_IWGRP)
+    #define OPEN_MODE O_WRONLY
+#else
+   /*
+    * Linux *does* have tmpfs, so it makes sense to use that for
+    * tmpfs-qualified files, such as runtime sockets and PID files. There is
+    * no use persisting those files after a reboot. Use /var/run here instead
+    * of the modern /run equivalent to allow usage on older systems as well.
+    * Systems that follow the newer style have a symlink to /run under /var 
+    * anyway.
+    */
+    #define MODE_BITS (S_IRUSR | S_IRGRP)
+    #define OPEN_MODE O_RDONLY
+#endif
 
-#define PID_FILE_PATH "/run/opencryptoki/pkcsslotd.pid"
+#define RUN_DIR RUN_PATH "/opencryptoki"
+#define PROC_SOCKET_FILE_PATH RUN_DIR "/pkcsslotd.socket"
+#define ADMIN_SOCKET_FILE_PATH RUN_DIR "/pkcsslotd.admin.socket"
+
+#define PID_FILE_PATH RUN_DIR "/pkcsslotd.pid"
 #define OCK_CONFIG OCK_CONFDIR "/opencryptoki.conf"
 
 #ifndef PKCSSLOTD_USER
@@ -58,6 +80,16 @@
 #define NUMBER_SLOTS_MANAGED 1024
 #define NUMBER_PROCESSES_ALLOWED  1000
 #define NUMBER_ADMINS_ALLOWED     1000
+
+#if defined(_AIX)
+   /*
+    * AIX does not define NAME_MAX and instead requires this
+    * to be determined at runtime. Use the equivalent defined for
+    * BSD-compatibility (which uses MAXNAMLEN) - also 255
+    */
+    #include <dirent.h>
+    #define NAME_MAX _D_NAME_MAX
+#endif
 
 //
 // Per Process Data structure
@@ -298,6 +330,5 @@ static inline int ock_snprintf(char *buf, size_t buflen, const char *fmt, ...)
 
     return 0;
 }
-
 
 #endif                          /* _SLOTMGR_H */

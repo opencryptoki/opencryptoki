@@ -17,10 +17,16 @@ opencryptoki_stdll_libpkcs11_cca_la_CFLAGS =				\
 	-I${srcdir}/usr/lib/hsm_mk_change 				\
 	-I${top_builddir}/usr/lib/hsm_mk_change
 
+if AIX
+opencryptoki_stdll_libpkcs11_cca_la_LDFLAGS = -qmkshrobj -lcrypto \
+	-lpthread -qnocrt -lrt -ldl -Wl,-bnoautoexp -Wl,-bstatic,-llber,-bdynamic \
+	-export-symbols ${srcdir}/opencryptoki_tok.map.sym
+else
 opencryptoki_stdll_libpkcs11_cca_la_LDFLAGS = -shared			\
 	-Wl,-z,defs,-Bsymbolic -lcrypto -lpthread -nostartfiles		\
 	-Wl,-soname,$@ -lrt -ldl -llber					\
 	-Wl,--version-script=${srcdir}/opencryptoki_tok.map
+endif
 
 opencryptoki_stdll_libpkcs11_cca_la_SOURCES = usr/lib/common/asn1.c	\
 	usr/lib/common/dig_mgr.c usr/lib/common/hwf_obj.c		\
@@ -49,6 +55,10 @@ opencryptoki_stdll_libpkcs11_cca_la_SOURCES = usr/lib/common/asn1.c	\
 	usr/lib/hsm_mk_change/hsm_mk_change.c				\
 	usr/lib/common/btree.c usr/lib/common/sess_mgr.c		\
 	usr/lib/cca_stdll/cca_mkchange.c
+
+if AIX
+opencryptoki_stdll_libpkcs11_cca_la_SOURCES += usr/lib/common/aix/short_name.c
+endif
 
 if !NO_PKEY
 opencryptoki_stdll_libpkcs11_cca_la_SOURCES +=				\

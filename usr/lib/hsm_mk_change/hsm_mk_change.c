@@ -8,7 +8,6 @@
  * https://opensource.org/licenses/cpl1.0.php
  */
 
-#define _GNU_SOURCE
 #include <sys/types.h>
 #include <sys/file.h>
 #include <sys/stat.h>
@@ -17,16 +16,17 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <endian.h>
 #include <dirent.h>
 
-#include <slotmgr.h>
+#include "slotmgr.h"
+#include "platform.h"
 
 #ifdef OCK_TOOL
-#include "pkcs_utils.h"
+    #include "pkcs_utils.h"
 #else
-#include "trace.h"
+    #include "trace.h"
 #endif
+
 #include "hsm_mk_change.h"
 #include "pkcs32.h"
 
@@ -49,11 +49,11 @@ CK_RV hsm_mk_change_lock_create(void)
     mode_t mode = (S_IRUSR | S_IRGRP);
 
     if (hsm_mk_change_lock_fd == -1)
-        hsm_mk_change_lock_fd = open(OCK_HSM_MK_CHANGE_LOCK_FILE, O_RDONLY);
+        hsm_mk_change_lock_fd = open(OCK_HSM_MK_CHANGE_LOCK_FILE, O_WRONLY);
 
     if (hsm_mk_change_lock_fd == -1) {
         hsm_mk_change_lock_fd = open(OCK_HSM_MK_CHANGE_LOCK_FILE,
-                                     O_CREAT | O_RDONLY, mode);
+                                     O_EXCL | O_CREAT | O_RDWR, mode);
 
         if (hsm_mk_change_lock_fd != -1) {
             if (fchmod(hsm_mk_change_lock_fd, mode) == -1) {

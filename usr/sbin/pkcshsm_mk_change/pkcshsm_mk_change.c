@@ -13,10 +13,8 @@
  * secure keys for a concurrent HSM master key change.
  */
 
-#define _GNU_SOURCE
-#include <err.h>
+#include "platform.h"
 #include <errno.h>
-#include <getopt.h>
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -25,12 +23,18 @@
 #include <signal.h>
 #include <unistd.h>
 
-#include <pkcs11types.h>
+#include "pkcs11types.h"
 #include "p11util.h"
 #include "event_client.h"
 #include "pkcs_utils.h"
 #include "hsm_mk_change.h"
 #include "pin_prompt.h"
+
+#if defined(_AIX)
+    #include <libgen.h>
+    #define ELIBACC EINVAL
+    const char *__progname = "pkcshsm_mk_change";
+#endif
 
 #define CMD_REENCIPHER  1
 #define CMD_FINALIZE    2
@@ -1315,19 +1319,29 @@ static int init_ock(void)
     void (*sym_ptr)(CK_FUNCTION_LIST_PTR_PTR ppFunctionList);
     CK_RV rc;
 
-    dll = dlopen("libopencryptoki.so", RTLD_NOW);
+    dll = dlopen(OCK_API_LIBNAME, DYNLIB_LDFLAGS);
     if (dll == NULL) {
+#if defined(_AIX)
+        int err = errno;
+#else
+        int err = ELIBACC;
+#endif
         warnx("Error loading PKCS#11 library: dlopen: %s", dlerror());
-        return ELIBACC;
+        return err;
     }
 
     *(void **)(&sym_ptr) = dlsym(dll, "C_GetFunctionList");
     if (sym_ptr == NULL) {
+#if defined(_AIX)
+        int err = errno;
+#else
+        int err = ELIBACC;
+#endif
         warnx("Error loading PKCS#11 library: dlsym(C_GetFunctionList): %s",
               dlerror());
         dlclose(dll);
         dll = NULL;
-        return ELIBACC;
+        return err;
     }
 
     sym_ptr(&func_list);

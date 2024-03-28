@@ -8,7 +8,9 @@ if ENABLE_PKCSEP11_SESSION
 include usr/sbin/pkcsep11_session/pkcsep11_session.mk
 endif
 if ENABLE_CCATOK
+if ENABLE_PKCSCCA
 include usr/sbin/pkcscca/pkcscca.mk
+endif
 endif
 if ENABLE_P11SAK
 include usr/sbin/p11sak/p11sak.mk

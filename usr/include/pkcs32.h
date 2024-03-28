@@ -169,11 +169,6 @@ typedef struct CK_ATTRIBUTE_32 {
     CK_ULONG_32 ulValueLen;     /* in bytes */
 } CK_ATTRIBUTE_32;
 
-
-
-#pragma pack()
-
-
 #ifdef __cplusplus
 }
 #endif

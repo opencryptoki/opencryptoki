@@ -440,7 +440,7 @@ CK_RV alloc_gcm_param(CK_GCM_PARAMS *gcm_param, CK_BYTE *pIV, CK_ULONG ulIVLen,
     gcm_param->ulIvBits = ulIVLen * 8;
 
     gcm_param->pAAD = malloc(ulAADLen);
-    if (gcm_param->pAAD == NULL) {
+    if (ulAADLen != 0 && gcm_param->pAAD == NULL) {
         free(gcm_param->pIv);
         gcm_param->pIv = NULL;
         return CKR_HOST_MEMORY;
