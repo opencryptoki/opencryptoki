@@ -9428,7 +9428,7 @@ static CK_RV p11sak_key_extract_pubkey(const struct p11sak_objtype *keytype,
     /* If no new ID is specified, try to use ID from certificate */
     if (opt_new_id == NULL) {
         rc = get_attribute(key, &id_attr);
-        if (rc == CKR_OK) {
+        if (rc == CKR_OK && id_attr.ulValueLen > 0) {
             rc = add_attribute(CKA_ID, id_attr.pValue, id_attr.ulValueLen,
                                &attrs, &num_attrs);
             if (rc != CKR_OK) {
