@@ -148,6 +148,7 @@ static enum cca_mk_type cca_mk_type_from_key_type(enum cca_token_type keytype)
         return CCA_MK_AES;
     case sec_rsa_priv_key:
     case sec_ecc_priv_key:
+    case sec_qsa_priv_key:
         return CCA_MK_APKA;
     default:
         return -1;
@@ -1485,6 +1486,12 @@ static CK_RV cca_reencipher_sec_key(STDLL_TokData_t *tokdata,
         new_mkvp = mk_change_op->new_apka_mkvp;
         ktc_type = CCA_KTC_PKA;
         break;
+    case sec_qsa_priv_key:
+        memcpy(rule_array + CCA_KEYWORD_SIZE, "QSA     ", CCA_KEYWORD_SIZE);
+        mk_type = "APKA";
+        new_mkvp = mk_change_op->new_apka_mkvp;
+        ktc_type = CCA_KTC_PKA;
+        break;
     default:
         TRACE_ERROR("%s Blob is an invalid secure key type: %d\n",
                     __func__, keytype);
@@ -1616,6 +1623,7 @@ static CK_BBOOL cca_reencipher_filter_cb(STDLL_TokData_t *tokdata,
 
     case sec_rsa_priv_key:
     case sec_ecc_priv_key:
+    case sec_qsa_priv_key:
         return mk_change_op->new_apka_mkvp_set;
 
     default:
@@ -1788,6 +1796,7 @@ static CK_RV cca_finalize_sessions_cb(STDLL_TokData_t *tokdata,
         break;
     case sec_rsa_priv_key:
     case sec_ecc_priv_key:
+    case sec_qsa_priv_key:
         if (mk_change_op->new_apka_mkvp_set == FALSE)
             goto done;
         break;
