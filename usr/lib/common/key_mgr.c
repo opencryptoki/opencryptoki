@@ -443,6 +443,13 @@ CK_RV key_mgr_generate_key_pair(STDLL_TokData_t *tokdata,
         break;
 #endif
 /* End  code contributed by Corrent corp. */
+    case CKM_IBM_DILITHIUM:
+        if (subclass != 0 && subclass != CKK_IBM_PQC_DILITHIUM) {
+            TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCONSISTENT));
+            return CKR_TEMPLATE_INCONSISTENT;
+        }
+        subclass = CKK_IBM_DILITHIUM;
+        break;
     default:
         TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
         return CKR_MECHANISM_INVALID;
@@ -494,6 +501,10 @@ CK_RV key_mgr_generate_key_pair(STDLL_TokData_t *tokdata,
         break;
 #endif
 /* End code contributed by Corrent corp. */
+    case CKM_IBM_DILITHIUM:
+        rc = ckm_ibm_dilithium_key_pair_gen(tokdata, publ_key_obj->template,
+                                            priv_key_obj->template);
+        break;
     default:
         TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
         rc = CKR_MECHANISM_INVALID;

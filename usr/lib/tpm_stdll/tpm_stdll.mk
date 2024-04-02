@@ -39,4 +39,5 @@ opencryptoki_stdll_libpkcs11_tpm_la_SOURCES =				\
 	usr/lib/common/dlist.c usr/lib/common/mech_openssl.c		\
 	usr/lib/common/utility_common.c usr/lib/common/ec_supported.c	\
 	usr/lib/api/policyhelper.c usr/lib/common/pqc_supported.c	\
-	usr/lib/common/btree.c usr/lib/common/sess_mgr.c
+	usr/lib/common/btree.c usr/lib/common/sess_mgr.c		\
+	usr/lib/common/mech_pqc.c

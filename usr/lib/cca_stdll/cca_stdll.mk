@@ -54,7 +54,7 @@ opencryptoki_stdll_libpkcs11_cca_la_SOURCES = usr/lib/common/asn1.c	\
 	usr/lib/common/mech_openssl.c usr/lib/common/pqc_supported.c	\
 	usr/lib/hsm_mk_change/hsm_mk_change.c				\
 	usr/lib/common/btree.c usr/lib/common/sess_mgr.c		\
-	usr/lib/cca_stdll/cca_mkchange.c
+	usr/lib/cca_stdll/cca_mkchange.c usr/lib/common/mech_pqc.c
 
 if AIX
 opencryptoki_stdll_libpkcs11_cca_la_SOURCES += usr/lib/common/aix/short_name.c

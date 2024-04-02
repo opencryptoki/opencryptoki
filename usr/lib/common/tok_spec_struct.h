@@ -22,6 +22,7 @@
 #ifndef _TOK_SPECIFIC_STRUCT
 #define _TOK_SPECIFIC_STRUCT
 
+#include "pqc_defs.h"
 
 struct token_specific_struct {
     // Used to be in the token_local.h as a #def
@@ -262,6 +263,11 @@ struct token_specific_struct {
     CK_RV(*t_dsa_sign) (STDLL_TokData_t *, CK_BYTE *, CK_BYTE *, OBJECT *);
 
     CK_RV(*t_dsa_verify) (STDLL_TokData_t *, CK_BYTE *, CK_BYTE *, OBJECT *);
+
+    // Token Specific PQC functions
+    CK_RV (*t_ibm_dilithium_generate_keypair)(STDLL_TokData_t *,
+                                              const struct pqc_oid *,
+                                              TEMPLATE *, TEMPLATE *);
 
     CK_RV(*t_get_mechanism_list) (STDLL_TokData_t *, CK_MECHANISM_TYPE_PTR,
                                   CK_ULONG_PTR);
