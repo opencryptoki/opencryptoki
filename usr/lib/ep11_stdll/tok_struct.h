@@ -141,6 +141,8 @@ token_spec_t token_specific = {
     NULL,                       // dsa_generate_keypair,
     NULL,                       // dsa_sign
     NULL,                       // dsa_verify
+    // PQC
+    NULL,                       // ibm_dilithium_generate_keypair
     NULL,                       // get_mechanism_list
     NULL,                       // get mechanism_info
     &token_specific_object_add,

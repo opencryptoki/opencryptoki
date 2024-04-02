@@ -853,6 +853,9 @@ CK_RV ckm_dh_pkcs_key_pair_gen(STDLL_TokData_t *tokdata,
 #endif
 /* End code contributed by Corrent corp. */
 
+CK_RV ckm_ibm_dilithium_key_pair_gen(STDLL_TokData_t *tokdata,
+                                     TEMPLATE *publ_tmpl, TEMPLATE *priv_tmpl);
+
 CK_RV digest_from_kdf(CK_EC_KDF_TYPE kdf, CK_MECHANISM_TYPE *mech);
 
 CK_RV pkcs_get_keytype(CK_ATTRIBUTE *attrs, CK_ULONG attrs_len,

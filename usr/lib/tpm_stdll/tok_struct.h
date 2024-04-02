@@ -114,6 +114,8 @@ struct token_specific_struct token_specific = {
     NULL,                       // dsa_generate_keypair
     NULL,                       // dsa_sign
     NULL,                       // dsa_verify
+    // PQC
+    NULL,                       // ibm_dilithium_generate_keypair
     &token_specific_get_mechanism_list,
     &token_specific_get_mechanism_info,
     NULL,                       // object_add

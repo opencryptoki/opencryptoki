@@ -46,7 +46,8 @@ usr_sbin_pkcscca_pkcscca_SOURCES = usr/lib/common/asn1.c		\
 	usr/lib/common/utility_common.c usr/lib/common/ec_supported.c	\
 	usr/lib/common/pin_prompt.c usr/lib/common/mech_openssl.c	\
 	usr/lib/api/policyhelper.c usr/lib/common/pqc_supported.c	\
-	usr/lib/common/btree.c usr/lib/common/sess_mgr.c
+	usr/lib/common/btree.c usr/lib/common/sess_mgr.c		\
+	usr/lib/common/mech_pqc.c
 
 nodist_usr_sbin_pkcscca_pkcscca_SOURCES = usr/lib/api/mechtable.c
 

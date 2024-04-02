@@ -36,7 +36,7 @@ opencryptoki_stdll_libpkcs11_ica_la_SOURCES =				\
 	usr/lib/common/mech_list.c usr/lib/common/shared_memory.c	\
 	usr/lib/common/profile_obj.c usr/lib/common/attributes.c	\
 	usr/lib/ica_s390_stdll/ica_specific.c usr/lib/common/dlist.c	\
-	usr/lib/common/mech_openssl.c					\
+	usr/lib/common/mech_openssl.c usr/lib/common/mech_pqc.c		\
 	usr/lib/common/utility_common.c usr/lib/common/ec_supported.c	\
 	usr/lib/api/policyhelper.c usr/lib/common/pqc_supported.c	\
 	usr/lib/common/btree.c usr/lib/common/sess_mgr.c

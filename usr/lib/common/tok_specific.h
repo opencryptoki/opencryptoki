@@ -27,6 +27,8 @@
 #ifndef _TOK_SPECIFIC
 #define _TOK_SPECIFIC
 
+#include "pqc_defs.h"
+
 int token_specific_creatlock(void);
 CK_RV token_specific_attach_shm(STDLL_TokData_t *, CK_ULONG);
 CK_RV token_specific_rng(STDLL_TokData_t *, CK_BYTE *, CK_ULONG);
@@ -300,6 +302,10 @@ CK_RV token_specific_dsa_sign(STDLL_TokData_t *, CK_BYTE *, CK_ULONG, CK_ULONG);
 
 CK_RV token_specific_dsa_verify(STDLL_TokData_t *,
                                 CK_BYTE *, CK_BYTE *, OBJECT *);
+
+CK_RV token_specific_ibm_dilithium_generate_keypair(STDLL_TokData_t *,
+                                                    const struct pqc_oid *,
+                                                    TEMPLATE *, TEMPLATE *);
 
 CK_RV token_specific_get_mechanism_list(STDLL_TokData_t *,
                                         CK_MECHANISM_TYPE_PTR pMechanismList,
