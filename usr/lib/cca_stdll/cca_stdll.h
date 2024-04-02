@@ -34,7 +34,7 @@
 #define CCA_PRIVATE_KEY_NAME_SIZE       64
 #define CCA_REGENERATION_DATA_SIZE      64
 #define CCA_KEY_TOKEN_SIZE              8000
-#define CCA_KEY_VALUE_STRUCT_SIZE       2500
+#define CCA_KEY_VALUE_STRUCT_SIZE       8000
 #define CCA_RULE_ARRAY_SIZE             256
 #define CCA_KEYWORD_SIZE                8
 #define CCA_KEY_ID_SIZE                 64
@@ -66,6 +66,8 @@
 #define CCA_QSA_ALGO_DILITHIUM_65       0x0605
 #define CCA_QSA_ALGO_DILITHIUM_87       0x0807
 #define CCA_QSA_CLEAR_FORMAT_NO_KEY     0x00
+#define CCA_QSA_CLEAR_FORMAT_KAT        0x01
+#define CCA_QSA_CLEAR_FORMAT_PUB_ONLY   0x03
 
 /*
  * ECC private key section (X'20'), Key-usage and translation control flag.
@@ -112,12 +114,16 @@
 #define CCA_QSA_INTTOK_PRIVKEY_OFFSET      8
 /* Offset into an QSA private key area of the algorithm id */
 #define CCA_QSA_INTTOK_ALGO_ID_OFFSET      9
+/* Offset into an QSA private key area of the algorithm parameters */
+#define CCA_QSA_INTTOK_ALGO_PARAMS_OFFSET  10
 /* Offset into an QSA private key area of the MKVP */
 #define CCA_QSA_INTTOK_MKVP_OFFSET         118
 /* Offset into an QSA external key token of the public key area */
 #define CCA_QSA_EXTTOK_PUBLKEY_OFFSET      8
 /* Offset into an QSA public key area of the algorithm id */
 #define CCA_QSA_EXTTOK_ALGO_ID_OFFSET      5
+/* Offset into an QSA public key area of the algorithm parameters */
+#define CCA_QSA_EXTTOK_ALGO_PARAMS_OFFSET  6
 /* Offset into an QSA public key area of the rho length */
 #define CCA_QSA_EXTTOK_RHO_OFFSET          10
 /* Offset into an QSA public key area of the t1 length */
