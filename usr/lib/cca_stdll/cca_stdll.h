@@ -33,7 +33,7 @@
 
 #define CCA_PRIVATE_KEY_NAME_SIZE       64
 #define CCA_REGENERATION_DATA_SIZE      64
-#define CCA_KEY_TOKEN_SIZE              2500
+#define CCA_KEY_TOKEN_SIZE              8000
 #define CCA_KEY_VALUE_STRUCT_SIZE       2500
 #define CCA_RULE_ARRAY_SIZE             256
 #define CCA_KEYWORD_SIZE                8
@@ -55,6 +55,17 @@
 #define CCA_PKB_EC_PUBL_KEY_LEN_OFFSET  6
 #define CCATOK_EC_MAX_D_LEN             66
 #define CCATOK_EC_MAX_Q_LEN             133
+
+/* QSA constants */
+#define CCA_QSA_KEY_VALUE_STRUCT_SIZE   8
+#define CCA_PKB_QSA_CLEAR_FORMAT_OFFSET 1
+#define CCA_PKB_QSA_ALGO_PARAM_OFFSET   2
+#define CCA_PKB_QSA_CLEAR_LEN_OFFSET    4
+#define CCA_QSA_ALGO_DILITHIUM_ROUND_2  0x01
+#define CCA_QSA_ALGO_DILITHIUM_ROUND_3  0x03
+#define CCA_QSA_ALGO_DILITHIUM_65       0x0605
+#define CCA_QSA_ALGO_DILITHIUM_87       0x0807
+#define CCA_QSA_CLEAR_FORMAT_NO_KEY     0x00
 
 /*
  * ECC private key section (X'20'), Key-usage and translation control flag.
@@ -96,6 +107,24 @@
 #define CCA_RSA_INTTOK_PUBKEY_E_LENGTH_OFFSET 6
 /* Offset into an RSA public key area of the value of e, the public exponent */
 #define CCA_RSA_INTTOK_PUBKEY_E_OFFSET  12
+
+/* Offset into an QSA internal key token of the private key area */
+#define CCA_QSA_INTTOK_PRIVKEY_OFFSET      8
+/* Offset into an QSA private key area of the algorithm id */
+#define CCA_QSA_INTTOK_ALGO_ID_OFFSET      9
+/* Offset into an QSA private key area of the MKVP */
+#define CCA_QSA_INTTOK_MKVP_OFFSET         118
+/* Offset into an QSA external key token of the public key area */
+#define CCA_QSA_EXTTOK_PUBLKEY_OFFSET      8
+/* Offset into an QSA public key area of the algorithm id */
+#define CCA_QSA_EXTTOK_ALGO_ID_OFFSET      5
+/* Offset into an QSA public key area of the rho length */
+#define CCA_QSA_EXTTOK_RHO_OFFSET          10
+/* Offset into an QSA public key area of the t1 length */
+#define CCA_QSA_EXTTOK_T1_OFFSET           12
+/* Offset into an QSA public key area of the payload area */
+#define CCA_QSA_EXTTOK_PAYLOAD_OFFSET      24
+
 /* Offset into the rule array returned by STATCCA and length of the returned
  * CCA version field. */
 #define CCA_STATCCA_CCA_VERSION_OFFSET         24
@@ -209,7 +238,9 @@ enum cca_token_type {
     sec_rsa_priv_key,
     sec_rsa_publ_key,
     sec_ecc_priv_key,
-    sec_ecc_publ_key
+    sec_ecc_publ_key,
+    sec_qsa_priv_key,
+    sec_qsa_publ_key
 };
 
 struct cca_mk_change_op {

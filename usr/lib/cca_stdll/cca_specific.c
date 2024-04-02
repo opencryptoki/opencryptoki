@@ -47,6 +47,7 @@
 #include "cfgparser.h"
 #include "events.h"
 #include "constant_time.h"
+#include "pqc_defs.h"
 #include <openssl/crypto.h>
 #include <openssl/ec.h>
 #ifndef NO_PKEY
@@ -275,7 +276,9 @@ static const MECH_LIST_ELEMENT cca_mech_list[] = {
                         CKF_EC_NAMEDCURVE | CKF_EC_F_P}},
     {CKM_ECDSA_SHA512, {160, 521, CKF_HW | CKF_SIGN | CKF_VERIFY |
                         CKF_EC_NAMEDCURVE | CKF_EC_F_P}},
-    {CKM_GENERIC_SECRET_KEY_GEN, {80, 2048, CKF_HW | CKF_GENERATE}}
+    {CKM_GENERIC_SECRET_KEY_GEN, {80, 2048, CKF_HW | CKF_GENERATE}},
+    {CKM_IBM_DILITHIUM, {256, 256, CKF_HW | CKF_GENERATE_KEY_PAIR |
+                         CKF_SIGN | CKF_VERIFY}},
 };
 
 static const CK_ULONG cca_mech_list_len =
@@ -547,6 +550,60 @@ CK_BBOOL analyse_cca_key_token(const CK_BYTE *t, CK_ULONG tlen,
         return TRUE;
     }
 
+    if (t[0] == 0x1f && t[8] == 0x50) {
+        /* internal secure cca private QSA key */
+        uint16_t privsec_len;
+        uint8_t algo_id;
+        privsec_len = be16toh(*((uint16_t *)
+                                (t + CCA_QSA_INTTOK_PRIVKEY_OFFSET + 2)));
+        if (CCA_QSA_INTTOK_PRIVKEY_OFFSET + privsec_len > (int)tlen) {
+            TRACE_DEVEL("CCA QSA key token has invalid priv section len or "
+                        "token size\n");
+            return FALSE;
+        }
+        algo_id = t[CCA_QSA_INTTOK_PRIVKEY_OFFSET +
+                                CCA_QSA_INTTOK_ALGO_ID_OFFSET];
+        switch (algo_id) {
+        case CCA_QSA_ALGO_DILITHIUM_ROUND_2:
+        case CCA_QSA_ALGO_DILITHIUM_ROUND_3:
+            *keytype = sec_qsa_priv_key;
+            break;
+        default:
+            TRACE_DEVEL("CCA QSA key token has invalid algorithm ID\n");
+            return FALSE;
+        }
+        *keybitsize = 0; /* no chance to find out the key bit size */
+        *mkvp = &t[CCA_QSA_INTTOK_PRIVKEY_OFFSET + CCA_QSA_INTTOK_MKVP_OFFSET];
+        return TRUE;
+    }
+
+    if (t[0] == 0x1e && t[8] == 0x51) {
+        /* external QSA public key token */
+        uint16_t publsec_len;
+        uint8_t algo_id;
+        publsec_len = be16toh(*((uint16_t *)
+                                (t + CCA_QSA_EXTTOK_PUBLKEY_OFFSET + 2)));
+        if (CCA_QSA_EXTTOK_PUBLKEY_OFFSET + publsec_len > (int)tlen) {
+            TRACE_DEVEL("CCA QSA key token has invalid publ section len or "
+                        "token size\n");
+            return FALSE;
+        }
+        algo_id = t[CCA_QSA_EXTTOK_PUBLKEY_OFFSET +
+                                    CCA_QSA_EXTTOK_ALGO_ID_OFFSET];
+        switch (algo_id) {
+        case CCA_QSA_ALGO_DILITHIUM_ROUND_2:
+        case CCA_QSA_ALGO_DILITHIUM_ROUND_3:
+            *keytype = sec_qsa_publ_key;
+            break;
+        default:
+            TRACE_DEVEL("CCA QSA key token has invalid algorithm ID\n");
+            return FALSE;
+        }
+        *keybitsize = 0; /* no chance to find out the key bit size */
+        *mkvp = NULL;
+        return TRUE;
+    }
+
     return FALSE;
 }
 
@@ -578,6 +635,7 @@ CK_RV check_expected_mkvp(STDLL_TokData_t *tokdata,
 
     case sec_rsa_priv_key:
     case sec_ecc_priv_key:
+    case sec_qsa_priv_key:
         expected_mkvp = cca_private->expected_apka_mkvp;
         new_mkvp = cca_mk_change_find_mkvp_in_ops(tokdata, CCA_MK_APKA, NULL);
         mktype = "APKA";
@@ -585,6 +643,7 @@ CK_RV check_expected_mkvp(STDLL_TokData_t *tokdata,
 
     case sec_rsa_publ_key:
     case sec_ecc_publ_key:
+    case sec_qsa_publ_key:
         /* no MKVP checks for public keys */
         return CKR_OK;
 
@@ -3643,6 +3702,65 @@ done:
     return ret;
 }
 
+static CK_BBOOL cca_pqc_strength_supported(STDLL_TokData_t * tokdata,
+                                           CK_MECHANISM_TYPE mech,
+                                           CK_ULONG keyform)
+{
+    struct cca_private_data *cca_private = tokdata->private_data;
+#ifdef __s390__
+    const struct cca_version cca_v7_1 = { .ver = 7, .rel = 1, .mod = 0 };
+    const struct cca_version cca_v8_0 = { .ver = 8, .rel = 0, .mod = 0 };
+#else
+    const struct cca_version cca_v7_2_43 = { .ver = 7, .rel = 2, .mod = 43 };
+#endif
+    const struct cca_version *required = NULL;
+    CK_BBOOL ret;
+
+    switch (mech) {
+    case CKM_IBM_DILITHIUM:
+        switch (keyform) {
+        case CK_IBM_DILITHIUM_KEYFORM_ROUND2_65:
+#ifdef __s390__
+            required = &cca_v7_1;
+#else
+            required = &cca_v7_2_43;
+#endif
+            break;
+#ifdef __s390__
+        case CK_IBM_DILITHIUM_KEYFORM_ROUND2_87:
+        case CK_IBM_DILITHIUM_KEYFORM_ROUND3_65:
+        case CK_IBM_DILITHIUM_KEYFORM_ROUND3_87:
+            required = &cca_v8_0;
+            break;
+#endif
+        default:
+            TRACE_DEVEL("Dilithium keyform %lu not supported by CCA\n",
+                        keyform);
+            return FALSE;
+        }
+        break;
+    default:
+        return FALSE;
+    }
+
+    if (pthread_rwlock_rdlock(&cca_private->min_card_version_rwlock)
+                                                        != 0) {
+        TRACE_ERROR("CCA min_card_version RD-Lock failed.\n");
+        return FALSE;
+    }
+
+    ret = (compare_cca_version(&cca_private->cca_lib_version, required) >= 0 &&
+           compare_cca_version(&cca_private->min_card_version, required) >= 0);
+
+    if (pthread_rwlock_unlock(&cca_private->min_card_version_rwlock)
+                                                        != 0) {
+        TRACE_ERROR("CCA min_card_version RD-Unlock failed.\n");
+        return FALSE;
+    }
+
+    return ret;
+}
+
 CK_RV token_specific_init(STDLL_TokData_t * tokdata, CK_SLOT_ID SlotNumber,
                           char *conf_name)
 {
@@ -5743,21 +5861,26 @@ static CK_BBOOL token_specific_filter_mechanism(STDLL_TokData_t *tokdata,
     case CKM_AES_XTS:
     case CKM_AES_XTS_KEY_GEN:
 #ifndef NO_PKEY
-         if (ccatok_pkey_option_disabled(tokdata) ||
-             !((struct cca_private_data *)tokdata->private_data)->pkey_wrap_supported) {
-             TRACE_ERROR("AES XTS Mech not supported\n");
-             rc = CK_FALSE;
-             break;
-         }
-         rc = CK_TRUE;
+        if (ccatok_pkey_option_disabled(tokdata) ||
+            !((struct cca_private_data *)tokdata->private_data)->pkey_wrap_supported) {
+            TRACE_ERROR("AES XTS Mech not supported\n");
+            rc = CK_FALSE;
+            break;
+        }
+        rc = CK_TRUE;
 #else
-         UNUSED(tokdata);
-         rc = CK_FALSE;
+        UNUSED(tokdata);
+        rc = CK_FALSE;
 #endif
-         break;
+        break;
+    case CKM_IBM_DILITHIUM:
+        /* Enable the mechanism if at least Dilithium Round 2 65 is supported */
+        rc = cca_pqc_strength_supported(tokdata, mechanism,
+                                        CK_IBM_DILITHIUM_KEYFORM_ROUND2_65);
+        break;
     default:
-         rc = CK_TRUE;
-         break;
+        rc = CK_TRUE;
+        break;
     }
     return rc;
 }
@@ -7335,6 +7458,330 @@ CK_RV token_specific_hmac_verify_final(STDLL_TokData_t * tokdata,
 
     return ccatok_hmac_final(tokdata, &sess->verify_ctx, signature,
                              &sig_len, FALSE);
+}
+
+CK_RV token_create_ibm_dilithium_keypair(TEMPLATE *publ_tmpl,
+                                         TEMPLATE *priv_tmpl,
+                                         const struct pqc_oid *oid,
+                                         CK_ULONG priv_tok_len,
+                                         CK_BYTE *priv_tok,
+                                         CK_ULONG publ_tok_len,
+                                         CK_BYTE *publ_tok)
+{
+    CK_RV rc;
+    uint16_t publsec_len, rho_len, t1_len;
+    CK_BYTE *spki = NULL;
+    CK_ULONG spki_len = 0;
+
+    publsec_len = be16toh(*((uint16_t *)
+                            (publ_tok + CCA_QSA_EXTTOK_PUBLKEY_OFFSET + 2)));
+    if (CCA_QSA_EXTTOK_PUBLKEY_OFFSET + publsec_len > (int)publ_tok_len) {
+        TRACE_ERROR("CCA QSA key token has invalid publ section len or "
+                    "token size\n");
+        return CKR_FUNCTION_FAILED;
+    }
+
+    rho_len = be16toh(*((uint16_t *)(publ_tok + CCA_QSA_EXTTOK_PUBLKEY_OFFSET +
+                                     CCA_QSA_EXTTOK_RHO_OFFSET)));
+    t1_len = be16toh(*((uint16_t *)(publ_tok + CCA_QSA_EXTTOK_PUBLKEY_OFFSET +
+                                    CCA_QSA_EXTTOK_T1_OFFSET)));
+
+    if (rho_len != oid->len_info.dilithium.rho_len ||
+        t1_len != oid->len_info.dilithium.t1_len) {
+        TRACE_ERROR("CCA QSA key token has invalid key component length\n");
+        return CKR_FUNCTION_FAILED;
+    }
+
+    /* Add attributes RHO and T1 to private and public template */
+    rc = ibm_dilithium_unpack_pub_key(publ_tok + CCA_QSA_EXTTOK_PUBLKEY_OFFSET +
+                                      CCA_QSA_EXTTOK_PAYLOAD_OFFSET,
+                                      publ_tok_len -
+                                      CCA_QSA_EXTTOK_PUBLKEY_OFFSET -
+                                      CCA_QSA_EXTTOK_PAYLOAD_OFFSET,
+                                      oid, publ_tmpl);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("ibm_dilithium_unpack_pub_key failed\n");
+        return rc;
+    }
+
+    rc = ibm_dilithium_unpack_pub_key(publ_tok + CCA_QSA_EXTTOK_PUBLKEY_OFFSET +
+                                      CCA_QSA_EXTTOK_PAYLOAD_OFFSET,
+                                      publ_tok_len -
+                                      CCA_QSA_EXTTOK_PUBLKEY_OFFSET -
+                                      CCA_QSA_EXTTOK_PAYLOAD_OFFSET,
+                                      oid, priv_tmpl);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("ibm_dilithium_unpack_pub_key failed\n");
+        return rc;
+    }
+
+    /* Add keyform and mode attributes to public and private template */
+    rc = ibm_pqc_add_keyform_mode(publ_tmpl, oid, CKM_IBM_DILITHIUM);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("ibm_pqc_add_keyform_mode failed\n");
+        return rc;
+    }
+
+    rc = ibm_pqc_add_keyform_mode(priv_tmpl, oid, CKM_IBM_DILITHIUM);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("ibm_pqc_add_keyform_mode failed\n");
+        return rc;
+    }
+
+    /* Add SPKI as CKA_VALUE to public template */
+    rc = ibm_dilithium_publ_get_spki(publ_tmpl, FALSE, &spki, &spki_len);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("ibm_dilithium_publ_get_spki failed\n");
+        return rc;
+    }
+
+    rc = build_update_attribute(publ_tmpl, CKA_VALUE, spki, spki_len);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("build_update_attribute for CKA_VALUE failed rv=0x%lx\n",
+                    rc);
+        free(spki);
+        return rc;
+    }
+
+    free(spki);
+
+    /* store publ key token into CKA_IBM_OPAQUE of the public key object */
+    rc = build_update_attribute(publ_tmpl, CKA_IBM_OPAQUE,
+                                publ_tok, publ_tok_len);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("build_update_attribute for publ_tok failed rv=0x%lx\n",
+                    rc);
+        return rc;
+    }
+
+    /* store priv key token into CKA_IBM_OPAQUE of the private key object */
+    rc = build_update_attribute(priv_tmpl, CKA_IBM_OPAQUE,
+                                priv_tok, priv_tok_len);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("build_update_attribute for priv_tok failed rv=0x%lx\n",
+                    rc);
+        return rc;
+    }
+
+    return CKR_OK;
+}
+
+static CK_RV build_ibm_dilithium_key_value_struct(const struct pqc_oid *oid,
+                                            unsigned char *key_value_structure,
+                                            long *key_value_structure_length)
+{
+    uint8_t algo_id, format = CCA_QSA_CLEAR_FORMAT_NO_KEY;
+    uint16_t algo_param, clear_len = 0;
+
+    if (*key_value_structure_length < CCA_QSA_KEY_VALUE_STRUCT_SIZE)
+        return CKR_ARGUMENTS_BAD;
+
+    switch (oid->keyform) {
+    case CK_IBM_DILITHIUM_KEYFORM_ROUND2_65:
+        algo_id = CCA_QSA_ALGO_DILITHIUM_ROUND_2;
+        algo_param = htobe16(CCA_QSA_ALGO_DILITHIUM_65);
+        break;
+    case CK_IBM_DILITHIUM_KEYFORM_ROUND2_87:
+        algo_id = CCA_QSA_ALGO_DILITHIUM_ROUND_2;
+        algo_param = htobe16(CCA_QSA_ALGO_DILITHIUM_87);
+        break;
+    case CK_IBM_DILITHIUM_KEYFORM_ROUND3_65:
+        algo_id = CCA_QSA_ALGO_DILITHIUM_ROUND_3;
+        algo_param = htobe16(CCA_QSA_ALGO_DILITHIUM_65);
+        break;
+    case CK_IBM_DILITHIUM_KEYFORM_ROUND3_87:
+        algo_id = CCA_QSA_ALGO_DILITHIUM_ROUND_3;
+        algo_param = htobe16(CCA_QSA_ALGO_DILITHIUM_87);
+        break;
+    default:
+        TRACE_DEVEL("Dilithium keyform %lu not supported by CCA\n",
+                    oid->keyform);
+        return CKR_KEY_SIZE_RANGE;
+    }
+
+    /*
+     * See CCA doc for offset of data in key_value_structure
+     */
+    memcpy(key_value_structure, &algo_id, sizeof(uint8_t));
+    memcpy(&key_value_structure[CCA_PKB_QSA_CLEAR_FORMAT_OFFSET], &format,
+           sizeof(uint8_t));
+    memcpy(&key_value_structure[CCA_PKB_QSA_ALGO_PARAM_OFFSET],
+           &algo_param, sizeof(uint16_t));
+    memcpy(&key_value_structure[CCA_PKB_QSA_CLEAR_LEN_OFFSET],
+           &clear_len, sizeof(uint16_t));
+
+    *key_value_structure_length = CCA_QSA_KEY_VALUE_STRUCT_SIZE;
+
+    return CKR_OK;
+}
+
+CK_RV token_specific_ibm_dilithium_generate_keypair(STDLL_TokData_t *tokdata,
+                                                    const struct pqc_oid *oid,
+                                                    TEMPLATE *publ_tmpl,
+                                                    TEMPLATE *priv_tmpl)
+{
+    long return_code, reason_code, rule_array_count, exit_data_len = 0;
+    unsigned char *exit_data = NULL;
+    unsigned char rule_array[CCA_RULE_ARRAY_SIZE] = { 0, };
+    long key_value_structure_length, private_key_name_length, key_token_length;
+    unsigned char key_value_structure[CCA_QSA_KEY_VALUE_STRUCT_SIZE] = { 0, };
+    unsigned char private_key_name[CCA_PRIVATE_KEY_NAME_SIZE] = { 0, };
+    unsigned char key_token[CCA_KEY_TOKEN_SIZE] = { 0, };
+    long regeneration_data_length;
+    long priv_key_token_length, publ_key_token_length;
+    unsigned char regeneration_data[CCA_REGENERATION_DATA_SIZE] = { 0, };
+    unsigned char transport_key_identifier[CCA_KEY_ID_SIZE] = { 0, };
+    unsigned char priv_key_token[CCA_KEY_TOKEN_SIZE] = { 0, };
+    unsigned char publ_key_token[CCA_KEY_TOKEN_SIZE] = { 0, };
+    CK_RV rv;
+    long param1 = 0;
+    unsigned char *param2 = NULL;
+    enum cca_token_type keytype;
+    unsigned int keybitsize;
+    const CK_BYTE *mkvp;
+    CK_BBOOL new_mk;
+
+    if (((struct cca_private_data *)tokdata->private_data)->inconsistent) {
+        TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
+        return CKR_DEVICE_ERROR;
+    }
+
+    if (!cca_pqc_strength_supported(tokdata, CKM_IBM_DILITHIUM, oid->keyform)) {
+        TRACE_DEVEL("Dilithium keyform %lu not supported by CCA\n",
+                    oid->keyform);
+        return CKR_KEY_SIZE_RANGE;
+    }
+
+    key_value_structure_length = CCA_QSA_KEY_VALUE_STRUCT_SIZE;
+    rv = build_ibm_dilithium_key_value_struct(oid, key_value_structure,
+                                              &key_value_structure_length);
+    if (rv != CKR_OK) {
+        TRACE_ERROR("build_ibm_dilithium_key_value_struct failed: 0x%lx\n", rv);
+        return rv;
+    }
+
+    rule_array_count = 2;
+    memcpy(rule_array, "QSA-PAIRU-DIGSIG", (size_t) (CCA_KEYWORD_SIZE * 2));
+
+    private_key_name_length = 0;
+
+    key_token_length = CCA_KEY_TOKEN_SIZE;
+
+    USE_CCA_ADAPTER_START(tokdata, return_code, reason_code)
+        dll_CSNDPKB(&return_code,
+                    &reason_code,
+                    &exit_data_len,
+                    exit_data,
+                    &rule_array_count,
+                    rule_array,
+                    &key_value_structure_length,
+                    key_value_structure,
+                    &private_key_name_length,
+                    private_key_name,
+                    &param1,
+                    param2,
+                    &param1,
+                    param2,
+                    &param1,
+                    param2,
+                    &param1, param2,
+                    &param1, param2, &key_token_length, key_token);
+    USE_CCA_ADAPTER_END(tokdata, return_code, reason_code)
+
+    if (return_code != CCA_SUCCESS) {
+        TRACE_ERROR("CSNDPKB (QSA KEY TOKEN BUILD) failed. return:%ld,"
+                    " reason:%ld\n", return_code, reason_code);
+        return CKR_FUNCTION_FAILED;
+    }
+
+    rule_array_count = 1;
+    memset(rule_array, 0, sizeof(rule_array));
+    memcpy(rule_array, "MASTER  ", (size_t) CCA_KEYWORD_SIZE);
+
+    priv_key_token_length = CCA_KEY_TOKEN_SIZE;
+
+    regeneration_data_length = 0;
+
+    USE_CCA_ADAPTER_START(tokdata, return_code, reason_code)
+        dll_CSNDPKG(&return_code,
+                    &reason_code,
+                    NULL,
+                    NULL,
+                    &rule_array_count,
+                    rule_array,
+                    &regeneration_data_length,
+                    regeneration_data,
+                    &key_token_length,
+                    key_token,
+                    transport_key_identifier,
+                    &priv_key_token_length, priv_key_token);
+    USE_CCA_ADAPTER_END(tokdata, return_code, reason_code)
+
+    if (return_code != CCA_SUCCESS) {
+        TRACE_ERROR("CSNDPKG (QSA KEY GENERATE) failed."
+                    " return:%ld, reason:%ld\n", return_code, reason_code);
+        return CKR_FUNCTION_FAILED;
+    }
+
+    if (analyse_cca_key_token(priv_key_token, priv_key_token_length,
+                              &keytype, &keybitsize, &mkvp) == FALSE ||
+        mkvp == NULL) {
+        TRACE_ERROR("Invalid/unknown cca token has been generated\n");
+        return CKR_FUNCTION_FAILED;
+    }
+
+    if (check_expected_mkvp(tokdata, keytype, mkvp, &new_mk) != CKR_OK) {
+        TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
+        return CKR_DEVICE_ERROR;
+    }
+
+    rv = cca_reencipher_created_key(tokdata, priv_tmpl, priv_key_token,
+                                    priv_key_token_length, new_mk, keytype,
+                                    FALSE);
+    if (rv != CKR_OK) {
+        TRACE_ERROR("cca_reencipher_created_key failed: 0x%lx\n", rv);
+        return rv;
+    }
+
+    TRACE_DEVEL("Dilithium secure private key token generated. size: %ld\n",
+                priv_key_token_length);
+
+    rule_array_count = 0;
+    publ_key_token_length = CCA_KEY_TOKEN_SIZE;
+
+    USE_CCA_ADAPTER_START(tokdata, return_code, reason_code)
+        dll_CSNDPKX(&return_code, &reason_code,
+                    NULL, NULL,
+                    &rule_array_count, rule_array,
+                    &priv_key_token_length, priv_key_token,
+                    &publ_key_token_length, publ_key_token);
+    USE_CCA_ADAPTER_END(tokdata, return_code, reason_code)
+
+    if (return_code != CCA_SUCCESS) {
+        TRACE_ERROR("CSNDPKX (PUBLIC KEY TOKEN EXTRACT) failed. return:%ld,"
+                    " reason:%ld\n", return_code, reason_code);
+        return CKR_FUNCTION_FAILED;
+    }
+
+    TRACE_DEVEL("Dilithium secure public key token generated. size: %ld\n",
+                publ_key_token_length);
+
+    rv = token_create_ibm_dilithium_keypair(publ_tmpl, priv_tmpl, oid,
+                                            priv_key_token_length,
+                                            priv_key_token,
+                                            publ_key_token_length,
+                                            publ_key_token);
+    if (rv != CKR_OK) {
+        TRACE_DEVEL("token_create_ibm_dilithium_keypair failed. rv: %lu\n", rv);
+        return rv;
+    }
+
+    TRACE_DEBUG("%s: priv template attributes:\n", __func__);
+    TRACE_DEBUG_DUMPTEMPL(priv_tmpl);
+    TRACE_DEBUG("%s: publ template attributes:\n", __func__);
+    TRACE_DEBUG_DUMPTEMPL(publ_tmpl);
+
+    return rv;
 }
 
 static CK_RV import_rsa_privkey(STDLL_TokData_t *tokdata, TEMPLATE * priv_tmpl)
