@@ -856,6 +856,16 @@ CK_RV ckm_dh_pkcs_key_pair_gen(STDLL_TokData_t *tokdata,
 CK_RV ckm_ibm_dilithium_key_pair_gen(STDLL_TokData_t *tokdata,
                                      TEMPLATE *publ_tmpl, TEMPLATE *priv_tmpl);
 
+CK_RV ibm_dilithium_sign(STDLL_TokData_t *tokdata, SESSION *sess,
+                         CK_BBOOL length_only, SIGN_VERIFY_CONTEXT *ctx,
+                         CK_BYTE *in_data, CK_ULONG in_data_len,
+                         CK_BYTE *out_data, CK_ULONG *out_data_len);
+
+CK_RV ibm_dilithium_verify(STDLL_TokData_t *tokdata, SESSION *sess,
+                           SIGN_VERIFY_CONTEXT *ctx,
+                           CK_BYTE *in_data, CK_ULONG in_data_len,
+                           CK_BYTE *signature, CK_ULONG sig_len);
+
 CK_RV digest_from_kdf(CK_EC_KDF_TYPE kdf, CK_MECHANISM_TYPE *mech);
 
 CK_RV pkcs_get_keytype(CK_ATTRIBUTE *attrs, CK_ULONG attrs_len,
