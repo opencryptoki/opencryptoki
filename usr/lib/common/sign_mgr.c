@@ -781,6 +781,42 @@ CK_RV sign_mgr_init(STDLL_TokData_t *tokdata,
         }
         memset(ctx->context, 0x0, sizeof(AES_CMAC_CONTEXT));
         break;
+    case CKM_IBM_DILITHIUM:
+        if (mech->ulParameterLen != 0) {
+            TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
+            rc = CKR_MECHANISM_PARAM_INVALID;
+            goto done;
+        }
+
+        rc = template_attribute_get_ulong(key_obj->template, CKA_KEY_TYPE,
+                                          &keytype);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("Could not find CKA_KEY_TYPE for the key.\n");
+            goto done;
+        }
+
+        if (keytype != CKK_IBM_PQC_DILITHIUM) {
+            TRACE_ERROR("%s\n", ock_err(ERR_KEY_TYPE_INCONSISTENT));
+            rc = CKR_KEY_TYPE_INCONSISTENT;
+            goto done;
+        }
+
+        rc = template_attribute_get_ulong(key_obj->template, CKA_CLASS,
+                                          &class);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("Could not find CKA_CLASS for the key.\n");
+            goto done;
+        }
+
+        if (class != CKO_PRIVATE_KEY) {
+            TRACE_ERROR("This operation requires a private key.\n");
+            rc = CKR_KEY_FUNCTION_NOT_PERMITTED;
+            goto done;
+        }
+
+        ctx->context_len = 0;
+        ctx->context = NULL;
+        break;
     default:
         TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
         rc = CKR_MECHANISM_INVALID;
@@ -994,6 +1030,9 @@ CK_RV sign_mgr_sign(STDLL_TokData_t *tokdata,
     case CKM_AES_CMAC_GENERAL:
         return aes_cmac_sign(tokdata, sess, length_only, ctx, in_data,
                              in_data_len, out_data, out_data_len);
+    case CKM_IBM_DILITHIUM:
+        return ibm_dilithium_sign(tokdata, sess, length_only, ctx,
+                                  in_data, in_data_len, out_data, out_data_len);
     default:
         TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
         return CKR_MECHANISM_INVALID;

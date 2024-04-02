@@ -269,6 +269,16 @@ struct token_specific_struct {
                                               const struct pqc_oid *,
                                               TEMPLATE *, TEMPLATE *);
 
+    CK_RV (*t_ibm_dilithium_sign)(STDLL_TokData_t *, SESSION *, CK_BBOOL,
+                                  const struct pqc_oid *,
+                                  CK_BYTE *, CK_ULONG,
+                                  CK_BYTE *, CK_ULONG *, OBJECT *);
+
+    CK_RV (*t_ibm_dilithium_verify)(STDLL_TokData_t *, SESSION *,
+                                    const struct pqc_oid *,
+                                    CK_BYTE *, CK_ULONG,
+                                    CK_BYTE *, CK_ULONG, OBJECT *);
+
     CK_RV(*t_get_mechanism_list) (STDLL_TokData_t *, CK_MECHANISM_TYPE_PTR,
                                   CK_ULONG_PTR);
     CK_RV(*t_get_mechanism_info) (STDLL_TokData_t *, CK_MECHANISM_TYPE,
