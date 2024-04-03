@@ -5518,9 +5518,13 @@ static CK_RV ibm_pqc_check_attributes(TEMPLATE *tmpl, CK_ULONG mode,
 
     switch (mode) {
     case MODE_CREATE:
+        /* Import of an already existing secure key via CKA_IBM_OPAQUE */
+        if (token_specific.secure_key_token == TRUE &&
+            template_attribute_get_non_empty(tmpl, CKA_IBM_OPAQUE,
+                                             &attr) == CKR_OK)
+            break;
         /* Either CKA_VALUE or all other attrs must be present */
-        if (template_attribute_find(tmpl, CKA_VALUE, &attr) &&
-            attr->ulValueLen > 0 && attr->pValue != NULL)
+        if (template_attribute_get_non_empty(tmpl, CKA_VALUE, &attr) == CKR_OK)
             break;
         for (i = 0; i < num_req_attrs; i++) {
             rc = template_attribute_get_non_empty(tmpl, req_attrs[i], &attr);
