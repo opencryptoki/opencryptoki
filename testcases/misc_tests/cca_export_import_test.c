@@ -79,7 +79,7 @@ static CK_RV import_cca_des_key(CK_SESSION_HANDLE session,
         {CKA_TOKEN, &false, sizeof(false)},
         {CKA_IBM_OPAQUE, ccatoken, tokenlen}
     };
-    CK_ULONG nattr = sizeof(template)/sizeof(CK_ATTRIBUTE);
+    CK_ULONG nattr = sizeof(template) / sizeof(CK_ATTRIBUTE);
 
     rc = funcs->C_CreateObject(session, template, nattr, handle);
     if (rc != CKR_OK) {
@@ -107,7 +107,7 @@ static CK_RV import_cca_des3_key(CK_SESSION_HANDLE session,
         {CKA_TOKEN, &false, sizeof(false)},
         {CKA_IBM_OPAQUE, ccatoken, tokenlen}
     };
-    CK_ULONG nattr = sizeof(template)/sizeof(CK_ATTRIBUTE);
+    CK_ULONG nattr = sizeof(template) / sizeof(CK_ATTRIBUTE);
 
     rc = funcs->C_CreateObject(session, template, nattr, handle);
     if (rc != CKR_OK) {
@@ -136,7 +136,7 @@ static CK_RV import_cca_aes_key(CK_SESSION_HANDLE session,
         {CKA_IBM_OPAQUE, ccatoken, tokenlen},
         {CKA_IBM_PROTKEY_EXTRACTABLE, &true, sizeof(true)}
     };
-    CK_ULONG nattr = sizeof(template)/sizeof(CK_ATTRIBUTE);
+    CK_ULONG nattr = sizeof(template) / sizeof(CK_ATTRIBUTE);
 
     rc = funcs->C_CreateObject(session, template, nattr, handle);
     if (rc != CKR_OK) {
@@ -168,7 +168,7 @@ static CK_RV import_cca_aes_cipher_key(CK_SESSION_HANDLE session,
         {CKA_VALUE, value, sizeof(value)},
         {CKA_IBM_OPAQUE, ccatoken, tokenlen}
     };
-    CK_ULONG nattr = sizeof(template)/sizeof(CK_ATTRIBUTE);
+    CK_ULONG nattr = sizeof(template) / sizeof(CK_ATTRIBUTE);
 
     memset(value, 0, sizeof(value));
     template[5].ulValueLen = keybitsize / 8;
@@ -204,7 +204,7 @@ static CK_RV import_cca_gen_sec_key(CK_SESSION_HANDLE session,
         {CKA_VALUE, value, sizeof(value)},
         {CKA_IBM_OPAQUE, ccatoken, tokenlen}
     };
-    CK_ULONG nattr = sizeof(template)/sizeof(CK_ATTRIBUTE);
+    CK_ULONG nattr = sizeof(template) / sizeof(CK_ATTRIBUTE);
     unsigned pl, calc_pl;
 
     memset(value, 0, sizeof(value));
@@ -254,7 +254,7 @@ static CK_RV import_rsa_priv_key(CK_SESSION_HANDLE session,
         {CKA_TOKEN, &false, sizeof(false)},
         {CKA_IBM_OPAQUE, ccatoken, tokenlen}
     };
-    CK_ULONG nattr = sizeof(template)/sizeof(CK_ATTRIBUTE);
+    CK_ULONG nattr = sizeof(template) / sizeof(CK_ATTRIBUTE);
 
     rc = funcs->C_CreateObject(session, template, nattr, handle);
     if (rc != CKR_OK) {
@@ -283,7 +283,7 @@ static CK_RV import_rsa_publ_key(CK_SESSION_HANDLE session,
         {CKA_TOKEN, &false, sizeof(false)},
         {CKA_IBM_OPAQUE, ccatoken, tokenlen}
     };
-    CK_ULONG nattr = sizeof(template)/sizeof(CK_ATTRIBUTE);
+    CK_ULONG nattr = sizeof(template) / sizeof(CK_ATTRIBUTE);
 
     rc = funcs->C_CreateObject(session, template, nattr, handle);
     if (rc != CKR_OK) {
@@ -311,7 +311,7 @@ static CK_RV import_ecc_priv_key(CK_SESSION_HANDLE session,
         {CKA_TOKEN, &false, sizeof(false)},
         {CKA_IBM_OPAQUE, ccatoken, tokenlen}
     };
-    CK_ULONG nattr = sizeof(template)/sizeof(CK_ATTRIBUTE);
+    CK_ULONG nattr = sizeof(template) / sizeof(CK_ATTRIBUTE);
 
     rc = funcs->C_CreateObject(session, template, nattr, handle);
     if (rc != CKR_OK) {
@@ -339,7 +339,63 @@ static CK_RV import_ecc_publ_key(CK_SESSION_HANDLE session,
         {CKA_TOKEN, &false, sizeof(false)},
         {CKA_IBM_OPAQUE, ccatoken, tokenlen}
     };
-    CK_ULONG nattr = sizeof(template)/sizeof(CK_ATTRIBUTE);
+    CK_ULONG nattr = sizeof(template) / sizeof(CK_ATTRIBUTE);
+
+    rc = funcs->C_CreateObject(session, template, nattr, handle);
+    if (rc != CKR_OK) {
+        testcase_error("C_CreateObject() rc=%s", p11_get_ckr(rc));
+    }
+
+    return rc;
+}
+
+static CK_RV import_ibm_dilithium_priv_key(CK_SESSION_HANDLE session,
+                                           const char *label,
+                                           CK_BYTE *ccatoken, CK_ULONG tokenlen,
+                                           CK_OBJECT_HANDLE *handle)
+{
+    CK_RV rc;
+    CK_OBJECT_CLASS keyClass = CKO_PRIVATE_KEY;
+    CK_KEY_TYPE keyType = CKK_IBM_DILITHIUM;
+    CK_BBOOL true = TRUE;
+    CK_BBOOL false = FALSE;
+    CK_ATTRIBUTE template[] = {
+        {CKA_CLASS, &keyClass, sizeof(keyClass)},
+        {CKA_KEY_TYPE, &keyType, sizeof(keyType)},
+        {CKA_LABEL, (char *) label, strlen(label) + 1},
+        {CKA_SIGN, &true, sizeof(true)},
+        {CKA_TOKEN, &false, sizeof(false)},
+        {CKA_IBM_OPAQUE, ccatoken, tokenlen}
+    };
+    CK_ULONG nattr = sizeof(template) / sizeof(CK_ATTRIBUTE);
+
+    rc = funcs->C_CreateObject(session, template, nattr, handle);
+    if (rc != CKR_OK) {
+        testcase_error("C_CreateObject() rc=%s", p11_get_ckr(rc));
+    }
+
+    return rc;
+}
+
+static CK_RV import_ibm_dilithium_publ_key(CK_SESSION_HANDLE session,
+                                           const char *label,
+                                           CK_BYTE *ccatoken, CK_ULONG tokenlen,
+                                           CK_OBJECT_HANDLE *handle)
+{
+    CK_RV rc;
+    CK_OBJECT_CLASS keyClass = CKO_PUBLIC_KEY;
+    CK_KEY_TYPE keyType = CKK_IBM_DILITHIUM;
+    CK_BBOOL true = TRUE;
+    CK_BBOOL false = FALSE;
+    CK_ATTRIBUTE template[] = {
+        {CKA_CLASS, &keyClass, sizeof(keyClass)},
+        {CKA_KEY_TYPE, &keyType, sizeof(keyType)},
+        {CKA_LABEL, (char *) label, strlen(label) + 1},
+        {CKA_VERIFY, &true, sizeof(true)},
+        {CKA_TOKEN, &false, sizeof(false)},
+        {CKA_IBM_OPAQUE, ccatoken, tokenlen}
+    };
+    CK_ULONG nattr = sizeof(template) / sizeof(CK_ATTRIBUTE);
 
     rc = funcs->C_CreateObject(session, template, nattr, handle);
     if (rc != CKR_OK) {
@@ -1394,6 +1450,19 @@ static CK_RV cca_ecc_export_import_tests(void)
     char label[80];
     int i;
 
+    if (!is_cca_token(SLOT_ID)) {
+        testcase_skip("this slot is not a CCA token");
+        goto out;
+    }
+    if (!mech_supported(SLOT_ID, CKM_EC_KEY_PAIR_GEN)) {
+        testcase_skip("this slot does not support CKM_EC_KEY_PAIR_GEN");
+        goto out;
+    }
+    if (!mech_supported(SLOT_ID, mech.mechanism)) {
+        testcase_skip("this slot does not support CKM_ECDSA");
+        goto out;
+    }
+
     testcase_rw_session();
     testcase_user_login();
 
@@ -1401,11 +1470,6 @@ static CK_RV cca_ecc_export_import_tests(void)
 
         testcase_begin("CCA export/import test with public/private ECC curve %s keys",
                        ec_curves[i].name);
-
-        if (!is_cca_token(SLOT_ID)) {
-            testcase_skip("this slot is not a CCA token");
-            goto out;
-        }
 
         // create ock ecc keypair. Last parm CK_FALSE makes the key eligible for
     // protected key support, i.e. depending on the PKEY_MODE token option
@@ -1611,6 +1675,282 @@ out:
     return rc;
 }
 
+static struct {
+    CK_ULONG keyform;
+    const char *name;
+} dilithium_variants[] = {
+    {CK_IBM_DILITHIUM_KEYFORM_ROUND2_65, "Round 2 (6,5)"},
+    {CK_IBM_DILITHIUM_KEYFORM_ROUND2_87, "Round 2 (8,7)"},
+    {CK_IBM_DILITHIUM_KEYFORM_ROUND3_44, "Round 3 (4,4)"},
+    {CK_IBM_DILITHIUM_KEYFORM_ROUND3_65, "Round 3 (6,5)"},
+    {CK_IBM_DILITHIUM_KEYFORM_ROUND3_87, "Round 3 (8,7)"},
+    {0, NULL}
+};
+
+static CK_RV cca_ibm_dilithium_export_import_tests(void)
+{
+    CK_RV rc = CKR_OK;
+    CK_FLAGS flags;
+    CK_SESSION_HANDLE session;
+    CK_BYTE user_pin[PKCS11_MAX_PIN_LEN];
+    CK_ULONG user_pin_len;
+    CK_BBOOL attr_sign = TRUE;
+    CK_BBOOL attr_verify = TRUE;
+    CK_OBJECT_HANDLE publ_key = CK_INVALID_HANDLE, priv_key = CK_INVALID_HANDLE;
+    CK_OBJECT_HANDLE imp_priv_key = CK_INVALID_HANDLE, imp_publ_key = CK_INVALID_HANDLE;
+    CK_BYTE msg[32], sig[5000];
+    CK_ULONG msglen, siglen;
+    CK_MECHANISM mech = { CKM_IBM_DILITHIUM, 0, 0};
+    CK_BYTE *priv_opaquekey = NULL, *publ_opaquekey = NULL;
+    CK_ULONG priv_opaquekeylen, publ_opaquekeylen;
+    char label[80];
+    int i;
+
+    if (!is_cca_token(SLOT_ID)) {
+        testcase_skip("this slot is not a CCA token");
+        goto out;
+    }
+    if (!mech_supported(SLOT_ID, CKM_IBM_DILITHIUM)) {
+        testcase_skip("this slot does not support CKM_EC_KEY_PAIR_GEN");
+        goto out;
+    }
+
+    testcase_rw_session();
+    testcase_user_login();
+
+    for (i = 0; dilithium_variants[i].keyform != 0; i++) {
+        CK_ATTRIBUTE dilithium_attr_private[] = {
+            {CKA_SIGN, &attr_sign, sizeof(CK_BBOOL)},
+            {CKA_IBM_DILITHIUM_KEYFORM,
+             (CK_BYTE *)&dilithium_variants[i].keyform, sizeof(CK_ULONG)},
+        };
+        CK_ATTRIBUTE dilithium_attr_public[] = {
+            {CKA_VERIFY, &attr_verify, sizeof(CK_BBOOL)},
+            {CKA_IBM_DILITHIUM_KEYFORM,
+             (CK_BYTE *)&dilithium_variants[i].keyform, sizeof(CK_ULONG)},
+        };
+        CK_ULONG num_dilithium_attrs =
+                sizeof(dilithium_attr_public) / sizeof(CK_ATTRIBUTE);
+
+        testcase_begin("CCA export/import test with public/private IBM Dilithium %s keys",
+                       dilithium_variants[i].name);
+
+        /* Generate Dilithium key pair */
+        rc = funcs->C_GenerateKeyPair(session, &mech,
+                       dilithium_attr_public, num_dilithium_attrs,
+                       dilithium_attr_private, num_dilithium_attrs,
+                       &publ_key, &priv_key);
+        if (rc != CKR_OK) {
+            if (rc == CKR_KEY_SIZE_RANGE) {
+                testcase_skip("IBM Dilithium variant %s is not supported",
+                              dilithium_variants[i].name);
+                goto error;
+            } else if (rc == CKR_POLICY_VIOLATION) {
+                testcase_skip("IBM Dilithium key generation is not allowed by policy");
+                goto error;
+            } else {
+                testcase_new_assertion();
+                testcase_fail("C_GenerateKeyPair with %s failed, rc=%s",
+                              dilithium_variants[i].name, p11_get_ckr(rc));
+                goto error;
+            }
+        }
+
+        testcase_new_assertion();
+
+        // sign with original private key
+
+        rc = funcs->C_SignInit(session, &mech, priv_key);
+        if (rc != CKR_OK) {
+            testcase_error("C_SignInit() rc=%s", p11_get_ckr(rc));
+            goto error;
+        }
+        msglen = sizeof(msg);
+        siglen = sizeof(sig);
+        rc = funcs->C_Sign(session, msg, msglen, sig, &siglen);
+        if (rc != CKR_OK) {
+            testcase_error("C_Sign() rc=%s", p11_get_ckr(rc));
+            goto error;
+        }
+
+        // verify with original public key
+
+        rc = funcs->C_VerifyInit(session, &mech, publ_key);
+        if (rc != CKR_OK) {
+            testcase_error("C_VerifyInit() rc=%s", p11_get_ckr(rc));
+            goto error;
+        }
+        rc = funcs->C_Verify(session, msg, msglen, sig, siglen);
+        if (rc == CKR_OK) {
+            ;
+        } else if (rc == CKR_SIGNATURE_INVALID ||
+                   rc == CKR_SIGNATURE_LEN_RANGE) {
+            testcase_fail("signature verify failed");
+            goto error;
+        } else {
+            testcase_error("C_Verify() rc=%s", p11_get_ckr(rc));
+            goto error;
+        }
+
+        // export original private key's cca token
+
+        rc = export_ibm_opaque(session, priv_key, &priv_opaquekey,
+                               &priv_opaquekeylen);
+        if (rc != CKR_OK) {
+            testcase_fail("export_ibm_opaque on private key failed rc=%s",
+                          p11_get_ckr(rc));
+            goto error;
+        }
+#if 0
+        printf("priv_opaquekey (%lu bytes):\n", priv_opaquekeylen);
+        print_hex(priv_opaquekey, priv_opaquekeylen);
+#endif
+
+        // re-import this cca private Dilithium key token as new private ecc key
+
+        snprintf(label, sizeof(label), "re-imported_dilithium_%s_private_key",
+                 dilithium_variants[i].name);
+        rc = import_ibm_dilithium_priv_key(session, label, priv_opaquekey,
+                                           priv_opaquekeylen, &imp_priv_key);
+        if (rc != CKR_OK) {
+            testcase_fail("import_ibm_dilithium_priv_key on exported cca Dilithium key token failed rc=%s",
+                          p11_get_ckr(rc));
+            goto error;
+        }
+
+        // export original public key's cca token
+
+        rc = export_ibm_opaque(session, publ_key, &publ_opaquekey,
+                               &publ_opaquekeylen);
+        if (rc != CKR_OK) {
+            testcase_fail("export_ibm_opaque on public key failed rc=%s",
+                           p11_get_ckr(rc));
+            goto error;
+        }
+#if 0
+        printf("publ_opaquekey (%lu bytes):\n", publ_opaquekeylen);
+        print_hex(publ_opaquekey, publ_opaquekeylen);
+#endif
+
+        // re-import this cca public Dilithium key token as new public ecc key
+
+        snprintf(label, sizeof(label), "re-imported_dilithium_%s_public_key",
+                 dilithium_variants[i].name);
+        rc = import_ibm_dilithium_publ_key(session, label, publ_opaquekey,
+                                           publ_opaquekeylen, &imp_publ_key);
+        if (rc != CKR_OK) {
+            testcase_fail("import_ibm_dilithium_publ_key on exported cca Dilithium key token failed rc=%s",
+                          p11_get_ckr(rc));
+            goto error;
+        }
+
+        // sign with re-imported private key
+
+        rc = funcs->C_SignInit(session, &mech, imp_priv_key);
+        if (rc != CKR_OK) {
+            testcase_error("C_SignInit() with re-imported priv key failed, rc=%s",
+                           p11_get_ckr(rc));
+            goto error;
+        }
+        msglen = sizeof(msg);
+        siglen = sizeof(sig);
+        rc = funcs->C_Sign(session, msg, msglen, sig, &siglen);
+        if (rc != CKR_OK) {
+            testcase_error("C_Sign() with re-imported priv key failed, rc=%s",
+                           p11_get_ckr(rc));
+            goto error;
+        }
+
+        // verify with original public key
+
+        rc = funcs->C_VerifyInit(session, &mech, publ_key);
+        if (rc != CKR_OK) {
+            testcase_error("C_VerifyInit() rc=%s", p11_get_ckr(rc));
+            goto error;
+        }
+        rc = funcs->C_Verify(session, msg, msglen, sig, siglen);
+        if (rc == CKR_OK) {
+            ;
+        } else if (rc == CKR_SIGNATURE_INVALID ||
+                   rc == CKR_SIGNATURE_LEN_RANGE) {
+            testcase_fail("signature verify on signature generated with re-imported priv key failed, rc=%s",
+                          p11_get_ckr(rc));
+            goto error;
+        } else {
+            testcase_error("C_Verify() on signature generated with re-imported priv key failed, rc=%s",
+                           p11_get_ckr(rc));
+            goto error;
+        }
+
+        // sign with original private key
+
+        rc = funcs->C_SignInit(session, &mech, priv_key);
+        if (rc != CKR_OK) {
+            testcase_error("C_SignInit() rc=%s", p11_get_ckr(rc));
+            goto error;
+        }
+        msglen = sizeof(msg);
+        siglen = sizeof(sig);
+        rc = funcs->C_Sign(session, msg, msglen, sig, &siglen);
+        if (rc != CKR_OK) {
+            testcase_error("C_Sign() rc=%s", p11_get_ckr(rc));
+            goto error;
+        }
+
+        // verify with re-imported public key
+
+        rc = funcs->C_VerifyInit(session, &mech, imp_publ_key);
+        if (rc != CKR_OK) {
+            testcase_error("C_VerifyInit() with re-imported pub key failed, rc=%s",
+                           p11_get_ckr(rc));
+            goto error;
+        }
+        rc = funcs->C_Verify(session, msg, msglen, sig, siglen);
+        if (rc == CKR_OK) {
+            ;
+        } else if (rc == CKR_SIGNATURE_INVALID ||
+                   rc == CKR_SIGNATURE_LEN_RANGE) {
+            testcase_fail("signature verify with re-imported pub key on signature failed");
+            goto error;
+        } else {
+            testcase_error("C_Verify() with re-imported pub key on signature failed, rc=%s",
+                           p11_get_ckr(rc));
+            goto error;
+        }
+
+        testcase_pass("CCA export/import test with public/private IBM Dilithium %s keys",
+                      dilithium_variants[i].name);
+
+error:
+        free(priv_opaquekey);
+        priv_opaquekey = NULL;
+        free(publ_opaquekey);
+        publ_opaquekey = NULL;
+
+        if (publ_key != CK_INVALID_HANDLE) {
+            funcs->C_DestroyObject(session, publ_key);
+            publ_key = CK_INVALID_HANDLE;
+        }
+        if (priv_key != CK_INVALID_HANDLE) {
+            funcs->C_DestroyObject(session, priv_key);
+            priv_key = CK_INVALID_HANDLE;
+        }
+        if (imp_publ_key != CK_INVALID_HANDLE) {
+            funcs->C_DestroyObject(session, imp_publ_key);
+            imp_publ_key = CK_INVALID_HANDLE;
+        }
+        if (imp_priv_key != CK_INVALID_HANDLE) {
+            funcs->C_DestroyObject(session, imp_priv_key);
+            imp_priv_key = CK_INVALID_HANDLE;
+        }
+    }
+
+testcase_cleanup:
+    testcase_close_session();
+out:
+    return rc;
+}
+
 static CK_RV cca_export_import_tests(void)
 {
     CK_RV rc = CKR_OK, rv = CKR_OK;
@@ -1650,6 +1990,10 @@ static CK_RV cca_export_import_tests(void)
     if (rc != CKR_OK && rv == CKR_OK)
         rv = rc;
 #endif
+
+    rc = cca_ibm_dilithium_export_import_tests();
+    if (rc != CKR_OK && rv == CKR_OK)
+        rv = rc;
 
     return rv;
 }
