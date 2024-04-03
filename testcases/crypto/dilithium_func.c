@@ -81,7 +81,6 @@ CK_RV run_SignVerifyDilithium(CK_SESSION_HANDLE session,
     CK_MECHANISM mech;
     CK_BYTE_PTR data = NULL, signature = NULL;
     CK_ULONG i, signaturelen;
-    CK_MECHANISM_INFO mech_info;
     CK_RV rc;
 
     mech.mechanism = mechType;
@@ -89,22 +88,15 @@ CK_RV run_SignVerifyDilithium(CK_SESSION_HANDLE session,
     mech.pParameter = NULL;
 
     /* Query the slot, check if this mech if supported */
-    rc = funcs->C_GetMechanismInfo(SLOT_ID, mech.mechanism, &mech_info);
-    if (rc != CKR_OK) {
-        if (rc == CKR_MECHANISM_INVALID) {
-            /* no support for Dilithium? skip */
-            testcase_skip("Slot %u doesn't support %s",
-                          (unsigned int) SLOT_ID,
-                          p11_get_ckm(&mechtable_funcs, mechType));
-            rc = CKR_OK;
-            goto testcase_cleanup;
-        } else {
-            testcase_error("C_GetMechanismInfo() rc = %s", p11_get_ckr(rc));
-            goto testcase_cleanup;
-        }
+    if (!mech_supported(SLOT_ID, mech.mechanism)) {
+        testcase_skip("Slot %u doesn't support %s",
+                      (unsigned int) SLOT_ID,
+                      p11_get_ckm(&mechtable_funcs, mech.mechanism));
+        rc = CKR_OK;
+        goto testcase_cleanup;
     }
 
-    data = calloc(inputlen, sizeof(CK_BYTE));
+    data = calloc(inputlen > 0 ? inputlen : 1, sizeof(CK_BYTE));
     if (data == NULL) {
         testcase_error("Can't allocate memory for %lu bytes",
                        sizeof(CK_BYTE) * inputlen);
@@ -273,7 +265,6 @@ CK_RV run_GenerateDilithiumKeyPairSignVerify(void)
     CK_BYTE user_pin[PKCS11_MAX_PIN_LEN];
     CK_ULONG user_pin_len, j, i;
     CK_FLAGS flags;
-    CK_MECHANISM_INFO mech_info;
     CK_RV rc;
 
     testcase_begin("Starting Dilithium generate key pair.");
@@ -286,18 +277,12 @@ CK_RV run_GenerateDilithiumKeyPairSignVerify(void)
     mech.pParameter = NULL;
 
     /* query the slot, check if this mech is supported */
-    rc = funcs->C_GetMechanismInfo(SLOT_ID, mech.mechanism, &mech_info);
-    if (rc != CKR_OK) {
-        if (rc == CKR_MECHANISM_INVALID) {
-            /* no support for Dilithium key gen? skip */
-            testcase_skip("Slot %u doesn't support CKM_IBM_DILITHIUM ",
-                          (unsigned int) SLOT_ID);
-            rc = CKR_OK;
-            goto testcase_cleanup;
-        } else {
-            testcase_error("C_GetMechanismInfo() rc = %s", p11_get_ckr(rc));
-            goto testcase_cleanup;
-        }
+    if (!mech_supported(SLOT_ID, mech.mechanism)) {
+        testcase_skip("Slot %u doesn't support %s",
+                      (unsigned int) SLOT_ID,
+                      p11_get_ckm(&mechtable_funcs, mech.mechanism));
+        rc = CKR_OK;
+        goto testcase_cleanup;
     }
 
     for (i = 0; i < 2 * num_variants; i++) {
@@ -398,34 +383,22 @@ testcase_cleanup:
 
 CK_RV run_ImportDilithiumKeyPairSignVerify(void)
 {
-    CK_MECHANISM mech;
     CK_OBJECT_HANDLE publ_key = CK_INVALID_HANDLE, priv_key = CK_INVALID_HANDLE;
     CK_SESSION_HANDLE session;
     CK_BYTE user_pin[PKCS11_MAX_PIN_LEN];
     CK_ULONG user_pin_len, i;
     CK_FLAGS flags;
-    CK_MECHANISM_INFO mech_info;
     CK_RV rc;
 
     testcase_rw_session();
     testcase_user_login();
 
-    mech.mechanism = CKM_IBM_DILITHIUM;
-    mech.ulParameterLen = 0;
-    mech.pParameter = NULL;
-
     /* query the slot, check if this mech is supported */
-    rc = funcs->C_GetMechanismInfo(SLOT_ID, mech.mechanism, &mech_info);
-    if (rc != CKR_OK) {
-        if (rc == CKR_MECHANISM_INVALID) {
-            /* no support for Dilithium key gen? skip */
-            testcase_skip("Slot %u doesn't support CKM_IBM_DILITHIUM",
-                          (unsigned int) SLOT_ID);
-            goto testcase_cleanup;
-        } else {
-            testcase_error("C_GetMechanismInfo() rc = %s", p11_get_ckr(rc));
-            goto testcase_cleanup;
-        }
+    if (!mech_supported(SLOT_ID, CKM_IBM_DILITHIUM)) {
+        testcase_skip("Slot %u doesn't support CKM_IBM_DILITHIUM",
+                      (unsigned int) SLOT_ID);
+        rc = CKR_OK;
+        goto testcase_cleanup;
     }
 
     for (i = 0; i < DILITHIUM_TV_NUM; i++) {
@@ -616,13 +589,11 @@ done:
 
 CK_RV run_TransferDilithiumKeyPairSignVerify(void)
 {
-    CK_MECHANISM mech;
     CK_OBJECT_HANDLE publ_key = CK_INVALID_HANDLE, priv_key = CK_INVALID_HANDLE;
     CK_SESSION_HANDLE session;
     CK_BYTE user_pin[PKCS11_MAX_PIN_LEN];
     CK_ULONG user_pin_len, i;
     CK_FLAGS flags;
-    CK_MECHANISM_INFO mech_info;
     CK_RV rc;
     CK_OBJECT_HANDLE secret_key = CK_INVALID_HANDLE;
     CK_BYTE_PTR wrapped_key = NULL;
@@ -633,22 +604,24 @@ CK_RV run_TransferDilithiumKeyPairSignVerify(void)
     testcase_rw_session();
     testcase_user_login();
 
-    mech.mechanism = CKM_IBM_DILITHIUM;
-    mech.ulParameterLen = 0;
-    mech.pParameter = NULL;
-
     /* query the slot, check if this mech is supported */
-    rc = funcs->C_GetMechanismInfo(SLOT_ID, mech.mechanism, &mech_info);
-    if (rc != CKR_OK) {
-        if (rc == CKR_MECHANISM_INVALID) {
-            /* no support for Dilithium key gen? skip */
-            testcase_skip("Slot %u doesn't support CKM_IBM_DILITHIUM",
-                          (unsigned int) SLOT_ID);
-            goto testcase_cleanup;
-        } else {
-            testcase_error("C_GetMechanismInfo() rc = %s", p11_get_ckr(rc));
-            goto testcase_cleanup;
-        }
+    if (!mech_supported(SLOT_ID, CKM_IBM_DILITHIUM)) {
+        testcase_skip("Slot %u doesn't support CKM_IBM_DILITHIUM",
+                      (unsigned int) SLOT_ID);
+        rc = CKR_OK;
+        goto testcase_cleanup;
+    }
+    if (!mech_supported(SLOT_ID, CKM_AES_KEY_GEN)) {
+        testcase_skip("Slot %u doesn't support CKM_AES_KEY_GEN",
+                      (unsigned int) SLOT_ID);
+        rc = CKR_OK;
+        goto testcase_cleanup;
+    }
+    if (!mech_supported_flags(SLOT_ID, CKM_AES_CBC_PAD, CKF_WRAP)) {
+        testcase_skip("Slot %u doesn't support key wrapping with CKM_AES_CBC_PAD",
+                      (unsigned int) SLOT_ID);
+        rc = CKR_OK;
+        goto testcase_cleanup;
     }
 
     for (i = 0; i < DILITHIUM_TV_NUM; i++) {
