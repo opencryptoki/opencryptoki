@@ -127,6 +127,8 @@ static struct algo des = {(CK_BYTE *)"RTCMK   ", (CK_BYTE *)"DES", 1 };
 static struct algo hmac = {(CK_BYTE *)"RTCMK   HMAC    ", (CK_BYTE *)"HMAC", 2 };
 static struct algo ecc = {(CK_BYTE *)"RTCMK   ECC     ", (CK_BYTE *)"ECC", 2 };
 static struct algo rsa = {(CK_BYTE *)"RTCMK   ", (CK_BYTE *)"RSA", 1 };
+static struct algo ibm_dilithium = {(CK_BYTE *)"RTCMK   QSA     ",
+                                                (CK_BYTE *)"IBM Dilithium", 2 };
 
 int cca_decrypt(unsigned char *in_data, unsigned long in_data_len,
                 unsigned char *out_data, unsigned long *out_data_len,
@@ -725,6 +727,7 @@ int add_key(CK_OBJECT_HANDLE handle, CK_ATTRIBUTE *attrs, struct key **keys)
     case CKK_EC:
     case CKK_GENERIC_SECRET:
     case CKK_RSA:
+    case CKK_IBM_PQC_DILITHIUM:
         break;
     default:
         free(new_key);
@@ -778,6 +781,9 @@ int add_key(CK_OBJECT_HANDLE handle, CK_ATTRIBUTE *attrs, struct key **keys)
             break;
         case CKK_RSA:
             type_name = RSA_NAME;
+            break;
+        case CKK_IBM_PQC_DILITHIUM:
+            type_name = IBM_DILITHIUM_NAME;
             break;
         default:
             type_name = BAD_NAME;
@@ -1146,6 +1152,14 @@ int cca_migrate(struct key *keys, struct key_count *count,
             else
                 count->rsa++;
             break;
+        case CKK_IBM_PQC_DILITHIUM:
+            rc = cca_migrate_asymmetric(key, &migrated_data, ibm_dilithium,
+                                        masterkey);
+            if (rc)
+                count_failed->ibm_dilithium++;
+            else
+                count->ibm_dilithium++;
+            break;
         default:
             rc = 1;
             break;
@@ -1196,7 +1210,7 @@ done:
 void key_migration_results(struct key_count migrated, struct key_count failed)
 {
     if (migrated.aes || migrated.des || migrated.des2 || migrated.des3 ||
-        migrated.ecc || migrated.hmac || migrated.rsa)
+        migrated.ecc || migrated.hmac || migrated.rsa || migrated.ibm_dilithium)
         printf("Successfully migrated: ");
     if (migrated.aes)
         printf("AES: %d. ", migrated.aes);
@@ -1212,9 +1226,11 @@ void key_migration_results(struct key_count migrated, struct key_count failed)
         printf("HMAC: %d. ", migrated.hmac);
     if (migrated.rsa)
         printf("RSA: %d. ", migrated.rsa);
+    if (migrated.ibm_dilithium)
+        printf("IBM Dilithium: %d. ", migrated.ibm_dilithium);
 
     if (failed.aes || failed.des || failed.des2 || failed.des3 ||
-        failed.ecc || failed.hmac || failed.rsa)
+        failed.ecc || failed.hmac || failed.rsa || failed.ibm_dilithium)
         printf("\nFailed to migrate: ");
     if (failed.aes)
         printf("AES: %d. ", failed.aes);
@@ -1230,6 +1246,8 @@ void key_migration_results(struct key_count migrated, struct key_count failed)
         printf("HMAC: %d. ", failed.hmac);
     if (failed.rsa)
         printf("RSA: %d. ", failed.rsa);
+    if (failed.ibm_dilithium)
+        printf("IBM Dilithium: %d. ", failed.ibm_dilithium);
 
     printf("\n");
 }
@@ -1240,8 +1258,8 @@ int migrate_wrapped_keys(CK_SLOT_ID slot_id, const char *userpin, int masterkey)
     CK_KEY_TYPE key_type = 0;
     CK_SESSION_HANDLE sess;
     CK_RV rv;
-    struct key_count count = { 0, 0, 0, 0, 0, 0, 0 };
-    struct key_count count_failed = { 0, 0, 0, 0, 0, 0, 0 };
+    struct key_count count = { 0, 0, 0, 0, 0, 0, 0, 0 };
+    struct key_count count_failed = { 0, 0, 0, 0, 0, 0, 0, 0 };
     int exit_code = 0, rc;
 
     funcs = p11_init();
@@ -1295,6 +1313,14 @@ int migrate_wrapped_keys(CK_SLOT_ID slot_id, const char *userpin, int masterkey)
         if (v_level)
             printf("Search for RSA keys\n");
         key_type = CKK_RSA;
+        rc = migrate_keytype(funcs, sess, &key_type, &count, &count_failed,
+                             masterkey);
+        if (rc) {
+            goto done;
+        }
+        if (v_level)
+            printf("Search for IBM Dilithium keys\n");
+        key_type = CKK_IBM_PQC_DILITHIUM;
         rc = migrate_keytype(funcs, sess, &key_type, &count, &count_failed,
                              masterkey);
         if (rc) {
