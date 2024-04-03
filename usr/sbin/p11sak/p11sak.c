@@ -609,6 +609,9 @@ static const struct p11sak_attr p11sak_public_ibm_dilithium_attrs[] = {
     DECLARE_KEY_ATTRS,
     DECLARE_PUBLIC_KEY_ATTRS,
     DECLARE_PUBLIC_IBM_DILITHIUM_ATTRS,
+    { .name = "CKA_VALUE", .type = CKA_VALUE,
+      .secret = false, .public = true, .private = false, .settable = true,
+      .print_long = print_byte_array_attr, },
     { .name = NULL },
 };
 
@@ -616,6 +619,9 @@ static const struct p11sak_attr p11sak_private_ibm_dilithium_attrs[] = {
     DECLARE_KEY_ATTRS,
     DECLARE_PRIVATE_KEY_ATTRS,
     DECLARE_PUBLIC_IBM_DILITHIUM_ATTRS,
+    { .name = "CKA_VALUE", .type = CKA_VALUE,
+      .secret = false, .public = false, .private = true, .settable = true,
+      .print_long = print_byte_array_attr, },
     { .name = "CKA_IBM_DILITHIUM_SEED", .type = CKA_IBM_DILITHIUM_SEED,
       .secret = false, .public = false, .private = true, .settable = true,
       .print_long = print_byte_array_attr, },
@@ -649,6 +655,9 @@ static const struct p11sak_attr p11sak_public_ibm_kyber_attrs[] = {
     DECLARE_KEY_ATTRS,
     DECLARE_PUBLIC_KEY_ATTRS,
     DECLARE_PUBLIC_IBM_KYBER_ATTRS,
+    { .name = "CKA_VALUE", .type = CKA_VALUE,
+      .secret = false, .public = true, .private = false, .settable = true,
+      .print_long = print_byte_array_attr, },
     { .name = NULL },
 };
 
@@ -656,6 +665,9 @@ static const struct p11sak_attr p11sak_private_ibm_kyber_attrs[] = {
     DECLARE_KEY_ATTRS,
     DECLARE_PRIVATE_KEY_ATTRS,
     DECLARE_PUBLIC_IBM_KYBER_ATTRS,
+    { .name = "CKA_VALUE", .type = CKA_VALUE,
+      .secret = false, .public = false, .private = true, .settable = true,
+      .print_long = print_byte_array_attr, },
     { .name = "CKA_IBM_KYBER_SK", .type = CKA_IBM_KYBER_SK,
       .secret = false, .public = false, .private = true, .settable = true,
       .print_long = print_byte_array_attr, },
