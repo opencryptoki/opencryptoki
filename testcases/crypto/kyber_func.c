@@ -258,7 +258,6 @@ CK_RV run_EnDecapsulateKyber(CK_SESSION_HANDLE session,
                              CK_ULONG ulExpectedSecret)
 {
     CK_MECHANISM mech;
-    CK_MECHANISM_INFO mech_info;
     CK_IBM_KYBER_PARAMS kyber_params;
     CK_BYTE *cipher = NULL;
     CK_ULONG cipher_len = 0;
@@ -287,19 +286,12 @@ CK_RV run_EnDecapsulateKyber(CK_SESSION_HANDLE session,
     mech.pParameter = &kyber_params;
 
     /* Query the slot, check if this mech if supported */
-    rc = funcs->C_GetMechanismInfo(SLOT_ID, mech.mechanism, &mech_info);
-    if (rc != CKR_OK) {
-        if (rc == CKR_MECHANISM_INVALID) {
-            /* no support for Kyber? skip */
-            testcase_skip("Slot %u doesn't support %s",
-                          (unsigned int) SLOT_ID,
-                          p11_get_ckm(&mechtable_funcs, mech.mechanism));
-            rc = CKR_OK;
-            goto testcase_cleanup;
-        } else {
-            testcase_error("C_GetMechanismInfo() rc = %s", p11_get_ckr(rc));
-            goto testcase_cleanup;
-        }
+    if (!mech_supported(SLOT_ID, mech.mechanism)) {
+        testcase_skip("Slot %u doesn't support %s",
+                      (unsigned int) SLOT_ID,
+                      p11_get_ckm(&mechtable_funcs, mech.mechanism));
+        rc = CKR_OK;
+        goto testcase_cleanup;
     }
 
     if (hybrid) {
@@ -426,7 +418,6 @@ CK_RV run_EncrypDecryptKyber(CK_SESSION_HANDLE session,
     CK_MECHANISM mech;
     CK_BYTE_PTR data = NULL, encrypted = NULL, decrypted = NULL;
     CK_ULONG i, datalen, encrypted_len, decrypted_len;
-    CK_MECHANISM_INFO mech_info;
     CK_RV rc;
 
     mech.mechanism = CKM_IBM_KYBER;
@@ -436,19 +427,12 @@ CK_RV run_EncrypDecryptKyber(CK_SESSION_HANDLE session,
     datalen = 32; /* Kyber can encrypt blocks of 32 bytes */
 
     /* Query the slot, check if this mech if supported */
-    rc = funcs->C_GetMechanismInfo(SLOT_ID, mech.mechanism, &mech_info);
-    if (rc != CKR_OK) {
-        if (rc == CKR_MECHANISM_INVALID) {
-            /* no support for Kyber? skip */
-            testcase_skip("Slot %u doesn't support %s",
-                          (unsigned int) SLOT_ID,
-                          p11_get_ckm(&mechtable_funcs, mech.mechanism));
-            rc = CKR_OK;
-            goto testcase_cleanup;
-        } else {
-            testcase_error("C_GetMechanismInfo() rc = %s", p11_get_ckr(rc));
-            goto testcase_cleanup;
-        }
+    if (!mech_supported(SLOT_ID, mech.mechanism)) {
+        testcase_skip("Slot %u doesn't support %s",
+                      (unsigned int) SLOT_ID,
+                      p11_get_ckm(&mechtable_funcs, mech.mechanism));
+        rc = CKR_OK;
+        goto testcase_cleanup;
     }
 
     data = calloc(datalen, sizeof(CK_BYTE));
@@ -547,7 +531,6 @@ CK_RV run_GenerateKyberKeyPairEnDecryptKEM(void)
     CK_BYTE user_pin[PKCS11_MAX_PIN_LEN];
     CK_ULONG user_pin_len, i, j;
     CK_FLAGS flags;
-    CK_MECHANISM_INFO mech_info;
     CK_RV rc;
 
     testcase_rw_session();
@@ -558,18 +541,12 @@ CK_RV run_GenerateKyberKeyPairEnDecryptKEM(void)
     mech.pParameter = NULL;
 
     /* query the slot, check if this mech is supported */
-    rc = funcs->C_GetMechanismInfo(SLOT_ID, mech.mechanism, &mech_info);
-    if (rc != CKR_OK) {
-        if (rc == CKR_MECHANISM_INVALID) {
-            /* no support for Kyber key gen? skip */
-            testcase_skip("Slot %u doesn't support CKM_IBM_KYBER ",
-                          (unsigned int) SLOT_ID);
-            rc = CKR_OK;
-            goto testcase_cleanup;
-        } else {
-            testcase_error("C_GetMechanismInfo() rc = %s", p11_get_ckr(rc));
-            goto testcase_cleanup;
-        }
+    if (!mech_supported(SLOT_ID, mech.mechanism)) {
+        testcase_skip("Slot %u doesn't support %s",
+                      (unsigned int) SLOT_ID,
+                      p11_get_ckm(&mechtable_funcs, mech.mechanism));
+        rc = CKR_OK;
+        goto testcase_cleanup;
     }
 
     for (i = 0; i < 2 * num_variants; i++) {
@@ -697,34 +674,22 @@ testcase_cleanup:
 
 CK_RV run_ImportKyberKeyPairKEM(void)
 {
-    CK_MECHANISM mech;
     CK_OBJECT_HANDLE publ_key = CK_INVALID_HANDLE, priv_key = CK_INVALID_HANDLE;
     CK_SESSION_HANDLE session;
     CK_BYTE user_pin[PKCS11_MAX_PIN_LEN];
     CK_ULONG user_pin_len, i;
     CK_FLAGS flags;
-    CK_MECHANISM_INFO mech_info;
     CK_RV rc;
 
     testcase_rw_session();
     testcase_user_login();
 
-    mech.mechanism = CKM_IBM_KYBER;
-    mech.ulParameterLen = 0;
-    mech.pParameter = NULL;
-
     /* query the slot, check if this mech is supported */
-    rc = funcs->C_GetMechanismInfo(SLOT_ID, mech.mechanism, &mech_info);
-    if (rc != CKR_OK) {
-        if (rc == CKR_MECHANISM_INVALID) {
-            /* no support for Kyber key gen? skip */
-            testcase_skip("Slot %u doesn't support CKM_IBM_KYBER",
-                          (unsigned int) SLOT_ID);
-            goto testcase_cleanup;
-        } else {
-            testcase_error("C_GetMechanismInfo() rc = %s", p11_get_ckr(rc));
-            goto testcase_cleanup;
-        }
+    if (!mech_supported(SLOT_ID, CKM_IBM_KYBER)) {
+        testcase_skip("Slot %u doesn't support CKM_IBM_KYBER",
+                      (unsigned int) SLOT_ID);
+        rc = CKR_OK;
+        goto testcase_cleanup;
     }
 
     for (i = 0; i < KYBER_TV_NUM; i++) {
@@ -918,13 +883,11 @@ done:
 
 CK_RV run_TransferKyberKeyPair(void)
 {
-    CK_MECHANISM mech;
     CK_OBJECT_HANDLE publ_key = CK_INVALID_HANDLE, priv_key = CK_INVALID_HANDLE;
     CK_SESSION_HANDLE session;
     CK_BYTE user_pin[PKCS11_MAX_PIN_LEN];
     CK_ULONG user_pin_len, i;
     CK_FLAGS flags;
-    CK_MECHANISM_INFO mech_info;
     CK_RV rc;
     CK_OBJECT_HANDLE secret_key = CK_INVALID_HANDLE;
     CK_BYTE_PTR wrapped_key = NULL;
@@ -935,22 +898,24 @@ CK_RV run_TransferKyberKeyPair(void)
     testcase_rw_session();
     testcase_user_login();
 
-    mech.mechanism = CKM_IBM_KYBER;
-    mech.ulParameterLen = 0;
-    mech.pParameter = NULL;
-
     /* query the slot, check if this mech is supported */
-    rc = funcs->C_GetMechanismInfo(SLOT_ID, mech.mechanism, &mech_info);
-    if (rc != CKR_OK) {
-        if (rc == CKR_MECHANISM_INVALID) {
-            /* no support for Kyber key gen? skip */
-            testcase_skip("Slot %u doesn't support CKM_IBM_KYBER",
-                          (unsigned int) SLOT_ID);
-            goto testcase_cleanup;
-        } else {
-            testcase_error("C_GetMechanismInfo() rc = %s", p11_get_ckr(rc));
-            goto testcase_cleanup;
-        }
+    if (!mech_supported(SLOT_ID, CKM_IBM_KYBER)) {
+        testcase_skip("Slot %u doesn't support CKM_IBM_KYBER",
+                      (unsigned int) SLOT_ID);
+        rc = CKR_OK;
+        goto testcase_cleanup;
+    }
+    if (!mech_supported(SLOT_ID, CKM_AES_KEY_GEN)) {
+        testcase_skip("Slot %u doesn't support CKM_AES_KEY_GEN",
+                      (unsigned int) SLOT_ID);
+        rc = CKR_OK;
+        goto testcase_cleanup;
+    }
+    if (!mech_supported_flags(SLOT_ID, CKM_AES_CBC_PAD, CKF_WRAP)) {
+        testcase_skip("Slot %u doesn't support key wrapping with CKM_AES_CBC_PAD",
+                      (unsigned int) SLOT_ID);
+        rc = CKR_OK;
+        goto testcase_cleanup;
     }
 
     for (i = 0; i < KYBER_TV_NUM; i++) {
