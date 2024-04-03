@@ -133,8 +133,8 @@ token_spec_t token_specific = {
     NULL,                       // dsa_verify
     // PQC
     &token_specific_ibm_dilithium_generate_keypair,
-    NULL,                       // ibm_dilithium_sign
-    NULL,                       // ibm_dilithium_verify
+    &token_specific_ibm_dilithium_sign,
+    &token_specific_ibm_dilithium_verify,
     &token_specific_get_mechanism_list,
     &token_specific_get_mechanism_info,
     &token_specific_object_add,
