@@ -68,6 +68,9 @@
 #define CCA_QSA_CLEAR_FORMAT_NO_KEY     0x00
 #define CCA_QSA_CLEAR_FORMAT_KAT        0x01
 #define CCA_QSA_CLEAR_FORMAT_PUB_ONLY   0x03
+#define CCA_MAX_DILITHIUM_SIGNATURE_LEN 5000
+#define CCA_MAX_DILITHIUM_65_DATA_LEN   6000
+#define CCA_MAX_DILITHIUM_87_DATA_LEN   4000
 
 /*
  * ECC private key section (X'20'), Key-usage and translation control flag.

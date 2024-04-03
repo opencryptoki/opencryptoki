@@ -7797,6 +7797,190 @@ CK_RV token_specific_ibm_dilithium_generate_keypair(STDLL_TokData_t *tokdata,
     return rv;
 }
 
+static CK_RV check_ibm_dilithium_data_len(const struct pqc_oid *oid,
+                                          CK_ULONG in_data_len)
+{
+    switch (oid->keyform) {
+    case CK_IBM_DILITHIUM_KEYFORM_ROUND2_65:
+    case CK_IBM_DILITHIUM_KEYFORM_ROUND3_65:
+        if (in_data_len > CCA_MAX_DILITHIUM_65_DATA_LEN) {
+            TRACE_DEVEL("Input too large for Dilithium keyform %lu\n",
+                        oid->keyform);
+            return CKR_DATA_LEN_RANGE;
+        }
+        break;
+    case CK_IBM_DILITHIUM_KEYFORM_ROUND2_87:
+    case CK_IBM_DILITHIUM_KEYFORM_ROUND3_87:
+        if (in_data_len > CCA_MAX_DILITHIUM_87_DATA_LEN) {
+            TRACE_DEVEL("Input too large for Dilithium keyform %lu\n",
+                        oid->keyform);
+            return CKR_DATA_LEN_RANGE;
+        }
+        break;
+    default:
+        TRACE_DEVEL("Dilithium keyform %lu not supported by CCA\n",
+                    oid->keyform);
+        return CKR_KEY_SIZE_RANGE;
+    }
+
+    return CKR_OK;
+}
+
+CK_RV token_specific_ibm_dilithium_sign(STDLL_TokData_t *tokdata,
+                                        SESSION *sess,
+                                        CK_BBOOL length_only,
+                                        const struct pqc_oid *oid,
+                                        CK_BYTE *in_data,
+                                        CK_ULONG in_data_len,
+                                        CK_BYTE *signature,
+                                        CK_ULONG *signature_len,
+                                        OBJECT *key_obj)
+{
+    long return_code, reason_code, rule_array_count;
+    unsigned char rule_array[CCA_RULE_ARRAY_SIZE] = { 0, };
+    long signature_bit_length;
+    CK_ATTRIBUTE *attr;
+    CK_RV rc;
+
+    UNUSED(sess);
+
+    if (((struct cca_private_data *)tokdata->private_data)->inconsistent) {
+        TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
+        return CKR_DEVICE_ERROR;
+    }
+
+    if (!cca_pqc_strength_supported(tokdata, CKM_IBM_DILITHIUM, oid->keyform)) {
+        TRACE_DEVEL("Dilithium keyform %lu not supported by CCA\n",
+                    oid->keyform);
+        return CKR_KEY_SIZE_RANGE;
+    }
+
+    rc = check_ibm_dilithium_data_len(oid, in_data_len);
+    if (rc != CKR_OK)
+        return rc;
+
+    if (length_only) {
+        *signature_len = CCA_MAX_DILITHIUM_SIGNATURE_LEN;
+        return CKR_OK;
+    }
+
+    if (*signature_len > CCA_MAX_DILITHIUM_SIGNATURE_LEN)
+        *signature_len = CCA_MAX_DILITHIUM_SIGNATURE_LEN;
+
+    /* Find the secure key token */
+    rc = template_attribute_get_non_empty(key_obj->template, CKA_IBM_OPAQUE,
+                                          &attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_IBM_OPAQUE for the key.\n");
+        return rc;
+    }
+
+    rule_array_count = 3;
+    memcpy(rule_array, "CRDL-DSAMESSAGE CRDLHASH", CCA_KEYWORD_SIZE * 3);
+
+    USE_CCA_ADAPTER_START(tokdata, return_code, reason_code)
+    RETRY_NEW_MK_BLOB_START()
+        dll_CSNDDSG(&return_code,
+                    &reason_code,
+                    NULL,
+                    NULL,
+                    &rule_array_count,
+                    rule_array,
+                    (long *)&(attr->ulValueLen),
+                    attr->pValue,
+                    (long *)&in_data_len,
+                    in_data,
+                    (long *)signature_len, &signature_bit_length, signature);
+    RETRY_NEW_MK_BLOB_END(tokdata, return_code, reason_code,
+                          attr->pValue, attr->ulValueLen)
+    USE_CCA_ADAPTER_END(tokdata, return_code, reason_code)
+
+    if (return_code != CCA_SUCCESS) {
+        TRACE_ERROR("CSNDDSG (QSA SIGN) failed. return:%ld,"
+                    " reason:%ld\n", return_code, reason_code);
+        return CKR_FUNCTION_FAILED;
+    } else if (reason_code != 0) {
+        TRACE_WARNING("CSNDDSG (QSA SIGN) succeeded, but"
+                      " returned reason:%ld\n", reason_code);
+    }
+
+    return CKR_OK;
+}
+
+CK_RV token_specific_ibm_dilithium_verify(STDLL_TokData_t *tokdata,
+                                          SESSION *sess,
+                                          const struct pqc_oid *oid,
+                                          CK_BYTE *in_data,
+                                          CK_ULONG in_data_len,
+                                          CK_BYTE *signature,
+                                          CK_ULONG signature_len,
+                                          OBJECT *key_obj)
+{
+    long return_code, reason_code, rule_array_count;
+    unsigned char rule_array[CCA_RULE_ARRAY_SIZE] = { 0, };
+    CK_ATTRIBUTE *attr;
+    CK_RV rc;
+
+    UNUSED(sess);
+
+    if (((struct cca_private_data *)tokdata->private_data)->inconsistent) {
+        TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
+        return CKR_DEVICE_ERROR;
+    }
+
+    if (!cca_pqc_strength_supported(tokdata, CKM_IBM_DILITHIUM, oid->keyform)) {
+        TRACE_DEVEL("Dilithium keyform %lu not supported by CCA\n",
+                    oid->keyform);
+        return CKR_KEY_SIZE_RANGE;
+    }
+
+    rc = check_ibm_dilithium_data_len(oid, in_data_len);
+    if (rc != CKR_OK)
+        return rc;
+
+    /* Find the secure key token */
+    rc = template_attribute_get_non_empty(key_obj->template, CKA_IBM_OPAQUE,
+                                          &attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_IBM_OPAQUE for the key.\n");
+        return rc;
+    }
+
+    rule_array_count = 3;
+    memcpy(rule_array, "CRDL-DSAMESSAGE CRDLHASH", CCA_KEYWORD_SIZE * 3);
+
+    USE_CCA_ADAPTER_START(tokdata, return_code, reason_code)
+    RETRY_NEW_MK_BLOB_START()
+        dll_CSNDDSV(&return_code,
+                    &reason_code,
+                    NULL,
+                    NULL,
+                    &rule_array_count,
+                    rule_array,
+                    (long *)&(attr->ulValueLen),
+                    attr->pValue,
+                    (long *)&in_data_len,
+                    in_data, (long *)&signature_len, signature);
+    RETRY_NEW_MK_BLOB_END(tokdata, return_code, reason_code,
+                          attr->pValue, attr->ulValueLen)
+    USE_CCA_ADAPTER_END(tokdata, return_code, reason_code)
+
+    if (return_code == 4 && reason_code == 429) {
+        return CKR_SIGNATURE_INVALID;
+    } else if (return_code == 12 && reason_code == 769) {
+        return CKR_SIGNATURE_INVALID;
+    } else if (return_code != CCA_SUCCESS) {
+        TRACE_ERROR("CSNDDSV (QSA VERIFY) failed. return:%ld,"
+                    " reason:%ld\n", return_code, reason_code);
+        return CKR_FUNCTION_FAILED;
+    } else if (reason_code != 0) {
+        TRACE_WARNING("CSNDDSV (QSA VERIFY) succeeded, but"
+                      " returned reason:%ld\n", reason_code);
+    }
+
+    return CKR_OK;
+}
+
 static CK_RV import_rsa_privkey(STDLL_TokData_t *tokdata, TEMPLATE * priv_tmpl)
 {
     CK_RV rc;
