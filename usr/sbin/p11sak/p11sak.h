@@ -39,6 +39,8 @@
 #define OPT_DETAILED_URI        257
 #define OPT_FORCE_PEM_PWD_PROMPT 258
 #define OPT_SO                  259
+#define OPT_URI_PIN_VALUE       260
+#define OPT_URI_PIN_SOURCE      261
 
 #define MAX_PRINT_LINE_LENGTH   80
 #define PRINT_INDENT_POS        35
@@ -49,6 +51,9 @@
 #define LIST_CERT_CN_CELL_SIZE  22
 
 #define MAX_SYM_CLEAR_KEY_SIZE  64
+
+#define PKCS11_URI_PEM_NAME     "PKCS#11 PROVIDER URI"
+#define PKCS11_URI_DESCRIPTION  "PKCS#11 Provider URI v1.0"
 
 enum p11sak_arg_type {
     ARG_TYPE_PLAIN = 0, /* no argument */

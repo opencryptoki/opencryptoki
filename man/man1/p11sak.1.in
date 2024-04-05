@@ -1038,7 +1038,11 @@ option to import an opaque secure key blob. Not all tokens support this.
 .BR \-\-file | \-F
 .I FILENAME
 .RB [ \-\-opaque | \-o ]
-.RB [ \-\-spki | \- S ]
+.RB [ \-\-spki | \-S ]
+.RB [ \-\-uri\-pem | \-u ]
+.RB [ \-\-uri\-pin\-value ]
+.RB [ \-\-uri\-pin\-source
+.IR FILENAME ]
 .RB [ \-\-help | \-h ]
 .PP
 Use the
@@ -1127,6 +1131,32 @@ exported in clear, even if the attributes would allow it. For such keys only the
 opaque secure key blob can be exported by using the
 .BR \-\-opaque | \-o
 option.
+.PP
+Specify the
+.BR \-\-uri\-pem | \-u
+option to export the PKCS#11 URI of the key in PEM form instead of the key
+material. Such an URI-PEM file can then be used with the
+.B pkcs11\-provider
+from
+.BR https://github.com/latchset/pkcs11\-provider .
+By default, the PKCS#11 URI does not contain the PKCS#11 user pin.
+Specify option
+.B \-\-uri\-pin\-value
+to include the PKCS#11 user pin in the URI using the
+.B pin\-value
+query attribute. This reveals the PKCS#11 user pin in clear, use with care!
+Alternatively, specify option
+.B \-\-uri\-pin\-source
+.I FILENAME
+to include the
+.B pin\-source
+query attribute in the URI, referencing the file name specified with this
+option. The PKCS#11 user pin value is written into that file as part of the
+export operation. This reveals the PKCS#11 user pin in clear, use with care!
+Adjust the file permissions of the specified pin\-source file so that it can
+only be read by the desired user(s). By default the file permissions are set so
+that only the owner user can read and write that file, but no one else (i.e.
+0600).
 .
 .
 .
@@ -1621,6 +1651,10 @@ as Certificate Authority (CA) certificate.
 .BR \-\-file | \-F
 .I FILENAME
 .RB [ \-\-der | \- D ]
+.RB [ \-\-uri\-pem | \-u ]
+.RB [ \-\-uri\-pin\-value ]
+.RB [ \-\-uri\-pin\-source
+.IR FILENAME ]
 .RB [ \-\-help | \-h ]
 .PP
 Use the
@@ -1674,6 +1708,32 @@ Specify the
 .BR \-\-der | \-D
 option to export the certificate(s) in binary (DER-encoded) form. Default is
 PEM format.
+.PP
+Specify the
+.BR \-\-uri\-pem | \-u
+option to export the PKCS#11 URI of the certificate in PEM form instead of the
+certificate material. Such an URI-PEM file can then be used with the
+.B pkcs11\-provider
+from
+.BR https://github.com/latchset/pkcs11\-provider .
+By default, the PKCS#11 URI does not contain the PKCS#11 user pin.
+Specify option
+.B \-\-uri\-pin\-value
+to include the PKCS#11 user pin in the URI using the
+.B pin\-value
+query attribute. This reveals the PKCS#11 user pin in clear, use with care!
+Alternatively, specify option
+.B \-\-uri\-pin\-source
+.I FILENAME
+to include the
+.B pin\-source
+query attribute in the URI, referencing the file name specified with this
+option. The PKCS#11 user pin value is written into that file as part of the
+export operation. This reveals the PKCS#11 user pin in clear, use with care!
+Adjust the file permissions of the specified pin\-source file so that it can
+only be read by the desired user(s). By default the file permissions are set so
+that only the owner user can read and write that file, but no one else (i.e.
+0600).
 .PP
 .
 .SS "Extracting the public key of certificates"
@@ -2363,6 +2423,66 @@ in PEM format.
 .
 .
 .TP 8
+.BR \-\-uri\-pem | \-u
+Export the key's or certificate’s PKCS#11 URI in PEM form instead of the key or
+certificate material. Such an URI-PEM file can then be used with the
+.B pkcs11\-provider
+from
+.BR https://github.com/latchset/pkcs11\-provider .
+.RE
+.PP
+.
+.
+.
+.TP 8
+.BR \-\-uri\-pin\-value
+When exporting the key's or certificate's PKCS#11 URI in PEM form, include the
+PKCS#11 user pin value in the URI using the
+.B pin\-value
+query attribute. This reveals the PKCS#11 user pin in clear, use with care!
+This option can only be used together with the
+.BR \-\-uri\-pem | \-u
+option, and when options
+.BR \-\-no\-login | \-N
+and
+.BR \-\-so
+are not specified.
+.RE
+.PP
+.
+.
+.
+.TP 8
+.BR \-\-uri\-pin\-source\~\fIFILENAME\fP
+When exporting the key's or certificate's PKCS#11 URI in PEM form, include the
+.B pin-source
+query attribute in the URI, referencing the file name specified with this
+option. The PKCS#11 user pin value is written into that file as part of the
+export operation. This reveals the PKCS#11 user pin in clear, use with care!
+Adjust the file permissions of the specified file so that it can only be read
+by the desired user(s). This option can only be used together with the
+.BR \-\-uri\-pem | \-u
+option, and when options
+.BR \-\-no\-login | \-N
+and
+.BR \-\-so
+are not specified.
+.RE
+.PP
+.
+.
+.
+.TP 8
+.BR \-\-ca\-cert | \-C
+Flag the certificate as a Certificate Authority (CA) certificate.
+If the certificate has the \fBBasicConstraints CA\fP flag on, it is also flagged
+as Certificate Authority (CA) certificate.
+.RE
+.PP
+.
+.
+.
+.TP 8
 .BR \-\-help | \-h
 Prints help for the usage of the
 .B p11sak
@@ -2377,16 +2497,6 @@ tool and/or the respective command and then exits.
 Prints the version of the
 .B p11sak
 tool and then exits.
-.RE
-.PP
-.
-.
-.
-.TP 8
-.BR \-\-ca\-cert | \-C
-Flag the certificate as a Certificate Authority (CA) certificate.
-If the certificate has the \fBBasicConstraints CA\fP flag on, it is also flagged
-as Certificate Authority (CA) certificate.
 .RE
 .PP
 .
