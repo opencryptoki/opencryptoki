@@ -22,6 +22,7 @@
 #define P11_URI_SEP_PROT  ':'
 #define P11_URI_SEP_ATTR  ';'
 #define P11_URI_SEP_QUERY '&'
+#define P11_URI_SEP_QUERY_START '?'
 
 #define START_END(c, c_max)                                             \
     (const CK_CHAR *)(c),                                               \
@@ -35,6 +36,18 @@
             p11_url_encode(START_END((s), sizeof(s)),                   \
                            P11_URI_P_UNRES, buf);                       \
             *sep = P11_URI_SEP_ATTR;                                    \
+        }                                                               \
+    } while(0)
+
+#define FORMAT_QUERY_CSTRING(sep, txt, s, buf)                          \
+    do {                                                                \
+        if (strlen((s))) {                                              \
+            p11_buffer_append_len(buf, sep, 1);                         \
+            p11_buffer_append(buf, txt);                                \
+            p11_url_encode((unsigned char *)(s),                        \
+                           (unsigned char *)(s) + strlen(s),            \
+                           P11_URI_Q_UNRES, buf);                       \
+            *sep = P11_URI_SEP_QUERY;                                   \
         }                                                               \
     } while(0)
 
@@ -160,6 +173,8 @@ static void p11_uri_init(struct p11_uri *uri)
     uri->obj_id[0].type = CKA_ID;
     uri->obj_label[0].type = CKA_LABEL;
     uri->obj_class[0].type = CKA_CLASS;
+    uri->pin_value = NULL;
+    uri->pin_source = NULL;
 
     p11_buffer_reset(buffer_get(uri));
 }
@@ -215,6 +230,14 @@ const char *p11_uri_format(struct p11_uri *uri)
     FORMAT_ATTRIBUTE_ALL(&sep, "id=", uri->obj_id, CKA_ID, buf);
     FORMAT_ATTRIBUTE_STRING(&sep, "object=", uri->obj_label, CKA_LABEL, buf);
     FORMAT_ATTRIBUTE_CLASS(&sep, "type=", uri->obj_class, buf);
+
+    if (uri->pin_value) {
+        sep = P11_URI_SEP_QUERY_START;
+        FORMAT_QUERY_CSTRING(&sep, "pin-value=", uri->pin_value, buf);
+    } else if (uri->pin_source) {
+        sep = P11_URI_SEP_QUERY_START;
+        FORMAT_QUERY_CSTRING(&sep, "pin-source=", uri->pin_source, buf);
+    }
 
     /* append the protocol separator for empty URI */
     if (sep == P11_URI_SEP_PROT)

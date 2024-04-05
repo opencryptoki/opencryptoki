@@ -22,6 +22,8 @@ struct p11_uri {
     CK_ATTRIBUTE obj_id[1];
     CK_ATTRIBUTE obj_label[1];
     CK_ATTRIBUTE obj_class[1];
+    char *pin_value;
+    char *pin_source;
     void *priv;
 };
 
