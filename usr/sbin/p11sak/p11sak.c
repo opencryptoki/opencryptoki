@@ -85,6 +85,7 @@ static CK_SESSION_HANDLE pkcs11_session = CK_INVALID_HANDLE;
 static CK_INFO pkcs11_info;
 static CK_TOKEN_INFO pkcs11_tokeninfo;
 static CK_SLOT_INFO pkcs11_slotinfo;
+static char *uri_pin = NULL;
 
 static struct ConfigBaseNode *p11sak_cfg = NULL;
 
@@ -122,6 +123,9 @@ static struct p11sak_enum_value *opt_asym_kind = NULL;
 static bool opt_spki = false;
 static bool opt_der = false;
 static bool opt_cacert = false;
+static bool opt_uri_pem = false;
+static bool opt_uri_pin_value = false;
+static char *opt_uri_pin_source = NULL;
 
 static bool opt_slot_is_set(const struct p11sak_arg *arg);
 static CK_RV generic_get_key_size(const struct p11sak_objtype *keytype,
@@ -1849,6 +1853,39 @@ static const struct p11sak_opt p11sak_export_key_opts[] = {
                      "CKA_PUBLIC_KEY_INFO attribute of an asymmetric private "
                      "key instead of its private key material. This option can "
                      "only be used with private keys.", },
+    { .short_opt = 'u', .long_opt = "uri-pem", .required = false,
+      .arg = { .type = ARG_TYPE_PLAIN, .required = false,
+               .value.plain = &opt_uri_pem, },
+      .description = "Export the key's PKCS#11 URI in PEM form instead of the "
+                     "key material. Such an URI-PEM file can then be used with "
+                     "the pkcs11-provider (https://github.com/latchset/"
+                     "pkcs11-provider).", },
+    { .short_opt = 0, .long_opt = "uri-pin-value", .required = false,
+       .long_opt_val = OPT_URI_PIN_VALUE,
+      .arg = { .type = ARG_TYPE_PLAIN, .required = false,
+               .value.plain = &opt_uri_pin_value, },
+      .description = "When exporting the key's PKCS#11 URI in PEM form, "
+                     "include the PKCS#11 user pin value in the URI using "
+                     "the 'pin-value' query attribute. This reveals the "
+                     "PKCS#11 user pin in clear, use with care! "
+                     "This option can only be used together with the "
+                     "'-u'/'--uri-pem' option, and when options "
+                     "'-N'/'--no-login' and '--so' are not specified.", },
+    { .short_opt = 0, .long_opt = "uri-pin-source", .required = false,
+      .long_opt_val = OPT_URI_PIN_SOURCE,
+      .arg = { .type = ARG_TYPE_STRING, .required = true,
+               .value.string = &opt_uri_pin_source, .name = "FILENAME" },
+      .description = "When exporting the key's PKCS#11 URI in PEM form, "
+                     "include the 'pin-source' query attribute in the URI, "
+                     "referencing the file name specified with this option. "
+                     "The PKCS#11 user pin value is written into that file as "
+                     "part of the export operation. This reveals the PKCS#11 "
+                     "user pin in clear, use with care! Adjust the file "
+                     "permissions of the specified file so that it can only be "
+                     "read by the desired user(s). "
+                     "This option can only be used together with the "
+                     "'-u'/'--uri-pem' option, and when options "
+                     "'-N'/'--no-login' and '--so' are not specified.", },
     { .short_opt = 0, .long_opt = NULL, },
 };
 
@@ -1907,6 +1944,39 @@ static const struct p11sak_opt p11sak_export_cert_opts[] = {
                .value.plain = &opt_der, },
       .description = "The certificate is written to the file in binary "
                      "(DER-encoded) form. Default is PEM.", },
+    { .short_opt = 'u', .long_opt = "uri-pem", .required = false,
+      .arg = { .type = ARG_TYPE_PLAIN, .required = false,
+               .value.plain = &opt_uri_pem, },
+      .description = "Export the certifcate's PKCS#11 URI in PEM form instead "
+                     "of the certificate material. Such an URI-PEM file can "
+                     "then be used with the pkcs11-provider (https://github.com"
+                     "/latchset/pkcs11-provider).", },
+    { .short_opt = 0, .long_opt = "uri-pin-value", .required = false,
+       .long_opt_val = OPT_URI_PIN_VALUE,
+      .arg = { .type = ARG_TYPE_PLAIN, .required = false,
+               .value.plain = &opt_uri_pin_value, },
+      .description = "When exporting the certifcate's PKCS#11 URI in PEM form, "
+                     "include the PKCS#11 user pin value in the URI using "
+                     "the 'pin-value' query attribute. This reveals the "
+                     "PKCS#11 user pin in clear, use with care! "
+                     "This option can only be used together with the "
+                     "'-u'/'--uri-pem' option, and when options "
+                     "'-N'/'--no-login' and '--so' are not specified.", },
+    { .short_opt = 0, .long_opt = "uri-pin-source", .required = false,
+      .long_opt_val = OPT_URI_PIN_SOURCE,
+      .arg = { .type = ARG_TYPE_STRING, .required = true,
+               .value.string = &opt_uri_pin_source, .name = "FILENAME" },
+      .description = "When exporting the certifcate's PKCS#11 URI in PEM form, "
+                     "include the 'pin-source' query attribute in the URI, "
+                     "referencing the file name specified with this option. "
+                     "The PKCS#11 user pin value is written into that file as "
+                     "part of the export operation. This reveals the PKCS#11 "
+                     "user pin in clear, use with care! Adjust the file "
+                     "permissions of the specified file so that it can only be "
+                     "read by the desired user(s). "
+                     "This option can only be used together with the "
+                     "'-u'/'--uri-pem' option, and when options "
+                     "'-N'/'--no-login' and '--so' are not specified.", },
     { .short_opt = 0, .long_opt = NULL, },
 };
 
@@ -9218,6 +9288,103 @@ done:
     return rc;
 }
 
+static CK_ULONG ber_encode_len(CK_ULONG data_len, CK_BYTE *out)
+{
+    CK_ULONG ret = 0;
+
+    if (data_len < 128) {
+        ret = 1;
+        if (out != NULL)
+            out[0] = (CK_BYTE)(data_len & 0x7f);
+    } else if (data_len < 256) {
+        ret = 2;
+        if (out != NULL) {
+            out[0] = 0x81;
+            out[1] = (CK_BYTE)(data_len & 0xff);
+        }
+    } else if (data_len < (1 << 16)) {
+        ret = 3;
+        if (out != NULL) {
+            out[0] = 0x82;
+            out[1] = (CK_BYTE)((data_len >> 8) & 0xff);
+            out[1] = (CK_BYTE)(data_len & 0xff);
+        }
+    }
+
+    return ret;
+}
+
+static CK_RV p11sak_export_uri_pem(const struct p11sak_objtype *keytype,
+                                   CK_OBJECT_HANDLE key, CK_OBJECT_CLASS class,
+                                   const char *typestr, const char *msgtype,
+                                   const char* label, BIO* bio)
+{
+    struct p11_uri *uri = NULL;
+    const char *uri_str;
+    CK_ULONG descr_len, uri_len, total_len, ofs = 0;
+    CK_BYTE *data = NULL;
+    CK_RV rc;
+    int ret;
+
+    rc = prepare_uri(key, &class, keytype, typestr, label, &uri);
+    if (rc != CKR_OK)
+        goto done;
+
+    if (opt_uri_pin_value)
+        uri->pin_value = uri_pin;
+    else if (opt_uri_pin_source != NULL)
+        uri->pin_source = opt_uri_pin_source;
+
+    uri_str = p11_uri_format(uri);
+
+    descr_len = 1 + ber_encode_len(strlen(PKCS11_URI_DESCRIPTION), NULL) +
+                strlen(PKCS11_URI_DESCRIPTION);
+    uri_len = 1 + ber_encode_len(strlen(uri_str), NULL) + strlen(uri_str);
+    total_len = 1 + ber_encode_len(descr_len + uri_len, NULL) +
+                descr_len + uri_len;
+
+    data = calloc(total_len, 1);
+    if (data == NULL) {
+        warnx("Failed to allocate a buffer for the URI-PEM data");
+        rc = CKR_HOST_MEMORY;
+        goto done;
+    }
+
+    data[ofs++] = 0x30; /* SEQUENE */
+    ofs += ber_encode_len(descr_len + uri_len, &data[ofs]);
+    data[ofs++] = 0x1a; /* VISIBLE STRING */
+    ofs += ber_encode_len(strlen(PKCS11_URI_DESCRIPTION), &data[ofs]);
+    memcpy(&data[ofs], PKCS11_URI_DESCRIPTION, strlen(PKCS11_URI_DESCRIPTION));
+    ofs += strlen(PKCS11_URI_DESCRIPTION);
+    data[ofs++] = 0x0c; /* UTF8 STRING */
+    ofs += ber_encode_len(strlen(uri_str), &data[ofs]);
+    memcpy(&data[ofs], uri_str, strlen(uri_str));
+    ofs += strlen(uri_str);
+
+    ret = PEM_write_bio(bio, PKCS11_URI_PEM_NAME, "", data, total_len);
+    if (ret <= 0) {
+        warnx("Failed to write %s %s object \"%s\" to URI-PEM file '%s'.",
+              typestr, msgtype, label, opt_file);
+        ERR_print_errors_cb(openssl_err_cb, NULL);
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+
+done:
+    if (uri != NULL) {
+        if (uri->obj_id[0].pValue != NULL)
+            free(uri->obj_id[0].pValue);
+        p11_uri_free(uri);
+    }
+
+    if (data != NULL) {
+        OPENSSL_cleanse(data,  total_len);
+        free(data);
+    }
+
+    return rc;
+}
+
 static CK_RV p11sak_export_asym_key(const struct p11sak_objtype *keytype,
                                     CK_OBJECT_HANDLE key, bool private,
                                     const char *typestr, const char* label,
@@ -9646,6 +9813,9 @@ static CK_RV handle_key_export(CK_OBJECT_HANDLE key, CK_OBJECT_CLASS class,
         rc = p11sak_export_opaque_key(keytype, key, typestr, label, bio);
     else if (opt_spki)
         rc = p11sak_export_spki(keytype, key, typestr, label, bio);
+    else if (opt_uri_pem)
+        rc = p11sak_export_uri_pem(keytype, key, class, typestr, "key",
+                                   label, bio);
     else if (keytype->is_asymmetric)
         rc = p11sak_export_asym_key(keytype, key, class == CKO_PRIVATE_KEY,
                                     typestr, label, bio);
@@ -9665,8 +9835,9 @@ static CK_RV handle_key_export(CK_OBJECT_HANDLE key, CK_OBJECT_CLASS class,
            typestr, label, opt_file);
     data->num_exported++;
 
-    data->last_was_pem = keytype->is_asymmetric && !opt_opaque;
-    data->last_was_binary = !keytype->is_asymmetric || opt_opaque;
+    data->last_was_pem = (keytype->is_asymmetric && !opt_opaque) || opt_uri_pem;
+    data->last_was_binary = (!keytype->is_asymmetric || opt_opaque) &&
+                            !opt_uri_pem;
 
 done:
     BIO_free(bio);
@@ -9823,6 +9994,19 @@ static CK_RV handle_cert_export(CK_OBJECT_HANDLE cert, CK_OBJECT_CLASS class,
         return CKR_ARGUMENTS_BAD;
     }
 
+    if (opt_uri_pem) {
+        rc = p11sak_export_uri_pem(certtype, cert, class, typestr,
+                                   "certificate", label, bio);
+        if (rc != CKR_OK) {
+            warnx("Failed to export certificate object into URI-PEM file, "
+                  "0x%lx: %s", rc, p11_get_ckr(rc));
+            data->num_failed++;
+            rc = CKR_OK;
+            goto done;
+        }
+        goto finish;
+    }
+
     rc = certtype->export_x509_data(certtype, &cert_data, &data_len, cert, label);
     if (rc != CKR_OK) {
         warnx("Failed to export certificate object into X509 object, 0x%lx: %s",
@@ -9840,12 +10024,13 @@ static CK_RV handle_cert_export(CK_OBJECT_HANDLE cert, CK_OBJECT_CLASS class,
         goto done;
     }
 
+finish:
     printf("Successfully exported %s certificate object \"%s\" to file '%s'.\n",
            typestr, label, opt_file);
     data->num_exported++;
 
-    data->last_was_pem = !opt_der;
-    data->last_was_binary = opt_der;
+    data->last_was_pem = !opt_der || opt_uri_pem;
+    data->last_was_binary = opt_der && !opt_uri_pem;
 
 done:
     free(cert_data);
@@ -9924,6 +10109,45 @@ done:
     return rc;
 }
 
+static CK_RV p11sak_create_uri_pin_source(const char *pin_source,
+                                          const char *pin)
+{
+    FILE *fp;
+    CK_RV rc = CKR_OK;
+
+    fp = fopen(pin_source, "w");
+    if (fp == NULL) {
+        warnx("Failed to open pin-source file '%s' for writing: %s",
+              pin_source, strerror(errno));
+        return CKR_ARGUMENTS_BAD;
+    }
+
+    if (fchmod(fileno(fp), S_IRUSR | S_IWUSR) != 0) {
+        warnx("Failed to set permissions of pin-source file '%s': %s",
+              pin_source, strerror(errno));
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+
+    if (fprintf(fp, "%s\n", pin) <= 0) {
+        warnx("Failed to write to pin-source file '%s': %s",
+              pin_source, strerror(errno));
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+
+out:
+    fclose(fp);
+
+    if (rc == CKR_OK) {
+        printf("Successfully wrote PKCS#11 user PIN into '%s'.\n", pin_source);
+        printf("Adjust the file permissions of that file so that it can only "
+               "be read by the desired user(s).\n");
+    }
+
+    return rc;
+}
+
 static CK_RV p11sak_export_key(void)
 {
     const struct p11sak_objtype *keytype = NULL;
@@ -9935,8 +10159,40 @@ static CK_RV p11sak_export_key(void)
 
     data.export_all = opt_force;
 
-    if (opt_opaque && opt_spki) {
-        warnx("Either '-o'/'--opaque' or '-S'/'--spki' can be specified.");
+    if ((opt_opaque && opt_spki) || (opt_opaque && opt_uri_pem) ||
+        (opt_spki && opt_uri_pem)) {
+        warnx("Either '-o'/'--opaque', '-S'/'--spki', or '-u'/'--uri-pem' can "
+              "be specified.");
+        return CKR_ARGUMENTS_BAD;
+    }
+    if (opt_uri_pin_value && !opt_uri_pem) {
+        warnx("Option '--uri-pin-value' can only be specified together with "
+              "the '-u'/'--uri-pem' option.");
+        return CKR_ARGUMENTS_BAD;
+    }
+    if (opt_uri_pin_value && opt_no_login) {
+        warnx("Option '--uri-pin-value' can not be specified together with "
+              "the '-N'/'--no_login' option.");
+        return CKR_ARGUMENTS_BAD;
+    }
+    if (opt_uri_pin_value && opt_so) {
+        warnx("Option '--uri-pin-value' can not be specified together with "
+              "the '--so' option.");
+        return CKR_ARGUMENTS_BAD;
+    }
+    if (opt_uri_pin_source != NULL && !opt_uri_pem) {
+        warnx("Option '--uri-pin-source' can only be specified together with "
+              "the '-u'/'--uri-pem' option.");
+        return CKR_ARGUMENTS_BAD;
+    }
+    if (opt_uri_pin_source != NULL && opt_no_login) {
+        warnx("Option '--uri-pin-source' can not be specified together with "
+              "the '-N'/'--no_login' option.");
+        return CKR_ARGUMENTS_BAD;
+    }
+    if (opt_uri_pin_source != NULL && opt_so) {
+        warnx("Option '--uri-pin-source' can not be specified together with "
+              "the '--so' option.");
         return CKR_ARGUMENTS_BAD;
     }
 
@@ -9946,6 +10202,12 @@ static CK_RV p11sak_export_key(void)
     if (rc != CKR_OK) {
         warnx("Failed to iterate over key objects for key type %s: 0x%lX: %s",
                 keytype != NULL ? keytype->name : "All", rc, p11_get_ckr(rc));
+        return rc;
+    }
+
+    if (opt_uri_pem && opt_uri_pin_source != NULL && uri_pin != NULL &&
+        data.num_exported > 0) {
+        rc = p11sak_create_uri_pin_source(opt_uri_pin_source, uri_pin);
         return rc;
     }
 
@@ -9999,12 +10261,53 @@ static CK_RV p11sak_export_cert(void)
 
     data.export_all = opt_force;
 
+    if (opt_der && opt_uri_pem) {
+        warnx("Either '-D'/'--der' or '-u'/'--uri-pem' can be specified.");
+        return CKR_ARGUMENTS_BAD;
+    }
+    if (opt_uri_pin_value && !opt_uri_pem) {
+        warnx("Option '--uri-pin-value' can only be specified together with "
+              "the '-u'/'--uri-pem' option.");
+        return CKR_ARGUMENTS_BAD;
+    }
+    if (opt_uri_pin_value && opt_no_login) {
+        warnx("Option '--uri-pin-value' can not be specified together with "
+              "the '-N'/'--no_login' option.");
+        return CKR_ARGUMENTS_BAD;
+    }
+    if (opt_uri_pin_value && opt_so) {
+        warnx("Option '--uri-pin-value' can not be specified together with "
+              "the '--so' option.");
+        return CKR_ARGUMENTS_BAD;
+    }
+    if (opt_uri_pin_source != NULL && !opt_uri_pem) {
+        warnx("Option '--uri-pin-source' can only be specified together with "
+              "the '-u'/'--uri-pem' option.");
+        return CKR_ARGUMENTS_BAD;
+    }
+    if (opt_uri_pin_source != NULL && opt_no_login) {
+        warnx("Option '--uri-pin-source' can not be specified together with "
+              "the '-N'/'--no_login' option.");
+        return CKR_ARGUMENTS_BAD;
+    }
+    if (opt_uri_pin_source != NULL && opt_so) {
+        warnx("Option '--uri-pin-source' can not be specified together with "
+              "the '--so' option.");
+        return CKR_ARGUMENTS_BAD;
+    }
+
     rc = iterate_objects(certtype, opt_label, opt_id, opt_attr,
                          OBJCLASS_CERTIFICATE, NULL,
                          handle_cert_export, &data);
     if (rc != CKR_OK) {
         warnx("Failed to iterate over certificate objects for type %s: 0x%lX: %s",
                 certtype != NULL ? certtype->name : "All", rc, p11_get_ckr(rc));
+        return rc;
+    }
+
+    if (opt_uri_pem && opt_uri_pin_source != NULL && uri_pin != NULL &&
+        data.num_exported > 0) {
+        rc = p11sak_create_uri_pin_source(opt_uri_pin_source, uri_pin);
         return rc;
     }
 
@@ -10263,6 +10566,15 @@ static CK_RV init_pkcs11(const struct p11sak_cmd *command)
             return CKR_FUNCTION_FAILED;
     }
 
+    if (!opt_so && opt_uri_pem &&
+        (opt_uri_pin_value || opt_uri_pin_source != NULL)) {
+        uri_pin = strdup(pin);
+        if (uri_pin == NULL) {
+            rc = CKR_HOST_MEMORY;
+            goto done;
+        }
+    }
+
     rc = load_pkcs11_lib();
     if (rc != CKR_OK)
         goto done;
@@ -10305,6 +10617,11 @@ static void term_pkcs11(void)
 
     pkcs11_lib = NULL;
     pkcs11_funcs = NULL;
+
+    if (uri_pin != NULL) {
+        OPENSSL_cleanse(uri_pin,  strlen(uri_pin));
+        free(uri_pin);
+    }
 }
 
 static void parse_config_file_error_hook(int line, int col, const char *msg)
