@@ -3462,20 +3462,25 @@ CK_RV aes_gcm_encrypt_update(STDLL_TokData_t *tokdata, SESSION *sess,
     }
 
     context = (AES_GCM_CONTEXT *) ctx->context;
-    total = (context->len + in_data_len);
+    total = context->len + in_data_len;
+    remain = total % AES_BLOCK_SIZE;
+    out_len = total - remain;
 
     if (length_only) {
         if (total < AES_BLOCK_SIZE) {
             *out_data_len = 0;
             return CKR_OK;
         } else {
-            remain = (total % AES_BLOCK_SIZE);
-            out_len = total - remain;
             *out_data_len = out_len;
             TRACE_DEVEL("Length Only requested (%02ld bytes).\n",
                         *out_data_len);
             return CKR_OK;
         }
+    }
+
+    if (*out_data_len < out_len) {
+        TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
+        return CKR_BUFFER_TOO_SMALL;
     }
 
     if (token_specific.t_aes_gcm_update == NULL) {
@@ -3507,7 +3512,6 @@ CK_RV aes_gcm_encrypt_final(STDLL_TokData_t *tokdata, SESSION *sess,
     }
 
     context = (AES_GCM_CONTEXT *) ctx->context;
-
     aesgcm = (CK_GCM_PARAMS *) ctx->mech.pParameter;
     tag_data_len = (aesgcm->ulTagBits + 7) / 8; /* round to full byte */
 
@@ -3602,25 +3606,29 @@ CK_RV aes_gcm_decrypt_update(STDLL_TokData_t *tokdata, SESSION *sess,
      * that means it's tag data, not encrypted plaintext.
      * Hence we'll keep at least tag data size in the context buffer */
 
-    context = (AES_GCM_CONTEXT *) ctx->context;
-    total = (context->len + in_data_len);
-
     aesgcm = (CK_GCM_PARAMS *) ctx->mech.pParameter;
+    context = (AES_GCM_CONTEXT *) ctx->context;
+
+    total = context->len + in_data_len;
     tag_data_len = (aesgcm->ulTagBits + 7) / 8; /* round to full byte */
+    remain = ((total - tag_data_len) % AES_BLOCK_SIZE) + tag_data_len;
+    out_len = total - remain;
 
     if (length_only) {
         if (total < AES_BLOCK_SIZE + tag_data_len) {
             *out_data_len = 0;
             return CKR_OK;
         } else {
-            remain = ((total - tag_data_len) % AES_BLOCK_SIZE)
-                + tag_data_len;
-            out_len = total - remain;
             *out_data_len = out_len;
             TRACE_DEVEL("Length Only requested (%02ld bytes).\n",
                         *out_data_len);
             return CKR_OK;
         }
+    }
+
+    if (*out_data_len < out_len) {
+        TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
+        return CKR_BUFFER_TOO_SMALL;
     }
 
     if (token_specific.t_aes_gcm_update == NULL) {
@@ -3659,6 +3667,11 @@ CK_RV aes_gcm_decrypt_final(STDLL_TokData_t *tokdata, SESSION *sess,
             *out_data_len = context->len;
         }
         return CKR_OK;
+    }
+
+    if (*out_data_len < context->len) {
+        TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
+        return CKR_BUFFER_TOO_SMALL;
     }
 
     if (token_specific.t_aes_gcm_final == NULL) {
