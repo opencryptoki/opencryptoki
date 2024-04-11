@@ -3516,11 +3516,7 @@ CK_RV aes_gcm_encrypt_final(STDLL_TokData_t *tokdata, SESSION *sess,
     tag_data_len = (aesgcm->ulTagBits + 7) / 8; /* round to full byte */
 
     if (length_only) {
-        if (context->len == 0) {
-            *out_data_len = tag_data_len;
-        } else {
-            *out_data_len = context->len + tag_data_len;
-        }
+        *out_data_len = context->len + tag_data_len;
         return CKR_OK;
     }
 
@@ -3661,11 +3657,7 @@ CK_RV aes_gcm_decrypt_final(STDLL_TokData_t *tokdata, SESSION *sess,
     context = (AES_GCM_CONTEXT *) ctx->context;
 
     if (length_only) {
-        if (context->len == 0) {
-            *out_data_len = 0;
-        } else {
-            *out_data_len = context->len;
-        }
+        *out_data_len = context->len;
         return CKR_OK;
     }
 
