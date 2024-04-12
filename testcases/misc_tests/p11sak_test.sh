@@ -454,6 +454,23 @@ if [[ -n $( pkcsconf -m -c $SLOT | grep CKM_IBM_KYBER) ]]; then
 else
 	echo "Skip exporting ibm-kyber keys, slot does not support CKM_IBM_KYBER"
 fi
+# export to URI-PEM
+p11sak export-key aes --slot $SLOT --pin $PKCS11_USER_PIN --label "import-aes" --file export-uri-pem1.pem --force --uri-pem
+RC_P11SAK_EXPORT=$((RC_P11SAK_EXPORT + $?))
+openssl asn1parse -i -in export-uri-pem1.pem  > /dev/null
+RC_P11SAK_EXPORT=$((RC_P11SAK_EXPORT + $?))
+p11sak export-key aes --slot $SLOT --pin $PKCS11_USER_PIN --label "import-aes" --file export-uri-pem2.pem --force --uri-pem --uri-pin-value
+RC_P11SAK_EXPORT=$((RC_P11SAK_EXPORT + $?))
+openssl asn1parse -i -in export-uri-pem2.pem  > /dev/null
+RC_P11SAK_EXPORT=$((RC_P11SAK_EXPORT + $?))
+p11sak export-key aes --slot $SLOT --pin $PKCS11_USER_PIN --label "import-aes" --file export-uri-pem3.pem --force --uri-pem --uri-pin-source pin1.txt
+RC_P11SAK_EXPORT=$((RC_P11SAK_EXPORT + $?))
+openssl asn1parse -i -in export-uri-pem3.pem  > /dev/null
+RC_P11SAK_EXPORT=$((RC_P11SAK_EXPORT + $?))
+if [[ $(cat pin1.txt) != $PKCS11_USER_PIN ]]; then
+	echo "Pin file does not contain the PKCS#11 user pin"
+	RC_P11SAK_EXPORT=$((RC_P11SAK_EXPORT + 1))
+fi
 
 
 echo "** Now remove keys - 'p11sak_test.sh'"
@@ -1464,6 +1481,23 @@ if [[ -n $( pkcsconf -m -c $SLOT | grep CKM_DSA) ]]; then
 else
 	echo "Skip exporting x.509 certs with DSA key, slot does not support CKM_DSA"
 fi
+# export to URI-PEM
+p11sak export-cert x509 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-x509-rsa2048crt" --file export-uri-pem4.pem --force --uri-pem
+RC_P11SAK_X509_EXPORT=$((RC_P11SAK_X509_EXPORT + $?))
+openssl asn1parse -i -in export-uri-pem4.pem  > /dev/null
+RC_P11SAK_X509_EXPORT=$((RC_P11SAK_X509_EXPORT + $?))
+p11sak export-cert x509 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-x509-rsa2048crt" --file export-uri-pem5.pem --force --uri-pem --uri-pin-value
+RC_P11SAK_X509_EXPORT=$((RC_P11SAK_X509_EXPORT + $?))
+openssl asn1parse -i -in export-uri-pem5.pem  > /dev/null
+RC_P11SAK_X509_EXPORT=$((RC_P11SAK_X509_EXPORT + $?))
+p11sak export-cert x509 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-x509-rsa2048crt" --file export-uri-pem6.pem --force --uri-pem --uri-pin-source pin2.txt
+RC_P11SAK_X509_EXPORT=$((RC_P11SAK_X509_EXPORT + $?))
+openssl asn1parse -i -in export-uri-pem6.pem  > /dev/null
+RC_P11SAK_X509_EXPORT=$((RC_P11SAK_X509_EXPORT + $?))
+if [[ $(cat pin2.txt) != $PKCS11_USER_PIN ]]; then
+	echo "Pin file does not contain the PKCS#11 user pin"
+	RC_P11SAK_X509_EXPORT=$((RC_P11SAK_X509_EXPORT + 1))
+fi
 
 
 echo "** Now extracting public keys from x.509 certificates - 'p11sak_test.sh'"
@@ -2097,6 +2131,7 @@ rm -f $P11SAK_ALL_SO
 rm -f export-aes.key
 rm -f export-*.pem
 rm -f export-*.opaque
+rm -f pin*.txt
 
 echo "** Now remove temporary openssl files from x509 tests - "p11sak_test.sh""
 rm -f p11sak_*cert_exported.crt
