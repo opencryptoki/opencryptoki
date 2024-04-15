@@ -3450,6 +3450,11 @@ CK_RV new_gcm_specific_aes_gcm_final(STDLL_TokData_t *tokdata, SESSION *sess,
 
             /* Perform final update without data to calculate final tag */
             rc = ica_aes_gcm_kma_update(NULL, NULL, 0, NULL, 0, 1, 1, gcm_ctx);
+            if (rc != 0) {
+                TRACE_ERROR("ica_aes_gcm_kma_update failed, rc=%ld.\n",rc);
+                rc = CKR_FUNCTION_FAILED;
+                goto done;
+            }
         } else {                /* (context->len < tag_data_len) */
             TRACE_ERROR("Incoming data are not consistent.\n");
             rc = CKR_DATA_INVALID;
