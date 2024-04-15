@@ -1465,15 +1465,15 @@ done:
 }
 
 #ifdef NO_PKEY
-CK_BBOOL ep11tok_pkey_usage_ok(STDLL_TokData_t *tokdata, SESSION *session,
-                               CK_OBJECT_HANDLE hkey, CK_MECHANISM *mech)
+CK_RV ep11tok_pkey_usage_ok(STDLL_TokData_t *tokdata, SESSION *session,
+                            CK_OBJECT_HANDLE hkey, CK_MECHANISM *mech)
 {
     UNUSED(tokdata);
     UNUSED(session);
     UNUSED(hkey);
     UNUSED(mech);
 
-    return CK_FALSE;
+    return CKR_FUNCTION_NOT_SUPPORTED;
 }
 #endif /* NO_PKEY */
 
