@@ -9307,7 +9307,7 @@ static CK_ULONG ber_encode_len(CK_ULONG data_len, CK_BYTE *out)
         if (out != NULL) {
             out[0] = 0x82;
             out[1] = (CK_BYTE)((data_len >> 8) & 0xff);
-            out[1] = (CK_BYTE)(data_len & 0xff);
+            out[2] = (CK_BYTE)(data_len & 0xff);
         }
     }
 
