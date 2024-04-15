@@ -10566,7 +10566,7 @@ static CK_RV init_pkcs11(const struct p11sak_cmd *command)
             return CKR_FUNCTION_FAILED;
     }
 
-    if (!opt_so && opt_uri_pem &&
+    if (!opt_so && !opt_no_login && opt_uri_pem &&
         (opt_uri_pin_value || opt_uri_pin_source != NULL)) {
         uri_pin = strdup(pin);
         if (uri_pin == NULL) {
