@@ -3150,6 +3150,7 @@ static CK_BBOOL save_data_in_context(CK_BYTE *in_data, CK_ULONG in_data_len,
     return CK_FALSE;
 }
 
+#ifdef AES_GCM_KMA
 static void new_gcm_specific_aes_gcm_free(STDLL_TokData_t *tokdata,
                                           struct _SESSION *sess,
                                           CK_BYTE *context,
@@ -3470,6 +3471,7 @@ done:
 
     return rc;
 }
+#endif
 
 CK_RV token_specific_rsa_encrypt(STDLL_TokData_t *tokdata, CK_BYTE *in_data,
                                  CK_ULONG in_data_len, CK_BYTE *out_data,
@@ -3841,12 +3843,14 @@ CK_RV token_specific_aes_gcm_init(STDLL_TokData_t *tokdata, SESSION *sess,
         goto done;
     }
 
+#ifdef AES_GCM_KMA
     if (ica_data->ica_new_gcm_available) {
         rc = new_gcm_specific_aes_gcm_init(tokdata, sess, ctx, mech,
                                            attr->pValue, attr->ulValueLen,
                                            encrypt);
         goto done;
     }
+#endif
 
     /* prepare initial counterblock */
     aes_gcm_param = (CK_GCM_PARAMS *) mech->pParameter;
@@ -3902,10 +3906,13 @@ CK_RV token_specific_aes_gcm(STDLL_TokData_t *tokdata, SESSION *sess,
                                         in_data_len, out_data, out_data_len,
                                         encrypt);
 
+#ifdef AES_GCM_KMA
     if (ica_data->ica_new_gcm_available)
         return new_gcm_specific_aes_gcm(tokdata, sess, ctx, in_data,
                                         in_data_len, out_data, out_data_len,
                                         encrypt);
+
+#endif
 
     /*
      * Checks for input and output data length and block sizes are already
@@ -4002,10 +4009,12 @@ CK_RV token_specific_aes_gcm_update(STDLL_TokData_t *tokdata, SESSION *sess,
                                                in_data_len, out_data,
                                                out_data_len, encrypt);
 
+#ifdef AES_GCM_KMA
     if (ica_data->ica_new_gcm_available)
         return new_gcm_specific_aes_gcm_update(tokdata, sess, ctx, in_data,
                                         in_data_len, out_data, out_data_len,
                                         encrypt);
+#endif
 
     context = (AES_GCM_CONTEXT *) ctx->context;
     total = (context->len + in_data_len);
@@ -4144,9 +4153,11 @@ CK_RV token_specific_aes_gcm_final(STDLL_TokData_t *tokdata, SESSION *sess,
         return openssl_specific_aes_gcm_final(tokdata, sess, ctx, out_data,
                                               out_data_len, encrypt);
 
+#ifdef AES_GCM_KMA
     if (ica_data->ica_new_gcm_available)
         return new_gcm_specific_aes_gcm_final(tokdata, sess, ctx, out_data,
                                               out_data_len, encrypt);
+#endif
 
     /* find key object */
     rc = object_mgr_find_in_map_nocache(tokdata, ctx->key, &key, READ_LOCK);
@@ -4993,9 +5004,11 @@ static CK_RV mech_list_ica_initialize(STDLL_TokData_t *tokdata)
         if (libica_func_list[i].mech_mode_id == AES_CBC)
             ica_data->ica_aes_available = TRUE;
 
+#ifdef AES_GCM_KMA
         /* Remember if libica supports the new AES-GCM API (z14 and later) */
         if (libica_func_list[i].mech_mode_id == AES_GCM_KMA)
             ica_data->ica_new_gcm_available = TRUE;
+#endif
 
         /* Remember if libica supports DES/3DES mechanisms (HW or SW) */
         if (libica_func_list[i].mech_mode_id == DES_CBC)
