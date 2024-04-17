@@ -1389,6 +1389,10 @@ CK_BBOOL template_check_exportability(TEMPLATE *tmpl, CK_ATTRIBUTE_TYPE type)
         case CKK_X9_42_DH:
         case CKK_DH:
             return dh_priv_check_exportability(type);
+        case CKK_IBM_DILITHIUM:
+            return ibm_dilithium_priv_check_exportability(type);
+        case CKK_IBM_KYBER:
+            return ibm_kyber_priv_check_exportability(type);
         default:
             TRACE_ERROR("%s: %lx\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID),
                         subclass);
