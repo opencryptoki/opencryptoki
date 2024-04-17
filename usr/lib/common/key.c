@@ -5754,6 +5754,21 @@ CK_RV ibm_dilithium_priv_validate_attribute(STDLL_TokData_t *tokdata,
     }
 }
 
+CK_BBOOL ibm_dilithium_priv_check_exportability(CK_ATTRIBUTE_TYPE type)
+{
+    switch (type) {
+    case CKA_VALUE:
+    case CKA_IBM_DILITHIUM_SEED:
+    case CKA_IBM_DILITHIUM_TR:
+    case CKA_IBM_DILITHIUM_S1:
+    case CKA_IBM_DILITHIUM_S2:
+    case CKA_IBM_DILITHIUM_T0:
+        return FALSE;
+    }
+
+    return TRUE;
+}
+
 // ibm_kyber_publ_validate_attribute()
 //
 CK_RV ibm_kyber_publ_validate_attribute(STDLL_TokData_t *tokdata,
@@ -5805,6 +5820,17 @@ CK_RV ibm_kyber_priv_validate_attribute(STDLL_TokData_t *tokdata,
     default:
         return priv_key_validate_attribute(tokdata, tmpl, attr, mode);
     }
+}
+
+CK_BBOOL ibm_kyber_priv_check_exportability(CK_ATTRIBUTE_TYPE type)
+{
+    switch (type) {
+    case CKA_VALUE:
+    case CKA_IBM_KYBER_PK:
+        return FALSE;
+    }
+
+    return TRUE;
 }
 
 // generic_secret_check_required_attributes()
