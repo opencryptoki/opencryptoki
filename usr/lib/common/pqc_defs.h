@@ -30,6 +30,17 @@ struct pqc_oid {
     CK_ULONG keyform;
     CK_ULONG policy_size;
     CK_ULONG policy_siglen;
+    union {
+        struct {
+            CK_ULONG rho_len;
+            CK_ULONG seed_len;
+            CK_ULONG tr_len;
+            CK_ULONG s1_len;
+            CK_ULONG s2_len;
+            CK_ULONG t0_len;
+            CK_ULONG t1_len;
+        } dilithium;
+    } len_info;
 };
 
 extern const struct pqc_oid dilithium_oids[];
