@@ -160,3 +160,254 @@ done:
 
     return rc;
 }
+
+#define PACK_PART(attr, explen, buf, buflen, ofs)                       \
+    if ((attr)->ulValueLen != (explen)) {                               \
+        TRACE_ERROR("Key part #attr length not as expected\n");         \
+        return CKR_ATTRIBUTE_VALUE_INVALID;                             \
+    }                                                                   \
+    if ((ofs) + (attr)->ulValueLen > (buflen)) {                        \
+        TRACE_ERROR("Buffer is too small\n");                           \
+        return CKR_BUFFER_TOO_SMALL;                                    \
+    }                                                                   \
+    memcpy(&(buf)[(ofs)], (attr)->pValue, (attr)->ulValueLen);          \
+    (ofs) += (attr)->ulValueLen
+
+CK_RV ibm_dilithium_pack_priv_key(TEMPLATE *templ, const struct pqc_oid *oid,
+                                  CK_BYTE *buf, CK_ULONG *buf_len)
+{
+    CK_ATTRIBUTE *rho = NULL, *seed = NULL;
+    CK_ATTRIBUTE *tr = NULL, *s1 = NULL, *s2 = NULL;
+    CK_ATTRIBUTE *t0 = NULL;
+    CK_ULONG ofs = 0;
+    CK_RV rc;
+
+    if (buf == NULL) {
+        *buf_len = oid->len_info.dilithium.rho_len +
+                   oid->len_info.dilithium.seed_len +
+                   oid->len_info.dilithium.tr_len +
+                   oid->len_info.dilithium.s1_len +
+                   oid->len_info.dilithium.s2_len +
+                   oid->len_info.dilithium.t0_len;
+        return CKR_OK;
+    }
+
+    rc = template_attribute_get_non_empty(templ, CKA_IBM_DILITHIUM_RHO,
+                                          &rho);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_IBM_DILITHIUM_RHO for the key.\n");
+        return rc;
+    }
+
+    rc = template_attribute_get_non_empty(templ, CKA_IBM_DILITHIUM_SEED,
+                                          &seed);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_IBM_DILITHIUM_SEED for the key.\n");
+        return rc;
+    }
+
+    rc = template_attribute_get_non_empty(templ, CKA_IBM_DILITHIUM_TR,
+                                          &tr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_IBM_DILITHIUM_TR for the key.\n");
+        return rc;
+    }
+
+    rc = template_attribute_get_non_empty(templ, CKA_IBM_DILITHIUM_S1,
+                                          &s1);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_IBM_DILITHIUM_S1 for the key.\n");
+        return rc;
+    }
+
+    rc = template_attribute_get_non_empty(templ, CKA_IBM_DILITHIUM_S2,
+                                          &s2);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_IBM_DILITHIUM_S2 for the key.\n");
+        return rc;
+    }
+
+    rc = template_attribute_get_non_empty(templ, CKA_IBM_DILITHIUM_T0,
+                                          &t0);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_IBM_DILITHIUM_T0 for the key.\n");
+        return rc;
+    }
+
+    PACK_PART(rho, oid->len_info.dilithium.rho_len, buf, *buf_len, ofs);
+    PACK_PART(seed, oid->len_info.dilithium.seed_len, buf, *buf_len, ofs);
+    PACK_PART(tr, oid->len_info.dilithium.tr_len, buf, *buf_len, ofs);
+    PACK_PART(s1, oid->len_info.dilithium.s1_len, buf, *buf_len, ofs);
+    PACK_PART(s2, oid->len_info.dilithium.s2_len, buf, *buf_len, ofs);
+    PACK_PART(t0, oid->len_info.dilithium.t0_len, buf, *buf_len, ofs);
+
+    *buf_len = ofs;
+
+    return CKR_OK;
+}
+
+CK_RV ibm_dilithium_pack_pub_key(TEMPLATE *templ, const struct pqc_oid *oid,
+                                 CK_BYTE *buf, CK_ULONG *buf_len)
+{
+    CK_ATTRIBUTE *rho = NULL, *t1 = NULL;
+    CK_ULONG ofs = 0;
+    CK_RV rc;
+
+    if (buf == NULL) {
+        *buf_len = oid->len_info.dilithium.rho_len +
+                   oid->len_info.dilithium.t1_len;
+        return CKR_OK;
+    }
+
+    rc = template_attribute_get_non_empty(templ, CKA_IBM_DILITHIUM_RHO,
+                                          &rho);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_IBM_DILITHIUM_RHO for the key.\n");
+        return rc;
+    }
+
+    rc = template_attribute_get_non_empty(templ, CKA_IBM_DILITHIUM_T1,
+                                          &t1);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_IBM_DILITHIUM_T1 for the key.\n");
+        return rc;
+    }
+
+    PACK_PART(rho, oid->len_info.dilithium.rho_len, buf, *buf_len, ofs);
+    PACK_PART(t1, oid->len_info.dilithium.t1_len, buf, *buf_len, ofs);
+
+    *buf_len = ofs;
+
+    return CKR_OK;
+}
+
+#define UNPACK_PART(attr, attr_type, len, buf, buflen, ofs, rc, label)     \
+    if ((ofs) + (len) > (buflen)) {                                        \
+        TRACE_ERROR("Buffer is too small\n");                              \
+        (rc) = CKR_BUFFER_TOO_SMALL;                                       \
+        goto label;                                                        \
+    }                                                                      \
+    (rc) = build_attribute(attr_type, &(buf)[(ofs)], (len), &(attr));      \
+    if ((rc) != CKR_OK) {                                                  \
+        TRACE_ERROR("build_attribute for #attr failed\n");                 \
+        goto label;                                                        \
+    }                                                                      \
+    (ofs) += (len);
+
+CK_RV ibm_dilithium_unpack_priv_key(CK_BYTE *buf, CK_ULONG buf_len,
+                                    const struct pqc_oid *oid,
+                                    TEMPLATE *templ)
+{
+    CK_ATTRIBUTE *rho = NULL, *seed = NULL;
+    CK_ATTRIBUTE *tr = NULL, *s1 = NULL, *s2 = NULL;
+    CK_ATTRIBUTE *t0 = NULL;
+    CK_ULONG ofs = 0;
+    CK_RV rc;
+
+    UNPACK_PART(rho, CKA_IBM_DILITHIUM_RHO, oid->len_info.dilithium.rho_len,
+                buf, buf_len, ofs, rc, out);
+    UNPACK_PART(seed, CKA_IBM_DILITHIUM_SEED, oid->len_info.dilithium.seed_len,
+                buf, buf_len, ofs, rc, out);
+    UNPACK_PART(tr, CKA_IBM_DILITHIUM_TR, oid->len_info.dilithium.tr_len,
+                buf, buf_len, ofs, rc, out);
+    UNPACK_PART(s1, CKA_IBM_DILITHIUM_S1, oid->len_info.dilithium.s1_len,
+                buf, buf_len, ofs, rc, out);
+    UNPACK_PART(s2, CKA_IBM_DILITHIUM_S2, oid->len_info.dilithium.s2_len,
+                buf, buf_len, ofs, rc, out);
+    UNPACK_PART(t0, CKA_IBM_DILITHIUM_T0, oid->len_info.dilithium.t0_len,
+                buf, buf_len, ofs, rc, out);
+
+    rc = template_update_attribute(templ, rho);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("Template update forCKA_IBM_DILITHIUM_RHO failed\n");
+        goto out;
+    }
+    rho = NULL;
+
+    rc = template_update_attribute(templ, seed);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("Template update forCKA_IBM_DILITHIUM_SEED failed\n");
+        goto out;
+    }
+    seed = NULL;
+
+    rc = template_update_attribute(templ, tr);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("Template update forCKA_IBM_DILITHIUM_TR failed\n");
+        goto out;
+    }
+    tr = NULL;
+
+    rc = template_update_attribute(templ, s1);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("Template update forCKA_IBM_DILITHIUM_S1 failed\n");
+        goto out;
+    }
+    s1 = NULL;
+
+    rc = template_update_attribute(templ, s2);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("Template update forCKA_IBM_DILITHIUM_S2 failed\n");
+        goto out;
+    }
+    s2 = NULL;
+
+    rc = template_update_attribute(templ, t0);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("Template update forCKA_IBM_DILITHIUM_T0 failed\n");
+        goto out;
+    }
+    t0 = NULL;
+
+out:
+    if (rho != NULL)
+        free(rho);
+    if (seed != NULL)
+        free(seed);
+    if (tr != NULL)
+        free(tr);
+    if (s1 != NULL)
+        free(s1);
+    if (s2 != NULL)
+        free(s2);
+    if (t0 != NULL)
+        free(t0);
+
+    return rc;
+}
+
+CK_RV ibm_dilithium_unpack_pub_key(CK_BYTE *buf, CK_ULONG buf_len,
+                                   const struct pqc_oid *oid,
+                                   TEMPLATE *templ)
+{
+    CK_ATTRIBUTE *rho = NULL, *t1 = NULL;
+    CK_ULONG ofs = 0;
+    CK_RV rc;
+
+    UNPACK_PART(rho, CKA_IBM_DILITHIUM_RHO, oid->len_info.dilithium.rho_len,
+                buf, buf_len, ofs, rc, out);
+    UNPACK_PART(t1, CKA_IBM_DILITHIUM_T1, oid->len_info.dilithium.t1_len,
+                buf, buf_len, ofs, rc, out);
+
+    rc = template_update_attribute(templ, rho);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("Template update forCKA_IBM_DILITHIUM_RHO failed\n");
+        goto out;
+    }
+    rho = NULL;
+
+    rc = template_update_attribute(templ, t1);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("Template update forCKA_IBM_DILITHIUM_T1 failed\n");
+        goto out;
+    }
+    t1 = NULL;
+
+out:
+    if (rho != NULL)
+        free(rho);
+    if (t1 != NULL)
+        free(t1);
+
+    return rc;
+}

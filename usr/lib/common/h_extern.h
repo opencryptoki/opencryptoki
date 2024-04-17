@@ -866,6 +866,20 @@ CK_RV ibm_dilithium_verify(STDLL_TokData_t *tokdata, SESSION *sess,
                            CK_BYTE *in_data, CK_ULONG in_data_len,
                            CK_BYTE *signature, CK_ULONG sig_len);
 
+CK_RV ibm_dilithium_pack_priv_key(TEMPLATE *templ, const struct pqc_oid *oid,
+                                  CK_BYTE *buf, CK_ULONG *buf_len);
+
+CK_RV ibm_dilithium_pack_pub_key(TEMPLATE *templ, const struct pqc_oid *oid,
+                                 CK_BYTE *buf, CK_ULONG *buf_len);
+
+CK_RV ibm_dilithium_unpack_priv_key(CK_BYTE *buf, CK_ULONG buf_len,
+                                    const struct pqc_oid *oid,
+                                    TEMPLATE *templ);
+
+CK_RV ibm_dilithium_unpack_pub_key(CK_BYTE *buf, CK_ULONG buf_len,
+                                   const struct pqc_oid *oid,
+                                   TEMPLATE *templ);
+
 CK_RV digest_from_kdf(CK_EC_KDF_TYPE kdf, CK_MECHANISM_TYPE *mech);
 
 CK_RV pkcs_get_keytype(CK_ATTRIBUTE *attrs, CK_ULONG attrs_len,
