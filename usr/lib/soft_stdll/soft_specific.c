@@ -1589,4 +1589,49 @@ CK_RV token_specific_ibm_dilithium_generate_keypair(STDLL_TokData_t *tokdata,
                                                            priv_tmpl);
 }
 
+CK_RV token_specific_ibm_dilithium_sign(STDLL_TokData_t *tokdata,
+                                        SESSION *sess,
+                                        CK_BBOOL length_only,
+                                        const struct pqc_oid *oid,
+                                        CK_BYTE *in_data,
+                                        CK_ULONG in_data_len,
+                                        CK_BYTE *signature,
+                                        CK_ULONG *signature_len,
+                                        OBJECT *key_obj)
+{
+    struct soft_private_data *soft_private = tokdata->private_data;
+
+    if (soft_private->oqs_provider == NULL) {
+        TRACE_ERROR("The oqsprovider is not loaded\n");
+        return CKR_MECHANISM_INVALID;
+    }
+
+    return openssl_specific_ibm_dilithium_sign(tokdata, sess, length_only, oid,
+                                               in_data, in_data_len,
+                                               signature, signature_len,
+                                               key_obj);
+}
+
+CK_RV token_specific_ibm_dilithium_verify(STDLL_TokData_t *tokdata,
+                                          SESSION *sess,
+                                          const struct pqc_oid *oid,
+                                          CK_BYTE *in_data,
+                                          CK_ULONG in_data_len,
+                                          CK_BYTE *signature,
+                                          CK_ULONG signature_len,
+                                          OBJECT *key_obj)
+{
+    struct soft_private_data *soft_private = tokdata->private_data;
+
+    if (soft_private->oqs_provider == NULL) {
+        TRACE_ERROR("The oqsprovider is not loaded\n");
+        return CKR_MECHANISM_INVALID;
+    }
+
+    return openssl_specific_ibm_dilithium_verify(tokdata, sess, oid,
+                                                 in_data, in_data_len,
+                                                 signature, signature_len,
+                                                 key_obj);
+}
+
 #endif

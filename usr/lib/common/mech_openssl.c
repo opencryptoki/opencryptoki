@@ -5791,4 +5791,299 @@ out:
     return rc;
 }
 
+CK_RV openssl_make_ibm_dilithium_key_from_template(TEMPLATE *tmpl,
+                                                   const struct pqc_oid *oid,
+                                                   CK_BBOOL private_key,
+                                                   const char *alg_name,
+                                                   EVP_PKEY **pkey)
+{
+    CK_ULONG priv_len = 0, pub_len = 0;
+    CK_BYTE *priv_key = NULL, *pub_key = NULL;
+    EVP_PKEY_CTX *pctx = NULL;
+    OSSL_PARAM_BLD *bld = NULL;
+    OSSL_PARAM *params = NULL;
+    CK_RV rc;
+
+    if (private_key) {
+        rc = ibm_dilithium_pack_priv_key(tmpl, oid, NULL, &priv_len);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("ibm_dilithium_pack_priv_key failed\n");
+            goto out;
+        }
+
+        priv_key = calloc(1, priv_len);
+        if (priv_key == NULL) {
+            TRACE_ERROR("Failed to allocate private key buffer\n");
+            rc = CKR_HOST_MEMORY;
+            goto out;
+        }
+
+        rc = ibm_dilithium_pack_priv_key(tmpl, oid, priv_key, &priv_len);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("ibm_dilithium_pack_priv_key failed\n");
+            goto out;
+        }
+    }
+
+    rc = ibm_dilithium_pack_pub_key(tmpl, oid, NULL, &pub_len);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("ibm_dilithium_pack_pub_key failed\n");
+        goto out;
+    }
+
+    pub_key = calloc(1, pub_len);
+    if (pub_key == NULL) {
+        TRACE_ERROR("Failed to allocate public key buffer\n");
+        rc = CKR_HOST_MEMORY;
+        goto out;
+    }
+
+    rc = ibm_dilithium_pack_pub_key(tmpl, oid, pub_key, &pub_len);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("ibm_dilithium_pack_pub_key failed\n");
+        goto out;
+    }
+
+    bld = OSSL_PARAM_BLD_new();
+    if (bld == NULL) {
+        TRACE_ERROR("OSSL_PARAM_BLD_new failed\n");
+        rc = CKR_HOST_MEMORY;
+        goto out;
+    }
+
+    if (private_key) {
+        if (OSSL_PARAM_BLD_push_octet_string(bld, OSSL_PKEY_PARAM_PRIV_KEY,
+                                             priv_key, priv_len) != 1) {
+            TRACE_ERROR("OSSL_PARAM_BLD_push_octet_string failed\n");
+            rc = CKR_FUNCTION_FAILED;
+            goto out;
+        }
+    }
+
+    if (OSSL_PARAM_BLD_push_octet_string(bld, OSSL_PKEY_PARAM_PUB_KEY,
+                                         pub_key, pub_len) != 1) {
+        TRACE_ERROR("OSSL_PARAM_BLD_push_octet_string failed\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+
+    params = OSSL_PARAM_BLD_to_param(bld);
+    if (params == NULL) {
+        TRACE_ERROR("OSSL_PARAM_BLD_to_param failed\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+
+    pctx = EVP_PKEY_CTX_new_from_name(NULL, alg_name, NULL);
+    if (pctx == NULL) {
+        TRACE_ERROR("EVP_PKEY_CTX_new_from_name failed for '%s'\n", alg_name);
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+
+    if (EVP_PKEY_fromdata_init(pctx) != 1) {
+        TRACE_ERROR("EVP_PKEY_fromdata_init failed for '%s'\n", alg_name);
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+
+    if (EVP_PKEY_fromdata(pctx, pkey, private_key ? EVP_PKEY_KEYPAIR :
+                                                    EVP_PKEY_PUBLIC_KEY,
+                          params) != 1) {
+        TRACE_ERROR("EVP_PKEY_fromdata failed for '%s'\n", alg_name);
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+
+out:
+    if (priv_key != NULL) {
+        OPENSSL_cleanse(priv_key, priv_len);
+        free(priv_key);
+    }
+    if (pub_key != NULL)
+        free(pub_key);
+    if (pctx != NULL)
+        EVP_PKEY_CTX_free(pctx);
+    if (bld != NULL)
+        OSSL_PARAM_BLD_free(bld);
+    if (params != NULL)
+        OSSL_PARAM_free(params);
+
+    return rc;
+}
+
+CK_RV openssl_specific_ibm_dilithium_sign(STDLL_TokData_t *tokdata,
+                                          SESSION *sess,
+                                          CK_BBOOL length_only,
+                                          const struct pqc_oid *oid,
+                                          CK_BYTE *in_data,
+                                          CK_ULONG in_data_len,
+                                          CK_BYTE *signature,
+                                          CK_ULONG *signature_len,
+                                          OBJECT *key_obj)
+{
+    struct openssl_ex_data *ex_data = NULL;
+    EVP_PKEY *pkey = NULL;
+    CK_RV rc = CKR_OK;
+    EVP_PKEY_CTX *ctx = NULL;
+    const char *alg_name;
+    size_t siglen;
+
+    UNUSED(tokdata);
+    UNUSED(sess);
+
+    alg_name = openssl_get_pqc_oid_name(oid);
+    if (alg_name == NULL) {
+        TRACE_ERROR("Dilithium key form is not supported by oqsprovider\n");
+        return CKR_KEY_SIZE_RANGE;
+    }
+
+    rc = openssl_get_ex_data(key_obj, (void **)&ex_data,
+                             sizeof(struct openssl_ex_data),
+                             openssl_need_wr_lock, NULL);
+    if (rc != CKR_OK)
+        return rc;
+
+    if (ex_data->pkey == NULL) {
+        rc = openssl_make_ibm_dilithium_key_from_template(key_obj->template,
+                                                          oid, TRUE, alg_name,
+                                                          &ex_data->pkey);
+        if (rc != CKR_OK)
+            goto out;
+    }
+
+    pkey = ex_data->pkey;
+    if (EVP_PKEY_up_ref(pkey) != 1) {
+        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+
+    ctx = EVP_PKEY_CTX_new(pkey, NULL);
+    if (ctx == NULL) {
+        TRACE_ERROR("EVP_PKEY_CTX_new failed\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+
+    if (EVP_PKEY_sign_init(ctx) <= 0) {
+        TRACE_ERROR("EVP_PKEY_sign_init failed\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+
+    if (length_only) {
+        if (EVP_PKEY_sign(ctx, NULL, &siglen, in_data, in_data_len) <= 0) {
+            TRACE_ERROR("EVP_PKEY_sign failed\n");
+            rc = CKR_FUNCTION_FAILED;
+            goto out;
+        }
+
+        *signature_len = siglen;
+        goto out;
+    }
+
+    siglen = *signature_len;
+    if (EVP_PKEY_sign(ctx, signature, &siglen, in_data, in_data_len) <= 0) {
+        TRACE_ERROR("EVP_PKEY_sign failed\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+
+    *signature_len = siglen;
+
+out:
+    if (pkey != NULL)
+        EVP_PKEY_free(pkey);
+    if (ctx != NULL)
+        EVP_PKEY_CTX_free(ctx);
+    object_ex_data_unlock(key_obj);
+
+    return rc;
+}
+
+CK_RV openssl_specific_ibm_dilithium_verify(STDLL_TokData_t *tokdata,
+                                            SESSION *sess,
+                                            const struct pqc_oid *oid,
+                                            CK_BYTE *in_data,
+                                            CK_ULONG in_data_len,
+                                            CK_BYTE *signature,
+                                            CK_ULONG signature_len,
+                                            OBJECT *key_obj)
+{
+    struct openssl_ex_data *ex_data = NULL;
+    EVP_PKEY *pkey = NULL;
+    CK_RV rc = CKR_OK;
+    EVP_PKEY_CTX *ctx = NULL;
+    const char *alg_name;
+    size_t siglen;
+
+    UNUSED(tokdata);
+    UNUSED(sess);
+
+    alg_name = openssl_get_pqc_oid_name(oid);
+    if (alg_name == NULL) {
+        TRACE_ERROR("Dilithium key form is not supported by oqsprovider\n");
+        return CKR_KEY_SIZE_RANGE;
+    }
+
+    rc = openssl_get_ex_data(key_obj, (void **)&ex_data,
+                             sizeof(struct openssl_ex_data),
+                             openssl_need_wr_lock, NULL);
+    if (rc != CKR_OK)
+        return rc;
+
+    if (ex_data->pkey == NULL) {
+        rc = openssl_make_ibm_dilithium_key_from_template(key_obj->template,
+                                                          oid, FALSE, alg_name,
+                                                          &ex_data->pkey);
+        if (rc != CKR_OK)
+            goto out;
+    }
+
+    pkey = ex_data->pkey;
+    if (EVP_PKEY_up_ref(pkey) != 1) {
+        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+
+    ctx = EVP_PKEY_CTX_new(pkey, NULL);
+    if (ctx == NULL) {
+        TRACE_ERROR("EVP_PKEY_CTX_new failed\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+
+    if (EVP_PKEY_verify_init(ctx) <= 0) {
+        TRACE_ERROR("EVP_PKEY_verify_init failed\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+
+    siglen = signature_len;
+    rc = EVP_PKEY_verify(ctx, signature, siglen, in_data, in_data_len);
+    switch (rc) {
+    case 0:
+        rc = CKR_SIGNATURE_INVALID;
+        break;
+    case 1:
+        rc = CKR_OK;
+        break;
+    default:
+        TRACE_ERROR("EVP_PKEY_verify failed\n");
+        rc = CKR_FUNCTION_FAILED;
+        break;
+    }
+
+out:
+    if (pkey != NULL)
+        EVP_PKEY_free(pkey);
+    if (ctx != NULL)
+        EVP_PKEY_CTX_free(ctx);
+    object_ex_data_unlock(key_obj);
+
+    return rc;
+}
+
 #endif
