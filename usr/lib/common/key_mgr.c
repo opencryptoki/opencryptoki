@@ -913,8 +913,23 @@ CK_RV key_mgr_wrap_key(STDLL_TokData_t *tokdata,
         rc = ecdsa_priv_wrap_get_data(key_obj->template, length_only, &data,
                                       &data_len);
         if (rc != CKR_OK) {
-            TRACE_DEVEL("ecdsa_priv_wrap_get_data failed with rc=%s.\n",
-                        ock_err(rc));
+            TRACE_DEVEL("ecdsa_priv_wrap_get_data failed.\n");
+            goto done;
+        }
+        break;
+    case CKK_IBM_PQC_DILITHIUM:
+        rc = ibm_dilithium_priv_wrap_get_data(key_obj->template, length_only,
+                                              &data, &data_len);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("ibm_dilithium_priv_wrap_get_data failed.\n");
+            goto done;
+        }
+        break;
+    case CKK_IBM_PQC_KYBER:
+        rc = ibm_kyber_priv_wrap_get_data(key_obj->template, length_only,
+                                          &data, &data_len);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("ibm_kyber_priv_wrap_get_data failed.\n");
             goto done;
         }
         break;
