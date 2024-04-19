@@ -1452,3 +1452,23 @@ CK_RV token_specific_object_add(STDLL_TokData_t * tokdata, SESSION * sess,
     }
 }
 
+#if OPENSSL_VERSION_PREREQ(3, 0)
+
+CK_RV token_specific_ibm_dilithium_generate_keypair(STDLL_TokData_t *tokdata,
+                                                    const struct pqc_oid *oid,
+                                                    TEMPLATE *publ_tmpl,
+                                                    TEMPLATE *priv_tmpl)
+{
+    struct soft_private_data *soft_private = tokdata->private_data;
+
+    if (soft_private->oqs_provider == NULL) {
+        TRACE_ERROR("The oqsprovider is not loaded\n");
+        return CKR_MECHANISM_INVALID;
+    }
+
+    return openssl_specific_ibm_dilithium_generate_keypair(tokdata, oid,
+                                                           publ_tmpl,
+                                                           priv_tmpl);
+}
+
+#endif

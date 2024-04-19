@@ -1668,6 +1668,31 @@ CK_RV template_update_attribute(TEMPLATE *tmpl, CK_ATTRIBUTE *new_attr)
     return CKR_OK;
 }
 
+CK_RV template_build_update_attribute(TEMPLATE *tmpl,
+                                      CK_ATTRIBUTE_TYPE type,
+                                      CK_BYTE * data, CK_ULONG data_len)
+{
+    CK_ATTRIBUTE *attr;
+    CK_RV rc;
+
+    rc = build_attribute(type, data, data_len, &attr);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("Build attribute for type=%lu failed, rv=0x%lx\n",
+                    type, rc);
+        return rc;
+    }
+
+    rc = template_update_attribute(tmpl, attr);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("Template update for type=%lu failed, rv=0x%lx\n",
+                    type, rc);
+        free(attr);
+        return rc;
+    }
+
+    return CKR_OK;
+}
+
 /* template_validate_attribute()
  *
  * essentially a group of if-then-else-switch clauses.  separated from
