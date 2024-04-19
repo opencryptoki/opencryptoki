@@ -1301,7 +1301,7 @@ static const struct p11sak_enum_value p11sak_ibm_dilithium_versions[] = {
       .private = { .num = CK_IBM_DILITHIUM_KEYFORM_ROUND2_65 }, },
     { .value = "r2_87", .args = NULL,
       .private = { .num = CK_IBM_DILITHIUM_KEYFORM_ROUND2_87 }, },
-    { .value = "r2_44", .args = NULL,
+    { .value = "r3_44", .args = NULL,
       .private = { .num = CK_IBM_DILITHIUM_KEYFORM_ROUND3_44 }, },
     { .value = "r3_65", .args = NULL,
       .private = { .num = CK_IBM_DILITHIUM_KEYFORM_ROUND3_65 }, },
