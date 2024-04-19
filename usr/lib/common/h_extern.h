@@ -3274,6 +3274,28 @@ CK_RV openssl_specific_ibm_dilithium_generate_keypair(STDLL_TokData_t *tokdata,
                                                       const struct pqc_oid *oid,
                                                       TEMPLATE *publ_tmpl,
                                                       TEMPLATE *priv_tmpl);
+CK_RV openssl_make_ibm_dilithium_key_from_template(TEMPLATE *tmpl,
+                                                   const struct pqc_oid *oid,
+                                                   CK_BBOOL private_key,
+                                                   const char *alg_name,
+                                                   EVP_PKEY **pkey);
+CK_RV openssl_specific_ibm_dilithium_sign(STDLL_TokData_t *tokdata,
+                                          SESSION *sess,
+                                          CK_BBOOL length_only,
+                                          const struct pqc_oid *oid,
+                                          CK_BYTE *in_data,
+                                          CK_ULONG in_data_len,
+                                          CK_BYTE *signature,
+                                          CK_ULONG *signature_len,
+                                          OBJECT *key_obj);
+CK_RV openssl_specific_ibm_dilithium_verify(STDLL_TokData_t *tokdata,
+                                            SESSION *sess,
+                                            const struct pqc_oid *oid,
+                                            CK_BYTE *in_data,
+                                            CK_ULONG in_data_len,
+                                            CK_BYTE *signature,
+                                            CK_ULONG signature_len,
+                                            OBJECT *key_obj);
 #endif
 
 #include "tok_spec_struct.h"

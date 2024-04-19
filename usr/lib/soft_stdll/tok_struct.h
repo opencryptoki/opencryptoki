@@ -158,8 +158,8 @@ token_spec_t token_specific = {
     // PQC
 #if OPENSSL_VERSION_PREREQ(3, 0)
     &token_specific_ibm_dilithium_generate_keypair,
-    NULL,                       // ibm_dilithium_sign
-    NULL,                       // ibm_dilithium_verify
+    &token_specific_ibm_dilithium_sign,
+    &token_specific_ibm_dilithium_verify,
 #else
     NULL,                       // ibm_dilithium_generate_keypair
     NULL,                       // ibm_dilithium_sign
