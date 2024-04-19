@@ -528,7 +528,7 @@ argument to generate an IBM Dilithium key (\fBCKK_IBM_PQC_DILITHIUM\fP), where
 .I VERSION
 specifies the version of the IBM Dilithium keypair. The following arguments can
 be used for respective keys:
-.BR r2_65 | r2_87 | r2_44 | r3_65 | r3_87
+.BR r2_65 | r2_87 | r3_44 | r3_65 | r3_87
 .PP
 .B Note:
 Not all IBM Dilithium versions will be supported by all tokens and key
@@ -1933,7 +1933,7 @@ Specifies the version for an IBM Dilithium or IBM Kyber key.
 For the
 .B ibm\-dilithium
 key type, possible values are
-.BR r2_65 | r2_87 | r2_44 | r3_65 | r3_87 .
+.BR r2_65 | r2_87 | r3_44 | r3_65 | r3_87 .
 For the
 .B ibm\-kyber
 key type, possible values are
