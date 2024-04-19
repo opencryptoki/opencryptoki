@@ -49,6 +49,7 @@
 #if OPENSSL_VERSION_PREREQ(3, 0)
 #include <openssl/core_names.h>
 #include <openssl/param_build.h>
+#include <openssl/provider.h>
 #endif
 
 #define MAX_GENERIC_KEY_SIZE 256
@@ -252,16 +253,32 @@ static const MECH_LIST_ELEMENT soft_mech_list[] = {
                           CKF_EC_F_P}},
     {CKM_ECDH1_DERIVE, {160, 521, CKF_DERIVE | CKF_EC_NAMEDCURVE | CKF_EC_F_P}},
 #endif
+#if OPENSSL_VERSION_PREREQ(3, 0)
+    {CKM_IBM_DILITHIUM, {256, 256, CKF_GENERATE_KEY_PAIR |
+                                   CKF_SIGN | CKF_VERIFY}},
+#endif
 };
 
 static const CK_ULONG soft_mech_list_len =
                     (sizeof(soft_mech_list) / sizeof(MECH_LIST_ELEMENT));
 
+struct soft_private_data {
+#if OPENSSL_VERSION_PREREQ(3, 0)
+    OSSL_PROVIDER *oqs_provider;
+#else
+    void *dummy;
+#endif
+};
+
 CK_RV token_specific_init(STDLL_TokData_t *tokdata, CK_SLOT_ID SlotNumber,
                           char *conf_name)
 {
-    UNUSED(conf_name);
+    struct soft_private_data *soft_private;
     CK_RV rc;
+
+    UNUSED(conf_name);
+
+    TRACE_INFO("soft %s slot=%lu running\n", __func__, SlotNumber);
 
     rc = ock_generic_filter_mechanism_list(tokdata,
                                            soft_mech_list, soft_mech_list_len,
@@ -269,24 +286,82 @@ CK_RV token_specific_init(STDLL_TokData_t *tokdata, CK_SLOT_ID SlotNumber,
                                            &(tokdata->mech_list_len));
     if (rc != CKR_OK) {
         TRACE_ERROR("Mechanism filtering failed!  rc = 0x%lx\n", rc);
-        return rc;
+        goto error;
     }
 
-    TRACE_INFO("soft %s slot=%lu running\n", __func__, SlotNumber);
+    soft_private = calloc(1, sizeof(*soft_private));
+    if (soft_private == NULL) {
+        TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+        rc = CKR_HOST_MEMORY;
+        goto error;
+    }
+
+#if OPENSSL_VERSION_PREREQ(3, 0)
+    /*
+     * Try to load the 'oqsprovider'. This optional provider must be installed
+     * and configured separately, it does not come with OpenSSL 3.x by default.
+     * If loading the 'oqsprovider' fails, this is not an error, it just means
+     * that the soft token does not support any quantum safe mechanisms.
+     */
+    soft_private->oqs_provider = OSSL_PROVIDER_load(NULL, "oqsprovider");
+    if (soft_private->oqs_provider == NULL) {
+        TRACE_DEVEL("OSSL_PROVIDER_load for 'oqsprovider' failed, no quantum "
+                    "safe mechanisms are supported.\n");
+        ERR_pop_to_mark();
+    }
+#endif
+
+    tokdata->private_data = soft_private;
+
+    return CKR_OK;
+
+error:
+    token_specific_final(tokdata, FALSE);
+    return rc;
+}
+
+CK_RV token_specific_final(STDLL_TokData_t *tokdata,
+                           CK_BBOOL in_fork_initializer)
+{
+    struct soft_private_data *soft_private = tokdata->private_data;
+
+    UNUSED(in_fork_initializer);
+
+    TRACE_INFO("soft %s running\n", __func__);
+
+    if (tokdata->mech_list != NULL)
+        free(tokdata->mech_list);
+    
+    if (soft_private != NULL) {
+#if OPENSSL_VERSION_PREREQ(3, 0)
+        if (soft_private->oqs_provider != NULL)
+            OSSL_PROVIDER_unload(soft_private->oqs_provider);
+        soft_private->oqs_provider = NULL;
+#endif
+        free(soft_private);
+        tokdata->private_data = NULL;
+    }
 
     return CKR_OK;
 }
 
-CK_RV token_specific_final(STDLL_TokData_t *tokdata,
-                           CK_BBOOL token_specific_final)
+static CK_BBOOL token_specific_filter_mechanism(STDLL_TokData_t *tokdata,
+                                                CK_MECHANISM_TYPE mechanism)
 {
-    UNUSED(token_specific_final);
+#if OPENSSL_VERSION_PREREQ(3, 0)
+    struct soft_private_data *soft_private = tokdata->private_data;
+#else
+    UNUSED(tokdata);
+#endif
 
-    TRACE_INFO("soft %s running\n", __func__);
-
-    free(tokdata->mech_list);
-    
-    return CKR_OK;
+    switch(mechanism) {
+#if OPENSSL_VERSION_PREREQ(3, 0)
+    case CKM_IBM_DILITHIUM:
+        return soft_private->oqs_provider != NULL ? CK_TRUE : CK_FALSE;
+#endif
+    default:
+        return CK_TRUE;
+    }
 }
 
 CK_RV token_specific_des_key_gen(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
@@ -1125,14 +1200,16 @@ CK_RV token_specific_get_mechanism_list(STDLL_TokData_t *tokdata,
                                         CK_MECHANISM_TYPE_PTR pMechanismList,
                                         CK_ULONG_PTR pulCount)
 {
-    return ock_generic_get_mechanism_list(tokdata, pMechanismList, pulCount, NULL);
+    return ock_generic_get_mechanism_list(tokdata, pMechanismList, pulCount,
+                                          &token_specific_filter_mechanism);
 }
 
 CK_RV token_specific_get_mechanism_info(STDLL_TokData_t *tokdata,
                                         CK_MECHANISM_TYPE type,
                                         CK_MECHANISM_INFO_PTR pInfo)
 {
-    return ock_generic_get_mechanism_info(tokdata, type, pInfo, NULL);
+    return ock_generic_get_mechanism_info(tokdata, type, pInfo,
+                                          &token_specific_filter_mechanism);
 }
 
 CK_RV token_specific_sha_init(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *ctx,
