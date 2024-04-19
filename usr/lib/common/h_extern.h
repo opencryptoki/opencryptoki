@@ -2514,6 +2514,10 @@ CK_RV  template_remove_attribute(TEMPLATE *tmpl, CK_ATTRIBUTE_TYPE type);
 
 CK_RV template_update_attribute(TEMPLATE *tmpl, CK_ATTRIBUTE *attr);
 
+CK_RV template_build_update_attribute(TEMPLATE * tmpl,
+                                      CK_ATTRIBUTE_TYPE type,
+                                      CK_BYTE * data, CK_ULONG data_len);
+
 CK_RV template_unflatten(TEMPLATE **tmpl, CK_BYTE *data, CK_ULONG count);
 
 CK_RV template_unflatten_withSize(TEMPLATE **new_tmpl,
@@ -3263,6 +3267,14 @@ CK_RV calc_rsa_crt_from_me(CK_ATTRIBUTE *modulus, CK_ATTRIBUTE *pub_exp,
                            CK_ATTRIBUTE *priv_exp, CK_ATTRIBUTE **prime1,
                            CK_ATTRIBUTE **prime2, CK_ATTRIBUTE **exponent1,
                            CK_ATTRIBUTE **exponent2, CK_ATTRIBUTE **coef);
+
+#if OPENSSL_VERSION_PREREQ(3, 0)
+const char *openssl_get_pqc_oid_name(const struct pqc_oid *oid);
+CK_RV openssl_specific_ibm_dilithium_generate_keypair(STDLL_TokData_t *tokdata,
+                                                      const struct pqc_oid *oid,
+                                                      TEMPLATE *publ_tmpl,
+                                                      TEMPLATE *priv_tmpl);
+#endif
 
 #include "tok_spec_struct.h"
 extern token_spec_t token_specific;

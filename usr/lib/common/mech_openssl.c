@@ -5606,3 +5606,189 @@ out:
     return rc;
 }
 
+#if OPENSSL_VERSION_PREREQ(3, 0)
+
+const char *openssl_get_pqc_oid_name(const struct pqc_oid *oid)
+{
+    const CK_BYTE *poid = oid->oid;
+    ASN1_OBJECT *obj = NULL;
+    int nid;
+
+    if (d2i_ASN1_OBJECT(&obj, &poid, oid->oid_len) == NULL)
+        return NULL;
+
+    nid = OBJ_obj2nid(obj);
+    ASN1_OBJECT_free(obj);
+
+    if (nid == NID_undef)
+        return NULL;
+
+    return OBJ_nid2ln(nid);
+}
+
+static CK_RV get_key_from_pkey(EVP_PKEY *pkey, const char *param,
+                               CK_BYTE **key, size_t *key_len)
+{
+    if (EVP_PKEY_get_octet_string_param(pkey, param, NULL, 0, key_len) != 1 ||
+        *key_len == OSSL_PARAM_UNMODIFIED) {
+        TRACE_ERROR("EVP_PKEY_get_octet_string_param failed for '%s'\n", param);
+        return CKR_FUNCTION_FAILED;
+    }
+
+    *key = calloc(1, *key_len);
+    if (*key == NULL) {
+        TRACE_ERROR("Failed to allocate buffer for '%s'\n", param);
+        return CKR_HOST_MEMORY;
+    }
+
+    if (EVP_PKEY_get_octet_string_param(pkey, param,
+                                        *key, *key_len, key_len) != 1) {
+        TRACE_ERROR("EVP_PKEY_get_octet_string_param failed for '%s'\n", param);
+        return CKR_FUNCTION_FAILED;
+    }
+
+    return CKR_OK;
+}
+
+CK_RV openssl_specific_ibm_dilithium_generate_keypair(STDLL_TokData_t *tokdata,
+                                                      const struct pqc_oid *oid,
+                                                      TEMPLATE *publ_tmpl,
+                                                      TEMPLATE *priv_tmpl)
+{
+    EVP_PKEY_CTX *ctx = NULL;
+    EVP_PKEY *pkey = NULL;
+    const char *alg_name;
+    CK_BYTE *spki = NULL, *pkcs8 = NULL;
+    CK_ULONG spki_len = 0, pkcs8_len = 0;
+    size_t priv_len = 0, pub_len = 0;
+    CK_BYTE *priv_key = NULL, *pub_key = NULL;
+    CK_RV rc = CKR_OK;
+
+    UNUSED(tokdata);
+
+    alg_name = openssl_get_pqc_oid_name(oid);
+    if (alg_name == NULL) {
+        TRACE_ERROR("Dilithium key form '%lu' not supported by oqsprovider\n",
+                    oid->keyform);
+        rc = CKR_KEY_SIZE_RANGE;
+        goto out;
+    }
+
+    /* Generate key via oqsprovider */
+    ctx = EVP_PKEY_CTX_new_from_name(NULL, alg_name, NULL);
+    if (ctx == NULL) {
+        TRACE_ERROR("EVP_PKEY_CTX_new_from_name failed for '%s'\n", alg_name);
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+
+    if (EVP_PKEY_keygen_init(ctx) != 1) {
+        TRACE_ERROR("EVP_PKEY_keygen_init failed for '%s'\n", alg_name);
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+
+    if (EVP_PKEY_generate(ctx, &pkey) != 1) {
+        TRACE_ERROR("EVP_PKEY_generate failed for '%s'\n", alg_name);
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+
+    /* Get private and public key */
+    rc = get_key_from_pkey(pkey, OSSL_PKEY_PARAM_PRIV_KEY,
+                           &priv_key, &priv_len);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("get_key_from_pkey failed for priv key\n");
+        goto out;
+    }
+
+    rc = get_key_from_pkey(pkey, OSSL_PKEY_PARAM_PUB_KEY,
+                           &pub_key, &pub_len);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("get_key_from_pkey failed for pub key\n");
+        goto out;
+    }
+
+    /* Extract key components */
+    rc = ibm_dilithium_unpack_priv_key(priv_key, priv_len, oid, priv_tmpl);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("ibm_dilithium_unpack_priv_key failed for priv key\n");
+        goto out;
+    }
+
+    rc = ibm_dilithium_unpack_pub_key(pub_key, pub_len, oid, publ_tmpl);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("ibm_dilithium_unpack_pub_key failed for pub key\n");
+        goto out;
+    }
+
+    /* Also add public key components to private template */
+    rc = ibm_dilithium_unpack_pub_key(pub_key, pub_len, oid, priv_tmpl);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("ibm_dilithium_unpack_pub_key failed for pub key\n");
+        goto out;
+    }
+
+    /* Add keyform and mode attributes to public and private template */
+    rc = ibm_pqc_add_keyform_mode(publ_tmpl, oid, CKM_IBM_DILITHIUM);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("ibm_pqc_add_keyform_mode failed\n");
+        goto out;
+    }
+
+    rc = ibm_pqc_add_keyform_mode(priv_tmpl, oid, CKM_IBM_DILITHIUM);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("ibm_pqc_add_keyform_mode failed\n");
+        goto out;
+    }
+
+    /* Add SPKI as CKA_VALUE to public template */
+    rc = ibm_dilithium_publ_get_spki(publ_tmpl, FALSE, &spki, &spki_len);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("ibm_dilithium_publ_get_spki failed\n");
+        goto out;
+    }
+
+    rc = template_build_update_attribute(publ_tmpl, CKA_VALUE, spki, spki_len);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_build_update_attribute for CKA_VALUE failed "
+                    "rc=0x%lx\n", rc);
+        goto out;
+    }
+
+    /* Add PKCS#8 encoding of private key to private template */
+    rc = ibm_dilithium_priv_wrap_get_data(priv_tmpl, FALSE, &pkcs8, &pkcs8_len);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("ibm_dilithium_priv_wrap_get_data failed\n");
+        goto out;
+    }
+
+    rc = template_build_update_attribute(priv_tmpl, CKA_VALUE, pkcs8, pkcs8_len);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_build_update_attribute for CKA_VALUE failed "
+                    "rc=0x%lx\n", rc);
+        goto out;
+    }
+
+out:
+    if (ctx != NULL)
+        EVP_PKEY_CTX_free(ctx);
+    if (pkey != NULL)
+        EVP_PKEY_free(pkey);
+    if (priv_key != NULL) {
+        OPENSSL_cleanse(priv_key, priv_len);
+        free(priv_key);
+    }
+    if (pub_key != NULL)
+        free(pub_key);
+    if (spki != NULL)
+        free(spki);
+    if (pkcs8 != NULL) {
+        OPENSSL_cleanse(pkcs8, pkcs8_len);
+        free(pkcs8);
+    }
+
+    return rc;
+}
+
+#endif

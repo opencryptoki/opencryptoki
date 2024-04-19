@@ -156,9 +156,15 @@ token_spec_t token_specific = {
     NULL,                       // dsa_sign
     NULL,                       // dsa_verify
     // PQC
+#if OPENSSL_VERSION_PREREQ(3, 0)
+    &token_specific_ibm_dilithium_generate_keypair,
+    NULL,                       // ibm_dilithium_sign
+    NULL,                       // ibm_dilithium_verify
+#else
     NULL,                       // ibm_dilithium_generate_keypair
     NULL,                       // ibm_dilithium_sign
     NULL,                       // ibm_dilithium_verify
+#endif
     &token_specific_get_mechanism_list,
     &token_specific_get_mechanism_info,
     &token_specific_object_add,
