@@ -228,10 +228,32 @@ CK_RV run_SignVerifyDilithiumKAT(CK_SESSION_HANDLE session,
         goto testcase_cleanup;
     }
 
-    /* Check if signature matches with known signature */
-    if (memcmp(signature, dilithium_tv[index].sig, siglen) != 0) {
-        testcase_error("Signature bad.");
-        goto testcase_cleanup;
+    /*
+     * The soft token uses randomized Dilithium signatures, thus no KAT checks
+     * are possible. Verify the known answer signature with C_Verify instead.
+     */
+    if (!is_soft_token(SLOT_ID)) {
+        /* Check if signature matches with known signature */
+        if (memcmp(signature, dilithium_tv[index].sig, siglen) != 0) {
+            testcase_error("Signature bad.");
+            goto testcase_cleanup;
+        }
+    } else {
+        /* Randomized signatures: Verify known answer signature with the key */
+        rc = funcs->C_VerifyInit(session, &mech, publ_key);
+        if (rc != CKR_OK) {
+            testcase_error("C_VerifyInit KAT-signature rc=%s", p11_get_ckr(rc));
+            goto testcase_cleanup;
+        }
+
+        rc = funcs->C_Verify(session, dilithium_tv[index].msg,
+                             dilithium_tv[index].msg_len,
+                             dilithium_tv[index].sig,
+                             dilithium_tv[index].sig_len);
+        if (rc != CKR_OK) {
+            testcase_error("C_Verify KAT-signature rc=%s", p11_get_ckr(rc));
+            goto testcase_cleanup;
+        }
     }
 
     /* Verify signature */
