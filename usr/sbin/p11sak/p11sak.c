@@ -8985,7 +8985,7 @@ done:
     return rc;
 }
 
-CK_RV x509_to_pem(X509 *cert, CK_BYTE **data, CK_ULONG *data_len)
+static CK_RV x509_to_pem(X509 *cert, CK_BYTE **data, CK_ULONG *data_len)
 {
     BIO *bio = NULL;
     BUF_MEM *bptr;
