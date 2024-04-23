@@ -1060,6 +1060,7 @@ future!
 .RB [ \-\-uri\-pin\-value ]
 .RB [ \-\-uri\-pin\-source
 .IR FILENAME ]
+.RB [ \-\-oqsprovider\-pem ]
 .RB [ \-\-help | \-h ]
 .PP
 Use the
@@ -1126,6 +1127,22 @@ option to export the Subject Public Key Info (SPKI) from the
 .B CKA_PUBLIC_KEY_INFO
 attribute of an asymmetric private key instead of its private key material.
 This option can only be used with private keys.
+.PP
+Specify the
+.BR \-\-oqsprovider\-pem
+option when the key material is to be exported in
+.B oqsprovider
+format into the PEM file. This option is only valid for the
+.B ibm-dilithium
+keytype. PEM files in
+.B oqsprovider
+format are only supported when the
+.B oqsprovider
+from
+.B https://github.com/open-quantum-safe/oqs-provider
+has been configured with OpenSSL 3.0 or later.
+This is an experimental feature, it may change in an incompatible way in the
+future!
 .PP
 .B Note:
 Not all keys can be exported, because its attribute setting may forbid
