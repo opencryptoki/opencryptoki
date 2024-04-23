@@ -52,6 +52,7 @@
 #include "mechtable.h"
 #include "defs.h"
 #include "uri.h"
+#include "pqc_defs.h"
 
 #if OPENSSL_VERSION_PREREQ(3, 0)
     #include <openssl/core_names.h>
@@ -132,6 +133,7 @@ static bool opt_cacert = false;
 static bool opt_uri_pem = false;
 static bool opt_uri_pin_value = false;
 static char *opt_uri_pin_source = NULL;
+static bool opt_oqsprovider_pem = false;
 
 static bool opt_slot_is_set(const struct p11sak_arg *arg);
 static CK_RV generic_get_key_size(const struct p11sak_objtype *keytype,
@@ -235,6 +237,10 @@ static CK_RV p11sak_import_dilithium_kyber_pem_data(
                                         bool private,
                                         CK_ATTRIBUTE **attrs,
                                         CK_ULONG *num_attrs);
+static CK_RV p11sak_import_dilithium_pkey(const struct p11sak_objtype *keytype,
+                                          EVP_PKEY *pkey, bool private,
+                                          CK_ATTRIBUTE **attrs,
+                                          CK_ULONG *num_attrs);
 static CK_RV p11sak_export_sym_clear_des_3des_aes_generic(
                                     const struct p11sak_objtype *keytype,
                                     CK_BYTE **data, CK_ULONG* data_len,
@@ -842,6 +848,7 @@ static const struct p11sak_objtype p11sak_ibm_dilithium_keytype = {
     .obj_typestr = "key", .obj_liststr = "Key",
     .name = "IBM-Dilithium",  .type = CKK_IBM_PQC_DILITHIUM,
     .ck_name = "CKK_IBM_PQC_DILITHIUM",
+    .supports_oqsprovider_pem = true,
     .keygen_mech = { .mechanism = CKM_IBM_DILITHIUM, },
     .is_asymmetric = true,
     .keygen_add_public_attrs = ibm_dilithium_add_public_attrs,
@@ -852,6 +859,7 @@ static const struct p11sak_objtype p11sak_ibm_dilithium_keytype = {
     .public_attrs = p11sak_public_ibm_dilithium_attrs,
     .private_attrs = p11sak_private_ibm_dilithium_attrs,
     .import_asym_pem_data = p11sak_import_dilithium_kyber_pem_data,
+    .import_asym_pkey = p11sak_import_dilithium_pkey,
     .export_asym_pem_data = p11sak_export_dilithium_kyber_pem_data,
     .pem_name_private = "IBM-DILITHIUM PRIVATE KEY",
     .pem_name_public = "IBM-DILITHIUM PUBLIC KEY",
@@ -1728,6 +1736,18 @@ static const struct p11sak_opt p11sak_import_key_opts[] = {
       .description = "The key material in the file specified with the "
                      "'-F'/'--file' option is an opaque secure key blob. "
                      "Not all tokens support this.", },
+    { .short_opt = 0, .long_opt = "oqsprovider-pem", .required = false,
+      .long_opt_val = OPT_OQSPROVIDER_PEM,
+      .arg = { .type = ARG_TYPE_PLAIN, .required = false,
+               .value.plain = &opt_oqsprovider_pem, },
+      .description = "The key material in the PEM file specified with the "
+                     "'-F'/'--file' option is in the 'oqsprovider' format. "
+                     "This option is only valid for the 'ibm-dilithium' "
+                     "keytype. PEM files in 'oqsprovider' format are only "
+                     "supported when the 'oqsprovider' has been configured "
+                     "with OpenSSL 3.0 or later. This is an experimental "
+                     "feature, it may change in an incompatible way in the "
+                     "future!", },
     { .short_opt = 0, .long_opt = NULL, },
 };
 
@@ -4204,6 +4224,9 @@ static const struct p11sak_objtype *find_keytype_by_pkey(int pkey_type)
 {
     const struct p11sak_objtype **kt;
 
+    if (pkey_type == NID_undef)
+        return NULL;
+
     for (kt = p11sak_keytypes; *kt != NULL; kt++) {
         if ((*kt)->pkey_type == pkey_type)
             return *kt;
@@ -4211,6 +4234,56 @@ static const struct p11sak_objtype *find_keytype_by_pkey(int pkey_type)
 
     return NULL;
 }
+
+#if OPENSSL_VERSION_PREREQ(3, 0)
+static const struct pqc_oid *pqc_oid_from_pkey(EVP_PKEY *pkey,
+                                               const struct pqc_oid *pqc_oids)
+{
+    const char *alg_name;
+    ASN1_OBJECT *obj = NULL;
+    const struct pqc_oid *oid = NULL;
+    CK_BYTE *val = NULL;
+    int val_len;
+    int nid;
+
+    alg_name = EVP_PKEY_get0_type_name(pkey);
+    if (alg_name == NULL) {
+        warnx("Failed to obtain the key type of the imported key");
+        return NULL;
+    }
+
+    nid = OBJ_ln2nid(alg_name);
+    if (nid == NID_undef) {
+        warnx("OBJ_ln2nid failed for '%s'", alg_name);
+        ERR_print_errors_cb(openssl_err_cb, NULL);
+        return NULL;
+    }
+
+    obj = OBJ_nid2obj(nid);
+    if (obj == NULL) {
+        warnx("OBJ_nid2obj failed for NID %d ('%s')", nid, alg_name);
+        ERR_print_errors_cb(openssl_err_cb, NULL);
+        return NULL;
+    }
+
+    val_len = i2d_ASN1_OBJECT(obj, &val);
+    if (val_len <= 0) {
+        warnx("i2d_ASN1_OBJECT failed for algorithm '%s'", alg_name);
+        ERR_print_errors_cb(openssl_err_cb, NULL);
+        goto done;
+    }
+
+    oid = find_pqc_by_oid(pqc_oids, val, val_len);
+    if (oid == NULL)
+        warnx("Algorithm '%s' is not supported by p11sak", alg_name);
+
+    OPENSSL_free(val);
+
+done:
+    ASN1_OBJECT_free(obj);
+    return oid;
+}
+#endif
 
 static const struct p11sak_objtype *find_certtype(CK_KEY_TYPE ktype)
 {
@@ -7005,6 +7078,9 @@ static CK_RV p11sak_extract_x509_pk(const struct p11sak_objtype *certtype,
     CK_BBOOL btrue = CK_TRUE;
     CK_RV rc;
     int pkey_type;
+#if OPENSSL_VERSION_PREREQ(3, 0)
+    const struct pqc_oid *oid;
+#endif
 
     rc = get_attribute(cert, &attr);
     if (rc != CKR_OK) {
@@ -7043,6 +7119,15 @@ static CK_RV p11sak_extract_x509_pk(const struct p11sak_objtype *certtype,
     if (pkey_type == EVP_PKEY_RSA_PSS)
         pkey_type = EVP_PKEY_RSA;
     keytype = find_keytype_by_pkey(pkey_type);
+
+#if OPENSSL_VERSION_PREREQ(3, 0)
+    if (keytype == NULL && pkey_type == NID_undef) {
+        oid = pqc_oid_from_pkey(pkey, dilithium_oids);
+        if (oid != NULL)
+            keytype = &p11sak_ibm_dilithium_keytype;
+    }
+#endif
+
     if (keytype == NULL || keytype->import_asym_pkey == NULL) {
         warnx("Key type %s cannot be extracted from a certificate.",
               OBJ_nid2ln(pkey_type));
@@ -7729,6 +7814,167 @@ static CK_RV p11sak_import_dilithium_kyber_pem_data(
     return add_attribute(CKA_VALUE, data, data_len, attrs, num_attrs);
 }
 
+#if OPENSSL_VERSION_PREREQ(3, 0)
+static CK_RV get_octet_string_param_from_pkey(EVP_PKEY *pkey, const char *param,
+                                              CK_BYTE **key, size_t *key_len)
+{
+    if (EVP_PKEY_get_octet_string_param(pkey, param, NULL, 0, key_len) != 1 ||
+        *key_len == OSSL_PARAM_UNMODIFIED) {
+        warnx("EVP_PKEY_get_octet_string_param failed for '%s'\n", param);
+        ERR_print_errors_cb(openssl_err_cb, NULL);
+        return CKR_FUNCTION_FAILED;
+    }
+
+    *key = calloc(1, *key_len);
+    if (*key == NULL) {
+        warnx("Failed to allocate buffer for '%s'\n", param);
+        return CKR_HOST_MEMORY;
+    }
+
+    if (EVP_PKEY_get_octet_string_param(pkey, param,
+                                        *key, *key_len, key_len) != 1) {
+        warnx("EVP_PKEY_get_octet_string_param failed for '%s'\n", param);
+        ERR_print_errors_cb(openssl_err_cb, NULL);
+        return CKR_FUNCTION_FAILED;
+    }
+
+    return CKR_OK;
+}
+#endif
+
+static CK_RV p11sak_import_dilithium_pkey(const struct p11sak_objtype *keytype,
+                                          EVP_PKEY *pkey, bool private,
+                                          CK_ATTRIBUTE **attrs,
+                                          CK_ULONG *num_attrs)
+{
+#if OPENSSL_VERSION_PREREQ(3, 0)
+    const struct pqc_oid *oid;
+    size_t priv_len = 0, pub_len = 0;
+    CK_BYTE *priv_key = NULL, *pub_key = NULL;
+    CK_ULONG ofs;
+    CK_RV rc;
+
+    UNUSED(keytype);
+
+    oid = pqc_oid_from_pkey(pkey, dilithium_oids);
+    if (oid == NULL)
+        return CKR_FUNCTION_FAILED;
+
+    /* Add keyform and attribute */
+    rc = add_attribute(CKA_IBM_DILITHIUM_KEYFORM,
+                       &oid->keyform, sizeof(oid->keyform),
+                       attrs, num_attrs);
+    if (rc != CKR_OK)
+       goto out;
+
+    if (private) {
+        rc = get_octet_string_param_from_pkey(pkey, OSSL_PKEY_PARAM_PRIV_KEY,
+                                              &priv_key, &priv_len);
+        if (rc != CKR_OK)
+            goto out;
+
+        if (priv_len != oid->len_info.dilithium.rho_len +
+                        oid->len_info.dilithium.seed_len +
+                        oid->len_info.dilithium.tr_len +
+                        oid->len_info.dilithium.s1_len +
+                        oid->len_info.dilithium.s2_len +
+                        oid->len_info.dilithium.t0_len) {
+            warnx("Size of private Dilithium key is not valid.");
+            rc = CKR_FUNCTION_FAILED;
+            goto out;
+        }
+
+        ofs = 0;
+        rc = add_attribute(CKA_IBM_DILITHIUM_RHO,
+                           priv_key + ofs, oid->len_info.dilithium.rho_len,
+                           attrs, num_attrs);
+        if (rc != CKR_OK)
+           goto out;
+
+        ofs += oid->len_info.dilithium.rho_len;
+        rc = add_attribute(CKA_IBM_DILITHIUM_SEED,
+                           priv_key + ofs, oid->len_info.dilithium.seed_len,
+                           attrs, num_attrs);
+        if (rc != CKR_OK)
+           goto out;
+
+        ofs += oid->len_info.dilithium.seed_len;
+        rc = add_attribute(CKA_IBM_DILITHIUM_TR,
+                           priv_key + ofs, oid->len_info.dilithium.tr_len,
+                           attrs, num_attrs);
+        if (rc != CKR_OK)
+           goto out;
+
+        ofs += oid->len_info.dilithium.tr_len;
+        rc = add_attribute(CKA_IBM_DILITHIUM_S1,
+                           priv_key + ofs, oid->len_info.dilithium.s1_len,
+                           attrs, num_attrs);
+        if (rc != CKR_OK)
+           goto out;
+
+        ofs += oid->len_info.dilithium.s1_len;
+        rc = add_attribute(CKA_IBM_DILITHIUM_S2,
+                           priv_key + ofs, oid->len_info.dilithium.s2_len,
+                           attrs, num_attrs);
+        if (rc != CKR_OK)
+           goto out;
+
+        ofs += oid->len_info.dilithium.s2_len;
+        rc = add_attribute(CKA_IBM_DILITHIUM_T0,
+                           priv_key + ofs, oid->len_info.dilithium.t0_len,
+                           attrs, num_attrs);
+        if (rc != CKR_OK)
+           goto out;
+    }
+
+    rc = get_octet_string_param_from_pkey(pkey, OSSL_PKEY_PARAM_PUB_KEY,
+                                          &pub_key, &pub_len);
+    if (rc != CKR_OK)
+        goto out;
+
+    if (pub_len != oid->len_info.dilithium.rho_len +
+                   oid->len_info.dilithium.t1_len) {
+        warnx("Size of public Dilithium key is not valid.");
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+
+    ofs = 0;
+    rc = add_attribute(CKA_IBM_DILITHIUM_RHO,
+                       pub_key + ofs, oid->len_info.dilithium.rho_len,
+                       attrs, num_attrs);
+    if (rc != CKR_OK)
+       goto out;
+
+    ofs += oid->len_info.dilithium.rho_len;
+    rc = add_attribute(CKA_IBM_DILITHIUM_T1,
+                       pub_key + ofs, oid->len_info.dilithium.t1_len,
+                       attrs, num_attrs);
+    if (rc != CKR_OK)
+       goto out;
+
+out:
+    if (priv_key != NULL) {
+        OPENSSL_cleanse(priv_key, priv_len);
+        free(priv_key);
+    }
+    if (pub_key != NULL)
+        free(pub_key);
+
+    return rc;
+#else
+    UNUSED(keytype);
+    UNUSED(pkey);
+    UNUSED(private);
+    UNUSED(attrs);
+    UNUSED(num_attrs);
+
+    warnx("Importing an 'oqsprovider' format PEM file is only supported with "
+          "OpenSSL 3.0 or later.");
+    return CKR_FUNCTION_NOT_SUPPORTED;
+#endif
+}
+
 static int p11sak_pem_password_cb(char *buf, int size, int rwflag,
                                   void *userdata)
 {
@@ -7925,7 +8171,9 @@ static CK_RV p11sak_import_asym_key(const struct p11sak_objtype *keytype,
         return CKR_FUNCTION_FAILED;
     }
 
-    if (keytype->import_asym_pkey != NULL) {
+    if (keytype->import_asym_pkey != NULL &&
+        (!keytype->supports_oqsprovider_pem ||
+         (opt_oqsprovider_pem && keytype->supports_oqsprovider_pem))) {
         if (opt_asym_kind->private.num)
             pkey = PEM_read_bio_PrivateKey(bio, NULL, p11sak_pem_password_cb,
                                            NULL);
@@ -7933,7 +8181,9 @@ static CK_RV p11sak_import_asym_key(const struct p11sak_objtype *keytype,
             pkey = PEM_read_bio_PUBKEY(bio, NULL, p11sak_pem_password_cb, NULL);
 
         if (pkey == NULL) {
-            warnx("Failed to read PEM file '%s'.", opt_file);
+            warnx("Failed to read PEM file '%s'.%s", opt_file,
+                  opt_oqsprovider_pem ?
+                          " Is the 'oqsprovider' configured?" : "");
             ERR_print_errors_cb(openssl_err_cb, NULL);
             rc = CKR_FUNCTION_FAILED;
             goto done;
@@ -8048,6 +8298,12 @@ static CK_RV p11sak_import_key(void)
         return CKR_ARGUMENTS_BAD;
 
     keytype = opt_keytype->private.ptr;
+
+    if (opt_oqsprovider_pem && !keytype->supports_oqsprovider_pem) {
+        warnx("Option '--oqsprovider-pem' is not supported for keytype '%s'.",
+              keytype->name);
+        return CKR_ARGUMENTS_BAD;
+    }
 
     class = keytype->is_asymmetric ?
             (opt_asym_kind->private.num ? CKO_PRIVATE_KEY : CKO_PUBLIC_KEY) :
