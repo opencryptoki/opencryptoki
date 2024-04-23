@@ -41,6 +41,7 @@
 #define OPT_SO                  259
 #define OPT_URI_PIN_VALUE       260
 #define OPT_URI_PIN_SOURCE      261
+#define OPT_OQSPROVIDER_PEM     262
 
 #define MAX_PRINT_LINE_LENGTH   80
 #define PRINT_INDENT_POS        35
@@ -131,6 +132,7 @@ struct p11sak_objtype {
     CK_ULONG type; /* CKA_KEY_TYPE or CKA_CERTIFICATE_TYPE */
     const char *ck_name;
     int pkey_type; /* OpenSSL PKEY_xxx type or 0 if not applicable */
+    bool supports_oqsprovider_pem;
     CK_MECHANISM keygen_mech;
     bool is_asymmetric;
     bool sign_verify;

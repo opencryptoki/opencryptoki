@@ -960,6 +960,7 @@ option.
 .IR PASSWORD ]
 .RB [ \-\-force\-pem\-pwd\-prompt ]
 .RB [ \-\-opaque | \-o ]
+.RB [ \-\-oqsprovider\-pem ]
 .RB [ \-\-help | \-h ]
 .PP
 Use the
@@ -1015,6 +1016,22 @@ will be prompted for the PEM password.
 Specify the
 .BR \-\-opaque | \-o
 option to import an opaque secure key blob. Not all tokens support this.
+.PP
+Specify the
+.BR \-\-oqsprovider\-pem
+option when the key material in the PEM file is in the
+.B oqsprovider
+format. This option is only valid for the
+.B ibm-dilithium
+keytype. PEM files in
+.B oqsprovider
+format are only supported when the
+.B oqsprovider
+from
+.B https://github.com/open-quantum-safe/oqs-provider
+has been configured with OpenSSL 3.0 or later.
+This is an experimental feature, it may change in an incompatible way in the
+future!
 .
 .SS "Exporting symmetric and asymmetric keys to a file"
 .
@@ -2406,6 +2423,32 @@ The key material in the file specified with the
 .BR \-\-file | \-F
 .I FILENAME
 option is an opaque secure key blob. Not all tokens support this.
+.RE
+.PP
+.
+.
+.
+.TP 8
+.BR \-\-oqsprovider\-pem
+The key material in the PEM file specified with the
+.BR \-\-file | \-F
+.I FILENAME
+option is in the
+.B oqsprovider
+format. This option is only valid for the
+.B ibm-dilithium
+keytype. PEM files in
+.B oqsprovider
+format are only supported when the
+.B oqsprovider
+from
+.B https://github.com/open-quantum-safe/oqs-provider
+has been configured with OpenSSL 3.0 or later.
+.PP
+.RS 8
+.B Note:
+This is an experimental feature, it may change in an incompatible way in the
+future!
 .RE
 .PP
 .
