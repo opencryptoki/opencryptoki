@@ -838,13 +838,13 @@ static CK_RV pkey_aes_xts_cipher_blocks(CK_BYTE *in, CK_BYTE *out, CK_ULONG len,
                                         CK_BYTE *iv, void *cb_data)
 {
     struct aes_xts_param *param = cb_data;
-    int rc;
+    int bytes_processed;
 
     int offset = AES_XTS_KM_XTSPARAM(param->keylen * 8);
     memcpy(param->param_km + offset, iv, AES_BLOCK_SIZE);
 
-    rc = s390_km(param->fc, param->param_km, out, in, len);
-    if (rc < 0) {
+    bytes_processed = s390_km(param->fc, param->param_km, out, in, len);
+    if (bytes_processed < len) {
         TRACE_ERROR("s390_km function failed\n");
         return CKR_FUNCTION_FAILED;
     }
