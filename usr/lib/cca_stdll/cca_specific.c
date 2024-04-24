@@ -101,7 +101,6 @@ static CSNBCKI_t dll_CSNBCKI;
 static CSNBCKM_t dll_CSNBCKM;
 static CSNBDKX_t dll_CSNBDKX;
 static CSNBDKM_t dll_CSNBDKM;
-static CSNBMKP_t dll_CSNBMKP;
 static CSNBKEX_t dll_CSNBKEX;
 static CSNBKGN_t dll_CSNBKGN;
 static CSNBKGN2_t dll_CSNBKGN2;
@@ -698,7 +697,6 @@ static CK_RV cca_resolve_lib_sym(void *hdl)
     LDSYM_VERIFY(hdl, CSNBCKM);
     LDSYM_VERIFY(hdl, CSNBDKX);
     LDSYM_VERIFY(hdl, CSNBDKM);
-    LDSYM_VERIFY(hdl, CSNBMKP);
     LDSYM_VERIFY(hdl, CSNBKEX);
     LDSYM_VERIFY(hdl, CSNBKGN);
     LDSYM_VERIFY(hdl, CSNBKGN2);
