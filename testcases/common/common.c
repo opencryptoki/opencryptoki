@@ -637,8 +637,8 @@ CK_RV generate_EC_KeyPair(CK_SESSION_HANDLE session,
         {CKA_EXTRACTABLE, &extractable, sizeof(CK_BBOOL)},
         {CKA_IBM_PROTKEY_EXTRACTABLE, &pkeyextractable, sizeof(CK_BBOOL)},
     };
-    CK_ULONG num_publ_attrs = sizeof(publicKeyTemplate)/sizeof(CK_ATTRIBUTE);
-    CK_ULONG num_priv_attrs = sizeof(privateKeyTemplate)/sizeof(CK_ATTRIBUTE);
+    CK_ULONG num_publ_attrs = sizeof(publicKeyTemplate) / sizeof(CK_ATTRIBUTE);
+    CK_ULONG num_priv_attrs = sizeof(privateKeyTemplate) / sizeof(CK_ATTRIBUTE);
 
     if (combined_extract)
         pkeyextractable = CK_TRUE;
@@ -734,6 +734,53 @@ CK_RV create_ECPublicKey(CK_SESSION_HANDLE session,
     rc = funcs->C_CreateObject(session, template,
                                sizeof(template) / sizeof(CK_ATTRIBUTE),
                                publ_key);
+
+    if (is_rejected_by_policy(rc, session))
+        rc = CKR_POLICY_VIOLATION;
+
+    return rc;
+}
+
+/** Generate an EC key pair **/
+CK_RV generate_Dilithium_KeyPair(CK_SESSION_HANDLE session,
+                                 CK_ULONG keyform,
+                                 CK_OBJECT_HANDLE *publ_key,
+                                 CK_OBJECT_HANDLE *priv_key,
+                                 CK_BBOOL extractable)
+{
+    CK_RV rc;
+    CK_MECHANISM mech = { CKM_IBM_DILITHIUM, NULL, 0 };
+    CK_BBOOL pkeyextractable = !extractable;
+    CK_BYTE subject[] = {0};
+    CK_BYTE id[] = { 123 };
+    CK_BBOOL true = TRUE;
+    CK_ATTRIBUTE publicKeyTemplate[] = {
+        {CKA_VERIFY, &true, sizeof(true)},
+        {CKA_IBM_DILITHIUM_KEYFORM, &keyform, sizeof(keyform)},
+    };
+    CK_ATTRIBUTE privateKeyTemplate[] = {
+        {CKA_TOKEN, &true, sizeof(true)},
+        {CKA_PRIVATE, &true, sizeof(true)},
+        {CKA_SUBJECT, subject, 0},
+        {CKA_ID, id, sizeof(id)},
+        {CKA_SENSITIVE, &true, sizeof(true)},
+        {CKA_SIGN, &true, sizeof(true)},
+        {CKA_EXTRACTABLE, &extractable, sizeof(CK_BBOOL)},
+        {CKA_IBM_PROTKEY_EXTRACTABLE, &pkeyextractable, sizeof(CK_BBOOL)},
+        {CKA_IBM_DILITHIUM_KEYFORM, &keyform, sizeof(keyform)},
+    };
+    CK_ULONG num_publ_attrs = sizeof(publicKeyTemplate) / sizeof(CK_ATTRIBUTE);
+    CK_ULONG num_priv_attrs = sizeof(privateKeyTemplate) / sizeof(CK_ATTRIBUTE);
+
+    if (combined_extract)
+        pkeyextractable = CK_TRUE;
+
+    // generate keys
+    rc = funcs->C_GenerateKeyPair(session,
+                                  &mech,
+                                  publicKeyTemplate, num_publ_attrs,
+                                  privateKeyTemplate, num_priv_attrs,
+                                  publ_key, priv_key);
 
     if (is_rejected_by_policy(rc, session))
         rc = CKR_POLICY_VIOLATION;
