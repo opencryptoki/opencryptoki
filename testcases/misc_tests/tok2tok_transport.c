@@ -264,6 +264,7 @@ struct wrapped_mech_info {
     CK_ULONG sym_keylen;
     CK_BYTE *ec_params;
     CK_ULONG ec_params_len;
+    CK_ULONG pqc_keyform;
     CK_MECHANISM operation_mech;
 };
 
@@ -350,6 +351,18 @@ struct wrapped_mech_info wrapped_key_tests[] = {
         .ec_params = prime256v1,
         .ec_params_len = sizeof(prime256v1),
     },
+    {
+        .name = "key type IBM Dilithium R2 6-5",
+        .wrapped_key_gen_mech = { CKM_IBM_DILITHIUM, 0, 0 },
+        .operation_mech = { CKM_IBM_DILITHIUM, 0, 0 },
+        .pqc_keyform = CK_IBM_DILITHIUM_KEYFORM_ROUND2_65,
+    },
+    {
+        .name = "key type IBM Dilithium R3 6-5",
+        .wrapped_key_gen_mech = { CKM_IBM_DILITHIUM, 0, 0 },
+        .operation_mech = { CKM_IBM_DILITHIUM, 0, 0 },
+        .pqc_keyform = CK_IBM_DILITHIUM_KEYFORM_ROUND3_65,
+    },
 };
 
 #define NUM_WRAPPED_KEY_TESTS sizeof(wrapped_key_tests) / \
@@ -383,7 +396,7 @@ CK_RV do_perform_operation(CK_MECHANISM *mech,
                                0x10,0x11,0x12,0x13,0x14,0x15,0x16,0x17,
                                0x18,0x19,0x1a,0x1b,0x1c,0x1d,0x1e,0x1f};
     CK_BYTE cipher_data[512];
-    CK_BYTE output_data[512];
+    CK_BYTE output_data[8192];
     CK_OBJECT_HANDLE encr_key, decr_key, sign_key, verify_key;
 
     /* Check if Encrypt/Decrypt or Sign/Verify is supported */
@@ -483,6 +496,7 @@ CK_RV do_perform_operation(CK_MECHANISM *mech,
             break;
         case CKM_RSA_PKCS:
         case CKM_ECDSA:
+        case CKM_IBM_DILITHIUM:
             sign_key = priv_key2;
             verify_key = publ_key1;
             input_size = 20;
@@ -503,6 +517,13 @@ CK_RV do_perform_operation(CK_MECHANISM *mech,
         rc = funcs->C_Sign(sess2, input_data, input_size, output_data,
                            &output_size);
         if (rc != CKR_OK) {
+            if (mech->mechanism == CKM_IBM_DILITHIUM &&
+                rc == CKR_KEY_SIZE_RANGE) {
+                testcase_skip("IBM Dilithium key form not supported by slot %lu",
+                              slot2);
+                return CKR_OK;
+            }
+
             testcase_error("C_Sign on slot %lu rc=%s", slot2, p11_get_ckr(rc));
             return rc;
         }
@@ -536,7 +557,7 @@ CK_RV do_wrap_key_test(struct wrapped_mech_info *tsuite,
     CK_OBJECT_HANDLE priv_key = CK_INVALID_HANDLE;
     CK_OBJECT_HANDLE sym_key = CK_INVALID_HANDLE;
     CK_OBJECT_HANDLE unwrapped_key = CK_INVALID_HANDLE;
-    CK_BYTE wrapped_key[4096];
+    CK_BYTE wrapped_key[8192];
     CK_ULONG wrapped_key_size = sizeof(wrapped_key);
     CK_OBJECT_CLASS key_class;
     CK_KEY_TYPE key_type;
@@ -692,6 +713,23 @@ CK_RV do_wrap_key_test(struct wrapped_mech_info *tsuite,
                                  CK_TRUE); // must be extractable for Wrap/Unwrap
         break;
 
+    case CKM_IBM_DILITHIUM:
+        rc = generate_Dilithium_KeyPair(session1, tsuite->pqc_keyform,
+                                        &publ_key, &priv_key,
+                                        CK_TRUE); // must be extractable for Wrap/Unwrap
+
+        if (rc == CKR_KEY_SIZE_RANGE) {
+            testcase_skip("generate to be wrapped key %s with mech %s (%u) in "
+                          "slot %lu is not supported",
+                          tsuite->name,
+                          mech_to_str(tsuite->wrapped_key_gen_mech.mechanism),
+                          (unsigned int)tsuite->wrapped_key_gen_mech.mechanism,
+                          slot_id1);
+            rc = CKR_OK;
+            goto testcase_cleanup;
+        }
+        break;
+
     default:
         testcase_error("Testcase does not support %s (%u)",
                        mech_to_str(tsuite->wrapped_key_gen_mech.mechanism),
@@ -828,6 +866,11 @@ CK_RV do_wrap_key_test(struct wrapped_mech_info *tsuite,
             rc = CKR_OK;
             goto testcase_cleanup;
         }
+        if (rc == CKR_KEY_SIZE_RANGE) {
+            testcase_skip("Key size not supported");
+            rc = CKR_OK;
+            goto testcase_cleanup;
+        }
         if (rc == CKR_MECHANISM_PARAM_INVALID &&
             wrap_mech->mechanism == CKM_RSA_PKCS_OAEP) {
             oaep = (CK_RSA_PKCS_OAEP_PARAMS *)wrap_mech->pParameter;
@@ -855,7 +898,8 @@ CK_RV do_wrap_key_test(struct wrapped_mech_info *tsuite,
         }
         if ((rc == CKR_MECHANISM_INVALID || rc == CKR_KEY_TYPE_INCONSISTENT) &&
             is_ep11_token(slot_id2) && wrap_mech->mechanism == CKM_DES3_CBC &&
-            (key_type == CKK_EC || key_type == CKK_RSA)) {
+            (key_type == CKK_EC || key_type == CKK_RSA ||
+             key_type == CKK_IBM_PQC_DILITHIUM)) {
             testcase_skip("EP11 does not support unwrap of EC or RSA keys with DES3 CBC");
             rc = CKR_OK;
             goto testcase_cleanup;
