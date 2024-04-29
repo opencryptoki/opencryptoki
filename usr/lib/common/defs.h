@@ -65,6 +65,7 @@
 #define MODE_MODIFY     (1 << 3)
 #define MODE_DERIVE     (1 << 4)
 #define MODE_UNWRAP     (1 << 5)
+#define MODE_UNWRAPPED  (1 << 6)
 
 // RSA block formatting types
 //
