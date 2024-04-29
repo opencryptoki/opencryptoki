@@ -1449,6 +1449,18 @@ CK_RV key_mgr_unwrap_key(STDLL_TokData_t *tokdata,
         goto done;
     }
 
+    /* Give the token a chance to check if it supports the unwrapped key */
+    if (token_specific.t_set_attrs_for_new_object != NULL) {
+        rc = token_specific.t_set_attrs_for_new_object(tokdata, keyclass,
+                                                       MODE_UNWRAPPED,
+                                                       key_obj->template);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("token_specific.t_set_attrs_for_new_object failed with "
+                        "rc=%lx\n", rc);
+            goto done;
+        }
+    }
+
 final:
     // at this point, the key should be fully constructed...assign
     // an object handle and store the key
