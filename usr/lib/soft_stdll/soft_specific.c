@@ -1570,6 +1570,89 @@ CK_RV token_specific_object_add(STDLL_TokData_t * tokdata, SESSION * sess,
     }
 }
 
+CK_RV token_specific_set_attrs_for_new_object(STDLL_TokData_t *tokdata,
+                                              CK_OBJECT_CLASS class,
+                                              CK_ULONG mode, TEMPLATE *tmpl)
+{
+    CK_KEY_TYPE keytype;
+    EVP_PKEY *pkey = NULL;
+    CK_RV rc;
+#if OPENSSL_VERSION_PREREQ(3, 0)
+    struct soft_private_data *soft_private = tokdata->private_data;
+    const struct pqc_oid *oid = NULL;
+    const char *alg_name;
+#else
+
+    UNUSED(tokdata);
+    UNUSED(class);
+#endif
+
+    if (mode != MODE_UNWRAPPED)
+        return CKR_OK;
+
+    rc = template_attribute_get_ulong(tmpl, CKA_KEY_TYPE, &keytype);
+    if (rc != CKR_OK)
+        return CKR_OK;
+
+    switch (keytype) {
+    case CKK_DES:
+    case CKK_DES3:
+    case CKK_AES:
+    case CKK_AES_XTS:
+    case CKK_GENERIC_SECRET:
+#if !(NODH)
+    case CKK_DH:
+#endif
+#if !(NODSA)
+    case CKK_DSA:
+#endif
+    case CKK_RSA:
+        return CKR_OK;
+
+#ifndef NO_EC
+    case CKK_EC:
+        /* Check if OpenSSL supports the curve */
+        rc = openssl_make_ec_key_from_template(tmpl, &pkey);
+        if (pkey != NULL)
+                EVP_PKEY_free(pkey);
+        return rc;
+#endif
+
+#if OPENSSL_VERSION_PREREQ(3, 0)
+    case CKK_IBM_DILITHIUM:
+        if (soft_private->oqs_provider == NULL) {
+            TRACE_ERROR("The oqsprovider is not loaded\n");
+            return CKR_MECHANISM_INVALID;
+        }
+
+        oid = ibm_pqc_get_keyform_mode(tmpl, CKM_IBM_DILITHIUM);
+        if (oid == NULL) {
+            TRACE_ERROR("%s Failed to determine dilithium OID\n", __func__);
+            return CKR_TEMPLATE_INCOMPLETE;
+        }
+
+        alg_name = openssl_get_pqc_oid_name(oid);
+        if (alg_name == NULL) {
+            TRACE_ERROR("Dilithium key form is not supported by oqsprovider\n");
+            return CKR_KEY_SIZE_RANGE;
+        }
+
+        /* Check if the oqsprovider supports the variant */
+        rc = openssl_make_ibm_dilithium_key_from_template(tmpl, oid,
+                                                          class ==
+                                                                CKO_PRIVATE_KEY,
+                                                           alg_name, &pkey);
+        if (pkey != NULL)
+                EVP_PKEY_free(pkey);
+
+        return rc;
+#endif
+
+    default:
+        return CKR_KEY_TYPE_INCONSISTENT;
+    }
+}
+
 #if OPENSSL_VERSION_PREREQ(3, 0)
 
 CK_RV token_specific_ibm_dilithium_generate_keypair(STDLL_TokData_t *tokdata,
