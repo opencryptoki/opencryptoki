@@ -2851,6 +2851,7 @@ done:
 
     return ret;
 }
+#endif
 
 /*
  * This function is called whenever a new object is created. It sets
@@ -2867,8 +2868,11 @@ CK_RV token_specific_set_attrs_for_new_object(STDLL_TokData_t *tokdata,
                                               CK_ULONG mode, TEMPLATE *tmpl)
 {
     struct cca_private_data *cca_data = tokdata->private_data;
-    CK_ATTRIBUTE *pkey_attr = NULL, *ecp_attr = NULL, *sensitive_attr = NULL;
+    CK_ATTRIBUTE *sensitive_attr = NULL;
+#ifndef NO_PKEY
+    CK_ATTRIBUTE *pkey_attr = NULL, *ecp_attr = NULL;
     CK_BBOOL add_pkey_extractable = CK_FALSE;
+#endif
     CK_BBOOL sensitive;
     CK_BBOOL btrue = CK_TRUE;
     CK_RV ret;
@@ -2900,6 +2904,7 @@ CK_RV token_specific_set_attrs_for_new_object(STDLL_TokData_t *tokdata,
         }
     }
 
+#ifndef NO_PKEY
     switch (cca_data->pkey_mode) {
     case PKEY_MODE_DISABLED:
         /* Nothing to do */
@@ -2955,6 +2960,7 @@ CK_RV token_specific_set_attrs_for_new_object(STDLL_TokData_t *tokdata,
         goto done;
         break;
     }
+#endif
 
     ret = CKR_OK;
 
@@ -2962,6 +2968,8 @@ done:
 
     return ret;
 }
+
+#ifndef NO_PKEY
 
 static CK_BBOOL ccatok_token_is_cpacf_exportable(const CK_BYTE *token,
                                                  CK_ULONG token_len)
