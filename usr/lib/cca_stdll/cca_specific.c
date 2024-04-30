@@ -33,6 +33,7 @@
 #include <dirent.h>
 #ifndef NO_PKEY
 #include <sys/ioctl.h>
+#include <unistd.h>
 #include <asm/pkey.h>
 #endif
 #include "platform.h"
@@ -2289,7 +2290,7 @@ static CK_RV ccatok_pkey_sec2prot(STDLL_TokData_t *tokdata, const char *adapter,
     struct cca_private_data *cca_data = data->tokdata->private_data;
     struct pkey_kblob2pkey3 io;
     struct pkey_apqn apqn;
-    int rc;
+    int rc, i;
 
     UNUSED(tokdata);
     UNUSED(adapter);
@@ -2309,7 +2310,12 @@ static CK_RV ccatok_pkey_sec2prot(STDLL_TokData_t *tokdata, const char *adapter,
     io.pkeylen = *(data->pkey_buflen_p);
     io.pkey = data->pkey_buf;
 
-    rc = ioctl(cca_data->pkeyfd, PKEY_KBLOB2PROTK3, &io);
+    for (i = 0; i < 10; i++) {
+        rc = ioctl(cca_data->pkeyfd, PKEY_KBLOB2PROTK3, &io);
+        if (rc == 0 || (errno != -EBUSY && errno != -EAGAIN))
+            break;
+        sleep(1);
+    }
     if (rc != 0) {
         data->wrap_error = CKR_FUNCTION_FAILED;
         data->wrap_was_successful = CK_FALSE;
@@ -2325,7 +2331,12 @@ static CK_RV ccatok_pkey_sec2prot(STDLL_TokData_t *tokdata, const char *adapter,
         io.pkeytype = ccatok_pkey_type_from_keytype(data->keytype);
         io.pkeylen = *(data->pkey_buflen_p2);
         io.pkey = data->pkey_buf2;
-        rc = ioctl(cca_data->pkeyfd, PKEY_KBLOB2PROTK3, &io);
+        for (i = 0; i < 10; i++) {
+            rc = ioctl(cca_data->pkeyfd, PKEY_KBLOB2PROTK3, &io);
+            if (rc == 0 || (errno != -EBUSY && errno != -EAGAIN))
+                break;
+            sleep(1);
+        }
         if (rc != 0) {
             data->wrap_error = CKR_FUNCTION_FAILED;
             data->wrap_was_successful = CK_FALSE;
