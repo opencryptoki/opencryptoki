@@ -134,6 +134,7 @@ This package brings the necessary libraries and files to support ICA
 devices in the opencryptoki stack. ICA is an interface to IBM
 cryptographic hardware such as IBM 4764 or 4765 that uses the
 "accelerator" or "clear-key" path.
+%endif
 
 %package ccatok
 Group:			System Environment/Libraries
@@ -153,6 +154,7 @@ devices in the opencryptoki stack. CCA is an interface to IBM
 cryptographic hardware such as IBM 4764 or 4765 that uses the
 "co-processor" or "secure-key" path.
 
+%ifarch s390 s390x
 %package ep11tok
 Group:			System Environment/Libraries
 Summary:		EP11 cryptographic devices (secure-key) support for opencryptoki
@@ -184,7 +186,7 @@ configured with Enterprise PKCS#11 (EP11) firmware.
 %ifarch s390 s390x
     --enable-icatok --enable-ccatok --enable-ep11tok --enable-pkcsep11_migrate
 %else
-    --disable-icatok --disable-ccatok --disable-ep11tok --disable-pkcsep11_migrate --disable-pkcscca_migrate
+    --disable-icatok --enable-ccatok --disable-ep11tok --disable-pkcsep11_migrate --enable-pkcscca_migrate
 %endif
 
 make %{?_smp_mflags} CHGRP=/bin/true
@@ -202,7 +204,9 @@ rm -f $RPM_BUILD_ROOT/%{_libdir}/%{name}/stdll/*.la
 %post icsftok -p /sbin/ldconfig
 %ifarch s390 s390x
 %post icatok -p /sbin/ldconfig
+%endif
 %post ccatok -p /sbin/ldconfig
+%ifarch s390 s390x
 %post ep11tok -p /sbin/ldconfig
 %endif
 
@@ -212,7 +216,9 @@ rm -f $RPM_BUILD_ROOT/%{_libdir}/%{name}/stdll/*.la
 %postun icsftok -p /sbin/ldconfig
 %ifarch s390 s390x
 %postun icatok -p /sbin/ldconfig
+%endif
 %postun ccatok -p /sbin/ldconfig
+%ifarch s390 s390x
 %postun ep11tok -p /sbin/ldconfig
 %endif
 
@@ -316,6 +322,7 @@ exit 0
 %{_libdir}/opencryptoki/stdll/PKCS11_ICA.so
 %dir %attr(770,root,pkcs11) %{_sharedstatedir}/%{name}/lite/
 %dir %attr(770,root,pkcs11) %{_sharedstatedir}/%{name}/lite/TOK_OBJ/
+%endif
 
 %files ccatok
 %doc doc/README.cca_stdll
@@ -327,6 +334,7 @@ exit 0
 %dir %attr(770,root,pkcs11) %{_sharedstatedir}/%{name}/ccatok/
 %dir %attr(770,root,pkcs11) %{_sharedstatedir}/%{name}/ccatok/TOK_OBJ/
 
+%ifarch s390 s390x
 %files ep11tok
 %doc doc/README.ep11_stdll
 %config(noreplace) %{_sysconfdir}/%{name}/ep11tok.conf

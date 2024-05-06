@@ -98,8 +98,9 @@ static void usage(char *progname)
     printf("\nOPTIONS:\n");
     printf(" -a, --apqns APQNS        specifies a comma separated list of APQNs for\n"
            "                          which a master key change is to be performed.\n"
-#if defined(_AIX)
-           "                          MUST be '0.0' on AIX for operation to succeed.\n"
+#if !defined(__s390__)
+           "                          MUST be '0.0' on AIX, Linux on x64, and Linux on\n"
+           "                          Power for operation to succeed.\n"
 #endif
            "                          Only valid with the 'reencipher' command.\n");
     printf(" -e, --ep11-wkvp WKVP     specifies the EP11 wrapping key verification pattern\n"
