@@ -1139,20 +1139,6 @@ typedef void (*CSNBPCU_t) (long *return_code,
                            long *outputPinMessageLength,
                            unsigned char *outputPinMessage);
 
-/* PCF/CUSP Key Conversion */
-typedef void (*CSUAPCV_t) (long *return_code,
-                           long *reason_code,
-                           long *exit_data_length,
-                           unsigned char *exit_data,
-                           long *rule_array_count,
-                           unsigned char *rule_array,
-                           long *KEK_key_identifier_length,
-                           unsigned char *KEK_key_identifier,
-                           long *PCF_key_list_length,
-                           unsigned char *PCF_key_list,
-                           long *output_key_list_length,
-                           unsigned char *output_key_list);
-
 /*Process Request Block*/
 typedef void (*CSUAPRB_t) (long *pReturnCode,
                            long *pReasonCode,
@@ -1165,38 +1151,6 @@ typedef void (*CSUAPRB_t) (long *pReturnCode,
                            long *pOutFileNameLength,
                            unsigned char *pOutFileName,
                            long *pReplyLength, unsigned char *pReply);
-
-/* Diffie-Hellman Key Load */
-typedef void (*CSUADHK_t) (long *ReturnCode,
-                           long *ReasonCode,
-                           long *ExitDataLength,
-                           unsigned char *ExitData,
-                           long *RuleArrayCount,
-                           unsigned char *RuleArray,
-                           unsigned char *DHModulus,
-                           unsigned char *DHGenerator,
-                           unsigned char *DHKeyPart,
-                           long *TransportKeyHashLength,
-                           unsigned char *TransportKeyHash,
-                           unsigned char *Reserved1,
-                           unsigned char *Reserved2,
-                           unsigned char *Reserved3, unsigned char *Reserved4);
-
-/* Diffie-Hellman Key Query */
-typedef void (*CSUADHQ_t) (long *ReturnCode,
-                           long *ReasonCode,
-                           long *ExitDataLength,
-                           unsigned char *ExitData,
-                           long *RuleArrayCount,
-                           unsigned char *RuleArray,
-                           unsigned char *DHModulus,
-                           unsigned char *DHGenerator,
-                           unsigned char *DHKeyPart,
-                           long *TransportKeyHashLength,
-                           unsigned char *TransportKeyHash,
-                           unsigned char *Reserved1,
-                           unsigned char *Reserved2,
-                           unsigned char *Reserved3, unsigned char *Reserved4);
 
 /* Trusted Block Create */
 typedef void (*CSNDTBC_t) (long *return_code,
