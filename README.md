@@ -50,9 +50,10 @@ utilities. On AIX, they must be installed from the AIX Toolbox repositories.
 hardware crypto on IBM zSeries.
 
 - IBM CCA - requires the CCA host library with version 7.1 or higher, and IBM
-Crypto CEX3C card (or higher) on Linux for IBM Z. On AIX, only the IBM
-CEX7S (4769) crypto card is supported. On both platforms, this token needs the
-`lber` library, which is usually part of the `openldap` package.
+Crypto CEX3C card (or higher) on Linux for IBM Z. On AIX, Linux on x64, and
+Linux on Power only the IBM CEX7S (4769) crypto card is supported. On all
+platforms, this token needs the `lber` library, which is usually part of the
+`openldap` package.
 
 - TPM (**deprecated**) - requires a TPM, TPM tools, and TCG software stack.
 Supports TPM version 1.2 only. 

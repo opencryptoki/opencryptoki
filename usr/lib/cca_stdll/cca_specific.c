@@ -869,7 +869,8 @@ static CK_RV cca_get_version(STDLL_TokData_t *tokdata)
     long exit_data_len = 0;
     char date[20];
 
-#if defined(_AIX)
+    /* Version data format of CSUACFV is different on non-s390x- platforms */
+#if !defined(__s390__)
     const char *verstrfmt = "%u.%u.%uc %s";
 #else
     const char *verstrfmt = "%u.%u.%uz%s";
@@ -1395,7 +1396,11 @@ static CK_RV cca_get_and_check_mkvps(STDLL_TokData_t *tokdata,
 
 static CK_RV cca_get_current_domain(unsigned short *domain)
 {
-#if defined(_AIX)
+    /*
+     * Only CCA on Linux on IBM Z supports CSU_DEFAULT_DOMAIN, all others
+     * support only one domain (i.e. domain 0).
+     */
+#if !defined(__s390__)
     *domain = 0;
 #else
     const char *val;
@@ -1435,6 +1440,7 @@ static CK_RV cca_get_current_domain(unsigned short *domain)
 static CK_RV cca_get_current_card(unsigned short *card, char *serialret)
 {
     char serialno[CCA_SERIALNO_LENGTH + 1];
+#if defined(__s390__)
     DIR *d;
     struct dirent *de;
     regex_t reg_buf;
@@ -1442,6 +1448,7 @@ static CK_RV cca_get_current_card(unsigned short *card, char *serialret)
     char fname[290];
     char buf[250];
     unsigned long val;
+#endif
     CK_BBOOL found = FALSE;
     CK_RV rc;
 
@@ -1452,8 +1459,10 @@ static CK_RV cca_get_current_card(unsigned short *card, char *serialret)
 
     TRACE_DEVEL("serialno: %s\n", serialno);
 
-#if defined(_AIX)
-    /* default card is always the first card */
+    /* Only Linux on IBM Z supports to find the cards via sysfs, for all
+     * others the default card is always the first card (i.e. card number 0).
+     */
+#if !defined(__s390__)
     *card = 0;
     found = TRUE;
 #else
@@ -1501,7 +1510,7 @@ static CK_RV cca_get_current_card(unsigned short *card, char *serialret)
 
     closedir(d);
     regfree(&reg_buf);
-#endif /* _AIX */
+#endif /* __s390__ */
 
     if (found && serialret != NULL)
         strcpy(serialret, serialno);
@@ -1719,20 +1728,20 @@ static CK_RV cca_get_adapter_domain_selection_infos(STDLL_TokData_t *tokdata)
     struct cca_private_data *cca_private = tokdata->private_data;
     unsigned char rule_array[CCA_RULE_ARRAY_SIZE] = { 0, };
     long return_code, reason_code, rule_array_count, verb_data_length;
+#if defined(__s390__)
     unsigned int i;
     const char *val;
+#endif
 
-#if !defined(_AIX)
     /*
-     * AIX does not have the luxury to identify the default card/domain
-     * combination that is assigned to an LPAR/host - this data is exposed
-     * through sysfs, but only in case of Linux on Z. Because of this, we must
-     * lean on the host library to decide which card to use when there is no
-     * user preference - the default card we use is the one that is the first
-     * entry written to the data buffer by the host library.
-     *
-     * That's why we force ANY device/domain usage onto the host library
+     * Only Linux on IBM Z supports the AUTOSELECT option with adapter/domain
+     * selection using CSU_DEFAULT_ADAPTER with 'DEV-ANY' and/or
+     * CSU_DEFAULT_DOMAIN with 'DOM-ANY'. All other platforms only support
+     * selection of one distinct adapter, and no domain selection at all.
+     * Enable the AUTOSELECT (i.e. 'DEV-ANY' / 'DOM-ANY') support code
+     * only for CCA on Linux on IBM Z.
      */
+#if defined(__s390__)
     /* Check if adapter and/or domain auto-selection is used */
     val = getenv(CCA_DEFAULT_ADAPTER_ENVAR);
     if (val != NULL && strcmp(val, CCA_DEVICE_ANY) == 0)
@@ -1744,6 +1753,7 @@ static CK_RV cca_get_adapter_domain_selection_infos(STDLL_TokData_t *tokdata)
         cca_private->dom_any = TRUE;
     TRACE_DEVEL("dom_any: %d\n", cca_private->dom_any);
 #endif
+
     /* Get number of adapters, current adapter serial number */
     memcpy(rule_array, "STATCRD2", CCA_KEYWORD_SIZE);
     rule_array_count = 1;
@@ -1767,13 +1777,11 @@ static CK_RV cca_get_adapter_domain_selection_infos(STDLL_TokData_t *tokdata)
     }
     TRACE_DEVEL("num_adapters: %u\n", cca_private->num_adapters);
 
-#if defined(_AIX)
+#if !defined(__s390__)
    /*
-    * Short-circuit! If we're on AIX, it means the card does not support CCA
-    * DOMAINs. Therefore we force a single domain and skip all future tests.
-    *
-    * Future commits might remove conditional compilation if Z-hosted cards are
-    * enabled to be used remotely on AIX.
+    * Short-circuit for all non-s390x platforms. No domains are supported on
+    * those platforms, therefore we force a single domain and skip all future
+    * tests.
     */
     cca_private->num_usagedoms = 1;
     cca_private->num_domains = 1;

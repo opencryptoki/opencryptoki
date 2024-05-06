@@ -34,8 +34,9 @@ tool to re-encipher all openCryptoki token and session key objects, as well as
 currently active crypto operation states with the new master key. Applications
 using those keys can continue to run, the re-enciphering process takes place
 transparently to them.
-\fBImportant:\fB AIX does not support the concept of APQNs; whenever these
-fields are being input, the user must use the value \fB0.0\fB.
+\fBImportant:\fB CCA does not support the concept of APQNs when running on AIX,
+Linux on x64, and Linux on Power; whenever an APQN is being used as input, the
+user must specify the value \fB0.0\fB.
 .PP
 A concurrent master key change works as follows:
 .RS 2
