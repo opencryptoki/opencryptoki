@@ -184,11 +184,6 @@ static CSNBTRV_t dll_CSNBTRV;
 static CSNBSKY_t dll_CSNBSKY;
 static CSNBSPN_t dll_CSNBSPN;
 static CSNBPCU_t dll_CSNBPCU;
-#if !defined(_AIX)
-static CSUAPCV_t dll_CSUAPCV;
-static CSUADHK_t dll_CSUADHK;
-static CSUADHQ_t dll_CSUADHQ;
-#endif
 static CSUAPRB_t dll_CSUAPRB;
 static CSNDTBC_t dll_CSNDTBC;
 static CSNDRKX_t dll_CSNDRKX;
@@ -851,13 +846,6 @@ static CK_RV cca_resolve_lib_sym(void *hdl)
     LDSYM_VERIFY(hdl, CSNBSKY);
     LDSYM_VERIFY(hdl, CSNBSPN);
     LDSYM_VERIFY(hdl, CSNBPCU);
-
-#if !defined(_AIX)
-    LDSYM_VERIFY(hdl, CSUAPCV);
-    LDSYM_VERIFY(hdl, CSUADHK);
-    LDSYM_VERIFY(hdl, CSUADHQ);
-#endif
-
     LDSYM_VERIFY(hdl, CSUAPRB);
     LDSYM_VERIFY(hdl, CSNDTBC);
     LDSYM_VERIFY(hdl, CSNDRKX);
