@@ -250,6 +250,22 @@ _signVerifyParam signVerifyInput[] = {
     {{CKM_ECDSA_SHA512, NULL, 0}, 100, 4},
     {{CKM_ECDSA_SHA512, NULL, 0}, 0, 0}, /* Empty Message via C_Sign */
     {{CKM_ECDSA_SHA512, NULL, 0}, 0, 1}, /* Empty Message via C_SignInit+C_SignFinal */
+    {{CKM_ECDSA_SHA3_224, NULL, 0}, 100, 0},
+    {{CKM_ECDSA_SHA3_224, NULL, 0}, 100, 4},
+    {{CKM_ECDSA_SHA3_224, NULL, 0}, 0, 0}, /* Empty Message via C_Sign */
+    {{CKM_ECDSA_SHA3_224, NULL, 0}, 0, 1}, /* Empty Message via C_SignInit+C_SignFinal */
+    {{CKM_ECDSA_SHA3_256, NULL, 0}, 100, 0},
+    {{CKM_ECDSA_SHA3_256, NULL, 0}, 100, 4},
+    {{CKM_ECDSA_SHA3_256, NULL, 0}, 0, 0}, /* Empty Message via C_Sign */
+    {{CKM_ECDSA_SHA3_256, NULL, 0}, 0, 1}, /* Empty Message via C_SignInit+C_SignFinal */
+    {{CKM_ECDSA_SHA3_384, NULL, 0}, 100, 0},
+    {{CKM_ECDSA_SHA3_384, NULL, 0}, 100, 4},
+    {{CKM_ECDSA_SHA3_384, NULL, 0}, 0, 0}, /* Empty Message via C_Sign */
+    {{CKM_ECDSA_SHA3_384, NULL, 0}, 0, 1}, /* Empty Message via C_SignInit+C_SignFinal */
+    {{CKM_ECDSA_SHA3_512, NULL, 0}, 100, 0},
+    {{CKM_ECDSA_SHA3_512, NULL, 0}, 100, 4},
+    {{CKM_ECDSA_SHA3_512, NULL, 0}, 0, 0}, /* Empty Message via C_Sign */
+    {{CKM_ECDSA_SHA3_512, NULL, 0}, 0, 1}, /* Empty Message via C_SignInit+C_SignFinal */
     {{CKM_IBM_ED25519_SHA512, NULL, 0}, 100, 0},
     {{CKM_IBM_ED448_SHA3, NULL, 0}, 100, 0},
     {{CKM_IBM_ECDSA_OTHER, &other_rand, sizeof(other_rand)}, 20, 0},
@@ -264,6 +280,10 @@ static CK_EC_KDF_TYPE kdfs[] = {
     CKD_SHA256_KDF,
     CKD_SHA384_KDF,
     CKD_SHA512_KDF,
+    CKD_SHA3_224_KDF,
+    CKD_SHA3_256_KDF,
+    CKD_SHA3_384_KDF,
+    CKD_SHA3_512_KDF,
 };
 
 static const char *p11_get_ckd(CK_EC_KDF_TYPE kdf)
@@ -281,6 +301,14 @@ static const char *p11_get_ckd(CK_EC_KDF_TYPE kdf)
         return "CKD_SHA384_KDF";
     case CKD_SHA512_KDF:
         return "CKD_SHA512_KDF";
+    case CKD_SHA3_224_KDF:
+        return "CKD_SHA3_224_KDF";
+    case CKD_SHA3_256_KDF:
+        return "CKD_SHA3_256_KDF";
+    case CKD_SHA3_384_KDF:
+        return "CKD_SHA3_384_KDF";
+    case CKD_SHA3_512_KDF:
+        return "CKD_SHA3_512_KDF";
     default:
         return "UNKNOWN";
     }
@@ -665,6 +693,34 @@ CK_RV run_DeriveECDHKey(void)
             case CKD_SHA512_KDF:
                 if (!mech_supported(SLOT_ID, CKM_SHA512)) {
                     testcase_skip("Slot %u doesn't support CKD_SHA512_KDF\n",
+                                  (unsigned int) SLOT_ID);
+                    continue;
+                }
+                break;
+            case CKD_SHA3_224_KDF:
+                if (!mech_supported(SLOT_ID, CKM_SHA3_224)) {
+                    testcase_skip("Slot %u doesn't support CKD_SHA3_224_KDF\n",
+                                  (unsigned int) SLOT_ID);
+                    continue;
+                }
+                break;
+            case CKD_SHA3_256_KDF:
+                if (!mech_supported(SLOT_ID, CKM_SHA3_256)) {
+                    testcase_skip("Slot %u doesn't support CKD_SHA3_256_KDF\n",
+                                  (unsigned int) SLOT_ID);
+                    continue;
+                }
+                break;
+            case CKD_SHA3_384_KDF:
+                if (!mech_supported(SLOT_ID, CKM_SHA3_384)) {
+                    testcase_skip("Slot %u doesn't support CKD_SHA3_384_KDF\n",
+                                  (unsigned int) SLOT_ID);
+                    continue;
+                }
+                break;
+            case CKD_SHA3_512_KDF:
+                if (!mech_supported(SLOT_ID, CKM_SHA3_512)) {
+                    testcase_skip("Slot %u doesn't support CKD_SHA3_512_KDF\n",
                                   (unsigned int) SLOT_ID);
                     continue;
                 }
@@ -1055,6 +1111,34 @@ CK_RV run_DeriveECDHKeyKAT(void)
         case CKD_SHA512_KDF:
             if (!mech_supported(SLOT_ID, CKM_SHA512)) {
                 testcase_skip("Slot %u doesn't support CKD_SHA512_KDF\n",
+                              (unsigned int) SLOT_ID);
+                continue;
+            }
+            break;
+        case CKD_SHA3_224_KDF:
+            if (!mech_supported(SLOT_ID, CKM_SHA3_224)) {
+                testcase_skip("Slot %u doesn't support CKD_SHA3_224_KDF\n",
+                              (unsigned int) SLOT_ID);
+                continue;
+            }
+            break;
+        case CKD_SHA3_256_KDF:
+            if (!mech_supported(SLOT_ID, CKM_SHA3_256)) {
+                testcase_skip("Slot %u doesn't support CKD_SHA3_256_KDF\n",
+                              (unsigned int) SLOT_ID);
+                continue;
+            }
+            break;
+        case CKD_SHA3_384_KDF:
+            if (!mech_supported(SLOT_ID, CKM_SHA3_384)) {
+                testcase_skip("Slot %u doesn't support CKD_SHA3_384_KDF\n",
+                              (unsigned int) SLOT_ID);
+                continue;
+            }
+            break;
+        case CKD_SHA3_512_KDF:
+            if (!mech_supported(SLOT_ID, CKM_SHA3_512)) {
+                testcase_skip("Slot %u doesn't support CKD_SHA3_512_KDF\n",
                               (unsigned int) SLOT_ID);
                 continue;
             }

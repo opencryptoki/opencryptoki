@@ -180,6 +180,17 @@ CK_RV do_EncryptDecryptRSA(struct GENERATED_TEST_SUITE_INFO *tsuite)
             }
         }
 
+        if (tsuite->mech.mechanism == CKM_RSA_PKCS_OAEP) {
+            if (!mech_supported(slot_id, tsuite->tv[i].oaep_params.hashAlg)) {
+                testcase_skip("Slot %u doesn't support OAEP hash alg %s (0x%x)",
+                              (unsigned int)slot_id,
+                              mech_to_str(tsuite->tv[i].oaep_params.hashAlg),
+                              (unsigned int)tsuite->tv[i].oaep_params.hashAlg);
+                free(s);
+                continue;
+            }
+        }
+
         free(s);
 
         // clear buffers
@@ -770,6 +781,19 @@ CK_RV do_SignVerifyRSA(struct GENERATED_TEST_SUITE_INFO * tsuite,
                 continue;
             }
         }
+
+        if (tsuite->tv[i].modbits <= 512 &&
+            (tsuite->mech.mechanism == CKM_SHA384_RSA_PKCS ||
+             tsuite->mech.mechanism == CKM_SHA512_RSA_PKCS ||
+             tsuite->mech.mechanism == CKM_SHA3_384_RSA_PKCS ||
+             tsuite->mech.mechanism == CKM_SHA3_512_RSA_PKCS)) {
+            testcase_skip("Mechanism %s can not be used with a key with mod_bits='%lu'.",
+                          mech_to_str(tsuite->mech.mechanism),
+                          tsuite->tv[i].modbits);
+            free(s);
+            continue;
+        }
+
         // free memory
         free(s);
 
@@ -1286,6 +1310,17 @@ CK_RV do_WrapUnwrapRSA(struct GENERATED_TEST_SUITE_INFO * tsuite)
             if (!is_valid_soft_pubexp(tsuite->tv[i].publ_exp,
                                       tsuite->tv[i].publ_exp_len)) {
                 testcase_skip("Soft Token cannot be used with publ_exp='%s'.", s);
+                free(s);
+                continue;
+            }
+        }
+
+        if (tsuite->mech.mechanism == CKM_RSA_PKCS_OAEP) {
+            if (!mech_supported(slot_id, tsuite->tv[i].oaep_params.hashAlg)) {
+                testcase_skip("Slot %u doesn't support OAEP hash alg %s (0x%x)",
+                              (unsigned int)slot_id,
+                              mech_to_str(tsuite->tv[i].oaep_params.hashAlg),
+                              (unsigned int)tsuite->tv[i].oaep_params.hashAlg);
                 free(s);
                 continue;
             }
