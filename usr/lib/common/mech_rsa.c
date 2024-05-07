@@ -43,12 +43,20 @@ CK_BBOOL is_rsa_mechanism(CK_MECHANISM_TYPE mech)
     case CKM_SHA256_RSA_PKCS:
     case CKM_SHA384_RSA_PKCS:
     case CKM_SHA512_RSA_PKCS:
+    case CKM_SHA3_224_RSA_PKCS:
+    case CKM_SHA3_256_RSA_PKCS:
+    case CKM_SHA3_384_RSA_PKCS:
+    case CKM_SHA3_512_RSA_PKCS:
     case CKM_RSA_PKCS_PSS:
     case CKM_SHA1_RSA_PKCS_PSS:
     case CKM_SHA224_RSA_PKCS_PSS:
     case CKM_SHA256_RSA_PKCS_PSS:
     case CKM_SHA384_RSA_PKCS_PSS:
     case CKM_SHA512_RSA_PKCS_PSS:
+    case CKM_SHA3_224_RSA_PKCS_PSS:
+    case CKM_SHA3_256_RSA_PKCS_PSS:
+    case CKM_SHA3_384_RSA_PKCS_PSS:
+    case CKM_SHA3_512_RSA_PKCS_PSS:
     case CKM_RSA_PKCS_OAEP:
     case CKM_RSA_X_509:
     case CKM_RSA_X9_31:
@@ -1566,24 +1574,10 @@ CK_RV rsa_hash_pss_sign(STDLL_TokData_t *tokdata, SESSION *sess,
     memset(&digest_ctx, 0x0, sizeof(digest_ctx));
     memset(&sign_ctx, 0x0, sizeof(sign_ctx));
 
-    switch (ctx->mech.mechanism) {
-    case CKM_SHA1_RSA_PKCS_PSS:
-        digest_mech.mechanism = CKM_SHA_1;
-        break;
-    case CKM_SHA224_RSA_PKCS_PSS:
-        digest_mech.mechanism = CKM_SHA224;
-        break;
-    case CKM_SHA256_RSA_PKCS_PSS:
-        digest_mech.mechanism = CKM_SHA256;
-        break;
-    case CKM_SHA384_RSA_PKCS_PSS:
-        digest_mech.mechanism = CKM_SHA384;
-        break;
-    case CKM_SHA512_RSA_PKCS_PSS:
-        digest_mech.mechanism = CKM_SHA512;
-        break;
-    default:
-        return CKR_MECHANISM_INVALID;
+    rc = get_digest_from_mech(ctx->mech.mechanism, &digest_mech.mechanism);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s get_digest_from_mech failed\n", __func__);
+        return rc;
     }
 
     digest_mech.ulParameterLen = 0;
@@ -1648,24 +1642,10 @@ CK_RV rsa_hash_pss_update(STDLL_TokData_t *tokdata, SESSION *sess,
     /* see if digest has already been through init */
     digest_ctx = (DIGEST_CONTEXT *) ctx->context;
     if (digest_ctx->active == FALSE) {
-        switch (ctx->mech.mechanism) {
-        case CKM_SHA1_RSA_PKCS_PSS:
-            digest_mech.mechanism = CKM_SHA_1;
-            break;
-        case CKM_SHA224_RSA_PKCS_PSS:
-            digest_mech.mechanism = CKM_SHA224;
-            break;
-        case CKM_SHA256_RSA_PKCS_PSS:
-            digest_mech.mechanism = CKM_SHA256;
-            break;
-        case CKM_SHA384_RSA_PKCS_PSS:
-            digest_mech.mechanism = CKM_SHA384;
-            break;
-        case CKM_SHA512_RSA_PKCS_PSS:
-            digest_mech.mechanism = CKM_SHA512;
-            break;
-        default:
-            return CKR_MECHANISM_INVALID;
+        rc = get_digest_from_mech(ctx->mech.mechanism, &digest_mech.mechanism);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s get_digest_from_mech failed\n", __func__);
+            return rc;
         }
 
         digest_mech.ulParameterLen = 0;
@@ -1769,24 +1749,10 @@ CK_RV rsa_hash_pss_verify(STDLL_TokData_t *tokdata, SESSION *sess,
     memset(&digest_ctx, 0x0, sizeof(digest_ctx));
     memset(&verify_ctx, 0x0, sizeof(verify_ctx));
 
-    switch (ctx->mech.mechanism) {
-    case CKM_SHA1_RSA_PKCS_PSS:
-        digest_mech.mechanism = CKM_SHA_1;
-        break;
-    case CKM_SHA224_RSA_PKCS_PSS:
-        digest_mech.mechanism = CKM_SHA224;
-        break;
-    case CKM_SHA256_RSA_PKCS_PSS:
-        digest_mech.mechanism = CKM_SHA256;
-        break;
-    case CKM_SHA384_RSA_PKCS_PSS:
-        digest_mech.mechanism = CKM_SHA384;
-        break;
-    case CKM_SHA512_RSA_PKCS_PSS:
-        digest_mech.mechanism = CKM_SHA512;
-        break;
-    default:
-        return CKR_MECHANISM_INVALID;
+    rc = get_digest_from_mech(ctx->mech.mechanism, &digest_mech.mechanism);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s get_digest_from_mech failed\n", __func__);
+        return rc;
     }
 
     digest_mech.ulParameterLen = 0;
@@ -1897,6 +1863,63 @@ done:
     return rc;
 }
 
+static CK_RV rsa_pkcs_alg_oid_from_mech(CK_MECHANISM_TYPE mech,
+                                        const CK_BYTE **oid, CK_ULONG *oid_len)
+{
+    switch (mech) {
+#if !(NOMD2)
+    case CKM_MD2_RSA_PKCS:
+        *oid = ber_AlgMd2;
+        *oid_len = ber_AlgMd2Len;
+        break;
+#endif
+    case CKM_MD5_RSA_PKCS:
+        *oid = ber_AlgMd5;
+        *oid_len = ber_AlgMd5Len;
+        break;
+    case CKM_SHA1_RSA_PKCS:
+        *oid = ber_AlgSha1;
+        *oid_len = ber_AlgSha1Len;
+        break;
+    case CKM_SHA224_RSA_PKCS:
+        *oid = ber_AlgSha224;
+        *oid_len = ber_AlgSha224Len;
+        break;
+    case CKM_SHA256_RSA_PKCS:
+        *oid = ber_AlgSha256;
+        *oid_len = ber_AlgSha256Len;
+        break;
+    case CKM_SHA384_RSA_PKCS:
+        *oid = ber_AlgSha384;
+        *oid_len = ber_AlgSha384Len;
+        break;
+    case CKM_SHA512_RSA_PKCS:
+        *oid = ber_AlgSha512;
+        *oid_len = ber_AlgSha512Len;
+        break;
+    case CKM_SHA3_224_RSA_PKCS:
+        *oid = ber_AlgSha3_224;
+        *oid_len = ber_AlgSha3_224Len;
+        break;
+    case CKM_SHA3_256_RSA_PKCS:
+        *oid = ber_AlgSha3_256;
+        *oid_len = ber_AlgSha3_256Len;
+        break;
+    case CKM_SHA3_384_RSA_PKCS:
+        *oid = ber_AlgSha3_384;
+        *oid_len = ber_AlgSha3_384Len;
+        break;
+    case CKM_SHA3_512_RSA_PKCS:
+        *oid = ber_AlgSha3_512;
+        *oid_len = ber_AlgSha3_512Len;
+        break;
+    default:
+        return CKR_MECHANISM_INVALID;
+    }
+
+    return CKR_OK;
+}
+
 //
 //
 CK_RV rsa_hash_pkcs_sign(STDLL_TokData_t *tokdata,
@@ -1930,41 +1953,20 @@ CK_RV rsa_hash_pkcs_sign(STDLL_TokData_t *tokdata,
     memset(&digest_ctx, 0x0, sizeof(digest_ctx));
     memset(&sign_ctx, 0x0, sizeof(sign_ctx));
 
-#if !(NOMD2)
-    if (ctx->mech.mechanism == CKM_MD2_RSA_PKCS) {
-        digest_mech.mechanism = CKM_MD2;
-        oid = ber_AlgMd2;
-        oid_len = ber_AlgMd2Len;
-    } else
-#endif
-    if (ctx->mech.mechanism == CKM_MD5_RSA_PKCS) {
-        digest_mech.mechanism = CKM_MD5;
-        oid = ber_AlgMd5;
-        oid_len = ber_AlgMd5Len;
-    } else if (ctx->mech.mechanism == CKM_SHA224_RSA_PKCS) {
-        digest_mech.mechanism = CKM_SHA224;
-        oid = ber_AlgSha224;
-        oid_len = ber_AlgSha224Len;
-    } else if (ctx->mech.mechanism == CKM_SHA256_RSA_PKCS) {
-        digest_mech.mechanism = CKM_SHA256;
-        oid = ber_AlgSha256;
-        oid_len = ber_AlgSha256Len;
-    } else if (ctx->mech.mechanism == CKM_SHA384_RSA_PKCS) {
-        digest_mech.mechanism = CKM_SHA384;
-        oid = ber_AlgSha384;
-        oid_len = ber_AlgSha384Len;
-    } else if (ctx->mech.mechanism == CKM_SHA512_RSA_PKCS) {
-        digest_mech.mechanism = CKM_SHA512;
-        oid = ber_AlgSha512;
-        oid_len = ber_AlgSha512Len;
-    } else {
-        digest_mech.mechanism = CKM_SHA_1;
-        oid = ber_AlgSha1;
-        oid_len = ber_AlgSha1Len;
+    rc = get_digest_from_mech(ctx->mech.mechanism, &digest_mech.mechanism);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s get_digest_from_mech failed\n", __func__);
+        return rc;
     }
 
     digest_mech.ulParameterLen = 0;
     digest_mech.pParameter = NULL;
+
+    rc = rsa_pkcs_alg_oid_from_mech(ctx->mech.mechanism, &oid, &oid_len);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s rsa_pkcs_alg_oid_from_mech failed\n", __func__);
+        return rc;
+    }
 
     rc = digest_mgr_init(tokdata, sess, &digest_ctx, &digest_mech, FALSE);
     if (rc != CKR_OK) {
@@ -2044,23 +2046,11 @@ CK_RV rsa_hash_pkcs_sign_update(STDLL_TokData_t *tokdata,
     context = (RSA_DIGEST_CONTEXT *) ctx->context;
 
     if (context->flag == FALSE) {
-#if !(NOMD2)
-        if (ctx->mech.mechanism == CKM_MD2_RSA_PKCS)
-            digest_mech.mechanism = CKM_MD2;
-        else
-#endif
-        if (ctx->mech.mechanism == CKM_MD5_RSA_PKCS)
-            digest_mech.mechanism = CKM_MD5;
-        else if (ctx->mech.mechanism == CKM_SHA224_RSA_PKCS)
-            digest_mech.mechanism = CKM_SHA224;
-        else if (ctx->mech.mechanism == CKM_SHA256_RSA_PKCS)
-            digest_mech.mechanism = CKM_SHA256;
-        else if (ctx->mech.mechanism == CKM_SHA384_RSA_PKCS)
-            digest_mech.mechanism = CKM_SHA384;
-        else if (ctx->mech.mechanism == CKM_SHA512_RSA_PKCS)
-            digest_mech.mechanism = CKM_SHA512;
-        else
-            digest_mech.mechanism = CKM_SHA_1;
+        rc = get_digest_from_mech(ctx->mech.mechanism, &digest_mech.mechanism);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s get_digest_from_mech failed\n", __func__);
+            return rc;
+        }
 
         digest_mech.ulParameterLen = 0;
         digest_mech.pParameter = NULL;
@@ -2116,42 +2106,20 @@ CK_RV rsa_hash_pkcs_verify(STDLL_TokData_t *tokdata,
     memset(&digest_ctx, 0x0, sizeof(digest_ctx));
     memset(&verify_ctx, 0x0, sizeof(verify_ctx));
 
-#if !(NOMD2)
-    if (ctx->mech.mechanism == CKM_MD2_RSA_PKCS) {
-        digest_mech.mechanism = CKM_MD2;
-        oid = ber_AlgMd2;
-        oid_len = ber_AlgMd2Len;
-    } else
-#endif
-    if (ctx->mech.mechanism == CKM_MD5_RSA_PKCS) {
-        digest_mech.mechanism = CKM_MD5;
-        oid = ber_AlgMd5;
-        oid_len = ber_AlgMd5Len;
-    } else if (ctx->mech.mechanism == CKM_SHA224_RSA_PKCS) {
-        digest_mech.mechanism = CKM_SHA224;
-        oid = ber_AlgSha224;
-        oid_len = ber_AlgSha224Len;
-    } else if (ctx->mech.mechanism == CKM_SHA256_RSA_PKCS) {
-        digest_mech.mechanism = CKM_SHA256;
-        oid = ber_AlgSha256;
-        oid_len = ber_AlgSha256Len;
-    } else if (ctx->mech.mechanism == CKM_SHA384_RSA_PKCS) {
-        digest_mech.mechanism = CKM_SHA384;
-        oid = ber_AlgSha384;
-        oid_len = ber_AlgSha384Len;
-    } else if (ctx->mech.mechanism == CKM_SHA512_RSA_PKCS) {
-        digest_mech.mechanism = CKM_SHA512;
-        oid = ber_AlgSha512;
-        oid_len = ber_AlgSha512Len;
-    } else {
-        digest_mech.mechanism = CKM_SHA_1;
-        oid = ber_AlgSha1;
-        oid_len = ber_AlgSha1Len;
+    rc = get_digest_from_mech(ctx->mech.mechanism, &digest_mech.mechanism);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s get_digest_from_mech failed\n", __func__);
+        return rc;
     }
-
 
     digest_mech.ulParameterLen = 0;
     digest_mech.pParameter = NULL;
+
+    rc = rsa_pkcs_alg_oid_from_mech(ctx->mech.mechanism, &oid, &oid_len);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s rsa_pkcs_alg_oid_from_mech failed\n", __func__);
+        return rc;
+    }
 
     rc = digest_mgr_init(tokdata, sess, &digest_ctx, &digest_mech, FALSE);
     if (rc != CKR_OK) {
@@ -2228,23 +2196,11 @@ CK_RV rsa_hash_pkcs_verify_update(STDLL_TokData_t *tokdata,
     context = (RSA_DIGEST_CONTEXT *) ctx->context;
 
     if (context->flag == FALSE) {
-#if !(NOMD2)
-        if (ctx->mech.mechanism == CKM_MD2_RSA_PKCS)
-            digest_mech.mechanism = CKM_MD2;
-        else
-#endif
-        if (ctx->mech.mechanism == CKM_MD5_RSA_PKCS)
-            digest_mech.mechanism = CKM_MD5;
-        else if (ctx->mech.mechanism == CKM_SHA224_RSA_PKCS)
-            digest_mech.mechanism = CKM_SHA224;
-        else if (ctx->mech.mechanism == CKM_SHA256_RSA_PKCS)
-            digest_mech.mechanism = CKM_SHA256;
-        else if (ctx->mech.mechanism == CKM_SHA384_RSA_PKCS)
-            digest_mech.mechanism = CKM_SHA384;
-        else if (ctx->mech.mechanism == CKM_SHA512_RSA_PKCS)
-            digest_mech.mechanism = CKM_SHA512;
-        else
-            digest_mech.mechanism = CKM_SHA_1;
+        rc = get_digest_from_mech(ctx->mech.mechanism, &digest_mech.mechanism);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s get_digest_from_mech failed\n", __func__);
+            return rc;
+        }
 
         digest_mech.ulParameterLen = 0;
         digest_mech.pParameter = NULL;
@@ -2297,30 +2253,10 @@ CK_RV rsa_hash_pkcs_sign_final(STDLL_TokData_t *tokdata,
         return CKR_FUNCTION_FAILED;
     }
 
-#if !(NOMD2)
-    if (ctx->mech.mechanism == CKM_MD2_RSA_PKCS) {
-        oid = ber_AlgMd2;
-        oid_len = ber_AlgMd2Len;
-    } else
-#endif
-    if (ctx->mech.mechanism == CKM_MD5_RSA_PKCS) {
-        oid = ber_AlgMd5;
-        oid_len = ber_AlgMd5Len;
-    } else if (ctx->mech.mechanism == CKM_SHA224_RSA_PKCS) {
-        oid = ber_AlgSha224;
-        oid_len = ber_AlgSha224Len;
-    } else if (ctx->mech.mechanism == CKM_SHA256_RSA_PKCS) {
-        oid = ber_AlgSha256;
-        oid_len = ber_AlgSha256Len;
-    } else if (ctx->mech.mechanism == CKM_SHA384_RSA_PKCS) {
-        oid = ber_AlgSha384;
-        oid_len = ber_AlgSha384Len;
-    } else if (ctx->mech.mechanism == CKM_SHA512_RSA_PKCS) {
-        oid = ber_AlgSha512;
-        oid_len = ber_AlgSha512Len;
-    } else {
-        oid = ber_AlgSha1;
-        oid_len = ber_AlgSha1Len;
+    rc = rsa_pkcs_alg_oid_from_mech(ctx->mech.mechanism, &oid, &oid_len);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s rsa_pkcs_alg_oid_from_mech failed\n", __func__);
+        return rc;
     }
 
     memset(&sign_ctx, 0x0, sizeof(sign_ctx));
@@ -2416,30 +2352,11 @@ CK_RV rsa_hash_pkcs_verify_final(STDLL_TokData_t *tokdata,
         TRACE_ERROR("%s received bad argument(s)\n", __func__);
         return CKR_FUNCTION_FAILED;
     }
-#if !(NOMD2)
-    if (ctx->mech.mechanism == CKM_MD2_RSA_PKCS) {
-        oid = ber_AlgMd2;
-        oid_len = ber_AlgMd2Len;
-    } else
-#endif
-    if (ctx->mech.mechanism == CKM_MD5_RSA_PKCS) {
-        oid = ber_AlgMd5;
-        oid_len = ber_AlgMd5Len;
-    } else if (ctx->mech.mechanism == CKM_SHA224_RSA_PKCS) {
-        oid = ber_AlgSha224;
-        oid_len = ber_AlgSha224Len;
-    } else if (ctx->mech.mechanism == CKM_SHA256_RSA_PKCS) {
-        oid = ber_AlgSha256;
-        oid_len = ber_AlgSha256Len;
-    } else if (ctx->mech.mechanism == CKM_SHA384_RSA_PKCS) {
-        oid = ber_AlgSha384;
-        oid_len = ber_AlgSha384Len;
-    } else if (ctx->mech.mechanism == CKM_SHA512_RSA_PKCS) {
-        oid = ber_AlgSha512;
-        oid_len = ber_AlgSha512Len;
-    } else {
-        oid = ber_AlgSha1;
-        oid_len = ber_AlgSha1Len;
+
+    rc = rsa_pkcs_alg_oid_from_mech(ctx->mech.mechanism, &oid, &oid_len);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s rsa_pkcs_alg_oid_from_mech failed\n", __func__);
+        return rc;
     }
 
     memset(&verify_ctx, 0x0, sizeof(verify_ctx));
@@ -3024,7 +2941,7 @@ done:
 CK_RV check_pss_params(CK_MECHANISM *mech, CK_ULONG modlen)
 {
     CK_RSA_PKCS_PSS_PARAMS *pssParams;
-    CK_MECHANISM_TYPE mgf_mech;
+    CK_MECHANISM_TYPE mgf_mech, digest_mech;
     CK_ULONG hlen;
     CK_RV rc;
 
@@ -3050,51 +2967,20 @@ CK_RV check_pss_params(CK_MECHANISM *mech, CK_ULONG modlen)
         return rc;
     }
 
-    switch (mech->mechanism) {
-    case CKM_SHA1_RSA_PKCS_PSS:
-        if ((pssParams->hashAlg != CKM_SHA_1) &&
-            (pssParams->hashAlg != mgf_mech)) {
-            TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
-            return CKR_MECHANISM_PARAM_INVALID;
+    if (mech->mechanism != CKM_RSA_PKCS_PSS) {
+        rc = get_digest_from_mech(mech->mechanism, &digest_mech);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s get_digest_from_mech failed\n", __func__);
+            return rc;
         }
-        break;
-    case CKM_SHA224_RSA_PKCS_PSS:
-        if ((pssParams->hashAlg != CKM_SHA224) &&
-            (pssParams->hashAlg != mgf_mech)) {
-            TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
-            return CKR_MECHANISM_PARAM_INVALID;
-        }
-        break;
-    case CKM_SHA256_RSA_PKCS_PSS:
-        if ((pssParams->hashAlg != CKM_SHA256) &&
-            (pssParams->hashAlg != mgf_mech)) {
-            TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
-            return CKR_MECHANISM_PARAM_INVALID;
-        }
-        break;
-    case CKM_SHA384_RSA_PKCS_PSS:
-        if ((pssParams->hashAlg != CKM_SHA384) &&
-            (pssParams->hashAlg != mgf_mech)) {
-            TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
-            return CKR_MECHANISM_PARAM_INVALID;
-        }
-        break;
-    case CKM_SHA512_RSA_PKCS_PSS:
-        if ((pssParams->hashAlg != CKM_SHA512) &&
-            (pssParams->hashAlg != mgf_mech)) {
-            TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
-            return CKR_MECHANISM_PARAM_INVALID;
-        }
-        break;
-    case CKM_RSA_PKCS_PSS:
-        if (pssParams->hashAlg != mgf_mech) {
-            TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
-            return CKR_MECHANISM_PARAM_INVALID;
-        }
-        break;
-    default:
-        TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
-        return CKR_MECHANISM_INVALID;
+    } else {
+        digest_mech = mgf_mech;
+    }
+
+    if (pssParams->hashAlg != digest_mech ||
+        pssParams->hashAlg != mgf_mech) {
+        TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
+        return CKR_MECHANISM_PARAM_INVALID;
     }
 
     /* check the salt length,  pkcs11v2.2 Section 12.1.14 */

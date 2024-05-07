@@ -2987,21 +2987,25 @@ static const EVP_MD *md_from_mech(CK_MECHANISM *mech)
         break;
 #endif
 #ifdef NID_sha3_224
+    case CKM_SHA3_224:
     case CKM_IBM_SHA3_224:
         md = EVP_sha3_224();
         break;
 #endif
 #ifdef NID_sha3_256
+    case CKM_SHA3_256:
     case CKM_IBM_SHA3_256:
         md = EVP_sha3_256();
         break;
 #endif
 #ifdef NID_sha3_384
+    case CKM_SHA3_384:
     case CKM_IBM_SHA3_384:
         md = EVP_sha3_384();
         break;
 #endif
 #ifdef NID_sha3_512
+    case CKM_SHA3_512:
     case CKM_IBM_SHA3_512:
         md = EVP_sha3_512();
         break;
@@ -4660,21 +4664,29 @@ CK_RV openssl_specific_hmac_init(STDLL_TokData_t *tokdata,
         break;
 #endif
 #ifdef NID_sha3_224
+    case CKM_SHA3_224_HMAC:
+    case CKM_SHA3_224_HMAC_GENERAL:
     case CKM_IBM_SHA3_224_HMAC:
         rc = EVP_DigestSignInit(mdctx, NULL, EVP_sha3_224(), NULL, pkey);
         break;
 #endif
 #ifdef NID_sha3_256
+    case CKM_SHA3_256_HMAC:
+    case CKM_SHA3_256_HMAC_GENERAL:
     case CKM_IBM_SHA3_256_HMAC:
         rc = EVP_DigestSignInit(mdctx, NULL, EVP_sha3_256(), NULL, pkey);
         break;
 #endif
 #ifdef NID_sha3_384
+    case CKM_SHA3_384_HMAC:
+    case CKM_SHA3_384_HMAC_GENERAL:
     case CKM_IBM_SHA3_384_HMAC:
         rc = EVP_DigestSignInit(mdctx, NULL, EVP_sha3_384(), NULL, pkey);
         break;
 #endif
 #ifdef NID_sha3_512
+    case CKM_SHA3_512_HMAC:
+    case CKM_SHA3_512_HMAC_GENERAL:
     case CKM_IBM_SHA3_512_HMAC:
         rc = EVP_DigestSignInit(mdctx, NULL, EVP_sha3_512(), NULL, pkey);
         break;
@@ -4718,6 +4730,7 @@ CK_RV openssl_specific_hmac(SIGN_VERIFY_CONTEXT *ctx, CK_BYTE *in_data,
     EVP_MD_CTX *mdctx = NULL;
     CK_RV rv = CKR_OK;
     CK_BBOOL general = FALSE;
+    CK_MECHANISM_TYPE digest_mech;
 
     if (!ctx || !ctx->context) {
         TRACE_ERROR("%s received bad argument(s)\n", __func__);
@@ -4729,78 +4742,16 @@ CK_RV openssl_specific_hmac(SIGN_VERIFY_CONTEXT *ctx, CK_BYTE *in_data,
         return CKR_FUNCTION_FAILED;
     }
 
-    switch (ctx->mech.mechanism) {
-    case CKM_MD5_HMAC_GENERAL:
-        general = TRUE;
-        /* fallthrough */
-    case CKM_MD5_HMAC:
-        mac_len = MD5_HASH_SIZE;
-        break;
-    case CKM_SHA_1_HMAC_GENERAL:
-        general = TRUE;
-        /* fallthrough */
-    case CKM_SHA_1_HMAC:
-        mac_len = SHA1_HASH_SIZE;
-        break;
-    case CKM_SHA224_HMAC_GENERAL:
-#ifdef NID_sha512_224WithRSAEncryption
-    case CKM_SHA512_224_HMAC_GENERAL:
-#endif
-        general = TRUE;
-        /* fallthrough */
-    case CKM_SHA224_HMAC:
-#ifdef NID_sha512_224WithRSAEncryption
-    case CKM_SHA512_224_HMAC:
-#endif
-        mac_len = SHA224_HASH_SIZE;
-        break;
-    case CKM_SHA256_HMAC_GENERAL:
-#ifdef NID_sha512_256WithRSAEncryption
-    case CKM_SHA512_256_HMAC_GENERAL:
-#endif
-        general = TRUE;
-        /* fallthrough */
-    case CKM_SHA256_HMAC:
-#ifdef NID_sha512_256WithRSAEncryption
-    case CKM_SHA512_256_HMAC:
-#endif
-        mac_len = SHA256_HASH_SIZE;
-        break;
-    case CKM_SHA384_HMAC_GENERAL:
-        general = TRUE;
-        /* fallthrough */
-    case CKM_SHA384_HMAC:
-        mac_len = SHA384_HASH_SIZE;
-        break;
-    case CKM_SHA512_HMAC_GENERAL:
-        general = TRUE;
-        /* fallthrough */
-    case CKM_SHA512_HMAC:
-        mac_len = SHA512_HASH_SIZE;
-        break;
-#ifdef NID_sha3_224
-    case CKM_IBM_SHA3_224_HMAC:
-        mac_len = SHA3_224_HASH_SIZE;
-        break;
-#endif
-#ifdef NID_sha3_256
-    case CKM_IBM_SHA3_256_HMAC:
-        mac_len = SHA3_256_HASH_SIZE;
-        break;
-#endif
-#ifdef NID_sha3_384
-    case CKM_IBM_SHA3_384_HMAC:
-        mac_len = SHA3_384_HASH_SIZE;
-        break;
-#endif
-#ifdef NID_sha3_512
-    case CKM_IBM_SHA3_512_HMAC:
-        mac_len = SHA3_512_HASH_SIZE;
-        break;
-#endif
-    default:
-        TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
-        return CKR_MECHANISM_INVALID;
+    rc = get_hmac_digest(ctx->mech.mechanism, &digest_mech, &general);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s get_hmac_digest failed\n", __func__);
+        return rc;
+    }
+
+    rc = get_sha_size(digest_mech, &mac_len);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s get_sha_size failed\n", __func__);
+        return rc;
     }
 
     mdctx = (EVP_MD_CTX *) ctx->context;
@@ -4881,6 +4832,7 @@ CK_RV openssl_specific_hmac_final(SIGN_VERIFY_CONTEXT *ctx, CK_BYTE *signature,
     EVP_MD_CTX *mdctx = NULL;
     CK_RV rv = CKR_OK;
     CK_BBOOL general = FALSE;
+    CK_MECHANISM_TYPE digest_mech;
 
     if (!ctx || !ctx->context)
         return CKR_OPERATION_NOT_INITIALIZED;
@@ -4890,66 +4842,16 @@ CK_RV openssl_specific_hmac_final(SIGN_VERIFY_CONTEXT *ctx, CK_BYTE *signature,
         return CKR_FUNCTION_FAILED;
     }
 
-    switch (ctx->mech.mechanism) {
-    case CKM_MD5_HMAC_GENERAL:
-        general = TRUE;
-        /* fallthrough */
-    case CKM_MD5_HMAC:
-        mac_len = MD5_HASH_SIZE;
-        break;
-    case CKM_SHA_1_HMAC_GENERAL:
-        general = TRUE;
-        /* fallthrough */
-    case CKM_SHA_1_HMAC:
-        mac_len = SHA1_HASH_SIZE;
-        break;
-    case CKM_SHA224_HMAC_GENERAL:
-        general = TRUE;
-        /* fallthrough */
-    case CKM_SHA224_HMAC:
-        mac_len = SHA224_HASH_SIZE;
-        break;
-    case CKM_SHA256_HMAC_GENERAL:
-        general = TRUE;
-        /* fallthrough */
-    case CKM_SHA256_HMAC:
-        mac_len = SHA256_HASH_SIZE;
-        break;
-    case CKM_SHA384_HMAC_GENERAL:
-        general = TRUE;
-        /* fallthrough */
-    case CKM_SHA384_HMAC:
-        mac_len = SHA384_HASH_SIZE;
-        break;
-    case CKM_SHA512_HMAC_GENERAL:
-        general = TRUE;
-        /* fallthrough */
-    case CKM_SHA512_HMAC:
-        mac_len = SHA512_HASH_SIZE;
-        break;
-#ifdef NID_sha3_224
-    case CKM_IBM_SHA3_224_HMAC:
-        mac_len = SHA3_224_HASH_SIZE;
-        break;
-#endif
-#ifdef NID_sha3_256
-    case CKM_IBM_SHA3_256_HMAC:
-        mac_len = SHA3_256_HASH_SIZE;
-        break;
-#endif
-#ifdef NID_sha3_384
-    case CKM_IBM_SHA3_384_HMAC:
-        mac_len = SHA3_384_HASH_SIZE;
-        break;
-#endif
-#ifdef NID_sha3_512
-    case CKM_IBM_SHA3_512_HMAC:
-        mac_len = SHA3_512_HASH_SIZE;
-        break;
-#endif
-    default:
-        TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
-        return CKR_MECHANISM_INVALID;
+    rc = get_hmac_digest(ctx->mech.mechanism, &digest_mech, &general);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s get_hmac_digest failed\n", __func__);
+        return rc;
+    }
+
+    rc = get_sha_size(digest_mech, &mac_len);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s get_sha_size failed\n", __func__);
+        return rc;
     }
 
     if (signature == NULL) {

@@ -16,6 +16,14 @@
 CK_RV get_sha_size(CK_ULONG mech, CK_ULONG *hsize)
 {
     switch (mech) {
+#if !(NOMD2 )
+    case CKM_MD2:
+        *hsize = MD2_HASH_SIZE;
+        break;
+#endif
+    case CKM_MD5:
+        *hsize = MD5_HASH_SIZE;
+        break;
     case CKM_SHA_1:
         *hsize = SHA1_HASH_SIZE;
         break;
@@ -58,6 +66,14 @@ CK_RV get_sha_size(CK_ULONG mech, CK_ULONG *hsize)
 CK_RV get_sha_block_size(CK_ULONG mech, CK_ULONG *bsize)
 {
     switch (mech) {
+#if !(NOMD2 )
+    case CKM_MD2:
+        *bsize = MD2_BLOCK_SIZE;
+        break;
+#endif
+    case CKM_MD5:
+        *bsize = MD5_BLOCK_SIZE;
+        break;
     case CKM_SHA_1:
         *bsize = SHA1_BLOCK_SIZE;
         break;
@@ -232,6 +248,69 @@ CK_RV digest_from_kdf(CK_EC_KDF_TYPE kdf, CK_MECHANISM_TYPE *mech)
     default:
         TRACE_ERROR("Error unsupported KDF %ld.\n", kdf);
         return CKR_FUNCTION_FAILED;
+    }
+
+    return CKR_OK;
+}
+
+CK_RV get_digest_from_mech(CK_MECHANISM_TYPE mech, CK_MECHANISM_TYPE *digest)
+{
+    switch (mech) {
+#if !(NOMD2)
+    case CKM_MD2_RSA_PKCS:
+        *digest = CKM_MD2;
+        break;
+#endif
+    case CKM_MD5_RSA_PKCS:
+        *digest = CKM_MD5;
+        break;
+    case CKM_ECDSA_SHA1:
+    case CKM_SHA1_RSA_PKCS:
+    case CKM_SHA1_RSA_PKCS_PSS:
+        *digest = CKM_SHA_1;
+        break;
+    case CKM_ECDSA_SHA224:
+    case CKM_SHA224_RSA_PKCS:
+    case CKM_SHA224_RSA_PKCS_PSS:
+        *digest = CKM_SHA224;
+        break;
+    case CKM_ECDSA_SHA256:
+    case CKM_SHA256_RSA_PKCS:
+    case CKM_SHA256_RSA_PKCS_PSS:
+        *digest = CKM_SHA256;
+        break;
+    case CKM_ECDSA_SHA384:
+    case CKM_SHA384_RSA_PKCS:
+    case CKM_SHA384_RSA_PKCS_PSS:
+        *digest = CKM_SHA384;
+        break;
+    case CKM_ECDSA_SHA512:
+    case CKM_SHA512_RSA_PKCS:
+    case CKM_SHA512_RSA_PKCS_PSS:
+        *digest = CKM_SHA512;
+        break;
+    case CKM_ECDSA_SHA3_224:
+    case CKM_SHA3_224_RSA_PKCS:
+    case CKM_SHA3_224_RSA_PKCS_PSS:
+        *digest = CKM_SHA3_224;
+        break;
+    case CKM_ECDSA_SHA3_256:
+    case CKM_SHA3_256_RSA_PKCS:
+    case CKM_SHA3_256_RSA_PKCS_PSS:
+        *digest = CKM_SHA3_256;
+        break;
+    case CKM_ECDSA_SHA3_384:
+    case CKM_SHA3_384_RSA_PKCS:
+    case CKM_SHA3_384_RSA_PKCS_PSS:
+        *digest = CKM_SHA3_384;
+        break;
+    case CKM_ECDSA_SHA3_512:
+    case CKM_SHA3_512_RSA_PKCS:
+    case CKM_SHA3_512_RSA_PKCS_PSS:
+        *digest = CKM_SHA3_512;
+        break;
+    default:
+        return CKR_MECHANISM_INVALID;
     }
 
     return CKR_OK;
