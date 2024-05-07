@@ -67,6 +67,10 @@ static CK_RV statistics_increment(struct statistics *statistics,
     case CKM_SHA256_RSA_PKCS_PSS:
     case CKM_SHA384_RSA_PKCS_PSS:
     case CKM_SHA512_RSA_PKCS_PSS:
+    case CKM_SHA3_224_RSA_PKCS_PSS:
+    case CKM_SHA3_256_RSA_PKCS_PSS:
+    case CKM_SHA3_384_RSA_PKCS_PSS:
+    case CKM_SHA3_512_RSA_PKCS_PSS:
         if (mech->pParameter == NULL ||
             mech->ulParameterLen != sizeof(CK_RSA_PKCS_PSS_PARAMS))
             return CKR_MECHANISM_PARAM_INVALID;

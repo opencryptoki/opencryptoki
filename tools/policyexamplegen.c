@@ -82,6 +82,10 @@ int main(void)
     puts("      CKG_MGF1_SHA256,");
     puts("      CKG_MGF1_SHA384,");
     puts("      CKG_MGF1_SHA512,");
+    puts("      CKG_MGF1_SHA3_224,");
+    puts("      CKG_MGF1_SHA3_256,");
+    puts("      CKG_MGF1_SHA3_384,");
+    puts("      CKG_MGF1_SHA3_512,");
     puts("      CKG_IBM_MGF1_SHA3_224,");
     puts("      CKG_IBM_MGF1_SHA3_256,");
     puts("      CKG_IBM_MGF1_SHA3_384,");
@@ -100,6 +104,10 @@ int main(void)
     puts("      CKD_SHA256_KDF,");
     puts("      CKD_SHA384_KDF,");
     puts("      CKD_SHA512_KDF,");
+    puts("      CKD_SHA3_224_KDF,");
+    puts("      CKD_SHA3_256_KDF,");
+    puts("      CKD_SHA3_384_KDF,");
+    puts("      CKD_SHA3_512_KDF,");
     puts("      CKD_IBM_HYBRID_NULL,");
     puts("      CKD_IBM_HYBRID_SHA1_KDF,");
     puts("      CKD_IBM_HYBRID_SHA224_KDF,");

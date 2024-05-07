@@ -37,6 +37,24 @@ CK_RV translate_string_to_mgf(const char *str, size_t len, CK_ULONG* mgf)
             return CKR_OK;
         }
         return CKR_FUNCTION_FAILED;
+    case 17:
+        if (strcmp("CKG_MGF1_SHA3_224", str) == 0) {
+            *mgf = CKG_MGF1_SHA3_224;
+            return CKR_OK;
+        }
+        if (strcmp("CKG_MGF1_SHA3_256", str) == 0) {
+            *mgf = CKG_MGF1_SHA3_256;
+            return CKR_OK;
+        }
+        if (strcmp("CKG_MGF1_SHA3_384", str) == 0) {
+            *mgf = CKG_MGF1_SHA3_384;
+            return CKR_OK;
+        }
+        if (strcmp("CKG_MGF1_SHA3_512", str) == 0) {
+            *mgf = CKG_MGF1_SHA3_512;
+            return CKR_OK;
+        }
+        return CKR_FUNCTION_FAILED;
     case 21:
         if (strcmp("CKG_IBM_MGF1_SHA3_224", str) == 0) {
             *mgf = CKG_IBM_MGF1_SHA3_224;
