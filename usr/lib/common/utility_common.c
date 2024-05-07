@@ -33,15 +33,19 @@ CK_RV get_sha_size(CK_ULONG mech, CK_ULONG *hsize)
     case CKM_SHA512:
         *hsize = SHA512_HASH_SIZE;
         break;
+    case CKM_SHA3_224:
     case CKM_IBM_SHA3_224:
         *hsize = SHA3_224_HASH_SIZE;
         break;
+    case CKM_SHA3_256:
     case CKM_IBM_SHA3_256:
         *hsize = SHA3_256_HASH_SIZE;
         break;
+    case CKM_SHA3_384:
     case CKM_IBM_SHA3_384:
         *hsize = SHA3_384_HASH_SIZE;
         break;
+    case CKM_SHA3_512:
     case CKM_IBM_SHA3_512:
         *hsize = SHA3_512_HASH_SIZE;
         break;
@@ -71,15 +75,19 @@ CK_RV get_sha_block_size(CK_ULONG mech, CK_ULONG *bsize)
     case CKM_SHA512_256:
         *bsize = SHA512_BLOCK_SIZE;
         break;
+    case CKM_SHA3_224:
     case CKM_IBM_SHA3_224:
         *bsize = SHA3_224_BLOCK_SIZE;
         break;
+    case CKM_SHA3_256:
     case CKM_IBM_SHA3_256:
         *bsize = SHA3_256_BLOCK_SIZE;
         break;
+    case CKM_SHA3_384:
     case CKM_IBM_SHA3_384:
         *bsize = SHA3_384_BLOCK_SIZE;
         break;
+    case CKM_SHA3_512:
     case CKM_IBM_SHA3_512:
         *bsize = SHA3_512_BLOCK_SIZE;
         break;
@@ -144,6 +152,26 @@ CK_RV get_hmac_digest(CK_ULONG mech, CK_ULONG *digest_mech, CK_BBOOL *general)
         *digest_mech = CKM_SHA512_256;
         *general = (mech == CKM_SHA512_256_HMAC_GENERAL);
         break;
+    case CKM_SHA3_224_HMAC:
+    case CKM_SHA3_224_HMAC_GENERAL:
+        *digest_mech = CKM_SHA3_224;
+        *general = (mech == CKM_SHA3_224_HMAC_GENERAL);
+        break;
+    case CKM_SHA3_256_HMAC:
+    case CKM_SHA3_256_HMAC_GENERAL:
+        *digest_mech = CKM_SHA3_256;
+        *general = (mech == CKM_SHA3_256_HMAC_GENERAL);
+        break;
+    case CKM_SHA3_384_HMAC:
+    case CKM_SHA3_384_HMAC_GENERAL:
+        *digest_mech = CKM_SHA3_384;
+        *general = (mech == CKM_SHA3_384_HMAC_GENERAL);
+        break;
+    case CKM_SHA3_512_HMAC:
+    case CKM_SHA3_512_HMAC_GENERAL:
+        *digest_mech = CKM_SHA3_512;
+        *general = (mech == CKM_SHA3_512_HMAC_GENERAL);
+        break;
     case CKM_IBM_SHA3_224_HMAC:
         *digest_mech = CKM_IBM_SHA3_224;
         *general = FALSE;
@@ -189,6 +217,18 @@ CK_RV digest_from_kdf(CK_EC_KDF_TYPE kdf, CK_MECHANISM_TYPE *mech)
     case CKD_IBM_HYBRID_SHA512_KDF:
         *mech = CKM_SHA512;
         break;
+    case CKD_SHA3_224_KDF:
+        *mech = CKM_SHA3_224;
+        break;
+    case CKD_SHA3_256_KDF:
+        *mech = CKM_SHA3_256;
+        break;
+    case CKD_SHA3_384_KDF:
+        *mech = CKM_SHA3_384;
+        break;
+    case CKD_SHA3_512_KDF:
+        *mech = CKM_SHA3_512;
+        break;
     default:
         TRACE_ERROR("Error unsupported KDF %ld.\n", kdf);
         return CKR_FUNCTION_FAILED;
@@ -215,6 +255,18 @@ CK_RV get_mgf_mech(CK_RSA_PKCS_MGF_TYPE mgf, CK_MECHANISM_TYPE *mech)
         break;
     case CKG_MGF1_SHA512:
         *mech = CKM_SHA512;
+        break;
+    case CKG_MGF1_SHA3_224:
+        *mech = CKM_SHA3_224;
+        break;
+    case CKG_MGF1_SHA3_256:
+        *mech = CKM_SHA3_256;
+        break;
+    case CKG_MGF1_SHA3_384:
+        *mech = CKM_SHA3_384;
+        break;
+    case CKG_MGF1_SHA3_512:
+        *mech = CKM_SHA3_512;
         break;
     case CKG_IBM_MGF1_SHA3_224:
         *mech = CKM_IBM_SHA3_224;

@@ -669,24 +669,28 @@ CK_RV compute_sha(STDLL_TokData_t *tokdata, CK_BYTE *data, CK_ULONG len,
         md = EVP_sha512();
         break;
 #ifdef NID_sha3_224
+    case CKM_SHA3_224:
     case CKM_IBM_SHA3_224:
         hash_len = SHA3_224_HASH_SIZE;
         md = EVP_sha3_224();
         break;
 #endif
 #ifdef NID_sha3_256
+    case CKM_SHA3_256:
     case CKM_IBM_SHA3_256:
         hash_len = SHA3_256_HASH_SIZE;
         md = EVP_sha3_256();
         break;
 #endif
 #ifdef NID_sha3_384
+    case CKM_SHA3_384:
     case CKM_IBM_SHA3_384:
         hash_len = SHA3_384_HASH_SIZE;
         md = EVP_sha3_384();
         break;
 #endif
 #ifdef NID_sha3_512
+    case CKM_SHA3_512:
     case CKM_IBM_SHA3_512:
         hash_len = SHA3_512_HASH_SIZE;
         md = EVP_sha3_512();
@@ -866,6 +870,10 @@ CK_RV pkcs_get_keytype(CK_ATTRIBUTE *attrs, CK_ULONG attrs_len,
     case CKM_SHA256_KEY_DERIVATION:
     case CKM_SHA384_KEY_DERIVATION:
     case CKM_SHA512_KEY_DERIVATION:
+    case CKM_SHA3_224_KEY_DERIVE:
+    case CKM_SHA3_256_KEY_DERIVE:
+    case CKM_SHA3_384_KEY_DERIVE:
+    case CKM_SHA3_512_KEY_DERIVE:
         *type = CKK_GENERIC_SECRET;
         break;
     case CKM_RSA_PKCS_KEY_PAIR_GEN:

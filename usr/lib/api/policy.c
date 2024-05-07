@@ -438,30 +438,54 @@ static CK_RV policy_get_sig_size(CK_MECHANISM_PTR mech, struct objstrength *s,
             break;
         case CKM_ECDSA_SHA224:
             /* Fallthrough */
+        case CKM_ECDSA_SHA3_224:
+            /* Fallthrough */
         case CKM_SHA224_RSA_PKCS:
             /* Fallthrough */
         case CKM_SHA224_RSA_PKCS_PSS:
+            /* Fallthrough */
+        case CKM_SHA3_224_RSA_PKCS:
+            /* Fallthrough */
+        case CKM_SHA3_224_RSA_PKCS_PSS:
             *ssize = MIN(s->siglen, 224);
             break;
         case CKM_ECDSA_SHA256:
             /* Fallthrough */
+        case CKM_ECDSA_SHA3_256:
+            /* Fallthrough */
         case CKM_SHA256_RSA_PKCS:
             /* Fallthrough */
         case CKM_SHA256_RSA_PKCS_PSS:
+            /* Fallthrough */
+        case CKM_SHA3_256_RSA_PKCS:
+            /* Fallthrough */
+        case CKM_SHA3_256_RSA_PKCS_PSS:
             *ssize = MIN(s->siglen, 256);
             break;
         case CKM_ECDSA_SHA384:
             /* Fallthrough */
+        case CKM_ECDSA_SHA3_384:
+            /* Fallthrough */
         case CKM_SHA384_RSA_PKCS:
             /* Fallthrough */
         case CKM_SHA384_RSA_PKCS_PSS:
+            /* Fallthrough */
+        case CKM_SHA3_384_RSA_PKCS:
+            /* Fallthrough */
+        case CKM_SHA3_384_RSA_PKCS_PSS:
             *ssize = MIN(s->siglen, 384);
             break;
         case CKM_ECDSA_SHA512:
             /* Fallthrough */
+        case CKM_ECDSA_SHA3_512:
+            /* Fallthrough */
         case CKM_SHA512_RSA_PKCS:
             /* Fallthrough */
         case CKM_SHA512_RSA_PKCS_PSS:
+            /* Fallthrough */
+        case CKM_SHA3_512_RSA_PKCS:
+            /* Fallthrough */
+        case CKM_SHA3_512_RSA_PKCS_PSS:
             /* Fallthrough */
         case CKM_IBM_ED25519_SHA512:
             *ssize = MIN(s->siglen, 512);
@@ -646,19 +670,39 @@ static CK_RV policy_check_signature_size(struct policy_private *pp,
                 /* Fallthrough */
             case CKM_SHA1_RSA_PKCS:
                 /* Fallthrough */
+            case CKM_SHA224_RSA_PKCS:
+                /* Fallthrough */
             case CKM_SHA256_RSA_PKCS:
                 /* Fallthrough */
             case CKM_SHA384_RSA_PKCS:
                 /* Fallthrough */
             case CKM_SHA512_RSA_PKCS:
                 /* Fallthrough */
+            case CKM_SHA3_224_RSA_PKCS:
+                /* Fallthrough */
+            case CKM_SHA3_256_RSA_PKCS:
+                /* Fallthrough */
+            case CKM_SHA3_384_RSA_PKCS:
+                /* Fallthrough */
+            case CKM_SHA3_512_RSA_PKCS:
+                /* Fallthrough */
             case CKM_SHA1_RSA_PKCS_PSS:
+                /* Fallthrough */
+            case CKM_SHA224_RSA_PKCS_PSS:
                 /* Fallthrough */
             case CKM_SHA256_RSA_PKCS_PSS:
                 /* Fallthrough */
             case CKM_SHA384_RSA_PKCS_PSS:
                 /* Fallthrough */
             case CKM_SHA512_RSA_PKCS_PSS:
+                /* Fallthrough */
+            case CKM_SHA3_224_RSA_PKCS_PSS:
+                /* Fallthrough */
+            case CKM_SHA3_256_RSA_PKCS_PSS:
+                /* Fallthrough */
+            case CKM_SHA3_384_RSA_PKCS_PSS:
+                /* Fallthrough */
+            case CKM_SHA3_512_RSA_PKCS_PSS:
                 /* Fallthrough */
             case CKM_SHA1_RSA_X9_31:
                 siglen = info->ulMaxKeySize;
@@ -681,6 +725,14 @@ static CK_RV policy_check_signature_size(struct policy_private *pp,
             case CKM_ECDSA_SHA384:
                 /* Fallthrough */
             case CKM_ECDSA_SHA512:
+                /* Fallthrough */
+            case CKM_ECDSA_SHA3_224:
+                /* Fallthrough */
+            case CKM_ECDSA_SHA3_256:
+                /* Fallthrough */
+            case CKM_ECDSA_SHA3_384:
+                /* Fallthrough */
+            case CKM_ECDSA_SHA3_512:
                 /* Fallthrough */
             case CKM_IBM_ECDSA_OTHER:
                 if (pp->numallowedcurves == 0) {
@@ -708,17 +760,25 @@ static CK_RV policy_check_signature_size(struct policy_private *pp,
             case CKM_SHA512_224_HMAC_GENERAL:
                 /* Fallthrough */
             case CKM_SHA224_HMAC_GENERAL:
+                /* Fallthrough */
+            case CKM_SHA3_224_HMAC_GENERAL:
                 params = 224 / 8;
                 break;
             case CKM_SHA512_256_HMAC_GENERAL:
                 /* Fallthrough */
             case CKM_SHA256_HMAC_GENERAL:
+                /* Fallthrough */
+            case CKM_SHA3_256_HMAC_GENERAL:
                 params = 256 / 8;
                 break;
             case CKM_SHA384_HMAC_GENERAL:
+                /* Fallthrough */
+            case CKM_SHA3_384_HMAC_GENERAL:
                 params = 384 / 8;
                 break;
             case CKM_SHA512_HMAC_GENERAL:
+                /* Fallthrough */
+            case CKM_SHA3_512_HMAC_GENERAL:
                 params = 512 / 8;
                 break;
             case CKM_SSL3_MD5_MAC:
@@ -875,6 +935,10 @@ static CK_RV policy_is_mech_allowed(policy_t p, CK_MECHANISM_PTR mech,
         case CKM_SHA256_RSA_PKCS_PSS:
         case CKM_SHA384_RSA_PKCS_PSS:
         case CKM_SHA512_RSA_PKCS_PSS:
+        case CKM_SHA3_224_RSA_PKCS_PSS:
+        case CKM_SHA3_256_RSA_PKCS_PSS:
+        case CKM_SHA3_384_RSA_PKCS_PSS:
+        case CKM_SHA3_512_RSA_PKCS_PSS:
             if (hashmap_find(pp->allowedmechs,
                              ((CK_RSA_PKCS_PSS_PARAMS *)mech->pParameter)->hashAlg, NULL) == 0) {
                 TRACE_WARNING("POLICY VIOLATION: PSS hash algorithm not allowed by policy.\n");
@@ -994,6 +1058,10 @@ static CK_RV policy_update_mech_info(policy_t p, CK_MECHANISM_TYPE mech,
         case CKM_SHA256_KEY_DERIVATION:
         case CKM_SHA384_KEY_DERIVATION:
         case CKM_SHA512_KEY_DERIVATION:
+        case CKM_SHA3_224_KEY_DERIVE:
+        case CKM_SHA3_256_KEY_DERIVE:
+        case CKM_SHA3_384_KEY_DERIVE:
+        case CKM_SHA3_512_KEY_DERIVE:
         case CKM_SSL3_MASTER_KEY_DERIVE:
         case CKM_SSL3_PRE_MASTER_KEY_GEN:
         case CKM_TLS_PRE_MASTER_KEY_GEN:
@@ -1060,6 +1128,14 @@ static CK_RV policy_update_mech_info(policy_t p, CK_MECHANISM_TYPE mech,
         case CKM_SHA384_RSA_PKCS_PSS:
         case CKM_SHA512_RSA_PKCS:
         case CKM_SHA512_RSA_PKCS_PSS:
+        case CKM_SHA3_224_RSA_PKCS:
+        case CKM_SHA3_224_RSA_PKCS_PSS:
+        case CKM_SHA3_256_RSA_PKCS:
+        case CKM_SHA3_256_RSA_PKCS_PSS:
+        case CKM_SHA3_384_RSA_PKCS:
+        case CKM_SHA3_384_RSA_PKCS_PSS:
+        case CKM_SHA3_512_RSA_PKCS:
+        case CKM_SHA3_512_RSA_PKCS_PSS:
             if (policy_update_modexp(pp, info) != CKR_OK) {
                 TRACE_DEVEL("Mechanism 0x%lx blocked by policy!\n", mech);
                 return CKR_MECHANISM_INVALID;
@@ -1073,6 +1149,10 @@ static CK_RV policy_update_mech_info(policy_t p, CK_MECHANISM_TYPE mech,
         case CKM_ECDSA_SHA256:
         case CKM_ECDSA_SHA384:
         case CKM_ECDSA_SHA512:
+        case CKM_ECDSA_SHA3_224:
+        case CKM_ECDSA_SHA3_256:
+        case CKM_ECDSA_SHA3_384:
+        case CKM_ECDSA_SHA3_512:
         case CKM_IBM_EC_C25519:
         case CKM_IBM_EC_C448:
         case CKM_IBM_ED25519_SHA512:
@@ -1085,10 +1165,6 @@ static CK_RV policy_update_mech_info(policy_t p, CK_MECHANISM_TYPE mech,
             }
             break;
         case CKM_GENERIC_SECRET_KEY_GEN:
-        case CKM_IBM_SHA3_224_HMAC:
-        case CKM_IBM_SHA3_256_HMAC:
-        case CKM_IBM_SHA3_384_HMAC:
-        case CKM_IBM_SHA3_512_HMAC:
         case CKM_SSL3_MD5_MAC:
         case CKM_SSL3_SHA1_MAC:
             if (policy_update_symmetric(pp, info, CK_FALSE,
@@ -1112,6 +1188,10 @@ static CK_RV policy_update_mech_info(policy_t p, CK_MECHANISM_TYPE mech,
         case CKM_SHA512:
         case CKM_SHA512_224:
         case CKM_SHA512_256:
+        case CKM_SHA3_224:
+        case CKM_SHA3_256:
+        case CKM_SHA3_384:
+        case CKM_SHA3_512:
             if (policy_update_digest(pp, mech) != CKR_OK) {
                 TRACE_DEVEL("Mechanism 0x%lx blocked by policy!\n", mech);
                 return CKR_MECHANISM_INVALID;
@@ -1145,6 +1225,18 @@ static CK_RV policy_update_mech_info(policy_t p, CK_MECHANISM_TYPE mech,
         case CKM_SHA512_256_HMAC_GENERAL:
         case CKM_SHA512_HMAC:
         case CKM_SHA512_HMAC_GENERAL:
+        case CKM_SHA3_224_HMAC:
+        case CKM_SHA3_224_HMAC_GENERAL:
+        case CKM_SHA3_256_HMAC:
+        case CKM_SHA3_256_HMAC_GENERAL:
+        case CKM_SHA3_384_HMAC:
+        case CKM_SHA3_384_HMAC_GENERAL:
+        case CKM_SHA3_512_HMAC:
+        case CKM_SHA3_512_HMAC_GENERAL:
+        case CKM_IBM_SHA3_224_HMAC:
+        case CKM_IBM_SHA3_256_HMAC:
+        case CKM_IBM_SHA3_384_HMAC:
+        case CKM_IBM_SHA3_512_HMAC:
         case CKM_SSL3_KEY_AND_MAC_DERIVE:
         case CKM_TLS_KEY_AND_MAC_DERIVE:
         case CKM_IBM_ATTRIBUTEBOUND_WRAP:
