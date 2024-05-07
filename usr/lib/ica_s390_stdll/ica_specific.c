@@ -46,7 +46,7 @@
 #include <openssl/crypto.h>
 #include <openssl/bn.h>
 
-#define ICA_MAX_MECH_LIST_ENTRIES       120
+#define ICA_MAX_MECH_LIST_ENTRIES       144
 
 typedef struct {
     void *libica_dso;
@@ -1013,6 +1013,10 @@ int ica_sha_supported(STDLL_TokData_t *tokdata, CK_MECHANISM_TYPE mech)
         return ica_data->ica_sha512_224_available;
     case CKM_SHA512_256:
         return ica_data->ica_sha512_256_available;
+    case CKM_SHA3_224:
+    case CKM_SHA3_256:
+    case CKM_SHA3_384:
+    case CKM_SHA3_512:
     case CKM_IBM_SHA3_224:
     case CKM_IBM_SHA3_256:
     case CKM_IBM_SHA3_384:
@@ -1055,21 +1059,25 @@ CK_RV token_specific_sha_init(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *ctx,
         devctxsize = sizeof(sha512_context_t);
         break;
 #ifdef SHA3_224
+    case CKM_SHA3_224:
     case CKM_IBM_SHA3_224:
         devctxsize = sizeof(sha3_224_context_t);
         break;
 #endif
 #ifdef SHA3_256
+    case CKM_SHA3_256:
     case CKM_IBM_SHA3_256:
         devctxsize = sizeof(sha3_256_context_t);
         break;
 #endif
 #ifdef SHA3_384
+    case CKM_SHA3_384:
     case CKM_IBM_SHA3_384:
         devctxsize = sizeof(sha3_384_context_t);
         break;
 #endif
 #ifdef SHA3_512
+    case CKM_SHA3_512:
     case CKM_IBM_SHA3_512:
         devctxsize = sizeof(sha3_512_context_t);
         break;
@@ -1129,24 +1137,28 @@ CK_RV token_specific_sha_init(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *ctx,
         break;
 #endif
 #ifdef SHA3_224
+    case CKM_SHA3_224:
     case CKM_IBM_SHA3_224:
         sc->hash_len = SHA3_224_HASH_SIZE;
         sc->hash_blksize = SHA3_224_BLOCK_SIZE;
         break;
 #endif
 #ifdef SHA3_256
+    case CKM_SHA3_256:
     case CKM_IBM_SHA3_256:
         sc->hash_len = SHA3_256_HASH_SIZE;
         sc->hash_blksize = SHA3_256_BLOCK_SIZE;
         break;
 #endif
 #ifdef SHA3_384
+    case CKM_SHA3_384:
     case CKM_IBM_SHA3_384:
         sc->hash_len = SHA3_384_HASH_SIZE;
         sc->hash_blksize = SHA3_384_BLOCK_SIZE;
         break;
 #endif
 #ifdef SHA3_512
+    case CKM_SHA3_512:
     case CKM_IBM_SHA3_512:
         sc->hash_len = SHA3_512_HASH_SIZE;
         sc->hash_blksize = SHA3_512_BLOCK_SIZE;
@@ -1250,6 +1262,7 @@ CK_RV token_specific_sha(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *ctx,
         }
 #endif
 #ifdef SHA3_224
+    case CKM_SHA3_224:
     case CKM_IBM_SHA3_224:
         {
             sha3_224_context_t *ica_sha3_ctx = (sha3_224_context_t *) dev_ctx;
@@ -1263,6 +1276,7 @@ CK_RV token_specific_sha(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *ctx,
         }
 #endif
 #ifdef SHA3_256
+    case CKM_SHA3_256:
     case CKM_IBM_SHA3_256:
         {
             sha3_256_context_t *ica_sha3_ctx = (sha3_256_context_t *) dev_ctx;
@@ -1276,6 +1290,7 @@ CK_RV token_specific_sha(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *ctx,
         }
 #endif
 #ifdef SHA3_384
+    case CKM_SHA3_384:
     case CKM_IBM_SHA3_384:
         {
             sha3_384_context_t *ica_sha3_ctx = (sha3_384_context_t *) dev_ctx;
@@ -1289,6 +1304,7 @@ CK_RV token_specific_sha(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *ctx,
         }
 #endif
 #ifdef SHA3_512
+    case CKM_SHA3_512:
     case CKM_IBM_SHA3_512:
         {
             sha3_512_context_t *ica_sha3_ctx = (sha3_512_context_t *) dev_ctx;
@@ -1417,6 +1433,7 @@ static CK_RV ica_sha_call(DIGEST_CONTEXT *ctx, CK_BYTE *data,
         }
 #endif
 #ifdef SHA3_224
+    case CKM_SHA3_224:
     case CKM_IBM_SHA3_224:
         {
             sha3_224_context_t *ica_sha_ctx = (sha3_224_context_t *) dev_ctx;
@@ -1434,6 +1451,7 @@ static CK_RV ica_sha_call(DIGEST_CONTEXT *ctx, CK_BYTE *data,
         }
 #endif
 #ifdef SHA3_256
+    case CKM_SHA3_256:
     case CKM_IBM_SHA3_256:
         {
             sha3_256_context_t *ica_sha_ctx = (sha3_256_context_t *) dev_ctx;
@@ -1451,6 +1469,7 @@ static CK_RV ica_sha_call(DIGEST_CONTEXT *ctx, CK_BYTE *data,
         }
 #endif
 #ifdef SHA3_384
+    case CKM_SHA3_384:
     case CKM_IBM_SHA3_384:
         {
             sha3_384_context_t *ica_sha_ctx = (sha3_384_context_t *) dev_ctx;
@@ -1469,6 +1488,7 @@ static CK_RV ica_sha_call(DIGEST_CONTEXT *ctx, CK_BYTE *data,
         }
 #endif
 #ifdef SHA3_512
+    case CKM_SHA3_512:
     case CKM_IBM_SHA3_512:
         {
             sha3_512_context_t *ica_sha_ctx = (sha3_512_context_t *) dev_ctx;
@@ -1705,6 +1725,7 @@ CK_RV token_specific_sha_final(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *ctx,
         }
 #endif
 #ifdef SHA3_224
+    case CKM_SHA3_224:
     case CKM_IBM_SHA3_224:
         {
             sha3_224_context_t *ica_sha3_ctx = (sha3_224_context_t *) dev_ctx;
@@ -1723,6 +1744,7 @@ CK_RV token_specific_sha_final(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *ctx,
         }
 #endif
 #ifdef SHA3_256
+    case CKM_SHA3_256:
     case CKM_IBM_SHA3_256:
         {
             sha3_256_context_t *ica_sha3_ctx = (sha3_256_context_t *) dev_ctx;
@@ -1741,6 +1763,7 @@ CK_RV token_specific_sha_final(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *ctx,
         }
 #endif
 #ifdef SHA3_384
+    case CKM_SHA3_384:
     case CKM_IBM_SHA3_384:
         {
             sha3_384_context_t *ica_sha3_ctx = (sha3_384_context_t *) dev_ctx;
@@ -1760,6 +1783,7 @@ CK_RV token_specific_sha_final(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *ctx,
         }
 #endif
 #ifdef SHA3_512
+    case CKM_SHA3_512:
     case CKM_IBM_SHA3_512:
         {
             sha3_512_context_t *ica_sha3_ctx = (sha3_512_context_t *) dev_ctx;
@@ -4543,6 +4567,10 @@ static const REF_MECH_LIST_ELEMENT ref_mech_list[] = {
     {0, CKM_SHA256_RSA_PKCS, {512, 4096, CKF_SIGN | CKF_VERIFY}},
     {0, CKM_SHA384_RSA_PKCS, {512, 4096, CKF_SIGN | CKF_VERIFY}},
     {0, CKM_SHA512_RSA_PKCS, {512, 4096, CKF_SIGN | CKF_VERIFY}},
+    {0, CKM_SHA3_224_RSA_PKCS, {512, 4096, CKF_SIGN | CKF_VERIFY}},
+    {0, CKM_SHA3_256_RSA_PKCS, {512, 4096, CKF_SIGN | CKF_VERIFY}},
+    {0, CKM_SHA3_384_RSA_PKCS, {512, 4096, CKF_SIGN | CKF_VERIFY}},
+    {0, CKM_SHA3_512_RSA_PKCS, {512, 4096, CKF_SIGN | CKF_VERIFY}},
 #if !(NOX509)
     {RSA_ME, CKM_RSA_X_509,
      {512, 4096, CKF_ENCRYPT | CKF_DECRYPT | CKF_WRAP | CKF_UNWRAP |
@@ -4558,6 +4586,10 @@ static const REF_MECH_LIST_ELEMENT ref_mech_list[] = {
     {0, CKM_SHA256_RSA_PKCS_PSS, {512, 4096, CKF_SIGN | CKF_VERIFY}},
     {0, CKM_SHA384_RSA_PKCS_PSS, {512, 4096, CKF_SIGN | CKF_VERIFY}},
     {0, CKM_SHA512_RSA_PKCS_PSS, {512, 4096, CKF_SIGN | CKF_VERIFY}},
+    {0, CKM_SHA3_224_RSA_PKCS_PSS, {512, 4096, CKF_SIGN | CKF_VERIFY}},
+    {0, CKM_SHA3_256_RSA_PKCS_PSS, {512, 4096, CKF_SIGN | CKF_VERIFY}},
+    {0, CKM_SHA3_384_RSA_PKCS_PSS, {512, 4096, CKF_SIGN | CKF_VERIFY}},
+    {0, CKM_SHA3_512_RSA_PKCS_PSS, {512, 4096, CKF_SIGN | CKF_VERIFY}},
     {DES_ECB, CKM_DES_ECB,
      {8, 8, CKF_ENCRYPT | CKF_DECRYPT | CKF_WRAP | CKF_UNWRAP}
     },
@@ -4599,29 +4631,41 @@ static const REF_MECH_LIST_ELEMENT ref_mech_list[] = {
     {SHA512, CKM_SHA512_HMAC, {256, 2048, CKF_SIGN | CKF_VERIFY}},
     {SHA512, CKM_SHA512_HMAC_GENERAL, {256, 2048, CKF_SIGN | CKF_VERIFY}},
 #ifdef SHA512_224
-    {SHA512_224, CKM_SHA512_224, {0, 0, CKF_HW|CKF_DIGEST}},
+    {SHA512_224, CKM_SHA512_224, {0, 0, CKF_HW | CKF_DIGEST}},
     {SHA512_224, CKM_SHA512_224_HMAC, {112, 2048, CKF_SIGN | CKF_VERIFY}},
     {SHA512_224, CKM_SHA512_224_HMAC_GENERAL, {112, 2048, CKF_SIGN | CKF_VERIFY}},
 #endif
 #ifdef SHA512_256
-    {SHA512_256, CKM_SHA512_256, {0, 0, CKF_HW|CKF_DIGEST}},
+    {SHA512_256, CKM_SHA512_256, {0, 0, CKF_HW | CKF_DIGEST}},
     {SHA512_256, CKM_SHA512_256_HMAC, {128, 2048, CKF_SIGN | CKF_VERIFY}},
     {SHA512_256, CKM_SHA512_256_HMAC_GENERAL, {128, 2048, CKF_SIGN | CKF_VERIFY}},
 #endif
 #ifdef SHA3_224
-    {SHA3_224, CKM_IBM_SHA3_224, {0, 0, CKF_HW|CKF_DIGEST}},
+    {SHA3_224, CKM_SHA3_224, {0, 0, CKF_HW | CKF_DIGEST}},
+    {SHA3_224, CKM_SHA3_224_HMAC, {112, 2048, CKF_SIGN | CKF_VERIFY}},
+    {SHA3_224, CKM_SHA3_224_HMAC_GENERAL, {112, 2048, CKF_SIGN | CKF_VERIFY}},
+    {SHA3_224, CKM_IBM_SHA3_224, {0, 0, CKF_HW | CKF_DIGEST}},
     {SHA3_224, CKM_IBM_SHA3_224_HMAC, {112, 2048, CKF_SIGN | CKF_VERIFY}},
 #endif
 #ifdef SHA3_256
-    {SHA3_256, CKM_IBM_SHA3_256, {0, 0, CKF_HW|CKF_DIGEST}},
+    {SHA3_256, CKM_SHA3_256, {0, 0, CKF_HW | CKF_DIGEST}},
+    {SHA3_256, CKM_SHA3_256_HMAC, {128, 2048, CKF_SIGN | CKF_VERIFY}},
+    {SHA3_256, CKM_SHA3_256_HMAC_GENERAL, {128, 2048, CKF_SIGN | CKF_VERIFY}},
+    {SHA3_256, CKM_IBM_SHA3_256, {0, 0, CKF_HW | CKF_DIGEST}},
     {SHA3_256, CKM_IBM_SHA3_256_HMAC, {128, 2048, CKF_SIGN | CKF_VERIFY}},
 #endif
 #ifdef SHA3_384
-    {SHA3_384, CKM_IBM_SHA3_384, {0, 0, CKF_HW|CKF_DIGEST}},
+    {SHA3_384, CKM_SHA3_384, {0, 0, CKF_HW | CKF_DIGEST}},
+    {SHA3_384, CKM_SHA3_384_HMAC, {192, 2048, CKF_SIGN | CKF_VERIFY}},
+    {SHA3_384, CKM_SHA3_384_HMAC_GENERAL, {192, 2048, CKF_SIGN | CKF_VERIFY}},
+    {SHA3_384, CKM_IBM_SHA3_384, {0, 0, CKF_HW | CKF_DIGEST}},
     {SHA3_384, CKM_IBM_SHA3_384_HMAC, {192, 2048, CKF_SIGN | CKF_VERIFY}},
 #endif
 #ifdef SHA3_512
-    {SHA3_512, CKM_IBM_SHA3_512, {0, 0, CKF_HW|CKF_DIGEST}},
+    {SHA3_512, CKM_SHA3_512, {0, 0, CKF_HW | CKF_DIGEST}},
+    {SHA3_512, CKM_SHA3_512_HMAC, {256, 2048, CKF_SIGN | CKF_VERIFY}},
+    {SHA3_512, CKM_SHA3_512_HMAC_GENERAL, {256, 2048, CKF_SIGN | CKF_VERIFY}},
+    {SHA3_512, CKM_IBM_SHA3_512, {0, 0, CKF_HW | CKF_DIGEST}},
     {SHA3_512, CKM_IBM_SHA3_512_HMAC, {256, 2048, CKF_SIGN | CKF_VERIFY}},
 #endif
 #if !(NOMD5)
@@ -4684,6 +4728,18 @@ static const REF_MECH_LIST_ELEMENT ref_mech_list[] = {
      {160, 521, CKF_SIGN | CKF_VERIFY | CKF_EC_NAMEDCURVE | CKF_EC_F_P}
     },
     {0, CKM_ECDSA_SHA512,
+     {160, 521, CKF_SIGN | CKF_VERIFY | CKF_EC_NAMEDCURVE | CKF_EC_F_P}
+    },
+    {0, CKM_ECDSA_SHA3_224,
+     {160, 521, CKF_SIGN | CKF_VERIFY | CKF_EC_NAMEDCURVE | CKF_EC_F_P}
+    },
+    {0, CKM_ECDSA_SHA3_256,
+     {160, 521, CKF_SIGN | CKF_VERIFY | CKF_EC_NAMEDCURVE | CKF_EC_F_P}
+    },
+    {0, CKM_ECDSA_SHA3_384,
+     {160, 521, CKF_SIGN | CKF_VERIFY | CKF_EC_NAMEDCURVE | CKF_EC_F_P}
+    },
+    {0, CKM_ECDSA_SHA3_512,
      {160, 521, CKF_SIGN | CKF_VERIFY | CKF_EC_NAMEDCURVE | CKF_EC_F_P}
     },
     {EC_KGEN, CKM_EC_KEY_PAIR_GEN,
@@ -4810,6 +4866,9 @@ static CK_RV addMechanismToList(STDLL_TokData_t *tokdata, CK_ULONG mechanism,
     CK_ULONG ret;
     CK_ULONG refIdx = 0;
 
+    if (isMechanismAvailable(tokdata, mechanism))
+        return CKR_OK;
+
     if (ica_data->mech_list_len >= ICA_MAX_MECH_LIST_ENTRIES) {
         TRACE_ERROR("Not enough slots available to add mechanism\n");
         return CKR_BUFFER_TOO_SMALL;
@@ -4884,15 +4943,19 @@ static CK_RV mech_list_ica_initialize(STDLL_TokData_t *tokdata)
     addMechanismToList(tokdata, CKM_SHA512_256, 0, 0);
 #endif
 #ifdef NID_sha3_224
+    addMechanismToList(tokdata, CKM_SHA3_224, 0, 0);
     addMechanismToList(tokdata, CKM_IBM_SHA3_224, 0, 0);
 #endif
 #ifdef NID_sha3_256
+    addMechanismToList(tokdata, CKM_SHA3_256, 0, 0);
     addMechanismToList(tokdata, CKM_IBM_SHA3_256, 0, 0);
 #endif
 #ifdef NID_sha3_384
+    addMechanismToList(tokdata, CKM_SHA3_384, 0, 0);
     addMechanismToList(tokdata, CKM_IBM_SHA3_384, 0, 0);
 #endif
 #ifdef NID_sha3_512
+    addMechanismToList(tokdata, CKM_SHA3_512, 0, 0);
     addMechanismToList(tokdata, CKM_IBM_SHA3_512, 0, 0);
 #endif
 
@@ -5115,6 +5178,18 @@ static CK_RV mech_list_ica_initialize(STDLL_TokData_t *tokdata)
     if (isMechanismAvailable(tokdata, CKM_SHA512) &&
         isMechanismAvailable(tokdata, CKM_RSA_PKCS))
         addMechanismToList(tokdata, CKM_SHA512_RSA_PKCS, rsa_hw && sha_hw, rsa_props);
+    if (isMechanismAvailable(tokdata, CKM_SHA3_224) &&
+        isMechanismAvailable(tokdata, CKM_RSA_PKCS))
+        addMechanismToList(tokdata, CKM_SHA3_224_RSA_PKCS, rsa_hw && sha_hw, rsa_props);
+    if (isMechanismAvailable(tokdata, CKM_SHA3_256) &&
+        isMechanismAvailable(tokdata, CKM_RSA_PKCS))
+        addMechanismToList(tokdata, CKM_SHA3_256_RSA_PKCS, rsa_hw && sha_hw, rsa_props);
+    if (isMechanismAvailable(tokdata, CKM_SHA3_384) &&
+        isMechanismAvailable(tokdata, CKM_RSA_PKCS))
+        addMechanismToList(tokdata, CKM_SHA3_384_RSA_PKCS, rsa_hw && sha_hw, rsa_props);
+    if (isMechanismAvailable(tokdata, CKM_SHA3_512) &&
+        isMechanismAvailable(tokdata, CKM_RSA_PKCS))
+        addMechanismToList(tokdata, CKM_SHA3_512_RSA_PKCS, rsa_hw && sha_hw, rsa_props);
 #if !(NOMD2 )
     if (isMechanismAvailable(tokdata, CKM_MD2) &&
         isMechanismAvailable(tokdata, CKM_RSA_PKCS))
@@ -5138,6 +5213,18 @@ static CK_RV mech_list_ica_initialize(STDLL_TokData_t *tokdata)
     if (isMechanismAvailable(tokdata, CKM_SHA512) &&
         isMechanismAvailable(tokdata, CKM_RSA_PKCS_PSS))
         addMechanismToList(tokdata, CKM_SHA512_RSA_PKCS_PSS, rsa_hw && sha_hw, rsa_props);
+    if (isMechanismAvailable(tokdata, CKM_SHA3_224) &&
+        isMechanismAvailable(tokdata, CKM_RSA_PKCS_PSS))
+        addMechanismToList(tokdata, CKM_SHA3_224_RSA_PKCS_PSS, rsa_hw && sha_hw, rsa_props);
+    if (isMechanismAvailable(tokdata, CKM_SHA3_256) &&
+        isMechanismAvailable(tokdata, CKM_RSA_PKCS_PSS))
+        addMechanismToList(tokdata, CKM_SHA3_256_RSA_PKCS_PSS, rsa_hw && sha_hw, rsa_props);
+    if (isMechanismAvailable(tokdata, CKM_SHA3_384) &&
+        isMechanismAvailable(tokdata, CKM_RSA_PKCS_PSS))
+        addMechanismToList(tokdata, CKM_SHA3_384_RSA_PKCS_PSS, rsa_hw && sha_hw, rsa_props);
+    if (isMechanismAvailable(tokdata, CKM_SHA3_512) &&
+        isMechanismAvailable(tokdata, CKM_RSA_PKCS_PSS))
+        addMechanismToList(tokdata, CKM_SHA3_512_RSA_PKCS_PSS, rsa_hw && sha_hw, rsa_props);
 
     ec_hw = isMechanismHW(tokdata, CKM_ECDSA);
     if (isMechanismAvailable(tokdata, CKM_SHA_1) &&
@@ -5155,6 +5242,19 @@ static CK_RV mech_list_ica_initialize(STDLL_TokData_t *tokdata)
     if (isMechanismAvailable(tokdata, CKM_SHA512) &&
         isMechanismAvailable(tokdata, CKM_ECDSA))
         addMechanismToList(tokdata, CKM_ECDSA_SHA512, ec_hw && sha_hw, 0);
+    if (isMechanismAvailable(tokdata, CKM_SHA3_224) &&
+        isMechanismAvailable(tokdata, CKM_ECDSA))
+        addMechanismToList(tokdata, CKM_ECDSA_SHA3_224, ec_hw && sha_hw, 0);
+    if (isMechanismAvailable(tokdata, CKM_SHA3_256) &&
+        isMechanismAvailable(tokdata, CKM_ECDSA))
+        addMechanismToList(tokdata, CKM_ECDSA_SHA3_256, ec_hw && sha_hw, 0);
+    if (isMechanismAvailable(tokdata, CKM_SHA3_384) &&
+        isMechanismAvailable(tokdata, CKM_ECDSA))
+        addMechanismToList(tokdata, CKM_ECDSA_SHA3_384, ec_hw && sha_hw, 0);
+    if (isMechanismAvailable(tokdata, CKM_SHA3_512) &&
+        isMechanismAvailable(tokdata, CKM_ECDSA))
+        addMechanismToList(tokdata, CKM_ECDSA_SHA3_512, ec_hw && sha_hw, 0);
+
     if (isMechanismAvailable(tokdata, CKM_EC_KEY_PAIR_GEN) &&
         isMechanismAvailable(tokdata, CKM_SHA_1) &&
         isMechanismAvailable(tokdata, CKM_SHA224) &&
@@ -5185,31 +5285,47 @@ static CK_RV mech_list_ica_initialize(STDLL_TokData_t *tokdata)
     }
 #ifdef NID_sha512_224WithRSAEncryption
     if (isMechanismAvailable(tokdata, CKM_SHA512_224)) {
-        addMechanismToList(tokdata, CKM_SHA512_224_HMAC, 0, 0);
-        addMechanismToList(tokdata, CKM_SHA512_224_HMAC_GENERAL, 0, 0);
+        addMechanismToList(tokdata, CKM_SHA512_224_HMAC, sha_hw, 0);
+        addMechanismToList(tokdata, CKM_SHA512_224_HMAC_GENERAL, sha_hw, 0);
     }
 #endif
 #ifdef NID_sha512_256WithRSAEncryption
     if (isMechanismAvailable(tokdata, CKM_SHA512_256)) {
-        addMechanismToList(tokdata, CKM_SHA512_256_HMAC, 0, 0);
-        addMechanismToList(tokdata, CKM_SHA512_256_HMAC_GENERAL, 0, 0);
+        addMechanismToList(tokdata, CKM_SHA512_256_HMAC, sha_hw, 0);
+        addMechanismToList(tokdata, CKM_SHA512_256_HMAC_GENERAL, sha_hw, 0);
     }
 #endif
 #ifdef NID_sha3_224
     if (isMechanismAvailable(tokdata, CKM_IBM_SHA3_224))
-        addMechanismToList(tokdata, CKM_IBM_SHA3_224_HMAC, 0, 0);
+        addMechanismToList(tokdata, CKM_IBM_SHA3_224_HMAC, sha_hw, 0);
+    if (isMechanismAvailable(tokdata, CKM_SHA3_224)) {
+        addMechanismToList(tokdata, CKM_SHA3_224_HMAC, sha_hw, 0);
+        addMechanismToList(tokdata, CKM_SHA3_224_HMAC_GENERAL, sha_hw, 0);
+    }
 #endif
 #ifdef NID_sha3_256
     if (isMechanismAvailable(tokdata, CKM_IBM_SHA3_256))
-        addMechanismToList(tokdata, CKM_IBM_SHA3_256_HMAC, 0, 0);
+        addMechanismToList(tokdata, CKM_IBM_SHA3_256_HMAC, sha_hw, 0);
+    if (isMechanismAvailable(tokdata, CKM_SHA3_256)) {
+        addMechanismToList(tokdata, CKM_SHA3_256_HMAC, sha_hw, 0);
+        addMechanismToList(tokdata, CKM_SHA3_256_HMAC_GENERAL, sha_hw, 0);
+    }
 #endif
 #ifdef NID_sha3_384
     if (isMechanismAvailable(tokdata, CKM_IBM_SHA3_384))
-        addMechanismToList(tokdata, CKM_IBM_SHA3_384_HMAC, 0, 0);
+        addMechanismToList(tokdata, CKM_IBM_SHA3_384_HMAC, sha_hw, 0);
+    if (isMechanismAvailable(tokdata, CKM_SHA3_384)) {
+        addMechanismToList(tokdata, CKM_SHA3_384_HMAC, sha_hw, 0);
+        addMechanismToList(tokdata, CKM_SHA3_384_HMAC_GENERAL, sha_hw, 0);
+    }
 #endif
 #ifdef NID_sha3_512
     if (isMechanismAvailable(tokdata, CKM_IBM_SHA3_512))
-        addMechanismToList(tokdata, CKM_IBM_SHA3_512_HMAC, 0, 0);
+        addMechanismToList(tokdata, CKM_IBM_SHA3_512_HMAC, sha_hw, 0);
+    if (isMechanismAvailable(tokdata, CKM_SHA3_512)) {
+        addMechanismToList(tokdata, CKM_SHA3_512_HMAC, sha_hw, 0);
+        addMechanismToList(tokdata, CKM_SHA3_512_HMAC_GENERAL, sha_hw, 0);
+    }
 #endif
 
     /* sort the mech_list_ica by mechanism ID's (bubble sort)  */
