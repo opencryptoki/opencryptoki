@@ -737,11 +737,21 @@ typedef CK_ULONG CK_MECHANISM_TYPE;
 #define CKM_SHA256_RSA_PKCS            0x00000040
 #define CKM_SHA384_RSA_PKCS            0x00000041
 #define CKM_SHA512_RSA_PKCS            0x00000042
+/* The following are new for v3.0 */
+#define CKM_SHA3_224_RSA_PKCS          0x00000066
+#define CKM_SHA3_256_RSA_PKCS          0x00000060
+#define CKM_SHA3_384_RSA_PKCS          0x00000061
+#define CKM_SHA3_512_RSA_PKCS          0x00000062
 
 #define CKM_SHA224_RSA_PKCS_PSS        0x00000047
 #define CKM_SHA256_RSA_PKCS_PSS        0x00000043
 #define CKM_SHA384_RSA_PKCS_PSS        0x00000044
 #define CKM_SHA512_RSA_PKCS_PSS        0x00000045
+/* The following are new for v3.0 */
+#define CKM_SHA3_224_RSA_PKCS_PSS      0x00000067
+#define CKM_SHA3_256_RSA_PKCS_PSS      0x00000063
+#define CKM_SHA3_384_RSA_PKCS_PSS      0x00000064
+#define CKM_SHA3_512_RSA_PKCS_PSS      0x00000065
 
 #define CKM_RC2_KEY_GEN                0x00000100
 #define CKM_RC2_ECB                    0x00000101
@@ -833,6 +843,20 @@ typedef CK_ULONG CK_MECHANISM_TYPE;
 #define CKM_SHA512_256_HMAC            0x0000004D
 #define CKM_SHA512_256_HMAC_GENERAL    0x0000004E
 
+/* The following are new for v3.0 */
+#define CKM_SHA3_256                   0x000002B0
+#define CKM_SHA3_256_HMAC              0x000002B1
+#define CKM_SHA3_256_HMAC_GENERAL      0x000002B2
+#define CKM_SHA3_224                   0x000002B5
+#define CKM_SHA3_224_HMAC              0x000002B6
+#define CKM_SHA3_224_HMAC_GENERAL      0x000002B7
+#define CKM_SHA3_384                   0x000002C0
+#define CKM_SHA3_384_HMAC              0x000002C1
+#define CKM_SHA3_384_HMAC_GENERAL      0x000002C2
+#define CKM_SHA3_512                   0x000002D0
+#define CKM_SHA3_512_HMAC              0x000002D1
+#define CKM_SHA3_512_HMAC_GENERAL      0x000002D2
+
 /* All of the following mechanisms are new for v2.0 */
 /* Note that CAST128 and CAST5 are the same algorithm */
 #define CKM_CAST_KEY_GEN               0x00000300
@@ -896,6 +920,12 @@ typedef CK_ULONG CK_MECHANISM_TYPE;
 #define CKM_SHA256_KEY_DERIVATION      0x00000393
 #define CKM_SHA384_KEY_DERIVATION      0x00000394
 #define CKM_SHA512_KEY_DERIVATION      0x00000395
+/* The following are new for v3.0 */
+#define CKM_SHA3_256_KEY_DERIVE        0x00000397
+#define CKM_SHA3_224_KEY_DERIVE        0x00000398
+#define CKM_SHA3_384_KEY_DERIVE        0x00000399
+#define CKM_SHA3_512_KEY_DERIVE        0x0000039A
+
 #define CKM_PBE_MD2_DES_CBC            0x000003A0
 #define CKM_PBE_MD5_DES_CBC            0x000003A1
 #define CKM_PBE_MD5_CAST_CBC           0x000003A2
@@ -950,6 +980,11 @@ typedef CK_ULONG CK_MECHANISM_TYPE;
 #define CKM_ECDSA_SHA256               0x00001044
 #define CKM_ECDSA_SHA384               0x00001045
 #define CKM_ECDSA_SHA512               0x00001046
+/* The following are new for v3.0 */
+#define CKM_ECDSA_SHA3_224             0x00001047
+#define CKM_ECDSA_SHA3_256             0x00001048
+#define CKM_ECDSA_SHA3_384             0x00001049
+#define CKM_ECDSA_SHA3_512             0x0000104A
 /* The following are new for v2.11 */
 #define CKM_ECDH1_DERIVE               0x00001050
 #define CKM_ECDH1_COFACTOR_DERIVE      0x00001051
@@ -1565,6 +1600,10 @@ typedef CK_RSA_PKCS_MGF_TYPE CK_PTR CK_RSA_PKCS_MGF_TYPE_PTR;
 #define CKG_MGF1_SHA256 0x00000002
 #define CKG_MGF1_SHA384 0x00000003
 #define CKG_MGF1_SHA512 0x00000004
+#define CKG_MGF1_SHA3_224 0x00000006
+#define CKG_MGF1_SHA3_256 0x00000007
+#define CKG_MGF1_SHA3_384 0x00000008
+#define CKG_MGF1_SHA3_512 0x00000009
 
 #define  CKG_VENDOR_DEFINED            0x80000000UL
 
@@ -1620,6 +1659,11 @@ typedef struct CK_IBM_ATTRIBUTEBOUND_WRAP {
 #define CKD_SHA256_KDF              0x00000006UL
 #define CKD_SHA384_KDF              0x00000007UL
 #define CKD_SHA512_KDF              0x00000008UL
+/* The following are new for v3.0 */
+#define CKD_SHA3_224_KDF            0x0000000AUL
+#define CKD_SHA3_256_KDF            0x0000000BUL
+#define CKD_SHA3_384_KDF            0x0000000CUL
+#define CKD_SHA3_512_KDF            0x0000000DUL
 
 /* PBKDF2 parameters */
 #define CKP_PKCS5_PBKD2_HMAC_SHA256        0x00000004UL
