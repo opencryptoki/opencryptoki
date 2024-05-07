@@ -275,24 +275,10 @@ CK_RV ec_hash_sign(STDLL_TokData_t *tokdata,
     memset(&digest_ctx, 0x0, sizeof(digest_ctx));
     memset(&sign_ctx, 0x0, sizeof(sign_ctx));
 
-    switch (ctx->mech.mechanism) {
-    case CKM_ECDSA_SHA1:
-        digest_mech.mechanism = CKM_SHA_1;
-        break;
-    case CKM_ECDSA_SHA224:
-        digest_mech.mechanism = CKM_SHA224;
-        break;
-    case CKM_ECDSA_SHA256:
-        digest_mech.mechanism = CKM_SHA256;
-        break;
-    case CKM_ECDSA_SHA384:
-        digest_mech.mechanism = CKM_SHA384;
-        break;
-    case CKM_ECDSA_SHA512:
-        digest_mech.mechanism = CKM_SHA512;
-        break;
-    default:
-        return CKR_MECHANISM_INVALID;
+    rc = get_digest_from_mech(ctx->mech.mechanism, &digest_mech.mechanism);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s get_digest_from_mech failed\n", __func__);
+        return rc;
     }
 
     digest_mech.ulParameterLen = 0;
@@ -356,24 +342,10 @@ CK_RV ec_hash_sign_update(STDLL_TokData_t *tokdata,
     context = (RSA_DIGEST_CONTEXT *) ctx->context;
 
     if (context->flag == FALSE) {
-        switch (ctx->mech.mechanism) {
-        case CKM_ECDSA_SHA1:
-            digest_mech.mechanism = CKM_SHA_1;
-            break;
-        case CKM_ECDSA_SHA224:
-            digest_mech.mechanism = CKM_SHA224;
-            break;
-        case CKM_ECDSA_SHA256:
-            digest_mech.mechanism = CKM_SHA256;
-            break;
-        case CKM_ECDSA_SHA384:
-            digest_mech.mechanism = CKM_SHA384;
-            break;
-        case CKM_ECDSA_SHA512:
-            digest_mech.mechanism = CKM_SHA512;
-            break;
-        default:
-            return CKR_MECHANISM_INVALID;
+        rc = get_digest_from_mech(ctx->mech.mechanism, &digest_mech.mechanism);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s get_digest_from_mech failed\n", __func__);
+            return rc;
         }
 
         digest_mech.ulParameterLen = 0;
@@ -491,24 +463,10 @@ CK_RV ec_hash_verify(STDLL_TokData_t *tokdata,
     memset(&digest_ctx, 0x0, sizeof(digest_ctx));
     memset(&verify_ctx, 0x0, sizeof(verify_ctx));
 
-    switch (ctx->mech.mechanism) {
-    case CKM_ECDSA_SHA1:
-        digest_mech.mechanism = CKM_SHA_1;
-        break;
-    case CKM_ECDSA_SHA224:
-        digest_mech.mechanism = CKM_SHA224;
-        break;
-    case CKM_ECDSA_SHA256:
-        digest_mech.mechanism = CKM_SHA256;
-        break;
-    case CKM_ECDSA_SHA384:
-        digest_mech.mechanism = CKM_SHA384;
-        break;
-    case CKM_ECDSA_SHA512:
-        digest_mech.mechanism = CKM_SHA512;
-        break;
-    default:
-        return CKR_MECHANISM_INVALID;
+    rc = get_digest_from_mech(ctx->mech.mechanism, &digest_mech.mechanism);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s get_digest_from_mech failed\n", __func__);
+        return rc;
     }
 
     digest_mech.ulParameterLen = 0;
@@ -574,24 +532,10 @@ CK_RV ec_hash_verify_update(STDLL_TokData_t *tokdata,
     context = (RSA_DIGEST_CONTEXT *) ctx->context;
 
     if (context->flag == FALSE) {
-        switch (ctx->mech.mechanism) {
-        case CKM_ECDSA_SHA1:
-            digest_mech.mechanism = CKM_SHA_1;
-            break;
-        case CKM_ECDSA_SHA224:
-            digest_mech.mechanism = CKM_SHA224;
-            break;
-        case CKM_ECDSA_SHA256:
-            digest_mech.mechanism = CKM_SHA256;
-            break;
-        case CKM_ECDSA_SHA384:
-            digest_mech.mechanism = CKM_SHA384;
-            break;
-        case CKM_ECDSA_SHA512:
-            digest_mech.mechanism = CKM_SHA512;
-            break;
-        default:
-            return CKR_MECHANISM_INVALID;
+        rc = get_digest_from_mech(ctx->mech.mechanism, &digest_mech.mechanism);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s get_digest_from_mech failed\n", __func__);
+            return rc;
         }
 
         digest_mech.ulParameterLen = 0;
@@ -687,33 +631,15 @@ CK_RV ckm_kdf(STDLL_TokData_t *tokdata, SESSION *sess, CK_ULONG kdf,
     memset(&ctx, 0, sizeof(DIGEST_CONTEXT));
     memset(&digest_mech, 0, sizeof(CK_MECHANISM));
 
-    switch (kdf) {
-    case CKD_SHA1_KDF:
-        digest_mech.mechanism = CKM_SHA_1;
-        *h_len = SHA1_HASH_SIZE;
-        break;
-    case CKD_SHA224_KDF:
-        digest_mech.mechanism = CKM_SHA224;
-        *h_len = SHA224_HASH_SIZE;
-        break;
-    case CKD_SHA256_KDF:
-        digest_mech.mechanism = CKM_SHA256;
-        *h_len = SHA256_HASH_SIZE;
-        break;
-    case CKD_SHA384_KDF:
-        digest_mech.mechanism = CKM_SHA384;
-        *h_len = SHA384_HASH_SIZE;
-        break;
-    case CKD_SHA512_KDF:
-        digest_mech.mechanism = CKM_SHA512;
-        *h_len = SHA512_HASH_SIZE;
-        break;
-    case CKD_NULL:
-        memcpy(hash, data, data_len - 4);
-        *h_len = data_len - 4;  // data length minus counter length
-        return CKR_OK;
-    default:
-        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
+    rc = digest_from_kdf(kdf, &digest_mech.mechanism);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("digest_from_kdf failed\n");
+        return CKR_FUNCTION_NOT_SUPPORTED;
+    }
+
+    rc = get_sha_size(digest_mech.mechanism, h_len);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("get_sha_size failed\n");
         return CKR_FUNCTION_NOT_SUPPORTED;
     }
 

@@ -90,6 +90,14 @@ extern const CK_BYTE ber_AlgSha384[];
 extern const CK_ULONG ber_AlgSha384Len;
 extern const CK_BYTE ber_AlgSha512[];
 extern const CK_ULONG ber_AlgSha512Len;
+extern const CK_BYTE ber_AlgSha3_224[];
+extern const CK_ULONG ber_AlgSha3_224Len;
+extern const CK_BYTE ber_AlgSha3_256[];
+extern const CK_ULONG ber_AlgSha3_256Len;
+extern const CK_BYTE ber_AlgSha3_384[];
+extern const CK_ULONG ber_AlgSha3_384Len;
+extern const CK_BYTE ber_AlgSha3_512[];
+extern const CK_ULONG ber_AlgSha3_512Len;
 
 extern const CK_ULONG des_weak_count;
 extern const CK_ULONG des_semi_weak_count;
@@ -881,6 +889,7 @@ CK_RV ibm_dilithium_unpack_pub_key(CK_BYTE *buf, CK_ULONG buf_len,
                                    TEMPLATE *templ);
 
 CK_RV digest_from_kdf(CK_EC_KDF_TYPE kdf, CK_MECHANISM_TYPE *mech);
+CK_RV get_digest_from_mech(CK_MECHANISM_TYPE mech, CK_MECHANISM_TYPE *digest);
 
 CK_RV pkcs_get_keytype(CK_ATTRIBUTE *attrs, CK_ULONG attrs_len,
                        CK_MECHANISM_PTR mech, CK_ULONG *type, CK_ULONG *class);

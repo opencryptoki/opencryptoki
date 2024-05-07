@@ -173,6 +173,10 @@ CK_RV verify_mgr_init(STDLL_TokData_t *tokdata,
     case CKM_ECDSA_SHA256:
     case CKM_ECDSA_SHA384:
     case CKM_ECDSA_SHA512:
+    case CKM_ECDSA_SHA3_224:
+    case CKM_ECDSA_SHA3_256:
+    case CKM_ECDSA_SHA3_384:
+    case CKM_ECDSA_SHA3_512:
         if (mech->ulParameterLen != 0) {
             TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
             rc = CKR_MECHANISM_PARAM_INVALID;
@@ -229,6 +233,10 @@ CK_RV verify_mgr_init(STDLL_TokData_t *tokdata,
     case CKM_SHA256_RSA_PKCS:
     case CKM_SHA384_RSA_PKCS:
     case CKM_SHA512_RSA_PKCS:
+    case CKM_SHA3_224_RSA_PKCS:
+    case CKM_SHA3_256_RSA_PKCS:
+    case CKM_SHA3_384_RSA_PKCS:
+    case CKM_SHA3_512_RSA_PKCS:
         if (mech->ulParameterLen != 0) {
             TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
             rc = CKR_MECHANISM_PARAM_INVALID;
@@ -275,6 +283,10 @@ CK_RV verify_mgr_init(STDLL_TokData_t *tokdata,
     case CKM_SHA256_RSA_PKCS_PSS:
     case CKM_SHA384_RSA_PKCS_PSS:
     case CKM_SHA512_RSA_PKCS_PSS:
+    case CKM_SHA3_224_RSA_PKCS_PSS:
+    case CKM_SHA3_256_RSA_PKCS_PSS:
+    case CKM_SHA3_384_RSA_PKCS_PSS:
+    case CKM_SHA3_512_RSA_PKCS_PSS:
         rc = template_attribute_get_non_empty(key_obj->template, CKA_MODULUS,
                                               &attr);
         if (rc != CKR_OK) {
@@ -400,6 +412,10 @@ CK_RV verify_mgr_init(STDLL_TokData_t *tokdata,
     case CKM_SHA512_HMAC:
     case CKM_SHA512_224_HMAC:
     case CKM_SHA512_256_HMAC:
+    case CKM_SHA3_224_HMAC:
+    case CKM_SHA3_256_HMAC:
+    case CKM_SHA3_384_HMAC:
+    case CKM_SHA3_512_HMAC:
     case CKM_IBM_SHA3_224_HMAC:
     case CKM_IBM_SHA3_256_HMAC:
     case CKM_IBM_SHA3_384_HMAC:
@@ -490,9 +506,16 @@ CK_RV verify_mgr_init(STDLL_TokData_t *tokdata,
     case CKM_SHA512_HMAC_GENERAL:
     case CKM_SHA512_224_HMAC_GENERAL:
     case CKM_SHA512_256_HMAC_GENERAL:
+    case CKM_SHA3_224_HMAC_GENERAL:
+    case CKM_SHA3_256_HMAC_GENERAL:
+    case CKM_SHA3_384_HMAC_GENERAL:
+    case CKM_SHA3_512_HMAC_GENERAL:
         {
             CK_MAC_GENERAL_PARAMS *param =
                 (CK_MAC_GENERAL_PARAMS *) mech->pParameter;
+            CK_MECHANISM_TYPE digest_mech;
+            CK_BBOOL general;
+            CK_ULONG hsize;
 
             if (mech->ulParameterLen != sizeof(CK_MAC_GENERAL_PARAMS) ||
                 mech->pParameter == NULL) {
@@ -500,51 +523,20 @@ CK_RV verify_mgr_init(STDLL_TokData_t *tokdata,
                 rc= CKR_MECHANISM_PARAM_INVALID;
                 goto done;
             }
-#if !(NOMD2)
-            if ((mech->mechanism == CKM_MD2_HMAC_GENERAL) && (*param > 16)) {
-                TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
-                rc = CKR_MECHANISM_PARAM_INVALID;
+
+            rc = get_hmac_digest(mech->mechanism, &digest_mech, &general);
+            if (rc != CKR_OK) {
+                TRACE_ERROR("%s get_hmac_digest failed\n", __func__);
                 goto done;
             }
-#endif
-            if ((mech->mechanism == CKM_MD5_HMAC_GENERAL) && (*param > 16)) {
-                TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
-                rc = CKR_MECHANISM_PARAM_INVALID;
+
+            rc = get_sha_size(digest_mech, &hsize);
+            if (rc != CKR_OK) {
+                TRACE_ERROR("%s get_sha_size failed\n", __func__);
                 goto done;
             }
-            if ((mech->mechanism == CKM_SHA_1_HMAC_GENERAL) && (*param > 20)) {
-                TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
-                rc = CKR_MECHANISM_PARAM_INVALID;
-                goto done;
-            }
-            if ((mech->mechanism == CKM_SHA224_HMAC_GENERAL) && (*param > 28)) {
-                TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
-                rc = CKR_MECHANISM_PARAM_INVALID;
-                goto done;
-            }
-            if ((mech->mechanism == CKM_SHA256_HMAC_GENERAL) && (*param > 32)) {
-                TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
-                rc = CKR_MECHANISM_PARAM_INVALID;
-                goto done;
-            }
-            if ((mech->mechanism == CKM_SHA384_HMAC_GENERAL) && (*param > 48)) {
-                TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
-                rc = CKR_MECHANISM_PARAM_INVALID;
-                goto done;
-            }
-            if ((mech->mechanism == CKM_SHA512_HMAC_GENERAL) && (*param > 64)) {
-                TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
-                rc = CKR_MECHANISM_PARAM_INVALID;
-                goto done;
-            }
-            if ((mech->mechanism == CKM_SHA512_224_HMAC_GENERAL)
-                && (*param > 28)) {
-                TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
-                rc = CKR_MECHANISM_PARAM_INVALID;
-                goto done;
-            }
-            if ((mech->mechanism == CKM_SHA512_256_HMAC_GENERAL)
-                && (*param > 32)) {
+
+            if (*param > hsize) {
                 TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
                 rc = CKR_MECHANISM_PARAM_INVALID;
                 goto done;
@@ -955,6 +947,10 @@ CK_RV verify_mgr_verify(STDLL_TokData_t *tokdata,
     case CKM_SHA256_RSA_PKCS:
     case CKM_SHA384_RSA_PKCS:
     case CKM_SHA512_RSA_PKCS:
+    case CKM_SHA3_224_RSA_PKCS:
+    case CKM_SHA3_256_RSA_PKCS:
+    case CKM_SHA3_384_RSA_PKCS:
+    case CKM_SHA3_512_RSA_PKCS:
         return rsa_hash_pkcs_verify(tokdata, sess, ctx,
                                     in_data, in_data_len, signature, sig_len);
     case CKM_SHA1_RSA_PKCS_PSS:
@@ -962,6 +958,10 @@ CK_RV verify_mgr_verify(STDLL_TokData_t *tokdata,
     case CKM_SHA256_RSA_PKCS_PSS:
     case CKM_SHA384_RSA_PKCS_PSS:
     case CKM_SHA512_RSA_PKCS_PSS:
+    case CKM_SHA3_224_RSA_PKCS_PSS:
+    case CKM_SHA3_256_RSA_PKCS_PSS:
+    case CKM_SHA3_384_RSA_PKCS_PSS:
+    case CKM_SHA3_512_RSA_PKCS_PSS:
         return rsa_hash_pss_verify(tokdata, sess, ctx, in_data, in_data_len,
                                    signature, sig_len);
 #if !(NODSA)
@@ -993,6 +993,14 @@ CK_RV verify_mgr_verify(STDLL_TokData_t *tokdata,
     case CKM_SHA512_224_HMAC_GENERAL:
     case CKM_SHA512_256_HMAC:
     case CKM_SHA512_256_HMAC_GENERAL:
+    case CKM_SHA3_224_HMAC:
+    case CKM_SHA3_224_HMAC_GENERAL:
+    case CKM_SHA3_256_HMAC:
+    case CKM_SHA3_256_HMAC_GENERAL:
+    case CKM_SHA3_384_HMAC:
+    case CKM_SHA3_384_HMAC_GENERAL:
+    case CKM_SHA3_512_HMAC:
+    case CKM_SHA3_512_HMAC_GENERAL:
     case CKM_IBM_SHA3_224_HMAC:
     case CKM_IBM_SHA3_256_HMAC:
     case CKM_IBM_SHA3_384_HMAC:
@@ -1024,6 +1032,10 @@ CK_RV verify_mgr_verify(STDLL_TokData_t *tokdata,
     case CKM_ECDSA_SHA256:
     case CKM_ECDSA_SHA384:
     case CKM_ECDSA_SHA512:
+    case CKM_ECDSA_SHA3_224:
+    case CKM_ECDSA_SHA3_256:
+    case CKM_ECDSA_SHA3_384:
+    case CKM_ECDSA_SHA3_512:
         return ec_hash_verify(tokdata, sess, ctx,
                               in_data, in_data_len, signature, sig_len);
     case CKM_ECDSA:
@@ -1081,6 +1093,10 @@ CK_RV verify_mgr_verify_update(STDLL_TokData_t *tokdata,
     case CKM_SHA256_RSA_PKCS:
     case CKM_SHA384_RSA_PKCS:
     case CKM_SHA512_RSA_PKCS:
+    case CKM_SHA3_224_RSA_PKCS:
+    case CKM_SHA3_256_RSA_PKCS:
+    case CKM_SHA3_384_RSA_PKCS:
+    case CKM_SHA3_512_RSA_PKCS:
         return rsa_hash_pkcs_verify_update(tokdata, sess, ctx, in_data,
                                            in_data_len);
     case CKM_SHA1_RSA_PKCS_PSS:
@@ -1088,6 +1104,10 @@ CK_RV verify_mgr_verify_update(STDLL_TokData_t *tokdata,
     case CKM_SHA256_RSA_PKCS_PSS:
     case CKM_SHA384_RSA_PKCS_PSS:
     case CKM_SHA512_RSA_PKCS_PSS:
+    case CKM_SHA3_224_RSA_PKCS_PSS:
+    case CKM_SHA3_256_RSA_PKCS_PSS:
+    case CKM_SHA3_384_RSA_PKCS_PSS:
+    case CKM_SHA3_512_RSA_PKCS_PSS:
         return rsa_hash_pss_update(tokdata, sess, ctx, in_data, in_data_len);
     case CKM_SSL3_MD5_MAC:
     case CKM_SSL3_SHA1_MAC:
@@ -1110,6 +1130,10 @@ CK_RV verify_mgr_verify_update(STDLL_TokData_t *tokdata,
     case CKM_ECDSA_SHA256:
     case CKM_ECDSA_SHA384:
     case CKM_ECDSA_SHA512:
+    case CKM_ECDSA_SHA3_224:
+    case CKM_ECDSA_SHA3_256:
+    case CKM_ECDSA_SHA3_384:
+    case CKM_ECDSA_SHA3_512:
         return ec_hash_verify_update(tokdata, sess, ctx, in_data, in_data_len);
     case CKM_SHA_1_HMAC:
     case CKM_SHA224_HMAC:
@@ -1125,6 +1149,14 @@ CK_RV verify_mgr_verify_update(STDLL_TokData_t *tokdata,
     case CKM_SHA512_HMAC_GENERAL:
     case CKM_SHA512_224_HMAC_GENERAL:
     case CKM_SHA512_256_HMAC_GENERAL:
+    case CKM_SHA3_224_HMAC:
+    case CKM_SHA3_224_HMAC_GENERAL:
+    case CKM_SHA3_256_HMAC:
+    case CKM_SHA3_256_HMAC_GENERAL:
+    case CKM_SHA3_384_HMAC:
+    case CKM_SHA3_384_HMAC_GENERAL:
+    case CKM_SHA3_512_HMAC:
+    case CKM_SHA3_512_HMAC_GENERAL:
     case CKM_IBM_SHA3_224_HMAC:
     case CKM_IBM_SHA3_256_HMAC:
     case CKM_IBM_SHA3_384_HMAC:
@@ -1174,6 +1206,10 @@ CK_RV verify_mgr_verify_final(STDLL_TokData_t *tokdata,
     case CKM_SHA256_RSA_PKCS:
     case CKM_SHA384_RSA_PKCS:
     case CKM_SHA512_RSA_PKCS:
+    case CKM_SHA3_224_RSA_PKCS:
+    case CKM_SHA3_256_RSA_PKCS:
+    case CKM_SHA3_384_RSA_PKCS:
+    case CKM_SHA3_512_RSA_PKCS:
         return rsa_hash_pkcs_verify_final(tokdata, sess, ctx, signature,
                                           sig_len);
     case CKM_SHA1_RSA_PKCS_PSS:
@@ -1181,6 +1217,10 @@ CK_RV verify_mgr_verify_final(STDLL_TokData_t *tokdata,
     case CKM_SHA256_RSA_PKCS_PSS:
     case CKM_SHA384_RSA_PKCS_PSS:
     case CKM_SHA512_RSA_PKCS_PSS:
+    case CKM_SHA3_224_RSA_PKCS_PSS:
+    case CKM_SHA3_256_RSA_PKCS_PSS:
+    case CKM_SHA3_384_RSA_PKCS_PSS:
+    case CKM_SHA3_512_RSA_PKCS_PSS:
         return rsa_hash_pss_verify_final(tokdata, sess, ctx, signature,
                                          sig_len);
     case CKM_SSL3_MD5_MAC:
@@ -1203,6 +1243,10 @@ CK_RV verify_mgr_verify_final(STDLL_TokData_t *tokdata,
     case CKM_ECDSA_SHA256:
     case CKM_ECDSA_SHA384:
     case CKM_ECDSA_SHA512:
+    case CKM_ECDSA_SHA3_224:
+    case CKM_ECDSA_SHA3_256:
+    case CKM_ECDSA_SHA3_384:
+    case CKM_ECDSA_SHA3_512:
         return ec_hash_verify_final(tokdata, sess, ctx, signature, sig_len);
     case CKM_SHA_1_HMAC:
     case CKM_SHA224_HMAC:
@@ -1218,6 +1262,14 @@ CK_RV verify_mgr_verify_final(STDLL_TokData_t *tokdata,
     case CKM_SHA512_HMAC_GENERAL:
     case CKM_SHA512_224_HMAC_GENERAL:
     case CKM_SHA512_256_HMAC_GENERAL:
+    case CKM_SHA3_224_HMAC:
+    case CKM_SHA3_224_HMAC_GENERAL:
+    case CKM_SHA3_256_HMAC:
+    case CKM_SHA3_256_HMAC_GENERAL:
+    case CKM_SHA3_384_HMAC:
+    case CKM_SHA3_384_HMAC_GENERAL:
+    case CKM_SHA3_512_HMAC:
+    case CKM_SHA3_512_HMAC_GENERAL:
     case CKM_IBM_SHA3_224_HMAC:
     case CKM_IBM_SHA3_256_HMAC:
     case CKM_IBM_SHA3_384_HMAC:

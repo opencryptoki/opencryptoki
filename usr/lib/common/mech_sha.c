@@ -185,6 +185,7 @@ CK_RV sha_hash(STDLL_TokData_t *tokdata, SESSION *sess, CK_BBOOL length_only,
                CK_BYTE *out_data, CK_ULONG *out_data_len)
 {
     CK_ULONG hsize;
+    CK_RV rc;
 
     UNUSED(sess);
 
@@ -193,38 +194,10 @@ CK_RV sha_hash(STDLL_TokData_t *tokdata, SESSION *sess, CK_BBOOL length_only,
         return CKR_FUNCTION_FAILED;
     }
 
-    switch (ctx->mech.mechanism) {
-    case CKM_SHA_1:
-        hsize = SHA1_HASH_SIZE;
-        break;
-    case CKM_SHA224:
-    case CKM_SHA512_224:
-        hsize = SHA224_HASH_SIZE;
-        break;
-    case CKM_SHA256:
-    case CKM_SHA512_256:
-        hsize = SHA256_HASH_SIZE;
-        break;
-    case CKM_SHA384:
-        hsize = SHA384_HASH_SIZE;
-        break;
-    case CKM_SHA512:
-        hsize = SHA512_HASH_SIZE;
-        break;
-    case CKM_IBM_SHA3_224:
-        hsize = SHA3_224_HASH_SIZE;
-        break;
-    case CKM_IBM_SHA3_256:
-        hsize = SHA3_256_HASH_SIZE;
-        break;
-    case CKM_IBM_SHA3_384:
-        hsize = SHA3_384_HASH_SIZE;
-        break;
-    case CKM_IBM_SHA3_512:
-        hsize = SHA3_512_HASH_SIZE;
-        break;
-    default:
-        return CKR_MECHANISM_INVALID;
+    rc = get_sha_size(ctx->mech.mechanism, &hsize);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("get_sha_size failed\n");
+        return CKR_FUNCTION_NOT_SUPPORTED;
     }
 
     if (length_only == TRUE) {
@@ -280,6 +253,7 @@ CK_RV sha_hash_final(STDLL_TokData_t *tokdata, SESSION *sess,
                      CK_BYTE *out_data, CK_ULONG *out_data_len)
 {
     CK_ULONG hsize;
+    CK_RV rc;
 
     UNUSED(sess);
 
@@ -288,38 +262,10 @@ CK_RV sha_hash_final(STDLL_TokData_t *tokdata, SESSION *sess,
         return CKR_FUNCTION_FAILED;
     }
 
-    switch (ctx->mech.mechanism) {
-    case CKM_SHA_1:
-        hsize = SHA1_HASH_SIZE;
-        break;
-    case CKM_SHA224:
-    case CKM_SHA512_224:
-        hsize = SHA224_HASH_SIZE;
-        break;
-    case CKM_SHA256:
-    case CKM_SHA512_256:
-        hsize = SHA256_HASH_SIZE;
-        break;
-    case CKM_SHA384:
-        hsize = SHA384_HASH_SIZE;
-        break;
-    case CKM_SHA512:
-        hsize = SHA512_HASH_SIZE;
-        break;
-    case CKM_IBM_SHA3_224:
-        hsize = SHA3_224_HASH_SIZE;
-        break;
-    case CKM_IBM_SHA3_256:
-        hsize = SHA3_256_HASH_SIZE;
-        break;
-    case CKM_IBM_SHA3_384:
-        hsize = SHA3_384_HASH_SIZE;
-        break;
-    case CKM_IBM_SHA3_512:
-        hsize = SHA3_512_HASH_SIZE;
-        break;
-    default:
-        return CKR_MECHANISM_INVALID;
+    rc = get_sha_size(ctx->mech.mechanism, &hsize);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("get_sha_size failed\n");
+        return CKR_FUNCTION_NOT_SUPPORTED;
     }
 
     if (length_only == TRUE) {
@@ -358,6 +304,14 @@ CK_RV sha_hash_final(STDLL_TokData_t *tokdata, SESSION *sess,
 // CKM_SHA512_224_HMAC_GENERAL
 // CKM_SHA512_256_HMAC
 // CKM_SHA512_256_HMAC_GENERAL
+// CKM_SHA3_224_HMAC
+// CKM_SHA3_224_HMAC_GENERAL
+// CKM_SHA3_256_HMAC
+// CKM_SHA3_256_HMAC_GENERAL
+// CKM_SHA3_384_HMAC
+// CKM_SHA3_384_HMAC_GENERAL
+// CKM_SHA3_512_HMAC
+// CKM_SHA3_512_HMAC_GENERAL
 // CKM_IBM_SHA3_224_HMAC
 // CKM_IBM_SHA3_256_HMAC
 // CKM_IBM_SHA3_384_HMAC
@@ -440,6 +394,14 @@ CK_RV sha_hmac_sign(STDLL_TokData_t *tokdata,
 // CKM_SHA512_224_HMAC_GENERAL
 // CKM_SHA512_256_HMAC
 // CKM_SHA512_256_HMAC_GENERAL
+// CKM_SHA3_224_HMAC
+// CKM_SHA3_224_HMAC_GENERAL
+// CKM_SHA3_256_HMAC
+// CKM_SHA3_256_HMAC_GENERAL
+// CKM_SHA3_384_HMAC
+// CKM_SHA3_384_HMAC_GENERAL
+// CKM_SHA3_512_HMAC
+// CKM_SHA3_512_HMAC_GENERAL
 // CKM_IBM_SHA3_224_HMAC
 // CKM_IBM_SHA3_256_HMAC
 // CKM_IBM_SHA3_384_HMAC

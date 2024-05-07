@@ -62,6 +62,10 @@ CK_RV digest_mgr_init(STDLL_TokData_t *tokdata,
     case CKM_SHA512:
     case CKM_SHA512_224:
     case CKM_SHA512_256:
+    case CKM_SHA3_224:
+    case CKM_SHA3_256:
+    case CKM_SHA3_384:
+    case CKM_SHA3_512:
     case CKM_IBM_SHA3_224:
     case CKM_IBM_SHA3_256:
     case CKM_IBM_SHA3_384:
@@ -227,6 +231,10 @@ CK_RV digest_mgr_digest(STDLL_TokData_t *tokdata,
     case CKM_SHA512:
     case CKM_SHA512_224:
     case CKM_SHA512_256:
+    case CKM_SHA3_224:
+    case CKM_SHA3_256:
+    case CKM_SHA3_384:
+    case CKM_SHA3_512:
     case CKM_IBM_SHA3_224:
     case CKM_IBM_SHA3_256:
     case CKM_IBM_SHA3_384:
@@ -304,6 +312,10 @@ CK_RV digest_mgr_digest_update(STDLL_TokData_t *tokdata,
     case CKM_SHA512:
     case CKM_SHA512_224:
     case CKM_SHA512_256:
+    case CKM_SHA3_224:
+    case CKM_SHA3_256:
+    case CKM_SHA3_384:
+    case CKM_SHA3_512:
     case CKM_IBM_SHA3_224:
     case CKM_IBM_SHA3_256:
     case CKM_IBM_SHA3_384:
@@ -449,6 +461,10 @@ CK_RV digest_mgr_digest_final(STDLL_TokData_t *tokdata,
     case CKM_SHA512:
     case CKM_SHA512_224:
     case CKM_SHA512_256:
+    case CKM_SHA3_224:
+    case CKM_SHA3_256:
+    case CKM_SHA3_384:
+    case CKM_SHA3_512:
     case CKM_IBM_SHA3_224:
     case CKM_IBM_SHA3_256:
     case CKM_IBM_SHA3_384:
