@@ -2965,7 +2965,7 @@ static void aes_cmac_cleanup(STDLL_TokData_t *tokdata, SESSION *sess,
     UNUSED(context_len);
 
     if (((AES_CMAC_CONTEXT *)context)->ctx != NULL) {
-        token_specific.t_aes_cmac(tokdata, (CK_BYTE *)"", 0, NULL,
+        token_specific.t_aes_cmac(tokdata, sess, (CK_BYTE *)"", 0, NULL,
                                   ((AES_CMAC_CONTEXT *)context)->iv,
                                   CK_FALSE, CK_TRUE,
                                   ((AES_CMAC_CONTEXT *)context)->ctx);
@@ -3014,7 +3014,7 @@ CK_RV aes_cmac_sign(STDLL_TokData_t *tokdata,
         return rc;
     }
 
-    rc = token_specific.t_aes_cmac(tokdata, in_data, in_data_len,
+    rc = token_specific.t_aes_cmac(tokdata, sess, in_data, in_data_len,
                                    key_obj,
                                    ((AES_CMAC_CONTEXT *)ctx->context)->iv,
                                    CK_TRUE, CK_TRUE,
@@ -3089,7 +3089,7 @@ CK_RV aes_cmac_sign_update(STDLL_TokData_t *tokdata,
         memcpy(cipher, context->data, context->len);
         memcpy(cipher + context->len, in_data, out_len - context->len);
 
-        rc = token_specific.t_aes_cmac(tokdata, cipher, out_len, key_obj,
+        rc = token_specific.t_aes_cmac(tokdata, sess, cipher, out_len, key_obj,
                                        context->iv,
                                        !context->initialized, CK_FALSE,
                                        &context->ctx);
@@ -3160,7 +3160,7 @@ CK_RV aes_cmac_sign_final(STDLL_TokData_t *tokdata,
         return rc;
     }
 
-   rc = token_specific.t_aes_cmac(tokdata, context->data, context->len,
+   rc = token_specific.t_aes_cmac(tokdata, sess, context->data, context->len,
                                    key_obj, context->iv,
                                    !context->initialized, CK_TRUE,
                                    &context->ctx);
@@ -3218,7 +3218,7 @@ CK_RV aes_cmac_verify(STDLL_TokData_t *tokdata,
         return rc;
     }
 
-    rc = token_specific.t_aes_cmac(tokdata, in_data, in_data_len,
+    rc = token_specific.t_aes_cmac(tokdata, sess, in_data, in_data_len,
                                    key_obj,
                                    ((AES_CMAC_CONTEXT *) ctx->context)->iv,
                                    CK_TRUE, CK_TRUE,
@@ -3297,7 +3297,7 @@ CK_RV aes_cmac_verify_update(STDLL_TokData_t *tokdata,
         memcpy(cipher, context->data, context->len);
         memcpy(cipher + context->len, in_data, out_len - context->len);
 
-        rc = token_specific.t_aes_cmac(tokdata, cipher, out_len, key_obj,
+        rc = token_specific.t_aes_cmac(tokdata, sess, cipher, out_len, key_obj,
                                       context->iv,
                                       !context->initialized, CK_FALSE,
                                       &context->ctx);
@@ -3360,7 +3360,7 @@ CK_RV aes_cmac_verify_final(STDLL_TokData_t *tokdata,
         return rc;
     }
 
-    rc = token_specific.t_aes_cmac(tokdata, context->data, context->len,
+    rc = token_specific.t_aes_cmac(tokdata, sess, context->data, context->len,
                                    key_obj, context->iv,
                                    !context->initialized, CK_TRUE,
                                    &context->ctx);

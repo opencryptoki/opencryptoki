@@ -6095,7 +6095,7 @@ CK_RV token_specific_aes_cbc(STDLL_TokData_t *tokdata,
  * a protected key. Therefore we don't have (and don't need) an ep11
  * fallback here.
  */
-CK_RV token_specific_aes_cmac(STDLL_TokData_t *tokdata,
+CK_RV token_specific_aes_cmac(STDLL_TokData_t *tokdata, SESSION *session,
                               CK_BYTE *message, CK_ULONG message_len,
                               OBJECT *key_obj, CK_BYTE *iv,
                               CK_BBOOL first, CK_BBOOL last,
@@ -6103,15 +6103,14 @@ CK_RV token_specific_aes_cmac(STDLL_TokData_t *tokdata,
 {
     CK_RV rc;
 
-    UNUSED(tokdata);
     UNUSED(context);
 
     if (first && last)
-        rc = pkey_aes_cmac(key_obj, message, message_len, iv, NULL);
+        rc = pkey_aes_cmac(tokdata, session, key_obj, message, message_len, iv, NULL);
     else if (!last)
-        rc = pkey_aes_cmac(key_obj, message, message_len, NULL, iv);
+        rc = pkey_aes_cmac(tokdata, session, key_obj, message, message_len, NULL, iv);
     else // last
-        rc = pkey_aes_cmac(key_obj, message, message_len, iv, iv);
+        rc = pkey_aes_cmac(tokdata, session, key_obj, message, message_len, iv, iv);
 
     return rc;
 }

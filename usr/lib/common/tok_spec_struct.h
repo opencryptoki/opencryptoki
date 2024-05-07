@@ -250,7 +250,7 @@ struct token_specific_struct {
     CK_RV(*t_aes_mac) (STDLL_TokData_t *, CK_BYTE *, CK_ULONG, OBJECT *,
                        CK_BYTE *);
 
-    CK_RV(*t_aes_cmac) (STDLL_TokData_t *, CK_BYTE *, CK_ULONG, OBJECT *,
+    CK_RV(*t_aes_cmac) (STDLL_TokData_t *, SESSION *, CK_BYTE *, CK_ULONG, OBJECT *,
                         CK_BYTE *, CK_BBOOL, CK_BBOOL, CK_VOID_PTR *);
 
     CK_RV(*t_aes_xts) (STDLL_TokData_t *tokdata, SESSION *, CK_BYTE *, CK_ULONG,

@@ -102,7 +102,8 @@ CK_RV pkey_aes_cbc(OBJECT *key, CK_BYTE *iv,
                    CK_BYTE *out_data, CK_ULONG_PTR p_output_data_len,
                    CK_BYTE encrypt);
 
-CK_RV pkey_aes_cmac(OBJECT *key_obj, CK_BYTE *message,
+CK_RV pkey_aes_cmac(STDLL_TokData_t *tokdata, SESSION *session,
+                    OBJECT *key_obj, CK_BYTE *message,
                     CK_ULONG message_len, CK_BYTE *cmac, CK_BYTE *iv);
 
 CK_RV pkey_aes_xts(OBJECT *key_obj, CK_BYTE *tweak,
