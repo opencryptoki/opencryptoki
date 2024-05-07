@@ -659,7 +659,8 @@ static inline void parm_block_lookup_init(struct parm_block_lookup *lookup,
 /**
  * Calculates an AES-CMAC via CPACF using a protected key.
  */
-CK_RV pkey_aes_cmac(OBJECT *key_obj, CK_BYTE *message,
+CK_RV pkey_aes_cmac(STDLL_TokData_t *tokdata, SESSION *session,
+                    OBJECT *key_obj, CK_BYTE *message,
                     CK_ULONG message_len, CK_BYTE *cmac, CK_BYTE *iv)
 {
     CK_RV ret;
