@@ -149,6 +149,19 @@ CK_RV do_SignVerifyUpdateRSA(struct GENERATED_TEST_SUITE_INFO *tsuite)
                 continue;
             }
         }
+
+        if (tsuite->tv[i].modbits <= 512 &&
+            (tsuite->mech.mechanism == CKM_SHA384_RSA_PKCS ||
+             tsuite->mech.mechanism == CKM_SHA512_RSA_PKCS ||
+             tsuite->mech.mechanism == CKM_SHA3_384_RSA_PKCS ||
+             tsuite->mech.mechanism == CKM_SHA3_512_RSA_PKCS)) {
+            testcase_skip("Mechanism %s can not be used with a key with mod_bits='%lu'.",
+                          mech_to_str(tsuite->mech.mechanism),
+                          tsuite->tv[i].modbits);
+            free(s);
+            continue;
+        }
+
         // free memory
         free(s);
 

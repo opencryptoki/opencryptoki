@@ -1636,12 +1636,16 @@ CK_RV do_SHA_derive_key(void)
     };
     CK_ULONG derive_tmpl_len = sizeof(derive_tmpl) / sizeof(CK_ATTRIBUTE);
 
-    CK_MECHANISM derive_mechs[5] = {
+    CK_MECHANISM derive_mechs[9] = {
         { CKM_SHA1_KEY_DERIVATION, 0, 0 },
         { CKM_SHA224_KEY_DERIVATION, 0, 0 },
         { CKM_SHA256_KEY_DERIVATION, 0, 0 },
         { CKM_SHA384_KEY_DERIVATION, 0, 0 },
-        { CKM_SHA512_KEY_DERIVATION, 0, 0 }
+        { CKM_SHA512_KEY_DERIVATION, 0, 0 },
+        { CKM_SHA3_224_KEY_DERIVE, 0, 0 },
+        { CKM_SHA3_256_KEY_DERIVE, 0, 0 },
+        { CKM_SHA3_384_KEY_DERIVE, 0, 0 },
+        { CKM_SHA3_512_KEY_DERIVE, 0, 0 }
     };
 
     struct {
