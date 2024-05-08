@@ -45,6 +45,7 @@
 #define CCA_PKB_E_SIZE                  2
 #define CCA_PKB_E_SIZE_OFFSET           4
 #define CCA_CHAIN_VECTOR_LEN            128
+#define CCA_CHAIN_VECTOR_SHA3_LEN       256
 
 /* Elliptic Curve constants */
 /* CCA spec: page 94 */

@@ -220,6 +220,10 @@ static const MECH_LIST_ELEMENT cca_mech_list[] = {
     {CKM_SHA256_RSA_PKCS, {512, 4096, CKF_HW | CKF_SIGN | CKF_VERIFY}},
     {CKM_SHA384_RSA_PKCS, {512, 4096, CKF_HW | CKF_SIGN | CKF_VERIFY}},
     {CKM_SHA512_RSA_PKCS, {512, 4096, CKF_HW | CKF_SIGN | CKF_VERIFY}},
+    {CKM_SHA3_224_RSA_PKCS, {512, 4096, CKF_HW | CKF_SIGN | CKF_VERIFY}},
+    {CKM_SHA3_256_RSA_PKCS, {512, 4096, CKF_HW | CKF_SIGN | CKF_VERIFY}},
+    {CKM_SHA3_384_RSA_PKCS, {512, 4096, CKF_HW | CKF_SIGN | CKF_VERIFY}},
+    {CKM_SHA3_512_RSA_PKCS, {512, 4096, CKF_HW | CKF_SIGN | CKF_VERIFY}},
     {CKM_RSA_PKCS_PSS, {512, 4096, CKF_HW | CKF_SIGN | CKF_VERIFY}},
     {CKM_SHA1_RSA_PKCS_PSS, {512, 4096, CKF_HW | CKF_SIGN | CKF_VERIFY}},
     {CKM_SHA224_RSA_PKCS_PSS, {512, 4096, CKF_HW | CKF_SIGN | CKF_VERIFY}},
@@ -242,6 +246,14 @@ static const MECH_LIST_ELEMENT cca_mech_list[] = {
     {CKM_AES_CBC, {16, 32, CKF_HW | CKF_ENCRYPT | CKF_DECRYPT}},
     {CKM_AES_CBC_PAD, {16, 32, CKF_HW | CKF_ENCRYPT | CKF_DECRYPT}},
     {CKM_AES_XTS, {32, 64, CKF_ENCRYPT | CKF_DECRYPT}},
+    {CKM_SHA3_512, {0, 0, CKF_HW | CKF_DIGEST}},
+    {CKM_SHA3_384, {0, 0, CKF_HW | CKF_DIGEST}},
+    {CKM_SHA3_256, {0, 0, CKF_HW | CKF_DIGEST}},
+    {CKM_SHA3_224, {0, 0, CKF_HW | CKF_DIGEST}},
+    {CKM_IBM_SHA3_512, {0, 0, CKF_HW | CKF_DIGEST}},
+    {CKM_IBM_SHA3_384, {0, 0, CKF_HW | CKF_DIGEST}},
+    {CKM_IBM_SHA3_256, {0, 0, CKF_HW | CKF_DIGEST}},
+    {CKM_IBM_SHA3_224, {0, 0, CKF_HW | CKF_DIGEST}},
     {CKM_SHA512, {0, 0, CKF_HW | CKF_DIGEST}},
     {CKM_SHA512_HMAC, {256, 2048, CKF_SIGN | CKF_VERIFY}},
     {CKM_SHA512_HMAC_GENERAL, {256, 2048, CKF_SIGN | CKF_VERIFY}},
@@ -271,6 +283,14 @@ static const MECH_LIST_ELEMENT cca_mech_list[] = {
     {CKM_ECDSA_SHA384, {160, 521, CKF_HW | CKF_SIGN | CKF_VERIFY |
                         CKF_EC_NAMEDCURVE | CKF_EC_F_P}},
     {CKM_ECDSA_SHA512, {160, 521, CKF_HW | CKF_SIGN | CKF_VERIFY |
+                        CKF_EC_NAMEDCURVE | CKF_EC_F_P}},
+    {CKM_ECDSA_SHA3_224, {160, 521, CKF_HW | CKF_SIGN | CKF_VERIFY |
+                        CKF_EC_NAMEDCURVE | CKF_EC_F_P}},
+    {CKM_ECDSA_SHA3_256, {160, 521, CKF_HW | CKF_SIGN | CKF_VERIFY |
+                        CKF_EC_NAMEDCURVE | CKF_EC_F_P}},
+    {CKM_ECDSA_SHA3_384, {160, 521, CKF_HW | CKF_SIGN | CKF_VERIFY |
+                        CKF_EC_NAMEDCURVE | CKF_EC_F_P}},
+    {CKM_ECDSA_SHA3_512, {160, 521, CKF_HW | CKF_SIGN | CKF_VERIFY |
                         CKF_EC_NAMEDCURVE | CKF_EC_F_P}},
     {CKM_GENERIC_SECRET_KEY_GEN, {80, 2048, CKF_HW | CKF_GENERATE}},
     {CKM_IBM_DILITHIUM, {256, 256, CKF_HW | CKF_GENERATE_KEY_PAIR |
@@ -3789,6 +3809,36 @@ static CK_BBOOL cca_pqc_strength_supported(STDLL_TokData_t * tokdata,
     return ret;
 }
 
+static CK_BBOOL cca_sha3_supported(STDLL_TokData_t *tokdata)
+{
+    CK_BBOOL ret;
+#ifdef __s390__
+    struct cca_private_data *cca_private = tokdata->private_data;
+    const struct cca_version cca_v8_1 = { .ver = 8, .rel = 1, .mod = 0 };
+
+    if (pthread_rwlock_rdlock(&cca_private->min_card_version_rwlock)
+                                                        != 0) {
+        TRACE_ERROR("CCA min_card_version RD-Lock failed.\n");
+        return FALSE;
+    }
+
+    ret = (compare_cca_version(&cca_private->cca_lib_version, &cca_v8_1) >= 0 &&
+           compare_cca_version(&cca_private->min_card_version, &cca_v8_1) >= 0);
+
+    if (pthread_rwlock_unlock(&cca_private->min_card_version_rwlock)
+                                                        != 0) {
+        TRACE_ERROR("CCA min_card_version RD-Unlock failed.\n");
+        return FALSE;
+    }
+#else
+    UNUSED(tokdata);
+
+    ret = CK_FALSE;
+#endif
+
+    return ret;
+}
+
 CK_RV token_specific_init(STDLL_TokData_t * tokdata, CK_SLOT_ID SlotNumber,
                           char *conf_name)
 {
@@ -5910,6 +5960,24 @@ static CK_BBOOL token_specific_filter_mechanism(STDLL_TokData_t *tokdata,
         rc = cca_pqc_strength_supported(tokdata, mechanism,
                                         CK_IBM_DILITHIUM_KEYFORM_ROUND2_65);
         break;
+    case CKM_SHA3_224:
+    case CKM_SHA3_256:
+    case CKM_SHA3_384:
+    case CKM_SHA3_512:
+    case CKM_IBM_SHA3_224:
+    case CKM_IBM_SHA3_256:
+    case CKM_IBM_SHA3_384:
+    case CKM_IBM_SHA3_512:
+    case CKM_SHA3_224_RSA_PKCS:
+    case CKM_SHA3_256_RSA_PKCS:
+    case CKM_SHA3_384_RSA_PKCS:
+    case CKM_SHA3_512_RSA_PKCS:
+    case CKM_ECDSA_SHA3_224:
+    case CKM_ECDSA_SHA3_256:
+    case CKM_ECDSA_SHA3_384:
+    case CKM_ECDSA_SHA3_512:
+        rc = cca_sha3_supported(tokdata);
+        break;
     default:
         rc = CK_TRUE;
         break;
@@ -6518,34 +6586,51 @@ done:
     return rc;
 }
 
+static CK_BBOOL cca_is_sha3_mech(CK_MECHANISM *mech)
+{
+    switch (mech->mechanism) {
+    case CKM_SHA3_224:
+    case CKM_SHA3_256:
+    case CKM_SHA3_384:
+    case CKM_SHA3_512:
+    case CKM_IBM_SHA3_224:
+    case CKM_IBM_SHA3_256:
+    case CKM_IBM_SHA3_384:
+    case CKM_IBM_SHA3_512:
+    case CKM_SHA3_224_RSA_PKCS:
+    case CKM_SHA3_256_RSA_PKCS:
+    case CKM_SHA3_384_RSA_PKCS:
+    case CKM_SHA3_512_RSA_PKCS:
+    case CKM_ECDSA_SHA3_224:
+    case CKM_ECDSA_SHA3_256:
+    case CKM_ECDSA_SHA3_384:
+    case CKM_ECDSA_SHA3_512:
+        return CK_TRUE;
+    default:
+        return CK_FALSE;
+    }
+}
+
 CK_RV token_specific_sha_init(STDLL_TokData_t * tokdata, DIGEST_CONTEXT * ctx,
                               CK_MECHANISM * mech)
 {
     CK_ULONG hash_size;
     struct cca_sha_ctx *cca_ctx;
+    CK_RV rc;
 
     if (((struct cca_private_data *)tokdata->private_data)->inconsistent) {
         TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
         return CKR_DEVICE_ERROR;
     }
 
-    switch (mech->mechanism) {
-    case CKM_SHA_1:
-        hash_size = SHA1_HASH_SIZE;
-        break;
-    case CKM_SHA224:
-        hash_size = SHA224_HASH_SIZE;
-        break;
-    case CKM_SHA256:
-        hash_size = SHA256_HASH_SIZE;
-        break;
-    case CKM_SHA384:
-        hash_size = SHA384_HASH_SIZE;
-        break;
-    case CKM_SHA512:
-        hash_size = SHA512_HASH_SIZE;
-        break;
-    default:
+    rc = get_sha_size(mech->mechanism, &hash_size);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("get_sha_size failed\n");
+        return rc;
+    }
+
+    if (cca_is_sha3_mech(mech) && !cca_sha3_supported(tokdata)) {
+        TRACE_ERROR("SHA-3 mechanism is not supported due to CCA version\n");
         return CKR_MECHANISM_INVALID;
     }
 
@@ -6557,7 +6642,8 @@ CK_RV token_specific_sha_init(STDLL_TokData_t * tokdata, DIGEST_CONTEXT * ctx,
     ctx->context_len = sizeof(struct cca_sha_ctx);
 
     cca_ctx = (struct cca_sha_ctx *) ctx->context;
-    cca_ctx->chain_vector_len = CCA_CHAIN_VECTOR_LEN;
+    cca_ctx->chain_vector_len = cca_is_sha3_mech(mech) ?
+                            CCA_CHAIN_VECTOR_SHA3_LEN : CCA_CHAIN_VECTOR_LEN;
     cca_ctx->hash_len = hash_size;
     /* tail_len is already 0 */
 
@@ -6609,7 +6695,32 @@ CK_RV token_specific_sha(STDLL_TokData_t * tokdata, DIGEST_CONTEXT * ctx,
         memcpy(rule_array, "SHA-512 ONLY    ", CCA_KEYWORD_SIZE * 2);
         cca_ctx->part = CCA_HASH_PART_ONLY;
         break;
+    case CKM_SHA3_224:
+    case CKM_IBM_SHA3_224:
+        memcpy(rule_array, "SHA3-224ONLY    ", CCA_KEYWORD_SIZE * 2);
+        cca_ctx->part = CCA_HASH_PART_ONLY;
+        break;
+    case CKM_SHA3_256:
+    case CKM_IBM_SHA3_256:
+        memcpy(rule_array, "SHA3-256ONLY    ", CCA_KEYWORD_SIZE * 2);
+        cca_ctx->part = CCA_HASH_PART_ONLY;
+        break;
+    case CKM_SHA3_384:
+    case CKM_IBM_SHA3_384:
+        memcpy(rule_array, "SHA3-384ONLY    ", CCA_KEYWORD_SIZE * 2);
+        cca_ctx->part = CCA_HASH_PART_ONLY;
+        break;
+    case CKM_SHA3_512:
+    case CKM_IBM_SHA3_512:
+        memcpy(rule_array, "SHA3-512ONLY    ", CCA_KEYWORD_SIZE * 2);
+        cca_ctx->part = CCA_HASH_PART_ONLY;
+        break;
     default:
+        return CKR_MECHANISM_INVALID;
+    }
+
+    if (cca_is_sha3_mech(&ctx->mech) && !cca_sha3_supported(tokdata)) {
+        TRACE_ERROR("SHA-3 mechanism is not supported due to CCA version\n");
         return CKR_MECHANISM_INVALID;
     }
 
@@ -6641,7 +6752,8 @@ CK_RV token_specific_sha_update(STDLL_TokData_t * tokdata, DIGEST_CONTEXT * ctx,
     unsigned char rule_array[CCA_RULE_ARRAY_SIZE] = { 0, };
     CK_RV rc = CKR_OK;
     unsigned char *buffer = NULL;
-    int blocksz, blocksz_mask, use_buffer = 0;
+    CK_ULONG blocksz;
+    int use_buffer = 0;
 
     if (((struct cca_private_data *)tokdata->private_data)->inconsistent) {
         TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
@@ -6654,28 +6766,14 @@ CK_RV token_specific_sha_update(STDLL_TokData_t * tokdata, DIGEST_CONTEXT * ctx,
     if (!ctx || !ctx->context)
         return CKR_OPERATION_NOT_INITIALIZED;
 
-    switch (ctx->mech.mechanism) {
-    case CKM_SHA_1:
-        blocksz = SHA1_BLOCK_SIZE;
-        blocksz_mask = SHA1_BLOCK_SIZE_MASK;
-        break;
-    case CKM_SHA224:
-        blocksz = SHA224_BLOCK_SIZE;
-        blocksz_mask = SHA224_BLOCK_SIZE_MASK;
-        break;
-    case CKM_SHA256:
-        blocksz = SHA256_BLOCK_SIZE;
-        blocksz_mask = SHA256_BLOCK_SIZE_MASK;
-        break;
-    case CKM_SHA384:
-        blocksz = SHA384_BLOCK_SIZE;
-        blocksz_mask = SHA384_BLOCK_SIZE_MASK;
-        break;
-    case CKM_SHA512:
-        blocksz = SHA512_BLOCK_SIZE;
-        blocksz_mask = SHA512_BLOCK_SIZE_MASK;
-        break;
-    default:
+    rc = get_sha_block_size(ctx->mech.mechanism, &blocksz);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("get_sha_block_size failed\n");
+        return rc;
+    }
+
+    if (cca_is_sha3_mech(&ctx->mech) && !cca_sha3_supported(tokdata)) {
+        TRACE_ERROR("SHA-3 mechanism is not supported due to CCA version\n");
         return CKR_MECHANISM_INVALID;
     }
 
@@ -6684,7 +6782,7 @@ CK_RV token_specific_sha_update(STDLL_TokData_t * tokdata, DIGEST_CONTEXT * ctx,
     /* just send if input a multiple of block size and
      * cca_ctx-> tail is empty.
      */
-    if ((cca_ctx->tail_len == 0) && ((in_data_len & blocksz_mask) == 0))
+    if ((cca_ctx->tail_len == 0) && ((in_data_len % blocksz) == 0))
         goto send;
 
     /* at this point, in_data is not multiple of blocksize
@@ -6696,10 +6794,10 @@ CK_RV token_specific_sha_update(STDLL_TokData_t * tokdata, DIGEST_CONTEXT * ctx,
     total = cca_ctx->tail_len + in_data_len;
 
     /* see if we have enough to fill a block */
-    if (total >= blocksz) {
+    if (total >= (long)blocksz) {
         int remainder;
 
-        remainder = total & blocksz_mask;
+        remainder = total % blocksz;
         buffer_len = total - remainder;
 
         /* allocate a buffer for sending... */
@@ -6766,6 +6864,42 @@ send:
             cca_ctx->part = CCA_HASH_PART_MIDDLE;
         } else {
             memcpy(rule_array, "SHA-512 MIDDLE  ", CCA_KEYWORD_SIZE * 2);
+        }
+        break;
+    case CKM_SHA3_224:
+    case CKM_IBM_SHA3_224:
+        if (cca_ctx->part == CCA_HASH_PART_FIRST) {
+            memcpy(rule_array, "SHA3-224FIRST   ", CCA_KEYWORD_SIZE * 2);
+            cca_ctx->part = CCA_HASH_PART_MIDDLE;
+        } else {
+            memcpy(rule_array, "SHA3-224MIDDLE  ", CCA_KEYWORD_SIZE * 2);
+        }
+        break;
+    case CKM_SHA3_256:
+    case CKM_IBM_SHA3_256:
+        if (cca_ctx->part == CCA_HASH_PART_FIRST) {
+            memcpy(rule_array, "SHA3-256FIRST   ", CCA_KEYWORD_SIZE * 2);
+            cca_ctx->part = CCA_HASH_PART_MIDDLE;
+        } else {
+            memcpy(rule_array, "SHA3-256MIDDLE  ", CCA_KEYWORD_SIZE * 2);
+        }
+        break;
+    case CKM_SHA3_384:
+    case CKM_IBM_SHA3_384:
+        if (cca_ctx->part == CCA_HASH_PART_FIRST) {
+            memcpy(rule_array, "SHA3-384FIRST   ", CCA_KEYWORD_SIZE * 2);
+            cca_ctx->part = CCA_HASH_PART_MIDDLE;
+        } else {
+            memcpy(rule_array, "SHA3-384MIDDLE  ", CCA_KEYWORD_SIZE * 2);
+        }
+        break;
+    case CKM_SHA3_512:
+    case CKM_IBM_SHA3_512:
+        if (cca_ctx->part == CCA_HASH_PART_FIRST) {
+            memcpy(rule_array, "SHA3-512FIRST   ", CCA_KEYWORD_SIZE * 2);
+            cca_ctx->part = CCA_HASH_PART_MIDDLE;
+        } else {
+            memcpy(rule_array, "SHA3-512MIDDLE  ", CCA_KEYWORD_SIZE * 2);
         }
         break;
     }
@@ -6861,7 +6995,56 @@ CK_RV token_specific_sha_final(STDLL_TokData_t * tokdata, DIGEST_CONTEXT * ctx,
             memcpy(rule_array, "SHA-512 LAST    ", CCA_KEYWORD_SIZE * 2);
         }
         break;
+    case CKM_SHA3_224:
+    case CKM_IBM_SHA3_224:
+        if (cca_ctx->part == CCA_HASH_PART_FIRST) {
+            memcpy(rule_array, "SHA3-224ONLY    ", CCA_KEYWORD_SIZE * 2);
+        } else {
+            /* there's some extra data we need to hash to
+             * complete the operation
+             */
+            memcpy(rule_array, "SHA3-224LAST    ", CCA_KEYWORD_SIZE * 2);
+        }
+        break;
+    case CKM_SHA3_256:
+    case CKM_IBM_SHA3_256:
+        if (cca_ctx->part == CCA_HASH_PART_FIRST) {
+            memcpy(rule_array, "SHA3-256ONLY    ", CCA_KEYWORD_SIZE * 2);
+        } else {
+            /* there's some extra data we need to hash to
+             * complete the operation
+             */
+            memcpy(rule_array, "SHA3-256LAST    ", CCA_KEYWORD_SIZE * 2);
+        }
+        break;
+    case CKM_SHA3_384:
+    case CKM_IBM_SHA3_384:
+        if (cca_ctx->part == CCA_HASH_PART_FIRST) {
+            memcpy(rule_array, "SHA3-384ONLY    ", CCA_KEYWORD_SIZE * 2);
+        } else {
+            /* there's some extra data we need to hash to
+             * complete the operation
+             */
+            memcpy(rule_array, "SHA3-384LAST    ", CCA_KEYWORD_SIZE * 2);
+        }
+        break;
+    case CKM_SHA3_512:
+    case CKM_IBM_SHA3_512:
+        if (cca_ctx->part == CCA_HASH_PART_FIRST) {
+            memcpy(rule_array, "SHA3-512ONLY    ", CCA_KEYWORD_SIZE * 2);
+        } else {
+            /* there's some extra data we need to hash to
+             * complete the operation
+             */
+            memcpy(rule_array, "SHA3-512LAST    ", CCA_KEYWORD_SIZE * 2);
+        }
+        break;
     default:
+        return CKR_MECHANISM_INVALID;
+    }
+
+    if (cca_is_sha3_mech(&ctx->mech) && !cca_sha3_supported(tokdata)) {
+        TRACE_ERROR("SHA-3 mechanism is not supported due to CCA version\n");
         return CKR_MECHANISM_INVALID;
     }
 
@@ -7123,9 +7306,12 @@ CK_RV ccatok_hmac_update(STDLL_TokData_t * tokdata, SIGN_VERIFY_CONTEXT * ctx,
     long hsize, rule_array_count = 3;
     unsigned char rule_array[CCA_RULE_ARRAY_SIZE] = { 0, };
     unsigned char *buffer = NULL;
-    int blocksz, blocksz_mask, use_buffer = 0;
+    CK_ULONG blocksz;
+    int use_buffer = 0;
     OBJECT *key = NULL;
     CK_ATTRIBUTE *attr = NULL;
+    CK_MECHANISM_TYPE sha_mech;
+    CK_BBOOL generic;
     CK_RV rc = CKR_OK;
 
     if (!ctx || !ctx->context) {
@@ -7151,24 +7337,15 @@ CK_RV ccatok_hmac_update(STDLL_TokData_t * tokdata, SIGN_VERIFY_CONTEXT * ctx,
         goto done;
     }
 
-    switch (ctx->mech.mechanism) {
-    case CKM_SHA_1_HMAC:
-    case CKM_SHA_1_HMAC_GENERAL:
-    case CKM_SHA224_HMAC:
-    case CKM_SHA256_HMAC:
-    case CKM_SHA256_HMAC_GENERAL:
-        blocksz = SHA1_BLOCK_SIZE;      // set to 64 bytes
-        blocksz_mask = SHA1_BLOCK_SIZE_MASK;    // set to 63
-        break;
-    case CKM_SHA384_HMAC:
-    case CKM_SHA384_HMAC_GENERAL:
-    case CKM_SHA512_HMAC:
-    case CKM_SHA512_HMAC_GENERAL:
-        blocksz = SHA512_BLOCK_SIZE;    // set to 128 bytes
-        blocksz_mask = SHA512_BLOCK_SIZE_MASK;  // set to 127
-        break;
-    default:
-        rc = CKR_MECHANISM_INVALID;
+    rc = get_hmac_digest(ctx->mech.mechanism, &sha_mech, &generic);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("get_hmac_digest failed\n");
+        goto done;
+    }
+
+    rc = get_sha_block_size(sha_mech, &blocksz);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("get_sha_block_size failed\n");
         goto done;
     }
 
@@ -7177,7 +7354,7 @@ CK_RV ccatok_hmac_update(STDLL_TokData_t * tokdata, SIGN_VERIFY_CONTEXT * ctx,
     /* just send if input a multiple of block size and
      * cca_ctx-> tail is empty.
      */
-    if ((cca_ctx->tail_len == 0) && ((in_data_len & blocksz_mask) == 0))
+    if ((cca_ctx->tail_len == 0) && ((in_data_len % blocksz) == 0))
         goto send;
 
     /* at this point, in_data is not multiple of blocksize
@@ -7189,10 +7366,10 @@ CK_RV ccatok_hmac_update(STDLL_TokData_t * tokdata, SIGN_VERIFY_CONTEXT * ctx,
     total = cca_ctx->tail_len + in_data_len;
 
     /* see if we have enough to fill a block */
-    if (total >= blocksz) {
+    if (total >= (long)blocksz) {
         int remainder;
 
-        remainder = total & blocksz_mask;       // save left over
+        remainder = total % blocksz;       // save left over
         buffer_len = total - remainder;
 
         /* allocate a buffer for sending... */
