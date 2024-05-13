@@ -1072,9 +1072,11 @@ typedef struct CK_MECHANISM_INFO {
 #define CKF_EC_F_P             0x00100000
 #define CKF_EC_F_2M            0x00200000
 #define CKF_EC_ECPARAMETERS    0x00400000
-#define CKF_EC_NAMEDCURVE      0x00800000
+#define CKF_EC_OID             0x00800000
+#define CKF_EC_NAMEDCURVE      CKF_EC_OID   /* deprecated since PKCS#11 v3.0 */
 #define CKF_EC_UNCOMPRESS      0x01000000
 #define CKF_EC_COMPRESS        0x02000000
+#define CKF_EC_CURVENAME       0x04000000
 
 #define CKF_EXTENSION          0x80000000       /* FALSE for 2.01 */
 
