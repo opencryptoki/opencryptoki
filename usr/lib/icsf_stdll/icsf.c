@@ -1635,6 +1635,14 @@ static const char *get_algorithm_rule(CK_MECHANISM_PTR mech, int arg)
         return "SHA-384";
     case CKM_SHA512_HMAC:
         return "SHA-512";
+    case CKM_SHA3_224_HMAC:
+        return "SHA3-224";
+    case CKM_SHA3_256_HMAC:
+        return "SHA3-256";
+    case CKM_SHA3_384_HMAC:
+        return "SHA3-384";
+    case CKM_SHA3_512_HMAC:
+        return "SHA3-512";
     case CKM_MD5_HMAC:
         return "MD5";
     case CKM_SSL3_MD5_MAC:
