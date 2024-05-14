@@ -302,7 +302,7 @@ static CK_RV statistics_open_shm(struct statistics *statistics, int user,
     }
 
     if (clear)
-        memset(statistics->shm_data, 0, sizeof(statistics->shm_size));
+        memset(statistics->shm_data, 0, statistics->shm_size);
 
     return CKR_OK;
 }
