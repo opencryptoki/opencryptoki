@@ -1,5 +1,5 @@
 [![Build Status](https://app.travis-ci.com/opencryptoki/opencryptoki.svg?branch=master)](https://app.travis-ci.com/opencryptoki/opencryptoki)
-['![Coverity Scan Build Status](https://img.shields.io/coverity/scan/16802.svg)'](https://scan.coverity.com/projects/opencryptoki-opencryptoki)
+[![Coverity Scan Build Status](https://img.shields.io/coverity/scan/16802.svg?branch=master)](https://scan.coverity.com/projects/opencryptoki-opencryptoki)
 
 # openCryptoki
 
