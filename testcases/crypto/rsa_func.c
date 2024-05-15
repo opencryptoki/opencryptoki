@@ -131,9 +131,13 @@ CK_RV do_EncryptDecryptRSA(struct GENERATED_TEST_SUITE_INFO *tsuite)
 
             if (tsuite->mech.mechanism == CKM_RSA_PKCS_OAEP &&
                  tsuite->tv[i].oaep_params.hashAlg != CKM_SHA_1 &&
-                 tsuite->tv[i].oaep_params.hashAlg != CKM_SHA256) {
+                 tsuite->tv[i].oaep_params.hashAlg != CKM_SHA224 &&
+                 tsuite->tv[i].oaep_params.hashAlg != CKM_SHA256 &&
+                 tsuite->tv[i].oaep_params.hashAlg != CKM_SHA384 &&
+                 tsuite->tv[i].oaep_params.hashAlg != CKM_SHA512) {
                  testcase_skip("CCA Token cannot use RSA OAEP with a hash "
-                              "algorithm other than SHA1 and SHA256");
+                              "algorithm other than SHA1 and SHA2: %s",
+                              mech_to_str(tsuite->tv[i].oaep_params.hashAlg));
                  free(s);
                  continue;
              }
@@ -247,6 +251,19 @@ CK_RV do_EncryptDecryptRSA(struct GENERATED_TEST_SUITE_INFO *tsuite)
                 goto tv_cleanup;
             }
 
+            if (rc == CKR_MECHANISM_PARAM_INVALID &&
+                mech.mechanism == CKM_RSA_PKCS_OAEP &&
+                is_cca_token(slot_id) &&
+                (oaep_params.hashAlg != CKM_SHA_1 ||
+                 oaep_params.hashAlg != CKM_SHA256 ||
+                 oaep_params.mgf != CKG_MGF1_SHA1 ||
+                 oaep_params.mgf != CKG_MGF1_SHA256)) {
+                testcase_skip("CCA Token does only support RSA OAEP with hash "
+                              "and/or MGF other than SHA-1/SHA256 with "
+                              "CCA 8.1 or later");
+                goto tv_cleanup;
+            }
+
             testcase_error("C_EncryptInit, rc=%s", p11_get_ckr(rc));
             goto error;
         }
@@ -254,6 +271,19 @@ CK_RV do_EncryptDecryptRSA(struct GENERATED_TEST_SUITE_INFO *tsuite)
         rc = funcs->C_Encrypt(session,
                               original, original_len, crypt, &crypt_len);
         if (rc != CKR_OK) {
+            if (rc == CKR_MECHANISM_PARAM_INVALID &&
+                mech.mechanism == CKM_RSA_PKCS_OAEP &&
+                is_cca_token(slot_id) &&
+                (oaep_params.hashAlg != CKM_SHA_1 ||
+                 oaep_params.hashAlg != CKM_SHA256 ||
+                 oaep_params.mgf != CKG_MGF1_SHA1 ||
+                 oaep_params.mgf != CKG_MGF1_SHA256)) {
+                testcase_skip("CCA Token does only support RSA OAEP with hash "
+                              "and/or MGF other than SHA-1/SHA256 with "
+                              "CCA 8.1 or later");
+                goto tv_cleanup;
+            }
+
             testcase_error("C_Encrypt, rc=%s", p11_get_ckr(rc));
             goto error;
         }
@@ -378,6 +408,35 @@ CK_RV do_EncryptDecryptImportRSA(struct PUBLISHED_TEST_SUITE_INFO *tsuite)
                        (unsigned int) tsuite->mech.mechanism);
         goto testcase_cleanup;
     }
+
+    if (is_cca_token(slot_id) && tsuite->mech.mechanism == CKM_RSA_PKCS_OAEP) {
+        if (((CK_RSA_PKCS_OAEP_PARAMS *)tsuite->mech.pParameter)->hashAlg !=
+                                                                CKM_SHA_1 &&
+            ((CK_RSA_PKCS_OAEP_PARAMS *)tsuite->mech.pParameter)->hashAlg !=
+                                                                CKM_SHA224 &&
+            ((CK_RSA_PKCS_OAEP_PARAMS *)tsuite->mech.pParameter)->hashAlg !=
+                                                                CKM_SHA256 &&
+            ((CK_RSA_PKCS_OAEP_PARAMS *)tsuite->mech.pParameter)->hashAlg !=
+                                                                CKM_SHA384 &&
+            ((CK_RSA_PKCS_OAEP_PARAMS *)tsuite->mech.pParameter)->hashAlg !=
+                                                                CKM_SHA512) {
+             testcase_skip("CCA Token cannot use RSA OAEP with a hash "
+                          "algorithm other than SHA1 and SHA2: %s",
+                          mech_to_str(((CK_RSA_PKCS_OAEP_PARAMS *)
+                                          tsuite->mech.pParameter)->hashAlg));
+             goto testcase_cleanup;
+         }
+
+        if (((CK_RSA_PKCS_OAEP_PARAMS *)tsuite->mech.pParameter)->source ==
+                                                        CKZ_DATA_SPECIFIED &&
+            ((CK_RSA_PKCS_OAEP_PARAMS *)tsuite->mech.pParameter)->ulSourceDataLen
+                                                        > 0) {
+             testcase_skip("CCA Token cannot use RSA OAEP with non empty "
+                           "source data");
+             goto testcase_cleanup;
+         }
+    }
+
     // iterate over test vectors
     for (i = 0; i < tsuite->tvcount; i++) {
 
@@ -401,6 +460,16 @@ CK_RV do_EncryptDecryptImportRSA(struct PUBLISHED_TEST_SUITE_INFO *tsuite)
                                tsuite->tv[i].mod_len * 8)) {
             testcase_skip("Token in slot %lu cannot be used with modbits='%lu'",
                           SLOT_ID, tsuite->tv[i].mod_len * 8);
+            free(s);
+            continue;
+        }
+
+        if (tsuite->mech.mechanism == CKM_RSA_PKCS_OAEP &&
+            ((CK_RSA_PKCS_OAEP_PARAMS *)tsuite->mech.pParameter)->hashAlg ==
+                                                                   CKM_SHA512 &&
+            tsuite->tv[i].mod_len * 8 <= 1024) {
+            testcase_skip("OAEP with SHA512 cannot be used with modbits='%lu'",
+                          tsuite->tv[i].mod_len * 8);
             free(s);
             continue;
         }
@@ -558,16 +627,33 @@ CK_RV do_EncryptDecryptImportRSA(struct PUBLISHED_TEST_SUITE_INFO *tsuite)
         rc = funcs->C_EncryptInit(session, &mech, publ_key);
         if (rc != CKR_OK) {
             if (rc == CKR_MECHANISM_PARAM_INVALID &&
-                 mech.mechanism == CKM_RSA_PKCS_OAEP &&
-                 is_ep11_token(slot_id) &&
-                 (((CK_RSA_PKCS_OAEP_PARAMS *)mech.pParameter)->hashAlg !=
-                                                              CKM_SHA_1 ||
-                  ((CK_RSA_PKCS_OAEP_PARAMS *)mech.pParameter)->mgf !=
-                                                              CKG_MGF1_SHA1)) {
-                 testcase_skip("EP11 Token does not support RSA OAEP with hash "
-                               "and/or MGF other than SHA-1");
-                 goto tv_cleanup;
-             }
+                mech.mechanism == CKM_RSA_PKCS_OAEP &&
+                is_ep11_token(slot_id) &&
+                (((CK_RSA_PKCS_OAEP_PARAMS *)mech.pParameter)->hashAlg !=
+                                                             CKM_SHA_1 ||
+                 ((CK_RSA_PKCS_OAEP_PARAMS *)mech.pParameter)->mgf !=
+                                                             CKG_MGF1_SHA1)) {
+                testcase_skip("EP11 Token does not support RSA OAEP with hash "
+                              "and/or MGF other than SHA-1");
+                goto tv_cleanup;
+            }
+
+            if (rc == CKR_MECHANISM_PARAM_INVALID &&
+                mech.mechanism == CKM_RSA_PKCS_OAEP &&
+                is_cca_token(slot_id) &&
+                (((CK_RSA_PKCS_OAEP_PARAMS *)mech.pParameter)->hashAlg !=
+                                                                CKM_SHA_1 ||
+                 ((CK_RSA_PKCS_OAEP_PARAMS *)mech.pParameter)->hashAlg !=
+                                                                 CKM_SHA256 ||
+                 ((CK_RSA_PKCS_OAEP_PARAMS *)mech.pParameter)->mgf !=
+                                                             CKG_MGF1_SHA1 ||
+                 ((CK_RSA_PKCS_OAEP_PARAMS *)mech.pParameter)->mgf !=
+                                                             CKG_MGF1_SHA256)) {
+                testcase_skip("CCA Token does only support RSA OAEP with hash "
+                              "and/or MGF other than SHA-1/SHA256 with "
+                              "CCA 8.1 or later");
+                goto tv_cleanup;
+            }
 
             testcase_error("C_EncryptInit, rc=%s", p11_get_ckr(rc));
             goto tv_cleanup;
@@ -576,6 +662,23 @@ CK_RV do_EncryptDecryptImportRSA(struct PUBLISHED_TEST_SUITE_INFO *tsuite)
         rc = funcs->C_Encrypt(session,
                               original, original_len, crypt, &crypt_len);
         if (rc != CKR_OK) {
+            if (rc == CKR_MECHANISM_PARAM_INVALID &&
+                mech.mechanism == CKM_RSA_PKCS_OAEP &&
+                is_cca_token(slot_id) &&
+                (((CK_RSA_PKCS_OAEP_PARAMS *)mech.pParameter)->hashAlg !=
+                                                                CKM_SHA_1 ||
+                 ((CK_RSA_PKCS_OAEP_PARAMS *)mech.pParameter)->hashAlg !=
+                                                                 CKM_SHA256 ||
+                 ((CK_RSA_PKCS_OAEP_PARAMS *)mech.pParameter)->mgf !=
+                                                             CKG_MGF1_SHA1 ||
+                 ((CK_RSA_PKCS_OAEP_PARAMS *)mech.pParameter)->mgf !=
+                                                             CKG_MGF1_SHA256)) {
+                testcase_skip("CCA Token does only support RSA OAEP with hash "
+                              "and/or MGF other than SHA-1/SHA256 with "
+                              "CCA 8.1 or later");
+                goto tv_cleanup;
+            }
+
             testcase_error("C_Encrypt, rc=%s", p11_get_ckr(rc));
             goto tv_cleanup;
         }
@@ -1292,7 +1395,8 @@ CK_RV do_WrapUnwrapRSA(struct GENERATED_TEST_SUITE_INFO * tsuite)
                 tsuite->tv[i].oaep_params.hashAlg != CKM_SHA_1 &&
                 tsuite->tv[i].oaep_params.hashAlg != CKM_SHA256) {
                 testcase_skip("CCA Token cannot use RSA OAEP with a hash "
-                             "algorithm other than SHA1 and SHA256");
+                             "algorithm other than SHA1 and SHA256: %s",
+                             mech_to_str(tsuite->tv[i].oaep_params.hashAlg));
                 free(s);
                 continue;
             }
