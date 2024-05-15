@@ -3839,6 +3839,36 @@ static CK_BBOOL cca_sha3_supported(STDLL_TokData_t *tokdata)
     return ret;
 }
 
+static CK_BBOOL cca_rsa_oaep_2_1_supported(STDLL_TokData_t *tokdata)
+{
+    CK_BBOOL ret;
+#ifdef __s390__
+    struct cca_private_data *cca_private = tokdata->private_data;
+    const struct cca_version cca_v8_1 = { .ver = 8, .rel = 1, .mod = 0 };
+
+    if (pthread_rwlock_rdlock(&cca_private->min_card_version_rwlock)
+                                                        != 0) {
+        TRACE_ERROR("CCA min_card_version RD-Lock failed.\n");
+        return FALSE;
+    }
+
+    ret = (compare_cca_version(&cca_private->cca_lib_version, &cca_v8_1) >= 0 &&
+           compare_cca_version(&cca_private->min_card_version, &cca_v8_1) >= 0);
+
+    if (pthread_rwlock_unlock(&cca_private->min_card_version_rwlock)
+                                                        != 0) {
+        TRACE_ERROR("CCA min_card_version RD-Unlock failed.\n");
+        return FALSE;
+    }
+#else
+    UNUSED(tokdata);
+
+    ret = CK_FALSE;
+#endif
+
+    return ret;
+}
+
 CK_RV token_specific_init(STDLL_TokData_t * tokdata, CK_SLOT_ID SlotNumber,
                           char *conf_name)
 {
@@ -4871,6 +4901,8 @@ CK_RV token_specific_rsa_oaep_encrypt(STDLL_TokData_t *tokdata,
     unsigned char rule_array[CCA_RULE_ARRAY_SIZE] = { 0, };
     CK_ATTRIBUTE *attr;
     OBJECT *key_obj = NULL;
+    CK_BBOOL oaep2_supported;
+    CK_MECHANISM_TYPE mgf_mech;
     CK_RV rc;
 
     UNUSED(hash);
@@ -4909,30 +4941,65 @@ CK_RV token_specific_rsa_oaep_encrypt(STDLL_TokData_t *tokdata,
         goto done;
     }
 
+    rc = get_mgf_mech(oaep->mgf, &mgf_mech);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("MGF mechanism is invalid.\n");
+        goto done;
+    }
+
+    if (oaep->hashAlg != mgf_mech) {
+        TRACE_ERROR("OAEP MGF must be the same digest as the hash algorithm\n");
+        rc = CKR_MECHANISM_PARAM_INVALID;
+        goto done;
+    }
+
     /* The max value allowable by CCA for out_data_len is 512, so cap the
      * incoming value if its too large. CCA will throw error 8, 72 otherwise.
      */
     if (*out_data_len > 512)
         *out_data_len = 512;
 
+    oaep2_supported = cca_rsa_oaep_2_1_supported(tokdata);
+    if (oaep2_supported)
+        memcpy(rule_array, "PKOAEP2 ", CCA_KEYWORD_SIZE);
+    else
+        memcpy(rule_array, "PKCSOAEP", CCA_KEYWORD_SIZE);
+
     rule_array_count = 2;
     switch (oaep->hashAlg) {
     case CKM_SHA_1:
-        if (oaep->mgf != CKG_MGF1_SHA1) {
-            TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
+        memcpy(rule_array + CCA_KEYWORD_SIZE, "SHA-1   ", CCA_KEYWORD_SIZE);
+        break;
+
+    case CKM_SHA224:
+        if (!oaep2_supported) {
+            TRACE_ERROR("OAEP with SHA224 requires CCA 8.1 or later\n");
             rc = CKR_MECHANISM_PARAM_INVALID;
             goto done;
         }
-        memcpy(rule_array, "PKCSOAEPSHA-1   ", 2 * CCA_KEYWORD_SIZE);
+        memcpy(rule_array + CCA_KEYWORD_SIZE, "SHA-224 ", CCA_KEYWORD_SIZE);
         break;
 
     case CKM_SHA256:
-        if (oaep->mgf != CKG_MGF1_SHA256) {
-            TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
+        memcpy(rule_array + CCA_KEYWORD_SIZE, "SHA-256 ", CCA_KEYWORD_SIZE);
+        break;
+
+    case CKM_SHA384:
+        if (!oaep2_supported) {
+            TRACE_ERROR("OAEP with SHA384 requires CCA 8.1 or later\n");
             rc = CKR_MECHANISM_PARAM_INVALID;
             goto done;
         }
-        memcpy(rule_array, "PKCSOAEPSHA-256 ", 2 * CCA_KEYWORD_SIZE);
+        memcpy(rule_array + CCA_KEYWORD_SIZE, "SHA-384 ", CCA_KEYWORD_SIZE);
+        break;
+
+    case CKM_SHA512:
+        if (!oaep2_supported) {
+            TRACE_ERROR("OAEP with SHA512 requires CCA 8.1 or later\n");
+            rc = CKR_MECHANISM_PARAM_INVALID;
+            goto done;
+        }
+        memcpy(rule_array + CCA_KEYWORD_SIZE, "SHA-512 ", CCA_KEYWORD_SIZE);
         break;
 
     default:
@@ -4993,6 +5060,8 @@ CK_RV token_specific_rsa_oaep_decrypt(STDLL_TokData_t *tokdata,
     unsigned char rule_array[CCA_RULE_ARRAY_SIZE] = { 0, };
     CK_ATTRIBUTE *attr;
     OBJECT *key_obj = NULL;
+    CK_BBOOL oaep2_supported;
+    CK_MECHANISM_TYPE mgf_mech;
     CK_RV rc;
 
     UNUSED(hash);
@@ -5031,30 +5100,65 @@ CK_RV token_specific_rsa_oaep_decrypt(STDLL_TokData_t *tokdata,
         goto done;
     }
 
+    rc = get_mgf_mech(oaep->mgf, &mgf_mech);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("MGF mechanism is invalid.\n");
+        goto done;
+    }
+
+    if (oaep->hashAlg != mgf_mech) {
+        TRACE_ERROR("OAEP MGF must be the same digest as the hash algorithm\n");
+        rc = CKR_MECHANISM_PARAM_INVALID;
+        goto done;
+    }
+
     /* The max value allowable by CCA for out_data_len is 512, so cap the
      * incoming value if its too large. CCA will throw error 8, 72 otherwise.
      */
     if (*out_data_len > 512)
         *out_data_len = 512;
 
+    oaep2_supported = cca_rsa_oaep_2_1_supported(tokdata);
+    if (oaep2_supported)
+        memcpy(rule_array, "PKOAEP2 ", CCA_KEYWORD_SIZE);
+    else
+        memcpy(rule_array, "PKCSOAEP", CCA_KEYWORD_SIZE);
+
     rule_array_count = 2;
     switch (oaep->hashAlg) {
     case CKM_SHA_1:
-        if (oaep->mgf != CKG_MGF1_SHA1) {
-            TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
+        memcpy(rule_array + CCA_KEYWORD_SIZE, "SHA-1   ", CCA_KEYWORD_SIZE);
+        break;
+
+    case CKM_SHA224:
+        if (!oaep2_supported) {
+            TRACE_ERROR("OAEP with SHA224 requires CCA v8.1 or later\n");
             rc = CKR_MECHANISM_PARAM_INVALID;
             goto done;
         }
-        memcpy(rule_array, "PKCSOAEPSHA-1   ", 2 * CCA_KEYWORD_SIZE);
+        memcpy(rule_array + CCA_KEYWORD_SIZE, "SHA-224 ", CCA_KEYWORD_SIZE);
         break;
 
     case CKM_SHA256:
-        if (oaep->mgf != CKG_MGF1_SHA256) {
-            TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
+        memcpy(rule_array + CCA_KEYWORD_SIZE, "SHA-256 ", CCA_KEYWORD_SIZE);
+        break;
+
+    case CKM_SHA384:
+        if (!oaep2_supported) {
+            TRACE_ERROR("OAEP with SHA384 requires CCA v8.1 or later\n");
             rc = CKR_MECHANISM_PARAM_INVALID;
             goto done;
         }
-        memcpy(rule_array, "PKCSOAEPSHA-256 ", 2 * CCA_KEYWORD_SIZE);
+        memcpy(rule_array + CCA_KEYWORD_SIZE, "SHA-384 ", CCA_KEYWORD_SIZE);
+        break;
+
+    case CKM_SHA512:
+        if (!oaep2_supported) {
+            TRACE_ERROR("OAEP with SHA512 requires CCA v8.1 or later\n");
+            rc = CKR_MECHANISM_PARAM_INVALID;
+            goto done;
+        }
+        memcpy(rule_array + CCA_KEYWORD_SIZE, "SHA-512 ", CCA_KEYWORD_SIZE);
         break;
 
     default:
