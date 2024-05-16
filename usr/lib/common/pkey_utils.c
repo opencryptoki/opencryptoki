@@ -967,7 +967,8 @@ done:
 /**
  * Sign the given hash via CPACF using the given protected private key.
  */
-CK_RV pkey_ec_sign(OBJECT *privkey, CK_BYTE *hash, CK_ULONG hash_len,
+CK_RV pkey_ec_sign(STDLL_TokData_t *tokdata, SESSION *session,
+                   OBJECT *privkey, CK_BYTE *hash, CK_ULONG hash_len,
                    CK_BYTE *sig, CK_ULONG *sig_len,
                    void (*rng_cb)(unsigned char *, size_t))
 {
@@ -996,6 +997,9 @@ CK_RV pkey_ec_sign(OBJECT *privkey, CK_BYTE *hash, CK_ULONG hash_len,
     CK_ATTRIBUTE *pkey_attr = NULL;
     int rc, off;
     cpacf_curve_type_t curve_type;
+
+    UNUSED(tokdata);
+    UNUSED(session);
 
     /* Get protected key from key object */
     if (template_attribute_get_non_empty(privkey->template, CKA_IBM_OPAQUE_PKEY,
@@ -1143,7 +1147,8 @@ done:
  * Note: The original input message is passed to CPACF without being
  * pre-hashed. Hashing is done internally in CPACF.
  */
-CK_RV pkey_ibm_ed_sign(OBJECT *privkey, CK_BYTE *msg, CK_ULONG msg_len,
+CK_RV pkey_ibm_ed_sign(STDLL_TokData_t *tokdata, SESSION *session,
+                       OBJECT *privkey, CK_BYTE *msg, CK_ULONG msg_len,
                        CK_BYTE *sig, CK_ULONG *sig_len)
 {
 #define DEF_EDPARAM(curve, size)      \
@@ -1169,6 +1174,9 @@ CK_RV pkey_ibm_ed_sign(OBJECT *privkey, CK_BYTE *msg, CK_ULONG msg_len,
     CK_ATTRIBUTE *pkey_attr = NULL;
     int rc;
     cpacf_curve_type_t curve_type;
+
+    UNUSED(tokdata);
+    UNUSED(session);
 
     /* Get protected key from key object */
     if (template_attribute_get_non_empty(privkey->template, CKA_IBM_OPAQUE_PKEY,
