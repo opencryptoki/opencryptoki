@@ -4515,7 +4515,11 @@ CK_RV token_specific_rsa_generate_keypair(STDLL_TokData_t * tokdata,
         /* make pValue into CK_ULONG so we can compare */
         tmpexp = 0;
         memcpy((unsigned char *) &tmpexp + sizeof(CK_ULONG) - tmpsize,
-               ptr, tmpsize);	/* right align */
+               ptr, tmpsize);	/* right align (it's always big endian) */
+        if (sizeof(CK_ULONG) == 64 / 8)
+            tmpexp = be64toh(tmpexp);
+        else
+            tmpexp = be32toh(tmpexp);
 
         /* Check for one of the three allowed values */
         if ((tmpexp != 0) && (tmpexp != 3) && (tmpexp != 65537))
@@ -8206,9 +8210,9 @@ static CK_RV import_rsa_privkey(STDLL_TokData_t *tokdata, TEMPLATE * priv_tmpl)
         memcpy(&key_value_structure[16], &bytes, sizeof(uint16_t));
 
         /* Field #10 - Modulus */
-        memcpy(&key_value_structure[18], mod->pValue, mod_bytes);
+        memcpy(&key_value_structure[18], mod->pValue, mod->ulValueLen);
 
-        offset = 18 + mod_bytes;
+        offset = 18 + mod->ulValueLen;
 
         /* Field #11 - Public Exponent */
         memcpy(&key_value_structure[offset], pub_exp->pValue, pub_exp->ulValueLen);
@@ -8475,7 +8479,7 @@ static CK_RV import_rsa_pubkey(STDLL_TokData_t *tokdata, TEMPLATE *publ_tmpl)
                (size_t) pub_mod->ulValueLen);
 
         /* Field #6 - Public exponent. Its offset depends on modulus size */
-        memcpy(&key_value_structure[8 + mod_bytes],
+        memcpy(&key_value_structure[8 + pub_mod->ulValueLen],
                pub_exp->pValue, (size_t) pub_exp->ulValueLen);
 
         /* Field #7 - Private exponent. Skip */
