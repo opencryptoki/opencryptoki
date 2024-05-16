@@ -6548,7 +6548,7 @@ CK_RV token_specific_ec_sign(STDLL_TokData_t * tokdata,
     rc = ccatok_pkey_check(tokdata, sess, key_obj, &mech);
     switch (rc) {
     case CKR_OK:
-        rc = pkey_ec_sign(key_obj, in_data, in_data_len,
+        rc = pkey_ec_sign(tokdata, sess, key_obj, in_data, in_data_len,
                           out_data, out_data_len, NULL);
         goto done;
     case CKR_FUNCTION_NOT_SUPPORTED:

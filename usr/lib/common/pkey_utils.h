@@ -111,11 +111,13 @@ CK_RV pkey_aes_xts(OBJECT *key_obj, CK_BYTE *tweak,
                    CK_ULONG_PTR p_output_data_len, CK_BYTE encrypt, CK_BBOOL initial,
                    CK_BBOOL final, CK_BYTE *iv);
 
-CK_RV pkey_ec_sign(OBJECT *privkey, CK_BYTE *hash, CK_ULONG hashlen,
+CK_RV pkey_ec_sign(STDLL_TokData_t *tokdata, SESSION *session,
+                   OBJECT *privkey, CK_BYTE *hash, CK_ULONG hashlen,
                    CK_BYTE *sig, CK_ULONG *sig_len,
                    void (*rng_cb)(unsigned char *, size_t));
 
-CK_RV pkey_ibm_ed_sign(OBJECT *privkey, CK_BYTE *msg, CK_ULONG msg_len,
+CK_RV pkey_ibm_ed_sign(STDLL_TokData_t *tokdata, SESSION *session,
+                       OBJECT *privkey, CK_BYTE *msg, CK_ULONG msg_len,
                        CK_BYTE *sig, CK_ULONG *sig_len);
 
 CK_RV pkey_ec_verify(OBJECT *pubkey, CK_BYTE *hash, CK_ULONG hashlen,
