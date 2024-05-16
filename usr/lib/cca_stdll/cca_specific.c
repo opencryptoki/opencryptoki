@@ -375,13 +375,13 @@ CK_BBOOL analyse_cca_key_token(const CK_BYTE *t, CK_ULONG tlen,
         *keytype = sec_des_data_key;
         if (t[4] == 0x00) { /* version 0 */
             /* CV base is at offset 32, regardless of the type of key */
-            uint64_t *cv = ((uint64_t *)&(t[32]));
+            uint64_t cv = *((uint64_t *)&(t[32]));
             /* make it endian-safe */
-            *cv = be64toh(*cv);
+            cv = be64toh(cv);
             /* bits 40-42, but numbered starting from the MSB */
             uint64_t keyform_mask = 0xE00000;
             /* rshift keyform to a form that'll fit in a byte */
-            uint8_t keyform = (*cv & keyform_mask) >> 21;
+            uint8_t keyform = (cv & keyform_mask) >> 21;
 
             /*
              * refer to Figure 37 of LoZ CCA Programmer's Guide, v8 (2014)
