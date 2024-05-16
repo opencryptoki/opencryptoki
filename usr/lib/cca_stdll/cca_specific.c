@@ -3309,8 +3309,9 @@ CK_RV token_specific_aes_xts(STDLL_TokData_t *tokdata, SESSION *session,
     rc = ccatok_pkey_check(tokdata, session, key_obj, &mech);
     switch (rc) {
     case CKR_OK:
-        rc = pkey_aes_xts(key_obj, init_v, in_data, in_data_len,
-                          out_data, out_data_len, encrypt, initial, final, iv);
+        rc = pkey_aes_xts(tokdata, session, key_obj, init_v,
+                          in_data, in_data_len, out_data, out_data_len,
+                          encrypt, initial, final, iv);
         goto done;
     default:
         goto done;
@@ -5771,7 +5772,7 @@ CK_RV token_specific_aes_ecb(STDLL_TokData_t * tokdata,
     rc = ccatok_pkey_check(tokdata, session, key, &mech);
     switch (rc) {
     case CKR_OK:
-        rc = pkey_aes_ecb(key, in_data, in_data_len,
+        rc = pkey_aes_ecb(tokdata, session, key, in_data, in_data_len,
                           out_data, out_data_len, encrypt);
         goto done;
     case CKR_FUNCTION_NOT_SUPPORTED:
@@ -5911,7 +5912,7 @@ CK_RV token_specific_aes_cbc(STDLL_TokData_t * tokdata,
     rc = ccatok_pkey_check(tokdata, session, key, &mech);
     switch (rc) {
     case CKR_OK:
-        rc = pkey_aes_cbc(key, init_v, in_data, in_data_len,
+        rc = pkey_aes_cbc(tokdata, session, key, init_v, in_data, in_data_len,
                           out_data, out_data_len, encrypt);
         goto done;
     case CKR_FUNCTION_NOT_SUPPORTED:

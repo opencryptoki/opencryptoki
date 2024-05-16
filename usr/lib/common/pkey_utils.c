@@ -489,7 +489,8 @@ unsigned long get_function_code(CK_ULONG clear_keylen, CK_BYTE encrypt)
  * via the KM-encrypted-AES instruction. The protected key must be
  * available in the key template as CKA_IBM_OPAQUE_PKEY.
  */
-CK_RV pkey_aes_ecb(OBJECT *key_obj, CK_BYTE *in_data,
+CK_RV pkey_aes_ecb(STDLL_TokData_t *tokdata, SESSION *session,
+                   OBJECT *key_obj, CK_BYTE *in_data,
                    CK_ULONG in_data_len, CK_BYTE *out_data,
                    CK_ULONG_PTR p_output_data_len, CK_BYTE encrypt)
 {
@@ -501,6 +502,9 @@ CK_RV pkey_aes_ecb(OBJECT *key_obj, CK_BYTE *in_data,
         uint8_t key[MAXPROTKEYSIZE];
     } param;
     int bytes_processed = 0;
+
+    UNUSED(tokdata);
+    UNUSED(session);
 
     /* Check parms */
     if (in_data_len == 0) {
@@ -560,7 +564,8 @@ done:
 /**
  * Performs an AES-CBC operation via CPACF using a protected key.
  */
-CK_RV pkey_aes_cbc(OBJECT *key_obj, CK_BYTE *iv,
+CK_RV pkey_aes_cbc(STDLL_TokData_t *tokdata, SESSION *session,
+                   OBJECT *key_obj, CK_BYTE *iv,
                    CK_BYTE *in_data, CK_ULONG in_data_len, CK_BYTE *out_data,
                    CK_ULONG_PTR p_output_data_len, CK_BYTE encrypt)
 {
@@ -573,6 +578,9 @@ CK_RV pkey_aes_cbc(OBJECT *key_obj, CK_BYTE *iv,
         uint8_t key[MAXPROTKEYSIZE];
     } param;
     int bytes_processed = 0;
+
+    UNUSED(tokdata);
+    UNUSED(session);
 
     /* Check parms */
     if (in_data_len == 0) {
@@ -857,7 +865,8 @@ static CK_RV pkey_aes_xts_cipher_blocks(CK_BYTE *in, CK_BYTE *out, CK_ULONG len,
 /**
  * Performs an AES-XTS operation via CPACF using a protected key.
  */
-CK_RV pkey_aes_xts(OBJECT *key_obj, CK_BYTE *tweak,
+CK_RV pkey_aes_xts(STDLL_TokData_t *tokdata, SESSION *session,
+                   OBJECT *key_obj, CK_BYTE *tweak,
                    CK_BYTE *in_data, CK_ULONG in_data_len, CK_BYTE *out_data,
                    CK_ULONG_PTR p_output_data_len, CK_BYTE encrypt,
                    CK_BBOOL initial, CK_BBOOL final, CK_BYTE *iv)
@@ -867,6 +876,9 @@ CK_RV pkey_aes_xts(OBJECT *key_obj, CK_BYTE *tweak,
     struct aes_xts_param param = {0};
     CK_ULONG keylen = 0;
     unsigned long fc;
+
+    UNUSED(tokdata);
+    UNUSED(session);
 
     /* Check parms */
     if (in_data_len == 0) {

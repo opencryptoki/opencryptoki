@@ -6064,10 +6064,7 @@ CK_RV token_specific_aes_ecb(STDLL_TokData_t *tokdata,
                              CK_BYTE *out_data, CK_ULONG *out_data_len,
                              OBJECT *key_obj, CK_BYTE encrypt)
 {
-    UNUSED(tokdata);
-    UNUSED(sess);
-
-    return pkey_aes_ecb(key_obj, in_data, in_data_len,
+    return pkey_aes_ecb(tokdata, sess, key_obj, in_data, in_data_len,
                         out_data, out_data_len, encrypt);
 }
 
@@ -6083,10 +6080,7 @@ CK_RV token_specific_aes_cbc(STDLL_TokData_t *tokdata,
                              OBJECT *key_obj, CK_BYTE *init_v,
                              CK_BYTE encrypt)
 {
-    UNUSED(tokdata);
-    UNUSED(sess);
-
-    return pkey_aes_cbc(key_obj, init_v, in_data, in_data_len,
+    return pkey_aes_cbc(tokdata, sess, key_obj, init_v, in_data, in_data_len,
                         out_data, out_data_len, encrypt);
 }
 
@@ -6127,11 +6121,9 @@ CK_RV token_specific_aes_xts(STDLL_TokData_t *tokdata, SESSION *session,
                              CK_BBOOL encrypt, CK_BBOOL initial,
                              CK_BBOOL final, CK_BYTE *iv)
 {
-    UNUSED(tokdata);
-    UNUSED(session);
-
-    return pkey_aes_xts(key_obj, init_v, in_data, in_data_len,
-                        out_data, out_data_len, encrypt, initial, final, iv);
+    return pkey_aes_xts(tokdata, session, key_obj, init_v,
+                        in_data, in_data_len, out_data, out_data_len,
+                        encrypt, initial, final, iv);
 }
 #endif /* NO_PKEY */
 

@@ -93,11 +93,13 @@ CK_BBOOL pkey_op_supported_by_cpacf(int msa_level, CK_MECHANISM_TYPE type,
 
 CK_BBOOL pkey_op_ec_curve_supported_by_cpacf(TEMPLATE *tmpl);
 
-CK_RV pkey_aes_ecb(OBJECT *key, CK_BYTE * in_data,
+CK_RV pkey_aes_ecb(STDLL_TokData_t *tokdata, SESSION *session,
+                   OBJECT *key, CK_BYTE * in_data,
                    CK_ULONG in_data_len, CK_BYTE * out_data,
                    CK_ULONG_PTR p_output_data_len, CK_BYTE encrypt);
 
-CK_RV pkey_aes_cbc(OBJECT *key, CK_BYTE *iv,
+CK_RV pkey_aes_cbc(STDLL_TokData_t *tokdata, SESSION *session,
+                   OBJECT *key, CK_BYTE *iv,
                    CK_BYTE *in_data, CK_ULONG in_data_len,
                    CK_BYTE *out_data, CK_ULONG_PTR p_output_data_len,
                    CK_BYTE encrypt);
@@ -106,7 +108,8 @@ CK_RV pkey_aes_cmac(STDLL_TokData_t *tokdata, SESSION *session,
                     OBJECT *key_obj, CK_BYTE *message,
                     CK_ULONG message_len, CK_BYTE *cmac, CK_BYTE *iv);
 
-CK_RV pkey_aes_xts(OBJECT *key_obj, CK_BYTE *tweak,
+CK_RV pkey_aes_xts(STDLL_TokData_t *tokdata, SESSION *session,
+                   OBJECT *key_obj, CK_BYTE *tweak,
                    CK_BYTE *in_data, CK_ULONG in_data_len, CK_BYTE *out_data,
                    CK_ULONG_PTR p_output_data_len, CK_BYTE encrypt, CK_BBOOL initial,
                    CK_BBOOL final, CK_BYTE *iv);
