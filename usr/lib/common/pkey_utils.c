@@ -489,10 +489,10 @@ unsigned long get_function_code(CK_ULONG clear_keylen, CK_BYTE encrypt)
  * via the KM-encrypted-AES instruction. The protected key must be
  * available in the key template as CKA_IBM_OPAQUE_PKEY.
  */
-CK_RV pkey_aes_ecb(STDLL_TokData_t *tokdata, SESSION *session,
-                   OBJECT *key_obj, CK_BYTE *in_data,
-                   CK_ULONG in_data_len, CK_BYTE *out_data,
-                   CK_ULONG_PTR p_output_data_len, CK_BYTE encrypt)
+CK_RV pkey_aes_ecb(STDLL_TokData_t *tokdata, SESSION *session, OBJECT *key_obj,
+                   CK_BYTE *in_data, CK_ULONG in_data_len,
+                   CK_BYTE *out_data, CK_ULONG_PTR p_output_data_len,
+                   CK_BYTE encrypt, convert_key_t convert_key)
 {
     CK_RV ret;
     unsigned long fc;
@@ -501,10 +501,13 @@ CK_RV pkey_aes_ecb(STDLL_TokData_t *tokdata, SESSION *session,
     struct __attribute__((packed)){
         uint8_t key[MAXPROTKEYSIZE];
     } param;
-    int bytes_processed = 0;
-
-    UNUSED(tokdata);
-    UNUSED(session);
+    unsigned int bytes_processed = 0;
+    int num_tries = 0;
+    CK_BYTE protkey[MAXPROTKEYSIZE];
+    CK_ULONG protkey_len = sizeof(protkey);
+    CK_BYTE *in_pos = in_data;
+    CK_BYTE *out_pos = out_data;
+    CK_ULONG len = in_data_len;
 
     /* Check parms */
     if (in_data_len == 0) {
@@ -546,14 +549,31 @@ CK_RV pkey_aes_ecb(STDLL_TokData_t *tokdata, SESSION *session,
 
     /* Call CPACF */
     memcpy(param.key, pkey_attr->pValue, pkey_attr->ulValueLen);
-    bytes_processed = s390_km(fc, &param, out_data, in_data, in_data_len);
-    if (bytes_processed <= 0) {
+    while (len > 0 && num_tries < PKEY_CONVERT_KEY_RETRIES) {
+        bytes_processed = s390_km(fc, &param, out_pos, in_pos, len);
+        if (bytes_processed < len) {
+            TRACE_DEVEL("%s partial completion probably caused by an LGR: "
+                        "%d of %ld bytes processed.\n",
+                        __func__, bytes_processed, len);
+            ret = convert_key(tokdata, session, key_obj, CK_FALSE,
+                              protkey, &protkey_len);
+            if (ret != CKR_OK)
+                goto done;
+            memcpy(param.key, protkey, protkey_len);
+        }
+        in_pos += bytes_processed;
+        out_pos += bytes_processed;
+        len -= bytes_processed;
+        num_tries++;
+    }
+
+    if (len > 0) {
         TRACE_ERROR("CPACF error: s390_km returned %i\n", bytes_processed);
         ret = CKR_FUNCTION_FAILED;
         goto done;
     }
 
-    *p_output_data_len = bytes_processed;
+    *p_output_data_len = in_data_len;
     ret = CKR_OK;
 
 done:
@@ -564,10 +584,10 @@ done:
 /**
  * Performs an AES-CBC operation via CPACF using a protected key.
  */
-CK_RV pkey_aes_cbc(STDLL_TokData_t *tokdata, SESSION *session,
-                   OBJECT *key_obj, CK_BYTE *iv,
-                   CK_BYTE *in_data, CK_ULONG in_data_len, CK_BYTE *out_data,
-                   CK_ULONG_PTR p_output_data_len, CK_BYTE encrypt)
+CK_RV pkey_aes_cbc(STDLL_TokData_t *tokdata, SESSION *session, OBJECT *key_obj,
+                   CK_BYTE *iv, CK_BYTE *in_data, CK_ULONG in_data_len,
+                   CK_BYTE *out_data, CK_ULONG_PTR p_output_data_len,
+                   CK_BYTE encrypt, convert_key_t convert_key)
 {
     CK_RV ret;
     unsigned long fc;
@@ -577,10 +597,13 @@ CK_RV pkey_aes_cbc(STDLL_TokData_t *tokdata, SESSION *session,
         uint8_t iv[16];
         uint8_t key[MAXPROTKEYSIZE];
     } param;
-    int bytes_processed = 0;
-
-    UNUSED(tokdata);
-    UNUSED(session);
+    unsigned int bytes_processed = 0;
+    int num_tries = 0;
+    CK_BYTE protkey[MAXPROTKEYSIZE];
+    CK_ULONG protkey_len = sizeof(protkey);
+    CK_BYTE *in_pos = in_data;
+    CK_BYTE *out_pos = out_data;
+    CK_ULONG len = in_data_len;
 
     /* Check parms */
     if (in_data_len == 0) {
@@ -623,14 +646,32 @@ CK_RV pkey_aes_cbc(STDLL_TokData_t *tokdata, SESSION *session,
     /* Call CPACF */
     memcpy(param.iv, iv, 16);
     memcpy(param.key, pkey_attr->pValue, pkey_attr->ulValueLen);
-    bytes_processed = s390_kmc(fc, &param, out_data, in_data, in_data_len);
-    if (bytes_processed <= 0) {
+
+    while (len > 0 || num_tries < PKEY_CONVERT_KEY_RETRIES) {
+        bytes_processed = s390_kmc(fc, &param, out_pos, in_pos, len);
+        if (bytes_processed < len) {
+            TRACE_DEVEL("%s partial completion probably caused by an LGR: "
+                        "%d of %ld bytes processed.\n",
+                        __func__, bytes_processed, len);
+            ret = convert_key(tokdata, session, key_obj, CK_FALSE,
+                              protkey, &protkey_len);
+            if (ret != CKR_OK)
+                goto done;
+            memcpy(param.key, protkey, protkey_len);
+        }
+        in_pos += bytes_processed;
+        out_pos += bytes_processed;
+        len -= bytes_processed;
+        num_tries++;
+    }
+
+    if (len > 0) {
         TRACE_ERROR("CPACF error: s390_kmc returned %i\n", bytes_processed);
         ret = CKR_FUNCTION_FAILED;
         goto done;
     }
 
-    *p_output_data_len = bytes_processed;
+    *p_output_data_len = in_data_len;
     memcpy(iv, param.iv, AES_BLOCK_SIZE);
     ret = CKR_OK;
 
@@ -669,7 +710,8 @@ static inline void parm_block_lookup_init(struct parm_block_lookup *lookup,
  */
 CK_RV pkey_aes_cmac(STDLL_TokData_t *tokdata, SESSION *session,
                     OBJECT *key_obj, CK_BYTE *message,
-                    CK_ULONG message_len, CK_BYTE *cmac, CK_BYTE *iv)
+                    CK_ULONG message_len, CK_BYTE *cmac, CK_BYTE *iv,
+                    convert_key_t convert_key)
 {
     CK_RV ret;
     parm_block_t parm_block;
@@ -680,6 +722,13 @@ CK_RV pkey_aes_cmac(STDLL_TokData_t *tokdata, SESSION *session,
     CK_ULONG clear_keylen;
     CK_ATTRIBUTE *pkey_attr = NULL;
     int rc;
+    unsigned int bytes_processed;
+    int num_tries;
+    CK_BYTE protkey[MAXPROTKEYSIZE];
+    CK_ULONG protkey_len = sizeof(protkey);
+    CK_BYTE *in_pos = message;
+    CK_BYTE *out_pos = cmac;
+    CK_ULONG len = message_len;
 
     /* Determine clear key length */
     if (template_attribute_get_ulong(key_obj->template, CKA_VALUE_LEN,
@@ -717,9 +766,26 @@ CK_RV pkey_aes_cmac(STDLL_TokData_t *tokdata, SESSION *session,
 
     if (cmac == NULL) {
         /* intermediate */
-        rc = s390_kmac(fc, pb_lookup.iv, message, message_len);
-        memset(pb_lookup.keys, 0, pkey_attr->ulValueLen);
-        if (rc < 0) {
+        num_tries = 0;
+        while (len > 0 && num_tries < PKEY_CONVERT_KEY_RETRIES) {
+            bytes_processed = s390_kmac(fc, pb_lookup.iv, in_pos, len);
+            if (bytes_processed < len) {
+                TRACE_DEVEL("%s partial completion probably caused by an LGR: "
+                            "%d of %ld bytes processed.\n",
+                            __func__, bytes_processed, len);
+                ret = convert_key(tokdata, session, key_obj, CK_FALSE,
+                                  protkey, &protkey_len);
+                if (ret != CKR_OK)
+                    goto done;
+                memcpy(pb_lookup.keys, protkey, protkey_len);
+            }
+            in_pos += bytes_processed;
+            out_pos += bytes_processed;
+            len -= bytes_processed;
+            num_tries++;
+        }
+
+        if (len > 0) {
             ret = CKR_FUNCTION_FAILED;
             goto done;
         }
@@ -737,9 +803,26 @@ CK_RV pkey_aes_cmac(STDLL_TokData_t *tokdata, SESSION *session,
             }
 
             if (length_head) {
-                rc = s390_kmac(fc, pb_lookup.iv,
-                           message, length_head);
-                if (rc < 0) {
+                num_tries = 0;
+                len = length_head;
+                while (len > 0 && num_tries < PKEY_CONVERT_KEY_RETRIES) {
+                    bytes_processed = s390_kmac(fc, pb_lookup.iv, in_pos, len);
+                    if (bytes_processed < len) {
+                        TRACE_DEVEL("%s partial completion probably caused by an LGR: "
+                                    "%d of %ld bytes processed.\n",
+                                    __func__, bytes_processed, len);
+                        ret = convert_key(tokdata, session, key_obj, CK_FALSE,
+                                          protkey, &protkey_len);
+                        if (ret != CKR_OK)
+                            goto done;
+                        memcpy(pb_lookup.keys, protkey, protkey_len);
+                    }
+                    in_pos += bytes_processed;
+                    out_pos += bytes_processed;
+                    len -= bytes_processed;
+                    num_tries++;
+                }
+                if (len > 0) {
                     memset(pb_lookup.keys, 0, pkey_attr->ulValueLen);
                     ret = CKR_FUNCTION_FAILED;
                     goto done;
@@ -750,7 +833,12 @@ CK_RV pkey_aes_cmac(STDLL_TokData_t *tokdata, SESSION *session,
             memcpy(pb_lookup.message, message + length_head, length_tail);
         }
         /* calculate final block (last/full) */
-        rc = s390_pcc(fc, pb_lookup.base);
+        num_tries = 0;
+        rc = 1;
+        while (rc != 0 && num_tries < PKEY_CONVERT_KEY_RETRIES) {
+            rc = s390_pcc(fc, pb_lookup.base);
+            num_tries++;
+        }
         memset(pb_lookup.keys, 0, pkey_attr->ulValueLen);
         if (rc != 0) {
             ret = CKR_FUNCTION_FAILED;
