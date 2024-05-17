@@ -6257,7 +6257,8 @@ CK_RV token_specific_aes_ecb(STDLL_TokData_t *tokdata,
                              OBJECT *key_obj, CK_BYTE encrypt)
 {
     return pkey_aes_ecb(tokdata, sess, key_obj, in_data, in_data_len,
-                        out_data, out_data_len, encrypt);
+                        out_data, out_data_len, encrypt,
+                        ep11tok_pkey_convert_key);
 }
 
 /**
@@ -6273,7 +6274,8 @@ CK_RV token_specific_aes_cbc(STDLL_TokData_t *tokdata,
                              CK_BYTE encrypt)
 {
     return pkey_aes_cbc(tokdata, sess, key_obj, init_v, in_data, in_data_len,
-                        out_data, out_data_len, encrypt);
+                        out_data, out_data_len, encrypt,
+                        ep11tok_pkey_convert_key);
 }
 
 /**
@@ -6292,11 +6294,14 @@ CK_RV token_specific_aes_cmac(STDLL_TokData_t *tokdata, SESSION *session,
     UNUSED(context);
 
     if (first && last)
-        rc = pkey_aes_cmac(tokdata, session, key_obj, message, message_len, iv, NULL);
+        rc = pkey_aes_cmac(tokdata, session, key_obj, message, message_len,
+                           iv, NULL, ep11tok_pkey_convert_key);
     else if (!last)
-        rc = pkey_aes_cmac(tokdata, session, key_obj, message, message_len, NULL, iv);
+        rc = pkey_aes_cmac(tokdata, session, key_obj, message, message_len,
+                           NULL, iv, ep11tok_pkey_convert_key);
     else // last
-        rc = pkey_aes_cmac(tokdata, session, key_obj, message, message_len, iv, iv);
+        rc = pkey_aes_cmac(tokdata, session, key_obj, message, message_len,
+                           iv, iv, ep11tok_pkey_convert_key);
 
     return rc;
 }
