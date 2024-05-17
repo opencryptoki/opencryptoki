@@ -6084,7 +6084,8 @@ CK_RV token_specific_ec_sign(STDLL_TokData_t *tokdata, SESSION  *session,
     switch (rc) {
     case CKR_OK:
         rc = pkey_ec_sign(tokdata, session, key_obj, in_data, in_data_len,
-                          out_data, out_data_len, NULL);
+                          out_data, out_data_len, NULL,
+                          ep11tok_pkey_convert_key);
         goto done;
     case CKR_FUNCTION_NOT_SUPPORTED:
         break;
@@ -9661,8 +9662,9 @@ CK_RV ep11tok_sign(STDLL_TokData_t * tokdata, SESSION * session,
          * supported by the ep11token, so let's keep them local here. */
         if (ctx->mech.mechanism == CKM_IBM_ED25519_SHA512 ||
             ctx->mech.mechanism == CKM_IBM_ED448_SHA3) {
-            rc = pkey_ibm_ed_sign(tokdata, session, key_obj,
-                                  in_data, in_data_len, signature, sig_len);
+            rc = pkey_ibm_ed_sign(tokdata, session, key_obj, in_data,
+                                  in_data_len, signature, sig_len,
+                                  ep11tok_pkey_convert_key);
         } else {
             /* Release obj lock, sign_mgr_sign may re-acquire the lock */
             object_put(tokdata, key_obj, TRUE);

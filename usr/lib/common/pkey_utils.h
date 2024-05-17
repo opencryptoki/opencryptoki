@@ -120,13 +120,15 @@ CK_RV pkey_aes_xts(STDLL_TokData_t *tokdata, SESSION *session,
                    CK_BBOOL final, CK_BYTE *iv);
 
 CK_RV pkey_ec_sign(STDLL_TokData_t *tokdata, SESSION *session,
-                   OBJECT *privkey, CK_BYTE *hash, CK_ULONG hashlen,
+                   OBJECT *privkey, CK_BYTE *hash, CK_ULONG hash_len,
                    CK_BYTE *sig, CK_ULONG *sig_len,
-                   void (*rng_cb)(unsigned char *, size_t));
+                   void (*rng_cb)(unsigned char *, size_t),
+                   convert_key_t convert_key);
 
 CK_RV pkey_ibm_ed_sign(STDLL_TokData_t *tokdata, SESSION *session,
                        OBJECT *privkey, CK_BYTE *msg, CK_ULONG msg_len,
-                       CK_BYTE *sig, CK_ULONG *sig_len);
+                       CK_BYTE *sig, CK_ULONG *sig_len,
+                       convert_key_t convert_key);
 
 CK_RV pkey_ec_verify(OBJECT *pubkey, CK_BYTE *hash, CK_ULONG hashlen,
                      CK_BYTE *sig, CK_ULONG sig_len);

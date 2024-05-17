@@ -1070,7 +1070,8 @@ done:
 CK_RV pkey_ec_sign(STDLL_TokData_t *tokdata, SESSION *session,
                    OBJECT *privkey, CK_BYTE *hash, CK_ULONG hash_len,
                    CK_BYTE *sig, CK_ULONG *sig_len,
-                   void (*rng_cb)(unsigned char *, size_t))
+                   void (*rng_cb)(unsigned char *, size_t),
+                   convert_key_t convert_key)
 {
 #define DEF_PARAM(curve, size)        \
     struct {                          \
@@ -1097,9 +1098,9 @@ CK_RV pkey_ec_sign(STDLL_TokData_t *tokdata, SESSION *session,
     CK_ATTRIBUTE *pkey_attr = NULL;
     int rc, off;
     cpacf_curve_type_t curve_type;
-
-    UNUSED(tokdata);
-    UNUSED(session);
+    CK_BYTE protkey[112]; /* max = 80 (p521) + 32 wkvp */
+    CK_ULONG protkey_len = sizeof(protkey);
+    CK_ULONG retry_count = 0;
 
     /* Get protected key from key object */
     if (template_attribute_get_non_empty(privkey->template, CKA_IBM_OPAQUE_PKEY,
@@ -1183,6 +1184,10 @@ CK_RV pkey_ec_sign(STDLL_TokData_t *tokdata, SESSION *session,
     }
 
     /* Call CPACF */
+retry:
+    if (retry_count > PKEY_CONVERT_KEY_RETRIES)
+        goto done;
+
     rc = s390_kdsa(fc, param.buff, NULL, 0);
     switch (rc) {
     case 0:
@@ -1206,12 +1211,38 @@ CK_RV pkey_ec_sign(STDLL_TokData_t *tokdata, SESSION *session,
             break;
         }
         ret = CKR_FUNCTION_FAILED;
-        goto done;
         break;
     default: /* rc = 2 */
         TRACE_ERROR("%s rc from KDSA = 2\n", __func__);
         ret = CKR_FUNCTION_FAILED;
-        goto done;
+    }
+
+    if (ret != CKR_OK) {
+        ret = convert_key(tokdata, session, privkey, CK_FALSE,
+                          protkey, &protkey_len);
+        if (ret != CKR_OK)
+            goto done;
+        TRACE_DEVEL("%s KDSA failed probably caused by an LGR, hash len "
+                    "was %ld, retrying ...\n", __func__, hash_len);
+        retry_count++;
+        switch (curve_type) {
+        case curve_p256:
+            memcpy(param.P256.priv, protkey, 32);
+            memcpy(param.P256.vp, protkey + 32, 32);
+            goto retry;
+        case curve_p384:
+            memcpy(param.P384.priv, protkey, 48);
+            memcpy(param.P384.vp, protkey + 48, 32);
+            goto retry;
+        case curve_p521:
+            memcpy(param.P521.priv, protkey, 80);
+            memcpy(param.P521.vp, protkey + 80, 32);
+            goto retry;
+        default:
+            TRACE_ERROR("Could not determine the curve type.\n");
+            ret = CKR_FUNCTION_FAILED;
+            goto done;
+        }
     }
 
     /* Provide signature to caller */
@@ -1249,7 +1280,8 @@ done:
  */
 CK_RV pkey_ibm_ed_sign(STDLL_TokData_t *tokdata, SESSION *session,
                        OBJECT *privkey, CK_BYTE *msg, CK_ULONG msg_len,
-                       CK_BYTE *sig, CK_ULONG *sig_len)
+                       CK_BYTE *sig, CK_ULONG *sig_len,
+                       convert_key_t convert_key)
 {
 #define DEF_EDPARAM(curve, size)      \
     struct {                          \
@@ -1274,9 +1306,9 @@ CK_RV pkey_ibm_ed_sign(STDLL_TokData_t *tokdata, SESSION *session,
     CK_ATTRIBUTE *pkey_attr = NULL;
     int rc;
     cpacf_curve_type_t curve_type;
-
-    UNUSED(tokdata);
-    UNUSED(session);
+    CK_BYTE protkey[96]; /* max = 64 (ed448) + 32 wkvp */
+    CK_ULONG protkey_len = sizeof(protkey);
+    CK_ULONG retry_count = 0;
 
     /* Get protected key from key object */
     if (template_attribute_get_non_empty(privkey->template, CKA_IBM_OPAQUE_PKEY,
@@ -1315,6 +1347,10 @@ CK_RV pkey_ibm_ed_sign(STDLL_TokData_t *tokdata, SESSION *session,
     }
 
     /* Call CPACF */
+retry:
+    if (retry_count > PKEY_CONVERT_KEY_RETRIES)
+        goto done;
+
     rc = s390_kdsa(fc, edparam.buff, msg, msg_len);
     switch (rc) {
     case 0:
@@ -1334,12 +1370,34 @@ CK_RV pkey_ibm_ed_sign(STDLL_TokData_t *tokdata, SESSION *session,
             break;
         }
         ret = CKR_FUNCTION_FAILED;
-        goto done;
         break;
     default: /* rc = 2 */
         TRACE_ERROR("%s rc from KDSA = 2\n", __func__);
         ret = CKR_FUNCTION_FAILED;
-        goto done;
+    }
+
+    if (ret != CKR_OK) {
+        ret = convert_key(tokdata, session, privkey,
+                          CK_FALSE, protkey, &protkey_len);
+        if (ret != CKR_OK)
+            goto done;
+        TRACE_DEVEL("%s KDSA failed probably caused by an LGR, msg len "
+                    "was %ld, retrying ...\n", __func__, msg_len);
+        retry_count++;
+        switch (curve_type) {
+        case curve_ed25519:
+            memcpy(edparam.ED25519.priv, protkey, 32);
+            memcpy(edparam.ED25519.vp, protkey + 32, 32);
+            goto retry;
+        case curve_ed448:
+            memcpy(edparam.ED448.priv, protkey, 64);
+            memcpy(edparam.ED448.vp, protkey + 64, 32);
+            goto retry;
+        default:
+            TRACE_ERROR("Could not determine the curve type.\n");
+            ret = CKR_FUNCTION_FAILED;
+            goto done;
+        }
     }
 
     /* Provide signature to caller */
