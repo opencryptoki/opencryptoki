@@ -117,7 +117,8 @@ CK_RV pkey_aes_xts(STDLL_TokData_t *tokdata, SESSION *session,
                    OBJECT *key_obj, CK_BYTE *tweak,
                    CK_BYTE *in_data, CK_ULONG in_data_len, CK_BYTE *out_data,
                    CK_ULONG_PTR p_output_data_len, CK_BYTE encrypt, CK_BBOOL initial,
-                   CK_BBOOL final, CK_BYTE *iv);
+                   CK_BBOOL final, CK_BYTE *iv,
+                   convert_key_t convert_key);
 
 CK_RV pkey_ec_sign(STDLL_TokData_t *tokdata, SESSION *session,
                    OBJECT *privkey, CK_BYTE *hash, CK_ULONG hash_len,
