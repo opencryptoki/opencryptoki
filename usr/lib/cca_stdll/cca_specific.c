@@ -3511,7 +3511,8 @@ CK_RV token_specific_aes_xts(STDLL_TokData_t *tokdata, SESSION *session,
     case CKR_OK:
         rc = pkey_aes_xts(tokdata, session, key_obj, init_v,
                           in_data, in_data_len, out_data, out_data_len,
-                          encrypt, initial, final, iv);
+                          encrypt, initial, final, iv,
+                          ccatok_pkey_convert_key);
         goto done;
     default:
         goto done;
