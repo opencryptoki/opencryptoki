@@ -113,7 +113,7 @@ int get_msa_level(void)
  *
  * Executes the KM (CIPHER MESSAGE) operation of the CPU.
  *
- * Returns -1 for failure, 0 for the query func, number of processed
+ * Returns 0 for the query func, number of processed
  * bytes for encryption/decryption funcs
  */
 static int s390_km(unsigned long func, void *param, unsigned char *dest,
@@ -145,7 +145,7 @@ static int s390_km(unsigned long func, void *param, unsigned char *dest,
  *
  * Executes the KMC (CIPHER MESSAGE WITH CHAINING) operation of the CPU.
  *
- * Returns -1 for failure, 0 for the query func, number of processed
+ * Returns 0 for the query func, number of processed
  * bytes for encryption/decryption funcs
  */
 static int s390_kmc(unsigned long func, void *param, unsigned char *dest,
@@ -212,7 +212,7 @@ static int s390_kdsa(unsigned long func, void *param,
  *
  * Executes the KMAC (COMPUTE MESSAGE AUTHENTICATION CODE) operation of the CPU.
  *
- * Returns -1 for failure, 0 for the query func, number of processed
+ * Returns 0 for the query func, number of processed
  * bytes for encryption/decryption funcs
  */
 static int s390_kmac(unsigned long func, void *param,
