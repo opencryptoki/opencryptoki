@@ -116,13 +116,13 @@ int get_msa_level(void)
  * Returns 0 for the query func, number of processed
  * bytes for encryption/decryption funcs
  */
-static int s390_km(unsigned long func, void *param, unsigned char *dest,
-           const unsigned char *src, long src_len)
+static unsigned int s390_km(unsigned long func, void *param, unsigned char *dest,
+                            const unsigned char *src, unsigned long src_len)
 {
-    register long __func __asm__("0") = func;
+    register unsigned long __func __asm__("0") = func;
     register void *__param __asm__("1") = param;
     register const unsigned char *__src __asm__("2") = src;
-    register long __src_len __asm__("3") = src_len;
+    register unsigned long __src_len __asm__("3") = src_len;
     register unsigned char *__dest __asm__("4") = dest;
 
     __asm__ volatile (
@@ -148,13 +148,13 @@ static int s390_km(unsigned long func, void *param, unsigned char *dest,
  * Returns 0 for the query func, number of processed
  * bytes for encryption/decryption funcs
  */
-static int s390_kmc(unsigned long func, void *param, unsigned char *dest,
-            const unsigned char *src, long src_len)
+static unsigned int s390_kmc(unsigned long func, void *param, unsigned char *dest,
+                             const unsigned char *src, unsigned long src_len)
 {
-    register long __func __asm__("0") = func;
+    register unsigned long __func __asm__("0") = func;
     register void *__param __asm__("1") = param;
     register const unsigned char *__src __asm__("2") = src;
-    register long __src_len __asm__("3") = src_len;
+    register unsigned long __src_len __asm__("3") = src_len;
     register unsigned char *__dest __asm__("4") = dest;
 
     __asm__ volatile (
@@ -215,13 +215,13 @@ static int s390_kdsa(unsigned long func, void *param,
  * Returns 0 for the query func, number of processed
  * bytes for encryption/decryption funcs
  */
-static int s390_kmac(unsigned long func, void *param,
-            const unsigned char *src, long src_len)
+static unsigned int s390_kmac(unsigned long func, void *param,
+                              const unsigned char *src, unsigned long src_len)
 {
-    register long __func __asm__("0") = func;
+    register unsigned long __func __asm__("0") = func;
     register void *__param __asm__("1") = param;
     register const unsigned char *__src __asm__("2") = src;
-    register long __src_len __asm__("3") = src_len;
+    register unsigned long __src_len __asm__("3") = src_len;
 
     __asm__ volatile (
         "0:     .insn   rre, 0xb91e0000,%0,%0 \n"
