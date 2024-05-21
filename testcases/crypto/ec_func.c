@@ -2933,6 +2933,7 @@ int main(int argc, char **argv)
     rv += run_DeriveECDHKeyKAT();
     rv += run_DeriveBTC();
 
+#ifndef NO_PKEY
     if (is_ep11_token(SLOT_ID) || is_cca_token(SLOT_ID)) {
         pkey = CK_TRUE;
         rv = run_GenerateECCKeyPairSignVerify();
@@ -2942,6 +2943,7 @@ int main(int argc, char **argv)
         rv += run_DeriveECDHKeyKAT();
         rv += run_ImportSignVerify_Pkey();
     }
+#endif
 
     testcase_print_result();
 

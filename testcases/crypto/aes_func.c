@@ -2819,11 +2819,13 @@ int main(int argc, char **argv)
     pkey = CK_FALSE;
     rv = aes_funcs();
 
+#ifndef NO_PKEY
     if (is_ep11_token(SLOT_ID) || is_cca_token(SLOT_ID)) {
         pkey = CK_TRUE;
         rv += aes_funcs();
         rv += aes_funcs_pkey();
     }
+#endif
 
     testcase_print_result();
 
