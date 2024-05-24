@@ -8,6 +8,7 @@ before_install:
     - sudo apt-get install -y expect libldap2-dev wget libudev-dev autoconf-archive libcap-dev
     - if [ "$TRAVIS_CPU_ARCH" != "amd64" ]; then sudo apt-get install -y trousers libtspi-dev; fi
     - if [ "$TRAVIS_CPU_ARCH" = "s390x" ]; then sudo apt-get install -y libica4 libica-dev; fi
+    - pip install git+https://github.com/naftulikay/travis-pls
 
 jobs:
     include:
@@ -54,7 +55,7 @@ before_script:
     - ./bootstrap.sh
 
 script:
-    - ./configure --silent $CONFIG_OPTS && make V=0
+    - ./configure --silent $CONFIG_OPTS && make -j 5 V=0
     - make check V=0
     - sudo make install
     - sudo ldconfig
@@ -63,5 +64,5 @@ script:
     - sudo pkcsconf -s
     - sudo pkcsconf -t
     - cd testcases
-    - sudo PKCS11_SO_PIN=76543210 PKCS11_USER_PIN=01234567 PKCSLIB=/usr/local/lib/pkcs11/libopencryptoki.so ./ock_tests.sh -s 3
+    - travis-pls --interval 300 sudo PKCS11_SO_PIN=76543210 PKCS11_USER_PIN=01234567 PKCSLIB=/usr/local/lib/pkcs11/libopencryptoki.so ./ock_tests.sh -s 3 | grep --line-buffered -A 2 -B 2 "SKIP\|FAIL\|ERROR\|Total=\|Now executing\|travis pls"
     - sudo SLOT=3 PKCS11_USER_PIN=01234567 PKCS11_SO_PIN=76543210 PKCSLIB=/usr/local/lib/pkcs11/libopencryptoki.so ./misc_tests/p11sak_test.sh
