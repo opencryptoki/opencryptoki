@@ -160,8 +160,13 @@ ${P11SAK} generate-key ec secp521r1 --slot $SLOT --pin $PKCS11_USER_PIN --label 
 RC_P11SAK_GENERATE=$((RC_P11SAK_GENERATE + $?))
 # ibm-dilithium
 if [[ -n $( ${PKCSCONF} -m -c $SLOT | grep CKM_IBM_DILITHIUM) ]]; then
-	${P11SAK} generate-key ibm-dilithium r2_65 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-ibm-dilithium"
-	RC_P11SAK_GENERATE=$((RC_P11SAK_GENERATE + $?))
+	if [[ -z $( ${PKCSCONF} -t -c $SLOT | grep "Model: Soft") ]]; then
+		${P11SAK} generate-key ibm-dilithium r2_65 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-ibm-dilithium"
+		RC_P11SAK_GENERATE=$((RC_P11SAK_GENERATE + $?))
+	else
+		${P11SAK} generate-key ibm-dilithium r3_65 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-ibm-dilithium"
+		RC_P11SAK_GENERATE=$((RC_P11SAK_GENERATE + $?))
+	fi
 else
 	echo "Skip generating ibm-dilithium keys, slot does not support CKM_IBM_DILITHIUM"
 fi
@@ -325,18 +330,37 @@ fi
 
 # ibm-dilithium
 if [[ -n $( ${PKCSCONF} -m -c $SLOT | grep CKM_IBM_DILITHIUM) ]]; then
-	${P11SAK} import-key ibm-dilithium private --slot $SLOT --pin $PKCS11_USER_PIN --label "import-ibm-dilithium-private" --file $DIR/ibm-dilithium-key.pem --attr sX
-	RC_P11SAK_IMPORT=$((RC_P11SAK_IMPORT + $?))
-	${P11SAK} import-key ibm-dilithium public --slot $SLOT --pin $PKCS11_USER_PIN --label "import-ibm-dilithium-public" --file $DIR/ibm-dilithium-key.pem --attr sX
-	RC_P11SAK_IMPORT=$((RC_P11SAK_IMPORT + $?))
+	if [[ -z $( ${PKCSCONF} -t -c $SLOT | grep "Model: Soft") ]]; then
+		${P11SAK} import-key ibm-dilithium private --slot $SLOT --pin $PKCS11_USER_PIN --label "import-ibm-dilithium-private" --file $DIR/ibm-dilithium-r2-65-key.pem --attr sX
+		RC_P11SAK_IMPORT=$((RC_P11SAK_IMPORT + $?))
+		${P11SAK} import-key ibm-dilithium public --slot $SLOT --pin $PKCS11_USER_PIN --label "import-ibm-dilithium-public" --file $DIR/ibm-dilithium-r2-65-key.pem --attr sX
+		RC_P11SAK_IMPORT=$((RC_P11SAK_IMPORT + $?))
+	else
+		${P11SAK} import-key ibm-dilithium private --slot $SLOT --pin $PKCS11_USER_PIN --label "import-ibm-dilithium-private" --file $DIR/ibm-dilithium-r3-65-key.pem --attr sX
+		RC_P11SAK_IMPORT=$((RC_P11SAK_IMPORT + $?))
+		${P11SAK} import-key ibm-dilithium public --slot $SLOT --pin $PKCS11_USER_PIN --label "import-ibm-dilithium-public" --file $DIR/ibm-dilithium-r3-65-key.pem --attr sX
+		RC_P11SAK_IMPORT=$((RC_P11SAK_IMPORT + $?))
+	fi
+	if [[ -n $(openssl list -providers | grep oqsprovider) ]]; then
+		openssl genpkey -algorithm dilithium3 -out oqs-dil3-priv-key.pem
+		RC_P11SAK_IMPORT=$((RC_P11SAK_IMPORT + $?))
+		openssl pkey -in oqs-dil3-priv-key.pem -pubout -out oqs-dil3-pub-key.pem
+		RC_P11SAK_IMPORT=$((RC_P11SAK_IMPORT + $?))
+		${P11SAK} import-key ibm-dilithium private --slot $SLOT --pin $PKCS11_USER_PIN --label "import-oqs-dilithium-private" --file oqs-dil3-priv-key.pem --oqsprovider-pem --attr sX
+		RC_P11SAK_IMPORT=$((RC_P11SAK_IMPORT + $?))
+		${P11SAK} import-key ibm-dilithium public --slot $SLOT --pin $PKCS11_USER_PIN --label "import-oqs-dilithium-public" --file oqs-dil3-pub-key.pem --oqsprovider-pem --attr sX
+		RC_P11SAK_IMPORT=$((RC_P11SAK_IMPORT + $?))
+	else
+		echo "Skip importing oqs-dilithium keys, the oqsprovider is not available"
+	fi
 else
 	echo "Skip importing ibm-dilithium keys, slot does not support CKM_IBM_DILITHIUM"
 fi
 # ibm-kyber
 if [[ -n $( ${PKCSCONF} -m -c $SLOT | grep CKM_IBM_KYBER) ]]; then
-	${P11SAK} import-key ibm-kyber private --slot $SLOT --pin $PKCS11_USER_PIN --label "import-ibm-kyber-private" --file $DIR/ibm-kyber-key.pem --attr sX
+	${P11SAK} import-key ibm-kyber private --slot $SLOT --pin $PKCS11_USER_PIN --label "import-ibm-kyber-private" --file $DIR/ibm-kyber-r2-768-key.pem --attr sX
 	RC_P11SAK_IMPORT=$((RC_P11SAK_IMPORT + $?))
-	${P11SAK} import-key ibm-kyber public --slot $SLOT --pin $PKCS11_USER_PIN --label "import-ibm-kyber-public" --file $DIR/ibm-kyber-key.pem --attr sX
+	${P11SAK} import-key ibm-kyber public --slot $SLOT --pin $PKCS11_USER_PIN --label "import-ibm-kyber-public" --file $DIR/ibm-kyber-r2-768-key.pem --attr sX
 	RC_P11SAK_IMPORT=$((RC_P11SAK_IMPORT + $?))
 else
 	echo "Skip importing ibm-kyber keys, slot does not support CKM_IBM_KYBER"
@@ -449,9 +473,23 @@ if [[ -n $( ${PKCSCONF} -m -c $SLOT | grep CKM_IBM_DILITHIUM) ]]; then
 		RC_P11SAK_EXPORT=$((RC_P11SAK_EXPORT + $?))
 		${P11SAK} export-key ibm-dilithium --slot $SLOT --pin $PKCS11_USER_PIN --label "import-ibm-dilithium-private" --file export-ibm-dilithium-key.opaque --force --opaque
 		RC_P11SAK_EXPORT=$((RC_P11SAK_EXPORT + $?))
+		if [[ -n $(openssl list -providers | grep oqsprovider) ]]; then
+			${P11SAK} export-key ibm-dilithium --slot $SLOT --pin $PKCS11_USER_PIN --label "import-oqs-dilithium-public" --file export-oqs-dilithium-key.pem --oqsprovider-pem --force
+			RC_P11SAK_EXPORT=$((RC_P11SAK_EXPORT + $?))
+			${P11SAK} export-key ibm-dilithium --slot $SLOT --pin $PKCS11_USER_PIN --label "import-oqs-dilithium-private" --file export-oqs-dilithium-key.opaque --force --opaque
+			RC_P11SAK_EXPORT=$((RC_P11SAK_EXPORT + $?))
+		else
+			echo "Skip importing oqs-dilithium keys, the oqsprovider is not available"
+		fi
 	else
 		${P11SAK} export-key ibm-dilithium --slot $SLOT --pin $PKCS11_USER_PIN --label "import-ibm-dilithium-*" --file export-ibm-dilithium-key.pem --force
 		RC_P11SAK_EXPORT=$((RC_P11SAK_EXPORT + $?))
+		if [[ -n $(openssl list -providers | grep oqsprovider) ]]; then
+			${P11SAK} export-key ibm-dilithium --slot $SLOT --pin $PKCS11_USER_PIN --label "import-oqs-dilithium-*" --file export-oqs-dilithium-key.pem --oqsprovider-pem --force
+			RC_P11SAK_EXPORT=$((RC_P11SAK_EXPORT + $?))
+		else
+			echo "Skip importing oqs-dilithium keys, the oqsprovider is not available"
+		fi
 	fi
 else
 	echo "Skip exporting ibm-dilithium keys, slot does not support CKM_IBM_DILITHIUM"
@@ -1460,6 +1498,20 @@ if [[ -n $( ${PKCSCONF} -m -c $SLOT | grep CKM_DSA) ]]; then
 else
 	echo "Skip importing x.509 certs with DSA key, slot does not support CKM_DSA"
 fi
+if [[ -n $( ${PKCSCONF} -m -c $SLOT | grep CKM_IBM_DILITHIUM) && -n $(openssl list -providers | grep oqsprovider) ]]; then
+	openssl req -x509 -new -newkey dilithium3 -keyout dilithium3_CA.key -out dilithium3_CA.crt -nodes -subj "/CN=test CA" -days 365 2>/dev/null
+	RC_P11SAK_X509_IMPORT=$((RC_P11SAK_X509_IMPORT + $?))
+	openssl genpkey -algorithm dilithium3 -out dilithium3_srv.key
+	RC_P11SAK_X509_IMPORT=$((RC_P11SAK_X509_IMPORT + $?))
+	openssl req -new -newkey dilithium3 -keyout dilithium3_srv.key -out dilithium3_srv.csr -nodes -subj "/CN=test server" 2>/dev/null
+	RC_P11SAK_X509_IMPORT=$((RC_P11SAK_X509_IMPORT + $?))
+	openssl x509 -req -in dilithium3_srv.csr -out dilithium3_srv.crt -CA dilithium3_CA.crt -CAkey dilithium3_CA.key -CAcreateserial -days 365 2>/dev/null
+	RC_P11SAK_X509_IMPORT=$((RC_P11SAK_X509_IMPORT + $?))
+	${P11SAK} import-cert x509 --slot $SLOT --pin $PKCS11_USER_PIN --id ABC --label "p11sak-x509-dilithium3" --file dilithium3_srv.crt
+	RC_P11SAK_X509_IMPORT=$((RC_P11SAK_X509_IMPORT + $?))
+else
+	echo "Skip importing x.509 certs with IBM Dilithum key, slot does not support CKM_IBM_DILITHIUM or oqsprovider not available"
+fi
 
 
 echo "** Now exporting x.509 certificates - 'p11sak_test.sh'"
@@ -1496,6 +1548,12 @@ if [[ -n $( ${PKCSCONF} -m -c $SLOT | grep CKM_DSA) ]]; then
 	RC_P11SAK_X509_EXPORT=$((RC_P11SAK_X509_EXPORT + $?))
 else
 	echo "Skip exporting x.509 certs with DSA key, slot does not support CKM_DSA"
+fi
+if [[ -n $( ${PKCSCONF} -m -c $SLOT | grep CKM_IBM_DILITHIUM) && -n $(openssl list -providers | grep oqsprovider) ]]; then
+	${P11SAK} export-cert x509 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-x509-dilithium3" --file p11sak_dil3cert_exported.pem --force
+	RC_P11SAK_X509_EXPORT=$((RC_P11SAK_X509_EXPORT + $?))
+else
+	echo "Skip exporting x.509 certs with IBM Dilithum key, slot does not support CKM_IBM_DILITHIUM or oqsprovider not available"
 fi
 # export to URI-PEM
 p11sak export-cert x509 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-x509-rsa2048crt" --file export-uri-pem4.pem --force --uri-pem
@@ -1549,6 +1607,12 @@ if [[ -n $( ${PKCSCONF} -m -c $SLOT | grep CKM_DSA) ]]; then
 	RC_P11SAK_X509_EXTRACT=$((RC_P11SAK_X509_EXTRACT + $?))
 else
 	echo "Skip extracting pubkeys from x.509 certs with DSA key, slot does not support CKM_DSA"
+fi
+if [[ -n $( ${PKCSCONF} -m -c $SLOT | grep CKM_IBM_DILITHIUM) && -n $(openssl list -providers | grep oqsprovider) ]]; then
+${P11SAK} extract-cert-pubkey x509 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-x509-dilithium3" --force
+	RC_P11SAK_X509_EXTRACT=$((RC_P11SAK_X509_EXTRACT + $?))
+else
+	echo "Skip extracting pubkeys from x.509 certs with IBM Dilithum key, slot does not support CKM_IBM_DILITHIUM or oqsprovider not available"
 fi
 
 
@@ -2148,6 +2212,9 @@ rm -f export-aes.key
 rm -f export-*.pem
 rm -f export-*.opaque
 rm -f pin*.txt
+rm -f oqs-*.pem
+rm -f dilithium3_CA.*
+rm -f dilithium3_srv.*
 
 echo "** Now remove temporary openssl files from x509 tests - "p11sak_test.sh""
 rm -f p11sak_*cert_exported.crt
