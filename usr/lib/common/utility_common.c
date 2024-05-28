@@ -214,35 +214,44 @@ CK_RV digest_from_kdf(CK_EC_KDF_TYPE kdf, CK_MECHANISM_TYPE *mech)
 {
     switch (kdf) {
     case CKD_SHA1_KDF:
+    case CKD_SHA1_KDF_SP800:
     case CKD_IBM_HYBRID_SHA1_KDF:
         *mech = CKM_SHA_1;
         break;
     case CKD_SHA224_KDF:
+    case CKD_SHA224_KDF_SP800:
     case CKD_IBM_HYBRID_SHA224_KDF:
         *mech = CKM_SHA224;
         break;
     case CKD_SHA256_KDF:
+    case CKD_SHA256_KDF_SP800:
     case CKD_IBM_HYBRID_SHA256_KDF:
         *mech = CKM_SHA256;
         break;
     case CKD_SHA384_KDF:
+    case CKD_SHA384_KDF_SP800:
     case CKD_IBM_HYBRID_SHA384_KDF:
         *mech = CKM_SHA384;
         break;
     case CKD_SHA512_KDF:
+    case CKD_SHA512_KDF_SP800:
     case CKD_IBM_HYBRID_SHA512_KDF:
         *mech = CKM_SHA512;
         break;
     case CKD_SHA3_224_KDF:
+    case CKD_SHA3_224_KDF_SP800:
         *mech = CKM_SHA3_224;
         break;
     case CKD_SHA3_256_KDF:
+    case CKD_SHA3_256_KDF_SP800:
         *mech = CKM_SHA3_256;
         break;
     case CKD_SHA3_384_KDF:
+    case CKD_SHA3_384_KDF_SP800:
         *mech = CKM_SHA3_384;
         break;
     case CKD_SHA3_512_KDF:
+    case CKD_SHA3_512_KDF_SP800:
         *mech = CKM_SHA3_512;
         break;
     default:

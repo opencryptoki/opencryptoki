@@ -621,8 +621,9 @@ done:
     return rc;
 }
 
-CK_RV ckm_kdf(STDLL_TokData_t *tokdata, SESSION *sess, CK_ULONG kdf,
-              CK_BYTE *data, CK_ULONG data_len, CK_BYTE *hash, CK_ULONG *h_len)
+static CK_RV ckm_kdf(STDLL_TokData_t *tokdata, SESSION *sess, CK_ULONG kdf,
+                     CK_BYTE *data, CK_ULONG data_len,
+                     CK_BYTE *hash, CK_ULONG *h_len)
 {
     CK_RV rc;
     DIGEST_CONTEXT ctx;
@@ -665,13 +666,14 @@ CK_RV ckm_kdf_X9_63(STDLL_TokData_t *tokdata, SESSION *sess, CK_ULONG kdf,
                     const CK_BYTE *shared_data, CK_ULONG shared_data_len,
                     CK_BYTE *key, CK_ULONG key_len)
 {
-    CK_ULONG counter_length = 4;
+    CK_ULONG counter_length = sizeof(uint32_t);
     CK_BYTE *ctx = NULL;
     CK_ULONG ctx_len;
     CK_BYTE hash[MAX_SUPPORTED_HASH_LENGTH];
     CK_ULONG h_len;
     CK_RV rc;
-    unsigned int i, counter, counter_en;
+    uint32_t counter, counter_en;
+    unsigned int i;
 
     /* Check max keylen according to ANSI X9.63 */
     /* digest_len * 2^32 */
@@ -682,18 +684,15 @@ CK_RV ckm_kdf_X9_63(STDLL_TokData_t *tokdata, SESSION *sess, CK_ULONG kdf,
         return CKR_KEY_SIZE_RANGE;
     }
 
-    /* If no KDF to be used, just return the shared_data.
-     * Cannot concatenate hashes. */
-    if (kdf == CKD_NULL) {
-        memcpy(key, z, z_len);
-        return CKR_OK;
-    }
-
-    /* Allocate memory for hash context */
+    /*
+     * Allocate memory for hash context:
+     *  <secret> || <be32(counter 1..N)> || <sharedinfo>
+     */
     ctx_len = z_len + counter_length + shared_data_len;
     ctx = malloc(ctx_len);
     if (!ctx)
         return CKR_HOST_MEMORY;
+
     memcpy(ctx, z, z_len);
     if (shared_data_len > 0)
         memcpy(ctx + z_len + counter_length, shared_data, shared_data_len);
@@ -703,6 +702,65 @@ CK_RV ckm_kdf_X9_63(STDLL_TokData_t *tokdata, SESSION *sess, CK_ULONG kdf,
     for (i = 0; i < key_len / kdf_digest_len; i++) {
         counter_en = htobe32(counter);
         memcpy(ctx + z_len, &counter_en, counter_length);
+        rc = ckm_kdf(tokdata, sess, kdf, ctx, ctx_len, hash, &h_len);
+        if (rc != 0) {
+            free(ctx);
+            return rc;
+        }
+        memcpy(key + i * kdf_digest_len, hash, kdf_digest_len);
+        counter++;
+    }
+
+    free(ctx);
+    return CKR_OK;
+}
+
+CK_RV ckm_kdf_sp800_56c(STDLL_TokData_t *tokdata, SESSION *sess, CK_ULONG kdf,
+                        CK_ULONG kdf_digest_len,
+                        const CK_BYTE *z, CK_ULONG z_len,
+                        const CK_BYTE *shared_data, CK_ULONG shared_data_len,
+                        uint32_t purpose, CK_BYTE *key, CK_ULONG key_len)
+{
+    CK_ULONG counter_length = sizeof(uint32_t);
+    CK_ULONG purpose_length = purpose > 0 ? sizeof(uint32_t) : 0;
+    CK_BYTE *ctx = NULL;
+    CK_ULONG ctx_len;
+    CK_BYTE hash[MAX_SUPPORTED_HASH_LENGTH];
+    CK_ULONG h_len;
+    CK_RV rc;
+    uint32_t counter, counter_en, purpose_en = htobe32(purpose);
+    unsigned int i;
+
+    /* Check max keylen according to FIPS SP800-56C */
+    /* digest_len * 2^32 */
+    CK_ULONG max_keybytes = kdf_digest_len * 0x100000000ul;
+    if (key_len >= max_keybytes) {
+        TRACE_ERROR("Desired key length %lu greater than max supported key "
+                    "length %lu.\n", key_len, max_keybytes);
+        return CKR_KEY_SIZE_RANGE;
+    }
+
+    /*
+     * Allocate memory for hash context:
+     *  be32(counter) || [be32(purpose)] || <secret> || <fixed.info>
+     */
+    ctx_len = counter_length + purpose_length + z_len + shared_data_len;
+    ctx = malloc(ctx_len);
+    if (!ctx)
+        return CKR_HOST_MEMORY;
+
+    if (purpose > 0)
+        memcpy(ctx + counter_length, &purpose_en, purpose_length);
+    memcpy(ctx + counter_length + purpose_length, z, z_len);
+    if (shared_data_len > 0)
+        memcpy(ctx + counter_length + purpose_length + z_len,
+               shared_data, shared_data_len);
+
+    /* Provide key bytes according to ANSI X9.63 */
+    counter = 1;
+    for (i = 0; i < key_len / kdf_digest_len; i++) {
+        counter_en = htobe32(counter);
+        memcpy(ctx, &counter_en, counter_length);
         rc = ckm_kdf(tokdata, sess, kdf, ctx, ctx_len, hash, &h_len);
         if (rc != 0) {
             free(ctx);
@@ -979,12 +1037,12 @@ CK_RV ecdh_pkcs_derive(STDLL_TokData_t *tokdata, SESSION *sess,
         rc = digest_from_kdf(pParms->kdf, &digest_mech);
         if (rc != CKR_OK) {
             TRACE_ERROR("Cannot determine mech from kdf.\n");
-            return CKR_ARGUMENTS_BAD;
+            return CKR_MECHANISM_PARAM_INVALID;
         }
         rc = get_sha_size(digest_mech, &kdf_digest_len);
         if (rc != CKR_OK) {
             TRACE_ERROR("Cannot determine SHA digest size.\n");
-            return CKR_ARGUMENTS_BAD;
+            return CKR_MECHANISM_PARAM_INVALID;
         }
     } else {
         kdf_digest_len = z_len;
@@ -1000,11 +1058,55 @@ CK_RV ecdh_pkcs_derive(STDLL_TokData_t *tokdata, SESSION *sess,
     }
 
     /* Apply KDF function to shared secret */
-    rc = ckm_kdf_X9_63(tokdata, sess, pParms->kdf, kdf_digest_len,
-                       z_value, z_len, pParms->pSharedData,
-                       pParms->ulSharedDataLen, derived_key, derived_key_len);
-    if (rc != CKR_OK)
-        goto end;
+    switch (pParms->kdf) {
+    case CKD_NULL:
+    case CKD_IBM_HYBRID_NULL:
+        memcpy(derived_key, z_value, z_len);
+        break;
+
+    case CKD_SHA1_KDF:
+    case CKD_SHA224_KDF:
+    case CKD_SHA256_KDF:
+    case CKD_SHA384_KDF:
+    case CKD_SHA512_KDF:
+    case CKD_SHA3_224_KDF:
+    case CKD_SHA3_256_KDF:
+    case CKD_SHA3_384_KDF:
+    case CKD_SHA3_512_KDF:
+    case CKD_IBM_HYBRID_SHA1_KDF:
+    case CKD_IBM_HYBRID_SHA224_KDF:
+    case CKD_IBM_HYBRID_SHA256_KDF:
+    case CKD_IBM_HYBRID_SHA384_KDF:
+    case CKD_IBM_HYBRID_SHA512_KDF:
+        rc = ckm_kdf_X9_63(tokdata, sess, pParms->kdf, kdf_digest_len,
+                           z_value, z_len, pParms->pSharedData,
+                           pParms->ulSharedDataLen, derived_key,
+                           derived_key_len);
+        if (rc != CKR_OK)
+            goto end;
+        break;
+
+    case CKD_SHA1_KDF_SP800:
+    case CKD_SHA224_KDF_SP800:
+    case CKD_SHA256_KDF_SP800:
+    case CKD_SHA384_KDF_SP800:
+    case CKD_SHA512_KDF_SP800:
+    case CKD_SHA3_224_KDF_SP800:
+    case CKD_SHA3_256_KDF_SP800:
+    case CKD_SHA3_384_KDF_SP800:
+    case CKD_SHA3_512_KDF_SP800:
+        rc = ckm_kdf_sp800_56c(tokdata, sess, pParms->kdf, kdf_digest_len,
+                               z_value, z_len, pParms->pSharedData,
+                               pParms->ulSharedDataLen, 0, derived_key,
+                               derived_key_len);
+        if (rc != CKR_OK)
+            goto end;
+        break;
+
+    default:
+        TRACE_ERROR("Unsupported KDF: 0x%lx\n", pParms->kdf);
+        return CKR_MECHANISM_PARAM_INVALID;
+    }
 
     /* Return the hashed and truncated derived bytes as CKA_VALUE attribute */
     rc = build_attribute(CKA_VALUE, derived_key, key_len, &value_attr);
@@ -1034,7 +1136,7 @@ CK_RV ecdh_pkcs_derive(STDLL_TokData_t *tokdata, SESSION *sess,
 
     /* Create the object that will be passed back as a handle. This will contain
      * the new (computed) value of the attribute. */
-    rc = object_mgr_create_skel(tokdata, sess, pTemplate, ulCount, MODE_KEYGEN,
+    rc = object_mgr_create_skel(tokdata, sess, pTemplate, ulCount, MODE_DERIVE,
                                 class, keytype, &temp_obj);
     if (rc != CKR_OK) {
         TRACE_ERROR("Object Mgr create skeleton failed, rc=%s.\n", ock_err(rc));
