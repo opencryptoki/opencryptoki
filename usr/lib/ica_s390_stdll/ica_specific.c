@@ -4618,18 +4618,23 @@ static const REF_MECH_LIST_ELEMENT ref_mech_list[] = {
     {SHA1, CKM_SHA_1, {0, 0, CKF_DIGEST}},
     {SHA1, CKM_SHA_1_HMAC, {80, 2048, CKF_SIGN | CKF_VERIFY}},
     {SHA1, CKM_SHA_1_HMAC_GENERAL, {80, 2048, CKF_SIGN | CKF_VERIFY}},
-    {SHA256, CKM_SHA224, {0, 0, CKF_DIGEST}},
-    {SHA256, CKM_SHA224_HMAC, {112, 2048, CKF_SIGN | CKF_VERIFY}},
-    {SHA256, CKM_SHA224_HMAC_GENERAL, {112, 2048, CKF_SIGN | CKF_VERIFY}},
+    {SHA1, CKM_SHA1_KEY_DERIVATION, {8, 160, CKF_DERIVE}},
+    {SHA224, CKM_SHA224, {0, 0, CKF_DIGEST}},
+    {SHA224, CKM_SHA224_HMAC, {112, 2048, CKF_SIGN | CKF_VERIFY}},
+    {SHA224, CKM_SHA224_HMAC_GENERAL, {112, 2048, CKF_SIGN | CKF_VERIFY}},
+    {SHA224, CKM_SHA224_KEY_DERIVATION, {8, 224, CKF_DERIVE}},
     {SHA256, CKM_SHA256, {0, 0, CKF_DIGEST}},
     {SHA256, CKM_SHA256_HMAC, {128, 2048, CKF_SIGN | CKF_VERIFY}},
     {SHA256, CKM_SHA256_HMAC_GENERAL, {128, 2048, CKF_SIGN | CKF_VERIFY}},
+    {SHA256, CKM_SHA256_KEY_DERIVATION, {8, 256, CKF_DERIVE}},
     {SHA384, CKM_SHA384, {0, 0, CKF_DIGEST}},
     {SHA384, CKM_SHA384_HMAC, {192, 2048, CKF_SIGN | CKF_VERIFY}},
     {SHA384, CKM_SHA384_HMAC_GENERAL, {192, 2048, CKF_SIGN | CKF_VERIFY}},
+    {SHA384, CKM_SHA384_KEY_DERIVATION, {8, 384, CKF_DERIVE}},
     {SHA512, CKM_SHA512, {0, 0, CKF_DIGEST}},
     {SHA512, CKM_SHA512_HMAC, {256, 2048, CKF_SIGN | CKF_VERIFY}},
     {SHA512, CKM_SHA512_HMAC_GENERAL, {256, 2048, CKF_SIGN | CKF_VERIFY}},
+    {SHA512, CKM_SHA512_KEY_DERIVATION, {8, 512, CKF_DERIVE}},
 #ifdef SHA512_224
     {SHA512_224, CKM_SHA512_224, {0, 0, CKF_HW | CKF_DIGEST}},
     {SHA512_224, CKM_SHA512_224_HMAC, {112, 2048, CKF_SIGN | CKF_VERIFY}},
@@ -4644,6 +4649,7 @@ static const REF_MECH_LIST_ELEMENT ref_mech_list[] = {
     {SHA3_224, CKM_SHA3_224, {0, 0, CKF_HW | CKF_DIGEST}},
     {SHA3_224, CKM_SHA3_224_HMAC, {112, 2048, CKF_SIGN | CKF_VERIFY}},
     {SHA3_224, CKM_SHA3_224_HMAC_GENERAL, {112, 2048, CKF_SIGN | CKF_VERIFY}},
+    {SHA3_224, CKM_SHA3_224_KEY_DERIVE, {8, 224, CKF_DERIVE}},
     {SHA3_224, CKM_IBM_SHA3_224, {0, 0, CKF_HW | CKF_DIGEST}},
     {SHA3_224, CKM_IBM_SHA3_224_HMAC, {112, 2048, CKF_SIGN | CKF_VERIFY}},
 #endif
@@ -4651,6 +4657,7 @@ static const REF_MECH_LIST_ELEMENT ref_mech_list[] = {
     {SHA3_256, CKM_SHA3_256, {0, 0, CKF_HW | CKF_DIGEST}},
     {SHA3_256, CKM_SHA3_256_HMAC, {128, 2048, CKF_SIGN | CKF_VERIFY}},
     {SHA3_256, CKM_SHA3_256_HMAC_GENERAL, {128, 2048, CKF_SIGN | CKF_VERIFY}},
+    {SHA3_256, CKM_SHA3_256_KEY_DERIVE, {8, 256, CKF_DERIVE}},
     {SHA3_256, CKM_IBM_SHA3_256, {0, 0, CKF_HW | CKF_DIGEST}},
     {SHA3_256, CKM_IBM_SHA3_256_HMAC, {128, 2048, CKF_SIGN | CKF_VERIFY}},
 #endif
@@ -4658,6 +4665,7 @@ static const REF_MECH_LIST_ELEMENT ref_mech_list[] = {
     {SHA3_384, CKM_SHA3_384, {0, 0, CKF_HW | CKF_DIGEST}},
     {SHA3_384, CKM_SHA3_384_HMAC, {192, 2048, CKF_SIGN | CKF_VERIFY}},
     {SHA3_384, CKM_SHA3_384_HMAC_GENERAL, {192, 2048, CKF_SIGN | CKF_VERIFY}},
+    {SHA3_384, CKM_SHA3_384_KEY_DERIVE, {8, 384, CKF_DERIVE}},
     {SHA3_384, CKM_IBM_SHA3_384, {0, 0, CKF_HW | CKF_DIGEST}},
     {SHA3_384, CKM_IBM_SHA3_384_HMAC, {192, 2048, CKF_SIGN | CKF_VERIFY}},
 #endif
@@ -4665,6 +4673,7 @@ static const REF_MECH_LIST_ELEMENT ref_mech_list[] = {
     {SHA3_512, CKM_SHA3_512, {0, 0, CKF_HW | CKF_DIGEST}},
     {SHA3_512, CKM_SHA3_512_HMAC, {256, 2048, CKF_SIGN | CKF_VERIFY}},
     {SHA3_512, CKM_SHA3_512_HMAC_GENERAL, {256, 2048, CKF_SIGN | CKF_VERIFY}},
+    {SHA3_512, CKM_SHA3_512_KEY_DERIVE, {8, 512, CKF_DERIVE}},
     {SHA3_512, CKM_IBM_SHA3_512, {0, 0, CKF_HW | CKF_DIGEST}},
     {SHA3_512, CKM_IBM_SHA3_512_HMAC, {256, 2048, CKF_SIGN | CKF_VERIFY}},
 #endif
@@ -5266,22 +5275,27 @@ static CK_RV mech_list_ica_initialize(STDLL_TokData_t *tokdata)
     if (isMechanismAvailable(tokdata, CKM_SHA_1)) {
         addMechanismToList(tokdata, CKM_SHA_1_HMAC, sha_hw, 0);
         addMechanismToList(tokdata, CKM_SHA_1_HMAC_GENERAL, sha_hw, 0);
+        addMechanismToList(tokdata, CKM_SHA1_KEY_DERIVATION, sha_hw, 0);
     }
     if (isMechanismAvailable(tokdata, CKM_SHA224)) {
         addMechanismToList(tokdata, CKM_SHA224_HMAC, sha_hw, 0);
         addMechanismToList(tokdata, CKM_SHA224_HMAC_GENERAL, sha_hw, 0);
+        addMechanismToList(tokdata, CKM_SHA224_KEY_DERIVATION, sha_hw, 0);
     }
     if (isMechanismAvailable(tokdata, CKM_SHA256)) {
         addMechanismToList(tokdata, CKM_SHA256_HMAC, sha_hw, 0);
         addMechanismToList(tokdata, CKM_SHA256_HMAC_GENERAL, sha_hw, 0);
+        addMechanismToList(tokdata, CKM_SHA256_KEY_DERIVATION, sha_hw, 0);
     }
     if (isMechanismAvailable(tokdata, CKM_SHA384)) {
         addMechanismToList(tokdata, CKM_SHA384_HMAC, sha_hw, 0);
         addMechanismToList(tokdata, CKM_SHA384_HMAC_GENERAL, sha_hw, 0);
+        addMechanismToList(tokdata, CKM_SHA384_KEY_DERIVATION, sha_hw, 0);
     }
     if (isMechanismAvailable(tokdata, CKM_SHA512)) {
         addMechanismToList(tokdata, CKM_SHA512_HMAC, sha_hw, 0);
         addMechanismToList(tokdata, CKM_SHA512_HMAC_GENERAL, sha_hw, 0);
+        addMechanismToList(tokdata, CKM_SHA512_KEY_DERIVATION, sha_hw, 0);
     }
 #ifdef NID_sha512_224WithRSAEncryption
     if (isMechanismAvailable(tokdata, CKM_SHA512_224)) {
@@ -5301,6 +5315,7 @@ static CK_RV mech_list_ica_initialize(STDLL_TokData_t *tokdata)
     if (isMechanismAvailable(tokdata, CKM_SHA3_224)) {
         addMechanismToList(tokdata, CKM_SHA3_224_HMAC, sha_hw, 0);
         addMechanismToList(tokdata, CKM_SHA3_224_HMAC_GENERAL, sha_hw, 0);
+        addMechanismToList(tokdata, CKM_SHA3_224_KEY_DERIVE, sha_hw, 0);
     }
 #endif
 #ifdef NID_sha3_256
@@ -5309,6 +5324,7 @@ static CK_RV mech_list_ica_initialize(STDLL_TokData_t *tokdata)
     if (isMechanismAvailable(tokdata, CKM_SHA3_256)) {
         addMechanismToList(tokdata, CKM_SHA3_256_HMAC, sha_hw, 0);
         addMechanismToList(tokdata, CKM_SHA3_256_HMAC_GENERAL, sha_hw, 0);
+        addMechanismToList(tokdata, CKM_SHA3_256_KEY_DERIVE, sha_hw, 0);
     }
 #endif
 #ifdef NID_sha3_384
@@ -5317,6 +5333,7 @@ static CK_RV mech_list_ica_initialize(STDLL_TokData_t *tokdata)
     if (isMechanismAvailable(tokdata, CKM_SHA3_384)) {
         addMechanismToList(tokdata, CKM_SHA3_384_HMAC, sha_hw, 0);
         addMechanismToList(tokdata, CKM_SHA3_384_HMAC_GENERAL, sha_hw, 0);
+        addMechanismToList(tokdata, CKM_SHA3_384_KEY_DERIVE, sha_hw, 0);
     }
 #endif
 #ifdef NID_sha3_512
@@ -5325,6 +5342,7 @@ static CK_RV mech_list_ica_initialize(STDLL_TokData_t *tokdata)
     if (isMechanismAvailable(tokdata, CKM_SHA3_512)) {
         addMechanismToList(tokdata, CKM_SHA3_512_HMAC, sha_hw, 0);
         addMechanismToList(tokdata, CKM_SHA3_512_HMAC_GENERAL, sha_hw, 0);
+        addMechanismToList(tokdata, CKM_SHA3_512_KEY_DERIVE, sha_hw, 0);
     }
 #endif
 
