@@ -1022,12 +1022,9 @@ CK_RV ssl3_master_key_derive(STDLL_TokData_t *tokdata,
     CK_ATTRIBUTE *attr = NULL;
     CK_ATTRIBUTE *value_attr = NULL;
     CK_ATTRIBUTE *value_len_attr = NULL;
-    CK_ATTRIBUTE *always_sens_attr = NULL;
-    CK_ATTRIBUTE *extract_attr = NULL;
     CK_BYTE *base_key_value = NULL;
     CK_BYTE key_data[48];
     CK_ULONG base_key_len;
-    CK_BBOOL flag;
     CK_OBJECT_CLASS class;
     CK_KEY_TYPE keytype;
     CK_ULONG value_len;
@@ -1166,61 +1163,12 @@ CK_RV ssl3_master_key_derive(STDLL_TokData_t *tokdata,
         TRACE_DEVEL("Failed to build CKA_VALUE_LEN attribute.\n");
         goto error;
     }
-    //
-    // now, adjust the CKA_ALWAYS_SENSITIVE and CKA_NEVER_EXTRACTABLE
-    // attributes based on the corresponding values from the base key
-    //
 
-    // if base key has ALWAYS_SENSITIVE = FALSE, then new key does too
-    // otherwise, the value of CKA_ALWAYS_SENSITIVE = CKA_SENSITIVE
-    //
-    rc = template_attribute_get_bool(base_key_obj->template,
-                                    CKA_ALWAYS_SENSITIVE, &flag);
+    rc = key_mgr_derive_always_sensitive_never_extractable_attrs(tokdata,
+                                                base_key_obj, derived_key_obj);
     if (rc != CKR_OK) {
-        TRACE_ERROR("Could not find CKA_ALWAYS_SENSITIVE in the template\n");
-        goto error;
-    }
-
-    if (flag == TRUE) {
-        rc = template_attribute_get_bool(derived_key_obj->template,
-                                         CKA_SENSITIVE, &flag);
-        if (rc != CKR_OK) {
-            TRACE_ERROR("Could not find CKA_SENSITIVE in the template\n");
-            goto error;
-        }
-    }
-
-    rc = build_attribute(CKA_ALWAYS_SENSITIVE, &flag, sizeof(CK_BBOOL),
-                         &always_sens_attr);
-    if (rc != CKR_OK) {
-        TRACE_DEVEL("Failed to build CKA_ALWAYS_SENSITIVE attribute.\n");
-        goto error;
-    }
-    // if base key has NEVER_EXTRACTABLE = FASE, the new key does too
-    // otherwise, the value of CKA_NEVER_EXTRACTABLE = !CKA_EXTRACTABLE
-    //
-    rc = template_attribute_get_bool(base_key_obj->template,
-                                     CKA_NEVER_EXTRACTABLE, &flag);
-    if (rc != CKR_OK) {
-        TRACE_DEVEL("Could not find CKA_NEVER_EXTRACTABLE in the template.\n");
-        goto error;
-    }
-
-    if (flag == TRUE) {
-        rc = template_attribute_get_bool(derived_key_obj->template,
-                                         CKA_EXTRACTABLE, &flag);
-        if (rc != CKR_OK) {
-            TRACE_DEVEL("Could not find CKA_EXTRACTABLE in the template.\n");
-            goto error;
-        }
-
-        flag = (~flag) & 0x1;
-    }
-
-    rc = build_attribute(CKA_NEVER_EXTRACTABLE, &flag, sizeof(CK_BBOOL),
-                         &extract_attr);
-    if (rc != CKR_OK) {
-        TRACE_DEVEL("Failed to build CKA_NEVER_EXTRACTABLE attribute.\n");
+        TRACE_ERROR("key_mgr_derive_always_sensitive_never_extractable_attrs "
+                    "failed\n");
         goto error;
     }
 
@@ -1236,18 +1184,6 @@ CK_RV ssl3_master_key_derive(STDLL_TokData_t *tokdata,
         goto error;
     }
     value_len_attr = NULL;
-    rc = template_update_attribute(derived_key_obj->template, always_sens_attr);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("template_update_attribute failed\n");
-        goto error;
-    }
-    always_sens_attr = NULL;
-    rc = template_update_attribute(derived_key_obj->template, extract_attr);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("template_update_attribute failed\n");
-        goto error;
-    }
-    extract_attr = NULL;
 
     // at this point, the derived key is fully constructed...assign an
     // object handle and store the key
@@ -1274,10 +1210,6 @@ error:
         free(value_attr);
     if (value_len_attr)
         free(value_len_attr);
-    if (always_sens_attr)
-        free(always_sens_attr);
-    if (extract_attr)
-        free(extract_attr);
     if (derived_key_obj)
         object_free(derived_key_obj);
 
