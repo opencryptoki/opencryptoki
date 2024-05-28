@@ -276,46 +276,55 @@ CK_RV get_digest_from_mech(CK_MECHANISM_TYPE mech, CK_MECHANISM_TYPE *digest)
     case CKM_ECDSA_SHA1:
     case CKM_SHA1_RSA_PKCS:
     case CKM_SHA1_RSA_PKCS_PSS:
+    case CKM_SHA1_KEY_DERIVATION:
         *digest = CKM_SHA_1;
         break;
     case CKM_ECDSA_SHA224:
     case CKM_SHA224_RSA_PKCS:
     case CKM_SHA224_RSA_PKCS_PSS:
+    case CKM_SHA224_KEY_DERIVATION:
         *digest = CKM_SHA224;
         break;
     case CKM_ECDSA_SHA256:
     case CKM_SHA256_RSA_PKCS:
     case CKM_SHA256_RSA_PKCS_PSS:
+    case CKM_SHA256_KEY_DERIVATION:
         *digest = CKM_SHA256;
         break;
     case CKM_ECDSA_SHA384:
     case CKM_SHA384_RSA_PKCS:
     case CKM_SHA384_RSA_PKCS_PSS:
+    case CKM_SHA384_KEY_DERIVATION:
         *digest = CKM_SHA384;
         break;
     case CKM_ECDSA_SHA512:
     case CKM_SHA512_RSA_PKCS:
     case CKM_SHA512_RSA_PKCS_PSS:
+    case CKM_SHA512_KEY_DERIVATION:
         *digest = CKM_SHA512;
         break;
     case CKM_ECDSA_SHA3_224:
     case CKM_SHA3_224_RSA_PKCS:
     case CKM_SHA3_224_RSA_PKCS_PSS:
+    case CKM_SHA3_224_KEY_DERIVE:
         *digest = CKM_SHA3_224;
         break;
     case CKM_ECDSA_SHA3_256:
     case CKM_SHA3_256_RSA_PKCS:
     case CKM_SHA3_256_RSA_PKCS_PSS:
+    case CKM_SHA3_256_KEY_DERIVE:
         *digest = CKM_SHA3_256;
         break;
     case CKM_ECDSA_SHA3_384:
     case CKM_SHA3_384_RSA_PKCS:
     case CKM_SHA3_384_RSA_PKCS_PSS:
+    case CKM_SHA3_384_KEY_DERIVE:
         *digest = CKM_SHA3_384;
         break;
     case CKM_ECDSA_SHA3_512:
     case CKM_SHA3_512_RSA_PKCS:
     case CKM_SHA3_512_RSA_PKCS_PSS:
+    case CKM_SHA3_512_KEY_DERIVE:
         *digest = CKM_SHA3_512;
         break;
     default:

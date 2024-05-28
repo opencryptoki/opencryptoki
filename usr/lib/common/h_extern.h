@@ -1708,6 +1708,11 @@ CK_RV sha_hmac_verify(STDLL_TokData_t *tokdata,
 //adding the hmac secret key generation here
 CK_RV ckm_generic_secret_key_gen(STDLL_TokData_t *tokdata, TEMPLATE *tmpl);
 
+CK_RV ckm_sha_derive(STDLL_TokData_t *tokdata, SESSION *sess,
+                     CK_MECHANISM *mech, OBJECT *base_key_obj,
+                     CK_ATTRIBUTE *pTemplate, CK_ULONG ulCount,
+                     CK_OBJECT_HANDLE *derived_key_obj);
+
 #if !(NOMD2)
 // MD2 mechanisms
 //
@@ -2033,6 +2038,11 @@ CK_RV digest_mgr_digest_final(STDLL_TokData_t *tokdata,
 //
 CK_RV key_mgr_apply_always_sensitive_never_extractable_attrs(
                                     STDLL_TokData_t *tokdata, OBJECT *key_obj);
+
+CK_RV key_mgr_derive_always_sensitive_never_extractable_attrs(
+                                                    STDLL_TokData_t *tokdata,
+                                                    OBJECT *base_key_obj,
+                                                    OBJECT *derived_key_obj);
 
 CK_RV key_mgr_generate_key(STDLL_TokData_t *tokdata,
                            SESSION *sess,

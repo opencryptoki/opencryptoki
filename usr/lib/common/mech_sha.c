@@ -37,6 +37,7 @@
 #include "h_extern.h"
 #include "tok_spec_struct.h"
 #include "trace.h"
+#include "attributes.h"
 
 #include <openssl/evp.h>
 #include <openssl/crypto.h>
@@ -523,4 +524,247 @@ CK_RV ckm_generic_secret_key_gen(STDLL_TokData_t *tokdata, TEMPLATE *tmpl)
     }
 
     return token_specific.t_generic_secret_key_gen(tokdata, tmpl);
+}
+
+CK_RV ckm_sha_derive(STDLL_TokData_t *tokdata, SESSION *sess,
+                     CK_MECHANISM *mech, OBJECT *base_key_obj,
+                     CK_ATTRIBUTE *pTemplate, CK_ULONG ulCount,
+                     CK_OBJECT_HANDLE *derived_key_handle)
+{
+    OBJECT *derived_key_obj = NULL;
+    CK_BYTE derived_key_value[MAX_SHA_HASH_SIZE];
+    DIGEST_CONTEXT ctx;
+    CK_MECHANISM digest_mech;
+    CK_ULONG hsize = 0, allowed_keysize = 0;
+    CK_ULONG derived_keytype = 0, derived_keylen = 0;
+    CK_ATTRIBUTE *base_key_value;
+    CK_ATTRIBUTE *value_attr, *vallen_attr = NULL;
+    CK_ULONG base_key_class, base_key_type;
+    CK_RV rc;
+
+    memset(&ctx, 0, sizeof(DIGEST_CONTEXT));
+    memset(&digest_mech, 0, sizeof(CK_MECHANISM));
+
+    rc = get_digest_from_mech(mech->mechanism, &digest_mech.mechanism);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s get_digest_from_mech failed\n", __func__);
+        return rc;
+    }
+
+    rc = get_sha_size(digest_mech.mechanism, &hsize);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s get_sha_size failed\n", __func__);
+        return CKR_FUNCTION_NOT_SUPPORTED;
+    }
+
+    rc = get_ulong_attribute_by_type(pTemplate, ulCount, CKA_VALUE_LEN,
+                                     &derived_keylen);
+    if (rc == CKR_ATTRIBUTE_VALUE_INVALID) {
+        TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
+        return rc;
+    }
+
+    rc = get_ulong_attribute_by_type(pTemplate, ulCount, CKA_KEY_TYPE,
+                                     &derived_keytype);
+    if (rc == CKR_ATTRIBUTE_VALUE_INVALID) {
+        TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
+        return rc;
+    }
+
+    /*
+     * According to PKCS#11:
+     * - no key length and no key type: CKK_GENERIC_SECRET of size <hsize>.
+     * - no key type, but length given: CKK_GENERIC_SECRET if specified length.
+     * - no key length but key type specified: key must have a well-defined
+     *                                         length, otherwise error.
+     * - key length and key type specified: length must be compatible with key
+     *                                      type, otherwise error.
+     * - key length must always be less or equal to the digest size.
+     */
+    if (derived_keytype == 0)
+        derived_keytype = CKK_GENERIC_SECRET;
+
+    switch (derived_keytype) {
+    case CKK_GENERIC_SECRET:
+        allowed_keysize = hsize;
+        break;
+    case CKK_DES:
+        allowed_keysize = DES_KEY_SIZE;
+        break;
+    case CKK_DES2:
+        allowed_keysize = 2 * DES_KEY_SIZE;
+        break;
+    case CKK_DES3:
+        allowed_keysize = 3 * DES_KEY_SIZE;
+        break;
+    case CKK_AES:
+        switch (derived_keylen) {
+        case AES_KEY_SIZE_128:
+        case AES_KEY_SIZE_192:
+        case AES_KEY_SIZE_256:
+            allowed_keysize = derived_keylen;
+            break;
+        default:
+            TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCONSISTENT));
+            return CKR_TEMPLATE_INCONSISTENT;
+        }
+        break;
+    case CKK_AES_XTS:
+        switch (derived_keylen) {
+        case 2 * AES_KEY_SIZE_128:
+        case 2 * AES_KEY_SIZE_256:
+            allowed_keysize = derived_keylen;
+            break;
+        default:
+            TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCONSISTENT));
+            return CKR_TEMPLATE_INCONSISTENT;
+        }
+        break;
+    default:
+        TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCONSISTENT));
+        return CKR_TEMPLATE_INCONSISTENT;
+    }
+
+    if (derived_keylen == 0)
+        derived_keylen = allowed_keysize;
+
+    if (derived_keylen > hsize || derived_keylen > allowed_keysize) {
+        TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCONSISTENT));
+        return CKR_TEMPLATE_INCONSISTENT;
+    }
+
+    if (!template_get_class(base_key_obj->template, &base_key_class,
+                            &base_key_type)) {
+        TRACE_ERROR("Could not find CKA_CLASS in the template\n");
+        return CKR_TEMPLATE_INCOMPLETE;
+    }
+
+    if (base_key_class != CKO_SECRET_KEY) {
+        TRACE_ERROR("Base key is not a secret key\n");
+        return CKR_KEY_TYPE_INCONSISTENT;
+    }
+
+    switch (base_key_type) {
+    case CKK_GENERIC_SECRET:
+    case CKK_DES:
+    case CKK_DES2:
+    case CKK_DES3:
+    case CKK_AES:
+    case CKK_AES_XTS:
+        break;
+    default:
+        TRACE_ERROR("Base key type is not supported\n");
+        return CKR_KEY_TYPE_INCONSISTENT;
+    }
+
+    /* Digest the base key to derive the derived key */
+    rc = template_attribute_get_non_empty(base_key_obj->template,
+                                          CKA_VALUE, &base_key_value);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_VALUE for the base key.\n");
+        return rc;
+    }
+
+    rc = digest_mgr_init(tokdata, sess, &ctx, &digest_mech, FALSE);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
+        return rc;
+    }
+
+    rc = digest_mgr_digest(tokdata, sess, FALSE, &ctx,
+                           base_key_value->pValue, base_key_value->ulValueLen,
+                           derived_key_value, &hsize);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("digest_mgr_digest failed with rc = %s\n", ock_err(rc));
+        digest_mgr_cleanup(tokdata, sess, &ctx);
+        return rc;
+    }
+
+    rc = build_attribute(CKA_VALUE, derived_key_value, derived_keylen,
+                         &value_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Failed to build the attribute from CKA_VALUE, rc=%s.\n",
+                    ock_err(rc));
+        return rc;
+    }
+
+    switch (derived_keytype) {
+    case CKK_GENERIC_SECRET:
+    case CKK_AES:
+    case CKK_AES_XTS:
+        /* Supply CKA_VAUE_LEN since this is required for those key types */
+        rc = build_attribute(CKA_VALUE_LEN, (CK_BYTE*)&derived_keylen,
+                             sizeof(derived_keylen), &vallen_attr);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("Failed to build the attribute from CKA_VALUE_LEN, "
+                        "rc=%s.\n", ock_err(rc));
+            goto end;
+        }
+        break;
+    case CKK_DES:
+        if (des_check_weak_key(derived_key_value)) {
+            TRACE_ERROR("Derived key is a weak DES key\n");
+            rc = CKR_FUNCTION_FAILED;
+            goto end;
+        }
+        break;
+    default:
+        break;
+    }
+
+    /* Create the derived key object and update the attributes */
+    rc = object_mgr_create_skel(tokdata, sess, pTemplate, ulCount, MODE_DERIVE,
+                                CKO_SECRET_KEY, derived_keytype,
+                                &derived_key_obj);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Object Mgr create skeleton failed, rc=%s.\n", ock_err(rc));
+        goto end;
+    }
+
+    /* Update the template in the object with the new attributes */
+    rc = template_update_attribute(derived_key_obj->template, value_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto end;
+    }
+    value_attr = NULL;
+
+    if (vallen_attr != NULL) {
+        rc = template_update_attribute(derived_key_obj->template, vallen_attr);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("template_update_attribute failed\n");
+            goto end;
+        }
+        vallen_attr = NULL;
+    }
+
+    rc = key_mgr_derive_always_sensitive_never_extractable_attrs(tokdata,
+                                                base_key_obj, derived_key_obj);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("key_mgr_derive_always_sensitive_never_extractable_attrs "
+                    "failed\n");
+        goto end;
+    }
+
+    rc = object_mgr_create_final(tokdata, sess, derived_key_obj,
+                                 derived_key_handle);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Object Mgr create final failed, rc=%s.\n", ock_err(rc));
+        goto end;
+    }
+
+    rc = CKR_OK;
+
+end:
+    if (rc != CKR_OK && derived_key_obj != NULL) {
+        object_free(derived_key_obj);
+        derived_key_handle = CK_INVALID_HANDLE;
+    }
+
+    if (value_attr != NULL)
+        free(value_attr);
+    if (vallen_attr != NULL)
+        free(vallen_attr);
+
+    return rc;
 }

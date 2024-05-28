@@ -102,6 +102,97 @@ error:
     return rc;
 }
 
+CK_RV key_mgr_derive_always_sensitive_never_extractable_attrs(
+                                                    STDLL_TokData_t *tokdata,
+                                                    OBJECT *base_key_obj,
+                                                    OBJECT *derived_key_obj)
+{
+    CK_ATTRIBUTE *always_sens_attr = NULL, *never_extract_attr = NULL;
+    CK_BBOOL flag;
+    CK_RV rc;
+
+    UNUSED(tokdata);
+
+    /*
+     * If base key has ALWAYS_SENSITIVE = FALSE, then new key does too
+     * otherwise, the value of CKA_ALWAYS_SENSITIVE = CKA_SENSITIVE
+     */
+    rc = template_attribute_get_bool(base_key_obj->template,
+                                     CKA_ALWAYS_SENSITIVE, &flag);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_ALWAYS_SENSITIVE in the template\n");
+        goto end;
+    }
+
+    if (flag == TRUE) {
+        rc = template_attribute_get_bool(derived_key_obj->template,
+                                         CKA_SENSITIVE, &flag);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("Could not find CKA_SENSITIVE in the template\n");
+            goto end;
+        }
+    }
+
+    rc = build_attribute(CKA_ALWAYS_SENSITIVE, &flag, sizeof(CK_BBOOL),
+                         &always_sens_attr);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("Failed to build CKA_ALWAYS_SENSITIVE attribute.\n");
+        goto end;
+    }
+
+    /*
+     * If base key has NEVER_EXTRACTABLE = FALSE, the new key does too
+     * otherwise, the value of CKA_NEVER_EXTRACTABLE = !CKA_EXTRACTABLE
+     */
+    rc = template_attribute_get_bool(base_key_obj->template,
+                                     CKA_NEVER_EXTRACTABLE, &flag);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("Could not find CKA_NEVER_EXTRACTABLE in the template.\n");
+        goto end;
+    }
+
+    if (flag == TRUE) {
+        rc = template_attribute_get_bool(derived_key_obj->template,
+                                         CKA_EXTRACTABLE, &flag);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("Could not find CKA_EXTRACTABLE in the template.\n");
+            goto end;
+        }
+
+        flag = !flag;
+    }
+
+    rc = build_attribute(CKA_NEVER_EXTRACTABLE, &flag, sizeof(CK_BBOOL),
+                         &never_extract_attr);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("Failed to build CKA_NEVER_EXTRACTABLE attribute.\n");
+        goto end;
+    }
+
+    rc = template_update_attribute(derived_key_obj->template, always_sens_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto end;
+    }
+    always_sens_attr = NULL;
+
+    rc = template_update_attribute(derived_key_obj->template,
+                                   never_extract_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto end;
+    }
+    never_extract_attr = NULL;
+
+end:
+    if (always_sens_attr != NULL)
+        free(always_sens_attr);
+    if (never_extract_attr != NULL)
+        free(never_extract_attr);
+
+    return rc;
+}
+
 //
 //
 CK_RV key_mgr_generate_key(STDLL_TokData_t *tokdata,
@@ -1571,6 +1662,23 @@ CK_RV key_mgr_derive_key(STDLL_TokData_t *tokdata,
         }
         rc = ecdh_pkcs_derive(tokdata, sess, mech, base_key_obj, new_attrs,
                               new_attr_count, derived_key);
+        break;
+    case CKM_SHA1_KEY_DERIVATION:
+    case CKM_SHA224_KEY_DERIVATION:
+    case CKM_SHA256_KEY_DERIVATION:
+    case CKM_SHA384_KEY_DERIVATION:
+    case CKM_SHA512_KEY_DERIVATION:
+    case CKM_SHA3_224_KEY_DERIVE:
+    case CKM_SHA3_256_KEY_DERIVE:
+    case CKM_SHA3_384_KEY_DERIVE:
+    case CKM_SHA3_512_KEY_DERIVE:
+        if (!derived_key) {
+            TRACE_ERROR("%s received bad argument(s)\n", __func__);
+            rc = CKR_FUNCTION_FAILED;
+            break;
+        }
+        rc = ckm_sha_derive(tokdata, sess, mech, base_key_obj, new_attrs,
+                            new_attr_count, derived_key);
         break;
     default:
         TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
