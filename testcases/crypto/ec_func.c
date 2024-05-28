@@ -284,6 +284,15 @@ static CK_EC_KDF_TYPE kdfs[] = {
     CKD_SHA3_256_KDF,
     CKD_SHA3_384_KDF,
     CKD_SHA3_512_KDF,
+    CKD_SHA1_KDF_SP800,
+    CKD_SHA224_KDF_SP800,
+    CKD_SHA256_KDF_SP800,
+    CKD_SHA384_KDF_SP800,
+    CKD_SHA512_KDF_SP800,
+    CKD_SHA3_224_KDF_SP800,
+    CKD_SHA3_256_KDF_SP800,
+    CKD_SHA3_384_KDF_SP800,
+    CKD_SHA3_512_KDF_SP800,
 };
 
 static const char *p11_get_ckd(CK_EC_KDF_TYPE kdf)
@@ -309,6 +318,24 @@ static const char *p11_get_ckd(CK_EC_KDF_TYPE kdf)
         return "CKD_SHA3_384_KDF";
     case CKD_SHA3_512_KDF:
         return "CKD_SHA3_512_KDF";
+    case CKD_SHA1_KDF_SP800:
+        return "CKD_SHA1_KDF_SP800";
+    case CKD_SHA224_KDF_SP800:
+        return "CKD_SHA224_KDF_SP800";
+    case CKD_SHA256_KDF_SP800:
+        return "CKD_SHA256_KDF_SP800";
+    case CKD_SHA384_KDF_SP800:
+        return "CKD_SHA384_KDF_SP800";
+    case CKD_SHA512_KDF_SP800:
+        return "CKD_SHA512_KDF_SP800";
+    case CKD_SHA3_224_KDF_SP800:
+        return "CKD_SHA3_224_KDF_SP800";
+    case CKD_SHA3_256_KDF_SP800:
+        return "CKD_SHA3_256_KDF_SP800";
+    case CKD_SHA3_384_KDF_SP800:
+        return "CKD_SHA3_384_KDF_SP800";
+    case CKD_SHA3_512_KDF_SP800:
+        return "CKD_SHA3_512_KDF_SP800";
     default:
         return "UNKNOWN";
     }
@@ -663,65 +690,74 @@ CK_RV run_DeriveECDHKey(void)
         for (j=0; j < NUM_KDFS; j++) {
             switch (kdfs[j]) {
             case CKD_SHA1_KDF:
+            case CKD_SHA1_KDF_SP800:
                 if (!mech_supported(SLOT_ID, CKM_SHA_1)) {
-                    testcase_skip("Slot %u doesn't support CKD_SHA1_KDF\n",
-                                  (unsigned int) SLOT_ID);
+                    testcase_skip("Slot %u doesn't support %s\n",
+                                  (unsigned int) SLOT_ID, p11_get_ckd(kdfs[j]));
                     continue;
                 }
                 break;
             case CKD_SHA224_KDF:
+            case CKD_SHA224_KDF_SP800:
                 if (!mech_supported(SLOT_ID, CKM_SHA224)) {
-                    testcase_skip("Slot %u doesn't support CKD_SHA224_KDF\n",
-                                  (unsigned int) SLOT_ID);
+                    testcase_skip("Slot %u doesn't support %s\n",
+                                  (unsigned int) SLOT_ID, p11_get_ckd(kdfs[j]));
                     continue;
                 }
                 break;
             case CKD_SHA256_KDF:
+            case CKD_SHA256_KDF_SP800:
                 if (!mech_supported(SLOT_ID, CKM_SHA256)) {
-                    testcase_skip("Slot %u doesn't support CKD_SHA256_KDF\n",
-                                  (unsigned int) SLOT_ID);
+                    testcase_skip("Slot %u doesn't support %s\n",
+                                  (unsigned int) SLOT_ID, p11_get_ckd(kdfs[j]));
                     continue;
                 }
                 break;
             case CKD_SHA384_KDF:
+            case CKD_SHA384_KDF_SP800:
                 if (!mech_supported(SLOT_ID, CKM_SHA384)) {
-                    testcase_skip("Slot %u doesn't support CKD_SHA384_KDF\n",
-                                  (unsigned int) SLOT_ID);
+                    testcase_skip("Slot %u doesn't support %s\n",
+                                  (unsigned int) SLOT_ID, p11_get_ckd(kdfs[j]));
                     continue;
                 }
                 break;
             case CKD_SHA512_KDF:
+            case CKD_SHA512_KDF_SP800:
                 if (!mech_supported(SLOT_ID, CKM_SHA512)) {
-                    testcase_skip("Slot %u doesn't support CKD_SHA512_KDF\n",
-                                  (unsigned int) SLOT_ID);
+                    testcase_skip("Slot %u doesn't support %s\n",
+                                  (unsigned int) SLOT_ID, p11_get_ckd(kdfs[j]));
                     continue;
                 }
                 break;
             case CKD_SHA3_224_KDF:
+            case CKD_SHA3_224_KDF_SP800:
                 if (!mech_supported(SLOT_ID, CKM_SHA3_224)) {
-                    testcase_skip("Slot %u doesn't support CKD_SHA3_224_KDF\n",
-                                  (unsigned int) SLOT_ID);
+                    testcase_skip("Slot %u doesn't support %s\n",
+                                  (unsigned int) SLOT_ID, p11_get_ckd(kdfs[j]));;
                     continue;
                 }
                 break;
             case CKD_SHA3_256_KDF:
+            case CKD_SHA3_256_KDF_SP800:
                 if (!mech_supported(SLOT_ID, CKM_SHA3_256)) {
-                    testcase_skip("Slot %u doesn't support CKD_SHA3_256_KDF\n",
-                                  (unsigned int) SLOT_ID);
+                    testcase_skip("Slot %u doesn't support %s\n",
+                                  (unsigned int) SLOT_ID, p11_get_ckd(kdfs[j]));
                     continue;
                 }
                 break;
             case CKD_SHA3_384_KDF:
+            case CKD_SHA3_384_KDF_SP800:
                 if (!mech_supported(SLOT_ID, CKM_SHA3_384)) {
-                    testcase_skip("Slot %u doesn't support CKD_SHA3_384_KDF\n",
-                                  (unsigned int) SLOT_ID);
+                    testcase_skip("Slot %u doesn't support %s\n",
+                                  (unsigned int) SLOT_ID, p11_get_ckd(kdfs[j]));
                     continue;
                 }
                 break;
             case CKD_SHA3_512_KDF:
+            case CKD_SHA3_512_KDF_SP800:
                 if (!mech_supported(SLOT_ID, CKM_SHA3_512)) {
-                    testcase_skip("Slot %u doesn't support CKD_SHA3_512_KDF\n",
-                                  (unsigned int) SLOT_ID);
+                    testcase_skip("Slot %u doesn't support %s\n",
+                                  (unsigned int) SLOT_ID, p11_get_ckd(kdfs[j]));
                     continue;
                 }
                 break;
@@ -838,9 +874,10 @@ CK_RV run_DeriveECDHKey(void)
                             rc == CKR_MECHANISM_PARAM_INVALID &&
                             (kdfs[j] != CKD_NULL ||
                              shared_data[m].length > 0)) {
-                            testcase_skip("EP11 does not support KDFs and "
+                            testcase_skip("EP11 does not support KDF %s and/or "
                                           "shared data with older firmware "
-                                          "versions\n");
+                                          "versions\n",
+                                          p11_get_ckd(kdfs[j]));
                             continue;
                         }
                         if (is_rejected_by_policy(rc, session)) {
@@ -891,9 +928,10 @@ CK_RV run_DeriveECDHKey(void)
                             rc == CKR_MECHANISM_PARAM_INVALID &&
                             (kdfs[j] != CKD_NULL ||
                              shared_data[m].length > 0)) {
-                            testcase_skip("EP11 does not support KDFs and "
+                            testcase_skip("EP11 does not support KDF %s and/or "
                                           "shared data with older firmware "
-                                          "versions\n");
+                                          "versions\n",
+                                          p11_get_ckd(kdfs[j]));
                             if (secret_keyA != CK_INVALID_HANDLE)
                                 funcs->C_DestroyObject(session, secret_keyA);
                             continue;
@@ -1081,65 +1119,83 @@ CK_RV run_DeriveECDHKeyKAT(void)
 
         switch (ecdh_tv[i].kdf) {
         case CKD_SHA1_KDF:
+        case CKD_SHA1_KDF_SP800:
             if (!mech_supported(SLOT_ID, CKM_SHA_1)) {
-                testcase_skip("Slot %u doesn't support CKD_SHA1_KDF\n",
-                              (unsigned int) SLOT_ID);
+                testcase_skip("Slot %u doesn't support %s\n",
+                              (unsigned int) SLOT_ID,
+                              p11_get_ckd(ecdh_tv[i].kdf));
                 continue;
             }
             break;
         case CKD_SHA224_KDF:
+        case CKD_SHA224_KDF_SP800:
             if (!mech_supported(SLOT_ID, CKM_SHA224)) {
-                testcase_skip("Slot %u doesn't support CKD_SHA224_KDF\n",
-                              (unsigned int) SLOT_ID);
+                testcase_skip("Slot %u doesn't support %s\n",
+                              (unsigned int) SLOT_ID,
+                              p11_get_ckd(ecdh_tv[i].kdf));
                 continue;
             }
             break;
         case CKD_SHA256_KDF:
+        case CKD_SHA256_KDF_SP800:
             if (!mech_supported(SLOT_ID, CKM_SHA256)) {
-                testcase_skip("Slot %u doesn't support CKD_SHA256_KDF\n",
-                              (unsigned int) SLOT_ID);
+                testcase_skip("Slot %u doesn't support %s\n",
+                              (unsigned int) SLOT_ID,
+                              p11_get_ckd(ecdh_tv[i].kdf));
                 continue;
             }
             break;
         case CKD_SHA384_KDF:
+        case CKD_SHA384_KDF_SP800:
             if (!mech_supported(SLOT_ID, CKM_SHA384)) {
-                testcase_skip("Slot %u doesn't support CKD_SHA384_KDF\n",
-                              (unsigned int) SLOT_ID);
+                testcase_skip("Slot %u doesn't support %s\n",
+                              (unsigned int) SLOT_ID,
+                              p11_get_ckd(ecdh_tv[i].kdf));
                 continue;
             }
             break;
         case CKD_SHA512_KDF:
+        case CKD_SHA512_KDF_SP800:
             if (!mech_supported(SLOT_ID, CKM_SHA512)) {
-                testcase_skip("Slot %u doesn't support CKD_SHA512_KDF\n",
-                              (unsigned int) SLOT_ID);
+                testcase_skip("Slot %u doesn't support %s\n",
+                              (unsigned int) SLOT_ID,
+                              p11_get_ckd(ecdh_tv[i].kdf));
                 continue;
             }
             break;
         case CKD_SHA3_224_KDF:
+        case CKD_SHA3_224_KDF_SP800:
             if (!mech_supported(SLOT_ID, CKM_SHA3_224)) {
-                testcase_skip("Slot %u doesn't support CKD_SHA3_224_KDF\n",
-                              (unsigned int) SLOT_ID);
+                testcase_skip("Slot %u doesn't support %s\n",
+                              (unsigned int) SLOT_ID,
+                              p11_get_ckd(ecdh_tv[i].kdf));
                 continue;
             }
             break;
         case CKD_SHA3_256_KDF:
+        case CKD_SHA3_256_KDF_SP800:
             if (!mech_supported(SLOT_ID, CKM_SHA3_256)) {
-                testcase_skip("Slot %u doesn't support CKD_SHA3_256_KDF\n",
-                              (unsigned int) SLOT_ID);
+                testcase_skip("Slot %u doesn't support %s\n",
+                              (unsigned int) SLOT_ID,
+                              p11_get_ckd(ecdh_tv[i].kdf));
                 continue;
             }
             break;
         case CKD_SHA3_384_KDF:
+        case CKD_SHA3_384_KDF_SP800:
             if (!mech_supported(SLOT_ID, CKM_SHA3_384)) {
-                testcase_skip("Slot %u doesn't support CKD_SHA3_384_KDF\n",
-                              (unsigned int) SLOT_ID);
+                testcase_skip("Slot %u doesn't support %s\n",
+                              (unsigned int) SLOT_ID,
+                              p11_get_ckd(ecdh_tv[i].kdf));
                 continue;
             }
             break;
         case CKD_SHA3_512_KDF:
+        case CKD_SHA3_512_KDF_SP800:
             if (!mech_supported(SLOT_ID, CKM_SHA3_512)) {
-                testcase_skip("Slot %u doesn't support CKD_SHA3_512_KDF\n",
-                              (unsigned int) SLOT_ID);
+                testcase_skip("Slot %u doesn't support %s\n",
+                              (unsigned int) SLOT_ID,
+                              p11_get_ckd(ecdh_tv[i].kdf));
                 continue;
             }
             break;
@@ -1293,8 +1349,9 @@ CK_RV run_DeriveECDHKeyKAT(void)
                 rc == CKR_MECHANISM_PARAM_INVALID &&
                 (ecdh_tv[i].kdf != CKD_NULL ||
                  ecdh_tv[i].shared_data_len > 0)) {
-                testcase_skip("EP11 does not support KDFs and shared data with "
-                              "older firmware versions\n");
+                testcase_skip("EP11 does not support KDF %s and/or shared data "
+                              "with older firmware versions\n",
+                              p11_get_ckd(ecdh_tv[i].kdf));
                 if (priv_keyA != CK_INVALID_HANDLE)
                     funcs->C_DestroyObject(session, priv_keyA);
                 if (publ_keyA != CK_INVALID_HANDLE)
@@ -1337,8 +1394,9 @@ CK_RV run_DeriveECDHKeyKAT(void)
                 rc == CKR_MECHANISM_PARAM_INVALID &&
                 (ecdh_tv[i].kdf != CKD_NULL ||
                  ecdh_tv[i].shared_data_len > 0)) {
-                testcase_skip("EP11 does not support KDFs and shared data with "
-                              "older firmware versions\n");
+                testcase_skip("EP11 does not support KDF %s and/or shared data "
+                              "with older firmware versions\n",
+                              p11_get_ckd(ecdh_tv[i].kdf));
                 if (secret_keyA != CK_INVALID_HANDLE)
                     funcs->C_DestroyObject(session, secret_keyA);
                 if (priv_keyA != CK_INVALID_HANDLE)
