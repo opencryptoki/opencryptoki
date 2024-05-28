@@ -1626,6 +1626,7 @@ CK_RV do_SHA_derive_key(void)
     CK_ATTRIBUTE key_gen_tmpl[] = {
         {CKA_EXTRACTABLE, &true, sizeof(CK_BBOOL)},
         {CKA_VALUE_LEN, &key_len, sizeof(CK_ULONG)},
+        {CKA_DERIVE, &true, sizeof(CK_BBOOL)},
         {CKA_IBM_USE_AS_DATA, &true, sizeof(CK_BBOOL)},
     };
     CK_ULONG key_gen_tmpl_len = sizeof(key_gen_tmpl) / sizeof(CK_ATTRIBUTE);
