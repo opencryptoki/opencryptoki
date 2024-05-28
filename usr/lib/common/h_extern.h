@@ -1857,6 +1857,17 @@ CK_RV ec_hash_verify_final(STDLL_TokData_t *tokdata,
                            SIGN_VERIFY_CONTEXT *ctx,
                            CK_BYTE *signature, CK_ULONG sig_len);
 
+CK_RV ckm_kdf_X9_63(STDLL_TokData_t *tokdata, SESSION *sess, CK_ULONG kdf,
+                    CK_ULONG kdf_digest_len, const CK_BYTE *z, CK_ULONG z_len,
+                    const CK_BYTE *shared_data, CK_ULONG shared_data_len,
+                    CK_BYTE *key, CK_ULONG key_len);
+
+CK_RV ckm_kdf_sp800_56c(STDLL_TokData_t *tokdata, SESSION *sess, CK_ULONG kdf,
+                        CK_ULONG kdf_digest_len,
+                        const CK_BYTE *z, CK_ULONG z_len,
+                        const CK_BYTE *shared_data, CK_ULONG shared_data_len,
+                        uint32_t purpose, CK_BYTE *key, CK_ULONG key_len);
+
 CK_RV ec_uncompress_public_key(CK_BYTE *curve, CK_ULONG curve_len,
                                CK_BYTE *pubkey, CK_ULONG pubkey_len,
                                CK_ULONG privkey_len,

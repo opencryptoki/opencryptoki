@@ -108,6 +108,15 @@ int main(void)
     puts("      CKD_SHA3_256_KDF,");
     puts("      CKD_SHA3_384_KDF,");
     puts("      CKD_SHA3_512_KDF,");
+    puts("      CKD_SHA1_KDF_SP800,");
+    puts("      CKD_SHA224_KDF_SP800,");
+    puts("      CKD_SHA256_KDF_SP800,");
+    puts("      CKD_SHA384_KDF_SP800,");
+    puts("      CKD_SHA512_KDF_SP800,");
+    puts("      CKD_SHA3_224_KDF_SP800,");
+    puts("      CKD_SHA3_256_KDF_SP800,");
+    puts("      CKD_SHA3_384_KDF_SP800,");
+    puts("      CKD_SHA3_512_KDF_SP800,");
     puts("      CKD_IBM_HYBRID_NULL,");
     puts("      CKD_IBM_HYBRID_SHA1_KDF,");
     puts("      CKD_IBM_HYBRID_SHA224_KDF,");

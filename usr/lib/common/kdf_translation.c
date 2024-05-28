@@ -73,9 +73,51 @@ CK_RV translate_string_to_kdf(const char *str, size_t len, CK_ULONG* kdf)
             return CKR_OK;
         }
         return CKR_FUNCTION_FAILED;
+    case 18:
+        if (strcmp("CKD_SHA1_KDF_SP800", str) == 0) {
+            *kdf = CKD_SHA1_KDF_SP800;
+            return CKR_OK;
+        }
+        return CKR_FUNCTION_FAILED;
     case 19:
         if (strcmp("CKD_IBM_HYBRID_NULL", str) == 0) {
             *kdf = CKD_IBM_HYBRID_NULL;
+            return CKR_OK;
+        }
+        return CKR_FUNCTION_FAILED;
+    case 20:
+        if (strcmp("CKD_SHA224_KDF_SP800", str) == 0) {
+            *kdf = CKD_SHA224_KDF_SP800;
+            return CKR_OK;
+        }
+        if (strcmp("CKD_SHA256_KDF_SP800", str) == 0) {
+            *kdf = CKD_SHA256_KDF_SP800;
+            return CKR_OK;
+        }
+        if (strcmp("CKD_SHA384_KDF_SP800", str) == 0) {
+            *kdf = CKD_SHA384_KDF_SP800;
+            return CKR_OK;
+        }
+        if (strcmp("CKD_SHA512_KDF_SP800", str) == 0) {
+            *kdf = CKD_SHA512_KDF_SP800;
+            return CKR_OK;
+        }
+        return CKR_FUNCTION_FAILED;
+    case 22:
+        if (strcmp("CKD_SHA3_224_KDF_SP800", str) == 0) {
+            *kdf = CKD_SHA3_224_KDF_SP800;
+            return CKR_OK;
+        }
+        if (strcmp("CKD_SHA3_256_KDF_SP800", str) == 0) {
+            *kdf = CKD_SHA3_256_KDF_SP800;
+            return CKR_OK;
+        }
+        if (strcmp("CKD_SHA3_384_KDF_SP800", str) == 0) {
+            *kdf = CKD_SHA3_384_KDF_SP800;
+            return CKR_OK;
+        }
+        if (strcmp("CKD_SHA3_512_KDF_SP800", str) == 0) {
+            *kdf = CKD_SHA3_512_KDF_SP800;
             return CKR_OK;
         }
         return CKR_FUNCTION_FAILED;
