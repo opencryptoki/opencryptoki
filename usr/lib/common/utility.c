@@ -297,7 +297,8 @@ void init_tokenInfo(TOKEN_DATA *nv_token_data)
     //
 
     token_info->flags = CKF_RNG | CKF_LOGIN_REQUIRED | CKF_CLOCK_ON_TOKEN |
-        CKF_SO_PIN_TO_BE_CHANGED | CKF_USER_PIN_TO_BE_CHANGED;
+        CKF_SO_PIN_TO_BE_CHANGED | CKF_USER_PIN_TO_BE_CHANGED |
+        CKF_DUAL_CRYPTO_OPERATIONS;
 
     // For the release, we made these
     // values as CK_UNAVAILABLE_INFORMATION or CK_EFFECTIVELY_INFINITE
