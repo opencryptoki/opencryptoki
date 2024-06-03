@@ -4898,6 +4898,329 @@ done:
     return rv;
 }
 
+CK_RV calc_rsa_crt_from_me(CK_ATTRIBUTE *modulus, CK_ATTRIBUTE *pub_exp,
+                           CK_ATTRIBUTE *priv_exp, CK_ATTRIBUTE **prime1,
+                           CK_ATTRIBUTE **prime2, CK_ATTRIBUTE **exponent1,
+                           CK_ATTRIBUTE **exponent2, CK_ATTRIBUTE **coef)
+{
+    BN_CTX *bn_ctx;
+    BIGNUM *n, *e, *d, *k, *r, *t, *two, *g, *y, *n_minus_1, *j, *x;
+    BIGNUM *p, *q, *dp, *dq, *invq;
+    int i, prime_len;
+    CK_BYTE *buff = NULL;
+    CK_RV rc;
+
+    bn_ctx = BN_CTX_secure_new();
+    if (bn_ctx == NULL) {
+        TRACE_ERROR("BN_CTX_secure_new failed\n");
+        return CKR_FUNCTION_FAILED;
+    }
+
+    /* Get modulus as BIGNUM */
+    n = BN_CTX_get(bn_ctx);
+    if (n == NULL ||
+        BN_bin2bn(modulus->pValue, modulus->ulValueLen, n) == NULL) {
+        TRACE_ERROR("BN_CTX_get/BN_bin2bn failed for modulus\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+
+    /* Get public exponent as BIGNUM */
+    e = BN_CTX_get(bn_ctx);
+    if (e == NULL ||
+        BN_bin2bn(pub_exp->pValue, pub_exp->ulValueLen, e) == NULL) {
+        TRACE_ERROR("BN_CTX_get/BN_bin2bn failed for public exponent\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+
+    /* Get private exponent as BIGNUM */
+    d = BN_CTX_get(bn_ctx);
+    if (d == NULL ||
+        BN_bin2bn(priv_exp->pValue, priv_exp->ulValueLen, d) == NULL) {
+        TRACE_ERROR("BN_CTX_get/BN_bin2bn failed for private exponent\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+
+    n_minus_1 = BN_CTX_get(bn_ctx);
+    two = BN_CTX_get(bn_ctx);
+    k = BN_CTX_get(bn_ctx);
+    r = BN_CTX_get(bn_ctx);
+    t = BN_CTX_get(bn_ctx);
+    g = BN_CTX_get(bn_ctx);
+    y = BN_CTX_get(bn_ctx);
+    j = BN_CTX_get(bn_ctx);
+    x = BN_CTX_get(bn_ctx);
+    p = BN_CTX_get(bn_ctx);
+    q = BN_CTX_get(bn_ctx);
+    dp = BN_CTX_get(bn_ctx);
+    dq = BN_CTX_get(bn_ctx);
+    invq = BN_CTX_get(bn_ctx);
+    if (n_minus_1 == NULL || two == NULL || k == NULL || r == NULL ||
+        t == NULL || g == NULL || y == NULL || j == NULL || x == NULL ||
+        p == NULL || q == NULL || dp == NULL || dq == NULL || invq == NULL) {
+        TRACE_ERROR("BN_CTX_get failed\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+
+    if (BN_set_word(two, 2) != 1 ||
+        BN_sub(n_minus_1, n, BN_value_one()) != 1) {
+        TRACE_ERROR("BN_set_word/BN_sub failed\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+
+    /*
+     * Prime-Factor Recovery from n, e and d described in NIST Special
+     * Publication 800-56B R2 Recommendation for Pair-Wise Key Establishment
+     * Schemes Using Integer Factorization Cryptography in Appendix C.
+     */
+
+    /* Step 1: Let k = d*e – 1. If k is odd, then go to Step 4. */
+    if (BN_mul(k, d, e, bn_ctx) != 1 ||
+        BN_sub_word(k, 1) != 1) {
+        TRACE_ERROR("BN_mul/BN_sub_word failed for k\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+
+    if (BN_is_odd(k))
+        goto step4_fail;
+
+    /*
+     * Step 2: Write k as k = (2^t)*r, where r is the largest odd integer
+     * dividing k, and t >= 1.
+     */
+    BN_zero(t);
+    if (BN_copy(r, k) == NULL) {
+        TRACE_ERROR("BN_set_word/BN_copy failed\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+
+    do {
+        if (BN_div(r, NULL, r, two, bn_ctx) != 1 ||
+            BN_add_word(t, 1) != 1) {
+            TRACE_ERROR("BN_div/BN_add_word failed\n");
+            rc = CKR_FUNCTION_FAILED;
+            goto done;
+        }
+    } while(!BN_is_odd(r));
+
+    /* Step 3: For i = 1 to 100 do: */
+    for (i = 1; i <= 100; i++) {
+        /* Step 3a: Generate a random integer g in the range [0, n-1] */
+#if OPENSSL_VERSION_PREREQ(3, 0)
+        if (BN_rand_range_ex(g, n, 0, bn_ctx) != 1) {
+#else
+        if (BN_rand_range(g, n) != 1) {
+#endif
+            TRACE_ERROR("BN_rand_range[_ex] failed\n");
+            rc = CKR_FUNCTION_FAILED;
+            goto done;
+        }
+
+        /* Step 3b: Let y = g^r mod n */
+        if (BN_mod_exp(y, g, r, n, bn_ctx) != 1) {
+            TRACE_ERROR("BN_mod_exp failed\n");
+            rc = CKR_FUNCTION_FAILED;
+            goto done;
+        }
+
+        /* Step 3c: If y = 1 or y = n – 1, then step 3g */
+        if (BN_cmp(y, BN_value_one()) == 0 || BN_cmp(y,  n_minus_1) == 0)
+            goto step_3g;
+
+        /* Step 3d:  For j = 1 to t – 1 do */
+        for (BN_one(j); BN_cmp(j, t) < 0; BN_add_word(t, 1)) {
+            /* Step 3d1: Let x = y^2 mod n */
+            if (BN_mod_exp(x, y, two, n, bn_ctx) != 1) {
+               TRACE_ERROR("BN_mod_exp failed\n");
+               rc = CKR_FUNCTION_FAILED;
+               goto done;
+            }
+
+            /* Step 3d2: If x = 1, go to Step 5 */
+            if (BN_cmp(x, BN_value_one()) == 0)
+                goto step5_success;
+
+            /* Step 3d3: if x = n – 1, goto step 3g */
+            if (BN_cmp(x, n_minus_1) == 0)
+                goto step_3g;
+
+            /* Step 3d4: Let y = x */
+            if (BN_copy(y, x) == NULL) {
+                TRACE_ERROR("BN_copy failed\n");
+                rc = CKR_FUNCTION_FAILED;
+                goto done;
+            }
+        }
+
+        /* Step 3e: Let x = y^2 mod n. */
+        if (BN_mod_exp(x, y, two, n, bn_ctx) != 1) {
+           TRACE_ERROR("BN_mod_exp failed\n");
+           rc = CKR_FUNCTION_FAILED;
+           goto done;
+        }
+
+        /* Step 3f: If x = 1, go to Step 5 */
+        if (BN_cmp(x, BN_value_one()) == 0)
+            goto step5_success;
+
+step_3g:
+        /* Step 3g: continue */
+        continue;
+    }
+
+step4_fail:
+    /* Step 4: Output "prime factors not found" and exit */
+    TRACE_ERROR("Prime factors not found\n");
+    rc = CKR_FUNCTION_FAILED;
+    goto done;
+
+step5_success:
+    /* Step 5:  Let p = GCD(y – 1, n) and let q = n/p */
+    if (BN_sub_word(y, 1) != 1 ||
+        BN_gcd(p, y, n, bn_ctx) != 1 ||
+        BN_div(q, NULL, n, p, bn_ctx) != 1) {
+        TRACE_ERROR("BN_sub_word/BN_gcd/BN_div failed\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+
+    /* Swap if p < q */
+    if (BN_cmp(p, q) < 0) {
+        x = q;
+        q = p;
+        p = x;
+    }
+
+    /* Calculate dp = d mod p−1, dq = d mod q-1, and qinv = q^−1 mod p */
+    if (BN_copy(dp, p) == NULL ||
+        BN_sub_word(dp, 1) != 1 ||
+        BN_div(NULL, dp, d, dp, bn_ctx) != 1 ||
+        BN_copy(dq, q) == NULL ||
+        BN_sub_word(dq, 1) != 1 ||
+        BN_div(NULL, dq, d, dq, bn_ctx) != 1 ||
+        BN_mod_inverse(invq, q, p, bn_ctx) == NULL) {
+        TRACE_ERROR("BN_copy/BN_sub_word/BN_div/BN_mod_inverse failed\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+
+    /* Add the CRT attributes to the key */
+    prime_len = BN_num_bytes(p);
+    buff = calloc(prime_len, 1);
+    if (buff == NULL) {
+        TRACE_DEVEL("calloc failed for buffer\n");
+        rc = CKR_HOST_MEMORY;
+        goto done;
+    }
+
+    if (BN_bn2bin(p, buff) != prime_len) {
+        TRACE_DEVEL("BN_bn2bin failed for p\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+
+    rc = build_attribute(CKA_PRIME_1, buff, prime_len, prime1);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("build_attribute failed for CKA_PRIME_1\n");
+        goto done;
+    }
+
+    memset(buff, 0, prime_len);
+    if (BN_bn2bin(q, buff) != prime_len) {
+        TRACE_DEVEL("BN_bn2bin failed for q\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+
+    rc = build_attribute(CKA_PRIME_2, buff, prime_len, prime2);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("build_attribute failed for CKA_PRIME_2\n");
+        goto done;
+    }
+
+    memset(buff, 0, prime_len);
+    if (BN_bn2bin(dp, buff) != prime_len) {
+        TRACE_DEVEL("BN_bn2bin failed for dp\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+
+    rc = build_attribute(CKA_EXPONENT_1, buff, prime_len, exponent1);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("build_attribute failed for CKA_EXPONENT_1\n");
+        goto done;
+    }
+
+    memset(buff, 0, prime_len);
+    if (BN_bn2bin(dq, buff) != prime_len) {
+        TRACE_DEVEL("BN_bn2bin failed for dq\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+
+    rc = build_attribute(CKA_EXPONENT_2, buff, prime_len, exponent2);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("build_attribute failed for CKA_EXPONENT_2\n");
+        goto done;
+    }
+
+    memset(buff, 0, prime_len);
+    if (BN_bn2bin(invq, buff) != prime_len) {
+        TRACE_DEVEL("BN_bn2bin failed for qinv\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+
+    rc = build_attribute(CKA_COEFFICIENT, buff, prime_len, coef);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("build_attribute failed for CKA_COEFFICIENT\n");
+        goto done;
+    }
+
+done:
+    BN_CTX_free(bn_ctx);
+
+    if (buff != NULL) {
+        OPENSSL_cleanse(buff, prime_len);
+        free(buff);
+    }
+    if (rc != CKR_OK) {
+        if (*prime1 != NULL) {
+            OPENSSL_cleanse((*prime1)->pValue, (*prime1)->ulValueLen);
+            free(*prime1);
+            *prime1 = NULL;
+        }
+        if (*prime2 != NULL) {
+            OPENSSL_cleanse((*prime2)->pValue, (*prime2)->ulValueLen);
+            free(*prime2);
+            *prime2 = NULL;
+        }
+        if (*exponent1 != NULL) {
+            OPENSSL_cleanse((*exponent1)->pValue, (*exponent1)->ulValueLen);
+            free(*exponent1);
+            *exponent1 = NULL;
+        }
+        if (*exponent2 != NULL) {
+            OPENSSL_cleanse((*exponent2)->pValue, (*exponent2)->ulValueLen);
+            free(*exponent2);
+            *exponent2 = NULL;
+        }
+        if (*coef != NULL) {
+            OPENSSL_cleanse((*coef)->pValue, (*coef)->ulValueLen);
+            free(*coef);
+            *coef = NULL;
+        }
+    }
+
+    return rc;
+}
+
 static CK_RV calc_rsa_priv_exp(STDLL_TokData_t *tokdata, OBJECT *key_obj,
                                CK_BYTE *priv_exp, CK_ULONG priv_exp_len)
 {

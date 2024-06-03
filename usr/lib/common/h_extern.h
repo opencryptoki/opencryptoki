@@ -3259,6 +3259,11 @@ CK_RV openssl_specific_rsa_prf(CK_BYTE *out, CK_ULONG outlen,
                                const CK_BYTE *kdk, CK_ULONG kdklen,
                                uint16_t bitlen);
 
+CK_RV calc_rsa_crt_from_me(CK_ATTRIBUTE *modulus, CK_ATTRIBUTE *pub_exp,
+                           CK_ATTRIBUTE *priv_exp, CK_ATTRIBUTE **prime1,
+                           CK_ATTRIBUTE **prime2, CK_ATTRIBUTE **exponent1,
+                           CK_ATTRIBUTE **exponent2, CK_ATTRIBUTE **coef);
+
 #include "tok_spec_struct.h"
 extern token_spec_t token_specific;
 

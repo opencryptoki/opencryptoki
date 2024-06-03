@@ -2368,12 +2368,9 @@ CK_RV rsa_priv_wrap_get_data(TEMPLATE *tmpl,
     CK_ATTRIBUTE *prime1 = NULL, *prime2 = NULL;
     CK_ATTRIBUTE *exponent1 = NULL, *exponent2 = NULL;
     CK_ATTRIBUTE *coeff = NULL;
+    CK_BBOOL crt_alloced = FALSE;
     CK_RV rc;
-    CK_BBOOL is_crt = FALSE;
 
-
-    // compute the total length of the BER-encoded data
-    //
     rc = template_attribute_get_non_empty(tmpl, CKA_MODULUS, &modulus);
     if (rc != CKR_OK) {
         TRACE_ERROR("Could not find CKA_MODULUS for the key.\n");
@@ -2384,77 +2381,29 @@ CK_RV rsa_priv_wrap_get_data(TEMPLATE *tmpl,
         TRACE_ERROR("Could not find CKA_PUBLIC_EXPONENT for the key.\n");
         return rc;
     }
-
-    /*
-     * For MOD-EXPO, the private exponent must be non-empty, otherwise (for
-     * CRT) it may be empty, but must still be valid if non-empty (i.e.
-     * pValue can not be NULL if ulValueLen > 0.
-     */
-    if (template_attribute_find(tmpl, CKA_PRIVATE_EXPONENT, &priv_exp) ==
-        FALSE) {
-        TRACE_ERROR("Could not find private exponent for the key.\n");
-        return CKR_TEMPLATE_INCOMPLETE;
-    }
-    if (priv_exp->ulValueLen > 0 && priv_exp->pValue == NULL) {
-        TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
-        return CKR_ATTRIBUTE_VALUE_INVALID;
-    }
-    if (priv_exp->ulValueLen == 0)
-        is_crt = TRUE;
-
-    /*
-     * CRT attributes must be non-empty if CRT format, otherwise (for MOD-EXPO)
-     * they can be empty, but must still be valid if non-empty (i.e. pValue can
-     * not be NULL if ulValueLen > 0.
-     */
-    if (template_attribute_find(tmpl, CKA_PRIME_1, &prime1) == FALSE) {
-        TRACE_ERROR("Could not find CKA_PRIME_1 for the key.\n");
-        return CKR_TEMPLATE_INCOMPLETE;
-    }
-    if ((prime1->ulValueLen > 0 && prime1->pValue == NULL) ||
-        (prime1->ulValueLen == 0 && is_crt)) {
-        TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
-        return CKR_ATTRIBUTE_VALUE_INVALID;
+    rc = template_attribute_get_non_empty(tmpl, CKA_PRIVATE_EXPONENT,
+                                          &priv_exp);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_PRIVATE_EXPONENT for the key.\n");
+        return rc;
     }
 
-    if (template_attribute_find(tmpl, CKA_PRIME_2, &prime2) == FALSE) {
-        TRACE_ERROR("Could not find CKA_PRIME_2 for the key.\n");
-        return CKR_TEMPLATE_INCOMPLETE;
-    }
-    if ((prime2->ulValueLen > 0 && prime2->pValue == NULL) ||
-        (prime2->ulValueLen == 0 && is_crt)) {
-        TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
-        return CKR_ATTRIBUTE_VALUE_INVALID;
-    }
-
-    if (template_attribute_find(tmpl, CKA_EXPONENT_1, &exponent1) == FALSE) {
-        TRACE_ERROR("Could not find CKA_EXPONENT_1 for the key.\n");
-        return CKR_TEMPLATE_INCOMPLETE;
-    }
-    if ((exponent1->ulValueLen > 0 && exponent1->pValue == NULL) ||
-        (exponent1->ulValueLen == 0 && is_crt)) {
-        TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
-        return CKR_ATTRIBUTE_VALUE_INVALID;
-    }
-
-    if (template_attribute_find(tmpl, CKA_EXPONENT_2, &exponent2) == FALSE) {
-        TRACE_ERROR("Could not find CKA_EXPONENT_2 for the key.\n");
-        return CKR_TEMPLATE_INCOMPLETE;
-    }
-    if ((exponent2->ulValueLen > 0 && exponent2->pValue == NULL) ||
-        (exponent2->ulValueLen == 0 && is_crt)) {
-        TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
-        return CKR_ATTRIBUTE_VALUE_INVALID;
-    }
-
-    if (template_attribute_find(tmpl, CKA_COEFFICIENT, &coeff) == FALSE) {
-        TRACE_ERROR("Could not find CKA_COEFFICIENT for the key.\n");
-        return CKR_TEMPLATE_INCOMPLETE;
-    }
-    if ((coeff->ulValueLen > 0 && coeff->pValue == NULL) ||
-        (coeff->ulValueLen == 0 && is_crt)) {
-        TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
-        return CKR_ATTRIBUTE_VALUE_INVALID;
+    /* CRT attributes are optional */
+    template_attribute_get_non_empty(tmpl, CKA_PRIME_1, &prime1);
+    template_attribute_get_non_empty(tmpl, CKA_PRIME_2, &prime2);
+    template_attribute_get_non_empty(tmpl, CKA_EXPONENT_1, &exponent1);
+    template_attribute_get_non_empty(tmpl, CKA_EXPONENT_2, &exponent2);
+    template_attribute_get_non_empty(tmpl, CKA_COEFFICIENT, &coeff);
+    if (prime1 == NULL || prime2 == NULL || exponent1 == NULL ||
+        exponent2 == NULL || coeff == NULL) {
+        /* no CRT components, calculate them */
+        rc = calc_rsa_crt_from_me(modulus, publ_exp, priv_exp, &prime1,
+                                  &prime2, &exponent1, &exponent2, &coeff);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("calc_rsa_crt_from_me failed\n");
+            return rc;
+        }
+        crt_alloced = TRUE;
     }
 
     rc = ber_encode_RSAPrivateKey(length_only, data, data_len, modulus,
@@ -2462,6 +2411,19 @@ CK_RV rsa_priv_wrap_get_data(TEMPLATE *tmpl,
                                   exponent1, exponent2, coeff);
     if (rc != CKR_OK) {
         TRACE_DEVEL("ber_encode_RSAPrivateKey failed\n");
+    }
+
+    if (crt_alloced) {
+        OPENSSL_cleanse(prime1->pValue, prime1->ulValueLen);
+        free(prime1);
+        OPENSSL_cleanse(prime2->pValue, prime2->ulValueLen);
+        free(prime2);
+        OPENSSL_cleanse(exponent1->pValue, exponent1->ulValueLen);
+        free(exponent1);
+        OPENSSL_cleanse(exponent2->pValue, exponent2->ulValueLen);
+        free(exponent2);
+        OPENSSL_cleanse(coeff->pValue, coeff->ulValueLen);
+        free(coeff);
     }
 
     return rc;
