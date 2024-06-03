@@ -968,7 +968,8 @@ int cca_migrate_asymmetric(struct key *key, char **out, struct algo algo,
         case MK_APKA:
             if (key->attr_len < 16 ||
                 key->opaque_attr[0] != 0x1f ||  /* 0x1f: internal PKA token */
-                key->opaque_attr[8] != 0x08) {  /* 0x1f: RSA-AESC priv key token */
+                (key->opaque_attr[8] != 0x31 &&  /* 0x31: RSA-AESC priv key token */
+                 key->opaque_attr[8] != 0x30)) { /* 0x30: RSA-AESM priv key token */
                 printf("Skipping key, its not an new RSA key. label=%s, handle=%lu\n",
                        key->label, key->handle);
                 return 0;
