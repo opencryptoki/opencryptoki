@@ -8386,148 +8386,200 @@ static CK_RV import_rsa_privkey(STDLL_TokData_t *tokdata, TEMPLATE * priv_tmpl)
         unsigned char target_key_token[CCA_KEY_TOKEN_SIZE] = { 0, };
         unsigned char transport_key_identifier[CCA_KEY_ID_SIZE] = { 0, };
 
-        uint16_t size_of_e;
+        uint16_t size_of_e, size_of_d;
         uint16_t mod_bits, mod_bytes, bytes;
         CK_ATTRIBUTE *pub_exp = NULL, *mod = NULL,
             *p_prime = NULL, *q_prime = NULL, *dmp1 = NULL, *dmq1 = NULL, *iqmp =
             NULL, *priv_exp = NULL;
+        CK_BBOOL is_me_format = FALSE;
 
-        /* Look for parameters to set key in the CRT format */
-        rc = template_attribute_get_non_empty(priv_tmpl, CKA_PRIME_1, &p_prime);
-        if (rc != CKR_OK) {
-            TRACE_ERROR("CKA_PRIME_1 attribute missing for CRT.\n");
-            return rc;
+        /* Try to get CRT key components (no rc checking) */
+        template_attribute_get_non_empty(priv_tmpl, CKA_PRIME_1, &p_prime);
+        template_attribute_get_non_empty(priv_tmpl, CKA_PRIME_2, &q_prime);
+        template_attribute_get_non_empty(priv_tmpl, CKA_EXPONENT_1, &dmp1);
+        template_attribute_get_non_empty(priv_tmpl, CKA_EXPONENT_2, &dmq1);
+        template_attribute_get_non_empty(priv_tmpl, CKA_COEFFICIENT, &iqmp);
+
+        if (p_prime == NULL || q_prime == NULL || dmp1 == NULL ||
+            dmq1 == NULL || iqmp == NULL) {
+            /* No CRT components, then get private exponent instead */
+            rc = template_attribute_get_non_empty(priv_tmpl,
+                                                  CKA_PRIVATE_EXPONENT,
+                                                  &priv_exp);
+            if (rc != CKR_OK) {
+                TRACE_ERROR("CKA_PRIVATE_EXPONENT attribute missing for ME.\n");
+                return rc;
+            }
+
+            is_me_format = TRUE;
         }
-        total += p_prime->ulValueLen;
 
-        rc = template_attribute_get_non_empty(priv_tmpl, CKA_PRIME_2, &q_prime);
-        if (rc != CKR_OK) {
-            TRACE_ERROR("CKA_PRIME_2 attribute missing for CRT.\n");
-            return rc;
-        }
-        total += q_prime->ulValueLen;
-
-        rc = template_attribute_get_non_empty(priv_tmpl, CKA_EXPONENT_1, &dmp1);
-        if (rc != CKR_OK) {
-            TRACE_ERROR("CKA_EXPONENT_1 attribute missing for CRT.\n");
-            return rc;
-        }
-        total += dmp1->ulValueLen;
-
-        rc = template_attribute_get_non_empty(priv_tmpl, CKA_EXPONENT_2, &dmq1);
-        if (rc != CKR_OK) {
-            TRACE_ERROR("CKA_EXPONENT_2 attribute missing for CRT.\n");
-            return rc;
-        }
-        total += dmq1->ulValueLen;
-
-        rc = template_attribute_get_non_empty(priv_tmpl, CKA_COEFFICIENT, &iqmp);
-        if (rc != CKR_OK) {
-            TRACE_ERROR("CKA_COEFFICIENT attribute missing for CRT.\n");
-            return rc;
-        }
-        total += iqmp->ulValueLen;
-
+        /* Public exponent and Modulus are always required */
         rc = template_attribute_get_non_empty(priv_tmpl, CKA_PUBLIC_EXPONENT,
                                               &pub_exp);
         if (rc != CKR_OK) {
-            TRACE_ERROR("CKA_PUBLIC_EXPONENT attribute missing for CRT.\n");
+            TRACE_ERROR("CKA_PUBLIC_EXPONENT attribute missing for CRT/ME.\n");
             return rc;
         }
-        total += pub_exp->ulValueLen;
 
         rc = template_attribute_get_non_empty(priv_tmpl, CKA_MODULUS, &mod);
         if (rc != CKR_OK) {
-            TRACE_ERROR("CKA_MODULUS attribute missing for CRT.\n");
+            TRACE_ERROR("CKA_MODULUS attribute missing for CRT/ME.\n");
             return rc;
         }
-        total += mod->ulValueLen;
 
-        /* check total length does not exceed key_value_structure_length */
-        if ((total + 18) > key_value_structure_length) {
-            TRACE_ERROR("total length of key exceeds CCA_KEY_VALUE_STRUCT_SIZE.\n");
-            return CKR_KEY_SIZE_RANGE;
+        if (is_me_format) {
+            total += priv_exp->ulValueLen;
+            total += pub_exp->ulValueLen;
+            total += mod->ulValueLen;
+
+            /* check total length does not exceed key_value_structure_length */
+            if ((total + 8) > key_value_structure_length) {
+                TRACE_ERROR("total length of key exceeds "
+                            "CCA_KEY_VALUE_STRUCT_SIZE.\n");
+                return CKR_KEY_SIZE_RANGE;
+            }
+
+            /* Build key token for RSA-AESM format.
+             * Fields according to Table 9.
+             * PKA_Key_Token_Build key-values-structure
+             */
+            memset(key_value_structure, 0, key_value_structure_length);
+
+            /* Field #1 - Length of modulus in bits */
+            mod_bits = htobe16(mod->ulValueLen * 8);
+            memcpy(&key_value_structure[0], &mod_bits, sizeof(uint16_t));
+
+            /* Field #2 - Length of modulus field in bytes */
+            mod_bytes = htobe16(mod->ulValueLen);
+            memcpy(&key_value_structure[2], &mod_bytes, sizeof(uint16_t));
+
+            /* Field #3 - Length of public exponent field in bytes */
+            size_of_e = htobe16(pub_exp->ulValueLen);
+            memcpy(&key_value_structure[4], &size_of_e, sizeof(uint16_t));
+
+            /* Field #4 - Length of private exponent field in bytes */
+            size_of_d = htobe16(priv_exp->ulValueLen);
+            memcpy(&key_value_structure[6], &size_of_d, sizeof(uint16_t));
+
+            /* Field #5 - Modulus */
+            memcpy(&key_value_structure[8], mod->pValue, mod->ulValueLen);
+
+            offset = 8 + mod->ulValueLen;
+
+            /* Field #6 - Public Exponent */
+            memcpy(&key_value_structure[offset], pub_exp->pValue,
+                   pub_exp->ulValueLen);
+
+            offset += pub_exp->ulValueLen;
+
+            /* Field #7 - Private Exponent */
+            memcpy(&key_value_structure[offset], priv_exp->pValue,
+                   priv_exp->ulValueLen);
+
+            rule_array_count = 2;
+            memcpy(rule_array, "RSA-AESMKEY-MGMT", (CCA_KEYWORD_SIZE * 2));
+        } else  {
+            /* CRT format */
+            total += p_prime->ulValueLen;
+            total += q_prime->ulValueLen;
+            total += dmp1->ulValueLen;
+            total += dmq1->ulValueLen;
+            total += iqmp->ulValueLen;
+            total += pub_exp->ulValueLen;
+            total += mod->ulValueLen;
+
+            /* check total length does not exceed key_value_structure_length */
+            if ((total + 18) > key_value_structure_length) {
+                TRACE_ERROR("total length of key exceeds "
+                            "CCA_KEY_VALUE_STRUCT_SIZE.\n");
+                return CKR_KEY_SIZE_RANGE;
+            }
+
+            /* Build key token for RSA-AESC format.
+             * Fields according to Table 9.
+             * PKA_Key_Token_Build key-values-structure
+             */
+            memset(key_value_structure, 0, key_value_structure_length);
+
+            /* Field #1 - Length of modulus in bits */
+            mod_bits = htobe16(mod->ulValueLen * 8);
+            memcpy(&key_value_structure[0], &mod_bits, sizeof(uint16_t));
+
+            /* Field #2 - Length of modulus field in bytes */
+            mod_bytes = htobe16(mod->ulValueLen);
+            memcpy(&key_value_structure[2], &mod_bytes, sizeof(uint16_t));
+
+            /* Field #3 - Length of public exponent field in bytes */
+            size_of_e = htobe16(pub_exp->ulValueLen);
+            memcpy(&key_value_structure[4], &size_of_e, sizeof(uint16_t));
+
+            /* Field #4 - Reserved, binary zero, two bytes */
+
+            /* Field #5 - Length of prime P */
+            bytes = htobe16(p_prime->ulValueLen);
+            memcpy(&key_value_structure[8], &bytes, sizeof(uint16_t));
+
+            /* Field #6 - Length of prime Q */
+            bytes = htobe16(q_prime->ulValueLen);
+            memcpy(&key_value_structure[10], &bytes, sizeof(uint16_t));
+
+            /* Field #7 - Length of dp in bytes */
+            bytes = htobe16(dmp1->ulValueLen);
+            memcpy(&key_value_structure[12], &bytes, sizeof(uint16_t));
+
+            /* Field #8 - Length of dq in bytes */
+            bytes = htobe16(dmq1->ulValueLen);
+            memcpy(&key_value_structure[14], &bytes, sizeof(uint16_t));
+
+            /* Field #9 - Length of U in bytes */
+            bytes = htobe16(iqmp->ulValueLen);
+            memcpy(&key_value_structure[16], &bytes, sizeof(uint16_t));
+
+            /* Field #10 - Modulus */
+            memcpy(&key_value_structure[18], mod->pValue, mod->ulValueLen);
+
+            offset = 18 + mod->ulValueLen;
+
+            /* Field #11 - Public Exponent */
+            memcpy(&key_value_structure[offset], pub_exp->pValue,
+                   pub_exp->ulValueLen);
+
+            offset += pub_exp->ulValueLen;
+
+            /* Field #12 - Prime numer, p */
+            memcpy(&key_value_structure[offset], p_prime->pValue,
+                   p_prime->ulValueLen);
+
+            offset += p_prime->ulValueLen;
+
+            /* Field #13 - Prime numer, q */
+            memcpy(&key_value_structure[offset], q_prime->pValue,
+                   q_prime->ulValueLen);
+
+            offset += q_prime->ulValueLen;
+
+            /* Field #14 - dp = dmod(p-1) */
+            memcpy(&key_value_structure[offset], dmp1->pValue,
+                   dmp1->ulValueLen);
+
+            offset += dmp1->ulValueLen;
+
+            /* Field #15 - dq = dmod(q-1) */
+            memcpy(&key_value_structure[offset], dmq1->pValue,
+                   dmq1->ulValueLen);
+
+            offset += dmq1->ulValueLen;
+
+            /* Field #16 - U = (q^-1)mod(p)  */
+            memcpy(&key_value_structure[offset], iqmp->pValue,
+                   iqmp->ulValueLen);
+
+            rule_array_count = 2;
+            memcpy(rule_array, "RSA-AESCKEY-MGMT", (CCA_KEYWORD_SIZE * 2));
         }
 
-        /* Build key token for RSA-PRIV format.
-         * Fields according to Table 9.
-         * PKA_Key_Token_Build key-values-structure
-         */
-
-        memset(key_value_structure, 0, key_value_structure_length);
-
-        /* Field #1 - Length of modulus in bits */
-        mod_bits = htobe16(mod->ulValueLen * 8);
-        memcpy(&key_value_structure[0], &mod_bits, sizeof(uint16_t));
-
-        /* Field #2 - Length of modulus field in bytes */
-        mod_bytes = htobe16(mod->ulValueLen);
-        memcpy(&key_value_structure[2], &mod_bytes, sizeof(uint16_t));
-
-        /* Field #3 - Length of public exponent field in bytes */
-        size_of_e = htobe16(pub_exp->ulValueLen);
-        memcpy(&key_value_structure[4], &size_of_e, sizeof(uint16_t));
-
-        /* Field #4 - Reserved, binary zero, two bytes */
-
-        /* Field #5 - Length of prime P */
-        bytes = htobe16(p_prime->ulValueLen);
-        memcpy(&key_value_structure[8], &bytes, sizeof(uint16_t));
-
-        /* Field #6 - Length of prime Q */
-        bytes = htobe16(q_prime->ulValueLen);
-        memcpy(&key_value_structure[10], &bytes, sizeof(uint16_t));
-
-        /* Field #7 - Length of dp in bytes */
-        bytes = htobe16(dmp1->ulValueLen);
-        memcpy(&key_value_structure[12], &bytes, sizeof(uint16_t));
-
-        /* Field #8 - Length of dq in bytes */
-        bytes = htobe16(dmq1->ulValueLen);
-        memcpy(&key_value_structure[14], &bytes, sizeof(uint16_t));
-
-        /* Field #9 - Length of U in bytes */
-        bytes = htobe16(iqmp->ulValueLen);
-        memcpy(&key_value_structure[16], &bytes, sizeof(uint16_t));
-
-        /* Field #10 - Modulus */
-        memcpy(&key_value_structure[18], mod->pValue, mod->ulValueLen);
-
-        offset = 18 + mod->ulValueLen;
-
-        /* Field #11 - Public Exponent */
-        memcpy(&key_value_structure[offset], pub_exp->pValue, pub_exp->ulValueLen);
-
-        offset += pub_exp->ulValueLen;
-
-        /* Field #12 - Prime numer, p */
-        memcpy(&key_value_structure[offset], p_prime->pValue, p_prime->ulValueLen);
-
-        offset += p_prime->ulValueLen;
-
-        /* Field #13 - Prime numer, q */
-        memcpy(&key_value_structure[offset], q_prime->pValue, q_prime->ulValueLen);
-
-        offset += q_prime->ulValueLen;
-
-        /* Field #14 - dp = dmod(p-1) */
-        memcpy(&key_value_structure[offset], dmp1->pValue, dmp1->ulValueLen);
-
-        offset += dmp1->ulValueLen;
-
-        /* Field #15 - dq = dmod(q-1) */
-        memcpy(&key_value_structure[offset], dmq1->pValue, dmq1->ulValueLen);
-
-        offset += dmq1->ulValueLen;
-
-        /* Field #16 - U = (q^-1)mod(p)  */
-        memcpy(&key_value_structure[offset], iqmp->pValue, iqmp->ulValueLen);
-
         /* Now build a key token with the imported public key */
-
-        rule_array_count = 2;
-        memcpy(rule_array, "RSA-AESCKEY-MGMT", (size_t) (CCA_KEYWORD_SIZE * 2));
-
         private_key_name_length = 0;
 
         key_token_length = CCA_KEY_TOKEN_SIZE;
@@ -8551,7 +8603,6 @@ static CK_RV import_rsa_privkey(STDLL_TokData_t *tokdata, TEMPLATE * priv_tmpl)
 
         /* Now import the PKA key token */
         rule_array_count = 0;
-        /* memcpy(rule_array, "        ", (size_t)(CCA_KEYWORD_SIZE * 1)); */
 
         target_key_token_length = CCA_KEY_TOKEN_SIZE;
 
@@ -8601,15 +8652,18 @@ static CK_RV import_rsa_privkey(STDLL_TokData_t *tokdata, TEMPLATE * priv_tmpl)
             goto err;
         }
 
-        OPENSSL_cleanse(p_prime->pValue, p_prime->ulValueLen);
-        OPENSSL_cleanse(q_prime->pValue, q_prime->ulValueLen);
-        OPENSSL_cleanse(dmp1->pValue, dmp1->ulValueLen);
-        OPENSSL_cleanse(dmq1->pValue, dmq1->ulValueLen);
-        OPENSSL_cleanse(iqmp->pValue, iqmp->ulValueLen);
-        if (template_attribute_get_non_empty(priv_tmpl, CKA_PRIVATE_EXPONENT,
-                                             &priv_exp) == CKR_OK) {
+        if (p_prime != NULL)
+            OPENSSL_cleanse(p_prime->pValue, p_prime->ulValueLen);
+        if (q_prime != NULL)
+            OPENSSL_cleanse(q_prime->pValue, q_prime->ulValueLen);
+        if (dmp1 != NULL)
+            OPENSSL_cleanse(dmp1->pValue, dmp1->ulValueLen);
+        if (dmq1 != NULL)
+            OPENSSL_cleanse(dmq1->pValue, dmq1->ulValueLen);
+        if (iqmp != NULL)
+            OPENSSL_cleanse(iqmp->pValue, iqmp->ulValueLen);
+        if (priv_exp != NULL)
             OPENSSL_cleanse(priv_exp->pValue, priv_exp->ulValueLen);
-        }
 
         rc = CKR_OK;
 
