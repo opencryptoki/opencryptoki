@@ -2133,7 +2133,8 @@ CK_RV rsa_publ_get_spki(TEMPLATE *tmpl, CK_BBOOL length_only,
 //
 CK_RV rsa_priv_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode)
 {
-    CK_ATTRIBUTE *attr = NULL;
+    CK_ATTRIBUTE *attr = NULL, *coef = NULL;
+    CK_ATTRIBUTE *prime1 = NULL, *prime2 = NULL, *exp1 = NULL, *exp2 = NULL;
     CK_RV rc;
 
     if (mode == MODE_CREATE &&
@@ -2153,24 +2154,14 @@ CK_RV rsa_priv_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode)
             return rc;
         }
     }
-    //
-    // PKCS #11 is flexible with respect to which attributes must be present
-    // in an RSA key.  Keys can be specified in Chinese-Remainder format or
-    // they can be specified in modular-exponent format.  Right now, I only
-    // support keys created in Chinese-Remainder format.  That is, we return
-    // CKR_TEMPLATE_INCOMPLETE if a modular-exponent key is specified.  This
-    // is allowed by PKCS #11.
-    //
-    // In the future, we should allow for creation of keys in modular-exponent
-    // format too.  This raises some issues.  It's easy enough to recognize
-    // when a key has been specified in modular-exponent format.  And it's
-    // easy enough to recognize when all attributes have been specified
-    // (which is what we require right now).  What's trickier to handle is
-    // the "middle" cases in which more than the minimum yet less than the
-    // full number of attributes have been specified.  Do we revert back to
-    // modular-exponent representation?  Do we compute the missing attributes
-    // ourselves?  Do we simply return CKR_TEMPLATE_INCOMPLETE?
-    //
+
+    /*
+     * PKCS#11 is flexible with respect to which attributes must be present
+     * in an RSA key. Keys can be specified in Chinese-Remainder format or
+     * they can be specified in modular-exponent format. Effective with version
+     * 2.40, tokens MUST store CKA_PUBLIC_EXPONENT in any case. This permits the
+     * retrieval of sufficient data to reconstitute the associated public key.
+     */
 
     rc = template_attribute_get_non_empty(tmpl, CKA_PUBLIC_EXPONENT, &attr);
     if (rc != CKR_OK) {
@@ -2188,48 +2179,22 @@ CK_RV rsa_priv_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode)
         }
     }
 
-    rc = template_attribute_get_non_empty(tmpl, CKA_PRIME_1, &attr);
-    if (rc != CKR_OK) {
-        if (mode == MODE_CREATE) {
-            TRACE_ERROR("Could not find CKA_PRIME_1\n");
-            return rc;
-        }
-    }
+    /* The RSA CRT components are optional, no return code checking */
+    template_attribute_get_non_empty(tmpl, CKA_PRIME_1, &prime1);
+    template_attribute_get_non_empty(tmpl, CKA_PRIME_2, &prime2);
+    template_attribute_get_non_empty(tmpl, CKA_EXPONENT_1, &exp1);
+    template_attribute_get_non_empty(tmpl, CKA_EXPONENT_2, &exp2);
+    template_attribute_get_non_empty(tmpl, CKA_COEFFICIENT, &coef);
 
-    rc = template_attribute_get_non_empty(tmpl, CKA_PRIME_2, &attr);
-    if (rc != CKR_OK) {
-        if (mode == MODE_CREATE) {
-            TRACE_ERROR("Could not find CKA_PRIME_2\n");
-            return rc;
-        }
+    /* For CREATE either all CRT components or none of them must be specified */
+    if (mode == MODE_CREATE &&
+        !((prime1 == NULL && prime2 == NULL && exp1 == NULL &&
+           exp2 == NULL && coef == NULL) ||
+          (prime1 != NULL && prime2 != NULL && exp1 != NULL &&
+           exp2 != NULL && coef != NULL))) {
+        TRACE_ERROR("Either all CRT attrs must be specified or none of them\n");
+        return CKR_TEMPLATE_INCONSISTENT;
     }
-
-    rc = template_attribute_get_non_empty(tmpl, CKA_EXPONENT_1, &attr);
-    if (rc != CKR_OK) {
-        if (mode == MODE_CREATE) {
-            TRACE_ERROR("Could not find CKA_EXPONENT_1\n");
-            return rc;
-        }
-    }
-
-    rc = template_attribute_get_non_empty(tmpl, CKA_EXPONENT_2, &attr);
-    if (rc != CKR_OK) {
-        if (mode == MODE_CREATE) {
-            TRACE_ERROR("Could not find CKA_EXPONENT_2\n");
-            return rc;
-        }
-    }
-
-    rc = template_attribute_get_non_empty(tmpl, CKA_COEFFICIENT, &attr);
-    if (rc != CKR_OK) {
-        if (mode == MODE_CREATE) {
-            TRACE_ERROR("Could not find CKA_COEFFICIENT\n");
-            return rc;
-        }
-    }
-    // we should probably verify that the (e != p) and (e != q).
-    // ie. gcd(e,n) == 1
-    //
 
     return priv_key_check_required_attributes(tmpl, mode);
 }
