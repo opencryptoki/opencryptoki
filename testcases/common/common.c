@@ -403,9 +403,17 @@ CK_RV create_RSAPrivateKey(CK_SESSION_HANDLE session,
         {CKA_EXPONENT_2, exponent2, exponent2_len},
         {CKA_COEFFICIENT, coefficient, coefficient_len}
     };
+    CK_ULONG template_len = sizeof(template) / sizeof(CK_ATTRIBUTE);
+
+    if (prime1 == NULL || prime1_len == 0 ||
+        prime2 == NULL || prime2_len == 0 ||
+        exponent1 == NULL || exponent1_len == 0 ||
+        exponent2 == NULL || exponent2_len == 0 ||
+        coefficient == NULL || coefficient_len == 0)
+        template_len -= 5;
 
     // create key
-    rc = funcs->C_CreateObject(session, template, 17, priv_key);
+    rc = funcs->C_CreateObject(session, template, template_len, priv_key);
     if (rc != CKR_OK) {
         if (is_rejected_by_policy(rc, session))
             rc = CKR_POLICY_VIOLATION;

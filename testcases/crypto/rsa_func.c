@@ -352,7 +352,8 @@ testcase_cleanup:
  * 5. Compare plaintext with decrypted data
  *
  */
-CK_RV do_EncryptDecryptImportRSA(struct PUBLISHED_TEST_SUITE_INFO *tsuite)
+CK_RV do_EncryptDecryptImportRSA(struct PUBLISHED_TEST_SUITE_INFO *tsuite,
+                                 CK_BBOOL me_only)
 {
     unsigned int i, j;
     CK_BYTE original[BIG_REQUEST];
@@ -373,7 +374,8 @@ CK_RV do_EncryptDecryptImportRSA(struct PUBLISHED_TEST_SUITE_INFO *tsuite)
     char *s;
 
     // begin testsuite
-    testsuite_begin("%s Encrypt Decrypt Import.", tsuite->name);
+    testsuite_begin("%s Encrypt Decrypt Import%s.", tsuite->name,
+                    me_only ? " (ME-format)" : "");
     testcase_rw_session();
     testcase_user_login();
 
@@ -426,9 +428,9 @@ CK_RV do_EncryptDecryptImportRSA(struct PUBLISHED_TEST_SUITE_INFO *tsuite)
             goto testcase_cleanup;
         }
         // begin testcase
-        testcase_begin("%s Encrypt and Decrypt Import with test vector %u."
+        testcase_begin("%s Encrypt and Decrypt Import with test vector %u%s."
                        "\npubl_exp='%s', modbits=%lu, publ_exp_len=%lu.",
-                       tsuite->name, i, s,
+                       tsuite->name, i, me_only ? " (ME-format)" : "", s,
                        tsuite->tv[i].mod_len * 8,
                        tsuite->tv[i].pubexp_len);
 
@@ -550,19 +552,20 @@ CK_RV do_EncryptDecryptImportRSA(struct PUBLISHED_TEST_SUITE_INFO *tsuite)
                                   tsuite->tv[i].mod,
                                   tsuite->tv[i].pub_exp,
                                   tsuite->tv[i].priv_exp,
-                                  tsuite->tv[i].prime1,
-                                  tsuite->tv[i].prime2,
-                                  tsuite->tv[i].exp1,
-                                  tsuite->tv[i].exp2,
-                                  tsuite->tv[i].coef,
+                                  me_only ? NULL : tsuite->tv[i].prime1,
+                                  me_only ? NULL : tsuite->tv[i].prime2,
+                                  me_only ? NULL : tsuite->tv[i].exp1,
+                                  me_only ? NULL : tsuite->tv[i].exp2,
+                                  me_only ? NULL : tsuite->tv[i].coef,
                                   tsuite->tv[i].mod_len,
                                   tsuite->tv[i].pubexp_len,
                                   tsuite->tv[i].privexp_len,
-                                  tsuite->tv[i].prime1_len,
-                                  tsuite->tv[i].prime2_len,
-                                  tsuite->tv[i].exp1_len,
-                                  tsuite->tv[i].exp2_len,
-                                  tsuite->tv[i].coef_len, &priv_key);
+                                  me_only ? 0 : tsuite->tv[i].prime1_len,
+                                  me_only ? 0 : tsuite->tv[i].prime2_len,
+                                  me_only ? 0 : tsuite->tv[i].exp1_len,
+                                  me_only ? 0 : tsuite->tv[i].exp2_len,
+                                  me_only ? 0 : tsuite->tv[i].coef_len,
+                                  &priv_key);
         if (rc != CKR_OK) {
             if (rc == CKR_POLICY_VIOLATION) {
                 testcase_skip("RSA key import is not allowed by policy");
@@ -689,7 +692,8 @@ CK_RV do_EncryptDecryptImportRSA(struct PUBLISHED_TEST_SUITE_INFO *tsuite)
         } else if (memcmp(decrypt, original, original_len)) {
             testcase_fail("decrypted data does not match " "original data.");
         } else {
-            testcase_pass("C_Encrypt and C_Decrypt.");
+            testcase_pass("C_Encrypt and C_Decrypt%s.",
+                          me_only ? " (ME-format)" : "");
         }
 
         // clean up
@@ -1667,7 +1671,7 @@ testcase_cleanup:
  * 4. Compare expected signature with actual signature
  *
  */
-CK_RV do_SignRSA(struct PUBLISHED_TEST_SUITE_INFO * tsuite)
+CK_RV do_SignRSA(struct PUBLISHED_TEST_SUITE_INFO * tsuite, CK_BBOOL me_only)
 {
     unsigned int i;
     CK_BYTE message[MAX_MESSAGE_SIZE];
@@ -1686,7 +1690,7 @@ CK_RV do_SignRSA(struct PUBLISHED_TEST_SUITE_INFO * tsuite)
     CK_RV rc, loc_rc;
 
     // begin testsuite
-    testsuite_begin("%s Sign. ", tsuite->name);
+    testsuite_begin("%s Sign%s. ", tsuite->name, me_only ? " (ME-format)" : "");
     testcase_rw_session();
     testcase_user_login();
 
@@ -1701,7 +1705,8 @@ CK_RV do_SignRSA(struct PUBLISHED_TEST_SUITE_INFO * tsuite)
     }
     // iterate over test vectors
     for (i = 0; i < tsuite->tvcount; i++) {
-        testcase_begin("%s Sign with test vector %u.", tsuite->name, i);
+        testcase_begin("%s Sign%s with test vector %u.", tsuite->name,
+                       me_only ? " (ME-format)" : "", i);
 
         rc = CKR_OK;            // set return value
 
@@ -1788,19 +1793,20 @@ CK_RV do_SignRSA(struct PUBLISHED_TEST_SUITE_INFO * tsuite)
                                   tsuite->tv[i].mod,
                                   tsuite->tv[i].pub_exp,
                                   tsuite->tv[i].priv_exp,
-                                  tsuite->tv[i].prime1,
-                                  tsuite->tv[i].prime2,
-                                  tsuite->tv[i].exp1,
-                                  tsuite->tv[i].exp2,
-                                  tsuite->tv[i].coef,
+                                  me_only ? NULL : tsuite->tv[i].prime1,
+                                  me_only ? NULL : tsuite->tv[i].prime2,
+                                  me_only ? NULL : tsuite->tv[i].exp1,
+                                  me_only ? NULL : tsuite->tv[i].exp2,
+                                  me_only ? NULL : tsuite->tv[i].coef,
                                   tsuite->tv[i].mod_len,
                                   tsuite->tv[i].pubexp_len,
                                   tsuite->tv[i].privexp_len,
-                                  tsuite->tv[i].prime1_len,
-                                  tsuite->tv[i].prime2_len,
-                                  tsuite->tv[i].exp1_len,
-                                  tsuite->tv[i].exp2_len,
-                                  tsuite->tv[i].coef_len, &priv_key);
+                                  me_only ? 0 : tsuite->tv[i].prime1_len,
+                                  me_only ? 0 : tsuite->tv[i].prime2_len,
+                                  me_only ? 0 : tsuite->tv[i].exp1_len,
+                                  me_only ? 0 : tsuite->tv[i].exp2_len,
+                                  me_only ? 0 : tsuite->tv[i].coef_len,
+                                  &priv_key);
         if (rc != CKR_OK) {
             if (rc == CKR_POLICY_VIOLATION) {
                 testcase_skip("RSA key import is not allowed by policy");
@@ -1839,7 +1845,7 @@ CK_RV do_SignRSA(struct PUBLISHED_TEST_SUITE_INFO * tsuite)
                           "signature.", tsuite->name, i);
 
         } else {
-            testcase_pass("C_Sign.");
+            testcase_pass("C_Sign%s.", me_only ? " (ME-format)" : "");
         }
 skip:
         // clean up
@@ -2197,7 +2203,11 @@ CK_RV rsa_funcs(void)
 
     // published (known answer) tests
     for (i = 0; i < NUM_OF_PUBLISHED_TESTSUITES; i++) {
-        rv = do_SignRSA(&published_test_suites[i]);
+        rv = do_SignRSA(&published_test_suites[i], FALSE);
+        if (rv != CKR_OK && (!no_stop))
+            break;
+
+        rv = do_SignRSA(&published_test_suites[i], TRUE);
         if (rv != CKR_OK && (!no_stop))
             break;
 
@@ -2254,7 +2264,15 @@ CK_RV rsa_funcs(void)
 
     // key import tests
     for (i = 0; i < NUM_OF_ENCDEC_IMPORT_TESTSUITES; i++) {
-        rv = do_EncryptDecryptImportRSA(&rsa_encdec_import_test_suites[i]);
+        rv = do_EncryptDecryptImportRSA(&rsa_encdec_import_test_suites[i],
+                                        FALSE);
+        if (rv != CKR_OK && (!no_stop))
+            break;
+    }
+
+    for (i = 0; i < NUM_OF_ENCDEC_IMPORT_TESTSUITES; i++) {
+        rv = do_EncryptDecryptImportRSA(&rsa_encdec_import_test_suites[i],
+                                        TRUE);
         if (rv != CKR_OK && (!no_stop))
             break;
     }
