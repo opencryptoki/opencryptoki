@@ -345,7 +345,8 @@ extern CSNDKTC_t dll_CSNDKTC;
 
 #define RETRY_NEW_MK_BLOB2_END(tokdata, return_code, reason_code,            \
                                blob1, bloblen1, blob2, bloblen2)             \
-                        if ((return_code) == 8 && (reason_code) == 48) {     \
+                        if (constant_time_eq((return_code), 8) &             \
+                            constant_time_eq((reason_code), 48)) {           \
                             TRACE_DEVEL("%s MKVP mismatch\n", __func__);     \
                             if (!single_selected &&                          \
                                 cca_check_blob_select_single_apqn((tokdata), \
