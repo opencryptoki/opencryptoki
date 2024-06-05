@@ -1,5 +1,5 @@
 os: linux
-dist: focal
+dist: jammy
 
 language: c
 
@@ -7,7 +7,7 @@ before_install:
     - sudo apt-get -qq update
     - sudo apt-get install -y expect libldap2-dev wget libudev-dev autoconf-archive libcap-dev
     - if [ "$TRAVIS_CPU_ARCH" != "amd64" ]; then sudo apt-get install -y trousers libtspi-dev; fi
-    - if [ "$TRAVIS_CPU_ARCH" = "s390x" ]; then sudo apt-get install -y libica3 libica-dev; fi
+    - if [ "$TRAVIS_CPU_ARCH" = "s390x" ]; then sudo apt-get install -y libica4 libica-dev; fi
 
 jobs:
     include:
