@@ -2541,7 +2541,7 @@ CK_RV SC_Decrypt(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
                                     pEncryptedData, ulEncryptedDataLen,
                                     pData, pulDataLen);
         /* (!is_rsa_mechanism(sess->decr_ctx.mech.mechanism) && rc != CKR_OK) */
-        mask = ~constant_time_is_zero(
+        mask = constant_time_is_zero(
                                 is_rsa_mechanism(sess->decr_ctx.mech.mechanism));
         mask &= ~constant_time_eq(rc, CKR_OK);
         if (mask)
@@ -2550,7 +2550,7 @@ CK_RV SC_Decrypt(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
         rc = ep11tok_decrypt(tokdata, sess, pEncryptedData, ulEncryptedDataLen,
                              pData, pulDataLen);
         /* (!is_rsa_mechanism(sess->decr_ctx.mech.mechanism) && rc != CKR_OK) */
-        mask = ~constant_time_is_zero(
+        mask = constant_time_is_zero(
                                 is_rsa_mechanism(sess->decr_ctx.mech.mechanism));
         mask &= ~constant_time_eq(rc, CKR_OK);
         if (mask)
@@ -2637,7 +2637,7 @@ CK_RV SC_DecryptUpdate(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
     rc = ep11tok_decrypt_update(tokdata, sess, pEncryptedPart,
                                 ulEncryptedPartLen, pPart, pulPartLen);
     /* (!is_rsa_mechanism(sess->decr_ctx.mech.mechanism) && rc != CKR_OK) */
-    mask = ~constant_time_is_zero(
+    mask = constant_time_is_zero(
                             is_rsa_mechanism(sess->decr_ctx.mech.mechanism));
     mask &= ~constant_time_eq(rc, CKR_OK);
     if (mask)
@@ -2719,7 +2719,7 @@ CK_RV SC_DecryptFinal(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
 
     rc = ep11tok_decrypt_final(tokdata, sess, pLastPart, pulLastPartLen);
     /* (!is_rsa_mechanism(sess->decr_ctx.mech.mechanism) && rc != CKR_OK) */
-    mask = ~constant_time_is_zero(
+    mask = constant_time_is_zero(
                             is_rsa_mechanism(sess->decr_ctx.mech.mechanism));
     mask &= ~constant_time_eq(rc, CKR_OK);
     if (mask)
