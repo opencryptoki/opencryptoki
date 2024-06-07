@@ -500,6 +500,107 @@ CK_RV generate_RSA_PKCS_KeyPair(CK_SESSION_HANDLE session,
     // see rsa_func.c
 }
 
+struct rsa_key_cache_entry {
+    CK_SESSION_HANDLE session;
+    CK_ULONG modulusBits;
+    CK_BYTE *publicExponent;
+    CK_ULONG publicExponent_len;
+    CK_OBJECT_HANDLE publ_key;
+    CK_OBJECT_HANDLE priv_key;
+};
+
+struct rsa_key_cache_entry *rsa_key_cache = NULL;
+CK_ULONG rsa_key_cache_size = 0;
+
+CK_RV generate_RSA_PKCS_KeyPair_cached(CK_SESSION_HANDLE session,
+                                       CK_ULONG modulusBits,
+                                       CK_BYTE publicExponent[],
+                                       CK_ULONG publicExponent_len,
+                                       CK_OBJECT_HANDLE *publ_key,
+                                       CK_OBJECT_HANDLE *priv_key)
+{
+    struct rsa_key_cache_entry *tmp, *free = NULL;
+    CK_ULONG i;
+    CK_RV rc;
+
+    for (i = 0; i < rsa_key_cache_size; i++) {
+        if (rsa_key_cache[i].session == session &&
+            rsa_key_cache[i].modulusBits == modulusBits &&
+            rsa_key_cache[i].publicExponent_len == publicExponent_len &&
+            memcmp(rsa_key_cache[i].publicExponent, publicExponent,
+                   publicExponent_len) == 0) {
+            *publ_key = rsa_key_cache[i].publ_key;
+            *priv_key = rsa_key_cache[i].priv_key;
+
+            return CKR_OK;
+        }
+
+        if (rsa_key_cache[i].session == CK_INVALID_HANDLE && free == NULL)
+            free = &rsa_key_cache[i];
+    }
+
+    rc = generate_RSA_PKCS_KeyPair(session, modulusBits, publicExponent,
+                                   publicExponent_len, publ_key, priv_key);
+    if (rc != CKR_OK)
+        return rc;
+
+    if (free == NULL) {
+        tmp = realloc(rsa_key_cache, (rsa_key_cache_size + 1) *
+                                            sizeof(struct rsa_key_cache_entry));
+        if (tmp == NULL) {
+            testcase_error("realloc failed to enlarge the RSA key cache");
+            return CKR_HOST_MEMORY;
+        }
+
+        free = &tmp[rsa_key_cache_size];
+        memset(free, 0, sizeof(*free));
+
+        rsa_key_cache = tmp;
+        rsa_key_cache_size++;
+    }
+
+    free->session = session;
+    free->modulusBits = modulusBits;
+    free->publicExponent_len = publicExponent_len;
+    free->publicExponent = malloc(publicExponent_len);
+    if (free->publicExponent == NULL) {
+        testcase_error("failed to allocate the public exponent cache entry");
+        return CKR_HOST_MEMORY;
+    }
+    memcpy(free->publicExponent, publicExponent, publicExponent_len);
+    free->publ_key = *publ_key;
+    free->priv_key = *priv_key;
+
+    return CKR_OK;
+}
+
+void free_rsa_key_cache(CK_SESSION_HANDLE session)
+{
+    CK_ULONG i;
+
+    for (i = 0; i < rsa_key_cache_size; i++) {
+        if (rsa_key_cache[i].session == CK_INVALID_HANDLE)
+            continue;
+        if (session != CK_INVALID_HANDLE && rsa_key_cache[i].session != session)
+            continue;
+
+        funcs->C_DestroyObject(rsa_key_cache[i].session,
+                               rsa_key_cache[i].publ_key);
+        funcs->C_DestroyObject(rsa_key_cache[i].session,
+                               rsa_key_cache[i].priv_key);
+        free(rsa_key_cache[i].publicExponent);
+
+        /* mark as free */
+        memset(&rsa_key_cache[i], 0, sizeof(rsa_key_cache[i]));
+    }
+
+    if (session == CK_INVALID_HANDLE) {
+        free(rsa_key_cache);
+        rsa_key_cache = NULL;
+        rsa_key_cache_size = 0;
+    }
+}
+
 /** Generate an EC key pair **/
 CK_RV generate_EC_KeyPair(CK_SESSION_HANDLE session,
                           CK_BYTE* ec_params, CK_ULONG ec_params_len,

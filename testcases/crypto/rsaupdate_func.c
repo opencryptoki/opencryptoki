@@ -59,7 +59,7 @@ CK_RV do_SignVerifyUpdateRSA(struct GENERATED_TEST_SUITE_INFO *tsuite)
     CK_FLAGS flags;
     CK_BYTE user_pin[PKCS11_MAX_PIN_LEN];
     CK_ULONG user_pin_len;
-    CK_RV rc, loc_rc;
+    CK_RV rc;
 
     char *s;
 
@@ -175,18 +175,19 @@ CK_RV do_SignVerifyUpdateRSA(struct GENERATED_TEST_SUITE_INFO *tsuite)
         message_len = tsuite->tv[i].inputlen;
 
         // generate key pair
-        rc = generate_RSA_PKCS_KeyPair(session,
-                                       tsuite->tv[i].modbits,
-                                       tsuite->tv[i].publ_exp,
-                                       tsuite->tv[i].publ_exp_len,
-                                       &publ_key, &priv_key);
+        rc = generate_RSA_PKCS_KeyPair_cached(session,
+                                              tsuite->tv[i].modbits,
+                                              tsuite->tv[i].publ_exp,
+                                              tsuite->tv[i].publ_exp_len,
+                                              &publ_key, &priv_key);
         if (rc != CKR_OK) {
             if (rc == CKR_POLICY_VIOLATION) {
                 testcase_skip("RSA key generation is not allowed by policy");
                 continue;
             }
 
-            testcase_error("generate_RSA_PKCS_KeyPair(), rc=%s", p11_get_ckr(rc));
+            testcase_error("generate_RSA_PKCS_KeyPair_cached(), rc=%s",
+                           p11_get_ckr(rc));
             goto testcase_cleanup;
         }
 
@@ -202,7 +203,7 @@ CK_RV do_SignVerifyUpdateRSA(struct GENERATED_TEST_SUITE_INFO *tsuite)
         rc = funcs->C_SignInit(session, &mech, priv_key);
         if (rc != CKR_OK) {
             testcase_error("C_SignInit(), rc=%s", p11_get_ckr(rc));
-            goto error;
+            goto testcase_cleanup;
         }
         // set buffer size
         signature_len = 0;
@@ -219,7 +220,7 @@ CK_RV do_SignVerifyUpdateRSA(struct GENERATED_TEST_SUITE_INFO *tsuite)
                 rc = funcs->C_SignUpdate(session, message + count, inc);
                 if (rc != CKR_OK) {
                     testcase_error("C_SignUpdate(), rc=%s.", p11_get_ckr(rc));
-                    goto error;
+                    goto testcase_cleanup;
                 }
                 len -= inc;
             }
@@ -227,7 +228,7 @@ CK_RV do_SignVerifyUpdateRSA(struct GENERATED_TEST_SUITE_INFO *tsuite)
             rc = funcs->C_SignUpdate(session, NULL, 0);
             if (rc != CKR_OK) {
                 testcase_error("C_SignUpdate(), rc=%s.", p11_get_ckr(rc));
-                goto error;
+                goto testcase_cleanup;
             }
         }
 
@@ -236,7 +237,7 @@ CK_RV do_SignVerifyUpdateRSA(struct GENERATED_TEST_SUITE_INFO *tsuite)
         rc = funcs->C_SignFinal(session, NULL, &signature_len);
         if (rc != CKR_OK) {
             testcase_error("C_SignFinal(),rc=%s.", p11_get_ckr(rc));
-            goto error;
+            goto testcase_cleanup;
         }
         if (signature_len == (tsuite->tv[i].modbits / 8)) {
             testcase_pass("C_SignFinal set output length.");
@@ -244,19 +245,19 @@ CK_RV do_SignVerifyUpdateRSA(struct GENERATED_TEST_SUITE_INFO *tsuite)
             testcase_fail("C_SignFinal failed to set length: "
                           "expected %lu, got %lu.",
                           signature_len, tsuite->tv[i].modbits / 8);
-            goto error;
+            goto testcase_cleanup;
         }
 
         rc = funcs->C_SignFinal(session, signature, &signature_len);
         if (rc != CKR_OK) {
             testcase_error("C_SignFinal(),rc=%s.", p11_get_ckr(rc));
-            goto error;
+            goto testcase_cleanup;
         }
         // initialize Verify
         rc = funcs->C_VerifyInit(session, &mech, publ_key);
         if (rc != CKR_OK) {
             testcase_error("C_VerifyInit(), rc=%s", p11_get_ckr(rc));
-            goto error;
+            goto testcase_cleanup;
         }
         // do VerifyUpdate
         len = message_len;
@@ -270,7 +271,7 @@ CK_RV do_SignVerifyUpdateRSA(struct GENERATED_TEST_SUITE_INFO *tsuite)
                 rc = funcs->C_VerifyUpdate(session, message + count, inc);
                 if (rc != CKR_OK) {
                     testcase_error("C_VerifyUpdate(), rc=%s.", p11_get_ckr(rc));
-                    goto error;
+                    goto testcase_cleanup;
                 }
                 len -= inc;
             }
@@ -278,7 +279,7 @@ CK_RV do_SignVerifyUpdateRSA(struct GENERATED_TEST_SUITE_INFO *tsuite)
             rc = funcs->C_VerifyUpdate(session, NULL, 0);
             if (rc != CKR_OK) {
                 testcase_error("C_VerifyUpdate(), rc=%s.", p11_get_ckr(rc));
-                goto error;
+                goto testcase_cleanup;
             }
         }
         rc = funcs->C_VerifyFinal(session, signature, signature_len);
@@ -291,29 +292,10 @@ CK_RV do_SignVerifyUpdateRSA(struct GENERATED_TEST_SUITE_INFO *tsuite)
             testcase_fail("C_VerifyFinal, rc=%s", p11_get_ckr(rc));
         }
 
-        // clean up
-        rc = funcs->C_DestroyObject(session, publ_key);
-        if (rc != CKR_OK) {
-            testcase_error("C_DestroyObject(), rc=%s.", p11_get_ckr(rc));
-        }
-
-        rc = funcs->C_DestroyObject(session, priv_key);
-        if (rc != CKR_OK) {
-            testcase_error("C_DestroyObject(), rc=%s.", p11_get_ckr(rc));
-        }
-    }
-    goto testcase_cleanup;
-error:
-    loc_rc = funcs->C_DestroyObject(session, publ_key);
-    if (loc_rc != CKR_OK) {
-        testcase_error("C_DestroyObject, rc=%s.", p11_get_ckr(loc_rc));
-    }
-    loc_rc = funcs->C_DestroyObject(session, priv_key);
-    if (loc_rc != CKR_OK) {
-        testcase_error("C_DestroyObject, rc=%s.", p11_get_ckr(loc_rc));
     }
 
 testcase_cleanup:
+    free_rsa_key_cache(session);
     testcase_user_logout();
     rc = funcs->C_CloseAllSessions(slot_id);
     if (rc != CKR_OK) {
@@ -353,7 +335,7 @@ CK_RV do_SignVerifyUpdate_RSAPSS(struct GENERATED_TEST_SUITE_INFO * tsuite)
     CK_FLAGS flags;
     CK_BYTE user_pin[PKCS11_MAX_PIN_LEN];
     CK_ULONG user_pin_len;
-    CK_RV rc, loc_rc;
+    CK_RV rc;
     CK_RSA_PKCS_PSS_PARAMS pss_params;
 
     char *s;
@@ -436,19 +418,20 @@ CK_RV do_SignVerifyUpdate_RSAPSS(struct GENERATED_TEST_SUITE_INFO * tsuite)
         message_len = tsuite->tv[i].inputlen;
 
         // generate key pair
-        rc = generate_RSA_PKCS_KeyPair(session,
-                                       tsuite->tv[i].modbits,
-                                       tsuite->tv[i].publ_exp,
-                                       tsuite->tv[i].publ_exp_len,
-                                       &publ_key, &priv_key);
+        rc = generate_RSA_PKCS_KeyPair_cached(session,
+                                              tsuite->tv[i].modbits,
+                                              tsuite->tv[i].publ_exp,
+                                              tsuite->tv[i].publ_exp_len,
+                                              &publ_key, &priv_key);
         if (rc != CKR_OK) {
             if (rc == CKR_POLICY_VIOLATION) {
                 testcase_skip("RSA key generation is not allowed by policy");
                 continue;
             }
 
-            testcase_error("generate_RSA_PKCS_KeyPair(), rc=%s", p11_get_ckr(rc));
-            goto error;
+            testcase_error("generate_RSA_PKCS_KeyPair_cached(), rc=%s",
+                           p11_get_ckr(rc));
+            goto testcase_cleanup;
         }
         // generate message
         for (j = 0; j < message_len; j++) {
@@ -465,7 +448,7 @@ CK_RV do_SignVerifyUpdate_RSAPSS(struct GENERATED_TEST_SUITE_INFO * tsuite)
         rc = funcs->C_SignInit(session, &mech, priv_key);
         if (rc != CKR_OK) {
             testcase_error("C_SignInit(), rc=%s", p11_get_ckr(rc));
-            goto error;
+            goto testcase_cleanup;
         }
         // set buffer size
         signature_len = 0;
@@ -508,7 +491,7 @@ CK_RV do_SignVerifyUpdate_RSAPSS(struct GENERATED_TEST_SUITE_INFO * tsuite)
         rc = funcs->C_SignFinal(session, NULL, &signature_len);
         if (rc != CKR_OK) {
             testcase_error("C_SignFinal(),rc=%s.", p11_get_ckr(rc));
-            goto error;
+            goto testcase_cleanup;
         }
         if (signature_len == (tsuite->tv[i].modbits / 8)) {
             testcase_pass("C_SignFinal set output length.");
@@ -516,19 +499,19 @@ CK_RV do_SignVerifyUpdate_RSAPSS(struct GENERATED_TEST_SUITE_INFO * tsuite)
             testcase_fail("C_SignFinal failed to set length: "
                           "expected %lu, got %lu.",
                           signature_len, tsuite->tv[i].modbits / 8);
-            goto error;
+            goto testcase_cleanup;
         }
 
         rc = funcs->C_SignFinal(session, signature, &signature_len);
         if (rc != CKR_OK) {
             testcase_error("C_SignFinal(),rc=%s.", p11_get_ckr(rc));
-            goto error;
+            goto testcase_cleanup;
         }
         // initialize Verify
         rc = funcs->C_VerifyInit(session, &mech, publ_key);
         if (rc != CKR_OK) {
             testcase_error("C_VerifyInit(), rc=%s", p11_get_ckr(rc));
-            goto error;
+            goto testcase_cleanup;
         }
         // do VerifyUpdate
         data_done = 0;
@@ -570,30 +553,10 @@ CK_RV do_SignVerifyUpdate_RSAPSS(struct GENERATED_TEST_SUITE_INFO * tsuite)
         } else {
             testcase_fail("C_VerifyFinal(), rc=%s", p11_get_ckr(rc));
         }
-
-        // clean up
-        rc = funcs->C_DestroyObject(session, publ_key);
-        if (rc != CKR_OK) {
-            testcase_error("C_DestroyObject(), rc=%s.", p11_get_ckr(rc));
-        }
-
-        rc = funcs->C_DestroyObject(session, priv_key);
-        if (rc != CKR_OK) {
-            testcase_error("C_DestroyObject(), rc=%s.", p11_get_ckr(rc));
-        }
-    }
-    goto testcase_cleanup;
-error:
-    loc_rc = funcs->C_DestroyObject(session, publ_key);
-    if (loc_rc != CKR_OK) {
-        testcase_error("C_DestroyObject, rc=%s.", p11_get_ckr(loc_rc));
-    }
-    loc_rc = funcs->C_DestroyObject(session, priv_key);
-    if (loc_rc != CKR_OK) {
-        testcase_error("C_DestroyObject, rc=%s.", p11_get_ckr(loc_rc));
     }
 
 testcase_cleanup:
+    free_rsa_key_cache(session);
     testcase_user_logout();
     rc = funcs->C_CloseAllSessions(slot_id);
     if (rc != CKR_OK) {
