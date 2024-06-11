@@ -273,6 +273,9 @@ struct cca_mk_change_op {
 #define PKEY_MODE_DEFAULT           1
 #define PKEY_MODE_ENABLED           2
 
+#define AES_KEY_MODE_DATA           0
+#define AES_KEY_MODE_CIPHER         1
+
 struct cca_version {
     unsigned int ver;
     unsigned int rel;
@@ -306,6 +309,7 @@ struct cca_private_data {
     int pkeyfd;
     int msa_level;
     CK_BBOOL cka_sensitive_default_true;
+    int aes_key_mode;
 };
 
 #define CCA_CFG_EXPECTED_MKVPS  "EXPECTED_MKVPS"

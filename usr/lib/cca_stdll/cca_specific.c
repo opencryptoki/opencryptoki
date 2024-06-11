@@ -1959,6 +1959,23 @@ static CK_RV cca_config_set_pkey_mode(struct cca_private_data *cca_data,
     return CKR_OK;
 }
 
+static CK_RV cca_config_set_aes_key_mode(struct cca_private_data *cca_data,
+                                         const char *fname, const char *strval)
+{
+    if (strcmp(strval, "DATA") == 0)
+        cca_data->aes_key_mode = AES_KEY_MODE_DATA;
+    else if (strcmp(strval, "CIPHER") == 0)
+        cca_data->aes_key_mode = AES_KEY_MODE_CIPHER;
+    else {
+        TRACE_ERROR("%s unsupported AES key mode : '%s'\n", __func__, strval);
+        OCK_SYSLOG(LOG_ERR,"%s: Error: unsupported AES key mode '%s' "
+                   "in config file '%s'\n", __func__, strval, fname);
+        return CKR_FUNCTION_FAILED;
+    }
+
+    return CKR_OK;
+}
+
 CK_RV cca_config_parse_exp_mkvps(char *fname,
                                  struct ConfigStructNode *exp_mkvp_node,
                                  unsigned char *expected_sym_mkvp,
@@ -2115,6 +2132,8 @@ CK_RV cca_load_config_file(STDLL_TokData_t *tokdata, char *conf_name)
     cca_private->pkey_mode = PKEY_MODE_DISABLED;
 #endif
 
+    cca_private->aes_key_mode = AES_KEY_MODE_DATA;
+
     confignode_foreach(c, config, i) {
         TRACE_DEBUG("Config node: '%s' type: %u line: %u\n",
                     c->key, c->type, c->line);
@@ -2139,6 +2158,13 @@ CK_RV cca_load_config_file(STDLL_TokData_t *tokdata, char *conf_name)
 
             if (strcasecmp(c->key, "PKEY_MODE") == 0) {
                 rc = cca_config_set_pkey_mode(cca_private, fname, strval);
+                if (rc != CKR_OK)
+                    break;
+                continue;
+            }
+
+            if (strcasecmp(c->key, "AES_KEY_MODE") == 0) {
+                rc = cca_config_set_aes_key_mode(cca_private, fname, strval);
                 if (rc != CKR_OK)
                     break;
                 continue;
