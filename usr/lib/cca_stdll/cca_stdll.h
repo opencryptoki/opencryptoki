@@ -35,6 +35,7 @@
 #define CCA_REGENERATION_DATA_SIZE      64
 #define CCA_KEY_TOKEN_SIZE              8000
 #define CCA_KEY_VALUE_STRUCT_SIZE       8000
+#define CCA_MAX_AES_CIPHER_KEY_SIZE     455
 #define CCA_RULE_ARRAY_SIZE             256
 #define CCA_KEYWORD_SIZE                8
 #define CCA_KEY_ID_SIZE                 64
