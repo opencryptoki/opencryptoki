@@ -11645,6 +11645,9 @@ static CK_RV ccatok_wrap_key_rsa_pkcs(STDLL_TokData_t *tokdata,
     CK_OBJECT_CLASS key_class;
     CK_KEY_TYPE key_type;
     CK_RSA_PKCS_OAEP_PARAMS *oaep;
+    enum cca_token_type keytype;
+    unsigned int keybitsize;
+    const CK_BYTE *mkvp;
     CK_RV rc;
 
     rc = template_attribute_get_ulong(key->template, CKA_CLASS, &key_class);
@@ -11655,6 +11658,20 @@ static CK_RV ccatok_wrap_key_rsa_pkcs(STDLL_TokData_t *tokdata,
 
     if (key_class != CKO_SECRET_KEY)
         return CKR_KEY_NOT_WRAPPABLE;
+
+    rc = template_attribute_get_non_empty(key->template, CKA_IBM_OPAQUE,
+                                          &key_opaque);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_IBM_OPAQUE for the key.\n");
+        return rc;
+    }
+
+    if (analyse_cca_key_token((CK_BYTE *)key_opaque->pValue,
+                              key_opaque->ulValueLen,
+                              &keytype, &keybitsize, &mkvp) == FALSE) {
+        TRACE_ERROR("Invalid/unknown cca token, cannot get key type\n");
+        return CKR_FUNCTION_FAILED;
+    }
 
     rc = template_attribute_get_ulong(key->template, CKA_KEY_TYPE, &key_type);
     if (rc != CKR_OK) {
@@ -11708,10 +11725,22 @@ static CK_RV ccatok_wrap_key_rsa_pkcs(STDLL_TokData_t *tokdata,
     case CKK_AES:
         switch (mech->mechanism) {
         case CKM_RSA_PKCS:
+            if (keytype == sec_aes_cipher_key) {
+                TRACE_ERROR("CCA does not support wrapping with CKM_RSA_PKCS "
+                            "for AES CIPHER keys\n");
+                return CKR_KEY_NOT_WRAPPABLE;
+            }
+
             rule_array_count = 2;
             memcpy(rule_array, "AES     PKCS-1.2", 2 * CCA_KEYWORD_SIZE);
             break;
         case CKM_RSA_PKCS_OAEP:
+            if (keytype == sec_aes_cipher_key) {
+                TRACE_ERROR("CCA does not support wrapping with "
+                            "CKM_RSA_PKCS_OAEP for AES CIPHER keys\n");
+                return CKR_KEY_NOT_WRAPPABLE;
+            }
+
             rule_array_count = 3;
             oaep = (CK_RSA_PKCS_OAEP_PARAMS *)mech->pParameter;
             if (oaep == NULL ||
@@ -11748,13 +11777,6 @@ static CK_RV ccatok_wrap_key_rsa_pkcs(STDLL_TokData_t *tokdata,
         break;
     default:
         return CKR_KEY_NOT_WRAPPABLE;
-    }
-
-    rc = template_attribute_get_non_empty(key->template, CKA_IBM_OPAQUE,
-                                          &key_opaque);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("Could not find CKA_IBM_OPAQUE for the key.\n");
-        return rc;
     }
 
     rc = template_attribute_get_non_empty(wrapping_key->template,
@@ -11803,6 +11825,7 @@ static CK_RV ccatok_unwrap_key_rsa_pkcs(STDLL_TokData_t *tokdata,
                                         CK_BYTE *wrapped_key,
                                         CK_ULONG wrapped_key_len)
 {
+    struct cca_private_data *cca_data = tokdata->private_data;
     long return_code, reason_code, rule_array_count;
     unsigned char rule_array[CCA_RULE_ARRAY_SIZE] = { 0 };
     CK_BYTE buffer[3500] = { 0, };
@@ -11883,10 +11906,22 @@ static CK_RV ccatok_unwrap_key_rsa_pkcs(STDLL_TokData_t *tokdata,
     case CKK_AES:
         switch (mech->mechanism) {
         case CKM_RSA_PKCS:
+            if (cca_data->aes_key_mode == AES_KEY_MODE_CIPHER) {
+                TRACE_ERROR("CCA does not support to unwrap with CKM_RSA_PKCS "
+                            "for AES CIPHER keys\n");
+                return CKR_WRAPPED_KEY_INVALID;
+            }
+
             rule_array_count = 2;
             memcpy(rule_array, "AES     PKCS-1.2", 2 * CCA_KEYWORD_SIZE);
             break;
         case CKM_RSA_PKCS_OAEP:
+            if (cca_data->aes_key_mode == AES_KEY_MODE_CIPHER) {
+                TRACE_ERROR("CCA does not support to unwrap with "
+                            "CKM_RSA_PKCS_OAEP for AES CIPHER keys\n");
+                return CKR_WRAPPED_KEY_INVALID;
+            }
+
             rule_array_count = 3;
             oaep = (CK_RSA_PKCS_OAEP_PARAMS *)mech->pParameter;
             if (oaep == NULL ||
