@@ -324,6 +324,11 @@ static CK_RV cca_build_aes_data_token(STDLL_TokData_t *tokdata,
                                       CK_ULONG key_size,
                                       CK_BYTE *key_token,
                                       CK_ULONG *key_token_size);
+static CK_RV cca_aes_cipher_add_key_usage_keywords(STDLL_TokData_t *tokdata,
+                                                   TEMPLATE *tmpl,
+                                                   CK_BYTE *rule_array,
+                                                   CK_ULONG rule_array_size,
+                                                   CK_ULONG *rule_array_count);
 
 static CK_RV init_cca_adapter_lock(STDLL_TokData_t *tokdata)
 {
@@ -3320,10 +3325,42 @@ done:
     return ret;
 }
 
+static CK_RV ccatok_var_sym_token_is_exportable(const CK_BYTE *token,
+                                                CK_ULONG token_len,
+                                                CK_BBOOL *exportable,
+                                                CK_BBOOL *cpacf_exportable)
+{
+    uint16_t key_mgmt1;
+
+    if (token_len < CCA_VAR_SYM_TOKEN_KEYMGMT1_OFFSET + 1)
+        return CKR_ARGUMENTS_BAD;
+
+    key_mgmt1 =
+            be16toh(*((uint16_t *)&token[CCA_VAR_SYM_TOKEN_KEYMGMT1_OFFSET]));
+
+    if (cpacf_exportable != NULL)
+#ifndef NO_PKEY
+        *cpacf_exportable = (key_mgmt1 & CCA_VAR_SYM_XPRT_CPACF) != 0;
+#else
+        *cpacf_exportable = FALSE;
+#endif
+
+    if (exportable != NULL) {
+        *exportable = (key_mgmt1 & (CCA_VAR_SYM_XPRT_SYM |
+                                    CCA_VAR_SYM_XPRT_UASYM |
+                                    CCA_VAR_SYM_XPRT_AASYM)) != 0;
+        *exportable &= (key_mgmt1 & (CCA_VAR_SYM_NOEX_DES |
+                                     CCA_VAR_SYM_NOEX_AES |
+                                     CCA_VAR_SYM_NOEX_RSA)) == 0;
+    }
+
+    return CKR_OK;
+}
+
 #ifndef NO_PKEY
 
-static CK_BBOOL ccatok_token_is_cpacf_exportable(const CK_BYTE *token,
-                                                 CK_ULONG token_len)
+static CK_BBOOL ccatok_ecc_token_is_cpacf_exportable(const CK_BYTE *token,
+                                                     CK_ULONG token_len)
 {
     CK_BYTE keyusage = token[CCA_ECC_TOKEN_KEYUSAGE_OFFSET];
 
@@ -3367,7 +3404,7 @@ static CK_RV ccatok_pkey_check_attrs(STDLL_TokData_t *tokdata,
          * curves P256, P384, P521, Ed25519, and Ed448.
          */
         if (pkey_op_ec_curve_supported_by_cpacf(templ) &&
-            !ccatok_token_is_cpacf_exportable(sec_key, sec_len)) {
+            !ccatok_ecc_token_is_cpacf_exportable(sec_key, sec_len)) {
             TRACE_ERROR("ECC secure key is CKA_IBM_PROTKEY_EXTRACTABLE, "
                         "but token is not CPACF-exportable.\n");
             return CKR_TEMPLATE_INCONSISTENT;
@@ -3607,6 +3644,7 @@ done:
 static CK_RV import_aes_xts_key(STDLL_TokData_t *tokdata,
                                 OBJECT * object)
 {
+    struct cca_private_data *cca_data = tokdata->private_data;
     CK_RV rc;
     CK_ATTRIBUTE *opaque_attr = NULL;
     enum cca_token_type token_type, token_type2;
@@ -3614,6 +3652,7 @@ static CK_RV import_aes_xts_key(STDLL_TokData_t *tokdata,
     const CK_BYTE *mkvp, *mkvp2;
     CK_BBOOL new_mk, new_mk2;
     CK_ATTRIBUTE *reenc_attr = NULL;
+    CK_ULONG pl_ofs, pl_len;
 
     if (!((struct cca_private_data *)tokdata->private_data)->pkey_wrap_supported) {
         TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
@@ -3636,6 +3675,8 @@ static CK_RV import_aes_xts_key(STDLL_TokData_t *tokdata,
          */
         CK_BYTE zorro[64] = { 0 };
         CK_BBOOL true = TRUE;
+        CK_ULONG value_len = 0;
+        CK_BBOOL exp, cpacf_exp, exp2 = FALSE, cpacf_exp2 = FALSE;
 
         if (analyse_cca_key_token(opaque_attr->pValue,
                                   opaque_attr->ulValueLen / 2, &token_type,
@@ -3648,9 +3689,33 @@ static CK_RV import_aes_xts_key(STDLL_TokData_t *tokdata,
             /* keybitsize has been checked by the analyse_cca_key_token() function */
             ;
         } else if (token_type == sec_aes_cipher_key) {
-            /* not supported yet */
-            TRACE_ERROR("CCA AES cipher key import is not supported\n");
-            return CKR_TEMPLATE_INCONSISTENT;
+            if (token_keybitsize == 0) {
+                /*
+                 * A CIPHER key with V1 payload does not allow to obtain the
+                 * keybitsize. The user must supply the CKA_VALUE_LEN with
+                 * a valid key size in the template.
+                 */
+                rc = template_attribute_get_ulong(object->template,
+                                                  CKA_VALUE_LEN,
+                                                  &value_len);
+                if (rc != CKR_OK || value_len == 0) {
+                    TRACE_ERROR("For an AES CIPHER key token with V1 "
+                                "payload attribute CKA_VALUE_LEN must also "
+                                "be supplied to specify the key size\n");
+                    return CKR_TEMPLATE_INCONSISTENT;
+                }
+                if (value_len != 32 && value_len != 64) {
+                    TRACE_ERROR("CKA_VALUE_LEN not valid for an AES key\n");
+                    return CKR_ATTRIBUTE_VALUE_INVALID;
+                }
+                token_keybitsize = value_len / 2 * 8;
+            }
+
+            rc = ccatok_var_sym_token_is_exportable(opaque_attr->pValue,
+                                                    opaque_attr->ulValueLen,
+                                                    &exp, &cpacf_exp);
+            if (rc != CKR_OK)
+                return rc;
         } else {
             TRACE_ERROR("CCA token type in CKA_IBM_OPAQUE does not match to keytype CKK_AES\n");
             return CKR_TEMPLATE_INCONSISTENT;
@@ -3682,9 +3747,33 @@ static CK_RV import_aes_xts_key(STDLL_TokData_t *tokdata,
             /* keybitsize has been checked by the analyse_cca_key_token() function */
             ;
         } else if (token_type2 == sec_aes_cipher_key) {
-            /* not supported yet */
-            TRACE_ERROR("CCA AES cipher key import is not supported\n");
-            return CKR_TEMPLATE_INCONSISTENT;
+            if (token_keybitsize2 == 0) {
+                /*
+                 * A CIPHER key with V1 payload does not allow to obtain the
+                 * keybitsize. The user must supply the CKA_VALUE_LEN with
+                 * a valid key size in the template.
+                 */
+                rc = template_attribute_get_ulong(object->template,
+                                                  CKA_VALUE_LEN,
+                                                  &value_len);
+                if (rc != CKR_OK || value_len == 0) {
+                    TRACE_ERROR("For an AES CIPHER key token with V1 "
+                                "payload attribute CKA_VALUE_LEN must also "
+                                "be supplied to specify the key size\n");
+                    return CKR_TEMPLATE_INCONSISTENT;
+                }
+                if (value_len != 32 && value_len != 64) {
+                    TRACE_ERROR("CKA_VALUE_LEN not valid for an AES key\n");
+                    return CKR_ATTRIBUTE_VALUE_INVALID;
+                }
+                token_keybitsize2 = value_len / 2 * 8;
+            }
+
+            rc = ccatok_var_sym_token_is_exportable(opaque_attr->pValue,
+                                                    opaque_attr->ulValueLen,
+                                                    &exp2, &cpacf_exp2);
+            if (rc != CKR_OK)
+                return rc;
         } else {
             TRACE_ERROR("CCA token type in CKA_IBM_OPAQUE does not match to keytype CKK_AES\n");
             return CKR_TEMPLATE_INCONSISTENT;
@@ -3712,16 +3801,60 @@ static CK_RV import_aes_xts_key(STDLL_TokData_t *tokdata,
             return CKR_ATTRIBUTE_VALUE_INVALID;
         }
 
+        if (token_type == sec_aes_cipher_key) {
+            if (exp != exp2 || cpacf_exp != cpacf_exp2) {
+                TRACE_ERROR("CCA AES XTS keys attribute value mismatch\n");
+                return CKR_ATTRIBUTE_VALUE_INVALID;
+            }
+
+            rc = build_update_attribute(object->template, CKA_EXTRACTABLE,
+                                        (CK_BYTE *)&exp, sizeof(exp));
+            if (rc != CKR_OK) {
+                TRACE_DEVEL("build_update_attribute(CKA_EXTRACTABLE) "
+                            "failed\n");
+                return rc;
+            }
+
+#ifndef NO_PKEY
+            rc = build_update_attribute(object->template,
+                                        CKA_IBM_PROTKEY_EXTRACTABLE,
+                                        (CK_BYTE *)&cpacf_exp,
+                                        sizeof(cpacf_exp));
+            if (rc != CKR_OK) {
+                TRACE_DEVEL("build_update_attribute(CKA_EXTRACTABLE) "
+                            "failed\n");
+                return rc;
+            }
+#endif
+        }
+
         /*
          * Compare the encrypted key material to ensure that the 2 key parts are
          * not the same.
-         * A CCA AES-DATA key blob contains the encrypted key material at
-         * offset 16, with a length of 32 bytes.
          */
-        if (memcmp(((CK_BYTE *)opaque_attr->pValue) + 16 ,
+        if (token_type == sec_aes_cipher_key) {
+            /*
+             * A CCA AES-CIPHER key blob contains the encrypted key material at a
+             * variable position dependent on several length bytes
+             */
+            pl_ofs = 56 + ((CK_BYTE *)opaque_attr->pValue)[34] +
+                          ((CK_BYTE *)opaque_attr->pValue)[35] +
+                          ((CK_BYTE *)opaque_attr->pValue)[36];
+            pl_len = (be16toh(*((uint16_t*)(
+                        ((CK_BYTE *)opaque_attr->pValue) + 38))) + 7) / 8;
+        } else {
+            /*
+             * A CCA AES-DATA key blob contains the encrypted key material at
+             * offset 16, with a length of 32 bytes.
+             */
+            pl_ofs = 16;
+            pl_len = 32;
+        }
+        if (pl_ofs + pl_len <= opaque_attr->ulValueLen / 2 &&
+            memcmp(((CK_BYTE *)opaque_attr->pValue) + pl_ofs ,
                    ((CK_BYTE *)opaque_attr->pValue) +
-                                   opaque_attr->ulValueLen / 2 + 16,
-                   32) == 0) {
+                                   opaque_attr->ulValueLen / 2 + pl_ofs,
+                   pl_len) == 0) {
             TRACE_ERROR("The 2 key parts of an AES-XTS key can not be the same\n");
             return CKR_ATTRIBUTE_VALUE_INVALID;
         }
@@ -3749,10 +3882,11 @@ static CK_RV import_aes_xts_key(STDLL_TokData_t *tokdata,
          */
 
         long return_code, reason_code, rule_array_count;
-        unsigned char target_key_id[CCA_KEY_ID_SIZE * 2] = { 0 };
+        unsigned char target_key_token[CCA_MAX_AES_CIPHER_KEY_SIZE * 2] = { 0 };
         unsigned char rule_array[CCA_RULE_ARRAY_SIZE] = { 0 };
+        long key_token_len, key_len;
         CK_ATTRIBUTE *value_attr = NULL;
-        CK_ULONG keylen;
+        long reserved_1 = 0, key_part_len;
 
         rc = template_attribute_get_non_empty(object->template, CKA_VALUE,
                                               &value_attr);
@@ -3768,25 +3902,100 @@ static CK_RV import_aes_xts_key(STDLL_TokData_t *tokdata,
             return CKR_ATTRIBUTE_VALUE_INVALID;
         }
 
-        memcpy(rule_array, "AES     ", CCA_KEYWORD_SIZE);
-        rule_array_count = 1;
-
 retry:
-        keylen = value_attr->ulValueLen / 2;
-        USE_CCA_ADAPTER_START(tokdata, return_code, reason_code)
-            dll_CSNBCKM(&return_code, &reason_code, NULL, NULL,
-                        &rule_array_count, rule_array,
-                        (long int *)&keylen, value_attr->pValue,
-                        target_key_id);
-        USE_CCA_ADAPTER_END(tokdata, return_code, reason_code)
+        if (cca_data->aes_key_mode == AES_KEY_MODE_CIPHER) {
+            memcpy(rule_array, "INTERNALAES     CIPHER  NO-KEY  ANY-MODE",
+                   5 * CCA_KEYWORD_SIZE);
+            rule_array_count = 5;
 
-        if (return_code != CCA_SUCCESS) {
-            TRACE_ERROR("CSNBCKM failed. return:%ld, reason:%ld\n",
-                        return_code, reason_code);
-            return CKR_FUNCTION_FAILED;
+            rc = cca_aes_cipher_add_key_usage_keywords(tokdata,
+                                                       object->template,
+                                                       rule_array,
+                                                       sizeof(rule_array),
+                                                       (CK_ULONG *)
+                                                           &rule_array_count);
+            if (rc != CKR_OK) {
+                TRACE_ERROR("Failed to add key usage keywords\n");
+                return rc;
+            }
+
+            key_len = sizeof(target_key_token) / 2;
+            USE_CCA_ADAPTER_START(tokdata, return_code, reason_code)
+                dll_CSNBKTB2(&return_code, &reason_code, NULL, NULL,
+                             &rule_array_count, rule_array,
+                             &reserved_1, NULL,
+                             &reserved_1, NULL,
+                             &reserved_1, NULL,
+                             &reserved_1, NULL,
+                             &reserved_1, NULL,
+                             &key_len, target_key_token);
+            USE_CCA_ADAPTER_END(tokdata, return_code, reason_code)
+
+            if (return_code != CCA_SUCCESS) {
+                TRACE_ERROR("CSNBKTB2 (AES CIPHER KEY TOKEN BUILD) failed."
+                            " return:%ld, reason:%ld\n",
+                            return_code, reason_code);
+                return CKR_FUNCTION_FAILED;
+            }
+
+            memcpy(rule_array, "AES     FIRST   MIN1PART",
+                   3 * CCA_KEYWORD_SIZE);
+            rule_array_count = 3;
+            key_len = sizeof(target_key_token) / 2;
+            key_part_len = value_attr->ulValueLen / 2 * 8;
+
+            USE_CCA_ADAPTER_START(tokdata, return_code, reason_code)
+                dll_CSNBKPI2(&return_code, &reason_code, NULL, NULL,
+                             &rule_array_count, rule_array,
+                             &key_part_len, value_attr->pValue,
+                             &key_len, target_key_token);
+            USE_CCA_ADAPTER_END(tokdata, return_code, reason_code)
+
+            if (return_code != CCA_SUCCESS) {
+                TRACE_ERROR("CSNBKPI2 (AES CIPHER KEY IMPORT FIRST) failed."
+                            " return:%ld, reason:%ld\n",
+                            return_code, reason_code);
+                return CKR_FUNCTION_FAILED;
+            }
+
+            memcpy(rule_array, "AES     COMPLETE", 2 * CCA_KEYWORD_SIZE);
+            rule_array_count = 2;
+
+            USE_CCA_ADAPTER_START(tokdata, return_code, reason_code)
+                dll_CSNBKPI2(&return_code, &reason_code, NULL, NULL,
+                             &rule_array_count, rule_array,
+                             &reserved_1, NULL,
+                             &key_len, target_key_token);
+            USE_CCA_ADAPTER_END(tokdata, return_code, reason_code)
+
+            if (return_code != CCA_SUCCESS) {
+                TRACE_ERROR("CSNBKPI2 (AES CIPHER KEY IMPORT COMPLETE) failed."
+                            " return:%ld, reason:%ld\n",
+                            return_code, reason_code);
+                return CKR_FUNCTION_FAILED;
+            }
+            key_token_len = key_len;
+        } else {
+            memcpy(rule_array, "AES     ", CCA_KEYWORD_SIZE);
+            rule_array_count = 1;
+
+            key_part_len = value_attr->ulValueLen / 2;
+            USE_CCA_ADAPTER_START(tokdata, return_code, reason_code)
+                dll_CSNBCKM(&return_code, &reason_code, NULL, NULL,
+                            &rule_array_count, rule_array,
+                            &key_part_len, value_attr->pValue,
+                            target_key_token);
+            USE_CCA_ADAPTER_END(tokdata, return_code, reason_code)
+
+            if (return_code != CCA_SUCCESS) {
+                TRACE_ERROR("CSNBCKM failed. return:%ld, reason:%ld\n",
+                            return_code, reason_code);
+                return CKR_FUNCTION_FAILED;
+            }
+            key_token_len = CCA_KEY_ID_SIZE;
         }
 
-        if (analyse_cca_key_token(target_key_id, CCA_KEY_ID_SIZE,
+        if (analyse_cca_key_token(target_key_token, key_token_len,
                                   &token_type, &token_keybitsize,
                                   &mkvp) == FALSE || mkvp == NULL) {
             TRACE_ERROR("Invalid/unknown cca token has been imported\n");
@@ -3799,30 +4008,110 @@ retry:
         }
 
         rc = cca_reencipher_created_key(tokdata, object->template,
-                                        target_key_id, CCA_KEY_ID_SIZE, new_mk,
+                                        target_key_token, key_token_len, new_mk,
                                         token_type, FALSE);
         if (rc != CKR_OK) {
             TRACE_ERROR("cca_reencipher_created_key failed: 0x%lx\n", rc);
             return rc;
         }
 
-        keylen = value_attr->ulValueLen / 2;
-        USE_CCA_ADAPTER_START(tokdata, return_code, reason_code)
-            dll_CSNBCKM(&return_code, &reason_code, NULL, NULL,
-                        &rule_array_count, rule_array,
-                        (long int *)&keylen, (CK_BYTE *)value_attr->pValue +
-                        value_attr->ulValueLen / 2,
-                        target_key_id + CCA_KEY_ID_SIZE);
-        USE_CCA_ADAPTER_END(tokdata, return_code, reason_code)
+        if (cca_data->aes_key_mode == AES_KEY_MODE_CIPHER) {
+            memcpy(rule_array, "INTERNALAES     CIPHER  NO-KEY  ANY-MODE",
+                   5 * CCA_KEYWORD_SIZE);
+            rule_array_count = 5;
 
-        if (return_code != CCA_SUCCESS) {
-            TRACE_ERROR("CSNBCKM failed. return:%ld, reason:%ld\n",
-                        return_code, reason_code);
-            return CKR_FUNCTION_FAILED;
+            rc = cca_aes_cipher_add_key_usage_keywords(tokdata,
+                                                       object->template,
+                                                       rule_array,
+                                                       sizeof(rule_array),
+                                                       (CK_ULONG *)
+                                                           &rule_array_count);
+            if (rc != CKR_OK) {
+                TRACE_ERROR("Failed to add key usage keywords\n");
+                return rc;
+            }
+
+            key_len = sizeof(target_key_token) / 2;
+            USE_CCA_ADAPTER_START(tokdata, return_code, reason_code)
+                dll_CSNBKTB2(&return_code, &reason_code, NULL, NULL,
+                             &rule_array_count, rule_array,
+                             &reserved_1, NULL,
+                             &reserved_1, NULL,
+                             &reserved_1, NULL,
+                             &reserved_1, NULL,
+                             &reserved_1, NULL,
+                             &key_len, target_key_token + key_token_len);
+            USE_CCA_ADAPTER_END(tokdata, return_code, reason_code)
+
+            if (return_code != CCA_SUCCESS) {
+                TRACE_ERROR("CSNBKTB2 (AES CIPHER KEY TOKEN BUILD) failed."
+                            " return:%ld, reason:%ld\n",
+                            return_code, reason_code);
+                return CKR_FUNCTION_FAILED;
+            }
+
+            memcpy(rule_array, "AES     FIRST   MIN1PART",
+                   3 * CCA_KEYWORD_SIZE);
+            rule_array_count = 3;
+            key_len = sizeof(target_key_token) / 2;
+            key_part_len = value_attr->ulValueLen / 2 * 8;
+
+            USE_CCA_ADAPTER_START(tokdata, return_code, reason_code)
+                dll_CSNBKPI2(&return_code, &reason_code, NULL, NULL,
+                             &rule_array_count, rule_array,
+                             &key_part_len, (CK_BYTE *)value_attr->pValue +
+                                             value_attr->ulValueLen / 2,
+                             &key_len, target_key_token + key_token_len);
+            USE_CCA_ADAPTER_END(tokdata, return_code, reason_code)
+
+            if (return_code != CCA_SUCCESS) {
+                TRACE_ERROR("CSNBKPI2 (AES CIPHER KEY IMPORT FIRST) failed."
+                            " return:%ld, reason:%ld\n",
+                            return_code, reason_code);
+                return CKR_FUNCTION_FAILED;
+            }
+
+            memcpy(rule_array, "AES     COMPLETE", 2 * CCA_KEYWORD_SIZE);
+            rule_array_count = 2;
+
+            USE_CCA_ADAPTER_START(tokdata, return_code, reason_code)
+                dll_CSNBKPI2(&return_code, &reason_code, NULL, NULL,
+                             &rule_array_count, rule_array,
+                             &reserved_1, NULL,
+                             &key_len, target_key_token + key_token_len);
+            USE_CCA_ADAPTER_END(tokdata, return_code, reason_code)
+
+            if (return_code != CCA_SUCCESS) {
+                TRACE_ERROR("CSNBKPI2 (AES CIPHER KEY IMPORT COMPLETE) failed."
+                            " return:%ld, reason:%ld\n",
+                            return_code, reason_code);
+                return CKR_FUNCTION_FAILED;
+            }
+
+            if (key_len != key_token_len) {
+                TRACE_ERROR("Second XTS key part has different length than "
+                            "first one\n");
+                return CKR_FUNCTION_FAILED;
+            }
+        } else {
+            key_part_len = value_attr->ulValueLen / 2;
+            USE_CCA_ADAPTER_START(tokdata, return_code, reason_code)
+                dll_CSNBCKM(&return_code, &reason_code, NULL, NULL,
+                            &rule_array_count, rule_array,
+                            &key_part_len, (CK_BYTE *)value_attr->pValue +
+                            value_attr->ulValueLen / 2,
+                            target_key_token + key_token_len);
+            USE_CCA_ADAPTER_END(tokdata, return_code, reason_code)
+
+            if (return_code != CCA_SUCCESS) {
+                TRACE_ERROR("CSNBCKM failed. return:%ld, reason:%ld\n",
+                            return_code, reason_code);
+                return CKR_FUNCTION_FAILED;
+            }
         }
 
-        if (analyse_cca_key_token(target_key_id + CCA_KEY_ID_SIZE,
-                                  CCA_KEY_ID_SIZE, &token_type2,
+        if (analyse_cca_key_token(target_key_token + key_token_len,
+                                  key_token_len, &token_type2,
                                   &token_keybitsize2, &mkvp2) == FALSE ||
             mkvp2 == NULL) {
             TRACE_ERROR("Invalid/unknown cca token has been imported\n");
@@ -3854,7 +4143,7 @@ retry:
                 return CKR_TEMPLATE_INCOMPLETE;
             }
 
-            memcpy(target_key_id, reenc_attr->pValue, CCA_KEY_ID_SIZE);
+            memcpy(target_key_token, reenc_attr->pValue, key_token_len);
         } else if (new_mk == TRUE && new_mk2 == FALSE) {
             /*
              * Key 1 was created with new MK, but key 2 with old MK.
@@ -3864,12 +4153,12 @@ retry:
              * with old MK in CKA_IBM_OPAQUE, we need to re-create both keys
              * (both with old MK now).
              */
-            memset(target_key_id, 0, sizeof(target_key_id));
+            memset(target_key_token, 0, sizeof(target_key_token));
             goto retry;
         }
 
         rc = cca_reencipher_created_key(tokdata, object->template,
-                                        target_key_id + CCA_KEY_ID_SIZE,
+                                        target_key_token + key_token_len,
                                         CCA_KEY_ID_SIZE, new_mk2, token_type2,
                                         TRUE);
         if (rc != CKR_OK) {
@@ -3886,7 +4175,7 @@ retry:
 
         /* Add the key object to the template */
         rc = build_update_attribute(object->template, CKA_IBM_OPAQUE,
-                                    target_key_id, CCA_KEY_ID_SIZE * 2);
+                                    target_key_token, key_token_len * 2);
         if (rc != CKR_OK) {
             TRACE_DEVEL("build_update_attribute(CKA_IBM_OPAQUE) failed\n");
             return rc;
@@ -9383,12 +9672,13 @@ static CK_RV import_rsa_pubkey(STDLL_TokData_t *tokdata, TEMPLATE *publ_tmpl)
 static CK_RV import_symmetric_key(STDLL_TokData_t *tokdata,
                                   OBJECT * object, CK_ULONG keytype)
 {
+    struct cca_private_data *cca_data = tokdata->private_data;
     CK_RV rc;
     CK_ATTRIBUTE *opaque_attr = NULL;
     enum cca_token_type token_type;
     unsigned int token_keybitsize;
     const CK_BYTE *mkvp;
-    CK_BBOOL new_mk;
+    CK_BBOOL new_mk, exp, cpacf_exp;
 
     rc = template_attribute_find(object->template, CKA_IBM_OPAQUE, &opaque_attr);
     if (rc == TRUE) {
@@ -9401,6 +9691,7 @@ static CK_RV import_symmetric_key(STDLL_TokData_t *tokdata,
          */
         CK_BYTE zorro[32] = { 0 };
         CK_BBOOL true = TRUE;
+        CK_ULONG value_len = 0;
 
         if (analyse_cca_key_token(opaque_attr->pValue, opaque_attr->ulValueLen,
                                   &token_type, &token_keybitsize, &mkvp) != TRUE) {
@@ -9433,9 +9724,53 @@ static CK_RV import_symmetric_key(STDLL_TokData_t *tokdata,
                 /* keybitsize has been checked by the analyse_cca_key_token() function */
                 ;
             } else if (token_type == sec_aes_cipher_key) {
-                /* not supported yet */
-                TRACE_ERROR("CCA AES cipher key import is not supported\n");
-                return CKR_TEMPLATE_INCONSISTENT;
+                if (token_keybitsize == 0) {
+                    /*
+                     * A CIPHER key with V1 payload does not allow to obtain the
+                     * keybitsize. The user must supply the CKA_VALUE_LEN with
+                     * a valid key size in the template.
+                     */
+                    rc = template_attribute_get_ulong(object->template,
+                                                      CKA_VALUE_LEN,
+                                                      &value_len);
+                    if (rc != CKR_OK || value_len == 0) {
+                        TRACE_ERROR("For an AES CIPHER key token with V1 "
+                                    "payload attribute CKA_VALUE_LEN must also "
+                                    "be supplied to specify the key size\n");
+                        return CKR_TEMPLATE_INCONSISTENT;
+                    }
+                    if (value_len != 16 && value_len != 24 && value_len != 32) {
+                        TRACE_ERROR("CKA_VALUE_LEN not valid for an AES key\n");
+                        return CKR_ATTRIBUTE_VALUE_INVALID;
+                    }
+                    token_keybitsize = value_len * 8;
+                }
+
+                rc = ccatok_var_sym_token_is_exportable(opaque_attr->pValue,
+                                                        opaque_attr->ulValueLen,
+                                                        &exp, &cpacf_exp);
+                if (rc != CKR_OK)
+                    return rc;
+
+                rc = build_update_attribute(object->template, CKA_EXTRACTABLE,
+                                            (CK_BYTE *)&exp, sizeof(exp));
+                if (rc != CKR_OK) {
+                    TRACE_DEVEL("build_update_attribute(CKA_EXTRACTABLE) "
+                                "failed\n");
+                    return rc;
+                }
+
+#ifndef NO_PKEY
+                rc = build_update_attribute(object->template,
+                                            CKA_IBM_PROTKEY_EXTRACTABLE,
+                                            (CK_BYTE *)&cpacf_exp,
+                                            sizeof(cpacf_exp));
+                if (rc != CKR_OK) {
+                    TRACE_DEVEL("build_update_attribute(CKA_EXTRACTABLE) "
+                                "failed\n");
+                    return rc;
+                }
+#endif
             } else {
                 TRACE_ERROR("CCA token type in CKA_IBM_OPAQUE does not match to keytype CKK_AES\n");
                 return CKR_TEMPLATE_INCONSISTENT;
@@ -9480,44 +9815,121 @@ static CK_RV import_symmetric_key(STDLL_TokData_t *tokdata,
          */
 
         long return_code, reason_code, rule_array_count;
-        unsigned char target_key_id[CCA_KEY_ID_SIZE] = { 0 };
+        unsigned char target_key_token[CCA_MAX_AES_CIPHER_KEY_SIZE] = { 0 };
         unsigned char rule_array[CCA_RULE_ARRAY_SIZE] = { 0 };
         CK_ATTRIBUTE *value_attr = NULL;
+        long reserved_1 = 0, key_token_len = sizeof(target_key_token);
+        long key_part_len;
 
-        rc = template_attribute_get_non_empty(object->template, CKA_VALUE, &value_attr);
+        rc = template_attribute_get_non_empty(object->template, CKA_VALUE,
+                                              &value_attr);
         if (rc != CKR_OK) {
             TRACE_ERROR("Incomplete key template\n");
             return CKR_TEMPLATE_INCOMPLETE;
         }
 
-        switch (keytype) {
-        case CKK_AES:
-            memcpy(rule_array, "AES     ", CCA_KEYWORD_SIZE);
-            break;
-        case CKK_DES:
-        case CKK_DES3:
-            memcpy(rule_array, "DES     ", CCA_KEYWORD_SIZE);
-            break;
-        default:
-            return CKR_KEY_FUNCTION_NOT_PERMITTED;
+        if (cca_data->aes_key_mode == AES_KEY_MODE_CIPHER) {
+            memcpy(rule_array, "INTERNALAES     CIPHER  NO-KEY  ANY-MODE",
+                   5 * CCA_KEYWORD_SIZE);
+            rule_array_count = 5;
+
+            rc = cca_aes_cipher_add_key_usage_keywords(tokdata,
+                                                       object->template,
+                                                       rule_array,
+                                                       sizeof(rule_array),
+                                                       (CK_ULONG *)
+                                                           &rule_array_count);
+            if (rc != CKR_OK) {
+                TRACE_ERROR("Failed to add key usage keywords\n");
+                return rc;
+            }
+
+            USE_CCA_ADAPTER_START(tokdata, return_code, reason_code)
+                dll_CSNBKTB2(&return_code, &reason_code, NULL, NULL,
+                             &rule_array_count, rule_array,
+                             &reserved_1, NULL,
+                             &reserved_1, NULL,
+                             &reserved_1, NULL,
+                             &reserved_1, NULL,
+                             &reserved_1, NULL,
+                             &key_token_len, target_key_token);
+            USE_CCA_ADAPTER_END(tokdata, return_code, reason_code)
+
+            if (return_code != CCA_SUCCESS) {
+                TRACE_ERROR("CSNBKTB2 (AES CIPHER KEY TOKEN BUILD) failed."
+                            " return:%ld, reason:%ld\n",
+                            return_code, reason_code);
+                return CKR_FUNCTION_FAILED;
+            }
+
+            memcpy(rule_array, "AES     FIRST   MIN1PART",
+                   3 * CCA_KEYWORD_SIZE);
+            rule_array_count = 3;
+            key_token_len = sizeof(target_key_token);
+            key_part_len = value_attr->ulValueLen * 8;
+
+            USE_CCA_ADAPTER_START(tokdata, return_code, reason_code)
+                dll_CSNBKPI2(&return_code, &reason_code, NULL, NULL,
+                             &rule_array_count, rule_array,
+                             &key_part_len, value_attr->pValue,
+                             &key_token_len, target_key_token);
+            USE_CCA_ADAPTER_END(tokdata, return_code, reason_code)
+
+            if (return_code != CCA_SUCCESS) {
+                TRACE_ERROR("CSNBKPI2 (AES CIPHER KEY IMPORT FIRST) failed."
+                            " return:%ld, reason:%ld\n",
+                            return_code, reason_code);
+                return CKR_FUNCTION_FAILED;
+            }
+
+            memcpy(rule_array, "AES     COMPLETE", 2 * CCA_KEYWORD_SIZE);
+            rule_array_count = 2;
+
+            USE_CCA_ADAPTER_START(tokdata, return_code, reason_code)
+                dll_CSNBKPI2(&return_code, &reason_code, NULL, NULL,
+                             &rule_array_count, rule_array,
+                             &reserved_1, NULL,
+                             &key_token_len, target_key_token);
+            USE_CCA_ADAPTER_END(tokdata, return_code, reason_code)
+
+            if (return_code != CCA_SUCCESS) {
+                TRACE_ERROR("CSNBKPI2 (AES CIPHER KEY IMPORT COMPLETE) failed."
+                            " return:%ld, reason:%ld\n",
+                            return_code, reason_code);
+                return CKR_FUNCTION_FAILED;
+            }
+        } else {
+            switch (keytype) {
+            case CKK_AES:
+                memcpy(rule_array, "AES     ", CCA_KEYWORD_SIZE);
+                break;
+            case CKK_DES:
+            case CKK_DES3:
+                memcpy(rule_array, "DES     ", CCA_KEYWORD_SIZE);
+                break;
+            default:
+                return CKR_KEY_FUNCTION_NOT_PERMITTED;
+            }
+
+            rule_array_count = 1;
+
+            USE_CCA_ADAPTER_START(tokdata, return_code, reason_code)
+                dll_CSNBCKM(&return_code, &reason_code, NULL, NULL,
+                            &rule_array_count, rule_array,
+                            (long int *)&value_attr->ulValueLen,
+                            value_attr->pValue,
+                            target_key_token);
+            USE_CCA_ADAPTER_END(tokdata, return_code, reason_code)
+
+            if (return_code != CCA_SUCCESS) {
+                TRACE_ERROR("CSNBCKM failed. return:%ld, reason:%ld\n",
+                            return_code, reason_code);
+                return CKR_FUNCTION_FAILED;
+            }
+            key_token_len = CCA_KEY_ID_SIZE;
         }
 
-        rule_array_count = 1;
-
-        USE_CCA_ADAPTER_START(tokdata, return_code, reason_code)
-            dll_CSNBCKM(&return_code, &reason_code, NULL, NULL,
-                        &rule_array_count, rule_array,
-                        (long int *)&value_attr->ulValueLen, value_attr->pValue,
-                        target_key_id);
-        USE_CCA_ADAPTER_END(tokdata, return_code, reason_code)
-
-        if (return_code != CCA_SUCCESS) {
-            TRACE_ERROR("CSNBCKM failed. return:%ld, reason:%ld\n",
-                        return_code, reason_code);
-            return CKR_FUNCTION_FAILED;
-        }
-
-        if (analyse_cca_key_token(target_key_id, CCA_KEY_ID_SIZE,
+        if (analyse_cca_key_token(target_key_token, key_token_len,
                                   &token_type, &token_keybitsize, &mkvp) == FALSE ||
             mkvp == NULL) {
             TRACE_ERROR("Invalid/unknown cca token has been imported\n");
@@ -9530,7 +9942,7 @@ static CK_RV import_symmetric_key(STDLL_TokData_t *tokdata,
         }
 
         rc = cca_reencipher_created_key(tokdata, object->template,
-                                        target_key_id, CCA_KEY_ID_SIZE, new_mk,
+                                        target_key_token, key_token_len, new_mk,
                                         token_type, FALSE);
         if (rc != CKR_OK) {
             TRACE_ERROR("cca_reencipher_created_key failed: 0x%lx\n", rc);
@@ -9539,7 +9951,7 @@ static CK_RV import_symmetric_key(STDLL_TokData_t *tokdata,
 
         /* Add the key object to the template */
         if ((rc = build_update_attribute(object->template, CKA_IBM_OPAQUE,
-                                         target_key_id, CCA_KEY_ID_SIZE))) {
+                                         target_key_token, key_token_len))) {
             TRACE_DEVEL("build_update_attribute(CKA_IBM_OPAQUE) failed\n");
             return rc;
         }
