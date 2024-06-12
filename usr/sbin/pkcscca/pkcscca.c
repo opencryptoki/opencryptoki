@@ -1024,6 +1024,7 @@ int cca_migrate_symmetric(struct key *key, char **out, struct algo algo)
 {
     long return_code, reason_code, exit_data_length;
     unsigned char *key_identifier;
+    long key_identifier_length;
 
     exit_data_length = 0;
 
@@ -1034,24 +1035,49 @@ int cca_migrate_symmetric(struct key *key, char **out, struct algo algo)
     }
     memcpy(key_identifier, (char *) key->opaque_attr, key->attr_len);
 
-    CSNBKTC(&return_code,
-            &reason_code,
-            &exit_data_length,
-            NULL, &(algo.rule_array_count), algo.rule_array, key_identifier);
+    if (key_identifier[0] == 0x01 && key_identifier[4] == 0x05 &&
+        key_identifier[41] == 0x02) {
+        /* AES CIPHER key */
+        key_identifier_length = key->type == CKK_AES_XTS ?
+                                        key->attr_len / 2 : key->attr_len;
+        CSNBKTC2(&return_code,
+                 &reason_code,
+                 &exit_data_length,
+                 NULL,
+                 &(algo.rule_array_count),
+                 algo.rule_array, &key_identifier_length, key_identifier);
 
-    if (return_code != CCA_SUCCESS) {
-        cca_error("CSNBKTC (Key Token Change)", return_code, reason_code);
-        print_error("Migrating %s key failed. label=%s, handle=%lu",
-                    algo.name, key->label, key->handle);
-        return 1;
-    }
+        if (return_code != CCA_SUCCESS) {
+            cca_error("CSNBKTC2 (Key Token Change)", return_code, reason_code);
+            print_error("Migrating %s key failed. label=%s, handle=%lu",
+                        algo.name, key->label, key->handle);
+            return 1;
+        }
 
-    if (key->type == CKK_AES_XTS) {
+        if (key->type == CKK_AES_XTS) {
+            key_identifier_length = key->attr_len / 2;
+            CSNBKTC2(&return_code,
+                     &reason_code,
+                     &exit_data_length,
+                     NULL,
+                     &(algo.rule_array_count),
+                     algo.rule_array, &key_identifier_length,
+                     key_identifier + key_identifier_length);
+
+            if (return_code != CCA_SUCCESS) {
+                cca_error("CSNBKTC2 (Key Token Change)", return_code,
+                          reason_code);
+                print_error("Migrating %s key failed. label=%s, handle=%lu",
+                            algo.name, key->label, key->handle);
+                return 1;
+            }
+        }
+    } else {
+        /* AES DATA key */
         CSNBKTC(&return_code,
                 &reason_code,
                 &exit_data_length,
-                NULL, &(algo.rule_array_count), algo.rule_array,
-                key_identifier + (key->attr_len / 2));
+                NULL, &(algo.rule_array_count), algo.rule_array, key_identifier);
 
         if (return_code != CCA_SUCCESS) {
             cca_error("CSNBKTC (Key Token Change)", return_code, reason_code);
@@ -1059,8 +1085,23 @@ int cca_migrate_symmetric(struct key *key, char **out, struct algo algo)
                         algo.name, key->label, key->handle);
             return 1;
         }
-    }
 
+        if (key->type == CKK_AES_XTS) {
+            CSNBKTC(&return_code,
+                    &reason_code,
+                    &exit_data_length,
+                    NULL, &(algo.rule_array_count), algo.rule_array,
+                    key_identifier + (key->attr_len / 2));
+
+            if (return_code != CCA_SUCCESS) {
+                cca_error("CSNBKTC (Key Token Change)", return_code,
+                          reason_code);
+                print_error("Migrating %s key failed. label=%s, handle=%lu",
+                            algo.name, key->label, key->handle);
+                return 1;
+            }
+        }
+    }
     if (v_level) {
         printf("Successfully migrated %s key. label=%s, handle=%lu\n",
                algo.name, key->label, key->handle);
