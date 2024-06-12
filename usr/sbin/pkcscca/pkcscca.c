@@ -721,6 +721,7 @@ int add_key(CK_OBJECT_HANDLE handle, CK_ATTRIBUTE *attrs, struct key **keys)
 
     switch (key_type) {
     case CKK_AES:
+    case CKK_AES_XTS:
     case CKK_DES:
     case CKK_DES2:
     case CKK_DES3:
@@ -763,6 +764,9 @@ int add_key(CK_OBJECT_HANDLE handle, CK_ATTRIBUTE *attrs, struct key **keys)
         switch (new_key->type) {
         case CKK_AES:
             type_name = AES_NAME;
+            break;
+        case CKK_AES_XTS:
+            type_name = AES_XTS_NAME;
             break;
         case CKK_DES:
             type_name = DES_NAME;
@@ -1040,7 +1044,24 @@ int cca_migrate_symmetric(struct key *key, char **out, struct algo algo)
         print_error("Migrating %s key failed. label=%s, handle=%lu",
                     algo.name, key->label, key->handle);
         return 1;
-    } else if (v_level) {
+    }
+
+    if (key->type == CKK_AES_XTS) {
+        CSNBKTC(&return_code,
+                &reason_code,
+                &exit_data_length,
+                NULL, &(algo.rule_array_count), algo.rule_array,
+                key_identifier + (key->attr_len / 2));
+
+        if (return_code != CCA_SUCCESS) {
+            cca_error("CSNBKTC (Key Token Change)", return_code, reason_code);
+            print_error("Migrating %s key failed. label=%s, handle=%lu",
+                        algo.name, key->label, key->handle);
+            return 1;
+        }
+    }
+
+    if (v_level) {
         printf("Successfully migrated %s key. label=%s, handle=%lu\n",
                algo.name, key->label, key->handle);
     }
@@ -1117,6 +1138,7 @@ int cca_migrate(struct key *keys, struct key_count *count,
 
         switch (key->type) {
         case CKK_AES:
+        case CKK_AES_XTS:
             rc = cca_migrate_symmetric(key, &migrated_data, aes);
             if (rc)
                 count_failed->aes++;
@@ -1288,6 +1310,12 @@ int migrate_wrapped_keys(CK_SLOT_ID slot_id, const char *userpin, int masterkey)
         if (v_level)
             printf("Search for AES keys\n");
         key_type = CKK_AES;
+        rc = migrate_keytype(funcs, sess, &key_type, &count, &count_failed,
+                             masterkey);
+        if (rc) {
+            goto done;
+        }
+        key_type = CKK_AES_XTS;
         rc = migrate_keytype(funcs, sess, &key_type, &count, &count_failed,
                              masterkey);
         if (rc) {

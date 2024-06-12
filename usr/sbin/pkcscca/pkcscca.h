@@ -29,6 +29,7 @@
 #define CCA_SUCCESS         0
 
 #define AES_NAME    "AES"
+#define AES_XTS_NAME "AES XTS"
 #define DES_NAME    "DES"
 #define DES2_NAME   "2DES"
 #define DES3_NAME   "3DES"
