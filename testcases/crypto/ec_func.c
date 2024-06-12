@@ -572,7 +572,7 @@ CK_RV run_DeriveECDHKey(void)
         CK_ULONG extr2_tmpl_len = sizeof(extr2_tmpl)/sizeof(CK_ATTRIBUTE);
 
         if (der_ec_supported[i].type == CURVE_EDWARDS) {
-            testcase_skip("Edwards curves can not be used for ECDH derive");
+            /* Edwards curves can not be used for ECDH derive */
             continue;
         }
 
@@ -768,9 +768,10 @@ CK_RV run_DeriveECDHKey(void)
             for (k=0; k<NUM_SECRET_KEY_LENGTHS; k++) {
 
                 if (too_many_key_bytes_requested(i, j, secret_key_len[k])) {
-                    testcase_skip("Cannot provide %lu key bytes with curve %s"
-                                  " without a kdf.\n", secret_key_len[k],
-                                  der_ec_supported[i].name);
+                    /*
+                     * Cannot provide requested key bytes with current curve
+                     * without a kdf.
+                     */
                     continue;
                 }
                 if (is_ep11_token(SLOT_ID) && k > 9) {
@@ -793,9 +794,10 @@ CK_RV run_DeriveECDHKey(void)
                 }
                 if (secret_key_len[k] == 0 &&
                     der_ec_supported[i].type == CURVE_MONTGOMERY) {
-                    testcase_skip("Curve %s can not be used without the "
-                                  "derived key size specified in "
-                                  "CKA_VALUE_LEN\n", der_ec_supported[i].name);
+                    /*
+                     * Curve can not be used without the derived key size
+                     * specified in CKA_VALUE_LEN.
+                     */
                     continue;
                 }
 
@@ -1567,6 +1569,41 @@ CK_RV run_GenerateSignVerifyECC(CK_SESSION_HANDLE session,
     CK_MECHANISM_INFO mech_info;
     CK_RV rc;
 
+    if ((mech->mechanism == CKM_IBM_ED25519_SHA512 ||
+         mech->mechanism == CKM_IBM_ED448_SHA3)) {
+        if (curve_type != CURVE_EDWARDS) {
+            /* Mechanism does not match to curve type, skip */
+            rc = CKR_OK;
+            goto testcase_cleanup;
+        }
+        if (mech->mechanism == CKM_IBM_ED25519_SHA512 &&
+            memcmp(params, ed25519, MIN(params_len, sizeof(ed25519))) != 0) {
+            /* Mechanism does not match to curve, skip */
+            rc = CKR_OK;
+            goto testcase_cleanup;
+        }
+        if (mech->mechanism == CKM_IBM_ED448_SHA3 &&
+            memcmp(params, ed448, MIN(params_len, sizeof(ed448))) != 0) {
+            /* Mechanism does not match to curve, skip */
+            rc = CKR_OK;
+            goto testcase_cleanup;
+        }
+    } else if (mech->mechanism == CKM_IBM_ECDSA_OTHER &&
+               memcmp(params, secp256k1, MIN(params_len, sizeof(secp256k1))) != 0 &&
+               memcmp(params, prime256v1, MIN(params_len, sizeof(prime256v1))) != 0 &&
+               memcmp(params, brainpoolP256r1, MIN(params_len, sizeof(brainpoolP256r1))) != 0 &&
+               memcmp(params, brainpoolP256t1, MIN(params_len, sizeof(brainpoolP256t1)))) {
+        /* CKM_IBM_ECDSA_OTHER can only be used with 256-bit EC curves, skip */
+        rc = CKR_OK;
+        goto testcase_cleanup;
+    } else {
+        if (curve_type == CURVE_EDWARDS || curve_type == CURVE_MONTGOMERY) {
+            /* Mechanism does not match to curve type, skip */
+            rc = CKR_OK;
+            goto testcase_cleanup;
+        }
+    }
+
     testcase_begin("Starting with mechtype='%s', inputlen=%lu parts=%lu, pkey=%X",
                    p11_get_ckm(&mechtable_funcs, mech->mechanism), inputlen, parts, pkey);
 
@@ -1582,51 +1619,6 @@ CK_RV run_GenerateSignVerifyECC(CK_SESSION_HANDLE session,
             goto testcase_cleanup;
         } else {
             testcase_error("C_GetMechanismInfo() rc = %s", p11_get_ckr(rc));
-            goto testcase_cleanup;
-        }
-    }
-
-    if ((mech->mechanism == CKM_IBM_ED25519_SHA512 ||
-         mech->mechanism == CKM_IBM_ED448_SHA3)) {
-        if (curve_type != CURVE_EDWARDS) {
-            /* Mechanism does not match to curve type, skip */
-            testcase_skip("Mechanism %s can only be used with Edwards curves",
-                          p11_get_ckm(&mechtable_funcs, mech->mechanism));
-            rc = CKR_OK;
-            goto testcase_cleanup;
-        }
-        if (mech->mechanism == CKM_IBM_ED25519_SHA512 &&
-            memcmp(params, ed25519, MIN(params_len, sizeof(ed25519))) != 0) {
-            /* Mechanism does not match to curve, skip */
-            testcase_skip("Mechanism %s can only be used with Ed25519 curve",
-                          p11_get_ckm(&mechtable_funcs, mech->mechanism));
-            rc = CKR_OK;
-            goto testcase_cleanup;
-        }
-        if (mech->mechanism == CKM_IBM_ED448_SHA3 &&
-            memcmp(params, ed448, MIN(params_len, sizeof(ed448))) != 0) {
-            /* Mechanism does not match to curve, skip */
-            testcase_skip("Mechanism %s can only be used with Ed448 curve",
-                          p11_get_ckm(&mechtable_funcs, mech->mechanism));
-            rc = CKR_OK;
-            goto testcase_cleanup;
-        }
-    } else if (mech->mechanism == CKM_IBM_ECDSA_OTHER &&
-               memcmp(params, secp256k1, MIN(params_len, sizeof(secp256k1))) != 0 &&
-               memcmp(params, prime256v1, MIN(params_len, sizeof(prime256v1))) != 0 &&
-               memcmp(params, brainpoolP256r1, MIN(params_len, sizeof(brainpoolP256r1))) != 0 &&
-               memcmp(params, brainpoolP256t1, MIN(params_len, sizeof(brainpoolP256t1)))) {
-        /* CKM_IBM_ECDSA_OTHER can only be used with 256-bit EC curves, skip */
-        testcase_skip("Mechanism %s can only be used with 256-bit EC curves",
-                      p11_get_ckm(&mechtable_funcs, mech->mechanism));
-        rc = CKR_OK;
-        goto testcase_cleanup;
-    } else {
-        if (curve_type == CURVE_EDWARDS || curve_type == CURVE_MONTGOMERY) {
-            /* Mechanism does not match to curve type, skip */
-            testcase_skip("Mechanism %s can not be used with Edwards/Montogmery curves",
-                          p11_get_ckm(&mechtable_funcs, mech->mechanism));
-            rc = CKR_OK;
             goto testcase_cleanup;
         }
     }
@@ -1853,7 +1845,7 @@ CK_RV run_GenerateECCKeyPairSignVerify(void)
     for (i = 0; i < NUMEC; i++) {
 
         if (der_ec_supported[i].type == CURVE_MONTGOMERY) {
-            testcase_skip("Montgomery curves can not be used for sign/verify");
+            /* Montgomery curves can not be used for sign/verify. */
             continue;
         }
 
@@ -2529,6 +2521,11 @@ CK_RV run_ImportSignVerify_Pkey(void)
 
         for (j = 0; j < 2; j++) {
 
+            if (ec_tv[i].curve_type == CURVE_MONTGOMERY) {
+                /* Sign/verify not supported for the curve. */
+                continue;
+            }
+
             if (j == 0)
                 testcase_begin("Starting Import EC private key (%s) index=%u sign via CPACF / verify via card",
                                ec_tv[i].name, i);
@@ -2587,8 +2584,7 @@ CK_RV run_ImportSignVerify_Pkey(void)
             else if (memcmp(ec_tv[i].name, "ed448", 5) == 0)
                 rc = funcs->C_SignInit(session, &ed448_mech, priv_key);
             else {
-                testcase_skip("Sign/verify not supported for curve %s.",
-                              ec_tv[i].name);
+                /* Sign/verify not supported for the curve. */
                 continue;
             }
             if (rc != CKR_OK) {
