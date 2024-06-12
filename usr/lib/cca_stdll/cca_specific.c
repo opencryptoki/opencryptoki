@@ -9978,7 +9978,7 @@ static CK_RV import_generic_secret_key(STDLL_TokData_t *tokdata,
     enum cca_token_type token_type;
     unsigned int token_payloadbitsize;
     const CK_BYTE *mkvp;
-    CK_BBOOL new_mk;
+    CK_BBOOL new_mk, exp, cpacf_exp;
 
     rc = template_attribute_find(object->template, CKA_VALUE, &value_attr);
     if (rc == FALSE) {
@@ -10017,6 +10017,32 @@ static CK_RV import_generic_secret_key(STDLL_TokData_t *tokdata,
                         " keytype CKK_GENERIC_SECRET\n");
             return CKR_TEMPLATE_INCONSISTENT;
         }
+
+        rc = ccatok_var_sym_token_is_exportable(opaque_attr->pValue,
+                                                opaque_attr->ulValueLen,
+                                                &exp, &cpacf_exp);
+        if (rc != CKR_OK)
+            return rc;
+
+        rc = build_update_attribute(object->template, CKA_EXTRACTABLE,
+                                    (CK_BYTE *)&exp, sizeof(exp));
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("build_update_attribute(CKA_EXTRACTABLE) "
+                        "failed\n");
+            return rc;
+        }
+
+#ifndef NO_PKEY
+        rc = build_update_attribute(object->template,
+                                    CKA_IBM_PROTKEY_EXTRACTABLE,
+                                    (CK_BYTE *)&cpacf_exp,
+                                    sizeof(cpacf_exp));
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("build_update_attribute(CKA_EXTRACTABLE) "
+                        "failed\n");
+            return rc;
+        }
+#endif
 
         if (check_expected_mkvp(tokdata, token_type, mkvp, &new_mk) != CKR_OK) {
             TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
@@ -10060,10 +10086,25 @@ static CK_RV import_generic_secret_key(STDLL_TokData_t *tokdata,
         long user_data_len = 0, key_part_len = 0;
         long token_data_len = 0, verb_data_len = 0;
         long key_token_len = sizeof(key_token);
+        CK_BBOOL extractable = TRUE;
 
         memcpy(rule_array, "INTERNALNO-KEY  HMAC    MAC     GENERATE",
                5 * CCA_KEYWORD_SIZE);
         rule_array_count = 5;
+
+        rc = template_attribute_get_bool(object->template, CKA_EXTRACTABLE,
+                                         &extractable);
+        if (rc != CKR_OK && rc != CKR_TEMPLATE_INCOMPLETE) {
+            TRACE_ERROR("Failed to get CKA_EXTRACTABLE\n");
+            return rc;
+        }
+
+        if (!extractable) {
+            memcpy(rule_array + (rule_array_count * CCA_KEYWORD_SIZE),
+                   "NOEX-SYMNOEXUASYNOEXAASYNOEX-DESNOEX-AESNOEX-RSA",
+                   6 * CCA_KEYWORD_SIZE);
+            rule_array_count += 6;
+        }
 
         USE_CCA_ADAPTER_START(tokdata, return_code, reason_code)
             dll_CSNBKTB2(&return_code, &reason_code, NULL, NULL,
@@ -11518,7 +11559,7 @@ CK_RV token_specific_generic_secret_key_gen(STDLL_TokData_t * tokdata,
     enum cca_token_type keytype;
     unsigned int keybitsize;
     const CK_BYTE *mkvp;
-    CK_BBOOL new_mk;
+    CK_BBOOL new_mk, extractable = TRUE;
 
     if (((struct cca_private_data *)tokdata->private_data)->inconsistent) {
         TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
@@ -11541,6 +11582,20 @@ CK_RV token_specific_generic_secret_key_gen(STDLL_TokData_t * tokdata,
     rule_array_count = 4;
     memcpy(rule_array, "INTERNALHMAC    MAC     GENERATE",
            4 * CCA_KEYWORD_SIZE);
+
+    rc = template_attribute_get_bool(template, CKA_EXTRACTABLE,
+                                     &extractable);
+    if (rc != CKR_OK && rc != CKR_TEMPLATE_INCOMPLETE) {
+        TRACE_ERROR("Failed to get CKA_EXTRACTABLE\n");
+        return rc;
+    }
+
+    if (!extractable) {
+        memcpy(rule_array + (rule_array_count * CCA_KEYWORD_SIZE),
+               "NOEX-SYMNOEXUASYNOEXAASYNOEX-DESNOEX-AESNOEX-RSA",
+               6 * CCA_KEYWORD_SIZE);
+        rule_array_count += 6;
+    }
 
     USE_CCA_ADAPTER_START(tokdata, return_code, reason_code)
         dll_CSNBKTB2(&return_code, &reason_code, NULL, NULL, &rule_array_count,
@@ -12687,8 +12742,12 @@ CK_RV token_specific_set_attribute_values(STDLL_TokData_t *tokdata,
         memcpy(rule_array, "AES     ", CCA_KEYWORD_SIZE);
         rule_array_count = 1;
         break;
+    case CKK_GENERIC_SECRET:
+        memcpy(rule_array, "HMAC    ", CCA_KEYWORD_SIZE);
+        rule_array_count = 1;
+        break;
     default:
-        /* Not an AES key, nothing to do */
+        /* Not an AES or HMAC key, nothing to do */
         return CKR_OK;
     }
 
@@ -12734,7 +12793,7 @@ CK_RV token_specific_set_attribute_values(STDLL_TokData_t *tokdata,
         return CKR_FUNCTION_FAILED;
     }
 
-    if (keytype != sec_aes_cipher_key)
+    if (keytype != sec_aes_cipher_key && keytype != sec_hmac_key)
         return CKR_OK; /* AES DATA key can not be restricted, nothing to do */
 
     rc = build_attribute(CKA_IBM_OPAQUE, attr->pValue, attr->ulValueLen,
