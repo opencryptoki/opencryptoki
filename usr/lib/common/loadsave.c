@@ -2848,6 +2848,14 @@ CK_RV load_public_token_objects(STDLL_TokData_t *tokdata)
             continue;
         }
 
+        /* size can not be negative if treated as signed int */
+        if (size >= 0x80000000) {
+            fclose(fp2);
+            OCK_SYSLOG(LOG_ERR, "Size is invalid in header of token object %s "
+                                "(ignoring it)\n", fname);
+            continue;
+        }
+
         buf = (CK_BYTE *) malloc(size);
         if (!buf) {
             fclose(fp2);

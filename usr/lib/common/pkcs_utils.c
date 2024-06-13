@@ -185,6 +185,10 @@ CK_RV local_rng(CK_BYTE *output, CK_ULONG bytes)
     if (ranfd >= 0) {
         do {
             rlen = read(ranfd, output + totallen, bytes - totallen);
+            if (rlen <= 0) {
+                close(ranfd);
+                return CKR_FUNCTION_FAILED;
+            }
             totallen += rlen;
         } while (totallen < bytes);
         close(ranfd);
