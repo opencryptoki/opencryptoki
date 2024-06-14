@@ -3375,50 +3375,6 @@ static CK_BBOOL ccatok_ecc_token_is_cpacf_exportable(const CK_BYTE *token,
     return CK_FALSE;
 }
 
-static CK_RV ccatok_pkey_check_attrs(STDLL_TokData_t *tokdata,
-                                     TEMPLATE * templ, CK_BYTE *sec_key,
-                                     CK_ULONG sec_len,
-                                     enum cca_token_type token_type)
-{
-    CK_BBOOL pkey_attr_value;
-    CK_RV ret;
-
-    UNUSED(tokdata);
-
-    ret = template_attribute_get_bool(templ, CKA_IBM_PROTKEY_EXTRACTABLE,
-                                      &pkey_attr_value);
-    if (ret != CKR_OK || pkey_attr_value == CK_FALSE)
-        return CKR_OK;
-
-    /*
-     * At this point, the key has CKA_IBM_PROTKEY_EXTRACTABLE = true and it has
-     * a secure key token, so let's check if the secure key token is
-     * CPACF-exportable.
-     */
-    switch (token_type) {
-    case sec_aes_data_key:
-        /* Nothing to do: AES data keys are always CPACF-exportable */
-        break;
-    case sec_ecc_priv_key:
-        /*
-         * From CCA 7.3 Application Programmer's Guide, table 282:
-         * Allow export to CPACF protected key format. Valid for ECC
-         * curves P256, P384, P521, Ed25519, and Ed448.
-         */
-        if (pkey_op_ec_curve_supported_by_cpacf(templ) &&
-            !ccatok_ecc_token_is_cpacf_exportable(sec_key, sec_len)) {
-            TRACE_ERROR("ECC secure key is CKA_IBM_PROTKEY_EXTRACTABLE, "
-                        "but token is not CPACF-exportable.\n");
-            return CKR_TEMPLATE_INCONSISTENT;
-        }
-        break;
-    default:
-        break;
-    }
-
-    return CKR_OK;
-}
-
 CK_RV ccatok_pkey_check_aes_xts(TEMPLATE *tmpl)
 {
     CK_BBOOL val;
@@ -10415,6 +10371,9 @@ static CK_RV import_ec_privkey(STDLL_TokData_t *tokdata, TEMPLATE *priv_templ)
     unsigned int token_keybitsize;
     const CK_BYTE *mkvp;
     CK_BBOOL new_mk;
+#ifndef NO_PKEY
+    CK_BBOOL cpacf_exp;
+#endif
 
     rc = template_attribute_find(priv_templ, CKA_IBM_OPAQUE, &opaque_attr);
     if (rc == TRUE) {
@@ -10441,11 +10400,16 @@ static CK_RV import_ec_privkey(STDLL_TokData_t *tokdata, TEMPLATE *priv_templ)
         }
 
 #ifndef NO_PKEY
-        /* Check protected key related attributes in the secure key token */
-        rc = ccatok_pkey_check_attrs(tokdata, priv_templ, opaque_attr->pValue,
-                                     opaque_attr->ulValueLen, token_type);
+        cpacf_exp = ccatok_ecc_token_is_cpacf_exportable(opaque_attr->pValue,
+                                                         opaque_attr->ulValueLen);
+
+        rc = build_update_attribute(priv_templ,
+                                    CKA_IBM_PROTKEY_EXTRACTABLE,
+                                    (CK_BYTE *)&cpacf_exp,
+                                    sizeof(cpacf_exp));
         if (rc != CKR_OK) {
-            TRACE_ERROR("%s ccatok_pkey_check_attrs failed with rc=0x%lx\n", __func__, rc);
+            TRACE_DEVEL("build_update_attribute(CKA_EXTRACTABLE) "
+                        "failed\n");
             return rc;
         }
 #endif /* NO_PKEY */
