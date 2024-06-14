@@ -4,10 +4,11 @@ dist: jammy
 language: c
 
 before_install:
-    - sudo apt-get -qq update
+    - if [[ "$TRAVIS_DIST" != "focal" ]]; then sudo apt-get -qq update; fi
     - sudo apt-get install -y expect libldap2-dev wget libudev-dev autoconf-archive libcap-dev
-    - if [ "$TRAVIS_CPU_ARCH" != "amd64" ]; then sudo apt-get install -y trousers libtspi-dev; fi
-    - if [ "$TRAVIS_CPU_ARCH" = "s390x" ]; then sudo apt-get install -y libica4 libica-dev; fi
+    - if [[ "$TRAVIS_CPU_ARCH" != "amd64" ]]; then sudo apt-get install -y trousers libtspi-dev; fi
+    - if [[ "$TRAVIS_CPU_ARCH" = "s390x" && "$TRAVIS_DIST" != "focal" ]]; then sudo apt-get install -y libica4 libica-dev; fi
+    - if [[ "$TRAVIS_CPU_ARCH" = "s390x" && "$TRAVIS_DIST" = "focal" ]]; then sudo apt-get install -y libica3 libica-dev; fi
     - pip install git+https://github.com/naftulikay/travis-pls
 
 jobs:
@@ -50,11 +51,18 @@ jobs:
           arch: arm64
           compiler: gcc
           env: CONFIG_OPTS="--enable-swtok --enable-icsftok --enable-ccatok --enable-tpmtok --enable-testcases --with-systemd" CFLAGS="-O3 -Wno-clobbered -Werror -DDEBUG"
+        - name: "linux-s390x-gcc-openssl-1.1.1"
+          os: linux
+          dist: focal
+          arch: s390x
+          compiler: gcc
+          env: CONFIG_OPTS="--enable-swtok --enable-icsftok --enable-ccatok --enable-tpmtok --enable-icatok --enable-ep11tok --enable-testcases --with-systemd" CFLAGS="-O3 -Wno-clobbered -Werror"
 
 before_script:
     - ./bootstrap.sh
 
 script:
+    - openssl version
     - ./configure --silent $CONFIG_OPTS && make -j 5 V=0
     - make check V=0
     - sudo make install
