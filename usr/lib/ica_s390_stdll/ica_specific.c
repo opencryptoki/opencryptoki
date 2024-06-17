@@ -4649,7 +4649,7 @@ static const REF_MECH_LIST_ELEMENT ref_mech_list[] = {
     {SHA3_224, CKM_SHA3_224, {0, 0, CKF_HW | CKF_DIGEST}},
     {SHA3_224, CKM_SHA3_224_HMAC, {112, 2048, CKF_SIGN | CKF_VERIFY}},
     {SHA3_224, CKM_SHA3_224_HMAC_GENERAL, {112, 2048, CKF_SIGN | CKF_VERIFY}},
-    {SHA3_224, CKM_SHA3_224_KEY_DERIVE, {8, 224, CKF_DERIVE}},
+    {SHA3_224, CKM_SHA3_224_KEY_DERIVATION, {8, 224, CKF_DERIVE}},
     {SHA3_224, CKM_IBM_SHA3_224, {0, 0, CKF_HW | CKF_DIGEST}},
     {SHA3_224, CKM_IBM_SHA3_224_HMAC, {112, 2048, CKF_SIGN | CKF_VERIFY}},
 #endif
@@ -4657,7 +4657,7 @@ static const REF_MECH_LIST_ELEMENT ref_mech_list[] = {
     {SHA3_256, CKM_SHA3_256, {0, 0, CKF_HW | CKF_DIGEST}},
     {SHA3_256, CKM_SHA3_256_HMAC, {128, 2048, CKF_SIGN | CKF_VERIFY}},
     {SHA3_256, CKM_SHA3_256_HMAC_GENERAL, {128, 2048, CKF_SIGN | CKF_VERIFY}},
-    {SHA3_256, CKM_SHA3_256_KEY_DERIVE, {8, 256, CKF_DERIVE}},
+    {SHA3_256, CKM_SHA3_256_KEY_DERIVATION, {8, 256, CKF_DERIVE}},
     {SHA3_256, CKM_IBM_SHA3_256, {0, 0, CKF_HW | CKF_DIGEST}},
     {SHA3_256, CKM_IBM_SHA3_256_HMAC, {128, 2048, CKF_SIGN | CKF_VERIFY}},
 #endif
@@ -4665,7 +4665,7 @@ static const REF_MECH_LIST_ELEMENT ref_mech_list[] = {
     {SHA3_384, CKM_SHA3_384, {0, 0, CKF_HW | CKF_DIGEST}},
     {SHA3_384, CKM_SHA3_384_HMAC, {192, 2048, CKF_SIGN | CKF_VERIFY}},
     {SHA3_384, CKM_SHA3_384_HMAC_GENERAL, {192, 2048, CKF_SIGN | CKF_VERIFY}},
-    {SHA3_384, CKM_SHA3_384_KEY_DERIVE, {8, 384, CKF_DERIVE}},
+    {SHA3_384, CKM_SHA3_384_KEY_DERIVATION, {8, 384, CKF_DERIVE}},
     {SHA3_384, CKM_IBM_SHA3_384, {0, 0, CKF_HW | CKF_DIGEST}},
     {SHA3_384, CKM_IBM_SHA3_384_HMAC, {192, 2048, CKF_SIGN | CKF_VERIFY}},
 #endif
@@ -4673,7 +4673,7 @@ static const REF_MECH_LIST_ELEMENT ref_mech_list[] = {
     {SHA3_512, CKM_SHA3_512, {0, 0, CKF_HW | CKF_DIGEST}},
     {SHA3_512, CKM_SHA3_512_HMAC, {256, 2048, CKF_SIGN | CKF_VERIFY}},
     {SHA3_512, CKM_SHA3_512_HMAC_GENERAL, {256, 2048, CKF_SIGN | CKF_VERIFY}},
-    {SHA3_512, CKM_SHA3_512_KEY_DERIVE, {8, 512, CKF_DERIVE}},
+    {SHA3_512, CKM_SHA3_512_KEY_DERIVATION, {8, 512, CKF_DERIVE}},
     {SHA3_512, CKM_IBM_SHA3_512, {0, 0, CKF_HW | CKF_DIGEST}},
     {SHA3_512, CKM_IBM_SHA3_512_HMAC, {256, 2048, CKF_SIGN | CKF_VERIFY}},
 #endif
@@ -5315,7 +5315,7 @@ static CK_RV mech_list_ica_initialize(STDLL_TokData_t *tokdata)
     if (isMechanismAvailable(tokdata, CKM_SHA3_224)) {
         addMechanismToList(tokdata, CKM_SHA3_224_HMAC, sha_hw, 0);
         addMechanismToList(tokdata, CKM_SHA3_224_HMAC_GENERAL, sha_hw, 0);
-        addMechanismToList(tokdata, CKM_SHA3_224_KEY_DERIVE, sha_hw, 0);
+        addMechanismToList(tokdata, CKM_SHA3_224_KEY_DERIVATION, sha_hw, 0);
     }
 #endif
 #ifdef NID_sha3_256
@@ -5324,7 +5324,7 @@ static CK_RV mech_list_ica_initialize(STDLL_TokData_t *tokdata)
     if (isMechanismAvailable(tokdata, CKM_SHA3_256)) {
         addMechanismToList(tokdata, CKM_SHA3_256_HMAC, sha_hw, 0);
         addMechanismToList(tokdata, CKM_SHA3_256_HMAC_GENERAL, sha_hw, 0);
-        addMechanismToList(tokdata, CKM_SHA3_256_KEY_DERIVE, sha_hw, 0);
+        addMechanismToList(tokdata, CKM_SHA3_256_KEY_DERIVATION, sha_hw, 0);
     }
 #endif
 #ifdef NID_sha3_384
@@ -5333,7 +5333,7 @@ static CK_RV mech_list_ica_initialize(STDLL_TokData_t *tokdata)
     if (isMechanismAvailable(tokdata, CKM_SHA3_384)) {
         addMechanismToList(tokdata, CKM_SHA3_384_HMAC, sha_hw, 0);
         addMechanismToList(tokdata, CKM_SHA3_384_HMAC_GENERAL, sha_hw, 0);
-        addMechanismToList(tokdata, CKM_SHA3_384_KEY_DERIVE, sha_hw, 0);
+        addMechanismToList(tokdata, CKM_SHA3_384_KEY_DERIVATION, sha_hw, 0);
     }
 #endif
 #ifdef NID_sha3_512
@@ -5342,7 +5342,7 @@ static CK_RV mech_list_ica_initialize(STDLL_TokData_t *tokdata)
     if (isMechanismAvailable(tokdata, CKM_SHA3_512)) {
         addMechanismToList(tokdata, CKM_SHA3_512_HMAC, sha_hw, 0);
         addMechanismToList(tokdata, CKM_SHA3_512_HMAC_GENERAL, sha_hw, 0);
-        addMechanismToList(tokdata, CKM_SHA3_512_KEY_DERIVE, sha_hw, 0);
+        addMechanismToList(tokdata, CKM_SHA3_512_KEY_DERIVATION, sha_hw, 0);
     }
 #endif
 
