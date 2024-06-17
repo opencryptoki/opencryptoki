@@ -240,6 +240,7 @@ const char *p11_get_cka(CK_ATTRIBUTE_TYPE atype)
         _sym2str(CKA_IBM_KYBER_MODE);
         _sym2str(CKA_IBM_KYBER_PK);
         _sym2str(CKA_IBM_KYBER_SK);
+        _sym2str(CKA_IBM_CCA_AES_KEY_MODE);
     default:
         sprintf(buf, "unknown attribute type 0x%08lx", atype);
         return buf;
