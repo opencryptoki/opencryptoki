@@ -753,6 +753,8 @@ CK_RV ckm_sha_derive(STDLL_TokData_t *tokdata, SESSION *sess,
         goto end;
     }
 
+    INC_COUNTER(tokdata, sess, mech, base_key_obj, POLICY_STRENGTH_IDX_0);
+
     rc = CKR_OK;
 
 end:
