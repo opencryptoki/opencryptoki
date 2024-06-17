@@ -2766,7 +2766,7 @@ CK_RV icsftok_encrypt_update(STDLL_TokData_t * tokdata,
         goto done;
     }
     memcpy(buffer, multi_part_ctx->data, multi_part_ctx->used_data_len);
-    if (input_part_len - remaining > 0)
+    if (input_part_len > remaining)
         memcpy(buffer + multi_part_ctx->used_data_len, input_part,
                input_part_len - remaining);
 
@@ -3309,7 +3309,7 @@ CK_RV icsftok_decrypt_update(STDLL_TokData_t * tokdata,
         goto done;
     }
     memcpy(buffer, multi_part_ctx->data, multi_part_ctx->used_data_len);
-    if (input_part_len - remaining > 0)
+    if (input_part_len > remaining)
         memcpy(buffer + multi_part_ctx->used_data_len, input_part,
                input_part_len - remaining);
 
@@ -4420,7 +4420,7 @@ CK_RV icsftok_sign_update(STDLL_TokData_t * tokdata,
                 }
                 memcpy(buffer, multi_part_ctx->data,
                        multi_part_ctx->used_data_len);
-                if (out_len - multi_part_ctx->used_data_len > 0)
+                if (out_len > multi_part_ctx->used_data_len)
                     memcpy(buffer + multi_part_ctx->used_data_len,
                            (char *)in_data,
                            out_len - multi_part_ctx->used_data_len);
@@ -5020,7 +5020,7 @@ CK_RV icsftok_verify_update(STDLL_TokData_t * tokdata,
                 }
                 memcpy(buffer, multi_part_ctx->data,
                        multi_part_ctx->used_data_len);
-                if (out_len - multi_part_ctx->used_data_len > 0)
+                if (out_len > multi_part_ctx->used_data_len)
                     memcpy(buffer + multi_part_ctx->used_data_len,
                            (char *)in_data,
                            out_len - multi_part_ctx->used_data_len);
