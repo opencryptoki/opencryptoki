@@ -1643,10 +1643,10 @@ CK_RV do_SHA_derive_key(void)
         { CKM_SHA256_KEY_DERIVATION, 0, 0 },
         { CKM_SHA384_KEY_DERIVATION, 0, 0 },
         { CKM_SHA512_KEY_DERIVATION, 0, 0 },
-        { CKM_SHA3_224_KEY_DERIVE, 0, 0 },
-        { CKM_SHA3_256_KEY_DERIVE, 0, 0 },
-        { CKM_SHA3_384_KEY_DERIVE, 0, 0 },
-        { CKM_SHA3_512_KEY_DERIVE, 0, 0 }
+        { CKM_SHA3_224_KEY_DERIVATION, 0, 0 },
+        { CKM_SHA3_256_KEY_DERIVATION, 0, 0 },
+        { CKM_SHA3_384_KEY_DERIVATION, 0, 0 },
+        { CKM_SHA3_512_KEY_DERIVATION, 0, 0 }
     };
 
     struct {

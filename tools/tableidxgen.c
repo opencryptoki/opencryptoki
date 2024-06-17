@@ -65,7 +65,11 @@ const struct aliaslist {
                { "CKM_ECDSA_KEY_PAIR_GEN", "CKM_EC_KEY_PAIR_GEN" },
                { "CKM_IBM_EC_C25519", "CKM_IBM_EC_X25519" },
                { "CKM_IBM_EC_C448", "CKM_IBM_EC_X448" },
-               { "CKM_IBM_EDDSA_SHA512", "CKM_IBM_ED25519_SHA512" }
+               { "CKM_IBM_EDDSA_SHA512", "CKM_IBM_ED25519_SHA512" },
+               { "CKM_SHA3_224_KEY_DERIVE", "CKM_SHA3_224_KEY_DERIVATION" },
+               { "CKM_SHA3_256_KEY_DERIVE", "CKM_SHA3_256_KEY_DERIVATION" },
+               { "CKM_SHA3_384_KEY_DERIVE", "CKM_SHA3_384_KEY_DERIVATION" },
+               { "CKM_SHA3_512_KEY_DERIVE", "CKM_SHA3_512_KEY_DERIVATION" },
 };
 
 /* Get the table */

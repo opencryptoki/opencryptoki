@@ -1668,10 +1668,10 @@ CK_RV key_mgr_derive_key(STDLL_TokData_t *tokdata,
     case CKM_SHA256_KEY_DERIVATION:
     case CKM_SHA384_KEY_DERIVATION:
     case CKM_SHA512_KEY_DERIVATION:
-    case CKM_SHA3_224_KEY_DERIVE:
-    case CKM_SHA3_256_KEY_DERIVE:
-    case CKM_SHA3_384_KEY_DERIVE:
-    case CKM_SHA3_512_KEY_DERIVE:
+    case CKM_SHA3_224_KEY_DERIVATION:
+    case CKM_SHA3_256_KEY_DERIVATION:
+    case CKM_SHA3_384_KEY_DERIVATION:
+    case CKM_SHA3_512_KEY_DERIVATION:
         if (!derived_key) {
             TRACE_ERROR("%s received bad argument(s)\n", __func__);
             rc = CKR_FUNCTION_FAILED;
