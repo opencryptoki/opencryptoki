@@ -5618,7 +5618,7 @@ static void print_custom_attrs(CK_OBJECT_HANDLE key,
         if (rc != CKR_OK && rc != CKR_ATTRIBUTE_SENSITIVE)
             continue;
 
-        atype->print_long(p11_get_cka(confignode_to_intval(id)->value),
+        atype->print_long(confignode_to_bareval(name)->value,
                           &val, indent, rc == CKR_ATTRIBUTE_SENSITIVE);
 
         if (is_attr_array_attr(&val))
