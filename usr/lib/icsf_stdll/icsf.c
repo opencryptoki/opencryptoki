@@ -148,7 +148,7 @@ static void strpad(char *dest, const char *orig, size_t len, int padding_char)
         str_len = len;
 
     memcpy(dest, orig, str_len);
-    if ((len - str_len) > 0)
+    if (len > str_len)
         memset(dest + str_len, ' ', len - str_len);
 }
 
