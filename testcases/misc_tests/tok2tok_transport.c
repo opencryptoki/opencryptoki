@@ -1403,13 +1403,17 @@ int main(int argc, char **argv)
     testcase_pass("C_OpenSession on slot %lu", slot_id2);
 
     testcase_new_assertion();
-    rv = funcs->C_Login(session2, CKU_USER, user_pin, user_pin_len);
-    if (rv != CKR_OK) {
-        testcase_fail("C_Login() on slot %lu rc = %s\n", slot_id2,
-                       p11_get_ckr(rv));
-        // ignore error
-    } else {
+    if (slot_id1 != slot_id2) {
+        rv = funcs->C_Login(session2, CKU_USER, user_pin, user_pin_len);
+        if (rv != CKR_OK) {
+            testcase_fail("C_Login() on slot %lu rc = %s\n", slot_id2,
+                           p11_get_ckr(rv));
+            goto close_session;
+        }
         testcase_pass("C_Login as User on slot %lu", slot_id2);
+    } else {
+        testcase_skip("C_Login as User on slot %lu (already logged in)",
+                      slot_id2);
     }
 
     rv = do_tok2tok_tests();
