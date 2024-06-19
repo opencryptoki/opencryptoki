@@ -1038,6 +1038,9 @@ typedef CK_ULONG CK_MECHANISM_TYPE;
 #define CKM_AES_CFB128                 0x00002107
 
 #define CKM_AES_KEY_WRAP               0x00002109
+#define CKM_AES_KEY_WRAP_PAD           0x0000210A /* Deprecated with v3.1 */
+#define CKM_AES_KEY_WRAP_KWP           0x0000210B
+#define CKM_AES_KEY_WRAP_PKCS7         0x0000210C
 
 #define CKM_VENDOR_DEFINED             0x80000000
 
