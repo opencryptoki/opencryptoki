@@ -1649,6 +1649,16 @@ CK_RV aes_xts_decrypt(STDLL_TokData_t *tokdata,
                       CK_ULONG in_data_len,
                       CK_BYTE *out_data, CK_ULONG *out_data_len);
 
+CK_RV aes_key_wrap_encrypt(STDLL_TokData_t *tokdata, SESSION *sess,
+                      CK_BBOOL length_only, ENCR_DECR_CONTEXT *ctx,
+                      CK_BYTE *in_data, CK_ULONG in_data_len,
+                      CK_BYTE *out_data, CK_ULONG *out_data_len);
+
+CK_RV aes_key_wrap_decrypt(STDLL_TokData_t *tokdata, SESSION *sess,
+                      CK_BBOOL length_only, ENCR_DECR_CONTEXT *ctx,
+                      CK_BYTE *in_data, CK_ULONG in_data_len,
+                      CK_BYTE *out_data, CK_ULONG *out_data_len);
+
 // SHA mechanisms
 //
 

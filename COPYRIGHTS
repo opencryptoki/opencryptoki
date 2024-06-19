@@ -33,6 +33,10 @@ For code originating from OpenSSL:
  *   RSA_padding_check_PKCS1_OAEP_mgf1() in crypto/rsa/rsa_oaep.c and is
  *   slightly modified to fit to the OpenCryptoki environment. See comment in
  *   function decode_eme_oaep() for a list of changes.
+ * - The implementation of the AESKW functions in usr/lib/common/mech_aes.c is
+ *   copied from OpenSSL's source file crypto/modes/wrap128.c and is slightly
+ *   modified to fit to the OpenCryptoki environment. See comment in
+ *   file usr/lib/common/mech_aes.c for a list of changes.
  *
  * Copyright 1999-2024 The OpenSSL Project Authors. All Rights Reserved.
  *
