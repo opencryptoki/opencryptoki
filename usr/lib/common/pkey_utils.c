@@ -234,27 +234,30 @@ static int s390_kmac(unsigned long func, void *param,
 
 /**
  * s390_pcc:
- * @func: the function code passed to KM; see s390_pcc_functions
+ * @func: the function code passed to PCC; see s390_pcc_functions
  * @param: address of parameter block; see POP for details on each func
  *
  * Executes the PCC operation of the CPU.
  *
- * Returns -1 for failure, 0 for the query func, number of processed
- * bytes for encryption/decryption funcs
+ * Returns condition code of the PCC instruction
  */
-static int s390_pcc(unsigned long func, void *param)
+static inline int s390_pcc(unsigned long func, void *param)
 {
     register unsigned long r0 __asm__("0") = (unsigned long)func;
     register unsigned long r1 __asm__("1") = (unsigned long)param;
+    char cc;
 
-    __asm__ volatile (
-        "0: .long   %[opc] << 16\n"
-        "   brc 1,0b\n"
-        :
-        : [fc] "d" (r0), [param] "a" (r1), [opc] "i" (0xb92c)
-        : "cc", "memory");
+    __asm__ volatile(
+        "0:     .insn   rre,%[opc] << 16,0,0\n" /* PCC opcode */
+        "       brc     1,0b\n" /* handle partial completion */
+        "       ipm     %[cc]\n"
+        "       srl     %[cc],28\n"
+        : [cc] "=d" (cc)
+        : [func] "d" (r0), [param] "a" (r1), [opc] "i" (0xb92c)
+        : "cc", "memory"
+    );
 
-    return 0;
+    return cc;
 }
 
 static inline void s390_flip_endian_32(void *dest, const void *src)
@@ -740,7 +743,7 @@ CK_RV pkey_aes_cmac(OBJECT *key_obj, CK_BYTE *message,
         /* calculate final block (last/full) */
         rc = s390_pcc(fc, pb_lookup.base);
         memset(pb_lookup.keys, 0, pkey_attr->ulValueLen);
-        if (rc < 0) {
+        if (rc != 0) {
             ret = CKR_FUNCTION_FAILED;
             goto done;
         }
@@ -820,7 +823,7 @@ static CK_RV pkey_aes_xts_iv_from_tweak(CK_BYTE *tweak, CK_BYTE* iv,
     memcpy(param->param_pcc + offset, tweak, AES_BLOCK_SIZE);
 
     rc = s390_pcc(param->fc & 0x7f, param->param_pcc);
-    if (rc < 0) {
+    if (rc != 0) {
         TRACE_ERROR("s390_pcc function failed\n");
         return CKR_FUNCTION_FAILED;
     }
