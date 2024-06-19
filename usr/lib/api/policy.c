@@ -1099,6 +1099,10 @@ static CK_RV policy_update_mech_info(policy_t p, CK_MECHANISM_TYPE mech,
         case CKM_AES_MAC:
         case CKM_AES_MAC_GENERAL:
         case CKM_AES_OFB:
+        case CKM_AES_KEY_WRAP:
+        case CKM_AES_KEY_WRAP_PAD:
+        case CKM_AES_KEY_WRAP_KWP:
+        case CKM_AES_KEY_WRAP_PKCS7:
         case CKM_IBM_CMAC:
         case CKM_SHA1_KEY_DERIVATION:
         case CKM_SHA224_KEY_DERIVATION:
