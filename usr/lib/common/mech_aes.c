@@ -4328,3 +4328,637 @@ CK_RV aes_xts_cipher(CK_BYTE *in_data, CK_ULONG in_data_len,
 
     return CKR_OK;
 }
+
+/*
+ * The implementation of the AESKW functions is copied from OpenSSL's source
+ * file crypto/modes/wrap128.c and is slightly modified to fit to the
+ * OpenCryptoki environment.
+ *
+ * The OpenSSL code is licensed under the Apache License 2.0.
+ * You can obtain a copy in the file LICENSE in the OpenSSL source
+ * distribution or at https://www.openssl.org/source/license.html
+ *
+ * Changes include:
+ * - Different variable, function and parameter names.
+ * - Use of token specific AES ECB as block function.
+ * - Different return codes.
+ */
+
+/* RFC 3394 section 2.2.3.1 Default Initial Value */
+static const CK_BYTE aeskw_default_iv[AES_KEY_WRAP_IV_SIZE] = {
+    0xA6, 0xA6, 0xA6, 0xA6, 0xA6, 0xA6, 0xA6, 0xA6,
+};
+
+/* RFC 5649 section 3 Alternative Initial Value 32-bit constant */
+static const CK_BYTE aeskw_default_aiv[AES_KEY_WRAP_KWP_IV_SIZE] = {
+    0xA6, 0x59, 0x59, 0xA6
+};
+
+/*
+ * Wrapping according to RFC 3394 section 2.2.1.
+ * Input and output buffers can overlap.
+ */
+static CK_RV aeskw_wrap(STDLL_TokData_t *tokdata, SESSION *sess,
+                        CK_BYTE *in_data, CK_ULONG in_data_len,
+                        CK_BYTE *out_data, CK_ULONG *out_data_len,
+                        OBJECT *key, const CK_BYTE *iv)
+{
+    CK_BYTE *A, B[AES_BLOCK_SIZE], C[AES_BLOCK_SIZE], *R;
+    CK_ULONG i, j, t, l;
+    CK_RV rc;
+
+    if (in_data_len % AES_KEY_WRAP_BLOCK_SIZE != 0 ||
+        in_data_len < 2 * AES_KEY_WRAP_BLOCK_SIZE ||
+        in_data_len > UINT32_MAX) {
+        TRACE_ERROR("%s\n", ock_err(ERR_DATA_LEN_RANGE));
+        return CKR_DATA_LEN_RANGE;
+    }
+
+    if (*out_data_len < in_data_len + AES_KEY_WRAP_BLOCK_SIZE) {
+        TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
+        return CKR_BUFFER_TOO_SMALL;
+    }
+
+    A = B;
+    t = 1;
+
+    memmove(out_data + AES_KEY_WRAP_BLOCK_SIZE, in_data, in_data_len);
+    if (iv == NULL)
+        iv = aeskw_default_iv;
+
+    memcpy(A, iv, AES_KEY_WRAP_IV_SIZE);
+
+    for (j = 0; j < 6; j++) {
+        R = out_data + AES_KEY_WRAP_BLOCK_SIZE;
+        for (i = 0; i < in_data_len; i += AES_KEY_WRAP_BLOCK_SIZE, t++,
+                                     R += AES_KEY_WRAP_BLOCK_SIZE) {
+            memcpy(B + AES_KEY_WRAP_BLOCK_SIZE, R, AES_KEY_WRAP_BLOCK_SIZE);
+
+            l = AES_BLOCK_SIZE;
+            rc = token_specific.t_aes_ecb(tokdata, sess,
+                                          B, AES_BLOCK_SIZE,
+                                          C, &l, key, 1);
+            if (rc != CKR_OK)
+                return rc;
+            memcpy(B, C, AES_BLOCK_SIZE);
+
+            A[7] ^= (CK_BYTE)(t & 0xff);
+            if (t > 0xff) {
+                A[6] ^= (CK_BYTE)((t >> 8) & 0xff);
+                A[5] ^= (CK_BYTE)((t >> 16) & 0xff);
+                A[4] ^= (CK_BYTE)((t >> 24) & 0xff);
+            }
+            memcpy(R, B + AES_KEY_WRAP_BLOCK_SIZE, AES_KEY_WRAP_BLOCK_SIZE);
+        }
+    }
+
+    memcpy(out_data, A, AES_KEY_WRAP_BLOCK_SIZE);
+
+    *out_data_len = in_data_len + AES_KEY_WRAP_BLOCK_SIZE;
+
+    return CKR_OK;
+}
+
+/*
+ * Unwrapping according to RFC 3394 section 2.2.2 steps 1-2.
+ * Input and output buffers can overlap.
+ * The IV check (step 3) is responsibility of the caller.
+ */
+static CK_RV aeskw_unwrap_raw(STDLL_TokData_t *tokdata, SESSION *sess,
+                              CK_BYTE *in_data, CK_ULONG in_data_len,
+                              CK_BYTE *out_data, CK_ULONG *out_data_len,
+                              OBJECT *key, CK_BYTE *iv)
+{
+    CK_BYTE *A, B[AES_BLOCK_SIZE], C[AES_BLOCK_SIZE], *R;
+    CK_ULONG i, j, t, l;
+    CK_RV rc;
+
+    if (in_data_len % AES_KEY_WRAP_BLOCK_SIZE != 0 ||
+        in_data_len < 3 * AES_KEY_WRAP_BLOCK_SIZE ||
+        in_data_len > UINT32_MAX) {
+        TRACE_ERROR("%s\n", ock_err(ERR_DATA_LEN_RANGE));
+        return CKR_DATA_LEN_RANGE;
+    }
+
+    if (*out_data_len < in_data_len - AES_KEY_WRAP_BLOCK_SIZE) {
+        TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
+        return CKR_BUFFER_TOO_SMALL;
+    }
+
+    in_data_len -= AES_KEY_WRAP_BLOCK_SIZE;
+
+    A = B;
+    t = 6 * (in_data_len / AES_KEY_WRAP_BLOCK_SIZE);
+    memcpy(A, in_data, AES_KEY_WRAP_BLOCK_SIZE);
+    memmove(out_data, in_data + AES_KEY_WRAP_BLOCK_SIZE, in_data_len);
+
+    for (j = 0; j < 6; j++) {
+        R = out_data + in_data_len - AES_KEY_WRAP_BLOCK_SIZE;
+        for (i = 0; i < in_data_len; i += AES_KEY_WRAP_BLOCK_SIZE, t--,
+                                     R -= AES_KEY_WRAP_BLOCK_SIZE) {
+            A[7] ^= (unsigned char)(t & 0xff);
+            if (t > 0xff) {
+                A[6] ^= (unsigned char)((t >> 8) & 0xff);
+                A[5] ^= (unsigned char)((t >> 16) & 0xff);
+                A[4] ^= (unsigned char)((t >> 24) & 0xff);
+            }
+            memcpy(B + AES_KEY_WRAP_BLOCK_SIZE, R, AES_KEY_WRAP_BLOCK_SIZE);
+
+            l = AES_BLOCK_SIZE;
+            rc = token_specific.t_aes_ecb(tokdata, sess,
+                                          B, AES_BLOCK_SIZE,
+                                          C, &l, key, 0);
+            if (rc != CKR_OK)
+                return rc;
+            memcpy(B, C, AES_BLOCK_SIZE);
+
+            memcpy(R, B + AES_KEY_WRAP_BLOCK_SIZE, AES_KEY_WRAP_BLOCK_SIZE);
+        }
+    }
+    memcpy(iv, A, AES_KEY_WRAP_BLOCK_SIZE);
+
+    *out_data_len = in_data_len;
+
+    return CKR_OK;
+}
+
+/*
+ * Unwrapping according to RFC 3394 section 2.2.2, including the IV check.
+ * Input and output buffers can overlap.
+ * The first block of plaintext has to match the supplied IV, otherwise an
+ * error is returned.
+ */
+static CK_RV aeskw_unwrap(STDLL_TokData_t *tokdata, SESSION *sess,
+                          CK_BYTE *in_data, CK_ULONG in_data_len,
+                          CK_BYTE *out_data, CK_ULONG *out_data_len,
+                          OBJECT *key, const CK_BYTE *iv)
+{
+    CK_RV rc;
+    CK_BYTE ret_iv[AES_KEY_WRAP_IV_SIZE];
+
+    rc  = aeskw_unwrap_raw(tokdata, sess, in_data, in_data_len,
+                           out_data, out_data_len, key, ret_iv);
+    if (rc != CKR_OK)
+        return rc;
+
+    if (iv == NULL)
+        iv = aeskw_default_iv;
+
+    if (memcmp(ret_iv, iv, AES_KEY_WRAP_IV_SIZE) != 0) {
+        OPENSSL_cleanse(out_data, *out_data_len);
+        return CKR_ENCRYPTED_DATA_INVALID;
+    }
+
+    return CKR_OK;
+}
+
+/*
+ * Wrapping according to RFC 5649 section 4.1.
+ * Input and output buffers can overlap.
+ */
+static CK_RV aeskw_wrap_pad(STDLL_TokData_t *tokdata, SESSION *sess,
+                            CK_BYTE *in_data, CK_ULONG in_data_len,
+                            CK_BYTE *out_data, CK_ULONG *out_data_len,
+                            OBJECT *key, const CK_BYTE *iv)
+{
+    CK_ULONG blocks_padded = (in_data_len + 7) / 8;
+    CK_ULONG padded_len = blocks_padded * 8;
+    CK_ULONG padding_len = padded_len - in_data_len;
+    CK_BYTE aiv[AES_KEY_WRAP_IV_SIZE];
+    CK_BYTE buff[AES_BLOCK_SIZE];
+    CK_RV rc;
+
+    if (in_data_len == 0 || in_data_len > UINT32_MAX) {
+        TRACE_ERROR("%s\n", ock_err(ERR_DATA_LEN_RANGE));
+        return CKR_DATA_LEN_RANGE;
+    }
+
+    if (*out_data_len < padded_len + AES_KEY_WRAP_BLOCK_SIZE) {
+        TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
+        return CKR_BUFFER_TOO_SMALL;
+    }
+
+    if (iv == NULL)
+        memcpy(aiv, aeskw_default_aiv, AES_KEY_WRAP_KWP_IV_SIZE);
+    else
+        memcpy(aiv, iv, AES_KEY_WRAP_KWP_IV_SIZE);
+
+    aiv[4] = (in_data_len >> 24) & 0xFF;
+    aiv[5] = (in_data_len >> 16) & 0xFF;
+    aiv[6] = (in_data_len >> 8) & 0xFF;
+    aiv[7] = in_data_len & 0xFF;
+
+    /*
+     * If length of plain text is not a multiple of 8, pad the plain text octet
+     * string on the right with octets of zeros, where final length is the
+     * smallest multiple of 8 that is greater than length of plain text.
+     * If length of plain text is a multiple of 8, then there is no padding.
+     */
+
+    if (padded_len == AES_KEY_WRAP_BLOCK_SIZE) {
+        /*
+         * Section 4.1 - special case in step 2: If the padded plaintext
+         * contains exactly eight octets, then prepend the AIV and encrypt
+         * the resulting 128-bit block using AES in ECB mode.
+         */
+        memmove(buff + AES_KEY_WRAP_BLOCK_SIZE, in_data, in_data_len);
+        memcpy(buff, aiv, AES_KEY_WRAP_IV_SIZE);
+        memset(buff + AES_KEY_WRAP_IV_SIZE + in_data_len, 0, padding_len);
+
+        rc = token_specific.t_aes_ecb(tokdata, sess,
+                                      buff, AES_BLOCK_SIZE,
+                                      out_data, out_data_len, key, 1);
+    } else {
+        memmove(out_data, in_data, in_data_len);
+        memset(out_data + in_data_len, 0, padding_len);
+
+        rc = aeskw_wrap(tokdata, sess,
+                        out_data, padded_len,
+                        out_data, out_data_len,
+                        key, aiv);
+    }
+
+    return rc;
+}
+
+/*
+ * Unwrapping according to RFC 5649 section 4.2.
+ * Input and output buffers can overlap.
+ */
+static CK_RV aeskw_unwrap_pad(STDLL_TokData_t *tokdata, SESSION *sess,
+                              CK_BYTE *in_data, CK_ULONG in_data_len,
+                              CK_BYTE *out_data, CK_ULONG *out_data_len,
+                              OBJECT *key, const CK_BYTE *iv)
+{
+    CK_ULONG n = in_data_len / AES_KEY_WRAP_BLOCK_SIZE - 1;
+    CK_ULONG padded_len, padding_len, ptext_len, l;
+    CK_BYTE aiv[AES_KEY_WRAP_IV_SIZE];
+    CK_BYTE buff[AES_BLOCK_SIZE];
+    static const CK_BYTE zeros[AES_KEY_WRAP_BLOCK_SIZE] = { 0x0 };
+    const CK_BYTE *exp_iv = iv;
+    CK_RV rc;
+
+    if (in_data_len % AES_KEY_WRAP_BLOCK_SIZE != 0 ||
+        in_data_len < 2 * AES_KEY_WRAP_BLOCK_SIZE ||
+        in_data_len > UINT32_MAX) {
+        TRACE_ERROR("%s\n", ock_err(ERR_DATA_LEN_RANGE));
+        return CKR_DATA_LEN_RANGE;
+    }
+
+    if (*out_data_len < in_data_len - AES_KEY_WRAP_BLOCK_SIZE) {
+        TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
+        return CKR_BUFFER_TOO_SMALL;
+    }
+
+    if (in_data_len == 16) {
+        /*
+         * Section 4.2 - special case in step 1: When n=1, the ciphertext
+         * contains exactly two 64-bit blocks and they are decrypted as a
+         * single AES block using AES in ECB mode: AIV | P[1] = DEC(K, C[0] |
+         * C[1])
+         */
+        l = AES_BLOCK_SIZE;
+        rc = token_specific.t_aes_ecb(tokdata, sess,
+                                      in_data, AES_BLOCK_SIZE,
+                                      buff, &l, key, 0);
+        if (rc != CKR_OK)
+            return rc;
+
+        memcpy(aiv, buff, AES_KEY_WRAP_IV_SIZE);
+
+        /* Remove AIV */
+        memcpy(out_data, buff + AES_KEY_WRAP_IV_SIZE, AES_KEY_WRAP_BLOCK_SIZE);
+        padded_len = AES_KEY_WRAP_BLOCK_SIZE;
+
+        OPENSSL_cleanse(buff, sizeof(buff));
+    } else {
+        padded_len = in_data_len - AES_KEY_WRAP_BLOCK_SIZE;
+        rc = aeskw_unwrap_raw(tokdata, sess,
+                              in_data, in_data_len,
+                              out_data, out_data_len,
+                              key, aiv);
+        if (rc != CKR_OK)
+            return rc;
+
+        if (padded_len != *out_data_len) {
+            OPENSSL_cleanse(out_data, in_data_len);
+            return CKR_ENCRYPTED_DATA_INVALID;
+        }
+    }
+
+    /*
+     * Section 3: AIV checks: Check that MSB(32,A) = A65959A6. Optionally a
+     * user-supplied value can be used (even if standard doesn't mention
+     * this).
+     */
+    if (exp_iv == NULL)
+        exp_iv =  aeskw_default_aiv;
+    if (memcmp(aiv, exp_iv, AES_KEY_WRAP_KWP_IV_SIZE) != 0) {
+        OPENSSL_cleanse(out_data, in_data_len);
+        return CKR_ENCRYPTED_DATA_INVALID;
+    }
+
+    /*
+     * Check that 8*(n-1) < LSB(32,AIV) <= 8*n. If so, let ptext_len =
+     * LSB(32,AIV).
+     */
+    ptext_len = ((unsigned int)aiv[4] << 24) |
+                ((unsigned int)aiv[5] << 16) |
+                ((unsigned int)aiv[6] <<  8) |
+                (unsigned int)aiv[7];
+    if (AES_KEY_WRAP_BLOCK_SIZE * (n - 1) >= ptext_len ||
+        ptext_len > AES_KEY_WRAP_BLOCK_SIZE * n) {
+        OPENSSL_cleanse(out_data, in_data_len);
+        return CKR_ENCRYPTED_DATA_INVALID;
+    }
+
+    /*
+     * Check that the rightmost padding_len octets of the output data are
+     * zero.
+     */
+    padding_len = padded_len - ptext_len;
+    if (memcmp(out_data + ptext_len, zeros, padding_len) != 0) {
+        OPENSSL_cleanse(out_data, in_data_len);
+        return CKR_ENCRYPTED_DATA_INVALID;
+    }
+
+    /* Section 4.2 step 3: Remove padding */
+    *out_data_len =  ptext_len;
+
+    return CKR_OK;
+}
+
+static CK_RV ckm_aes_key_wrap(STDLL_TokData_t *tokdata, SESSION *sess,
+                              CK_BYTE *in_data, CK_ULONG in_data_len,
+                              CK_BYTE *out_data, CK_ULONG *out_data_len,
+                              OBJECT *key, const CK_BYTE *iv, CK_ULONG iv_len,
+                              CK_BBOOL encrypt, CK_BBOOL pad)
+{
+    CK_RV rc;
+
+    if (token_specific.t_aes_ecb == NULL) {
+        TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
+        return CKR_MECHANISM_INVALID;
+    }
+
+    if (pad) {
+        if (iv != NULL && iv_len != AES_KEY_WRAP_KWP_IV_SIZE) {
+            TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
+            return CKR_MECHANISM_PARAM_INVALID;
+        }
+
+        if (encrypt)
+            rc = aeskw_wrap_pad(tokdata, sess,
+                                in_data, in_data_len,
+                                out_data, out_data_len,
+                                key, iv);
+        else
+            rc = aeskw_unwrap_pad(tokdata, sess,
+                                  in_data, in_data_len,
+                                  out_data, out_data_len,
+                                  key, iv);
+    } else {
+        if (iv != NULL && iv_len != AES_KEY_WRAP_IV_SIZE) {
+            TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
+            return CKR_MECHANISM_PARAM_INVALID;
+        }
+
+        if (encrypt)
+            rc = aeskw_wrap(tokdata, sess,
+                            in_data, in_data_len,
+                            out_data, out_data_len,
+                            key, iv);
+        else
+            rc = aeskw_unwrap(tokdata, sess,
+                              in_data, in_data_len,
+                              out_data, out_data_len,
+                              key, iv);
+    }
+
+    return rc;
+}
+
+CK_RV aes_key_wrap_encrypt(STDLL_TokData_t *tokdata, SESSION *sess,
+                      CK_BBOOL length_only, ENCR_DECR_CONTEXT *ctx,
+                      CK_BYTE *in_data, CK_ULONG in_data_len,
+                      CK_BYTE *out_data, CK_ULONG *out_data_len)
+{
+    OBJECT *key = NULL;
+    CK_BBOOL pkcs7_pad = FALSE, aeskw_pad = FALSE;
+    CK_ULONG padded_len = 0, out_len, in_len = in_data_len;
+    CK_BYTE *pad_buffer = NULL, *in = in_data;
+    CK_RV rc;
+
+    if (sess == NULL || ctx == NULL || out_data_len == NULL) {
+        TRACE_ERROR("%s received bad argument(s)\n", __func__);
+        return CKR_FUNCTION_FAILED;
+    }
+
+    switch (ctx->mech.mechanism) {
+    case CKM_AES_KEY_WRAP:
+        padded_len = in_data_len; /* must be multiple of 8 bytes */
+        break;
+    case CKM_AES_KEY_WRAP_PAD:
+    case CKM_AES_KEY_WRAP_PKCS7:
+        pkcs7_pad = TRUE;
+        padded_len = AES_BLOCK_SIZE * ((in_data_len / AES_BLOCK_SIZE) + 1);
+        break;
+    case CKM_AES_KEY_WRAP_KWP:
+        aeskw_pad = TRUE;
+        if (in_data_len % AES_KEY_WRAP_BLOCK_SIZE != 0)
+            padded_len = AES_KEY_WRAP_BLOCK_SIZE -
+                                (in_data_len % AES_KEY_WRAP_BLOCK_SIZE);
+        padded_len += in_data_len;
+        break;
+    default:
+        return CKR_MECHANISM_INVALID;
+    }
+
+    out_len = padded_len + AES_KEY_WRAP_BLOCK_SIZE;
+
+    /*
+     * If no padding, a multiple of the AESKW block size is required, at at
+     * least 2 blocks.
+     */
+    if (pkcs7_pad == FALSE && aeskw_pad == FALSE &&
+        (in_data_len % AES_KEY_WRAP_BLOCK_SIZE != 0 ||
+         in_data_len < 2 * AES_KEY_WRAP_BLOCK_SIZE)) {
+        TRACE_ERROR("%s\n", ock_err(ERR_DATA_LEN_RANGE));
+        return CKR_DATA_LEN_RANGE;
+    }
+
+    if (length_only == TRUE) {
+        *out_data_len = out_len;
+        return CKR_OK;
+    }
+
+    if (*out_data_len < out_len) {
+        *out_data_len = out_len;
+        TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
+        return CKR_BUFFER_TOO_SMALL;
+    }
+
+    rc = object_mgr_find_in_map1(tokdata, ctx->key, &key, READ_LOCK);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Failed to find specified object.\n");
+        return rc;
+    }
+
+    if (pkcs7_pad == TRUE) {
+        pad_buffer = (CK_BYTE *)malloc(padded_len);
+        if (pad_buffer == NULL) {
+            TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+            rc = CKR_HOST_MEMORY;
+            goto done;
+        }
+
+        if (in_data != NULL && in_data_len > 0)
+            memcpy(pad_buffer, in_data, in_data_len);
+
+        rc = add_pkcs_padding(pad_buffer + in_data_len,
+                              AES_BLOCK_SIZE, in_data_len, padded_len);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("add_pkcs_padding failed.\n");
+            goto done;
+        }
+
+        in = pad_buffer;
+        in_len = padded_len;
+    }
+
+    if (token_specific.t_aes_key_wrap != NULL) {
+        rc = token_specific.t_aes_key_wrap(tokdata, sess,
+                                           in, in_len,
+                                           out_data, out_data_len,
+                                           key,
+                                           ctx->mech.pParameter,
+                                           ctx->mech.ulParameterLen,
+                                           TRUE, aeskw_pad);
+        if (rc != CKR_OK)
+            TRACE_DEVEL("Token specific aes key wrap encrypt failed.\n");
+
+        goto done;
+    }
+
+    /* No token specific AES key wrap function, implement via AES ECB calls */
+    rc = ckm_aes_key_wrap(tokdata, sess,
+                          in, in_len,
+                          out_data, out_data_len,
+                          key,
+                          ctx->mech.pParameter, ctx->mech.ulParameterLen,
+                          TRUE, aeskw_pad);
+
+    if (rc != CKR_OK)
+        TRACE_DEVEL("ckm_aes_key_wrap encrypt failed.\n");
+
+done:
+    object_put(tokdata, key, TRUE);
+    key = NULL;
+
+    if (pad_buffer) {
+        OPENSSL_cleanse(pad_buffer, padded_len);
+        free(pad_buffer);
+    }
+
+    return rc;
+}
+
+CK_RV aes_key_wrap_decrypt(STDLL_TokData_t *tokdata, SESSION *sess,
+                      CK_BBOOL length_only, ENCR_DECR_CONTEXT *ctx,
+                      CK_BYTE *in_data, CK_ULONG in_data_len,
+                      CK_BYTE *out_data, CK_ULONG *out_data_len)
+{
+    OBJECT *key = NULL;
+    CK_BBOOL pkcs7_pad = FALSE, aeskw_pad = FALSE;
+    CK_ULONG unpadded_len = 0, out_len;
+    CK_RV rc;
+
+    if (sess == NULL || ctx == NULL || out_data_len == NULL) {
+        TRACE_ERROR("%s received bad argument(s)\n", __func__);
+        return CKR_FUNCTION_FAILED;
+    }
+
+    switch (ctx->mech.mechanism) {
+    case CKM_AES_KEY_WRAP:
+        break;
+    case CKM_AES_KEY_WRAP_PAD:
+    case CKM_AES_KEY_WRAP_PKCS7:
+        pkcs7_pad = TRUE;
+        break;
+    case CKM_AES_KEY_WRAP_KWP:
+        aeskw_pad = TRUE;
+        break;
+    default:
+        return CKR_MECHANISM_INVALID;
+    }
+
+    if (in_data_len % AES_KEY_WRAP_BLOCK_SIZE != 0 ||
+        in_data_len < AES_KEY_WRAP_BLOCK_SIZE) {
+        TRACE_ERROR("%s\n", ock_err(ERR_DATA_LEN_RANGE));
+        return CKR_DATA_LEN_RANGE;
+    }
+
+    out_len = in_data_len - AES_KEY_WRAP_BLOCK_SIZE;
+
+    if (length_only == TRUE) {
+        *out_data_len = out_len;
+        return CKR_OK;
+    }
+
+    if (*out_data_len < out_len) {
+        *out_data_len = out_len;
+        TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
+        return CKR_BUFFER_TOO_SMALL;
+    }
+
+    rc = object_mgr_find_in_map1(tokdata, ctx->key, &key, READ_LOCK);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Failed to find specified object.\n");
+        return rc;
+    }
+
+    if (token_specific.t_aes_key_wrap != NULL) {
+        rc = token_specific.t_aes_key_wrap(tokdata, sess,
+                                           in_data, in_data_len,
+                                           out_data, out_data_len,
+                                           key,
+                                           ctx->mech.pParameter,
+                                           ctx->mech.ulParameterLen,
+                                           FALSE, aeskw_pad);
+        if (rc != CKR_OK)
+            TRACE_DEVEL("Token specific aes key wrap encrypt failed.\n");
+
+        goto done;
+    }
+
+    /* No token specific AES key wrap function, implement via AES ECB calls */
+    rc = ckm_aes_key_wrap(tokdata, sess,
+                          in_data, in_data_len,
+                          out_data, out_data_len,
+                          key,
+                          ctx->mech.pParameter, ctx->mech.ulParameterLen,
+                          FALSE, aeskw_pad);
+
+    if (rc != CKR_OK)
+        TRACE_DEVEL("ckm_aes_key_wrap encrypt failed.\n");
+
+done:
+    if (rc == CKR_OK && pkcs7_pad == TRUE &&
+        out_data != NULL && *out_data_len > 0) {
+        rc = strip_pkcs_padding(out_data, *out_data_len, &unpadded_len);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("strip_pkcs_padding failed.\n");
+            goto done;
+        }
+
+        if (unpadded_len < *out_data_len)
+            memset(out_data + unpadded_len, 0, *out_data_len - unpadded_len);
+
+        *out_data_len = unpadded_len;
+    }
+
+    object_put(tokdata, key, TRUE);
+    key = NULL;
+
+    return rc;
+}

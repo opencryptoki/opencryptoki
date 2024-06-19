@@ -113,6 +113,7 @@ struct token_specific_struct token_specific = {
     NULL,                       // aes_mac
     NULL,                       // aes_cmac
     NULL,                       // aes_xts
+    NULL,                       // aes_key_wrap
     // DSA
     NULL,                       // dsa_generate_keypair
     NULL,                       // dsa_sign
