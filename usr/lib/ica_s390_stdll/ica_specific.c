@@ -46,7 +46,7 @@
 #include <openssl/crypto.h>
 #include <openssl/bn.h>
 
-#define ICA_MAX_MECH_LIST_ENTRIES       144
+#define ICA_MAX_MECH_LIST_ENTRIES       148
 
 typedef struct {
     void *libica_dso;
@@ -4911,6 +4911,14 @@ static const REF_MECH_LIST_ELEMENT ref_mech_list[] = {
     {AES_XTS, CKM_AES_XTS,
      {32, 64, CKF_ENCRYPT | CKF_DECRYPT | CKF_WRAP | CKF_UNWRAP}
     },
+    {AES_ECB, CKM_AES_KEY_WRAP,
+     {32, 64, CKF_ENCRYPT | CKF_DECRYPT | CKF_WRAP | CKF_UNWRAP}},
+    {AES_ECB, CKM_AES_KEY_WRAP_PAD,
+     {32, 64, CKF_ENCRYPT | CKF_DECRYPT | CKF_WRAP | CKF_UNWRAP}},
+    {AES_ECB, CKM_AES_KEY_WRAP_KWP,
+     {32, 64, CKF_ENCRYPT | CKF_DECRYPT | CKF_WRAP | CKF_UNWRAP}},
+    {AES_ECB, CKM_AES_KEY_WRAP_PKCS7,
+     {32, 64, CKF_ENCRYPT | CKF_DECRYPT | CKF_WRAP | CKF_UNWRAP}},
     {P_RNG, CKM_GENERIC_SECRET_KEY_GEN, {80, 2048, CKF_GENERATE}},
 #ifndef NO_EC
     {EC_DH, CKM_ECDH1_DERIVE,
