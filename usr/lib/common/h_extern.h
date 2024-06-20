@@ -3225,6 +3225,12 @@ CK_RV openssl_specific_aes_xts(STDLL_TokData_t *tokdata,
                                OBJECT *key_obj, CK_BYTE *tweak,
                                CK_BOOL encrypt, CK_BBOOL initial,
                                CK_BBOOL final, CK_BYTE* iv);
+CK_RV openssl_specific_aes_key_wrap(STDLL_TokData_t *tokdata,
+                                    CK_BYTE *in_data, CK_ULONG in_data_len,
+                                    CK_BYTE *out_data, CK_ULONG *out_data_len,
+                                    OBJECT *key_obj,
+                                    CK_BYTE *iv, CK_ULONG iv_len,
+                                    CK_BBOOL encrypt, CK_BBOOL pad);
 
 CK_RV openssl_specific_des_ecb(STDLL_TokData_t *tokdata,
                                CK_BYTE *in_data,

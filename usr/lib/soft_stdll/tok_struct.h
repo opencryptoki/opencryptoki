@@ -155,7 +155,7 @@ token_spec_t token_specific = {
     &token_specific_aes_mac,
     &token_specific_aes_cmac,
     &token_specific_aes_xts,
-    NULL,                       // aes_key_wrap
+    &token_specific_aes_key_wrap,
     // DSA
     NULL,                       // dsa_generate_keypair
     NULL,                       // dsa_sign

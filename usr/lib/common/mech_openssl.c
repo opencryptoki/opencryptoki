@@ -3580,6 +3580,34 @@ static const EVP_CIPHER *openssl_cipher_from_mech(CK_MECHANISM_TYPE mech,
             break;
         }
         break;
+    case CKM_AES_KEY_WRAP:
+        if (keytype != CKK_AES)
+            break;
+        switch (keylen * 8) {
+        case 128:
+            return EVP_aes_128_wrap();
+        case 192:
+            return EVP_aes_192_wrap();
+        case 256:
+            return EVP_aes_256_wrap();
+        default:
+            break;
+        }
+        break;
+    case CKM_AES_KEY_WRAP_KWP:
+        if (keytype != CKK_AES)
+            break;
+        switch (keylen * 8) {
+        case 128:
+            return EVP_aes_128_wrap_pad();
+        case 192:
+            return EVP_aes_192_wrap_pad();
+        case 256:
+            return EVP_aes_256_wrap_pad();
+        default:
+            break;
+        }
+        break;
     default:
         TRACE_ERROR("mechanism 0x%lx not supported\n", mech);
         return NULL;
@@ -3600,7 +3628,7 @@ static CK_RV openssl_cipher_perform(OBJECT *key, CK_MECHANISM_TYPE mech,
     CK_ATTRIBUTE *key_attr = NULL;
     EVP_CIPHER_CTX *ctx = NULL;
     CK_KEY_TYPE keytype = 0;
-    int blocksize, outlen;
+    int blocksize, outlen = 0, outlen2 = 0;
     CK_RV rc;
 
     rc = template_attribute_get_ulong(key->template, CKA_KEY_TYPE, &keytype);
@@ -3626,8 +3654,9 @@ static CK_RV openssl_cipher_perform(OBJECT *key, CK_MECHANISM_TYPE mech,
 #else
     blocksize = EVP_CIPHER_get_block_size(cipher);
 #endif
-    if ((mech == CKM_AES_XTS ? in_data_len < AES_BLOCK_SIZE :
-                               in_data_len % blocksize) ||
+    if ((mech != CKM_AES_KEY_WRAP_KWP &&
+         (mech == CKM_AES_XTS ? in_data_len < AES_BLOCK_SIZE :
+                               in_data_len % blocksize)) ||
         in_data_len > INT_MAX) {
         TRACE_ERROR("%s\n", ock_err(ERR_DATA_LEN_RANGE));
         return CKR_DATA_LEN_RANGE;
@@ -3640,10 +3669,22 @@ static CK_RV openssl_cipher_perform(OBJECT *key, CK_MECHANISM_TYPE mech,
     }
 
     if (EVP_CipherInit_ex(ctx, cipher, NULL, key_attr->pValue,
-                          init_v, encrypt ? 1 : 0) != 1
-        || EVP_CIPHER_CTX_set_padding(ctx, 0) != 1
+                          init_v, encrypt ? 1 : 0) != 1) {
+        TRACE_ERROR("%s\n", ock_err(ERR_GENERAL_ERROR));
+        rc = CKR_GENERAL_ERROR;
+        goto done;
+    }
+
+    switch (mech) {
+    case CKM_AES_KEY_WRAP:
+    case CKM_AES_KEY_WRAP_KWP:
+        EVP_CIPHER_CTX_set_flags(ctx, EVP_CIPHER_CTX_FLAG_WRAP_ALLOW);
+        break;
+    }
+
+    if (EVP_CIPHER_CTX_set_padding(ctx, 0) != 1
         || EVP_CipherUpdate(ctx, out_data, &outlen, in_data, in_data_len) != 1
-        || EVP_CipherFinal_ex(ctx, out_data, &outlen) != 1) {
+        || EVP_CipherFinal_ex(ctx, out_data, &outlen2) != 1) {
         TRACE_ERROR("%s\n", ock_err(ERR_GENERAL_ERROR));
         rc = CKR_GENERAL_ERROR;
         goto done;
@@ -3662,7 +3703,7 @@ static CK_RV openssl_cipher_perform(OBJECT *key, CK_MECHANISM_TYPE mech,
 #endif
     }
 
-    *out_data_len = in_data_len;
+    *out_data_len = outlen + outlen2;
     rc = CKR_OK;
 
 done:
@@ -4568,6 +4609,28 @@ out:
         EVP_CIPHER_CTX_free(data.cipher_ctx);
 
     return rc;
+}
+
+CK_RV openssl_specific_aes_key_wrap(STDLL_TokData_t *tokdata,
+                                    CK_BYTE *in_data, CK_ULONG in_data_len,
+                                    CK_BYTE *out_data, CK_ULONG *out_data_len,
+                                    OBJECT *key_obj,
+                                    CK_BYTE *iv, CK_ULONG iv_len,
+                                    CK_BBOOL encrypt, CK_BBOOL pad)
+{
+    UNUSED(tokdata);
+
+    if (iv != NULL &&
+        iv_len != (pad ? AES_KEY_WRAP_KWP_IV_SIZE : AES_KEY_WRAP_IV_SIZE)) {
+        TRACE_ERROR("IV len is invalid\n");
+        return CKR_MECHANISM_PARAM_INVALID;
+    }
+
+    return openssl_cipher_perform(key_obj, pad ? CKM_AES_KEY_WRAP_KWP :
+                                                          CKM_AES_KEY_WRAP,
+                                  in_data, in_data_len,
+                                  out_data, out_data_len,
+                                  iv, NULL, encrypt);
 }
 
 CK_RV openssl_specific_des_ecb(STDLL_TokData_t *tokdata,
