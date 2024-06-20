@@ -229,6 +229,14 @@ static const MECH_LIST_ELEMENT soft_mech_list[] = {
     {CKM_AES_CMAC, {16, 32, CKF_SIGN | CKF_VERIFY}},
     {CKM_AES_CMAC_GENERAL, {16, 32, CKF_SIGN | CKF_VERIFY}},
     {CKM_AES_XTS, {32, 64, CKF_ENCRYPT | CKF_DECRYPT | CKF_WRAP | CKF_UNWRAP}},
+    {CKM_AES_KEY_WRAP,
+     {32, 64, CKF_ENCRYPT | CKF_DECRYPT | CKF_WRAP | CKF_UNWRAP}},
+    {CKM_AES_KEY_WRAP_PAD,
+     {32, 64, CKF_ENCRYPT | CKF_DECRYPT | CKF_WRAP | CKF_UNWRAP}},
+    {CKM_AES_KEY_WRAP_KWP,
+     {32, 64, CKF_ENCRYPT | CKF_DECRYPT | CKF_WRAP | CKF_UNWRAP}},
+    {CKM_AES_KEY_WRAP_PKCS7,
+     {32, 64, CKF_ENCRYPT | CKF_DECRYPT | CKF_WRAP | CKF_UNWRAP}},
     {CKM_GENERIC_SECRET_KEY_GEN, {80, 2048, CKF_GENERATE}},
 #if !(NO_EC)
     {CKM_EC_KEY_PAIR_GEN, {160, 521, CKF_GENERATE_KEY_PAIR |
@@ -818,6 +826,19 @@ CK_RV token_specific_aes_xts(STDLL_TokData_t *tokdata, SESSION *sess,
     return openssl_specific_aes_xts(tokdata, in_data, in_data_len,
                                     out_data, out_data_len, key_obj,
                                     tweak, encrypt, initial, final, iv);
+}
+
+CK_RV token_specific_aes_key_wrap(STDLL_TokData_t *tokdata, SESSION *sess,
+                                  CK_BYTE *in_data, CK_ULONG in_data_len,
+                                  CK_BYTE *out_data, CK_ULONG *out_data_len,
+                                  OBJECT *key_obj, CK_BYTE *iv, CK_ULONG iv_len,
+                                  CK_BBOOL encrypt, CK_BBOOL pad)
+{
+    UNUSED(sess);
+
+    return openssl_specific_aes_key_wrap(tokdata, in_data, in_data_len,
+                                         out_data, out_data_len, key_obj,
+                                         iv, iv_len, encrypt, pad);
 }
 
 /* Begin code contributed by Corrent corp. */
