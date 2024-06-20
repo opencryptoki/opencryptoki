@@ -204,6 +204,78 @@ struct wrapping_mech_info wrapping_tests[] = {
         .sym_keylen = 64,
     },
     {
+        .name = "Wrap/Unwrap with AES 128 KEY WRAP",
+        .wrapping_mech = { CKM_AES_KEY_WRAP, NULL, 0 },
+        .wrapping_key_gen_mech = { CKM_AES_KEY_GEN, 0, 0 },
+        .sym_keylen = 16,
+    },
+    {
+        .name = "Wrap/Unwrap with AES 192 KEY WRAP",
+        .wrapping_mech = { CKM_AES_KEY_WRAP, NULL, 0 },
+        .wrapping_key_gen_mech = { CKM_AES_KEY_GEN, 0, 0 },
+        .sym_keylen = 24,
+    },
+    {
+        .name = "Wrap/Unwrap with AES 256 KEY WRAP",
+        .wrapping_mech = { CKM_AES_KEY_WRAP, NULL, 0 },
+        .wrapping_key_gen_mech = { CKM_AES_KEY_GEN, 0, 0 },
+        .sym_keylen = 32,
+    },
+    {
+        .name = "Wrap/Unwrap with AES 128 KEY WRAP PAD",
+        .wrapping_mech = { CKM_AES_KEY_WRAP_PAD, NULL, 0 },
+        .wrapping_key_gen_mech = { CKM_AES_KEY_GEN, 0, 0 },
+        .sym_keylen = 16,
+    },
+    {
+        .name = "Wrap/Unwrap with AES 192 KEY WRAP PAD",
+        .wrapping_mech = { CKM_AES_KEY_WRAP_PAD, NULL, 0 },
+        .wrapping_key_gen_mech = { CKM_AES_KEY_GEN, 0, 0 },
+        .sym_keylen = 24,
+    },
+    {
+        .name = "Wrap/Unwrap with AES 256 KEY WRAP PAD",
+        .wrapping_mech = { CKM_AES_KEY_WRAP_PAD, NULL, 0 },
+        .wrapping_key_gen_mech = { CKM_AES_KEY_GEN, 0, 0 },
+        .sym_keylen = 32,
+    },
+    {
+        .name = "Wrap/Unwrap with AES 128 KEY WRAP KWP",
+        .wrapping_mech = { CKM_AES_KEY_WRAP_KWP, NULL, 0 },
+        .wrapping_key_gen_mech = { CKM_AES_KEY_GEN, 0, 0 },
+        .sym_keylen = 16,
+    },
+    {
+        .name = "Wrap/Unwrap with AES 192 KEY WRAP KWP",
+        .wrapping_mech = { CKM_AES_KEY_WRAP_KWP, NULL, 0 },
+        .wrapping_key_gen_mech = { CKM_AES_KEY_GEN, 0, 0 },
+        .sym_keylen = 24,
+    },
+    {
+        .name = "Wrap/Unwrap with AES 256 KEY WRAP KWP",
+        .wrapping_mech = { CKM_AES_KEY_WRAP_KWP, NULL, 0 },
+        .wrapping_key_gen_mech = { CKM_AES_KEY_GEN, 0, 0 },
+        .sym_keylen = 32,
+    },
+    {
+        .name = "Wrap/Unwrap with AES 128 KEY WRAP PKCS7",
+        .wrapping_mech = { CKM_AES_KEY_WRAP_PKCS7, NULL, 0 },
+        .wrapping_key_gen_mech = { CKM_AES_KEY_GEN, 0, 0 },
+        .sym_keylen = 16,
+    },
+    {
+        .name = "Wrap/Unwrap with AES 192 KEY WRAP PKCS7",
+        .wrapping_mech = { CKM_AES_KEY_WRAP_PKCS7, NULL, 0 },
+        .wrapping_key_gen_mech = { CKM_AES_KEY_GEN, 0, 0 },
+        .sym_keylen = 24,
+    },
+    {
+        .name = "Wrap/Unwrap with AES 256 KEY WRAP PKCS7",
+        .wrapping_mech = { CKM_AES_KEY_WRAP_PKCS7, NULL, 0 },
+        .wrapping_key_gen_mech = { CKM_AES_KEY_GEN, 0, 0 },
+        .sym_keylen = 32,
+    },
+    {
         .name = "Wrap/Unwrap with DES ECB",
         .wrapping_mech = { CKM_DES_ECB, 0, 0 },
         .wrapping_key_gen_mech = { CKM_DES_KEY_GEN, 0, 0 },
@@ -613,6 +685,22 @@ CK_RV do_wrap_key_test(struct wrapped_mech_info *tsuite,
          tsuite->wrapped_key_gen_mech.mechanism == CKM_DES3_KEY_GEN)) {
         testcase_skip("EP11 token in slot %lu doesn't support to unwrap "
                        "AES-192 or DES3 keys with CKM_AES_CBC", slot_id2);
+        goto testcase_cleanup;
+    }
+
+    if (wrap_mech->mechanism == CKM_AES_KEY_WRAP &&
+        tsuite->wrapped_key_gen_mech.mechanism == CKM_DES_KEY_GEN) {
+        testcase_skip("Mechanism CKM_AES_KEY_WRAP can not wrap DES keys "
+                      "(min 16 bytes required)");
+        goto testcase_cleanup;
+    }
+
+    if (wrap_mech->mechanism == CKM_AES_KEY_WRAP &&
+        tsuite->wrapped_key_gen_mech.mechanism == CKM_GENERIC_SECRET_KEY_GEN &&
+        tsuite->sym_keylen < 16) {
+        testcase_skip("Mechanism CKM_AES_KEY_WRAP can not wrap generic secret "
+                      "keys of size %lu (min 16 bytes required)",
+                      tsuite->sym_keylen);
         goto testcase_cleanup;
     }
 
