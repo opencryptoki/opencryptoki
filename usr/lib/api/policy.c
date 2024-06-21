@@ -77,6 +77,8 @@ struct policy_private {
     struct strength strengths[NUM_SUPPORTED_STRENGTHS];
 };
 
+static CK_ULONG policy_get_sym_key_strength(policy_t p, CK_ULONG sym_key_bits);
+
 struct policy_private *policy_private_alloc(void)
 {
     return calloc(1, sizeof(struct policy_private));
@@ -891,6 +893,8 @@ static CK_RV policy_is_mech_allowed(policy_t p, CK_MECHANISM_PTR mech,
                                     SESSION *sess)
 {
     struct policy_private *pp = p->priv;
+    struct objstrength tmp_strength = { 0, 0, CK_TRUE };
+    CK_RSA_PKCS_OAEP_PARAMS *oaep_params;
     CK_ULONG size;
     CK_RV rv = CKR_OK;
 
@@ -1059,6 +1063,37 @@ static CK_RV policy_is_mech_allowed(policy_t p, CK_MECHANISM_PTR mech,
                 break;
             }
             break;
+        case CKM_RSA_AES_KEY_WRAP:
+            if (mech->ulParameterLen != sizeof(CK_RSA_AES_KEY_WRAP_PARAMS) ||
+                mech->pParameter == NULL) {
+                TRACE_ERROR("Invalid mechanism parameter\n");
+                rv = CKR_MECHANISM_PARAM_INVALID;
+                break;
+            }
+            oaep_params =
+                ((CK_RSA_AES_KEY_WRAP_PARAMS *)mech->pParameter)->pOAEPParams;
+            if (oaep_params == NULL) {
+                rv = CKR_MECHANISM_PARAM_INVALID;
+                break;
+            }
+            if (hashmap_find(pp->allowedmechs, oaep_params->hashAlg, NULL) == 0) {
+                TRACE_WARNING("POLICY VIOLATION: OAEP hash algorithm not allowed by policy.\n");
+                rv = CKR_FUNCTION_FAILED;
+                break;
+            } else if (policy_is_mgf_allowed(pp, oaep_params->mgf) != CKR_OK) {
+                rv = CKR_FUNCTION_FAILED;
+                break;
+            }
+            if (((CK_RSA_AES_KEY_WRAP_PARAMS *)
+                                         mech->pParameter)->ulAESKeyBits > 0) {
+                tmp_strength.strength = policy_get_sym_key_strength(p,
+                                    ((CK_RSA_AES_KEY_WRAP_PARAMS *)
+                                            mech->pParameter)->ulAESKeyBits);
+                rv = policy_is_key_allowed(p, &tmp_strength, sess);
+                if (rv != CKR_OK)
+                    break;
+            }
+            break;
         default:
             break;
         }
@@ -1189,6 +1224,7 @@ static CK_RV policy_update_mech_info(policy_t p, CK_MECHANISM_TYPE mech,
         case CKM_SHA3_384_RSA_PKCS_PSS:
         case CKM_SHA3_512_RSA_PKCS:
         case CKM_SHA3_512_RSA_PKCS_PSS:
+        case CKM_RSA_AES_KEY_WRAP:
             if (policy_update_modexp(pp, info) != CKR_OK) {
                 TRACE_DEVEL("Mechanism 0x%lx blocked by policy!\n", mech);
                 return CKR_MECHANISM_INVALID;
@@ -1471,6 +1507,16 @@ static CK_RV policy_check_token_store(policy_t p, CK_BBOOL newversion,
     return CKR_OK;
 }
 
+static CK_ULONG policy_get_sym_key_strength(policy_t p, CK_ULONG sym_key_bits)
+{
+    struct policy_private *pp = p->priv;
+    struct objstrength s;
+
+    policy_compute_strength(pp, &s, sym_key_bits, COMPARE_SYMMETRIC);
+
+   return s.strength;
+}
+
 /* Policy loading support (internal functions) */
 static CK_RV policy_check_cfg_file(FILE *fp, const char *name)
 {
@@ -1524,6 +1570,7 @@ void policy_init_policy(struct policy *p)
     p->is_mech_allowed = policy_is_mech_allowed;
     p->update_mech_info = policy_update_mech_info;
     p->check_token_store = policy_check_token_store;
+    p->get_sym_key_strength = policy_get_sym_key_strength;
     p->active = CK_FALSE;
 }
 
