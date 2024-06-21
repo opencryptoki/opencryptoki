@@ -22,6 +22,8 @@
 #include "h_extern.h"
 #include "ock_syslog.h"
 
+#define COMPARE_SYMMETRIC     2
+
 static CK_RV statistics_increment(struct statistics *statistics,
                                   CK_SLOT_ID slot,
                                   const CK_MECHANISM *mech,
@@ -31,6 +33,7 @@ static CK_RV statistics_increment(struct statistics *statistics,
     counter_t *counter;
     int mech_idx;
     CK_MECHANISM implicit_mech = { 0, NULL, 0 };
+    CK_ULONG idx, impl_strength_idx;
     CK_RV rc;
 
     if (slot >= NUMBER_SLOTS_MANAGED || strength_idx > POLICY_STRENGTH_IDX_0 ||
@@ -47,8 +50,8 @@ static CK_RV statistics_increment(struct statistics *statistics,
 
     ofs += mech_idx * (NUM_SUPPORTED_STRENGTHS + 1) * sizeof(counter_t);
 
-    strength_idx = NUM_SUPPORTED_STRENGTHS - strength_idx;
-    ofs += strength_idx * sizeof(counter_t);
+    idx = NUM_SUPPORTED_STRENGTHS - strength_idx;
+    ofs += idx * sizeof(counter_t);
 
     if (ofs > statistics->shm_size)
         return CKR_FUNCTION_FAILED;
@@ -107,6 +110,31 @@ static CK_RV statistics_increment(struct statistics *statistics,
             return rc;
         rc = statistics_increment(statistics, slot, &implicit_mech,
                                   POLICY_STRENGTH_IDX_0);
+        if (rc != CKR_OK)
+            return rc;
+        break;
+    case CKM_RSA_AES_KEY_WRAP:
+        if (mech->pParameter == NULL ||
+            mech->ulParameterLen != sizeof(CK_RSA_AES_KEY_WRAP_PARAMS))
+            return CKR_MECHANISM_PARAM_INVALID;
+        if (((CK_RSA_AES_KEY_WRAP_PARAMS *)
+                                mech->pParameter)->ulAESKeyBits > 0) {
+            impl_strength_idx = statistics->policy->get_sym_key_strength(
+                                        statistics->policy,
+                                        ((CK_RSA_AES_KEY_WRAP_PARAMS *)
+                                                mech->pParameter)->ulAESKeyBits);
+            implicit_mech.mechanism = CKM_AES_KEY_WRAP;
+            rc = statistics_increment(statistics, slot, &implicit_mech,
+                                      impl_strength_idx);
+            if (rc != CKR_OK)
+                return rc;
+        }
+        implicit_mech.mechanism = CKM_RSA_PKCS_OAEP;
+        implicit_mech.pParameter =
+                ((CK_RSA_AES_KEY_WRAP_PARAMS *)mech->pParameter)->pOAEPParams;
+        implicit_mech.ulParameterLen = sizeof(CK_RSA_PKCS_OAEP_PARAMS);
+        rc = statistics_increment(statistics, slot, &implicit_mech,
+                                  strength_idx);
         if (rc != CKR_OK)
             return rc;
         break;
@@ -349,7 +377,7 @@ static CK_RV statistics_close_shm(struct statistics *statistics,
 
 CK_RV statistics_init(struct statistics *statistics,
                       Slot_Mgr_Socket_t *slots_infos, CK_ULONG flags,
-                      uid_t uid)
+                      uid_t uid, struct policy *policy)
 {
     CK_ULONG i;
     CK_RV rc;
@@ -378,6 +406,7 @@ CK_RV statistics_init(struct statistics *statistics,
         goto error;
 
     statistics->increment_func = statistics_increment;
+    statistics->policy = policy;
 
     return CKR_OK;
 

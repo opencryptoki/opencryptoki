@@ -3230,7 +3230,7 @@ CK_RV C_Initialize(CK_VOID_PTR pVoid)
             stat_flags |= STATISTICS_FLAG_COUNT_INTERNAL;
 
         rc = statistics_init(&statistics, &Anchor->SocketDataP, stat_flags,
-                             Anchor->ClientCred.real_uid);
+                             Anchor->ClientCred.real_uid, &policy);
         if (rc != CKR_OK) {
             TRACE_ERROR("Statistics initialization failed!  rc=0x%lx\n", rc);
             goto error;
