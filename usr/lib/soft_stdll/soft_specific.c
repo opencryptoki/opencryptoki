@@ -101,6 +101,7 @@ static const MECH_LIST_ELEMENT soft_mech_list[] = {
 #if !(NOMD5)
     {CKM_MD5_RSA_PKCS, {512, 4096, CKF_SIGN | CKF_VERIFY}},
 #endif
+    {CKM_RSA_AES_KEY_WRAP, {512, 4096, CKF_WRAP | CKF_UNWRAP}},
 #if !(NODSA)
     {CKM_DSA, {512, 1024, CKF_SIGN | CKF_VERIFY}},
 #endif
