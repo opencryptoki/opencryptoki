@@ -61,6 +61,11 @@ CK_RSA_PKCS_OAEP_PARAMS oaep_params_sha256_source = {
         .ulSourceDataLen = 3,
 };
 
+CK_RSA_AES_KEY_WRAP_PARAMS rsa_aeskw_aes_256_oaep_sha1_params = {
+        .ulAESKeyBits = 256,
+        .pOAEPParams = &oaep_params_sha1,
+};
+
 CK_BYTE aes_iv[16] = { 0x00,0x01,0x02,0x03,0x04,0x05,0x06,0x07,
                        0x08,0x09,0x0a,0x0b,0x0c,0x0d,0x0e,0x0f };
 
@@ -274,6 +279,26 @@ struct wrapping_mech_info wrapping_tests[] = {
         .wrapping_mech = { CKM_AES_KEY_WRAP_PKCS7, NULL, 0 },
         .wrapping_key_gen_mech = { CKM_AES_KEY_GEN, 0, 0 },
         .sym_keylen = 32,
+    },
+    {
+        .name = "Wrap/Unwrap with RSA 2048 AES KEY WRAP (AES 256, OAEP SHA-1)",
+        .wrapping_mech = { CKM_RSA_AES_KEY_WRAP,
+                           &rsa_aeskw_aes_256_oaep_sha1_params,
+                           sizeof(CK_RSA_AES_KEY_WRAP_PARAMS) },
+        .wrapping_key_gen_mech = { CKM_RSA_PKCS_KEY_PAIR_GEN, 0, 0 },
+        .rsa_modbits = 2048,
+        .rsa_publ_exp_len = 3,
+        .rsa_publ_exp = {0x01, 0x00, 0x01},
+    },
+    {
+        .name = "Wrap/Unwrap with RSA 4096 AES KEY WRAP (AES 256, OAEP SHA-1)",
+        .wrapping_mech = { CKM_RSA_AES_KEY_WRAP,
+                           &rsa_aeskw_aes_256_oaep_sha1_params,
+                           sizeof(CK_RSA_AES_KEY_WRAP_PARAMS) },
+        .wrapping_key_gen_mech = { CKM_RSA_PKCS_KEY_PAIR_GEN, 0, 0 },
+        .rsa_modbits = 4096,
+        .rsa_publ_exp_len = 3,
+        .rsa_publ_exp = {0x01, 0x00, 0x01},
     },
     {
         .name = "Wrap/Unwrap with DES ECB",
@@ -859,8 +884,14 @@ CK_RV do_wrap_key_test(struct wrapped_mech_info *tsuite,
                           sym_key != CK_INVALID_HANDLE ? sym_key : priv_key,
                           wrapped_key, &wrapped_key_size);
     if (rc != CKR_OK) {
-        if (rc == CKR_KEY_NOT_WRAPPABLE) {
+        if (rc == CKR_KEY_NOT_WRAPPABLE ||
+            rc == CKR_WRAPPING_KEY_TYPE_INCONSISTENT) {
             testcase_skip("Key not wrappable");
+            rc = CKR_OK;
+            goto testcase_cleanup;
+        }
+        if (rc == CKR_KEY_SIZE_RANGE || rc == CKR_WRAPPING_KEY_SIZE_RANGE) {
+            testcase_skip("Key size not supported");
             rc = CKR_OK;
             goto testcase_cleanup;
         }
@@ -950,12 +981,13 @@ CK_RV do_wrap_key_test(struct wrapped_mech_info *tsuite,
                             wrapped_key, wrapped_key_size, unwrap_tmpl,
                             unwrap_tmpl_num, &unwrapped_key);
     if (rc != CKR_OK) {
-        if (rc == CKR_KEY_NOT_WRAPPABLE || rc == CKR_WRAPPED_KEY_INVALID) {
+        if (rc == CKR_KEY_NOT_WRAPPABLE || rc == CKR_WRAPPED_KEY_INVALID ||
+            rc == CKR_UNWRAPPING_KEY_TYPE_INCONSISTENT) {
             testcase_skip("Key not (un-)wrappable");
             rc = CKR_OK;
             goto testcase_cleanup;
         }
-        if (rc == CKR_KEY_SIZE_RANGE) {
+        if (rc == CKR_KEY_SIZE_RANGE || rc == CKR_UNWRAPPING_KEY_SIZE_RANGE) {
             testcase_skip("Key size not supported");
             rc = CKR_OK;
             goto testcase_cleanup;
