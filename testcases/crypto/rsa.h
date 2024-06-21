@@ -292,16 +292,49 @@ struct RSA_GENERATED_TEST_VECTOR rsa_oaep_generated_tv[] = {
                         "abcdefghijklmnopqrstuvwxyz", 26},
         .keylen = 32,
         .keytype = {CKM_AES_KEY_GEN, 0, 0}
-    }
+    },
+    {   // #25
+        .modbits = 2048,
+        .publ_exp_len = 3,
+        .publ_exp = {0x01, 0x00, 0x01},
+        .inputlen = 36,
+        .oaep_params = {CKM_SHA_1, CKG_MGF1_SHA1, CKZ_DATA_SPECIFIED, NULL, 0 },
+        .keylen = 24,
+        .keytype = {CKM_AES_KEY_GEN, 0, 0}
+    },
+    {   // #26
+        .modbits = 2048,
+        .publ_exp_len = 3,
+        .publ_exp = {0x01, 0x00, 0x01},
+        .inputlen = 36,
+        .oaep_params = {CKM_SHA_1, CKG_MGF1_SHA1, CKZ_DATA_SPECIFIED, NULL, 0 },
+        .keylen = 16,
+        .keytype = {CKM_AES_KEY_GEN, 0, 0}
+    },
+    {   // #27
+        .modbits = 2048,
+        .publ_exp_len = 3,
+        .publ_exp = {0x01, 0x00, 0x01},
+        .inputlen = 36,
+        .oaep_params = {CKM_SHA_1, CKG_MGF1_SHA1, CKZ_DATA_SPECIFIED, NULL, 0 },
+        .keylen = 32,
+        .keytype = {CKM_AES_KEY_GEN, 0, 0}
+    },
 };
 
-#define NUM_OF_GENERATED_OAEP_TESTSUITES 1
+#define NUM_OF_GENERATED_OAEP_TESTSUITES 2
 struct GENERATED_TEST_SUITE_INFO generated_oaep_test_suites[] = {
     {
         .name = "RSA PKCS OAEP",
-        .tvcount = 25,
+        .tvcount = 28,
         .tv = rsa_oaep_generated_tv,
         .mech = {CKM_RSA_PKCS_OAEP, 0, 0},
+    },
+    {
+        .name = "RSA AES KEY WRAP",
+        .tvcount = 28,
+        .tv = rsa_oaep_generated_tv,
+        .mech = {CKM_RSA_AES_KEY_WRAP, 0, 0},
     }
 };
 
