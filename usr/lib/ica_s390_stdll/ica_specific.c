@@ -46,7 +46,7 @@
 #include <openssl/crypto.h>
 #include <openssl/bn.h>
 
-#define ICA_MAX_MECH_LIST_ENTRIES       148
+#define ICA_MAX_MECH_LIST_ENTRIES       149
 
 typedef struct {
     void *libica_dso;
@@ -4779,6 +4779,7 @@ static const REF_MECH_LIST_ELEMENT ref_mech_list[] = {
     {0, CKM_SHA3_256_RSA_PKCS_PSS, {512, 4096, CKF_SIGN | CKF_VERIFY}},
     {0, CKM_SHA3_384_RSA_PKCS_PSS, {512, 4096, CKF_SIGN | CKF_VERIFY}},
     {0, CKM_SHA3_512_RSA_PKCS_PSS, {512, 4096, CKF_SIGN | CKF_VERIFY}},
+    {0, CKM_RSA_AES_KEY_WRAP, {512, 4096, CKF_WRAP | CKF_UNWRAP}},
     {DES_ECB, CKM_DES_ECB,
      {8, 8, CKF_ENCRYPT | CKF_DECRYPT | CKF_WRAP | CKF_UNWRAP}
     },
@@ -5441,6 +5442,10 @@ static CK_RV mech_list_ica_initialize(STDLL_TokData_t *tokdata)
     if (isMechanismAvailable(tokdata, CKM_SHA3_512) &&
         isMechanismAvailable(tokdata, CKM_RSA_PKCS_PSS))
         addMechanismToList(tokdata, CKM_SHA3_512_RSA_PKCS_PSS, rsa_hw && sha_hw, rsa_props);
+    if (isMechanismAvailable(tokdata, CKM_AES_KEY_GEN) &&
+        isMechanismAvailable(tokdata, CKM_RSA_PKCS_OAEP) &&
+        isMechanismAvailable(tokdata, CKM_AES_KEY_WRAP_KWP))
+        addMechanismToList(tokdata, CKM_RSA_AES_KEY_WRAP, 0, rsa_props);
 
     ec_hw = isMechanismHW(tokdata, CKM_ECDSA);
     if (isMechanismAvailable(tokdata, CKM_SHA_1) &&
