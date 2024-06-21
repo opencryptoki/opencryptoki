@@ -896,6 +896,10 @@ CK_RV key_mgr_wrap_key(STDLL_TokData_t *tokdata,
     case CKM_AES_CFB64:
     case CKM_AES_CFB128:
     case CKM_AES_XTS:
+    case CKM_AES_KEY_WRAP:
+    case CKM_AES_KEY_WRAP_PAD:
+    case CKM_AES_KEY_WRAP_KWP:
+    case CKM_AES_KEY_WRAP_PKCS7:
         if ((class != CKO_SECRET_KEY) && (class != CKO_PRIVATE_KEY)) {
             TRACE_ERROR
                 ("Specified mechanism only wraps secret & private keys.\n");
@@ -1065,7 +1069,11 @@ CK_RV key_mgr_wrap_key(STDLL_TokData_t *tokdata,
     case CKM_AES_CFB8:
     case CKM_AES_CFB64:
     case CKM_AES_CFB128:
-        rc = ckm_aes_wrap_format(tokdata, length_only, &data, &data_len);
+    case CKM_AES_KEY_WRAP:
+        rc = ckm_aes_wrap_format(tokdata, length_only,
+                                 mech->mechanism == CKM_AES_KEY_WRAP ?
+                                     AES_KEY_WRAP_BLOCK_SIZE : AES_BLOCK_SIZE,
+                                 &data, &data_len);
         if (rc != CKR_OK) {
             TRACE_DEVEL("ckm_aes_wrap_format failed.\n");
             if (data) {
@@ -1075,6 +1083,9 @@ CK_RV key_mgr_wrap_key(STDLL_TokData_t *tokdata,
             goto done;
         }
         break;
+    case CKM_AES_KEY_WRAP_PAD:
+    case CKM_AES_KEY_WRAP_KWP:
+    case CKM_AES_KEY_WRAP_PKCS7:
     case CKM_DES_CBC_PAD:
     case CKM_DES3_CBC_PAD:
     case CKM_AES_CBC_PAD:
@@ -1267,6 +1278,10 @@ CK_RV key_mgr_unwrap_key(STDLL_TokData_t *tokdata,
     case CKM_DES3_CBC_PAD:
     case CKM_AES_CBC_PAD:
     case CKM_AES_XTS:
+    case CKM_AES_KEY_WRAP:
+    case CKM_AES_KEY_WRAP_PAD:
+    case CKM_AES_KEY_WRAP_KWP:
+    case CKM_AES_KEY_WRAP_PKCS7:
         if ((keyclass != CKO_SECRET_KEY) && (keyclass != CKO_PRIVATE_KEY)) {
             TRACE_ERROR("Specified mech unwraps secret & private keys only.\n");
             rc = CKR_ARGUMENTS_BAD;
@@ -1309,6 +1324,7 @@ CK_RV key_mgr_unwrap_key(STDLL_TokData_t *tokdata,
         case CKM_AES_CFB64:
         case CKM_AES_CFB128:
         case CKM_AES_XTS:
+        case CKM_AES_KEY_WRAP:
             if (keytype != CKK_AES && keytype != CKK_AES_XTS &&
                 keytype != CKK_GENERIC_SECRET) {
                 TRACE_ERROR("The key type does not allow CKA_VALUE_LEN to be "
