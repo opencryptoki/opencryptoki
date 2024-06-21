@@ -5197,6 +5197,9 @@ CK_RV token_specific_rsa_oaep_decrypt(STDLL_TokData_t *tokdata,
     rc = constant_time_select(constant_time_eq(return_code, 8) &
                               constant_time_eq(reason_code, 2054),
                               CKR_ENCRYPTED_DATA_INVALID, rc);
+    rc = constant_time_select(constant_time_eq(return_code, 8) &
+                              constant_time_eq(reason_code, 2053),
+                              CKR_ENCRYPTED_DATA_INVALID, rc);
 
 done:
     object_put(tokdata, key_obj, TRUE);
