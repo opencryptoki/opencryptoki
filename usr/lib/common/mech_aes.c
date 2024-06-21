@@ -4123,7 +4123,7 @@ CK_RV ckm_aes_ctr_decrypt(STDLL_TokData_t *tokdata,
 //
 //
 CK_RV ckm_aes_wrap_format(STDLL_TokData_t *tokdata,
-                          CK_BBOOL length_only,
+                          CK_BBOOL length_only, CK_ULONG block_size,
                           CK_BYTE **data, CK_ULONG *data_len)
 {
     CK_BYTE *ptr = NULL;
@@ -4132,14 +4132,12 @@ CK_RV ckm_aes_wrap_format(STDLL_TokData_t *tokdata,
     UNUSED(tokdata);
 
     len1 = *data_len;
-    if (*data == NULL)
-        len1 = 0;
 
     // if the input key data isn't a multiple of the blocksize,
     // we pad with NULLs to the next blocksize multiple.
     //
-    if (len1 % AES_BLOCK_SIZE != 0) {
-        len2 = AES_BLOCK_SIZE * ((len1 / AES_BLOCK_SIZE) + 1);
+    if (len1 % block_size != 0) {
+        len2 = block_size * ((len1 / block_size) + 1);
 
         if (length_only == FALSE) {
             /*
@@ -4160,6 +4158,8 @@ CK_RV ckm_aes_wrap_format(STDLL_TokData_t *tokdata,
             }
 
             *data = ptr;
+            *data_len = len2;
+        } else {
             *data_len = len2;
         }
     }

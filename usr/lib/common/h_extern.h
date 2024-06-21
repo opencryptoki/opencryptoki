@@ -1533,7 +1533,8 @@ CK_RV aes_xts_cipher(CK_BYTE *in_data, CK_ULONG in_data_len,
                                             void * cb_data),
                      void *cb_data);
 
-CK_RV ckm_aes_wrap_format(STDLL_TokData_t *, CK_BBOOL length_only,
+CK_RV ckm_aes_wrap_format(STDLL_TokData_t *tokdata,
+                          CK_BBOOL length_only, CK_ULONG block_size,
                           CK_BYTE **data, CK_ULONG *data_len);
 
 CK_RV aes_gcm_init(STDLL_TokData_t *tokdata, SESSION *, ENCR_DECR_CONTEXT *,

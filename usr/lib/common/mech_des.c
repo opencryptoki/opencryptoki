@@ -1492,8 +1492,6 @@ CK_RV ckm_des_wrap_format(STDLL_TokData_t *tokdata,
     UNUSED(tokdata);
 
     len1 = *data_len;
-    if (*data == NULL)
-        len1 = 0;
 
     // if the input key data isn't a multiple of the blocksize,
     // we pad with NULLs to the next blocksize multiple.
@@ -1520,6 +1518,8 @@ CK_RV ckm_des_wrap_format(STDLL_TokData_t *tokdata,
             }
 
             *data = ptr;
+            *data_len = len2;
+        } else {
             *data_len = len2;
         }
     }
