@@ -559,13 +559,15 @@ CK_RV ssl3_master_key_derive(STDLL_TokData_t *tokdata,
                              CK_MECHANISM *mech,
                              OBJECT *base_key_obj,
                              CK_ATTRIBUTE *attributes,
-                             CK_ULONG count, CK_OBJECT_HANDLE *handle);
+                             CK_ULONG count, CK_OBJECT_HANDLE *handle,
+                             CK_BBOOL count_statistic);
 
 CK_RV ssl3_key_and_mac_derive(STDLL_TokData_t *tokdata,
                               SESSION *sess,
                               CK_MECHANISM *mech,
                               OBJECT *base_key_obj,
-                              CK_ATTRIBUTE *attributes, CK_ULONG count);
+                              CK_ATTRIBUTE *attributes, CK_ULONG count,
+                              CK_BBOOL count_statistic);
 
 CK_RV ckm_ssl3_pre_master_key_gen(STDLL_TokData_t *tokdata,
                                   TEMPLATE *tmpl, CK_MECHANISM *mech);
@@ -730,6 +732,16 @@ CK_RV rsa_hash_pss_verify_final(STDLL_TokData_t *tokdata, SESSION *sess,
                                 SIGN_VERIFY_CONTEXT *ctx,
                                 CK_BYTE *signature, CK_ULONG sig_len);
 
+CK_RV rsa_aes_key_wrap(STDLL_TokData_t *tokdata, SESSION *sess,
+                       CK_BBOOL length_only, ENCR_DECR_CONTEXT *ctx,
+                       CK_BYTE *in_data, CK_ULONG in_data_len,
+                       CK_BYTE *out_data, CK_ULONG *out_data_len);
+
+CK_RV rsa_aes_key_unwrap(STDLL_TokData_t *tokdata, SESSION *sess,
+                         CK_BBOOL length_only, ENCR_DECR_CONTEXT *ctx,
+                         CK_BYTE *in_data, CK_ULONG in_data_len,
+                         CK_BYTE *out_data, CK_ULONG *out_data_len);
+
 CK_RV rsa_format_block(STDLL_TokData_t *tokdata,
                        CK_BYTE *in_data,
                        CK_ULONG in_data_len,
@@ -841,7 +853,8 @@ CK_RV dh_pkcs_derive(STDLL_TokData_t *tokdata,
                      CK_MECHANISM *mech,
                      OBJECT *base_key_obj,
                      CK_ATTRIBUTE *pTemplate,
-                     CK_ULONG ulCount, CK_OBJECT_HANDLE *handle);
+                     CK_ULONG ulCount, CK_OBJECT_HANDLE *handle,
+                     CK_BBOOL count_statistic);
 
 // DH mechanisms
 //
@@ -851,7 +864,8 @@ CK_RV ckm_dh_pkcs_derive(STDLL_TokData_t *tokdata,
                          CK_ULONG other_pubkey_len,
                          OBJECT *base_key_obj,
                          CK_BYTE *secret, CK_ULONG *secret_len,
-                         CK_MECHANISM_PTR mech);
+                         CK_MECHANISM_PTR mech,
+                         CK_BBOOL count_statistic);
 
 CK_RV ckm_dh_key_pair_gen(STDLL_TokData_t *tokdata, TEMPLATE *publ_tmpl,
                           TEMPLATE *priv_tmpl);
@@ -902,7 +916,8 @@ CK_RV ecdh_get_derived_key_size(CK_ULONG prime_len, CK_BYTE *curve_oid,
 CK_RV ecdh_pkcs_derive(STDLL_TokData_t *tokdata, SESSION *sess,
                  CK_MECHANISM *mech, OBJECT *base_key_obj,
                  CK_ATTRIBUTE *pTemplate, CK_ULONG ulCount,
-                 CK_OBJECT_HANDLE *derived_key_obj);
+                 CK_OBJECT_HANDLE *derived_key_obj,
+                 CK_BBOOL count_statistic);
 
 // DES routines - I have to provide two different versions of these
 //                because encryption routines are also used internally
@@ -1722,7 +1737,8 @@ CK_RV ckm_generic_secret_key_gen(STDLL_TokData_t *tokdata, TEMPLATE *tmpl);
 CK_RV ckm_sha_derive(STDLL_TokData_t *tokdata, SESSION *sess,
                      CK_MECHANISM *mech, OBJECT *base_key_obj,
                      CK_ATTRIBUTE *pTemplate, CK_ULONG ulCount,
-                     CK_OBJECT_HANDLE *derived_key_obj);
+                     CK_OBJECT_HANDLE *derived_key_obj,
+                     CK_BBOOL count_statistic);
 
 CK_RV ckm_shake_derive(STDLL_TokData_t *tokdata, SESSION *sess,
                        CK_MECHANISM *mech, OBJECT *base_key_obj,
@@ -2064,7 +2080,8 @@ CK_RV key_mgr_generate_key(STDLL_TokData_t *tokdata,
                            SESSION *sess,
                            CK_MECHANISM *mech,
                            CK_ATTRIBUTE *pTemplate, CK_ULONG ulCount,
-                           CK_OBJECT_HANDLE *key_handle);
+                           CK_OBJECT_HANDLE *key_handle,
+                           CK_BBOOL count_statistics);
 
 CK_RV key_mgr_generate_key_pair(STDLL_TokData_t *tokdata,
                                 SESSION *sess,
@@ -2072,7 +2089,8 @@ CK_RV key_mgr_generate_key_pair(STDLL_TokData_t *tokdata,
                                 CK_ATTRIBUTE *publ_tmpl, CK_ULONG publ_count,
                                 CK_ATTRIBUTE *priv_tmpl, CK_ULONG priv_count,
                                 CK_OBJECT_HANDLE *publ_key_handle,
-                                CK_OBJECT_HANDLE *priv_key_handle);
+                                CK_OBJECT_HANDLE *priv_key_handle,
+                                CK_BBOOL count_statistics);
 
 CK_RV key_mgr_get_private_key_type(CK_BYTE *keydata,
                                    CK_ULONG keylen, CK_KEY_TYPE *keytype);
@@ -2082,7 +2100,8 @@ CK_RV key_mgr_derive_key(STDLL_TokData_t *tokdata,
                          CK_MECHANISM *mech,
                          CK_OBJECT_HANDLE base_key,
                          CK_OBJECT_HANDLE *derived_key,
-                         CK_ATTRIBUTE *pTemplate, CK_ULONG ulCount);
+                         CK_ATTRIBUTE *pTemplate, CK_ULONG ulCount,
+                         CK_BBOOL count_statistics);
 
 CK_RV key_mgr_wrap_key(STDLL_TokData_t *tokdata,
                        SESSION *sess,
@@ -2090,7 +2109,8 @@ CK_RV key_mgr_wrap_key(STDLL_TokData_t *tokdata,
                        CK_MECHANISM *mech,
                        CK_OBJECT_HANDLE h_wrapping_key,
                        CK_OBJECT_HANDLE h_key,
-                       CK_BYTE *wrapped_key, CK_ULONG *wrapped_key_len);
+                       CK_BYTE *wrapped_key, CK_ULONG *wrapped_key_len,
+                       CK_BBOOL count_statistics);
 
 CK_RV key_mgr_unwrap_key(STDLL_TokData_t *tokdata,
                          SESSION *sess,
@@ -2100,7 +2120,8 @@ CK_RV key_mgr_unwrap_key(STDLL_TokData_t *tokdata,
                          CK_BYTE *wrapped_key,
                          CK_ULONG wrapped_key_len,
                          CK_OBJECT_HANDLE unwrapping_key,
-                         CK_OBJECT_HANDLE *unwrapped_key);
+                         CK_OBJECT_HANDLE *unwrapped_key,
+                         CK_BBOOL count_statistics);
 
 CK_RV key_mgr_derive_prolog(SESSION *sess,
                             CK_ATTRIBUTE *attributes,

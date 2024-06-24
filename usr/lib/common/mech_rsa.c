@@ -27,6 +27,7 @@
 #include "tok_spec_struct.h"
 #include "trace.h"
 #include "constant_time.h"
+#include "p11util.h"
 
 #include <openssl/crypto.h>
 #include <openssl/rsa.h>
@@ -2996,4 +2997,283 @@ CK_RV check_pss_params(CK_MECHANISM *mech, CK_ULONG modlen)
     }
 
     return CKR_OK;
+}
+
+CK_RV rsa_aes_key_wrap(STDLL_TokData_t *tokdata, SESSION *sess,
+                       CK_BBOOL length_only, ENCR_DECR_CONTEXT *ctx,
+                       CK_BYTE *in_data, CK_ULONG in_data_len,
+                       CK_BYTE *out_data, CK_ULONG *out_data_len)
+{
+    CK_RSA_AES_KEY_WRAP_PARAMS *params;
+    CK_MECHANISM aes_keygen_mech = { CKM_AES_KEY_GEN, NULL, 0 };
+    CK_MECHANISM rsa_oaep_mech = { CKM_RSA_PKCS_OAEP, NULL, 0 };
+    CK_MECHANISM aeskw_kwm_mech = { CKM_AES_KEY_WRAP_KWP, NULL, 0 };
+    ENCR_DECR_CONTEXT aeskw_ctx = { 0 };
+    CK_OBJECT_HANDLE aes_key_handle = CK_INVALID_HANDLE;
+    CK_ULONG wrapped_aes_key_len = 0, wrapped_key_len = 0, total_len;
+    CK_ULONG aes_key_size;
+    CK_BBOOL ck_true = TRUE;
+    CK_BBOOL ck_false = TRUE;
+    CK_RV rc, rc2;
+
+    CK_ATTRIBUTE aes_key_tmpl[] = {
+        { CKA_VALUE_LEN, &aes_key_size, sizeof(aes_key_size) },
+        { CKA_HIDDEN, &ck_true, sizeof(ck_true) },
+        { CKA_EXTRACTABLE, &ck_true, sizeof(ck_true) },
+        { CKA_SENSITIVE, &ck_true, sizeof(ck_true) },
+        { CKA_TOKEN, &ck_false, sizeof(ck_false) },
+        { CKA_PRIVATE, &ck_true, sizeof(ck_true) },
+        { CKA_WRAP, &ck_true, sizeof(ck_true) },
+        { CKA_UNWRAP, &ck_false, sizeof(ck_false) },
+        { CKA_ENCRYPT, &ck_false, sizeof(ck_false) },
+        { CKA_DECRYPT, &ck_false, sizeof(ck_false) },
+        { CKA_SIGN, &ck_false, sizeof(ck_false) },
+        { CKA_VERIFY, &ck_false, sizeof(ck_false) },
+        { CKA_DERIVE, &ck_false, sizeof(ck_false) },
+    };
+
+    params = (CK_RSA_AES_KEY_WRAP_PARAMS *)ctx->mech.pParameter;
+    if (params->pOAEPParams == NULL) {
+        TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
+        return CKR_MECHANISM_PARAM_INVALID;
+    }
+
+    /* Generate a temporary AES key of the desired size */
+    aes_key_size = params->ulAESKeyBits / 8;
+    rc = key_mgr_generate_key(tokdata, sess, &aes_keygen_mech,
+                              aes_key_tmpl,
+                              sizeof(aes_key_tmpl) / sizeof(CK_ATTRIBUTE),
+                              &aes_key_handle, FALSE);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Failed to generate temporary AES key (%lu bits): "
+                    "%s (0x%lx)\n", params->ulAESKeyBits, p11_get_ckr(rc), rc);
+        goto done;
+    }
+
+    /*
+     * Wrap the temporary AES key as first part of the wrapped key data
+     * (length-only operation to get the size of the first part).
+     */
+    rsa_oaep_mech.pParameter = params->pOAEPParams;
+    rsa_oaep_mech.ulParameterLen = sizeof(*params->pOAEPParams);
+
+    rc = key_mgr_wrap_key(tokdata, sess, TRUE, &rsa_oaep_mech,
+                          ctx->key, aes_key_handle,
+                          NULL, &wrapped_aes_key_len, FALSE);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Failed to wrap temporary AES key: %s (0x%lx)\n",
+                    p11_get_ckr(rc), rc);
+        goto done;
+    }
+
+    /*
+     * Encrypt (wrap) the to-be-wrapped key as the second part of the wrapped
+     * key data (length-only operation to get the size of the second part).
+     */
+    rc = encr_mgr_init(tokdata, sess, &aeskw_ctx, OP_WRAP,
+                       &aeskw_kwm_mech, aes_key_handle, TRUE);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Failed to encrypt the to-be-wrapped key: %s (0x%lx)\n",
+                    p11_get_ckr(rc), rc);
+        goto done;
+    }
+
+    rc = encr_mgr_encrypt(tokdata, sess, TRUE, &aeskw_ctx,
+                          in_data, in_data_len, NULL, &wrapped_key_len);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Failed to encrypt the to-be-wrapped key: %s (0x%lx)\n",
+                    p11_get_ckr(rc), rc);
+        goto done;
+    }
+
+    /* Calculate the final length of the wrapped key data */
+    total_len = wrapped_aes_key_len + wrapped_key_len;
+
+    if (length_only) {
+        *out_data_len = total_len;
+        goto done;
+    }
+
+    if (*out_data_len < total_len) {
+        *out_data_len = total_len;
+        TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
+        rc = CKR_BUFFER_TOO_SMALL;
+        goto done;
+    }
+
+    /*  Wrap the temporary AES key as first part of the wrapped key data */
+    rc = key_mgr_wrap_key(tokdata, sess, FALSE, &rsa_oaep_mech,
+                          ctx->key, aes_key_handle,
+                          out_data, &wrapped_aes_key_len, FALSE);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Failed to wrap temporary AES key: %s (0x%lx)\n",
+                    p11_get_ckr(rc), rc);
+        goto done;
+    }
+
+    /*
+     * Encrypt (wrap) the to-be-wrapped key as the second part of the wrapped
+     * key data.
+     */
+    rc = encr_mgr_encrypt(tokdata, sess, FALSE, &aeskw_ctx,
+                          in_data, in_data_len, out_data + wrapped_aes_key_len,
+                          &wrapped_key_len);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Failed to encrypt the to-be-wrapped key: %s (0x%lx)\n",
+                    p11_get_ckr(rc), rc);
+        goto done;
+    }
+
+    *out_data_len = total_len;
+
+done:
+    if (aes_key_handle != CK_INVALID_HANDLE) {
+        rc2 = object_mgr_destroy_object(tokdata, sess, aes_key_handle);
+        if (rc2 != CKR_OK) {
+            TRACE_ERROR("Failed to destroy temporary AES key: %s (0x%lx)\n",
+                        p11_get_ckr(rc2), rc2);
+            if (rc == CKR_OK)
+                rc = rc2;
+        }
+    }
+
+    encr_mgr_cleanup(tokdata, sess, &aeskw_ctx);
+
+    return rc;
+}
+
+CK_RV rsa_aes_key_unwrap(STDLL_TokData_t *tokdata, SESSION *sess,
+                         CK_BBOOL length_only, ENCR_DECR_CONTEXT *ctx,
+                         CK_BYTE *in_data, CK_ULONG in_data_len,
+                         CK_BYTE *out_data, CK_ULONG *out_data_len)
+{
+    CK_RSA_AES_KEY_WRAP_PARAMS *params;
+    CK_MECHANISM rsa_oaep_mech = { CKM_RSA_PKCS_OAEP, NULL, 0 };
+    CK_MECHANISM aeskw_kwm_mech = { CKM_AES_KEY_WRAP_KWP, NULL, 0 };
+    ENCR_DECR_CONTEXT aeskw_ctx = { 0 };
+    CK_OBJECT_HANDLE aes_key_handle = CK_INVALID_HANDLE;
+    CK_ULONG  modulus_size = 0, value_len = 0;
+    CK_OBJECT_CLASS rsa_key_class, aes_key_class = CKO_SECRET_KEY;
+    CK_KEY_TYPE aes_key_type = CKK_AES;
+    CK_BBOOL ck_true = TRUE;
+    CK_BBOOL ck_false = TRUE;
+    OBJECT *key_obj = NULL;
+    CK_RV rc, rc2;
+
+    CK_ATTRIBUTE aes_key_tmpl[] = {
+        { CKA_CLASS, &aes_key_class, sizeof(aes_key_class) },
+        { CKA_KEY_TYPE, &aes_key_type, sizeof(aes_key_type) },
+        { CKA_HIDDEN, &ck_true, sizeof(ck_true) },
+        { CKA_SENSITIVE, &ck_true, sizeof(ck_true) },
+        { CKA_TOKEN, &ck_false, sizeof(ck_false) },
+        { CKA_PRIVATE, &ck_true, sizeof(ck_true) },
+        { CKA_WRAP, &ck_false, sizeof(ck_false) },
+        { CKA_UNWRAP, &ck_true, sizeof(ck_true) },
+        { CKA_ENCRYPT, &ck_false, sizeof(ck_false) },
+        { CKA_DECRYPT, &ck_false, sizeof(ck_false) },
+        { CKA_SIGN, &ck_false, sizeof(ck_false) },
+        { CKA_VERIFY, &ck_false, sizeof(ck_false) },
+        { CKA_DERIVE, &ck_false, sizeof(ck_false) },
+    };
+
+    params = (CK_RSA_AES_KEY_WRAP_PARAMS *)ctx->mech.pParameter;
+    if (params->pOAEPParams == NULL) {
+        TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
+        return CKR_MECHANISM_PARAM_INVALID;
+    }
+
+    /* Get RSA key size to split off first part of wrapped key data */
+    rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj, READ_LOCK);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Failed to acquire key from specified handle.\n");
+        if (rc == CKR_OBJECT_HANDLE_INVALID)
+            return CKR_KEY_HANDLE_INVALID;
+        else
+            return rc;
+    }
+
+    rc = rsa_get_key_info(key_obj, &modulus_size, &rsa_key_class);
+    object_put(tokdata, key_obj, TRUE);
+    key_obj = NULL;
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("rsa_get_key_info failed.\n");
+        return rc;
+    }
+
+    if (in_data_len < modulus_size + 2 * AES_KEY_WRAP_BLOCK_SIZE) {
+        TRACE_ERROR("%s\n", ock_err(ERR_ENCRYPTED_DATA_LEN_RANGE));
+        return CKR_ENCRYPTED_DATA_LEN_RANGE;
+    }
+
+    /* Unwrap the temporary AES key */
+    rsa_oaep_mech.pParameter = params->pOAEPParams;
+    rsa_oaep_mech.ulParameterLen = sizeof(*params->pOAEPParams);
+
+    rc = key_mgr_unwrap_key(tokdata, sess, &rsa_oaep_mech,
+                            aes_key_tmpl,
+                            sizeof(aes_key_tmpl) / sizeof(CK_ATTRIBUTE),
+                            in_data, modulus_size, ctx->key, &aes_key_handle,
+                            FALSE);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Failed to unwrap temporary AES key: %s (0x%lx)\n",
+                    p11_get_ckr(rc), rc);
+        goto done;
+    }
+
+    /* Get the bit-size of the temporary AES key */
+    rc = object_mgr_find_in_map1(tokdata, aes_key_handle, &key_obj, READ_LOCK);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Failed to acquire key from temporary AES key handle.\n");
+        if (rc == CKR_OBJECT_HANDLE_INVALID)
+            rc = CKR_KEY_HANDLE_INVALID;
+        goto done;
+    }
+
+    rc = template_attribute_get_ulong(key_obj->template, CKA_VALUE_LEN,
+                                      &value_len);
+    object_put(tokdata, key_obj, TRUE);
+    key_obj = NULL;
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("Failed to get CKA_VALUE_LEN from temp. AES key.\n");
+        return rc;
+    }
+
+    /* Update the mechanism param (copy) in context. Might be needed later on */
+    params->ulAESKeyBits = value_len * 8;
+
+    /*
+     * Decrypt (unwrap) the final key data from the the second part of the
+     * wrapped key data.
+     */
+    rc = decr_mgr_init(tokdata, sess, &aeskw_ctx, OP_UNWRAP,
+                       &aeskw_kwm_mech, aes_key_handle, TRUE, FALSE);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Failed to decrypt the to-be-unwrapped key: %s (0x%lx)\n",
+                    p11_get_ckr(rc), rc);
+        goto done;
+    }
+
+    rc = decr_mgr_decrypt(tokdata, sess, length_only, &aeskw_ctx,
+                          in_data + modulus_size, in_data_len - modulus_size,
+                          out_data, out_data_len);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Failed to decrypt the to-be-unwrapped key: %s (0x%lx)\n",
+                    p11_get_ckr(rc), rc);
+        goto done;
+    }
+
+done:
+    if (aes_key_handle != CK_INVALID_HANDLE) {
+        rc2 = object_mgr_destroy_object(tokdata, sess, aes_key_handle);
+        if (rc2 != CKR_OK) {
+            TRACE_ERROR("Failed to destroy temporary AES key: %s (0x%lx)\n",
+                        p11_get_ckr(rc2), rc2);
+            if (rc == CKR_OK)
+                rc = rc2;
+        }
+    }
+
+    encr_mgr_cleanup(tokdata, sess, &aeskw_ctx);
+
+    return rc;
 }

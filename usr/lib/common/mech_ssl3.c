@@ -1016,7 +1016,8 @@ CK_RV ssl3_master_key_derive(STDLL_TokData_t *tokdata,
                              CK_MECHANISM *mech,
                              OBJECT* base_key_obj,
                              CK_ATTRIBUTE *pTemplate,
-                             CK_ULONG ulCount, CK_OBJECT_HANDLE *handle)
+                             CK_ULONG ulCount, CK_OBJECT_HANDLE *handle,
+                             CK_BBOOL count_statistics)
 {
     OBJECT *derived_key_obj = NULL;
     CK_ATTRIBUTE *attr = NULL;
@@ -1201,7 +1202,8 @@ CK_RV ssl3_master_key_derive(STDLL_TokData_t *tokdata,
     // occur in a separate call to C_DestroyObject
     //
 
-    INC_COUNTER(tokdata, sess, mech, base_key_obj, POLICY_STRENGTH_IDX_0);
+    if (count_statistics == TRUE)
+        INC_COUNTER(tokdata, sess, mech, base_key_obj, POLICY_STRENGTH_IDX_0);
 
     return CKR_OK;
 
@@ -1223,7 +1225,8 @@ CK_RV ssl3_key_and_mac_derive(STDLL_TokData_t *tokdata,
                               SESSION *sess,
                               CK_MECHANISM *mech,
                               OBJECT *base_key_obj,
-                              CK_ATTRIBUTE *pTemplate, CK_ULONG ulCount)
+                              CK_ATTRIBUTE *pTemplate, CK_ULONG ulCount,
+                              CK_BBOOL count_statistic)
 {
     CK_ATTRIBUTE *attr = NULL;
 
@@ -1536,7 +1539,8 @@ CK_RV ssl3_key_and_mac_derive(STDLL_TokData_t *tokdata,
 #endif
     }
 
-    INC_COUNTER(tokdata, sess, mech, base_key_obj, POLICY_STRENGTH_IDX_0);
+    if (count_statistic == TRUE)
+        INC_COUNTER(tokdata, sess, mech, base_key_obj, POLICY_STRENGTH_IDX_0);
 
 error:
     return rc;

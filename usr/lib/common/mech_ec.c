@@ -778,7 +778,7 @@ CK_RV ckm_ecdh_pkcs_derive(STDLL_TokData_t *tokdata, SESSION *sess,
                            CK_VOID_PTR other_pubkey, CK_ULONG other_pubkey_len,
                            OBJECT* base_key_obj,
                            CK_BYTE *secret_value, CK_ULONG *secret_value_len,
-                           CK_MECHANISM_PTR mech)
+                           CK_MECHANISM_PTR mech, CK_BBOOL count_statistic)
 {
     CK_RV rc;
     CK_ATTRIBUTE *attr;
@@ -835,7 +835,7 @@ CK_RV ckm_ecdh_pkcs_derive(STDLL_TokData_t *tokdata, SESSION *sess,
     }
 
 done:
-    if (rc == CKR_OK)
+    if (count_statistic == TRUE && rc == CKR_OK)
         INC_COUNTER(tokdata, sess, mech, base_key_obj, POLICY_STRENGTH_IDX_0);
 
     return rc;
@@ -961,7 +961,8 @@ CK_RV ecdh_get_derived_key_size(CK_ULONG prime_len, CK_BYTE *curve_oid,
 CK_RV ecdh_pkcs_derive(STDLL_TokData_t *tokdata, SESSION *sess,
                        CK_MECHANISM *mech, OBJECT *base_key_obj,
                        CK_ATTRIBUTE *pTemplate, CK_ULONG ulCount,
-                       CK_OBJECT_HANDLE *derived_key_obj)
+                       CK_OBJECT_HANDLE *derived_key_obj,
+                       CK_BBOOL count_statistic)
 {
     CK_RV rc;
     CK_ULONG class = 0, keytype = 0, key_len = 0;
@@ -1031,7 +1032,7 @@ CK_RV ecdh_pkcs_derive(STDLL_TokData_t *tokdata, SESSION *sess,
     /* Derive the shared secret */
     rc = ckm_ecdh_pkcs_derive(tokdata, sess, pParms->pPublicData,
                               pParms->ulPublicDataLen, base_key_obj, z_value,
-                              &z_len, mech);
+                              &z_len, mech, count_statistic);
     if (rc != CKR_OK) {
         TRACE_ERROR("Error deriving the shared secret.\n");
         goto end;

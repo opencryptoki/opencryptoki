@@ -529,7 +529,8 @@ CK_RV ckm_generic_secret_key_gen(STDLL_TokData_t *tokdata, TEMPLATE *tmpl)
 CK_RV ckm_sha_derive(STDLL_TokData_t *tokdata, SESSION *sess,
                      CK_MECHANISM *mech, OBJECT *base_key_obj,
                      CK_ATTRIBUTE *pTemplate, CK_ULONG ulCount,
-                     CK_OBJECT_HANDLE *derived_key_handle)
+                     CK_OBJECT_HANDLE *derived_key_handle,
+                     CK_BBOOL count_statistic)
 {
     OBJECT *derived_key_obj = NULL;
     CK_BYTE derived_key_value[MAX_SHA_HASH_SIZE];
@@ -755,7 +756,8 @@ CK_RV ckm_sha_derive(STDLL_TokData_t *tokdata, SESSION *sess,
         goto end;
     }
 
-    INC_COUNTER(tokdata, sess, mech, base_key_obj, POLICY_STRENGTH_IDX_0);
+    if (count_statistic == TRUE)
+        INC_COUNTER(tokdata, sess, mech, base_key_obj, POLICY_STRENGTH_IDX_0);
 
     rc = CKR_OK;
 
