@@ -34,6 +34,7 @@ static CK_RV statistics_increment(struct statistics *statistics,
     int mech_idx;
     CK_MECHANISM implicit_mech = { 0, NULL, 0 };
     CK_ULONG idx, impl_strength_idx;
+    CK_ECDH1_DERIVE_PARAMS ecdh_params = { 0 };
     CK_RV rc;
 
     if (slot >= NUMBER_SLOTS_MANAGED || strength_idx > POLICY_STRENGTH_IDX_0 ||
@@ -151,6 +152,32 @@ static CK_RV statistics_increment(struct statistics *statistics,
             return rc;
         rc = statistics_increment(statistics, slot, &implicit_mech,
                                   POLICY_STRENGTH_IDX_0);
+        if (rc != CKR_OK)
+            return rc;
+        break;
+    case CKM_ECDH_AES_KEY_WRAP:
+        if (mech->pParameter == NULL ||
+            mech->ulParameterLen != sizeof(CK_ECDH_AES_KEY_WRAP_PARAMS))
+            return CKR_MECHANISM_PARAM_INVALID;
+        if (((CK_ECDH_AES_KEY_WRAP_PARAMS *)
+                                       mech->pParameter)->ulAESKeyBits > 0) {
+            impl_strength_idx = statistics->policy->get_sym_key_strength(
+                                        statistics->policy,
+                                        ((CK_ECDH_AES_KEY_WRAP_PARAMS *)
+                                            mech->pParameter)->ulAESKeyBits);
+            implicit_mech.mechanism = CKM_AES_KEY_WRAP;
+            rc = statistics_increment(statistics, slot, &implicit_mech,
+                                      impl_strength_idx);
+            if (rc != CKR_OK)
+                return rc;
+        }
+        ecdh_params.kdf =
+                ((CK_ECDH_AES_KEY_WRAP_PARAMS *)mech->pParameter)->kdf;
+        implicit_mech.mechanism = CKM_ECDH1_DERIVE;
+        implicit_mech.pParameter = &ecdh_params;
+        implicit_mech.ulParameterLen = sizeof(ecdh_params);
+        rc = statistics_increment(statistics, slot, &implicit_mech,
+                                  strength_idx);
         if (rc != CKR_OK)
             return rc;
         break;
