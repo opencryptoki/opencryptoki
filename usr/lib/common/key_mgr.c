@@ -904,6 +904,7 @@ CK_RV key_mgr_wrap_key(STDLL_TokData_t *tokdata,
     case CKM_AES_KEY_WRAP_KWP:
     case CKM_AES_KEY_WRAP_PKCS7:
     case CKM_RSA_AES_KEY_WRAP:
+    case CKM_ECDH_AES_KEY_WRAP:
         if ((class != CKO_SECRET_KEY) && (class != CKO_PRIVATE_KEY)) {
             TRACE_ERROR
                 ("Specified mechanism only wraps secret & private keys.\n");
@@ -1091,6 +1092,7 @@ CK_RV key_mgr_wrap_key(STDLL_TokData_t *tokdata,
     case CKM_AES_KEY_WRAP_KWP:
     case CKM_AES_KEY_WRAP_PKCS7:
     case CKM_RSA_AES_KEY_WRAP:
+    case CKM_ECDH_AES_KEY_WRAP:
     case CKM_DES_CBC_PAD:
     case CKM_DES3_CBC_PAD:
     case CKM_AES_CBC_PAD:
@@ -1290,6 +1292,7 @@ CK_RV key_mgr_unwrap_key(STDLL_TokData_t *tokdata,
     case CKM_AES_KEY_WRAP_KWP:
     case CKM_AES_KEY_WRAP_PKCS7:
     case CKM_RSA_AES_KEY_WRAP:
+    case CKM_ECDH_AES_KEY_WRAP:
         if ((keyclass != CKO_SECRET_KEY) && (keyclass != CKO_PRIVATE_KEY)) {
             TRACE_ERROR("Specified mech unwraps secret & private keys only.\n");
             rc = CKR_ARGUMENTS_BAD;

@@ -742,6 +742,16 @@ CK_RV rsa_aes_key_unwrap(STDLL_TokData_t *tokdata, SESSION *sess,
                          CK_BYTE *in_data, CK_ULONG in_data_len,
                          CK_BYTE *out_data, CK_ULONG *out_data_len);
 
+CK_RV ecdh_aes_key_wrap(STDLL_TokData_t *tokdata, SESSION *sess,
+                        CK_BBOOL length_only, ENCR_DECR_CONTEXT *ctx,
+                        CK_BYTE *in_data, CK_ULONG in_data_len,
+                        CK_BYTE *out_data, CK_ULONG *out_data_len);
+
+CK_RV ecdh_aes_key_unwrap(STDLL_TokData_t *tokdata, SESSION *sess,
+                          CK_BBOOL length_only, ENCR_DECR_CONTEXT *ctx,
+                          CK_BYTE *in_data, CK_ULONG in_data_len,
+                          CK_BYTE *out_data, CK_ULONG *out_data_len);
+
 CK_RV rsa_format_block(STDLL_TokData_t *tokdata,
                        CK_BYTE *in_data,
                        CK_ULONG in_data_len,

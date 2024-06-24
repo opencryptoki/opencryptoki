@@ -28,6 +28,7 @@
 #include "trace.h"
 #include "tok_specific.h"
 #include "ec_defs.h"
+#include "p11util.h"
 
 #include "openssl/obj_mac.h"
 #include <openssl/ec.h>
@@ -1642,6 +1643,406 @@ int ec_point_uncompressed_from_public_data(const CK_BYTE *data,
     }
     if (ec_point2 != NULL)
         free(ec_point2);
+
+    return rc;
+}
+
+CK_RV ecdh_aes_key_wrap(STDLL_TokData_t *tokdata, SESSION *sess,
+                        CK_BBOOL length_only, ENCR_DECR_CONTEXT *ctx,
+                        CK_BYTE *in_data, CK_ULONG in_data_len,
+                        CK_BYTE *out_data, CK_ULONG *out_data_len)
+{
+    CK_ECDH_AES_KEY_WRAP_PARAMS *params;
+    CK_ATTRIBUTE *ec_params = NULL, *ec_point = NULL;
+    CK_MECHANISM ec_keygen_mech = { CKM_EC_KEY_PAIR_GEN, NULL, 0 };
+    CK_ECDH1_DERIVE_PARAMS ecdh_params = { 0 };
+    CK_MECHANISM ecdh_mech = { CKM_ECDH1_DERIVE, &ecdh_params,
+                               sizeof(ecdh_params) };
+    CK_MECHANISM aeskw_kwm_mech = { CKM_AES_KEY_WRAP_KWP, NULL, 0 };
+    ENCR_DECR_CONTEXT aeskw_ctx = { 0 };
+    CK_OBJECT_HANDLE ec_publ_key_handle = CK_INVALID_HANDLE;
+    CK_OBJECT_HANDLE ec_priv_key_handle = CK_INVALID_HANDLE;
+    CK_OBJECT_HANDLE aes_key_handle = CK_INVALID_HANDLE;
+    CK_OBJECT_CLASS aes_key_class = CKO_SECRET_KEY;
+    CK_KEY_TYPE aes_key_type = CKK_AES;
+    CK_ULONG aes_key_size, field_len = 0, pub_ec_point_len = 0;
+    CK_ULONG wrapped_key_len = 0, total_len;
+    CK_BYTE *pub_ec_point = NULL;
+    CK_BBOOL ck_true = TRUE;
+    CK_BBOOL ck_false = TRUE;
+    OBJECT *key_obj = NULL, *pub_key_obj = NULL;
+    CK_RV rc, rc2;
+
+    CK_ATTRIBUTE ec_publ_key_tmpl[] = {
+        { CKA_EC_PARAMS, NULL, 0 },
+        { CKA_HIDDEN, &ck_true, sizeof(ck_true) },
+        { CKA_TOKEN, &ck_false, sizeof(ck_false) },
+        { CKA_PRIVATE, &ck_true, sizeof(ck_true) },
+        { CKA_WRAP, &ck_false, sizeof(ck_false) },
+        { CKA_ENCRYPT, &ck_false, sizeof(ck_false) },
+        { CKA_VERIFY, &ck_false, sizeof(ck_false) },
+        { CKA_VERIFY_RECOVER, &ck_false, sizeof(ck_false) },
+        { CKA_DERIVE, &ck_true, sizeof(ck_true) },
+    };
+    CK_ATTRIBUTE ec_priv_key_tmpl[] = {
+        { CKA_HIDDEN, &ck_true, sizeof(ck_true) },
+        { CKA_SENSITIVE, &ck_true, sizeof(ck_true) },
+        { CKA_TOKEN, &ck_false, sizeof(ck_false) },
+        { CKA_PRIVATE, &ck_true, sizeof(ck_true) },
+        { CKA_UNWRAP, &ck_false, sizeof(ck_false) },
+        { CKA_DECRYPT, &ck_false, sizeof(ck_false) },
+        { CKA_SIGN, &ck_false, sizeof(ck_false) },
+        { CKA_SIGN_RECOVER, &ck_false, sizeof(ck_false) },
+        { CKA_DERIVE, &ck_true, sizeof(ck_true) },
+    };
+    CK_ATTRIBUTE aes_key_tmpl[] = {
+        { CKA_CLASS, &aes_key_class, sizeof(aes_key_class) },
+        { CKA_KEY_TYPE, &aes_key_type, sizeof(aes_key_type) },
+        { CKA_VALUE_LEN, &aes_key_size, sizeof(aes_key_size) },
+        { CKA_HIDDEN, &ck_true, sizeof(ck_true) },
+        { CKA_SENSITIVE, &ck_true, sizeof(ck_true) },
+        { CKA_TOKEN, &ck_false, sizeof(ck_false) },
+        { CKA_PRIVATE, &ck_true, sizeof(ck_true) },
+        { CKA_WRAP, &ck_false, sizeof(ck_false) },
+        { CKA_UNWRAP, &ck_true, sizeof(ck_true) },
+        { CKA_ENCRYPT, &ck_false, sizeof(ck_false) },
+        { CKA_DECRYPT, &ck_false, sizeof(ck_false) },
+        { CKA_SIGN, &ck_false, sizeof(ck_false) },
+        { CKA_VERIFY, &ck_false, sizeof(ck_false) },
+        { CKA_DERIVE, &ck_false, sizeof(ck_false) },
+    };
+
+    params = (CK_ECDH_AES_KEY_WRAP_PARAMS *)ctx->mech.pParameter;
+
+    /* Get the EC parameters of the EC public key used with this mechanism */
+    rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj, READ_LOCK);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Failed to acquire key from specified handle.\n");
+        if (rc == CKR_OBJECT_HANDLE_INVALID)
+            return CKR_KEY_HANDLE_INVALID;
+        else
+            return rc;
+    }
+
+    rc = template_attribute_get_non_empty(key_obj->template, CKA_EC_PARAMS,
+                                          &ec_params);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("Failed to get CKA_EC_PARAMS.\n");
+        goto done;
+    }
+
+    /* Generate a temporary EC key pair using the same EC parameters */
+    ec_publ_key_tmpl[0] = *ec_params;
+    rc = key_mgr_generate_key_pair(tokdata, sess, &ec_keygen_mech,
+                                   ec_publ_key_tmpl, sizeof(ec_publ_key_tmpl) /
+                                                       sizeof(CK_ATTRIBUTE),
+                                   ec_priv_key_tmpl, sizeof(ec_priv_key_tmpl) /
+                                                       sizeof(CK_ATTRIBUTE),
+                                   &ec_publ_key_handle, &ec_priv_key_handle,
+                                   FALSE);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Failed to generate temporary EC key pair: "
+                    "%s (0x%lx)\n", p11_get_ckr(rc), rc);
+        goto done;
+    }
+
+    /* Perform ECDH to derive a shared AES key */
+    ecdh_params.kdf = params->kdf;
+    ecdh_params.pSharedData = params->pSharedData;
+    ecdh_params.ulSharedDataLen = params->ulSharedDataLen;
+
+    rc = template_attribute_get_non_empty(key_obj->template, CKA_EC_POINT,
+                                          &ec_point);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("Failed to get CKA_EC_POINT.\n");
+        goto done;
+    }
+
+    rc = ber_decode_OCTET_STRING((CK_BYTE *)ec_point->pValue,
+                                  &ecdh_params.pPublicData,
+                                  &ecdh_params.ulPublicDataLen,
+                                  &field_len);
+    if (rc != CKR_OK || field_len != ec_point->ulValueLen) {
+        rc = CKR_FUNCTION_FAILED;
+        TRACE_DEVEL("Failed to decode CKA_EC_POINT.\n");
+        goto done;
+    }
+
+    aes_key_size = params->ulAESKeyBits / 8;
+    rc = key_mgr_derive_key(tokdata, sess, &ecdh_mech,
+                            ec_priv_key_handle, &aes_key_handle,
+                            aes_key_tmpl,
+                            sizeof(aes_key_tmpl) / sizeof(CK_ATTRIBUTE),
+                            FALSE);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Failed to derive temporary AES key (%lu bits): "
+                    "%s (0x%lx)\n", params->ulAESKeyBits, p11_get_ckr(rc), rc);
+        goto done;
+    }
+
+    /*
+     * Encrypt (wrap) the to-be-wrapped key as the second part of the wrapped
+     * key data (length-only operation to get the size of the second part).
+     */
+    rc = encr_mgr_init(tokdata, sess, &aeskw_ctx, OP_WRAP,
+                       &aeskw_kwm_mech, aes_key_handle, TRUE);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Failed to encrypt the to-be-wrapped key: %s (0x%lx)\n",
+                    p11_get_ckr(rc), rc);
+        goto done;
+    }
+
+    rc = encr_mgr_encrypt(tokdata, sess, TRUE, &aeskw_ctx,
+                          in_data, in_data_len, NULL, &wrapped_key_len);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Failed to encrypt the to-be-wrapped key: %s (0x%lx)\n",
+                    p11_get_ckr(rc), rc);
+        goto done;
+    }
+
+    /* Calculate the final length of the wrapped key data */
+    total_len = ecdh_params.ulPublicDataLen + wrapped_key_len;
+
+    if (length_only) {
+        *out_data_len = total_len;
+        goto done;
+    }
+
+    if (*out_data_len < total_len) {
+        *out_data_len = total_len;
+        TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
+        rc = CKR_BUFFER_TOO_SMALL;
+        goto done;
+    }
+
+    /*
+     * Copy the (raw) EC point of the public transport EC key as first part of
+     * the wrapped key data.
+     */
+    rc = object_mgr_find_in_map1(tokdata, ec_publ_key_handle,
+                                 &pub_key_obj, READ_LOCK);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Failed to acquire key from EC public key handle.\n");
+        if (rc == CKR_OBJECT_HANDLE_INVALID)
+            return CKR_KEY_HANDLE_INVALID;
+        else
+            return rc;
+    }
+
+    rc = template_attribute_get_non_empty(pub_key_obj->template, CKA_EC_POINT,
+                                          &ec_point);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("Failed to get CKA_EC_POINT.\n");
+        goto done;
+    }
+
+    rc = ber_decode_OCTET_STRING((CK_BYTE *)ec_point->pValue,
+                                  &pub_ec_point, &pub_ec_point_len, &field_len);
+    if (rc != CKR_OK || field_len != ec_point->ulValueLen) {
+        rc = CKR_FUNCTION_FAILED;
+        TRACE_DEVEL("Failed to decode CKA_EC_POINT.\n");
+        goto done;
+    }
+
+    memcpy(out_data, pub_ec_point, pub_ec_point_len);
+
+    /*
+     * Encrypt (wrap) the to-be-wrapped key as the second part of the wrapped
+     * key data.
+     */
+    rc = encr_mgr_encrypt(tokdata, sess, FALSE, &aeskw_ctx,
+                          in_data, in_data_len,
+                          out_data + ecdh_params.ulPublicDataLen,
+                          &wrapped_key_len);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Failed to encrypt the to-be-wrapped key: %s (0x%lx)\n",
+                    p11_get_ckr(rc), rc);
+        goto done;
+    }
+
+    *out_data_len = total_len;
+
+done:
+    if (ec_publ_key_handle != CK_INVALID_HANDLE) {
+        rc2 = object_mgr_destroy_object(tokdata, sess, ec_publ_key_handle);
+        if (rc2 != CKR_OK) {
+            TRACE_ERROR("Failed to destroy temporary EC public key: %s "
+                        "(0x%lx)\n", p11_get_ckr(rc2), rc2);
+            if (rc == CKR_OK)
+                rc = rc2;
+        }
+    }
+    if (ec_priv_key_handle != CK_INVALID_HANDLE) {
+        rc2 = object_mgr_destroy_object(tokdata, sess, ec_priv_key_handle);
+        if (rc2 != CKR_OK) {
+            TRACE_ERROR("Failed to destroy temporary EC private key: %s "
+                        "(0x%lx)\n", p11_get_ckr(rc2), rc2);
+            if (rc == CKR_OK)
+                rc = rc2;
+        }
+    }
+    if (aes_key_handle != CK_INVALID_HANDLE) {
+        rc2 = object_mgr_destroy_object(tokdata, sess, aes_key_handle);
+        if (rc2 != CKR_OK) {
+            TRACE_ERROR("Failed to destroy temporary AES key: %s (0x%lx)\n",
+                        p11_get_ckr(rc2), rc2);
+            if (rc == CKR_OK)
+                rc = rc2;
+        }
+    }
+
+    encr_mgr_cleanup(tokdata, sess, &aeskw_ctx);
+
+    object_put(tokdata, key_obj, TRUE);
+    key_obj = NULL;
+    object_put(tokdata, pub_key_obj, TRUE);
+    pub_key_obj = NULL;
+
+    return rc;
+}
+
+CK_RV ecdh_aes_key_unwrap(STDLL_TokData_t *tokdata, SESSION *sess,
+                          CK_BBOOL length_only, ENCR_DECR_CONTEXT *ctx,
+                          CK_BYTE *in_data, CK_ULONG in_data_len,
+                          CK_BYTE *out_data, CK_ULONG *out_data_len)
+{
+    CK_ECDH_AES_KEY_WRAP_PARAMS *params;
+    CK_ECDH1_DERIVE_PARAMS ecdh_params = { 0 };
+    CK_MECHANISM ecdh_mech = { CKM_ECDH1_DERIVE, &ecdh_params,
+                               sizeof(ecdh_params) };
+    CK_MECHANISM aeskw_kwm_mech = { CKM_AES_KEY_WRAP_KWP, NULL, 0 };
+    CK_OBJECT_HANDLE aes_key_handle = CK_INVALID_HANDLE;
+    ENCR_DECR_CONTEXT aeskw_ctx = { 0 };
+    CK_BBOOL ck_true = TRUE;
+    CK_BBOOL ck_false = TRUE;
+    OBJECT *key_obj = NULL;
+    CK_ULONG prime_len = 0, public_data_len = 0;
+    CK_OBJECT_CLASS aes_key_class = CKO_SECRET_KEY;
+    CK_KEY_TYPE aes_key_type = CKK_AES;
+    CK_ULONG aes_key_size;
+    CK_BYTE form;
+    CK_RV rc, rc2;
+
+    CK_ATTRIBUTE aes_key_tmpl[] = {
+        { CKA_CLASS, &aes_key_class, sizeof(aes_key_class) },
+        { CKA_KEY_TYPE, &aes_key_type, sizeof(aes_key_type) },
+        { CKA_VALUE_LEN, &aes_key_size, sizeof(aes_key_size) },
+        { CKA_HIDDEN, &ck_true, sizeof(ck_true) },
+        { CKA_SENSITIVE, &ck_true, sizeof(ck_true) },
+        { CKA_TOKEN, &ck_false, sizeof(ck_false) },
+        { CKA_PRIVATE, &ck_true, sizeof(ck_true) },
+        { CKA_WRAP, &ck_false, sizeof(ck_false) },
+        { CKA_UNWRAP, &ck_true, sizeof(ck_true) },
+        { CKA_ENCRYPT, &ck_false, sizeof(ck_false) },
+        { CKA_DECRYPT, &ck_false, sizeof(ck_false) },
+        { CKA_SIGN, &ck_false, sizeof(ck_false) },
+        { CKA_VERIFY, &ck_false, sizeof(ck_false) },
+        { CKA_DERIVE, &ck_false, sizeof(ck_false) },
+    };
+
+    params = (CK_ECDH_AES_KEY_WRAP_PARAMS *)ctx->mech.pParameter;
+
+    /* Get the EC parameters of the EC key used with this mechanism */
+    rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj, READ_LOCK);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Failed to acquire key from specified handle.\n");
+        if (rc == CKR_OBJECT_HANDLE_INVALID)
+            return CKR_KEY_HANDLE_INVALID;
+        else
+            return rc;
+    }
+
+    rc = get_ecsiglen(key_obj, &prime_len);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("get_ecsiglen failed.\n");
+        goto done;
+    }
+    prime_len /= 2; /* prime length is half the size of an EC signature */
+
+    /* Input must be at least a compressed EC point plus wrapped data */
+    if (in_data_len <= prime_len + 1 + 2 * AES_KEY_WRAP_BLOCK_SIZE) {
+        TRACE_ERROR("%s\n", ock_err(ERR_ENCRYPTED_DATA_LEN_RANGE));
+        rc = CKR_ENCRYPTED_DATA_LEN_RANGE;
+        goto done;
+    }
+
+    form  = in_data[0] & ~0x01;
+    switch (form) {
+    case POINT_CONVERSION_COMPRESSED:
+        public_data_len = prime_len + 1;
+        /* Length checked above already */
+        break;
+    case POINT_CONVERSION_UNCOMPRESSED:
+    case POINT_CONVERSION_HYBRID:
+        public_data_len = 2 * prime_len + 1;
+        if (in_data_len < public_data_len + 2 * AES_KEY_WRAP_BLOCK_SIZE) {
+            TRACE_ERROR("%s\n", ock_err(ERR_ENCRYPTED_DATA_LEN_RANGE));
+            rc = CKR_ENCRYPTED_DATA_LEN_RANGE;
+            goto done;
+        }
+        break;
+    default:
+        TRACE_ERROR("%s\n", ock_err(ERR_ENCRYPTED_DATA_INVALID));
+        rc = CKR_ENCRYPTED_DATA_INVALID;
+        goto done;
+    }
+
+    /* Perform ECDH to derive a shared AES key */
+    ecdh_params.kdf = params->kdf;
+    ecdh_params.pSharedData = params->pSharedData;
+    ecdh_params.ulSharedDataLen = params->ulSharedDataLen;
+    ecdh_params.pPublicData = in_data;
+    ecdh_params.ulPublicDataLen = public_data_len;
+
+    aes_key_size = params->ulAESKeyBits / 8;
+    rc = key_mgr_derive_key(tokdata, sess, &ecdh_mech,
+                            ctx->key, &aes_key_handle,
+                            aes_key_tmpl,
+                            sizeof(aes_key_tmpl) / sizeof(CK_ATTRIBUTE),
+                            FALSE);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Failed to derive temporary AES key (%lu bits): "
+                    "%s (0x%lx)\n", params->ulAESKeyBits, p11_get_ckr(rc), rc);
+        goto done;
+    }
+
+    /*
+     * Decrypt (unwrap) the final key data from the the second part of the
+     * wrapped key data.
+     */
+    rc = decr_mgr_init(tokdata, sess, &aeskw_ctx, OP_UNWRAP,
+                       &aeskw_kwm_mech, aes_key_handle, TRUE, FALSE);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Failed to decrypt the to-be-unwrapped key: %s (0x%lx)\n",
+                    p11_get_ckr(rc), rc);
+        goto done;
+    }
+
+    rc = decr_mgr_decrypt(tokdata, sess, length_only, &aeskw_ctx,
+                          in_data + public_data_len,
+                          in_data_len - public_data_len,
+                          out_data, out_data_len);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Failed to decrypt the to-be-unwrapped key: %s (0x%lx)\n",
+                    p11_get_ckr(rc), rc);
+        goto done;
+    }
+
+done:
+    if (aes_key_handle != CK_INVALID_HANDLE) {
+        rc2 = object_mgr_destroy_object(tokdata, sess, aes_key_handle);
+        if (rc2 != CKR_OK) {
+            TRACE_ERROR("Failed to destroy temporary AES key: %s (0x%lx)\n",
+                        p11_get_ckr(rc2), rc2);
+            if (rc == CKR_OK)
+                rc = rc2;
+        }
+    }
+
+    encr_mgr_cleanup(tokdata, sess, &aeskw_ctx);
+
+    object_put(tokdata, key_obj, TRUE);
+    key_obj = NULL;
 
     return rc;
 }
