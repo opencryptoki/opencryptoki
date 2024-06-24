@@ -73,6 +73,7 @@ const struct mechrow mechtable_rows[] =
      { "CKM_DSA_PARAMETER_GEN",       CKM_DSA_PARAMETER_GEN,         0, MC_INFORMATION_UNAVAILABLE, MCF_KEYGEN },
      { "CKM_DSA_SHA1",                CKM_DSA_SHA1,                  0,           MC_KEY_DEPENDENT, MCF_SIGNVERIFY },
      { "CKM_ECDH1_DERIVE",            CKM_ECDH1_DERIVE,              0, MC_INFORMATION_UNAVAILABLE, MCF_DERIVE | MCF_NEEDSPARAM },
+     { "CKM_ECDH_AES_KEY_WRAP",       CKM_ECDH_AES_KEY_WRAP,         0,           MC_KEY_DEPENDENT, MCF_WRAPUNWRAP },
      { "CKM_ECDSA",                   CKM_ECDSA,                     0,           MC_KEY_DEPENDENT, MCF_SIGNVERIFY },
      { "CKM_ECDSA_SHA1",              CKM_ECDSA_SHA1,                0,           MC_KEY_DEPENDENT, MCF_SIGNVERIFY },
      { "CKM_ECDSA_SHA224",            CKM_ECDSA_SHA224,              0,           MC_KEY_DEPENDENT, MCF_SIGNVERIFY },

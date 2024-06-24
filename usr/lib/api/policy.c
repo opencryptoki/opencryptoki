@@ -1094,6 +1094,29 @@ static CK_RV policy_is_mech_allowed(policy_t p, CK_MECHANISM_PTR mech,
                     break;
             }
             break;
+        case CKM_ECDH_AES_KEY_WRAP:
+            if (mech->ulParameterLen != sizeof(CK_ECDH_AES_KEY_WRAP_PARAMS) ||
+                mech->pParameter == NULL) {
+                TRACE_ERROR("Invalid mechanism parameter\n");
+                rv = CKR_MECHANISM_PARAM_INVALID;
+                break;
+            }
+            if (policy_is_kdf_allowed(pp,
+                                      ((CK_ECDH_AES_KEY_WRAP_PARAMS *)
+                                           mech->pParameter)->kdf) != CKR_OK) {
+                rv = CKR_FUNCTION_FAILED;
+                break;
+            }
+            if (((CK_ECDH_AES_KEY_WRAP_PARAMS *)
+                                        mech->pParameter)->ulAESKeyBits > 0) {
+                tmp_strength.strength = policy_get_sym_key_strength(p,
+                                    ((CK_ECDH_AES_KEY_WRAP_PARAMS *)
+                                            mech->pParameter)->ulAESKeyBits);
+                rv = policy_is_key_allowed(p, &tmp_strength, sess);
+                if (rv != CKR_OK)
+                    break;
+            }
+            break;
         default:
             break;
         }
@@ -1248,6 +1271,7 @@ static CK_RV policy_update_mech_info(policy_t p, CK_MECHANISM_TYPE mech,
         case CKM_IBM_ED448_SHA3:
         case CKM_IBM_ECDSA_OTHER:
         case CKM_IBM_BTC_DERIVE:
+        case CKM_ECDH_AES_KEY_WRAP:
             if (policy_update_ec(pp, info) != CKR_OK) {
                 TRACE_DEVEL("Mechanism 0x%lx blocked by policy!\n", mech);
                 return CKR_MECHANISM_INVALID;
