@@ -46,7 +46,7 @@
 #include <openssl/crypto.h>
 #include <openssl/bn.h>
 
-#define ICA_MAX_MECH_LIST_ENTRIES       149
+#define ICA_MAX_MECH_LIST_ENTRIES       150
 
 typedef struct {
     void *libica_dso;
@@ -4958,6 +4958,8 @@ static const REF_MECH_LIST_ELEMENT ref_mech_list[] = {
     {EC_KGEN, CKM_EC_KEY_PAIR_GEN,
      {160, 521, CKF_GENERATE_KEY_PAIR | CKF_EC_NAMEDCURVE | CKF_EC_F_P}
     },
+    {EC_DH, CKM_ECDH_AES_KEY_WRAP, {160, 521, CKF_WRAP | CKF_UNWRAP |
+                                    CKF_EC_NAMEDCURVE | CKF_EC_F_P}},
 #endif
 
 };
@@ -5483,6 +5485,11 @@ static CK_RV mech_list_ica_initialize(STDLL_TokData_t *tokdata)
         isMechanismAvailable(tokdata, CKM_SHA384) &&
         isMechanismAvailable(tokdata, CKM_SHA512))
         addMechanismToList(tokdata, CKM_ECDH1_DERIVE, ec_hw && sha_hw, 0);
+
+    if (isMechanismAvailable(tokdata, CKM_EC_KEY_PAIR_GEN) &&
+        isMechanismAvailable(tokdata, CKM_ECDH1_DERIVE) &&
+        isMechanismAvailable(tokdata, CKM_AES_KEY_WRAP_KWP))
+        addMechanismToList(tokdata, CKM_ECDH_AES_KEY_WRAP, ec_hw && sha_hw, 0);
 
     if (isMechanismAvailable(tokdata, CKM_SHA_1)) {
         addMechanismToList(tokdata, CKM_SHA_1_HMAC, sha_hw, 0);
