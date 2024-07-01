@@ -401,6 +401,7 @@ struct _STDLL_TokData_t {
     pid_t real_pid; /* pid of client process in pkcsslotd namespace */
     uid_t real_uid; /* uid of client process in pkcsslotd namespace */
     gid_t real_gid; /* gid of client process in pkcsslotd namespace */
+    char tokgroup[LOGIN_NAME_MAX];
     struct tokspec_counter tokspec_counter;
     int spinxplfd;              // token specific lock
     unsigned int spinxplfd_count; // counter for recursive file lock

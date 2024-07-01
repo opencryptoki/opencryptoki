@@ -98,6 +98,17 @@ you don't need that entry. In that case the default directory name is used.
 .TP
 .BR tokversion
 Version number of the slot's token of the form <major>.<minor>.
+.TP
+.BR usergroup
+Specifies the name of a user group that is set as the owner of the token
+directory. Only users that are members of this group have access to the token
+and its objects. Users that are not a member of this group will not see the
+token as being available (e.g. via \fBpkcsconf -t\fP or via
+\fBC_GetTokenInfo\fP). All uses that are a member of this group must also be
+members of the \fB@pkcs_group@\fP group to be able to use Opencryptoki.
+
+Note: This key-value pair is optional: If not specified, the token belongs
+to the \fB@pkcs_group@\fP group.
 
 .SH Notes
 The pound sign ('#') is used to indicate a comment.

@@ -29,7 +29,7 @@
 
 #include "pqc_defs.h"
 
-int token_specific_creatlock(void);
+int token_specific_creatlock(STDLL_TokData_t *);
 CK_RV token_specific_attach_shm(STDLL_TokData_t *, CK_ULONG);
 CK_RV token_specific_rng(STDLL_TokData_t *, CK_BYTE *, CK_ULONG);
 CK_RV token_specific_init(STDLL_TokData_t *, CK_SLOT_ID, char *);

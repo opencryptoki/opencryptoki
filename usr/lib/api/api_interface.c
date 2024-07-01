@@ -361,52 +361,6 @@ void parent_fork_after(void)
         start_event_thread();
 }
 
-static CK_RV check_user_and_group(void)
-{
-    int i;
-    uid_t euid;
-    struct passwd *epw;
-    struct group *grp;
-
-    /*
-     * Check for root user or Group PKCS#11 Membership.
-     * Only these are allowed.
-     */
-    euid = geteuid();
-
-    /* effective Root is ok */
-    if (euid == 0)
-        return CKR_OK;
-
-    /*
-     * Check for member of group. SAB get login seems to not work
-     * with some instances of application invocations (particularly
-     * when forked). So we need to get the group information.
-     * Really need to take the uid and map it to a name.
-     */
-    grp = getgrnam(PKCS_GROUP);
-    if (grp == NULL) {
-        OCK_SYSLOG(LOG_ERR, "getgrnam() failed: %s\n", strerror(errno));
-        goto error;
-    }
-
-    if (getegid() == grp->gr_gid)
-        return CKR_OK;
-    /* Check if effective user is member of pkcs11 group */
-    epw = getpwuid(euid);
-    for (i = 0; grp->gr_mem[i]; i++) {
-        if ((epw && (strncmp(epw->pw_name, grp->gr_mem[i],
-                             strlen(epw->pw_name)) == 0)))
-            return CKR_OK;
-    }
-
-error:
-    TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
-
-    return CKR_FUNCTION_FAILED;
-}
-
-
 //------------------------------------------------------------------------
 // API function C_CancelFunction
 //------------------------------------------------------------------------
@@ -2996,9 +2950,12 @@ CK_RV C_Initialize(CK_VOID_PTR pVoid)
 
     TRACE_INFO("C_Initialize\n");
 
-    rc = check_user_and_group();
-    if (rc != CKR_OK)
+    rc = check_user_and_group(NULL);
+    if (rc != CKR_OK) {
+        OCK_SYSLOG(LOG_ERR, "C_Initialize: The current user '%s' is not a "
+                   "member of the '%s' group\n", cuserid(NULL), PKCS_GROUP);
         goto done;
+    }
 
     /*
      * Register an atexit handler to gracefully terminate openCryptoki and

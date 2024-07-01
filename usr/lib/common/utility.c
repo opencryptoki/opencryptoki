@@ -47,12 +47,15 @@ CK_RV CreateXProcLock(char *tokname, STDLL_TokData_t *tokdata)
     struct group *grp;
     struct stat statbuf;
     int ret = -1;
-    char *toklockname;
+    char *toklockname, *group;
+
+    group = tokdata->tokgroup;
+    if (group == NULL || group[0] == '\0')
+        group = PKCS_GROUP;
 
     if (tokdata->spinxplfd == -1) {
-
         if (token_specific.t_creatlock != NULL) {
-            tokdata->spinxplfd = token_specific.t_creatlock();
+            tokdata->spinxplfd = token_specific.t_creatlock(tokdata);
             if (tokdata->spinxplfd != -1)
                 return CKR_OK;
             else
@@ -61,12 +64,21 @@ CK_RV CreateXProcLock(char *tokname, STDLL_TokData_t *tokdata)
 
         toklockname = (strlen(tokname) > 0) ? tokname : SUB_DIR;
 
-        /** create lock subdir for each token if it doesn't exist.
-         *  The root directory should be created in slotmgr daemon **/
+        /*
+         * create lock subdir for each token if it doesn't exist.
+         * The root directory should be created in slotmgr daemon
+         */
         if (ock_snprintf(lockdir, PATH_MAX, "%s/%s",
                          LOCKDIR_PATH, toklockname) != 0) {
             OCK_SYSLOG(LOG_ERR, "lock directory path too long\n");
             TRACE_ERROR("lock directory path too long\n");
+            goto err;
+        }
+
+        grp = getgrnam(group);
+        if (grp == NULL) {
+            OCK_SYSLOG(LOG_ERR, "getgrname(%s): %s\n", group, strerror(errno));
+            TRACE_ERROR("getgrname(%s): %s\n", group, strerror(errno));
             goto err;
         }
 
@@ -75,30 +87,41 @@ CK_RV CreateXProcLock(char *tokname, STDLL_TokData_t *tokdata)
             /* dir does not exist, try to create it */
             ret = mkdir(lockdir, S_IRWXU | S_IRWXG);
             if (ret != 0) {
-                OCK_SYSLOG(LOG_ERR,
-                           "Directory(%s) missing: %s\n",
+                OCK_SYSLOG(LOG_ERR, "Directory(%s) missing: %s\n",
                            lockdir, strerror(errno));
+                TRACE_ERROR("Directory(%s) missing: %s\n",
+                            lockdir, strerror(errno));
                 goto err;
             }
-            grp = getgrnam(PKCS_GROUP);
-            if (grp == NULL) {
-                fprintf(stderr, "getgrname(%s): %s", PKCS_GROUP,
-                        strerror(errno));
-                goto err;
-            }
-            /* set ownership to euid, and pkcs11 group */
+
+            /* set ownership to euid, and token group */
             if (chown(lockdir, geteuid(), grp->gr_gid) != 0) {
-                fprintf(stderr, "Failed to set owner:group \
-                        ownership on %s directory", lockdir);
+                OCK_SYSLOG(LOG_ERR, "Failed to set owner:group ownership on "
+                           "'%s' directory\n", lockdir);
+                TRACE_ERROR("Failed to set owner:group ownership on '%s' "
+                            "directory\n", lockdir);
                 goto err;
             }
-            /* mkdir does not set group permission right, so
-             ** trying explictly here again */
+            /* mkdir does not set group permission right, set explicitly here */
             if (chmod(lockdir, S_IRWXU | S_IRWXG) != 0) {
-                fprintf(stderr, "Failed to change \
-                        permissions on %s directory", lockdir);
+                OCK_SYSLOG(LOG_ERR, "Failed to change permissions on '%s' "
+                           "directory\n", lockdir);
+                TRACE_ERROR("Failed to change permissions on '%s' directory\n",
+                            lockdir);
                 goto err;
             }
+        } else if (ret != 0) {
+            OCK_SYSLOG(LOG_ERR, "Could not stat directory '%s': %s\n", lockdir,
+                       strerror(errno));
+            TRACE_ERROR("Could not stat directory '%s': %s\n", lockdir,
+                        strerror(errno));
+            goto err;
+        } else if (statbuf.st_gid != grp->gr_gid) {
+            OCK_SYSLOG(LOG_ERR, "Directory '%s' is not owned by token group "
+                       "'%s'\n", lockdir, group);
+            TRACE_ERROR("Directory '%s' is not owned by token group '%s'\n",
+                        lockdir, group);
+            goto err;
         }
 
         /* create user lock file */
@@ -118,26 +141,23 @@ CK_RV CreateXProcLock(char *tokname, STDLL_TokData_t *tokdata)
                 if (fchmod(tokdata->spinxplfd, MODE_BITS) == -1) {
                     OCK_SYSLOG(LOG_ERR, "fchmod(%s): %s\n",
                                lockfile, strerror(errno));
+                    TRACE_ERROR("fchmod(%s): %s\n", lockfile, strerror(errno));
                     goto err;
                 }
 
-                grp = getgrnam(PKCS_GROUP);
-                if (grp != NULL) {
-                    if (fchown(tokdata->spinxplfd, -1, grp->gr_gid) == -1) {
-                        OCK_SYSLOG(LOG_ERR,
-                                   "fchown(%s): %s\n",
-                                   lockfile, strerror(errno));
-                        goto err;
-                    }
-                } else {
-                    OCK_SYSLOG(LOG_ERR, "getgrnam(): %s\n", strerror(errno));
+                if (fchown(tokdata->spinxplfd, -1, grp->gr_gid) == -1) {
+                    OCK_SYSLOG(LOG_ERR, "fchown(%s): %s\n",
+                               lockfile, strerror(errno));
+                    TRACE_ERROR("fchown(%s): %s\n", lockfile,
+                                strerror(errno));
                     goto err;
                 }
             }
         }
         if (tokdata->spinxplfd == -1) {
             OCK_SYSLOG(LOG_ERR, "open(%s): %s\n", lockfile, strerror(errno));
-            return CKR_FUNCTION_FAILED;
+            TRACE_ERROR("open(%s): %s\n", lockfile, strerror(errno));
+            goto err;
         }
     }
 
@@ -597,7 +617,8 @@ CK_RV attach_shm(STDLL_TokData_t *tokdata, CK_SLOT_ID slot_id)
         rc = CKR_FUNCTION_FAILED;
         goto err;
     }
-    ret = sm_open(buf, 0660, (void **) shm, sizeof(**shm), 0);
+    ret = sm_open(buf, 0660, (void **) shm, sizeof(**shm), 0,
+                  tokdata->tokgroup);
     if (ret < 0) {
         TRACE_DEVEL("sm_open failed.\n");
         rc = CKR_FUNCTION_FAILED;

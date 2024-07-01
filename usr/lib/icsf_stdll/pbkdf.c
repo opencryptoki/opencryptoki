@@ -52,7 +52,7 @@ CK_RV get_randombytes(unsigned char *output, int bytes)
     return CKR_FUNCTION_FAILED;
 }
 
-CK_RV set_perms(int file)
+CK_RV set_perms(int file, const char *group)
 {
     struct group *grp;
 
@@ -61,7 +61,10 @@ CK_RV set_perms(int file)
         return CKR_FUNCTION_FAILED;
     }
 
-    grp = getgrnam(PKCS_GROUP);
+    if (group == NULL || group[0] == '\0')
+        group = PKCS_GROUP;
+
+    grp = getgrnam(group);
     if (grp) {
         if (fchown(file, -1, grp->gr_gid) != 0) {
             TRACE_ERROR("fchown failed: %s\n", strerror(errno));
@@ -533,7 +536,7 @@ CK_RV secure_racf(STDLL_TokData_t *tokdata,
     }
 
     /* set permisions on the file */
-    rc = set_perms(fileno(fp));
+    rc = set_perms(fileno(fp), tokdata->tokgroup);
     if (rc != 0) {
         TRACE_ERROR("Failed to set permissions on RACF file.\n");
         fclose(fp);
@@ -606,7 +609,7 @@ CK_RV secure_masterkey(STDLL_TokData_t *tokdata,
     }
 
     /* set permisions on the file */
-    rc = set_perms(fileno(fp));
+    rc = set_perms(fileno(fp), tokdata->tokgroup);
     if (rc != 0) {
         TRACE_ERROR("Failed to set permissions on encrypted file.\n");
         fclose(fp);

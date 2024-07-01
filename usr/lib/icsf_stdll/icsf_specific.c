@@ -814,7 +814,7 @@ CK_RV token_specific_attach_shm(STDLL_TokData_t * tokdata, CK_SLOT_ID slot_id)
      * exists. When the it's created (ret=0) the region is initialized with
      * zeroes.
      */
-    ret = sm_open(shm_id, 0660, (void **) &ptr, len, 1);
+    ret = sm_open(shm_id, 0660, (void **) &ptr, len, 1, tokdata->tokgroup);
     if (ret < 0) {
         TRACE_ERROR("Failed to open shared memory \"%s\".\n", shm_id);
         rc = CKR_FUNCTION_FAILED;
