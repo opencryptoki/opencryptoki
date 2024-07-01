@@ -386,18 +386,132 @@ int is_duplicate(md5_hash_entry hash, md5_hash_entry *hash_table)
     return 0;
 }
 
+int check_token_group(struct group *tok_grp)
+{
+    struct group grp_buf, *pkcs11_grp = NULL;
+    struct passwd *pwd;
+    int i, k, err, found, rc = 0;
+    long buf_size;
+    char *buff = NULL;
+
+    /* No further check if token group is 'pkcs11' */
+    if (strcmp(tok_grp->gr_name, PKCS_GROUP) == 0)
+        return 0;
+
+    /*
+     * Must use getgrnam_r() here, because caller is using getgrnam() which
+     * returns a pointer to a static area that would be reused/overwritten by
+     * subsequent calls to getgrnam().
+     */
+    buf_size = sysconf(_SC_GETGR_R_SIZE_MAX);
+    if (buf_size <= 0) {
+        err = errno;
+        fprintf(stderr, "sysconf(_SC_GETGR_R_SIZE_MAX) failed [errno=%s].\n",
+                strerror(err));
+        return err;
+    }
+
+retry:
+    buff = calloc(1, buf_size);
+    if (buff == NULL) {
+        fprintf(stderr, "Failed to allocate a buffer of %ld bytes.\n",
+                buf_size);
+        return ENOMEM;
+    }
+
+    errno = 0;
+    if (getgrnam_r(PKCS_GROUP, &grp_buf, buff, buf_size, &pkcs11_grp) != 0) {
+        err = (errno != 0 ? errno : ENOENT);
+        if (err == ERANGE && buf_size < 64 * 1024) {
+            free(buff);
+            buf_size *= 2;
+            goto retry;
+        }
+
+        fprintf(stderr, "Group '%s' does not exist [errno=%s].\n", PKCS_GROUP,
+                strerror(err));
+       rc = err;
+       goto done;
+    }
+
+    /* Check that all group members are also a member of the 'pkcs11' group */
+    for (i = 0; tok_grp->gr_mem[i] != NULL; i++) {
+        /* Check if user's primary group is the 'pkcs11' group */
+        errno = 0;
+        pwd = getpwnam(tok_grp->gr_mem[i]);
+        err = (errno != 0 ? errno : ENOENT);
+        if (pwd == NULL) {
+            fprintf(stderr, "USer '%s' does not exist [errno=%s].\n",
+                    tok_grp->gr_mem[i], strerror(err));
+            rc = EINVAL;
+            /* Continue to display all missing users */
+            continue;
+        }
+
+        if (pwd->pw_gid != pkcs11_grp->gr_gid) {
+            /* Check the users secondary groups */
+            for (k = 0, found = 0; pkcs11_grp->gr_mem[k] != NULL; k++) {
+                if (strcmp(tok_grp->gr_mem[i], pkcs11_grp->gr_mem[k]) == 0) {
+                    found = 1;
+                    break;
+                }
+            }
+
+            if (!found) {
+                fprintf(stderr, "User '%s' is member of the token group '%s', "
+                        "but is not a member of the '%s' group.\n",
+                        tok_grp->gr_mem[i], tok_grp->gr_name, PKCS_GROUP);
+                rc = EINVAL;
+                /* Continue to display all missing users */
+                continue;
+            }
+        }
+    }
+
+done:
+    free(buff);
+    return rc;
+}
+
 int chk_create_tokdir(Slot_Info_t_64 *psinfo)
 {
     struct stat sbuf;
     char tokendir[PATH_MAX];
     struct group *grp;
     gid_t grpid;
-    int uid, rc;
+    int uid, rc, err;
     mode_t proc_umask;
     char *tokdir = psinfo->tokname;
+    char *tokgroup = psinfo->usergroup;
     char token_md5_hash[MD5_HASH_SIZE];
 
-    /* skip if no dedicated token directory is required */
+    proc_umask = umask(0);
+
+    if (strlen(tokgroup) == 0)
+        tokgroup = PKCS_GROUP;
+
+    /* get token group id */
+    uid = (int) geteuid();
+    errno = 0;
+    grp = getgrnam(tokgroup);
+    err = (errno != 0 ? errno : ENOENT);
+    if (!grp) {
+        fprintf(stderr, "Token group '%s' does not exist [errno=%s].\n",
+                tokgroup, strerror(err));
+        return err;
+    } else {
+        grpid = grp->gr_gid;
+    }
+
+    rc = check_token_group(grp);
+    if (rc)
+        return rc;
+
+    /*
+     * Skip if no dedicated token directory is required. If no 'tokname' is
+     * specified, the token directory name is not known, thus we can not check
+     * or create it.
+     */
     if (!tokdir || strlen(tokdir) == 0)
         return 0;
 
@@ -407,19 +521,6 @@ int chk_create_tokdir(Slot_Info_t_64 *psinfo)
     if (strlen(CONFIG_PATH) + strlen(tokdir) + strlen(OBJ_DIR) + 3 > PATH_MAX) {
         fprintf(stderr, "Path name for token object directory too long!\n");
         return -1;
-    }
-
-    proc_umask = umask(0);
-
-    /* get 'PKCS11' group id */
-    uid = (int) geteuid();
-    grp = getgrnam(PKCS_GROUP);
-    if (!grp) {
-        fprintf(stderr, "%s group does not exist [errno=%d].\n", PKCS_GROUP,
-                errno);
-        return errno;
-    } else {
-        grpid = grp->gr_gid;
     }
 
     /* calculate md5 hash from token name */
@@ -442,13 +543,24 @@ int chk_create_tokdir(Slot_Info_t_64 *psinfo)
     /* sprintf checked above */
     sprintf(tokendir, "%s/%s", CONFIG_PATH, tokdir);
     rc = stat(tokendir, &sbuf);
-    if (rc != 0 && errno == ENOENT) {
+    err = errno;
+    if (rc != 0 && err == ENOENT) {
+        if (strcmp(tokgroup, PKCS_GROUP) != 0) {
+            fprintf(stderr,
+                    "Can not create token directory '%s' with a token group "
+                    "other than '%s'. You must create the token directory "
+                    "using the pkcstok_admin tool with the proper owner "
+                    "group.\n", tokendir, PKCS_GROUP);
+            umask(proc_umask);
+            return EACCES;
+        }
+
         /* directory does not exist, create it */
         rc = mkdir(tokendir, S_IRWXU | S_IRWXG);
         if (rc != 0) {
             fprintf(stderr,
-                    "Creating directory '%s' failed [errno=%d].\n",
-                    tokendir, errno);
+                    "Creating directory '%s' failed [errno=%s].\n",
+                    tokendir, strerror(errno));
             umask(proc_umask);
             return rc;
         }
@@ -456,25 +568,48 @@ int chk_create_tokdir(Slot_Info_t_64 *psinfo)
         rc = chown(tokendir, uid, grpid);
         if (rc != 0) {
             fprintf(stderr,
-                    "Could not set %s group permission [errno=%d].\n",
-                    PKCS_GROUP, errno);
+                    "Could not set '%s' group permission [errno=%s].\n",
+                    PKCS_GROUP, strerror(errno));
             umask(proc_umask);
             return rc;
         }
 
+    } else if (rc != 0) {
+        fprintf(stderr,
+                "Could not stat directory '%s' [errno=%s].\n", tokendir,
+                strerror(err));
+        umask(proc_umask);
+        return err;
+    } else if (sbuf.st_gid != grpid) {
+        fprintf(stderr,
+                "Directory '%s' is not owned by token group '%s'.\n",
+                tokendir, tokgroup);
+        umask(proc_umask);
+        return EACCES;
+    }
+
+    /*
+     * Can not check or create TOK_OBJ directory inside the token directory
+     * if the token group is different than 'pkcs11', because the 'pkcsslotd'
+     * user does not have permissions to access such a token directory.
+     */
+    if (strcmp(tokgroup, PKCS_GROUP) != 0) {
+        umask(proc_umask);
+        return 0;
     }
 
     /* Create TOK_OBJ directory */
     /* sprintf checked above */
     sprintf(tokendir, "%s/%s/%s", CONFIG_PATH, tokdir, OBJ_DIR);
     rc = stat(tokendir, &sbuf);
-    if (rc != 0 && errno == ENOENT) {
+    err = errno;
+    if (rc != 0 && err == ENOENT) {
         /* directory does not exist, create it */
         rc = mkdir(tokendir, S_IRWXU | S_IRWXG);
         if (rc != 0) {
             fprintf(stderr,
-                    "Creating directory '%s' failed [errno=%d].\n",
-                    tokendir, errno);
+                    "Creating directory '%s' failed [errno=%s].\n",
+                    tokendir, strerror(errno));
             umask(proc_umask);
             return rc;
         }
@@ -482,11 +617,23 @@ int chk_create_tokdir(Slot_Info_t_64 *psinfo)
         rc = chown(tokendir, uid, grpid);
         if (rc != 0) {
             fprintf(stderr,
-                    "Could not set %s group permission [errno=%d].\n",
-                    PKCS_GROUP, errno);
+                    "Could not set '%s' group permission [errno=%s].\n",
+                    PKCS_GROUP, strerror(errno));
             umask(proc_umask);
             return rc;
         }
+    } else if (rc != 0) {
+        fprintf(stderr,
+                "Could not stat directory '%s' [errno=%s].\n", tokendir,
+                strerror(err));
+        umask(proc_umask);
+        return err;
+    } else if (sbuf.st_gid != grpid) {
+        fprintf(stderr,
+                "Directory '%s' is not owned by token group '%s'.\n",
+                tokendir, tokgroup);
+        umask(proc_umask);
+        return EACCES;
     }
     umask(proc_umask);
     return 0;
@@ -498,8 +645,8 @@ static int create_pid_file(pid_t pid)
 
     pidfile = fopen(PID_FILE_PATH, "w");
     if (!pidfile) {
-        fprintf(stderr, "Could not create pid file '%s' [errno=%d].\n",
-                PID_FILE_PATH, errno);
+        fprintf(stderr, "Could not create pid file '%s' [errno=%s].\n",
+                PID_FILE_PATH, strerror(errno));
         return -1;
     }
 
@@ -650,6 +797,16 @@ static int config_parse_slot(const char *config_file,
         if (strcmp(c->key, "tokversion") == 0 &&
             confignode_getversion(c, &sinfo[slot_no].version) == 0)
             continue;
+
+        if (strcmp(c->key, "usergroup") == 0 &&
+            (str = confignode_getstr(c)) != NULL) {
+            if (do_str((char *)&sinfo[slot_no].usergroup,
+                       sizeof(sinfo[slot_no].usergroup),
+                       config_file, c->key, str, 0))
+                return 1;
+
+            continue;
+        }
 
         ErrLog("Error parsing config file '%s': unexpected token '%s' "
                "at line %d: \n", config_file, c->key, c->line);

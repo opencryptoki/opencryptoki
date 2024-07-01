@@ -442,27 +442,49 @@ done:
 
 #ifndef OCK_NO_SET_PERM
 
-void set_perm(int file)
+CK_RV set_perm(int file, const char *group)
 {
+    struct stat sb;
     struct group *grp;
+    mode_t mode;
 
-    // Set absolute permissions or rw-rw----
-    fchmod(file, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP);
+    if (group == NULL || group[0] == '\0')
+        group = PKCS_GROUP;
 
-    grp = getgrnam(PKCS_GROUP); // Obtain the group id
-    if (grp) {
-        // set ownership to pkcs11 group
-        if (fchown(file, -1, grp->gr_gid) != 0) {
-            goto error;
-        }
-    } else {
-        goto error;
+    if (fstat(file, &sb) != 0) {
+        TRACE_DEVEL("fstat failed: %s\n", strerror(errno));
+        return CKR_FUNCTION_FAILED;
     }
 
-    return;
+    grp = getgrnam(group);
+    if (grp == NULL) {
+        TRACE_DEVEL("getgrnam(%s) failed: %s\n", group, strerror(errno));
+        return CKR_FUNCTION_FAILED;
+    }
 
-error:
-    TRACE_DEVEL("Unable to set permissions on file.\n");
+    /* Set absolute permissions or rw-rw----, if not already as expected */
+    if (S_ISDIR(sb.st_mode))
+        mode = S_IRUSR | S_IWUSR | S_IXUSR | S_IRGRP | S_IWGRP | S_IXGRP;
+    else
+        mode = S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP;
+
+    if ((sb.st_mode & ~S_IFMT) != mode) {
+        if (fchmod(file, mode) != 0) {
+            TRACE_DEVEL("fchmod(rw-rw----) failed: %s\n", strerror(errno));
+            return CKR_FUNCTION_FAILED;
+        }
+    }
+
+    /* set ownership to pkcs11 group, if not already as expected */
+    if (sb.st_gid != grp->gr_gid) {
+        if (fchown(file, -1, grp->gr_gid) != 0) {
+            TRACE_DEVEL("fchown(-1, %s) failed: %s\n", group,
+                         strerror(errno));
+            return CKR_FUNCTION_FAILED;
+        }
+    }
+
+    return CKR_OK;
 }
 
 #endif

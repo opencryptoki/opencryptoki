@@ -37,6 +37,8 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <sys/file.h>
+#include <grp.h>
+#include <pwd.h>
 
 static int xplfd = -1;
 pthread_rwlock_t xplfd_rwlock = PTHREAD_RWLOCK_INITIALIZER;
@@ -67,7 +69,11 @@ CK_RV CreateProcLock(void)
         xplfd = open(OCK_API_LOCK_FILE, OPEN_MODE);
 
         if (xplfd == -1) {
-            OCK_SYSLOG(LOG_ERR, "Could not open %s\n", OCK_API_LOCK_FILE);
+            OCK_SYSLOG(LOG_ERR, "C_Initialize: Could not open '%s': %s. "
+                       "Possible reasons are that pkcsslotd is not running, "
+                       "or that the current user '%s' is not in the '%s' "
+                       "group.\n", OCK_API_LOCK_FILE, strerror(errno),
+                       cuserid(NULL), PKCS_GROUP);
             return CKR_FUNCTION_FAILED;
         }
     }
@@ -635,6 +641,56 @@ void DL_Unload(API_Slot_t *sltp)
     sltp->pSTcloseall = NULL;
 }
 
+CK_RV check_user_and_group(const char *group)
+{
+    int i;
+    uid_t euid;
+    struct passwd *epw;
+    struct group *grp;
+
+    if (group == NULL || group[0] == '\0')
+        group = PKCS_GROUP;
+
+    /*
+     * Check for root user or Group PKCS#11 Membership.
+     * Only these are allowed.
+     */
+    euid = geteuid();
+
+    /* effective Root is ok */
+    if (euid == 0)
+        return CKR_OK;
+
+    /*
+     * Check for member of group. SAB get login seems to not work
+     * with some instances of application invocations (particularly
+     * when forked). So we need to get the group information.
+     * Really need to take the uid and map it to a name.
+     */
+    grp = getgrnam(group);
+    if (grp == NULL) {
+        OCK_SYSLOG(LOG_ERR, "C_Initialize: Group '%s' does not exists\n",
+                   group);
+        goto error;
+    }
+
+    if (getegid() == grp->gr_gid)
+        return CKR_OK;
+
+    /* Check if effective user is member of the group */
+    epw = getpwuid(euid);
+    for (i = 0; grp->gr_mem[i]; i++) {
+        if ((epw && (strncmp(epw->pw_name, grp->gr_mem[i],
+                             strlen(epw->pw_name)) == 0)))
+            return CKR_OK;
+    }
+
+error:
+    TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
+
+    return CKR_FUNCTION_FAILED;
+}
+
 int DL_Load_and_Init(API_Slot_t *sltp, CK_SLOT_ID slotID, policy_t policy,
                      statistics_t statistics)
 {
@@ -665,6 +721,12 @@ int DL_Load_and_Init(API_Slot_t *sltp, CK_SLOT_ID slotID, policy_t policy,
         return FALSE;
     }
 
+    if (check_user_and_group(sinfp->usergroup) != CKR_OK) {
+        TRACE_DEVEL("check_user_and_group failed for slot %lu, token will not "
+                    "be available.\n", slotID);
+        return FALSE;
+    }
+
     /*
      * Create separate memory area for each token specific data
      */
@@ -677,6 +739,9 @@ int DL_Load_and_Init(API_Slot_t *sltp, CK_SLOT_ID slotID, policy_t policy,
     sltp->TokData->real_pid = Anchor->ClientCred.real_pid;
     sltp->TokData->real_uid = Anchor->ClientCred.real_uid;
     sltp->TokData->real_gid = Anchor->ClientCred.real_gid;
+    strncpy(sltp->TokData->tokgroup, sinfp->usergroup,
+            sizeof(sltp->TokData->tokgroup) - 1);
+    sltp->TokData->tokgroup[sizeof(sltp->TokData->tokgroup) - 1] = '\0';
     sltp->TokData->tokspec_counter.get_tokspec_count = get_tokspec_count;
     sltp->TokData->tokspec_counter.incr_tokspec_count = incr_tokspec_count;
     sltp->TokData->tokspec_counter.decr_tokspec_count = decr_tokspec_count;

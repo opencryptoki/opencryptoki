@@ -27,7 +27,7 @@
 
 
 int sm_open(const char *sm_name, int mode, void **p_addr, size_t len,
-            int force);
+            int force, const char *group);
 
 int sm_close(void *addr, int destroy, int ignore_ref_count);
 
