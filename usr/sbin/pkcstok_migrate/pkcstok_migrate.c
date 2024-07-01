@@ -184,7 +184,8 @@ done:
  * This function migrates the public obj to the current format.
  */
 static CK_RV migrate_public_token_object(const char *data_store, const char *name,
-                                         unsigned char *data, unsigned long len)
+                                         unsigned char *data, unsigned long len,
+                                         const char *token_group)
 {
     const char *tokobj = "TOK_OBJ";
     char fname[PATH_MAX];
@@ -206,7 +207,7 @@ static CK_RV migrate_public_token_object(const char *data_store, const char *nam
         ret = CKR_FUNCTION_FAILED;
         goto done;
     }
-    ret = set_perm(fileno(fp), NULL);
+    ret = set_perm(fileno(fp), token_group);
     if (ret != CKR_OK)
         goto done;
 
@@ -439,7 +440,8 @@ done:
 static CK_RV migrate_private_token_object(const char *data_store, const char *name,
                                           unsigned char *data, unsigned long len,
                                           const CK_BYTE *masterkey_old,
-                                          const CK_BYTE *masterkey_new)
+                                          const CK_BYTE *masterkey_new,
+                                          const char *token_group)
 {
     const char *tokobj = "TOK_OBJ";
     char fname[PATH_MAX];
@@ -471,7 +473,7 @@ static CK_RV migrate_private_token_object(const char *data_store, const char *na
         ret = CKR_FUNCTION_FAILED;
         goto done;
     }
-    ret = set_perm(fileno(fp), NULL);
+    ret = set_perm(fileno(fp), token_group);
     if (ret != CKR_OK)
         goto done;
 
@@ -640,7 +642,8 @@ done:
 static CK_RV migrate_token_objects(const char *data_store, const CK_BYTE *masterkey_old,
                                    const CK_BYTE *masterkey_new,
                                    const CK_BYTE *so_wrap_key,
-                                   const CK_BYTE *user_wrap_key)
+                                   const CK_BYTE *user_wrap_key,
+                                   const char *token_group)
 {
     const char *tokobj = "TOK_OBJ";
     const char *objidx = "OBJ.IDX";
@@ -677,14 +680,16 @@ static CK_RV migrate_token_objects(const char *data_store, const CK_BYTE *master
         if (ret == 0 && version == TOKVERSION_00) {
             if (priv) {
                 ret = migrate_private_token_object(data_store, tmp,
-                                   obj, obj_len, masterkey_old, masterkey_new);
+                                   obj, obj_len, masterkey_old, masterkey_new,
+                                   token_group);
                 if (ret != CKR_OK) {
                     TRACE_ERROR("Cannot migrate private object %s, continuing ... \n", tmp);
                 } else
                     scount++;
             } else {
                 ret = migrate_public_token_object(data_store, tmp,
-                                                  obj, obj_len);
+                                                  obj, obj_len,
+                                                  token_group);
                 if (ret != CKR_OK) {
                     TRACE_ERROR("Cannot migrate public object %s, continuing ... \n", tmp);
                 } else
@@ -1202,17 +1207,20 @@ static struct ConfigBaseNode *config_parse(const char *config_file,
  * Identify the token that belongs to the given slot ID.
  */
 static CK_RV identify_token(CK_SLOT_ID slot_id, char *conf_dir,
-                            char *dll_name, size_t dll_name_len)
+                            char *dll_name, size_t dll_name_len,
+                            char *token_group, size_t token_group_len)
 {
     char conf_file[PATH_MAX];
     CK_RV ret;
     struct ConfigBaseNode *config = NULL, *c;
     struct ConfigIdxStructNode *slot;
-    size_t max_cpy_size;
-    char *stdll;
+    size_t max_dllname_size, max_tokengroup_size;
+    char *stdll, *usergroup = "";
 
-    max_cpy_size = dll_name_len > sizeof(((Slot_Info_t_64 *)NULL)->dll_location)
+    max_dllname_size = dll_name_len > sizeof(((Slot_Info_t_64 *)NULL)->dll_location)
         ? sizeof(((Slot_Info_t_64 *)NULL)->dll_location) : dll_name_len;
+    max_tokengroup_size = token_group_len > sizeof(((Slot_Info_t_64 *)NULL)->usergroup)
+        ? sizeof(((Slot_Info_t_64 *)NULL)->usergroup) : token_group_len;
 
     TRACE_INFO("Identifying the token that belongs to slot %ld ...\n", slot_id);
 
@@ -1230,14 +1238,14 @@ static CK_RV identify_token(CK_SLOT_ID slot_id, char *conf_dir,
 
     config = config_parse(conf_file, FALSE);
     if (config == NULL) {
-        TRACE_ERROR("failed to parse config file %s\n", conf_file);
+        TRACE_ERROR("Failed to parse config file %s\n", conf_file);
         ret = CKR_FUNCTION_FAILED;
         goto done;
     }
 
     slot = confignode_findidx(config, "slot", slot_id);
     if (slot == NULL) {
-        TRACE_ERROR("failed to find slot %lu in config file %s\n", slot_id,
+        TRACE_ERROR("Failed to find slot %lu in config file %s\n", slot_id,
                     conf_file);
         ret = CKR_FUNCTION_FAILED;
         goto done;
@@ -1245,14 +1253,25 @@ static CK_RV identify_token(CK_SLOT_ID slot_id, char *conf_dir,
 
     c = confignode_find(slot->value, "stdll");
     if (c == NULL || (stdll = confignode_getstr(c)) == NULL) {
-        TRACE_ERROR("failed to find stdll for slot %lu in config file %s\n",
+        TRACE_ERROR("Failed to find stdll for slot %lu in config file %s\n",
                     slot_id, conf_file);
         ret = CKR_FUNCTION_FAILED;
         goto done;
     }
 
-    strncpy(dll_name, stdll, max_cpy_size);
-    dll_name[max_cpy_size - 1] = 0;
+    c = confignode_find(slot->value, "usergroup");
+    if (c != NULL && (usergroup = confignode_getstr(c)) == NULL) {
+        TRACE_ERROR("Failed to find usergroup for slot %lu in config file %s\n",
+                    slot_id, conf_file);
+        ret = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+
+    strncpy(dll_name, stdll, max_dllname_size);
+    dll_name[max_dllname_size - 1] = 0;
+
+    strncpy(token_group, usergroup, max_tokengroup_size);
+    token_group[max_tokengroup_size - 1] = 0;
 
     ret = CKR_OK;
 
@@ -1365,7 +1384,7 @@ done:
  * everything is done.
  */
 static CK_RV migrate_repository(const char *data_store, const char *sopin,
-                         const char *userpin)
+                         const char *userpin, const char *token_group)
 {
     CK_BYTE so_masterkey_old[MAX_MASTER_KEY_SIZE];
     CK_BYTE so_masterkey_new[MAX_MASTER_KEY_SIZE];
@@ -1440,7 +1459,7 @@ static CK_RV migrate_repository(const char *data_store, const char *sopin,
 
     /* Now do the migration */
     ret = migrate_token_objects(data_store, so_masterkey_old, so_masterkey_new,
-                                so_wrap_key, user_wrap_key);
+                                so_wrap_key, user_wrap_key, token_group);
     if (ret != CKR_OK) {
         TRACE_ERROR("Migrating token objects failed with ret=%08lX.\n", ret);
         goto done;
@@ -1463,7 +1482,7 @@ done:
  */
 static CK_RV create_MK_USER_312(const char *data_store, const char *userpin,
                                 const CK_BYTE *masterkey,
-                                TOKEN_DATA *tokdata)
+                                TOKEN_DATA *tokdata, const char *token_group)
 {
     const char *mkuser = "MK_USER_312";
     char fname[PATH_MAX];
@@ -1492,7 +1511,7 @@ static CK_RV create_MK_USER_312(const char *data_store, const char *userpin,
         ret = CKR_FUNCTION_FAILED;
         goto done;
     }
-    ret = set_perm(fileno(fp), NULL);
+    ret = set_perm(fileno(fp), token_group);
     if (ret != CKR_OK)
         goto done;
 
@@ -1518,7 +1537,7 @@ done:
  */
 static CK_RV create_MK_SO_312(const char *data_store, const char *sopin,
                               const CK_BYTE *masterkey,
-                              TOKEN_DATA *tokdata)
+                              TOKEN_DATA *tokdata, const char *token_group)
 {
     const char *mkso = "MK_SO_312";
     char fname[PATH_MAX];
@@ -1550,7 +1569,7 @@ static CK_RV create_MK_SO_312(const char *data_store, const char *sopin,
         ret = CKR_FUNCTION_FAILED;
         goto done;
     }
-    ret = set_perm(fileno(fp), NULL);
+    ret = set_perm(fileno(fp), token_group);
     if (ret != CKR_OK)
         goto done;
 
@@ -1698,7 +1717,8 @@ done:
  * wrapping keys.
  */
 static CK_RV create_NVTOK_DAT_312(const char *data_store, const char *sopin,
-                                  const char *userpin, TOKEN_DATA *tokdata)
+                                  const char *userpin, TOKEN_DATA *tokdata,
+                                  const char *token_group)
 {
     const char *nvtok = "NVTOK.DAT_312";
     char fname[PATH_MAX];
@@ -1720,7 +1740,7 @@ static CK_RV create_NVTOK_DAT_312(const char *data_store, const char *sopin,
         ret = CKR_FUNCTION_FAILED;
         goto done;
     }
-    ret = set_perm(fileno(fp), NULL);
+    ret = set_perm(fileno(fp), token_group);
     if (ret != CKR_OK)
         goto done;
 
@@ -1797,7 +1817,7 @@ done:
  * Then the old keys are deleted and the new keys are renamed.
  */
 static CK_RV create_token_keys_312(const char *data_store, const char *sopin,
-                                   const char *userpin)
+                                   const char *userpin, const char *token_group)
 {
     unsigned char masterkey[32];
     TOKEN_DATA tokdata;
@@ -1812,19 +1832,21 @@ static CK_RV create_token_keys_312(const char *data_store, const char *sopin,
         goto done;
     }
 
-    ret = create_NVTOK_DAT_312(data_store, sopin, userpin, &tokdata);
+    ret = create_NVTOK_DAT_312(data_store, sopin, userpin, &tokdata,
+                               token_group);
     if (ret != CKR_OK) {
         TRACE_ERROR("Cannot create NVTOK.DAT_312, ret=%08lX\n", ret);
         goto done;
     }
 
-    ret = create_MK_SO_312(data_store, sopin, masterkey, &tokdata);
+    ret = create_MK_SO_312(data_store, sopin, masterkey, &tokdata, token_group);
     if (ret != CKR_OK) {
         TRACE_ERROR("Cannot create MK_SO_312, ret=%08lX\n", ret);
         goto done;
     }
 
-    ret = create_MK_USER_312(data_store, userpin, masterkey, &tokdata);
+    ret = create_MK_USER_312(data_store, userpin, masterkey, &tokdata,
+                             token_group);
     if (ret != CKR_OK) {
         TRACE_ERROR("Cannot create MK_USER_312, ret=%08lX\n", ret);
         goto done;
@@ -2201,7 +2223,8 @@ static CK_RV remove_shared_memory(char *location)
 /**
  * Copy a file given by name from a src folder to a dst folder.
  */
-static CK_RV file_copy(char *dst, const char *src, const char *name)
+static CK_RV file_copy(char *dst, const char *src, const char *name,
+                       const char *token_group)
 {
     char dst_file[PATH_MAX], src_file[PATH_MAX], buf[4096];
     FILE *fp_r = NULL, *fp_w = NULL;
@@ -2224,7 +2247,7 @@ static CK_RV file_copy(char *dst, const char *src, const char *name)
         ret = CKR_FUNCTION_FAILED;
         goto done;
     }
-    ret = set_perm(fileno(fp_w), NULL);
+    ret = set_perm(fileno(fp_w), token_group);
     if (ret != CKR_OK)
         goto done;
 
@@ -2256,13 +2279,16 @@ done:
 /**
  * Change the group owner of the given directory to 'pkcs11'.
  */
-static CK_RV change_owner(char *dir)
+static CK_RV change_owner(char *dir, const char *token_group)
 {
     struct group* grp;
     CK_RV ret;
 
+    if (token_group == NULL || token_group[0] == '\0')
+        token_group = PKCS_GROUP;
+
     /* Set group owner */
-    grp = getgrnam(PKCS_GROUP);
+    grp = getgrnam(token_group);
     if (grp) {
         if (chown(dir, -1, grp->gr_gid)) {
             ret = CKR_FUNCTION_FAILED;
@@ -2290,7 +2316,7 @@ done:
  * Copy the given src folder to the given dst folder including all
  * subdirectories and files.
  */
-static CK_RV folder_copy(char *dst, const char *src)
+static CK_RV folder_copy(char *dst, const char *src, const char *token_group)
 {
     char d[PATH_MAX], s[PATH_MAX];
     struct dirent *entry;
@@ -2312,7 +2338,7 @@ static CK_RV folder_copy(char *dst, const char *src)
     }
 
     /* Change group owner and set permissions */
-    ret = change_owner(dst);
+    ret = change_owner(dst, token_group);
     if (ret != CKR_OK) {
         TRACE_ERROR("Cannot change owner and permissions for %s\n", dst);
         ret = CKR_FUNCTION_FAILED;
@@ -2345,12 +2371,12 @@ static CK_RV folder_copy(char *dst, const char *src)
             if (strncmp(entry->d_name, ".", 1) != 0) {
                 snprintf(d, PATH_MAX, "%s/%s", dst, entry->d_name);
                 snprintf(s, PATH_MAX, "%s/%s", src, entry->d_name);
-                ret = folder_copy(d, s);
+                ret = folder_copy(d, s, token_group);
                 if (ret != CKR_OK)
                     goto done;
             }
         } else {
-            ret = file_copy(dst, src, entry->d_name);
+            ret = file_copy(dst, src, entry->d_name, token_group);
             if (ret != CKR_OK)
                 goto done;
         }
@@ -2453,7 +2479,7 @@ static CK_BBOOL backups_already_existent(const char *data_store,
  * a clean backup.
  * The calling routine ensures that data_store does not end with a '/' !
  */
-static CK_RV backup_repository(const char *data_store)
+static CK_RV backup_repository(const char *data_store, const char *token_group)
 {
     char dst[PATH_MAX];
     CK_RV ret = CKR_OK;
@@ -2468,7 +2494,7 @@ static CK_RV backup_repository(const char *data_store)
         return CKR_FUNCTION_FAILED;
     }
 
-    return folder_copy(dst, data_store);
+    return folder_copy(dst, data_store, token_group);
 }
 
 /**
@@ -2607,6 +2633,7 @@ int main(int argc, char **argv)
     char *verbose = NULL;
     char *buff = NULL;
     char dll_name[PATH_MAX];
+    char token_group[PATH_MAX] = { 0 };
     char data_store_new[PATH_MAX];
     CK_TOKEN_INFO_32 tokinfo;
     CK_BBOOL new;
@@ -2765,7 +2792,8 @@ int main(int argc, char **argv)
     }
 
     /* Identify token related to given slot ID */
-    ret = identify_token(slot_id, conf_dir, dll_name, sizeof(dll_name));
+    ret = identify_token(slot_id, conf_dir, dll_name, sizeof(dll_name),
+                         token_group, sizeof(token_group));
     if (ret != CKR_OK) {
         warnx("Cannot identify a token related to given slot ID %ld", slot_id);
         goto done;
@@ -2794,6 +2822,8 @@ int main(int argc, char **argv)
     printf("  serialNumber    : %.*s\n", 16, tokinfo.serialNumber);
     printf("  hardwareVersion : %i.%i\n", tokinfo.hardwareVersion.major, tokinfo.hardwareVersion.minor);
     printf("  firmwareVersion : %i.%i\n", tokinfo.firmwareVersion.major, tokinfo.firmwareVersion.minor);
+    printf("  user group:     : %s\n", token_group[0] == '\0' ?
+                                PKCS_GROUP " (default)" : token_group);
     printf("Migrate this token with given slot ID? y/n\n");
     num_chars = getline(&buff, &buflen, stdin);
     if (num_chars < 0 || strncmp(buff, "y", 1) != 0) {
@@ -2834,7 +2864,7 @@ int main(int argc, char **argv)
     }
 
     /* Backup repository if not already done */
-    ret = backup_repository(data_store);
+    ret = backup_repository(data_store, token_group);
     if (ret != CKR_OK) {
         warnx("Failed to create backup.");
         goto done;
@@ -2846,14 +2876,14 @@ int main(int argc, char **argv)
 
     /* Create new temp token keys, which exist in parallel to the old ones
      * until the migration is fully completed. */
-    ret = create_token_keys_312(data_store_new, sopin, userpin);
+    ret = create_token_keys_312(data_store_new, sopin, userpin, token_group);
     if (ret != CKR_OK) {
         warnx("Failed to create new token keys.");
         goto done;
     }
 
     /* Migrate repository */
-    ret = migrate_repository(data_store_new, sopin, userpin);
+    ret = migrate_repository(data_store_new, sopin, userpin, token_group);
     if (ret != CKR_OK) {
         warnx("Failed to migrate repository.");
         goto done;
