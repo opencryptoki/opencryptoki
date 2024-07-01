@@ -823,17 +823,14 @@ static int teardown(int rc)
     return rc;
 }
 
-static int setup_sock_server(void)
+static int setup_sock_data(void)
 {
-    if (!init_socket_server(event_support_disabled)) {
+    if (!init_socket_data(&socketData)) {
         DestroyMutexes();
         DetachFromSharedMemory();
         DestroySharedMemory();
-        return 5;
+        return 6;
     }
-
-    if (!init_socket_data(&socketData))
-        return teardown(6);
 
     if (event_support_disabled)
         socketData.flags |= FLAG_EVENT_SUPPORT_DISABLED;
@@ -841,8 +838,24 @@ static int setup_sock_server(void)
     /* Create customized token directories */
     psinfo = &socketData.slot_info[0];
     for (int i = 0; i < NUMBER_SLOTS_MANAGED; i++, psinfo++) {
-        if (chk_create_tokdir(psinfo))
+        if (chk_create_tokdir(psinfo)) {
+            DestroyMutexes();
+            DetachFromSharedMemory();
+            DestroySharedMemory();
             return EACCES;
+        }
+    }
+    /* setup completed successfully */
+    return 0;
+}
+
+static int setup_sock_server(void)
+{
+    if (!init_socket_server(event_support_disabled)) {
+        DestroyMutexes();
+        DetachFromSharedMemory();
+        DestroySharedMemory();
+        return 5;
     }
     /* setup completed successfully */
     return 0;
@@ -932,6 +945,9 @@ int main(int argc, char *argv[], char *envp[])
     /* Release the global shared memory mutex */
     if (!XProcUnLock())
         return 4;
+
+    if ((ret = setup_sock_data()) != 0)
+        return ret;
 
 #if !defined(_AIX)
     if ((ret = setup_sock_server()) != 0)
