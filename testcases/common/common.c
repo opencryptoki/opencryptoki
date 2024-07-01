@@ -163,6 +163,11 @@ int is_rejected_by_policy(CK_RV ret_code, CK_SESSION_HANDLE session)
         return 0;
     }
 
+    if (info.ulDeviceError != 0 && info.ulDeviceError != CKR_POLICY_VIOLATION) {
+        testcase_notice("CK_SESSION_INFO.ulDeviceError: 0x%lx",
+                        info.ulDeviceError);
+    }
+
     return (info.ulDeviceError == CKR_POLICY_VIOLATION);
 }
 
