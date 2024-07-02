@@ -34,4 +34,16 @@ if ENABLE_P11SAK
 man1_MANS += man/man1/p11sak.1
 endif
 
+if ENABLE_PKCSTOK_ADMIN
+man1_MANS += man/man1/pkcstok_admin.1
+
+man/man1/pkcstok_admin.1: man/man1/pkcstok_admin.1.in
+	$(AM_V_GEN)@SED@ -e s!\@sysconfdir\@!"$(sysconfdir)"!g		\
+			 -e s!\@pkcs_group\@!"$(pkcs_group)"!g		\
+			 -e s!\@localstatedir\@!"$(localstatedir)"!g 	\
+			 < $< > $@-t &&					\
+	$(am__mv) $@-t $@
+endif
+
+EXTRA_DIST += man/man1/pkcstok_admin.1.in
 CLEANFILES += man/man1/*.1
