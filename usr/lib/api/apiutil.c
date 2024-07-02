@@ -48,6 +48,10 @@ pthread_rwlock_t xplfd_rwlock = PTHREAD_RWLOCK_INITIALIZER;
 #define LIBLOCATION  LIB_PATH
 
 #if defined(_AIX)
+    /* GNU extension, provides a replacement */
+    void populate_progname(void);
+    extern char *program_invocation_short_name;
+
     #define SO_LDFLAGS (RTLD_LOCAL | RTLD_LAZY | RTLD_MEMBER)
 #else
     #define SO_LDFLAGS (RTLD_LOCAL | RTLD_LAZY)
@@ -58,6 +62,7 @@ extern API_Proc_Struct_t *Anchor;
 #include <stdarg.h>
 #include "trace.h"
 #include "ock_syslog.h"
+#include "platform.h"
 
 CK_RV CreateProcLock(void)
 {
@@ -410,6 +415,11 @@ int API_Register(void)
 
     uint16 indx;
 
+#if defined(_AIX)
+    /* populate program_invocation_short_name for later use */
+    populate_progname();
+#endif
+
     // Grab the Shared Memory lock to prevent other updates to the
     // SHM Process
     // The registration is done to allow for future handling of
@@ -724,6 +734,15 @@ int DL_Load_and_Init(API_Slot_t *sltp, CK_SLOT_ID slotID, policy_t policy,
     if (check_user_and_group(sinfp->usergroup) != CKR_OK) {
         TRACE_DEVEL("check_user_and_group failed for slot %lu, token will not "
                     "be available.\n", slotID);
+
+        /* Issue warning message if running in pkcshsm_mk_change tool */
+        if (strcmp(program_invocation_short_name, "pkcshsm_mk_change") == 0 &&
+            sinfp->usergroup[0] != '\0') {
+            warnx("The current user '%s' is not a member of group '%s' used by "
+                  "slot %lu.", cuserid(NULL), sinfp->usergroup, slotID);
+            warnx("The token in slot %lu will not be available!", slotID);
+        }
+
         return FALSE;
     }
 
