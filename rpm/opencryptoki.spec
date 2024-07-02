@@ -256,11 +256,13 @@ exit 0
 %{_sbindir}/pkcstok_migrate
 %{_sbindir}/pkcsstats
 %{_sbindir}/pkcshsm_mk_change
+%{_sbindir}/pkcstok_admin
 %{_mandir}/man1/pkcsconf.1*
 %{_mandir}/man1/p11sak.1*
 %{_mandir}/man1/pkcstok_migrate.1*
 %{_mandir}/man1/pkcsstats.1*
 %{_mandir}/man1/pkcshsm_mk_change.1*
+%{_mandir}/man1/pkcstok_admin.1*
 %{_mandir}/man5/%{name}.conf.5*
 %{_mandir}/man5/p11sak_defined_attrs.conf.5*
 %{_mandir}/man5/policy.conf.5*

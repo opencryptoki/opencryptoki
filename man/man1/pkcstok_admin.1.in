@@ -1,0 +1,192 @@
+.TH pkcstok_admin 1 "July 2024" "@PACKAGE_VERSION@" "openCryptoki"
+.SH NAME
+pkcstok_admin \- utility to administrate token directories of the Opencryptoki
+token repository.
+.
+.
+.
+.SH SYNOPSIS
+.
+.B pkcstok_admin
+.I command
+.RB [ OPTIONS ]
+.PP
+.
+.B pkcstok_admin
+.BR \-\-help | \-h
+.br
+.B pkcstok_admin
+.BR \-\-version | \-v
+.
+.
+.
+.SH DESCRIPTION
+.
+The \fBpkcstok_admin\fP utility can be used to administrate token directories of
+the Opencryptoki token repository with proper permissions and owners.
+By default token directories are owned by the \fB@pkcs_group@\fP group, and
+every user that is a member of the \fB@pkcs_group@\fP group has access to the
+token and its token objects (i.e. keys, certificates, etc.).
+.PP
+A token directory can alternatively be owned by a token specific group.
+Specify the group name with keyword \fBusergroup\fP in the slot definition in
+the \fBopencryptoki.conf\fP configuration file located in
+\fB@sysconfdir@/opencryptoki/\fP.
+With that, only users that are members of the configured token specific group
+have access to the token and its token objects. Users that are only members of
+the \fB@pkcs_group@\fP group, but are not also members of the token specific
+group do not have access to the token. Users of the token specific group must
+still also be members of the \fB@pkcs_group@\fP group to be able to use
+Opencryptoki.
+.PP
+Token specific files are usually stored in
+\fB@localstatedir@/lib/opencryptoki/<token-name>/\fP. Additionally token
+specific lock files are stored in
+\fB@localstatedir@/lock/opencryptoki/<token-name>/\fP.
+Furthermore, a token specific POSIX shared memory segment exists under
+\fB/dev/shm/\fP. All files and directories within these token specific
+directories as well as the shared memory segment are owned by the token
+specific group, or by the \fB@pkcs_group@\fP group if no token specific group
+has been configured.
+.PP
+The \fBpkcstok_admin\fP utility must be run as \fBroot\fP, and the
+\fBpkcsslotd\fP must be stopped before running this utility.
+.PP
+.PP
+.B Note:
+Do not use the \fBpkcstok_admin\fP utility on a \fBTPM token\fP. The
+\fBTPM token\fP uses a different directory structure, and stores token objects
+on a per user basis. The \fBpkcstok_admin\fP utility is not capable of setting
+the owners correctly on such a directory structure. Furthermore, the
+\fBTPM token\fP is deprecated, because it supports only TPM version 1.2.
+It does not work with TPM version 2.0.
+.
+.
+.
+.SH COMMANDS
+.
+The \fBpkcstok_admin\fP tool supports various commands to administrate token
+directories.
+.PP
+.SS "Creating a new token and its directories"
+.B pkcstok_admin
+.B create
+.BR \-\-token | \-t
+.I TOKNAME
+.RB [ \-\-group | \-g
+.IR GROUP ]
+.RB [ \-\-force ]
+.RB [ \-\-verbose ]
+.PP
+Use the \fBcreate\fP command to create a new token and its directories.
+.PP
+Use the
+.BR \-\-token | \-t
+.I TOKNAME
+option to specify the name of the token to create. The token name must also be
+specified in the slot definition in the \fBopencryptoki.conf\fP configuration
+file located in \fB@sysconfdir@/opencryptoki/\fP with keyword \fBtokname\fP.
+.PP
+Use the
+.RB [ \-\-group | \-g
+.IR GROUP ]
+option to specify the token specific user group used as group owner of the
+token directories. If no group is specified, the token directories will be owned
+by the \fB@pkcs_group@\fP group. If a group is specified, then it must also be
+specified in the slot definition in the \fBopencryptoki.conf\fP configuration
+file located in \fB@sysconfdir@/opencryptoki/\fP with keyword \fBusergroup\fP.
+.PP
+The \fBpkcstok_admin\fP tool prompts for a confirmation before the token
+directories are created. To omit the prompt, specify the
+.B \-\-force
+option. Use this option with care!
+.PP
+Specify the
+.B \-\-verbose
+option to see more detailed messages about the actions the tool is performing.
+.
+.
+.
+.SH OPTIONS
+.
+.TP 8
+.BR \-\-token | \-t\~\fITOKNAME\fP
+Specifies the name of the token to operate on. The token name must also be
+specified in the slot definition in the \fBopencryptoki.conf\fP configuration
+file located in \fB@sysconfdir@/opencryptoki/\fP with keyword \fBtokname\fP.
+If the slot definition does not specify a \fBtokname\fP keyword, then a
+default token name is used, dependent on the token model. The \fBICA token\fP
+uses \fBlite\fP as default token name, the \fBCCA token\fP uses \fBccatok\fP,
+the \fBSoft token\fP uses \fBswtok\fP, the \fBEP11 token\fP uses \fBep11tok\fP,
+the \fBICSF token\fP uses \fBicsf\fP, and the \fBTPM token\fP (deprecated) uses
+\fBtpm\fP.
+.RE
+.PP
+.
+.TP 8
+.BR \-\-group | \-g\~\fIGROUP\fP
+Specifies the token specific user group used as group owner of the token
+directories. If this option is omitted, the token directories will be owned
+by the \fB@pkcs_group@\fP group. If a group is specified, then it must also be
+specified in the slot definition in the \fBopencryptoki.conf\fP configuration
+file located in \fB@sysconfdir@/opencryptoki/\fP with keyword \fBusergroup\fP.
+.RE
+.PP
+.
+.TP 8
+.BR \-\-force | \-f
+The \fBpkcstok_admin\fP tool prompts for a confirmation before the token
+directories are created. To omit the prompt, specify this option. Use this with
+care!
+.RE
+.PP
+.
+.TP 8
+.BR \-\-verbose | \-V
+Turn on verbose mode to see more detailed messages about the actions the tool
+is performing.
+.RE
+.PP
+.
+.TP 8
+.BR \-\-help | \-h
+Prints help for the usage of the
+.B pkcstok_admin
+tool and then exits.
+.RE
+.PP
+.
+.TP 8
+.BR \-\-version | \-v
+Prints the version of the
+.B pkcstok_admin
+tool and then exits.
+.RE
+.PP
+.
+.
+.
+.SH "FILES"
+.
+.SS "@localstatedir@/lib/opencryptoki/<token-name>/"
+Contains the token specific data, like the token's master key encrypted with
+the SO and USER PINs (\fBMK_SO\fP and \fBMK_USER\fP), as well as the non
+volatile token state data (\fBNVTOK.DAT\fP). Subdirectory \fBTOK_OBJ\fP
+contains the token objects and an index file (\fBOBJ.IDX\fP).
+.
+.SS "@localstatedir@/lock/opencryptoki/<token-name>/"
+Contains a token specific lock file (\fBLCK..<tokname>\fP) that is used to
+synchronize access to the token data across multiple processes.
+
+.SS "Token specific POSIX shared memory segment under /dev/shm/"
+Contains token specific shared state data for tracking updates to token objects
+done by processes. Its name is derived from the token specific directory
+under \fB@localstatedir@/lib/opencryptoki/\fP.
+.
+.
+.
+.SH SEE ALSO
+.
+.PD 0
+\fBopencryptoki.conf\fP(5).
+.PD

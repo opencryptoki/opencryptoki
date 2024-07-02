@@ -198,6 +198,12 @@ AC_ARG_ENABLE([pkcshsm_mk_change],
 	[],
 	[enable_pkcshsm_mk_change=yes])
 
+dnl --- pkcstok_admin
+AC_ARG_ENABLE([pkcstok_admin],
+	AS_HELP_STRING([--enable-pkcstok_admin],[build pkcstok_admin tool @<:@default=enabled@:>@]),
+	[],
+	[enable_pkcstok_admin=yes])
+
 dnl ---
 dnl --- Check for external software
 dnl --- Define what to check based on enabled features
@@ -707,6 +713,9 @@ AM_CONDITIONAL([ENABLE_PKCSCCA], [test "x$enable_pkcscca" = "xyes"])
 dnl --- enable_pkcshsm_mk_change
 AM_CONDITIONAL([ENABLE_PKCSHSM_MK_CHANGE], [test "x$enable_pkcshsm_mk_change" = "xyes"])
 
+dnl --- enable_pkcstok_admin
+AM_CONDITIONAL([ENABLE_PKCSTOK_ADMIN], [test "x$enable_pkcstok_admin" = "xyes"])
+
 dnl --- enable_locks
 if test "x$enable_locks" = "xno"; then
 	AC_MSG_WARN([The --disable-locks option is no longer supported, it is ignored.])
@@ -800,6 +809,7 @@ echo "	Systemd service:	$enable_systemd"
 echo "	Build with libudev:	$with_libudev"
 echo "	Build p11sak tool:	$enable_p11sak"
 echo "	token migrate tool:	$enable_pkcstok_migrate"
+echo "	token admin tool:	$enable_pkcstok_admin"
 echo "	statistics tool:	$enable_pkcsstats"
 echo "	HSM MK change tool:	$enable_pkcshsm_mk_change"
 echo
