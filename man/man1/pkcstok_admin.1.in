@@ -107,6 +107,57 @@ option to see more detailed messages about the actions the tool is performing.
 .
 .
 .
+.PP
+.SS "Changing the owner of an existing token and its directories"
+.B pkcstok_admin
+.B chown
+.BR \-\-token | \-t
+.I TOKNAME
+.RB [ \-\-group | \-g
+.IR GROUP ]
+.RB [ \-\-force ]
+.RB [ \-\-verbose ]
+.PP
+Use the \fBchown\fP command to change the owner of an existing token and its
+directories.
+.PP
+Use the
+.BR \-\-token | \-t
+.I TOKNAME
+option to specify the name of the token to change the owner for. The token name
+is usually specified in the slot definition in the \fBopencryptoki.conf\fP
+configuration file located in \fB@sysconfdir@/opencryptoki/\fP with keyword
+\fBtokname\fP.
+If the slot definition does not specify a \fBtokname\fP keyword, then a
+default token name is used, dependent on the token model. The \fBICA token\fP
+uses \fBlite\fP as default token name, the \fBCCA token\fP uses \fBccatok\fP,
+the \fBSoft token\fP uses \fBswtok\fP, the \fBEP11 token\fP uses \fBep11tok\fP,
+the \fBICSF token\fP uses \fBicsf\fP, and the \fBTPM token\fP (deprecated) uses
+\fBtpm\fP.
+.PP
+Use the
+.RB [ \-\-group | \-g
+.IR GROUP ]
+option to specify the token specific user group to set as group owner of the
+token directories. If no group is specified, the token directories will be
+changed to be owned by the \fB@pkcs_group@\fP group. If a group is specified,
+then it must also be specified in the slot definition in the
+\fBopencryptoki.conf\fP configuration file located in
+\fB@sysconfdir@/opencryptoki/\fP with keyword \fBusergroup\fP. If no group is
+specified, then remove the \fBusergroup\fP keyword from the slot definition, or
+change its value to \fB@pkcs_group@\fP.
+.PP
+The \fBpkcstok_admin\fP tool prompts for a confirmation before the owner of the
+token directories is changed. To omit the prompt, specify the
+.B \-\-force
+option. Use this option with care!
+.PP
+Specify the
+.B \-\-verbose
+option to see more detailed messages about the actions the tool is performing.
+.
+.
+.
 .SH OPTIONS
 .
 .TP 8

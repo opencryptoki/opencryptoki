@@ -59,6 +59,7 @@ static void print_usage(const char *progname)
 
     printf("\n COMMANDS:\n");
     printf("  create                Create a new token and its directories.\n");
+    printf("  chown                 Change the owner of the token.\n");
 
     printf("\n OPTIONS:\n");
     printf("  -t, --token TOKNAME   The name of the token to operate on.\n"
@@ -569,6 +570,80 @@ static int perform_create(const char *token, const char *group,
     return EXIT_SUCCESS;
 }
 
+static int perform_chown(const char *token, const char *group,
+                         const struct group *grp)
+{
+    char tok_dir[PATH_MAX];
+    char tok_obj_dir[PATH_MAX];
+    char tok_lock_dir[PATH_MAX];
+    char tok_shm[PATH_MAX];
+    char *msg = NULL;
+    char ch;
+
+    /* get the token directories and files */
+    if (get_token_dir(token, tok_dir, sizeof(tok_dir)) != 0 ||
+        get_token_object_dir(token, tok_obj_dir, sizeof(tok_obj_dir)) != 0 ||
+        get_token_lock_dir(token, tok_lock_dir, sizeof(tok_lock_dir)) != 0 ||
+        get_token_shm_name(token, tok_shm, sizeof(tok_shm)) != 0) {
+        warnx("Failed to build name of token directory. Possibly name is too long.");
+        return EXIT_FAILURE;
+    }
+
+    /* Check if the token or any artifacts of it exist already */
+    if (!check_file_exists(tok_dir, true)) {
+        warnx("The token directory for token '%s' does not exist.", token);
+        return EXIT_FAILURE;
+    }
+    if (!check_file_exists(tok_lock_dir, true)) {
+        warnx("The lock directory for token '%s' does not exist.", token);
+        return EXIT_FAILURE;
+    }
+
+    if (!force) {
+        if (asprintf(&msg, "Change the owner of token '%s' to group '%s' "
+                     "[y/n]? ", token, grp->gr_name) < 0 ||
+            msg == NULL) {
+            warnx("Failed to allocate memory for a message");
+            return EXIT_FAILURE;
+        }
+        ch = prompt_user(msg, "yn");
+        free(msg);
+        if (ch != 'y')
+            return EXIT_FAILURE;
+    }
+
+    if (set_file_permissions(tok_dir, grp, true) != 0 ||
+        set_file_permissions(tok_lock_dir, grp, true) != 0) {
+        return EXIT_FAILURE;
+    }
+
+#if defined(_AIX)
+    /*
+     * AIX does not expose POSIX shared memory segments under /dev/shm/, so
+     * its owners can not be changed per file system. Remove (unlink) the
+     * shared memory segment instead, the next application using the token will
+     * re-create it with the desired owners and permissions.
+     */
+    if (shm_unlink(tok_shm) != 0 && errno != ENOENT) {
+        warnx("Failed to unlink the shared memory segment '%s': %s",
+              tok_shm, strerror(errno));
+        return EXIT_FAILURE;
+    }
+#else
+    if (check_file_exists(tok_shm, false) &&
+        set_file_permissions(tok_shm, grp, false) != 0) {
+        return EXIT_FAILURE;
+    }
+#endif
+
+    printf("Successfully changed the owner of the directories of token '%s'.\n\n",
+           token);
+
+    print_config_example(token, group);
+
+    return EXIT_SUCCESS;
+}
+
 int main(int argc, char **argv)
 {
     int rc, opt = 0;
@@ -671,6 +746,8 @@ int main(int argc, char **argv)
 
     if (strcasecmp(command, "create") == 0) {
         rc = perform_create(token, group, tok_grp);
+    } else if (strcasecmp(command, "chown") == 0) {
+        rc = perform_chown(token, group, tok_grp);
     } else {
         warnx("Invalid command '%s'", command);
         rc = EXIT_FAILURE;
