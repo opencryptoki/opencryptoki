@@ -45,6 +45,8 @@
 #define SHM_PREFIX  "/dev/shm/"
 #endif
 
+#define UNUSED(var)            ((void)(var))
+
 #define pr_verbose(...)                 do {                            \
                                             if (verbose)                \
                                                 warnx(__VA_ARGS__);     \
@@ -60,6 +62,9 @@ static void print_usage(const char *progname)
     printf("\n COMMANDS:\n");
     printf("  create                Create a new token and its directories.\n");
     printf("  chown                 Change the owner of the token.\n");
+    printf("  remove                Remove a token and its directories.\n"
+           "                        This also removes all token objects.\n"
+           "                        Use with care!\n");
 
     printf("\n OPTIONS:\n");
     printf("  -t, --token TOKNAME   The name of the token to operate on.\n"
@@ -396,6 +401,66 @@ static int set_file_permissions(const char *fname, const struct group *group,
     return 0;
 }
 
+static int remove_recursive(const char *fname, bool only_content)
+{
+    struct stat sb;
+    DIR *dir;
+    struct dirent *entry;
+    int rc, err;
+    char ent[PATH_MAX];
+
+    pr_verbose("Removing %s'%s'", only_content ? "the content of " : "", fname);
+
+    if (stat(fname, &sb) != 0) {
+        err = errno;
+        if (err == ENOENT) {
+            /* Removing a non-existing file is a no-op */
+            pr_verbose("'%s' does not exists.", fname);
+            return 0;
+        }
+
+        warnx("Failed to stat '%s': %s.", fname, strerror(err));
+        return -1;
+    }
+
+    if (S_ISDIR(sb.st_mode)) {
+        dir = opendir(fname);
+        if (dir == NULL) {
+            err = errno;
+            warnx("Failed to open directory '%s': %s", fname, strerror(err));
+            return -1;
+        }
+
+        /* remove directory recursively, skip the "." and ".." entries */
+        rc = 0;
+        while ((entry = readdir(dir)) != NULL) {
+            if (strncmp(entry->d_name, ".", 1) == 0)
+                continue;
+
+            snprintf(ent, PATH_MAX, "%s/%s", fname, entry->d_name);
+            rc = remove_recursive(ent, false);
+            if (rc != 0)
+                break;
+        }
+
+        closedir(dir);
+
+        if (rc != 0)
+            return rc;
+    }
+
+    if (!only_content) {
+        rc = remove(fname);
+        if (rc != 0) {
+            err = errno;
+            warnx("Failed to remove '%s': %s", fname, strerror(err));
+            return -1;
+        }
+    }
+
+    return 0;
+}
+
 static int create_directory(const char *dirname, const struct group *group)
 {
     pr_verbose("Creating directory '%s'", dirname);
@@ -644,6 +709,77 @@ static int perform_chown(const char *token, const char *group,
     return EXIT_SUCCESS;
 }
 
+static int perform_remove(const char *token, const char *group,
+                          const struct group *grp)
+{
+    char tok_dir[PATH_MAX];
+    char tok_lock_dir[PATH_MAX];
+    char tok_shm[PATH_MAX];
+    char *msg = NULL;
+    char ch;
+
+    UNUSED(group);
+    UNUSED(grp);
+
+    /* get the token directories and files */
+    if (get_token_dir(token, tok_dir, sizeof(tok_dir)) != 0 ||
+        get_token_lock_dir(token, tok_lock_dir, sizeof(tok_lock_dir)) != 0 ||
+        get_token_shm_name(token, tok_shm, sizeof(tok_shm)) != 0) {
+        warnx("Failed to build name of token directory. Possibly name is too long.");
+        return EXIT_FAILURE;
+    }
+
+    /* Check if the token or any artifacts of it exist already */
+    if (!check_file_exists(tok_dir, true)) {
+        warnx("The token directory for token '%s' does not exist.", token);
+        return EXIT_FAILURE;
+    }
+    if (!check_file_exists(tok_lock_dir, true)) {
+        warnx("The lock directory for token '%s' does not exist.", token);
+        return EXIT_FAILURE;
+    }
+
+    if (!force) {
+        if (asprintf(&msg, "Remove the token directories of token '%s' and all "
+                    "its objects [y/n]? ", token) < 0 ||
+            msg == NULL) {
+            warnx("Failed to allocate memory for a message");
+            return EXIT_FAILURE;
+        }
+        ch = prompt_user(msg, "yn");
+        free(msg);
+        if (ch != 'y')
+            return EXIT_FAILURE;
+    }
+
+    if (remove_recursive(tok_dir, false) != 0 ||
+        remove_recursive(tok_lock_dir, false) != 0)
+        return EXIT_FAILURE;
+
+#if defined(_AIX)
+    /*
+     * AIX does not expose POSIX shared memory segments under /dev/shm/, so
+     * it can not be removed per file system. Remove it using the shm_unlink()
+     * call instead.
+     */
+    if (shm_unlink(tok_shm) != 0 && errno != ENOENT) {
+        warnx("Failed to unlink the shared memory segment '%s': %s",
+              tok_shm, strerror(errno));
+        return EXIT_FAILURE;
+    }
+#else
+    if (remove_recursive(tok_shm, false) != 0)
+        return EXIT_FAILURE;
+#endif
+
+    printf("Successfully removed the directories of token '%s'.\n",
+           token);
+    printf("Make sure to also remove the corresponding slot definition in "
+           "'%s'\n", OCK_CONFIG);
+
+    return EXIT_SUCCESS;
+}
+
 int main(int argc, char **argv)
 {
     int rc, opt = 0;
@@ -748,6 +884,8 @@ int main(int argc, char **argv)
         rc = perform_create(token, group, tok_grp);
     } else if (strcasecmp(command, "chown") == 0) {
         rc = perform_chown(token, group, tok_grp);
+    } else if (strcasecmp(command, "remove") == 0) {
+        rc = perform_remove(token, group, tok_grp);
     } else {
         warnx("Invalid command '%s'", command);
         rc = EXIT_FAILURE;
