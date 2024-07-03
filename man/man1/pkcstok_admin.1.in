@@ -158,6 +158,44 @@ option to see more detailed messages about the actions the tool is performing.
 .
 .
 .
+.PP
+.SS "Removing an existing token and its directories"
+.B pkcstok_admin
+.B remove
+.BR \-\-token | \-t
+.I TOKNAME
+.RB [ \-\-force ]
+.RB [ \-\-verbose ]
+.PP
+Use the \fBremove\fP command to remove an existing token and its directories.
+This also removes all token objects of that token. Use with care!
+
+.PP
+Use the
+.BR \-\-token | \-t
+.I TOKNAME
+option to specify the name of the token to remove. You must also remove the
+corresponding slot definition from the \fBopencryptoki.conf\fP configuration
+file located in \fB@sysconfdir@/opencryptoki/\fP. The token name is usually
+specified in the slot definition in the \fBopencryptoki.conf\fP configuration
+file. If the slot definition does not specify a \fBtokname\fP keyword, then a
+default token name is used, dependent on the token model. The \fBICA token\fP
+uses \fBlite\fP as default token name, the \fBCCA token\fP uses \fBccatok\fP,
+the \fBSoft token\fP uses \fBswtok\fP, the \fBEP11 token\fP uses \fBep11tok\fP,
+the \fBICSF token\fP uses \fBicsf\fP, and the \fBTPM token\fP (deprecated) uses
+\fBtpm\fP.
+.PP
+The \fBpkcstok_admin\fP tool prompts for a confirmation before the token
+directories are removed. To omit the prompt, specify the
+.B \-\-force
+option. Use this option with care!
+.PP
+Specify the
+.B \-\-verbose
+option to see more detailed messages about the actions the tool is performing.
+.
+.
+.
 .SH OPTIONS
 .
 .TP 8
