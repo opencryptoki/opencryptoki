@@ -65,6 +65,9 @@ static void print_usage(const char *progname)
     printf("  remove                Remove a token and its directories.\n"
            "                        This also removes all token objects.\n"
            "                        Use with care!\n");
+    printf("  reset                 Reset a token to its initial state. This\n"
+           "                        also resets all PINs and removes all token\n"
+           "                        objects. Use with care!\n");
 
     printf("\n OPTIONS:\n");
     printf("  -t, --token TOKNAME   The name of the token to operate on.\n"
@@ -780,6 +783,99 @@ static int perform_remove(const char *token, const char *group,
     return EXIT_SUCCESS;
 }
 
+static int perform_reset(const char *token, const char *group,
+                         const struct group *grp)
+{
+    char tok_dir[PATH_MAX];
+    char tok_obj_dir[PATH_MAX];
+    char tok_shm[PATH_MAX];
+    char tok_MK_SO[PATH_MAX];
+    char tok_MK_USER[PATH_MAX];
+    char tok_NVTOK_DAT[PATH_MAX];
+    char *msg = NULL;
+    char ch;
+    int len;
+
+    UNUSED(group);
+    UNUSED(grp);
+
+    /* get the token directories and files */
+    if (get_token_dir(token, tok_dir, sizeof(tok_dir)) != 0 ||
+        get_token_object_dir(token, tok_obj_dir, sizeof(tok_obj_dir)) != 0 ||
+        get_token_shm_name(token, tok_shm, sizeof(tok_shm)) != 0) {
+        warnx("Failed to build name of token directory. Possibly name is too long.");
+        return EXIT_FAILURE;
+    }
+
+    len = snprintf(tok_MK_SO, sizeof(tok_MK_SO), "%s/MK_SO", tok_dir);
+    if (len < 0 || (size_t)len >= sizeof(tok_MK_SO)) {
+        warnx("Failed to build name of token MK_SO. Possibly name is too long.");
+        return EXIT_FAILURE;
+    }
+
+    len = snprintf(tok_MK_USER, sizeof(tok_MK_USER), "%s/MK_USER", tok_dir);
+    if (len < 0 || (size_t)len >= sizeof(tok_MK_USER)) {
+        warnx("Failed to build name of token MK_USER. Possibly name is too long.");
+        return EXIT_FAILURE;
+    }
+
+    len = snprintf(tok_NVTOK_DAT, sizeof(tok_NVTOK_DAT), "%s/NVTOK.DAT",
+                   tok_dir);
+    if (len < 0 || (size_t)len >= sizeof(tok_NVTOK_DAT)) {
+        warnx("Failed to build name of token NVTOK.DAT. Possibly name is too long.");
+        return EXIT_FAILURE;
+    }
+
+    /* Check if the token or any artifacts of it exist already */
+    if (!check_file_exists(tok_dir, true)) {
+        warnx("The token directory for token '%s' does not exist.", token);
+        return EXIT_FAILURE;
+    }
+
+    if (!force) {
+        if (asprintf(&msg, "Reset token '%s' and its PINs and remove all its "
+                     "objects [y/n]? ", token) < 0 ||
+            msg == NULL) {
+            warnx("Failed to allocate memory for a message");
+            return EXIT_FAILURE;
+        }
+        ch = prompt_user(msg, "yn");
+        free(msg);
+        if (ch != 'y')
+            return EXIT_FAILURE;
+    }
+
+    if (remove_recursive(tok_obj_dir, true) != 0 ||
+        remove_recursive(tok_MK_SO, false) != 0 ||
+        remove_recursive(tok_MK_USER, false) != 0 ||
+        remove_recursive(tok_NVTOK_DAT, false) != 0)
+        return EXIT_FAILURE;
+
+#if defined(_AIX)
+    /*
+     * AIX does not expose POSIX shared memory segments under /dev/shm/, so
+     * it can not be removed per file system. Remove it using the shm_unlink()
+     * call instead.
+     */
+    if (shm_unlink(tok_shm) != 0 && errno != ENOENT) {
+        warnx("Failed to unlink the shared memory segment '%s': %s",
+              tok_shm, strerror(errno));
+        return EXIT_FAILURE;
+    }
+#else
+    if (remove_recursive(tok_shm, false) != 0)
+        return EXIT_FAILURE;
+#endif
+
+    printf("Successfully resetted token '%s'.\n\n", token);
+
+    printf("You must now initialize the token freshly using 'pkcsconf -I, set\n"
+           "the SO pin using 'pkcsconf -P' and then initialize the USER pin\n"
+           "using 'pkcsconf -u'.\n");
+
+    return EXIT_SUCCESS;
+}
+
 int main(int argc, char **argv)
 {
     int rc, opt = 0;
@@ -886,6 +982,8 @@ int main(int argc, char **argv)
         rc = perform_chown(token, group, tok_grp);
     } else if (strcasecmp(command, "remove") == 0) {
         rc = perform_remove(token, group, tok_grp);
+    } else if (strcasecmp(command, "reset") == 0) {
+        rc = perform_reset(token, group, tok_grp);
     } else {
         warnx("Invalid command '%s'", command);
         rc = EXIT_FAILURE;
