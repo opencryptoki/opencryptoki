@@ -196,6 +196,50 @@ option to see more detailed messages about the actions the tool is performing.
 .
 .
 .
+.PP
+.SS "Resetting a token to its initial state"
+.B pkcstok_admin
+.B reset
+.BR \-\-token | \-t
+.I TOKNAME
+.RB [ \-\-force ]
+.RB [ \-\-verbose ]
+.PP
+Use the \fBreset\fP command to reset a token to its initial state.
+This also resets all PINs and removes all token objects. Use with care!
+.PP
+Resetting a token can be required if you forgot the SO pin, or the SO pin got
+locked due to too many login attempts using a wrong SO PIN.
+.PP
+Use the
+.BR \-\-token | \-t
+.I TOKNAME
+option to specify the name of the token to reset. The token name
+is usually specified in the slot definition in the \fBopencryptoki.conf\fP
+configuration file located in \fB@sysconfdir@/opencryptoki/\fP with keyword
+\fBtokname\fP.
+If the slot definition does not specify a \fBtokname\fP keyword, then a
+default token name is used, dependent on the token model. The \fBICA token\fP
+uses \fBlite\fP as default token name, the \fBCCA token\fP uses \fBccatok\fP,
+the \fBSoft token\fP uses \fBswtok\fP, the \fBEP11 token\fP uses \fBep11tok\fP,
+the \fBICSF token\fP uses \fBicsf\fP, and the \fBTPM token\fP (deprecated) uses
+\fBtpm\fP.
+.PP
+The \fBpkcstok_admin\fP tool prompts for a confirmation before the token
+is resetted. To omit the prompt, specify the
+.B \-\-force
+option. Use this option with care!
+.PP
+Specify the
+.B \-\-verbose
+option to see more detailed messages about the actions the tool is performing.
+.PP
+After resetting a token, it must be initialized freshly using \fBpkcsconf -I\fP,
+setting the SO pin using \fBpkcsconf -P\fP and then initializing the USER pin
+using \fBpkcsconf -u\P.
+.
+.
+.
 .SH OPTIONS
 .
 .TP 8
