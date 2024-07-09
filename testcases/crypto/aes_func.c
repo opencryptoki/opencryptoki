@@ -12,6 +12,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <memory.h>
+#include <unistd.h>
 
 #include "pkcs11types.h"
 #include "regress.h"
@@ -2502,17 +2503,17 @@ CK_RV do_EncryptDecryptAESPkey(void)
     CK_OBJECT_HANDLE h_key = CK_INVALID_HANDLE;
     CK_OBJECT_HANDLE h_key2[2] = {CK_INVALID_HANDLE, CK_INVALID_HANDLE};
     CK_SESSION_HANDLE session;
-    CK_UTF8CHAR label[] = "A test key for protected key support";
+    char label[100];
     CK_ATTRIBUTE keygen_tmpl[] = {
         {CKA_TOKEN, &btrue, sizeof(CK_BBOOL)},
-        {CKA_LABEL, &label, sizeof(label)},
+        {CKA_LABEL, &label, 0},
         {CKA_EXTRACTABLE, &bfalse, sizeof(CK_BBOOL)},
         {CKA_VALUE_LEN, &keylen, sizeof(CK_ULONG)}
     };
     CK_ULONG keygen_tmpl_len = sizeof(keygen_tmpl) / sizeof(CK_ATTRIBUTE);
 
     CK_ATTRIBUTE find_tmpl[] = {
-        {CKA_LABEL, &label, sizeof(label)},
+        {CKA_LABEL, &label, 0},
     };
     CK_ULONG find_tmpl_len = sizeof(find_tmpl) / sizeof(CK_ATTRIBUTE);
     CK_ULONG count = 0;
@@ -2543,6 +2544,11 @@ CK_RV do_EncryptDecryptAESPkey(void)
 
     testcase_begin("Generate token key object and encrypt");
     testcase_new_assertion();
+
+    /* Prepare a unique label name */
+    sprintf(label, "A test key for protected key support (pid: %u)", getpid());
+    keygen_tmpl[1].ulValueLen = strlen(label);
+    find_tmpl[0].ulValueLen = strlen(label);
 
     /* Generate token object */
     rc = funcs->C_GenerateKey(session, &keygen_mech, keygen_tmpl, keygen_tmpl_len, &h_key);
