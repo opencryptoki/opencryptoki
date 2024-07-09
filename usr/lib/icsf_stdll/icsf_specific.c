@@ -789,25 +789,23 @@ CK_RV token_specific_attach_shm(STDLL_TokData_t * tokdata, CK_SLOT_ID slot_id)
     void *ptr;
     LW_SHM_TYPE **shm = &tokdata->global_shm;
     size_t len = sizeof(**shm) + sizeof(**slot_data);
-    char *shm_id = NULL;
+    char shm_id[PATH_MAX];
 
     if (slot_id >= NUMBER_SLOTS_MANAGED) {
         TRACE_ERROR("Invalid slot ID: %lu\n", slot_id);
         return CKR_FUNCTION_FAILED;
     }
 
-    if (asprintf(&shm_id, "/icsf-%lu", slot_id) < 0 || shm_id == NULL) {
-        TRACE_ERROR("Failed to allocate shared memory id "
-                    "for slot %lu.\n", slot_id);
-        return CKR_HOST_MEMORY;
+    if (get_pk_dir(tokdata, shm_id, PATH_MAX) == NULL) {
+        TRACE_ERROR("pk_dir buffer overflow");
+        return CKR_FUNCTION_FAILED;
     }
+
     TRACE_DEVEL("Attaching to shared memory \"%s\".\n", shm_id);
 
     rc = XProcLock(tokdata);
-    if (rc != CKR_OK) {
-        free(shm_id);
+    if (rc != CKR_OK)
         return CKR_FUNCTION_FAILED;
-    }
 
     /*
      * Attach to an existing shared memory region or create it if it doesn't
@@ -830,9 +828,6 @@ done:
         rc = XProcUnLock(tokdata);
     else
         XProcUnLock(tokdata);
-
-    if (shm_id)
-        free(shm_id);
 
     return rc;
 }
@@ -983,7 +978,8 @@ CK_RV reset_token_data(STDLL_TokData_t * tokdata, CK_SLOT_ID slot_id,
                                                 tokdata->store_strength.mk_strength);
 
         /* Save racf password using the new master key */
-        if (secure_racf(tokdata, racf_pass, racf_pass_len, mk, mk_len)) {
+        if (secure_racf(tokdata, racf_pass, racf_pass_len, mk, mk_len,
+                        tokdata->data_store)) {
             TRACE_DEVEL("Failed to save racf password.\n");
             return CKR_FUNCTION_FAILED;
         }

@@ -54,25 +54,38 @@ CK_RV get_randombytes(unsigned char *output, int bytes)
 
 CK_RV set_perms(int file, const char *group)
 {
+    struct stat sb;
     struct group *grp;
-
-    if (fchmod(file, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP) != 0) {
-        TRACE_ERROR("fchmod failed: %s\n", strerror(errno));
-        return CKR_FUNCTION_FAILED;
-    }
 
     if (group == NULL || group[0] == '\0')
         group = PKCS_GROUP;
 
+    if (fstat(file, &sb) != 0) {
+        TRACE_DEVEL("fstat failed: %s\n", strerror(errno));
+        return CKR_FUNCTION_FAILED;
+    }
+
     grp = getgrnam(group);
-    if (grp) {
-        if (fchown(file, -1, grp->gr_gid) != 0) {
-            TRACE_ERROR("fchown failed: %s\n", strerror(errno));
+    if (grp == NULL) {
+        TRACE_DEVEL("getgrnam(%s) failed: %s\n", group, strerror(errno));
+        return CKR_FUNCTION_FAILED;
+    }
+
+    /* Set absolute permissions or rw-rw----, if not already as expected */
+    if ((sb.st_mode & ~S_IFMT) != (S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP)) {
+        if (fchmod(file, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP) != 0) {
+            TRACE_DEVEL("fchmod(rw-rw----) failed: %s\n", strerror(errno));
             return CKR_FUNCTION_FAILED;
         }
-    } else {
-        TRACE_ERROR("getgrnam failed:%s\n", strerror(errno));
-        return CKR_FUNCTION_FAILED;
+    }
+
+    /* set ownership to pkcs11 group, if not already as expected */
+    if (sb.st_gid != grp->gr_gid) {
+        if (fchown(file, -1, grp->gr_gid) != 0) {
+            TRACE_DEVEL("fchown(-1, %s) failed: %s\n", group,
+                         strerror(errno));
+            return CKR_FUNCTION_FAILED;
+        }
     }
 
     return CKR_OK;
@@ -274,6 +287,7 @@ CK_RV get_racf(STDLL_TokData_t *tokdata,
                CK_BYTE * masterkey, CK_ULONG mklen, CK_BYTE * racfpwd,
                int *racflen)
 {
+    char fname[PATH_MAX];
     struct stat statbuf;
     CK_BYTE outbuf[ENCRYPT_SIZE];
     CK_BYTE iv[AES_INIT_VECTOR_SIZE];
@@ -284,13 +298,14 @@ CK_RV get_racf(STDLL_TokData_t *tokdata,
     UNUSED(mklen);
 
     /* see if the file exists ... */
-    if ((stat(RACFFILE, &statbuf) < 0) && (errno == ENOENT)) {
+    snprintf(fname, sizeof(fname), "%s/%s", tokdata->data_store, RACFFILE);
+    if ((stat(fname, &statbuf) < 0) && (errno == ENOENT)) {
         TRACE_ERROR("File does not exist.\n");
         return CKR_FUNCTION_FAILED;
     }
 
     /* if file exists, open it */
-    fp = fopen(RACFFILE, "r");
+    fp = fopen(fname, "r");
     if (fp == NULL) {
         TRACE_ERROR("fopen failed\n");
         return CKR_FUNCTION_FAILED;
@@ -495,7 +510,7 @@ out:
 
 CK_RV secure_racf(STDLL_TokData_t *tokdata,
                   CK_BYTE * racf, CK_ULONG racflen, CK_BYTE * key,
-                  CK_ULONG keylen)
+                  CK_ULONG keylen, const char *tokname)
 {
     CK_RV rc = CKR_OK;
     CK_BYTE iv[AES_INIT_VECTOR_SIZE];
@@ -503,6 +518,7 @@ CK_RV secure_racf(STDLL_TokData_t *tokdata,
     CK_BYTE output[ENCRYPT_SIZE];
     CK_ULONG_32 totallen;
     int outputlen;
+    char fname[PATH_MAX];
 
     UNUSED(keylen);
 
@@ -529,14 +545,15 @@ CK_RV secure_racf(STDLL_TokData_t *tokdata,
     /* get the total length */
     totallen = outputlen + AES_INIT_VECTOR_SIZE;
 
-    fp = fopen(RACFFILE, "w");
+    snprintf(fname, sizeof(fname), "%s/%s/%s", CONFIG_PATH, tokname, RACFFILE);
+    fp = fopen(fname, "w");
     if (!fp) {
         TRACE_ERROR("fopen failed: %s\n", strerror(errno));
         return CKR_FUNCTION_FAILED;
     }
 
     /* set permisions on the file */
-    rc = set_perms(fileno(fp), tokdata->tokgroup);
+    rc = set_perms(fileno(fp), tokdata != NULL ? tokdata->tokgroup : NULL);
     if (rc != 0) {
         TRACE_ERROR("Failed to set permissions on RACF file.\n");
         fclose(fp);
@@ -609,7 +626,7 @@ CK_RV secure_masterkey(STDLL_TokData_t *tokdata,
     }
 
     /* set permisions on the file */
-    rc = set_perms(fileno(fp), tokdata->tokgroup);
+    rc = set_perms(fileno(fp), tokdata != NULL ? tokdata->tokgroup : NULL);
     if (rc != 0) {
         TRACE_ERROR("Failed to set permissions on encrypted file.\n");
         fclose(fp);

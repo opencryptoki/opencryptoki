@@ -23,6 +23,7 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <string.h>
+#include <grp.h>
 
 #include "icsf.h"
 #include "slotmgr.h"
@@ -60,6 +61,9 @@ char *cert = NULL;
 char *cacert = NULL;
 char *privkey = NULL;
 unsigned long flags = 0;
+
+static int secure_racf_passwd(const char *racfpwd, unsigned int len,
+                              const char *tokname);
 
 static void usage(char *progname)
 {
@@ -226,7 +230,7 @@ static int config_add_slotinfo(int num_of_slots,
     char configname[LINESIZ];
     struct ConfigBaseNode *config = NULL;
     struct ConfigIdxStructNode *slot;
-    struct ConfigBareValNode *stdll_val, *confname_val;
+    struct ConfigBareValNode *stdll_val, *confname_val, *tokname_val;
     struct ConfigEOCNode *eoc1, *eoc2, *eoc3;
     FILE *fp = NULL;
     int i, rc;
@@ -248,6 +252,12 @@ static int config_add_slotinfo(int num_of_slots,
         slot_id = get_free_slot(config);
         if (slot_id == -1) {
             fprintf(stderr, "No more free slot found\n");
+            confignode_deepfree(config);
+            return 1;
+        }
+
+        if (strcmp(tokens[i].name, "HSM_MK_CHANGE") == 0) {
+            fprintf(stderr, "Token name can not be 'HSM_MK_CHANGE'.\n");
             confignode_deepfree(config);
             return 1;
         }
@@ -276,9 +286,12 @@ static int config_add_slotinfo(int num_of_slots,
         stdll_val = confignode_allocbarevaldumpable("stdll", STDLL, 0, NULL);
         confname_val = confignode_allocbarevaldumpable("confname", configname,
                                                        0, NULL);
+        tokname_val = confignode_allocbarevaldumpable("tokname", tokens[i].name,
+                                                       0, NULL);
 
         if (slot == NULL || stdll_val == NULL || confname_val == NULL ||
-            eoc1 == NULL || eoc2 == NULL || eoc3 == NULL) {
+            tokname_val == NULL || eoc1 == NULL || eoc2 == NULL ||
+            eoc3 == NULL) {
             fprintf(stderr, "Failed to add an entry for %s token: %s\n",
                     tokens[i].name, strerror(errno));
             remove_file(configname);
@@ -289,12 +302,14 @@ static int config_add_slotinfo(int num_of_slots,
             confignode_freeidxstruct(slot);
             confignode_freebareval(stdll_val);
             confignode_freebareval(confname_val);
+            confignode_freebareval(tokname_val);
             confignode_freeeoc(eoc3);
             continue;
         }
 
         confignode_append(slot->value, &stdll_val->base);
         confignode_append(slot->value, &confname_val->base);
+        confignode_append(slot->value, &tokname_val->base);
         confignode_append(config, &eoc3->base);
         confignode_append(config, &slot->base);
     }
@@ -387,18 +402,18 @@ static int lookup_name(char *name, struct icsf_token_record *found)
     return -1;
 }
 
-static void remove_racf_file(void)
+static void remove_racf_file(const char *tokname)
 {
     char fname[PATH_MAX];
 
     /* remove the so and user files */
-    snprintf(fname, sizeof(fname), "%s/RACF", ICSF_CONFIG_PATH);
+    snprintf(fname, sizeof(fname), "%s/RACF", tokname);
     remove_file(fname);
 }
 
-static int retrieve_all(void)
+static int retrieve_all(const char *racfpwd)
 {
-    size_t tokenCount;
+    size_t tokenCount, i;
     struct icsf_token_record *previous = NULL;
     struct icsf_token_record tokens[MAX_RECORDS];
     int rc;
@@ -417,16 +432,62 @@ static int retrieve_all(void)
         return -1;
     }
 
+    if (flags & CFG_MECH_SIMPLE) {
+        /* when using simple auth, secure racf passwd. */
+        for (i = 0; i < tokenCount; i++) {
+            rc = secure_racf_passwd(racfpwd, strlen(racfpwd), tokens[i].name);
+            if (rc != 0)
+                return rc;
+        }
+    }
+
     return 0;
 }
 
-static int secure_racf_passwd(const char *racfpwd, unsigned int len)
+static int secure_racf_passwd(const char *racfpwd, unsigned int len,
+                              const char *tokname)
 {
     const char *sopin;
     char *buf_so = NULL;
     unsigned char masterkey[AES_KEY_SIZE_256];
     char fname[PATH_MAX];
+    struct stat sb;
+    struct group *grp;
     int rc;
+
+    grp = getgrnam(PKCS_GROUP);
+    if (grp == NULL) {
+        fprintf(stderr, "getgrname(%s): %s\n", PKCS_GROUP, strerror(errno));
+        rc = -1;
+        goto cleanup;
+    }
+
+    /* Create the token directory, if not already existent */
+    snprintf(fname, sizeof(fname), "%s/%s", CONFIG_PATH, tokname);
+    if (stat(fname, &sb) != 0 && errno == ENOENT) {
+        if (mkdir(fname, S_IRWXU | S_IRWXG) != 0) {
+            fprintf(stderr, "Failed to create token directory '%s': %s\n",
+                    fname, strerror(errno));
+            rc = -1;
+            goto cleanup;
+        }
+
+        /* set ownership to euid, and token group */
+        if (chown(fname, geteuid(), grp->gr_gid) != 0) {
+            fprintf(stderr, "Failed to set owner:group ownership on '%s' "
+                    "directory\n", fname);
+            rc = -1;
+            goto cleanup;
+        }
+
+        /* mkdir does not set group permission right, set explicitly here */
+        if (chmod(fname, S_IRWXU | S_IRWXG) != 0) {
+            fprintf(stderr, "Failed to change permissions on '%s' directory\n",
+                    fname);
+            rc = -1;
+            goto cleanup;
+        }
+    }
 
     /* get the SO PIN */
     sopin = pin_prompt(&buf_so, "Enter the SO PIN: ");
@@ -444,7 +505,8 @@ static int secure_racf_passwd(const char *racfpwd, unsigned int len)
     }
 
     /* use the master key to secure the racf passwd */
-    rc = secure_racf(NULL, (CK_BYTE *)racfpwd, len, masterkey, AES_KEY_SIZE_256);
+    rc = secure_racf(NULL, (CK_BYTE *)racfpwd, len, masterkey, AES_KEY_SIZE_256,
+                     tokname);
     if (rc != 0) {
         fprintf(stderr, "Failed to secure racf passwd.\n");
         rc = -1;
@@ -453,14 +515,14 @@ static int secure_racf_passwd(const char *racfpwd, unsigned int len)
 
     /* now secure the master key with a derived key */
     /* first get the filename to put the  encrypted masterkey */
-    snprintf(fname, sizeof(fname), "%s/MK_SO", ICSF_CONFIG_PATH);
+    snprintf(fname, sizeof(fname), "%s/%s/MK_SO", CONFIG_PATH, tokname);
     rc = secure_masterkey(NULL, masterkey, AES_KEY_SIZE_256, (CK_BYTE *)sopin,
                           strlen(sopin), fname);
 
     if (rc != 0) {
         fprintf(stderr, "Failed to secure masterkey.\n");
         /* remove the racf file */
-        remove_racf_file();
+        remove_racf_file(tokname);
         rc = -1;
         goto cleanup;
     }
@@ -620,7 +682,7 @@ int main(int argc, char **argv)
     /* Add token(s) */
     if (flags & CFG_ADD) {
         if (strcmp(tokenname, "all") == 0) {
-            rc = retrieve_all();
+            rc = retrieve_all(racfpwd);
             if (rc) {
                 fprintf(stderr, "Could not add the list of " "tokens.\n");
                 goto cleanup;
@@ -641,12 +703,13 @@ int main(int argc, char **argv)
             rc = config_add_slotinfo(1, &found_token);
             if (rc != 0)
                 goto cleanup;
-        }
-        if (flags & CFG_MECH_SIMPLE) {
-            /* when using simple auth, secure racf passwd. */
-            rc = secure_racf_passwd(racfpwd, strlen(racfpwd));
-            if (rc != 0)
-                goto cleanup;
+
+            if (flags & CFG_MECH_SIMPLE) {
+                /* when using simple auth, secure racf passwd. */
+                rc = secure_racf_passwd(racfpwd, strlen(racfpwd), tokenname);
+                if (rc != 0)
+                    goto cleanup;
+            }
         }
     }
 
