@@ -5757,7 +5757,7 @@ CK_BBOOL ibm_kyber_priv_check_exportability(CK_ATTRIBUTE_TYPE type)
 {
     switch (type) {
     case CKA_VALUE:
-    case CKA_IBM_KYBER_PK:
+    case CKA_IBM_KYBER_SK:
         return FALSE;
     }
 
