@@ -390,9 +390,10 @@ static CK_RV policy_get_sig_size(CK_MECHANISM_PTR mech, struct objstrength *s,
     if (!col || !s)
         return CKR_FUNCTION_FAILED;
     if (col->flags & MCF_MAC_GENERAL) {
-        if (mech->ulParameterLen != sizeof(CK_MAC_GENERAL_PARAMS)) {
+        if (mech->ulParameterLen != sizeof(CK_MAC_GENERAL_PARAMS) ||
+            mech->pParameter == NULL) {
             TRACE_ERROR("Invalid mechanism parameter\n");
-            return CKR_FUNCTION_FAILED;
+            return CKR_MECHANISM_PARAM_INVALID;
         }
         size = *(CK_MAC_GENERAL_PARAMS *)mech->pParameter;
         if (size > col->outputsize)
@@ -491,6 +492,11 @@ static CK_RV policy_get_sig_size(CK_MECHANISM_PTR mech, struct objstrength *s,
             *ssize = MIN(s->siglen, 512);
             break;
         case CKM_IBM_ECDSA_OTHER:
+            if (mech->ulParameterLen != sizeof(CK_IBM_ECDSA_OTHER_PARAMS) ||
+                mech->pParameter == NULL) {
+                TRACE_ERROR("Invalid mechanism parameter\n");
+                return CKR_MECHANISM_PARAM_INVALID;
+            }
             switch (((CK_IBM_ECDSA_OTHER_PARAMS *)
                                             mech->pParameter)->submechanism) {
             case CKM_IBM_ECSDSA_RAND:
@@ -939,6 +945,12 @@ static CK_RV policy_is_mech_allowed(policy_t p, CK_MECHANISM_PTR mech,
         case CKM_SHA3_256_RSA_PKCS_PSS:
         case CKM_SHA3_384_RSA_PKCS_PSS:
         case CKM_SHA3_512_RSA_PKCS_PSS:
+            if (mech->ulParameterLen != sizeof(CK_RSA_PKCS_PSS_PARAMS) ||
+                mech->pParameter == NULL) {
+                TRACE_ERROR("Invalid mechanism parameter\n");
+                rv = CKR_MECHANISM_PARAM_INVALID;
+                break;
+            }
             if (hashmap_find(pp->allowedmechs,
                              ((CK_RSA_PKCS_PSS_PARAMS *)mech->pParameter)->hashAlg, NULL) == 0) {
                 TRACE_WARNING("POLICY VIOLATION: PSS hash algorithm not allowed by policy.\n");
@@ -949,6 +961,12 @@ static CK_RV policy_is_mech_allowed(policy_t p, CK_MECHANISM_PTR mech,
             }
             break;
         case CKM_RSA_PKCS_OAEP:
+            if (mech->ulParameterLen != sizeof(CK_RSA_PKCS_OAEP_PARAMS) ||
+                mech->pParameter == NULL) {
+                TRACE_ERROR("Invalid mechanism parameter\n");
+                rv = CKR_MECHANISM_PARAM_INVALID;
+                break;
+            }
             if (hashmap_find(pp->allowedmechs,
                              ((CK_RSA_PKCS_OAEP_PARAMS *)mech->pParameter)->hashAlg, NULL) == 0) {
                 TRACE_WARNING("POLICY VIOLATION: OAEP hash algorithm not allowed by policy.\n");
@@ -959,11 +977,23 @@ static CK_RV policy_is_mech_allowed(policy_t p, CK_MECHANISM_PTR mech,
             }
             break;
         case CKM_ECDH1_DERIVE:
+            if (mech->ulParameterLen != sizeof(CK_ECDH1_DERIVE_PARAMS) ||
+                mech->pParameter == NULL) {
+                TRACE_ERROR("Invalid mechanism parameter\n");
+                rv = CKR_MECHANISM_PARAM_INVALID;
+                break;
+            }
             if (policy_is_kdf_allowed(pp,
                                       ((CK_ECDH1_DERIVE_PARAMS *)mech->pParameter)->kdf) != CKR_OK)
                 rv = CKR_FUNCTION_FAILED;
             break;
         case CKM_IBM_ECDSA_OTHER:
+            if (mech->ulParameterLen != sizeof(CK_IBM_ECDSA_OTHER_PARAMS) ||
+                mech->pParameter == NULL) {
+                TRACE_ERROR("Invalid mechanism parameter\n");
+                rv = CKR_MECHANISM_PARAM_INVALID;
+                break;
+            }
             switch (((CK_IBM_ECDSA_OTHER_PARAMS *) mech->pParameter)->submechanism) {
             case CKM_IBM_ECSDSA_RAND:
             case CKM_IBM_ECSDSA_COMPR_MULTI:
@@ -979,6 +1009,12 @@ static CK_RV policy_is_mech_allowed(policy_t p, CK_MECHANISM_PTR mech,
             }
             break;
         case CKM_IBM_BTC_DERIVE:
+            if (mech->ulParameterLen != sizeof(CK_IBM_BTC_DERIVE_PARAMS) ||
+                mech->pParameter == NULL) {
+                TRACE_ERROR("Invalid mechanism parameter\n");
+                rv = CKR_MECHANISM_PARAM_INVALID;
+                break;
+            }
             if (((CK_IBM_BTC_DERIVE_PARAMS *)mech->pParameter)->version !=
                                     CK_IBM_BTC_DERIVE_PARAMS_VERSION_1)
                 break;
@@ -1004,8 +1040,19 @@ static CK_RV policy_is_mech_allowed(policy_t p, CK_MECHANISM_PTR mech,
             break;
         case CKM_IBM_KYBER:
             /* Only KEM uses a parameter, KeyGen, Encrypt/Decrypt don't */
+            if (mech->ulParameterLen != sizeof(CK_IBM_KYBER_PARAMS) &&
+                mech->ulParameterLen != 0) {
+                TRACE_ERROR("Invalid mechanism parameter\n");
+                rv = CKR_MECHANISM_PARAM_INVALID;
+                break;
+            }
             if (mech->ulParameterLen != sizeof(CK_IBM_KYBER_PARAMS))
                 break;
+            if (mech->pParameter == NULL) {
+                TRACE_ERROR("Invalid mechanism parameter\n");
+                rv = CKR_MECHANISM_PARAM_INVALID;
+                break;
+            }
             if (policy_is_kdf_allowed(pp,
                                       ((CK_IBM_KYBER_PARAMS *)mech->pParameter)->kdf) != CKR_OK) {
                 rv = CKR_FUNCTION_FAILED;

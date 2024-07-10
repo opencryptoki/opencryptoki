@@ -127,6 +127,9 @@ static CK_RV statistics_increment(struct statistics *statistics,
             return rc;
         break;
     case CKM_IBM_ECDSA_OTHER:
+        if (mech->pParameter == NULL ||
+            mech->ulParameterLen != sizeof(CK_IBM_ECDSA_OTHER_PARAMS))
+            return CKR_MECHANISM_PARAM_INVALID;
         switch (((CK_IBM_ECDSA_OTHER_PARAMS *)mech->pParameter)->submechanism) {
         case CKM_IBM_ECSDSA_RAND:
         case CKM_IBM_ECSDSA_COMPR_MULTI:
@@ -140,6 +143,9 @@ static CK_RV statistics_increment(struct statistics *statistics,
         }
         break;
     case CKM_IBM_BTC_DERIVE:
+        if (mech->pParameter == NULL ||
+            mech->ulParameterLen != sizeof(CK_IBM_BTC_DERIVE_PARAMS))
+            return CKR_MECHANISM_PARAM_INVALID;
         if (((CK_IBM_BTC_DERIVE_PARAMS *)mech->pParameter)->version !=
                                 CK_IBM_BTC_DERIVE_PARAMS_VERSION_1)
             break;
@@ -163,8 +169,13 @@ static CK_RV statistics_increment(struct statistics *statistics,
         break;
     case CKM_IBM_KYBER:
         /* Only KEM uses a parameter, KeyGen, Encrypt/Decrypt don't */
+        if (mech->ulParameterLen != sizeof(CK_IBM_KYBER_PARAMS) &&
+            mech->ulParameterLen != 0)
+            return CKR_MECHANISM_PARAM_INVALID;
         if (mech->ulParameterLen != sizeof(CK_IBM_KYBER_PARAMS))
             break;
+        if (mech->pParameter == NULL)
+            return CKR_MECHANISM_PARAM_INVALID;
         if (((CK_IBM_KYBER_PARAMS *)mech->pParameter)->kdf == CKD_NULL ||
             ((CK_IBM_KYBER_PARAMS *)mech->pParameter)->kdf == CKD_IBM_HYBRID_NULL)
             break;
