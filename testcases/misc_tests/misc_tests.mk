@@ -17,8 +17,9 @@ EXTRA_DIST += testcases/misc_tests/dh-key.pem				\
 	testcases/misc_tests/ec-key-secp521r1.pem			\
 	testcases/misc_tests/ed25519-private-key.pem			\
 	testcases/misc_tests/ed25519-public-key.pem			\
-	testcases/misc_tests/ibm-dilithium-key.pem			\
-	testcases/misc_tests/ibm-kyber-key.pem				\
+	testcases/misc_tests/ibm-dilithium-r2-65-key.pem		\
+	testcases/misc_tests/ibm-dilithium-r3-65-key.pem		\
+	testcases/misc_tests/ibm-kyber-r2-768-key.pem			\
 	testcases/misc_tests/p11sak_dsa3072cert.pem			\
 	testcases/misc_tests/p11sak_dsa4096cert.pem			\
 	testcases/misc_tests/p11sak_ecp256cert.pem			\
