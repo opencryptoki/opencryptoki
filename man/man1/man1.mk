@@ -34,5 +34,4 @@ if ENABLE_P11SAK
 man1_MANS += man/man1/p11sak.1
 endif
 
-EXTRA_DIST += $(man1_MANS)
 CLEANFILES += man/man1/*.1
