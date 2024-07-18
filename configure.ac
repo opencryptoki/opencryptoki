@@ -180,7 +180,7 @@ dnl --- p11kmip tool
 AC_ARG_ENABLE([p11kmip],
 	AS_HELP_STRING([--enable-p11kmip],[build p11kmip tool @<:@default=no@:>@]),
 	[],
-	[enable_p11kmip=no])
+	[enable_p11kmip=yes])
 
 dnl --- pkcstok_migrate
 AC_ARG_ENABLE([pkcstok_migrate],
