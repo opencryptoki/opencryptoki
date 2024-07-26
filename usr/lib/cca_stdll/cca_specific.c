@@ -8781,7 +8781,8 @@ static CK_RV import_rsa_pubkey(STDLL_TokData_t *tokdata, TEMPLATE *publ_tmpl)
         }
 
         /* check total length does not exceed key_value_structure_length */
-        if ((pub_mod->ulValueLen + 8) > (CK_ULONG)key_value_structure_length) {
+        if ((pub_mod->ulValueLen + 8 + pub_exp->ulValueLen) >
+                                    (CK_ULONG)key_value_structure_length) {
             TRACE_ERROR("total length of key exceeds CCA_KEY_VALUE_STRUCT_SIZE.\n");
             return CKR_KEY_SIZE_RANGE;
         }
