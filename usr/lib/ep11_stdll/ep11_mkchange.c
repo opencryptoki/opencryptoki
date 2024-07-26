@@ -1362,8 +1362,8 @@ out:
         TRACE_DEVEL("HSM-MK-change Unlock failed.\n");
         OCK_SYSLOG(LOG_ERR, "Slot %lu: HSM-MK-change unlock failed\n",
                    tokdata->slot_id);
-        rc = CKR_CANT_LOCK;
-        goto out;
+        if (rc == CKR_OK)
+            rc = CKR_CANT_LOCK;
     }
 
     return rc;
