@@ -8369,7 +8369,11 @@ static CK_RV import_rsa_privkey(STDLL_TokData_t *tokdata, TEMPLATE * priv_tmpl)
         }
 
         /* Add dummy attributes to satisfy PKCS#11 */
-        build_update_attribute(priv_tmpl, CKA_PRIVATE_EXPONENT, NULL, 0);
+        rc = build_update_attribute(priv_tmpl, CKA_PRIVATE_EXPONENT, NULL, 0);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("build_update_attribute for d failed. rc=0x%lx\n", rc);
+            return rc;
+        }
 
     } else {
         /*
