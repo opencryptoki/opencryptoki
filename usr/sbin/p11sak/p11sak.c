@@ -7538,7 +7538,7 @@ static CK_RV p11sak_import_ecx_pkey(const struct p11sak_objtype *keytype,
     CK_RV rc = CKR_OK;
     unsigned char priv[100] = { 0 };
     size_t priv_len = 0;
-    unsigned char point[200] = { 0 };
+    unsigned char point[300] = { 0 };
     unsigned char *point_ptr;
     size_t point_len = 0;
     ASN1_OBJECT *obj = NULL;
