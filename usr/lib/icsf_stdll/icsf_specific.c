@@ -1509,6 +1509,11 @@ static CK_RV close_session(STDLL_TokData_t * tokdata,
         session_state->ld = NULL;
     }
 
+    if (pthread_mutex_lock(&icsf_data->sess_list_mutex)) {
+        TRACE_ERROR("Failed to lock mutex.\n");
+        return CKR_FUNCTION_FAILED;
+    }
+
     /* Remove session */
     list_remove(&session_state->sessions);
     if (list_is_empty(&icsf_data->sessions)) {
@@ -1518,6 +1523,11 @@ static CK_RV close_session(STDLL_TokData_t * tokdata,
         }
     }
     free(session_state);
+
+    if (pthread_mutex_unlock(&icsf_data->sess_list_mutex)) {
+        TRACE_ERROR("Mutex Unlock Failed.\n");
+        rc = CKR_FUNCTION_FAILED;
+    }
 
     return rc;
 }
