@@ -893,7 +893,7 @@ CK_RV object_mgr_find_in_map_nocache(STDLL_TokData_t *tokdata,
         rc = token_specific.t_check_obj_access(tokdata, obj, FALSE);
         if (rc != CKR_OK) {
             TRACE_DEVEL("check_obj_access rejected access to object.\n");
-            object_put(tokdata, obj, FALSE);
+            object_put(tokdata, obj, lock_type != NO_LOCK);
             obj = NULL;
             return rc;
         }
@@ -2314,11 +2314,9 @@ CK_RV object_put(STDLL_TokData_t *tokdata, OBJECT *obj, CK_BBOOL unlock)
     sess = object_is_session_object(obj);
     priv = object_is_private(obj);
 
-    if (unlock) {
-        rc= object_unlock(obj);
-        if (rc != CKR_OK)
-            return rc;
-    }
+    rc = object_unlock(obj);
+    if (rc != CKR_OK)
+        return rc;
 
     if (sess)
        bt_put_node_value(&tokdata->sess_obj_btree, obj);
