@@ -10162,7 +10162,7 @@ static CK_RV import_ibm_dilithium_privkey(STDLL_TokData_t *tokdata,
         }
 
         /* zeroize key values */
-        if (attr != NULL)
+        if (attr != NULL && attr->pValue != NULL && attr->ulValueLen > 0)
             OPENSSL_cleanse(attr->pValue, attr->ulValueLen);
         cleanse_attribute(priv_templ, CKA_IBM_DILITHIUM_SEED);
         cleanse_attribute(priv_templ, CKA_IBM_DILITHIUM_TR);
