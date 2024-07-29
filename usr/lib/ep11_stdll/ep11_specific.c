@@ -965,20 +965,29 @@ static CK_BBOOL ep11tok_pkey_is_valid(STDLL_TokData_t *tokdata, OBJECT *key_obj)
     ep11_private_data_t *ep11_data = tokdata->private_data;
     CK_ATTRIBUTE *pkey_attr = NULL;
     int vp_offset;
+    CK_BBOOL ret = CK_FALSE;
 
     if (template_attribute_get_non_empty(key_obj->template, CKA_IBM_OPAQUE_PKEY,
                                          &pkey_attr) == CKR_OK) {
         if (pkey_attr->ulValueLen >= AES_KEY_SIZE_128 + PKEY_MK_VP_LENGTH) {
             vp_offset = pkey_attr->ulValueLen - PKEY_MK_VP_LENGTH;
+            if (pthread_mutex_lock(&ep11_data->pkey_mutex)) {
+                TRACE_ERROR("%s Failed to lock pkey lock\n", __func__);
+                goto done;
+            }
             if (memcmp((CK_BYTE *)pkey_attr->pValue + vp_offset,
                        &ep11_data->pkey_mk_vp,
                        PKEY_MK_VP_LENGTH) == 0) {
-                return CK_TRUE;
+                ret = CK_TRUE;
+            }
+            if (pthread_mutex_unlock(&ep11_data->pkey_mutex)) {
+                TRACE_ERROR("%s Failed to unlock pkey lock\n", __func__);
             }
         }
     }
 
-    return CK_FALSE;
+done:
+    return ret;
 }
 
 /**
@@ -994,6 +1003,7 @@ static CK_RV ep11tok_pkey_update(STDLL_TokData_t *tokdata, SESSION *session,
     CK_ATTRIBUTE *pkey_attr = NULL;
     CK_RV ret;
     int vp_offset;
+    int num_retries = 0;
 
     /* Get secure key from obj */
     if (template_attribute_get_non_empty(key_obj->template, CKA_IBM_OPAQUE,
@@ -1010,6 +1020,7 @@ static CK_RV ep11tok_pkey_update(STDLL_TokData_t *tokdata, SESSION *session,
                                          &skey_reenc_attr);
     }
 
+retry:
     /* Transform the secure key into a protected key */
     ret = ep11tok_pkey_skey2pkey(tokdata, session, skey_attr, skey_reenc_attr,
                                  &pkey_attr, aes_xts);
@@ -1018,34 +1029,79 @@ static CK_RV ep11tok_pkey_update(STDLL_TokData_t *tokdata, SESSION *session,
         goto done;
     }
 
-    /* Check if the new pkey's verification pattern matches the one in
-     * ep11_data. This should always be the case, because we just
-     * created the pkey with the current MK. */
-    vp_offset = pkey_attr->ulValueLen - PKEY_MK_VP_LENGTH;
-    if (memcmp(&ep11_data->pkey_mk_vp, (CK_BYTE *)pkey_attr->pValue + vp_offset,
-               PKEY_MK_VP_LENGTH) != 0) {
-        TRACE_ERROR("vp of this pkey does not match with the one in ep11_data (should not occur)\n");
-        ret = CKR_FUNCTION_FAILED;
+    if (pthread_mutex_lock(&ep11_data->pkey_mutex)) {
+        TRACE_ERROR("%s Failed to lock pkey lock\n", __func__);
+        ret = CKR_CANT_LOCK;
         goto done;
     }
 
+    /*
+     * Check if the new pkey's verification pattern matches the one in
+     * ep11_data. This should always be the case, except there was a live
+     * guest relocation (LGR) in the middle of the process.
+     */
+    vp_offset = pkey_attr->ulValueLen - PKEY_MK_VP_LENGTH;
+    if (memcmp(&ep11_data->pkey_mk_vp, (CK_BYTE *)pkey_attr->pValue + vp_offset,
+               PKEY_MK_VP_LENGTH) != 0) {
+        TRACE_ERROR("vp of this pkey does not match with the one in ep11_data\n");
+        ret = CKR_FUNCTION_FAILED;
+    }
+
     if (aes_xts) {
-        /* Check if the new pkey's verification pattern matches the one in
-         * ep11_data. This should always be the case, because we just
-         * created the pkey with the current MK.
+        /*
+         * Check if the new pkey's verification pattern matches the one in
+         * ep11_data. This should always be the case, except there was a live
+         * guest relocation (LGR) in the middle of the process.
          * AES XTS has two keys, two keys are concatenated.
-         * Second key is checked above and the first key is checked here */
+         * Second key is checked above and the first key is checked here
+         */
         vp_offset = pkey_attr->ulValueLen / 2 - PKEY_MK_VP_LENGTH;
         if (memcmp(&ep11_data->pkey_mk_vp, (CK_BYTE *)pkey_attr->pValue + vp_offset,
                    PKEY_MK_VP_LENGTH) != 0) {
-            TRACE_ERROR("vp of this pkey does not match with the one in ep11_data (should not occur)\n");
+            TRACE_ERROR("vp of this pkey does not match with the one in ep11_data\n");
             ret = CKR_FUNCTION_FAILED;
-            goto done;
         }
     }
 
-    /* Now update the key obj. If it's a token obj, it will be also updated
-     * in the repository. pkey_attr is set to NULL if added to the object.*/
+    /*
+     * Recreating the firmware mkvp via ep11tok_pkey_get_firmware_mk_vp below
+     * does only work when pkey_wrap_support_checked is 0. Set it to 0 while
+     * the mutex lock is still obtained.
+     */
+    if (ret != CKR_OK)
+        __sync_and_and_fetch(&ep11_data->pkey_wrap_support_checked, 0);
+
+    if (pthread_mutex_unlock(&ep11_data->pkey_mutex)) {
+        TRACE_ERROR("%s Failed to unlock pkey lock\n", __func__);
+    }
+
+    if (ret != CKR_OK)  {
+        /*
+         * Verification pattern does not match. Create it again and retry.
+         * If there was an LGR, this op now takes place on the new system
+         * and should succeed.
+         */
+        ret = ep11tok_pkey_get_firmware_mk_vp(tokdata, session);
+        if (ret != CKR_OK)
+            goto done;
+
+        num_retries++;
+        if (num_retries < PKEY_CONVERT_KEY_RETRIES) {
+            if (pkey_attr != NULL)
+                free(pkey_attr);
+            TRACE_DEVEL("%s VP mismatch probably due to LGR, retry %d of %d ...\n",
+                        __func__, num_retries, PKEY_CONVERT_KEY_RETRIES);
+            goto retry;
+        }
+    }
+
+    if (ret != CKR_OK)
+        goto done;
+
+    /*
+     * Now update the key obj. If it's a token obj, it will be also updated
+     * in the repository.
+     */
     ret = pkey_update_and_save(tokdata, key_obj, &pkey_attr);
     if (ret != CKR_OK) {
         TRACE_ERROR("pkey_update_and_save failed with rc=0x%lx\n", ret);
