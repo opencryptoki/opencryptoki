@@ -3987,6 +3987,14 @@ int get_signverify_len(CK_MECHANISM mech)
         return SHA384_HASH_SIZE;
     case CKM_SHA512_HMAC:
         return SHA512_HASH_SIZE;
+    case CKM_SHA3_224_HMAC:
+        return SHA3_224_HASH_SIZE;
+    case CKM_SHA3_256_HMAC:
+        return SHA3_256_HASH_SIZE;
+    case CKM_SHA3_384_HMAC:
+        return SHA3_384_HASH_SIZE;
+    case CKM_SHA3_512_HMAC:
+        return SHA3_512_HASH_SIZE;
     }
 
     return -1;
@@ -4048,6 +4056,10 @@ CK_RV icsftok_sign_init(STDLL_TokData_t * tokdata,
     case CKM_SHA256_HMAC:
     case CKM_SHA384_HMAC:
     case CKM_SHA512_HMAC:
+    case CKM_SHA3_224_HMAC:
+    case CKM_SHA3_256_HMAC:
+    case CKM_SHA3_384_HMAC:
+    case CKM_SHA3_512_HMAC:
         /* hmacs can do mulitpart and do not require a
          *  mechanism parameter.
          */
@@ -4226,6 +4238,10 @@ CK_RV icsftok_sign(STDLL_TokData_t * tokdata,
     case CKM_SHA256_HMAC:
     case CKM_SHA384_HMAC:
     case CKM_SHA512_HMAC:
+    case CKM_SHA3_224_HMAC:
+    case CKM_SHA3_256_HMAC:
+    case CKM_SHA3_384_HMAC:
+    case CKM_SHA3_512_HMAC:
     case CKM_SSL3_MD5_MAC:
     case CKM_SSL3_SHA1_MAC:
         if (length_only) {
@@ -4374,6 +4390,10 @@ CK_RV icsftok_sign_update(STDLL_TokData_t * tokdata,
     case CKM_SHA256_HMAC:
     case CKM_SHA384_HMAC:
     case CKM_SHA512_HMAC:
+    case CKM_SHA3_224_HMAC:
+    case CKM_SHA3_256_HMAC:
+    case CKM_SHA3_384_HMAC:
+    case CKM_SHA3_512_HMAC:
     case CKM_SSL3_MD5_MAC:
     case CKM_SSL3_SHA1_MAC:
         rc = icsf_hmac_sign(session_state->ld, &reason,
@@ -4535,6 +4555,10 @@ CK_RV icsftok_sign_final(STDLL_TokData_t * tokdata,
     case CKM_SHA256_HMAC:
     case CKM_SHA384_HMAC:
     case CKM_SHA512_HMAC:
+    case CKM_SHA3_224_HMAC:
+    case CKM_SHA3_256_HMAC:
+    case CKM_SHA3_384_HMAC:
+    case CKM_SHA3_512_HMAC:
     case CKM_SSL3_MD5_MAC:
     case CKM_SSL3_SHA1_MAC:
         if (length_only) {
@@ -4673,6 +4697,10 @@ CK_RV icsftok_verify_init(STDLL_TokData_t * tokdata,
     case CKM_SHA256_HMAC:
     case CKM_SHA384_HMAC:
     case CKM_SHA512_HMAC:
+    case CKM_SHA3_224_HMAC:
+    case CKM_SHA3_256_HMAC:
+    case CKM_SHA3_384_HMAC:
+    case CKM_SHA3_512_HMAC:
         /* hmacs can do mulitpart and do not require a
          *  mechanism parameter.
          */
@@ -4855,6 +4883,10 @@ CK_RV icsftok_verify(STDLL_TokData_t * tokdata,
     case CKM_SHA256_HMAC:
     case CKM_SHA384_HMAC:
     case CKM_SHA512_HMAC:
+    case CKM_SHA3_224_HMAC:
+    case CKM_SHA3_256_HMAC:
+    case CKM_SHA3_384_HMAC:
+    case CKM_SHA3_512_HMAC:
     case CKM_SSL3_MD5_MAC:
     case CKM_SSL3_SHA1_MAC:
         rc = icsf_hmac_verify(session_state->ld, &reason,
@@ -4974,6 +5006,10 @@ CK_RV icsftok_verify_update(STDLL_TokData_t * tokdata,
     case CKM_SHA256_HMAC:
     case CKM_SHA384_HMAC:
     case CKM_SHA512_HMAC:
+    case CKM_SHA3_224_HMAC:
+    case CKM_SHA3_256_HMAC:
+    case CKM_SHA3_384_HMAC:
+    case CKM_SHA3_512_HMAC:
     case CKM_SSL3_MD5_MAC:
     case CKM_SSL3_SHA1_MAC:
         rc = icsf_hmac_verify(session_state->ld, &reason,
@@ -5141,6 +5177,10 @@ CK_RV icsftok_verify_final(STDLL_TokData_t * tokdata,
     case CKM_SHA256_HMAC:
     case CKM_SHA384_HMAC:
     case CKM_SHA512_HMAC:
+    case CKM_SHA3_224_HMAC:
+    case CKM_SHA3_256_HMAC:
+    case CKM_SHA3_384_HMAC:
+    case CKM_SHA3_512_HMAC:
     case CKM_SSL3_MD5_MAC:
     case CKM_SSL3_SHA1_MAC:
         /* get the chain data */
