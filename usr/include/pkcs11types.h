@@ -314,6 +314,8 @@ typedef CK_ULONG CK_USER_TYPE;
 #define CKU_SO    0
 /* Normal user */
 #define CKU_USER  1
+/* Context specific */
+#define CKU_CONTEXT_SPECIFIC    2
 
 
 /* CK_STATE enumerates the session states */
@@ -563,8 +565,8 @@ typedef CK_ULONG CK_ATTRIBUTE_TYPE;
 #define CKA_EC_PARAMS          0x00000180
 #define CKA_EC_POINT           0x00000181
 /* The following are new for v2.11 */
-#define CKA_SECONDARY_AUTH     0x00000200
-#define CKA_AUTH_PIN_FLAGS     0x00000201
+#define CKA_SECONDARY_AUTH     0x00000200 /* Deprecated since 2.11 */
+#define CKA_AUTH_PIN_FLAGS     0x00000201 /* Deprecated since 2.11 */
 #define CKA_ALWAYS_AUTHENTICATE 0x00000202
 #define CKA_WRAP_WITH_TRUSTED  0x00000210
 #define CKA_HW_FEATURE_TYPE    0x00000300
