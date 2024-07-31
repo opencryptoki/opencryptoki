@@ -1303,7 +1303,33 @@ CK_RV priv_key_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
             return CKR_OK;
         TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_READ_ONLY));
         return CKR_ATTRIBUTE_READ_ONLY;
+    case CKA_ALWAYS_AUTHENTICATE:
+        {
+            CK_BBOOL value = FALSE;
 
+            if (attr->ulValueLen != sizeof(CK_BBOOL) || attr->pValue == NULL) {
+                TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
+                return CKR_ATTRIBUTE_VALUE_INVALID;
+            }
+            if (mode == MODE_MODIFY || mode == MODE_COPY) {
+                TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_READ_ONLY));
+                return CKR_ATTRIBUTE_READ_ONLY;
+            }
+            /*
+             * CKA_ALWAYS_AUTHENTICATE can only be set to TRUE if CKA_PRIVATE
+             * is also true. If CKA_PRIVATE is not in the template, we assume
+             * the default value of CKA_PRIVATE (FALSE).
+             */
+            if (*(CK_BBOOL *)attr->pValue == FALSE)
+                return CKR_OK;
+            if (template_attribute_get_bool(tmpl, CKA_PRIVATE,
+                                            &value) != CKR_OK ||
+                value == FALSE) {
+                TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
+                return CKR_ATTRIBUTE_VALUE_INVALID;
+            }
+            return CKR_OK;
+        }
     default:
         return key_object_validate_attribute(tmpl, attr, mode);
     }
