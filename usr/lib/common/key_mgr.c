@@ -1363,7 +1363,7 @@ CK_RV key_mgr_unwrap_key(STDLL_TokData_t *tokdata,
 
     /* Policy already checked */
     rc = decr_mgr_init(tokdata, sess, ctx, OP_UNWRAP, mech, h_unwrapping_key,
-                       FALSE);
+                       FALSE, FALSE);
     if (rc != CKR_OK)
         goto done;
 

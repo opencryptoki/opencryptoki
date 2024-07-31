@@ -443,6 +443,47 @@ CK_RV key_object_apply_template_attr(TEMPLATE *unwrap_tmpl,
     return CKR_OK;
 }
 
+CK_RV key_object_is_always_authenticate(TEMPLATE *tmpl, CK_BBOOL *auth)
+{
+    CK_OBJECT_CLASS class;
+    CK_BBOOL private;
+    CK_RV rc;
+
+    rc = template_attribute_get_ulong(tmpl, CKA_CLASS, &class);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("Can not find CKA_CLASS in object\n");
+        return rc;
+    }
+
+    /* CKA_ALWAYS_AUTHENTICATE is only defined for CKO_PRIVATE_KEY objects */
+    if (class != CKO_PRIVATE_KEY) {
+        *auth = FALSE;
+        return CKR_OK;
+    }
+
+    rc = template_attribute_get_bool(tmpl, CKA_PRIVATE, &private);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("Can not find CKA_PRIVATE in object\n");
+        return rc;
+    }
+
+    /* CKA_ALWAYS_AUTHENTICATE can only be true if CKA_PRIVATE is also TRUE */
+    if (private == FALSE) {
+        *auth = FALSE;
+        return CKR_OK;
+    }
+
+    rc = template_attribute_get_bool(tmpl, CKA_ALWAYS_AUTHENTICATE, auth);
+    if (rc == CKR_TEMPLATE_INCOMPLETE) {
+        *auth = FALSE;
+    } else if (rc != CKR_OK) {
+        TRACE_DEVEL("CKA_ALWAYS_AUTHENTICATE is invalid\n");
+        return rc;
+    }
+
+    return CKR_OK;
+}
+
 // publ_key_check_required_attributes()
 //
 CK_RV publ_key_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode)

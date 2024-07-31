@@ -1213,7 +1213,7 @@ CK_RV encr_mgr_reencrypt_single(STDLL_TokData_t *tokdata, SESSION *sess,
     /* No token specific reencrypt_single function, perform it manually */
     /* Enforces policy */
     rc = decr_mgr_init(tokdata, sess, decr_ctx, OP_DECRYPT_INIT, decr_mech,
-                       decr_key, TRUE);
+                       decr_key, TRUE, TRUE);
     if (rc != CKR_OK)
         goto done;
     /* Enforces Policy */

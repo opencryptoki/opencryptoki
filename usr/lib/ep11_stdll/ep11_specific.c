@@ -8971,7 +8971,7 @@ static CK_RV h_opaque_2_blob(STDLL_TokData_t *tokdata, CK_OBJECT_HANDLE handle,
 CK_RV ep11tok_sign_verify_init_ibm_ed(STDLL_TokData_t *tokdata,
                                       SESSION *sess, SIGN_VERIFY_CONTEXT *ctx,
                                       CK_MECHANISM *mech, CK_OBJECT_HANDLE key,
-                                      CK_BBOOL sign)
+                                      CK_BBOOL sign, CK_BBOOL checkauth)
 {
     OBJECT *key_obj = NULL;
     CK_KEY_TYPE keytype;
@@ -8997,6 +8997,16 @@ CK_RV ep11tok_sign_verify_init_ibm_ed(STDLL_TokData_t *tokdata,
             return CKR_KEY_HANDLE_INVALID;
         else
             return rc;
+    }
+
+    ctx->auth_required = FALSE;
+    if (checkauth) {
+        rc = key_object_is_always_authenticate(key_obj->template,
+                                               &ctx->auth_required);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("key_object_is_always_authenticate failed\n");
+            goto done;
+        }
     }
 
     if (sign) {
@@ -9091,7 +9101,7 @@ done:
 
 CK_RV ep11tok_check_single_mech_key(STDLL_TokData_t *tokdata, SESSION * session,
                                     CK_MECHANISM *mech, CK_OBJECT_HANDLE key,
-                                    CK_ULONG operation)
+                                    CK_ULONG operation, CK_BBOOL *auth_required)
 {
     OBJECT *key_obj = NULL;
     size_t blob_len = 0;
@@ -9160,6 +9170,15 @@ CK_RV ep11tok_check_single_mech_key(STDLL_TokData_t *tokdata, SESSION * session,
     if (rc != CKR_OK) {
         TRACE_ERROR("POLICY_VIOLATION on %s initialization\n", str_op);
         goto error;
+    }
+
+    if (auth_required != NULL) {
+        rc = key_object_is_always_authenticate(key_obj->template,
+                                               auth_required);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("key_object_is_always_authenticate failed\n");
+            goto error;
+        }
     }
 
     INC_COUNTER(tokdata, session, mech, key_obj, POLICY_STRENGTH_IDX_0);
@@ -9234,7 +9253,7 @@ CK_BOOL ep11tok_mech_single_only(CK_MECHANISM *mech)
 
 CK_RV ep11tok_sign_init(STDLL_TokData_t * tokdata, SESSION * session,
                         CK_MECHANISM * mech, CK_BBOOL recover_mode,
-                        CK_OBJECT_HANDLE key)
+                        CK_OBJECT_HANDLE key, CK_BBOOL checkauth)
 {
     CK_RV rc;
     size_t keyblobsize = 0;
@@ -9297,11 +9316,12 @@ CK_RV ep11tok_sign_init(STDLL_TokData_t * tokdata, SESSION * session,
         if (mech->mechanism == CKM_IBM_ED25519_SHA512 ||
             mech->mechanism == CKM_IBM_ED448_SHA3)
             rc = ep11tok_sign_verify_init_ibm_ed(tokdata, session, ctx,
-                                                 mech, key, CK_TRUE);
+                                                 mech, key, CK_TRUE,
+                                                 checkauth);
         else
             /* Policy already checked. */
             rc = sign_mgr_init(tokdata, session, ctx, mech, recover_mode, key,
-                               FALSE);
+                               FALSE, checkauth);
         if (rc == CKR_OK)
             ctx->pkey_active = TRUE;
         /* Regardless of the rc goto done here, because ep11tok_pkey_check
@@ -9326,6 +9346,15 @@ CK_RV ep11tok_sign_init(STDLL_TokData_t * tokdata, SESSION * session,
             goto done;
         }
         mech = &mech_ep11.mech;
+    }
+
+    if (checkauth) {
+        rc = key_object_is_always_authenticate(key_obj->template,
+                                               &ctx->auth_required);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("key_object_is_always_authenticate failed\n");
+            goto done;
+        }
     }
 
     /*
@@ -9742,7 +9771,8 @@ CK_RV ep11tok_verify_init(STDLL_TokData_t * tokdata, SESSION * session,
         if (mech->mechanism == CKM_IBM_ED25519_SHA512 ||
             mech->mechanism == CKM_IBM_ED448_SHA3)
             rc = ep11tok_sign_verify_init_ibm_ed(tokdata, session,
-                                                 ctx, mech, key, CK_FALSE);
+                                                 ctx, mech, key, CK_FALSE,
+                                                 CK_FALSE);
         else
             /* Policy already checked */
             rc = verify_mgr_init(tokdata, session, ctx, mech, CK_FALSE, key,
@@ -10614,7 +10644,7 @@ done:
 
 static CK_RV ep11_ende_crypt_init(STDLL_TokData_t * tokdata, SESSION * session,
                                   CK_MECHANISM_PTR mech, CK_OBJECT_HANDLE key,
-                                  int op)
+                                  int op, CK_BBOOL checkauth)
 {
     CK_RV rc = CKR_OK;
     CK_BYTE *blob;
@@ -10663,9 +10693,9 @@ static CK_RV ep11_ende_crypt_init(STDLL_TokData_t * tokdata, SESSION * session,
         key_obj = NULL;
 
         if (op == DECRYPT) {
-            /* Policy already checked */
+            /* Policy and always-auth already checked */
             rc = decr_mgr_init(tokdata, session, &session->decr_ctx,
-                               OP_DECRYPT_INIT, mech, key, FALSE);
+                               OP_DECRYPT_INIT, mech, key, FALSE, checkauth);
         } else {
             /* Policy already checked */
             rc = encr_mgr_init(tokdata, session, &session->encr_ctx,
@@ -10708,6 +10738,16 @@ static CK_RV ep11_ende_crypt_init(STDLL_TokData_t * tokdata, SESSION * session,
 
     if (op == DECRYPT) {
         ENCR_DECR_CONTEXT *ctx = &session->decr_ctx;
+
+        if (checkauth) {
+            rc = key_object_is_always_authenticate(key_obj->template,
+                                                   &ctx->auth_required);
+            if (rc != CKR_OK) {
+                TRACE_ERROR("key_object_is_always_authenticate failed\n");
+                goto done;
+            }
+        }
+
         RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
         RETRY_REENC_BLOB_STATE_START(tokdata, target_info, key_obj, blob,
                                      blob_len, useblob, useblob_len,
@@ -10860,7 +10900,7 @@ CK_RV ep11tok_encrypt_init(STDLL_TokData_t * tokdata, SESSION * session,
 
     TRACE_INFO("%s key=0x%lx\n", __func__, key);
 
-    rc = ep11_ende_crypt_init(tokdata, session, mech, key, ENCRYPT);
+    rc = ep11_ende_crypt_init(tokdata, session, mech, key, ENCRYPT, FALSE);
 
     if (rc != CKR_OK) {
         TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
@@ -10873,13 +10913,14 @@ CK_RV ep11tok_encrypt_init(STDLL_TokData_t * tokdata, SESSION * session,
 
 
 CK_RV ep11tok_decrypt_init(STDLL_TokData_t * tokdata, SESSION * session,
-                           CK_MECHANISM_PTR mech, CK_OBJECT_HANDLE key)
+                           CK_MECHANISM_PTR mech, CK_OBJECT_HANDLE key,
+                           CK_BBOOL checkauth)
 {
     CK_RV rc;
 
     TRACE_INFO("%s key=0x%lx mech=0x%lx\n", __func__, key, mech->mechanism);
 
-    rc = ep11_ende_crypt_init(tokdata, session, mech, key, DECRYPT);
+    rc = ep11_ende_crypt_init(tokdata, session, mech, key, DECRYPT, checkauth);
 
     if (rc != CKR_OK) {
         TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);

@@ -465,7 +465,7 @@ CK_RV ssl3_mac_verify(STDLL_TokData_t *tokdata,
     memset(&mac_ctx, 0, sizeof(SIGN_VERIFY_CONTEXT));
 
     rc = sign_mgr_init(tokdata, sess, &mac_ctx, &ctx->mech, FALSE, ctx->key,
-                       FALSE);
+                       FALSE, FALSE);
     if (rc != CKR_OK) {
         TRACE_DEVEL("Sign Init failed.\n");
         goto error;

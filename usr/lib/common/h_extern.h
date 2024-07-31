@@ -1961,7 +1961,7 @@ CK_RV decr_mgr_init(STDLL_TokData_t *tokdata,
                     ENCR_DECR_CONTEXT *ctx,
                     CK_ULONG operation,
                     CK_MECHANISM *mech, CK_OBJECT_HANDLE key_handle,
-                    CK_BBOOL checkpolicy);
+                    CK_BBOOL checkpolicy, CK_BBOOL checkauth);
 
 CK_RV decr_mgr_cleanup(STDLL_TokData_t *tokdata, SESSION *sess,
                        ENCR_DECR_CONTEXT *ctx);
@@ -2103,7 +2103,7 @@ CK_RV sign_mgr_init(STDLL_TokData_t *tokdata,
                     SIGN_VERIFY_CONTEXT *ctx,
                     CK_MECHANISM *mech,
                     CK_BBOOL recover_mode, CK_OBJECT_HANDLE key_handle,
-                    CK_BBOOL checkpolicy);
+                    CK_BBOOL checkpolicy, CK_BBOOL checkauth);
 
 CK_RV sign_mgr_cleanup(STDLL_TokData_t *tokdata, SESSION *sess,
                        SIGN_VERIFY_CONTEXT *ctx);
@@ -2592,6 +2592,7 @@ CK_RV key_object_apply_template_attr(TEMPLATE *unwrap_tmpl,
                                      CK_ULONG attrs_count,
                                      CK_ATTRIBUTE_PTR *new_attrs,
                                      CK_ULONG *new_attrs_count);
+CK_RV key_object_is_always_authenticate(TEMPLATE *tmpl, CK_BBOOL *auth);
 
 CK_RV publ_key_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode);
 CK_RV publ_key_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode);

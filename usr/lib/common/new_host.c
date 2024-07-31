@@ -2322,7 +2322,7 @@ CK_RV SC_DecryptInit(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
 
     sess->decr_ctx.count_statistics = TRUE;
     rc = decr_mgr_init(tokdata, sess, &sess->decr_ctx, OP_DECRYPT_INIT,
-                       pMechanism, hKey, TRUE);
+                       pMechanism, hKey, TRUE, TRUE);
     if (rc != CKR_OK)
         TRACE_DEVEL("decr_mgr_init() failed.\n");
 
@@ -2816,7 +2816,7 @@ CK_RV SC_SignInit(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
 
     sess->sign_ctx.count_statistics = TRUE;
     rc = sign_mgr_init(tokdata, sess, &sess->sign_ctx, pMechanism, FALSE, hKey,
-                       TRUE);
+                       TRUE, TRUE);
     if (rc != CKR_OK)
         TRACE_DEVEL("sign_mgr_init() failed.\n");
 
@@ -3037,7 +3037,7 @@ CK_RV SC_SignRecoverInit(STDLL_TokData_t *tokdata,
     }
 
     rc = sign_mgr_init(tokdata, sess, &sess->sign_ctx, pMechanism, TRUE, hKey,
-                       TRUE);
+                       TRUE, TRUE);
     if (rc != CKR_OK)
         TRACE_DEVEL("sign_mgr_init() failed.\n");
 
