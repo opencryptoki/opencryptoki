@@ -34,7 +34,7 @@ CK_RV decr_mgr_init(STDLL_TokData_t *tokdata,
                     ENCR_DECR_CONTEXT *ctx,
                     CK_ULONG operation,
                     CK_MECHANISM *mech, CK_OBJECT_HANDLE key_handle,
-                    CK_BBOOL checkpolicy)
+                    CK_BBOOL checkpolicy, CK_BBOOL checkauth)
 {
     OBJECT *key_obj = NULL;
     CK_BYTE *ptr = NULL;
@@ -114,6 +114,16 @@ CK_RV decr_mgr_init(STDLL_TokData_t *tokdata,
                                               &key_obj->strength, check, sess);
         if (rc != CKR_OK) {
             TRACE_ERROR("POLICY VIOLATION: decrypt/unwrap init\n");
+            goto done;
+        }
+    }
+
+    ctx->auth_required = FALSE;
+    if (checkauth) {
+        rc = key_object_is_always_authenticate(key_obj->template,
+                                               &ctx->auth_required);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("key_object_is_always_authenticate failed\n");
             goto done;
         }
     }
@@ -646,6 +656,7 @@ CK_RV decr_mgr_cleanup(STDLL_TokData_t *tokdata, SESSION *sess,
     ctx->pkey_active = FALSE;
     ctx->state_unsaveable = FALSE;
     ctx->count_statistics = FALSE;
+    ctx->auth_required = FALSE;
 
     if (ctx->mech.pParameter) {
         /* Deep free mechanism parameter, if required */

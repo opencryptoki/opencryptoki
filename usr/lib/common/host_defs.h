@@ -47,6 +47,7 @@ typedef struct _ENCR_DECR_CONTEXT {
     CK_BBOOL pkey_active;
     CK_BBOOL state_unsaveable;
     CK_BBOOL count_statistics;
+    CK_BBOOL auth_required;
 } ENCR_DECR_CONTEXT;
 
 typedef struct _DIGEST_CONTEXT {
@@ -77,6 +78,7 @@ typedef struct _SIGN_VERIFY_CONTEXT {
     CK_BBOOL pkey_active;
     CK_BBOOL state_unsaveable;
     CK_BBOOL count_statistics;
+    CK_BBOOL auth_required;
 } SIGN_VERIFY_CONTEXT;
 
 

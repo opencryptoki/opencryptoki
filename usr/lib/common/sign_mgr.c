@@ -35,7 +35,7 @@ CK_RV sign_mgr_init(STDLL_TokData_t *tokdata,
                     SIGN_VERIFY_CONTEXT *ctx,
                     CK_MECHANISM *mech,
                     CK_BBOOL recover_mode, CK_OBJECT_HANDLE key,
-                    CK_BBOOL checkpolicy)
+                    CK_BBOOL checkpolicy, CK_BBOOL checkauth)
 {
     OBJECT *key_obj = NULL;
     CK_ATTRIBUTE *attr = NULL;
@@ -70,6 +70,16 @@ CK_RV sign_mgr_init(STDLL_TokData_t *tokdata,
                                               POLICY_CHECK_SIGNATURE, sess);
         if (rc != CKR_OK) {
             TRACE_ERROR("POLICY VIOLATION: Sign init\n");
+            goto done;
+        }
+    }
+
+    ctx->auth_required = FALSE;
+    if (checkauth) {
+        rc = key_object_is_always_authenticate(key_obj->template,
+                                               &ctx->auth_required);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("key_object_is_always_authenticate failed\n");
             goto done;
         }
     }
@@ -880,6 +890,7 @@ CK_RV sign_mgr_cleanup(STDLL_TokData_t *tokdata, SESSION *sess,
     ctx->pkey_active = FALSE;
     ctx->state_unsaveable = FALSE;
     ctx->count_statistics = FALSE;
+    ctx->auth_required = FALSE;
 
     if (ctx->mech.pParameter) {
         free(ctx->mech.pParameter);

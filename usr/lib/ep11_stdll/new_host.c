@@ -2094,7 +2094,7 @@ CK_RV SC_EncryptInit(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
          * when EncryptUpdate comes into play.
          */
         rc = ep11tok_check_single_mech_key(tokdata, sess, pMechanism, hKey,
-                                           OP_ENCRYPT_INIT);
+                                           OP_ENCRYPT_INIT, NULL);
         if (rc != CKR_OK)
             goto done;
 
@@ -2435,7 +2435,8 @@ CK_RV SC_DecryptInit(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
          * when DecryptUpdate comes into play.
          */
         rc = ep11tok_check_single_mech_key(tokdata, sess, pMechanism, hKey,
-                                           OP_DECRYPT_INIT);
+                                           OP_DECRYPT_INIT,
+                                           &sess->decr_ctx.auth_required);
         if (rc != CKR_OK)
             goto done;
 
@@ -2461,7 +2462,7 @@ CK_RV SC_DecryptInit(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
             sess->decr_ctx.mech.ulParameterLen = 0;
         }
     } else {
-        rc = ep11tok_decrypt_init(tokdata, sess, pMechanism, hKey);
+        rc = ep11tok_decrypt_init(tokdata, sess, pMechanism, hKey, TRUE);
         if (rc != CKR_OK)
             TRACE_DEVEL("ep11tok_decrypt_init() failed.\n");
     }
@@ -2625,7 +2626,7 @@ CK_RV SC_DecryptUpdate(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
 
     if (sess->decr_ctx.init_pending) {
         rc = ep11tok_decrypt_init(tokdata, sess, &sess->decr_ctx.mech,
-                                  sess->decr_ctx.key);
+                                  sess->decr_ctx.key, FALSE);
         if (rc != CKR_OK) {
             TRACE_DEVEL("ep11tok_decr_init() failed.\n");
             goto done;
@@ -3007,7 +3008,7 @@ CK_RV SC_SignInit(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
     if (ep11tok_libica_mech_available(tokdata, pMechanism->mechanism, hKey)) {
         sess->sign_ctx.count_statistics = TRUE;
         rc = sign_mgr_init(tokdata, sess, &sess->sign_ctx, pMechanism, FALSE,
-                           hKey, TRUE);
+                           hKey, TRUE, TRUE);
         if (rc != CKR_OK)
             TRACE_DEVEL("sign_mgr_init() failed.\n");
 
@@ -3032,7 +3033,8 @@ CK_RV SC_SignInit(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
          * SignUpdate comes into play.
          */
         rc = ep11tok_check_single_mech_key(tokdata, sess, pMechanism, hKey,
-                                           OP_SIGN_INIT);
+                                           OP_SIGN_INIT,
+                                           &sess->sign_ctx.auth_required);
         if (rc != CKR_OK)
             goto done;
 
@@ -3058,7 +3060,7 @@ CK_RV SC_SignInit(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
             sess->sign_ctx.mech.ulParameterLen = 0;
         }
     } else {
-        rc = ep11tok_sign_init(tokdata, sess, pMechanism, FALSE, hKey);
+        rc = ep11tok_sign_init(tokdata, sess, pMechanism, FALSE, hKey, TRUE);
         if (rc != CKR_OK)
             TRACE_DEVEL("ep11tok_sign_init() failed.\n");
     }
@@ -3225,7 +3227,7 @@ CK_RV SC_SignUpdate(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
 
     if (sess->sign_ctx.init_pending) {
         rc = ep11tok_sign_init(tokdata, sess, &sess->sign_ctx.mech,
-                               FALSE, sess->sign_ctx.key);
+                               FALSE, sess->sign_ctx.key, FALSE);
         if (rc != CKR_OK) {
             TRACE_DEVEL("ep11tok_sign_init() failed.\n");
             goto done;
@@ -3444,7 +3446,7 @@ CK_RV SC_VerifyInit(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
          * when VerifyUpdate comes into play.
          */
         rc = ep11tok_check_single_mech_key(tokdata, sess, pMechanism, hKey,
-                                           OP_VERIFY_INIT);
+                                           OP_VERIFY_INIT, NULL);
         if (rc != CKR_OK)
             goto done;
 

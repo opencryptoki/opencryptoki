@@ -470,13 +470,14 @@ CK_RV ep11tok_generate_key_pair(STDLL_TokData_t * tokdata, SESSION * sess,
 
 CK_RV ep11tok_check_single_mech_key(STDLL_TokData_t *tokdata, SESSION * session,
                                     CK_MECHANISM *mech, CK_OBJECT_HANDLE key,
-                                    CK_ULONG operation);
+                                    CK_ULONG operation,
+                                    CK_BBOOL *auth_required);
 
 CK_BOOL ep11tok_mech_single_only(CK_MECHANISM *mech);
 
 CK_RV ep11tok_sign_init(STDLL_TokData_t * tokdata, SESSION * session,
                         CK_MECHANISM * mech, CK_BBOOL recover_mode,
-                        CK_OBJECT_HANDLE key);
+                        CK_OBJECT_HANDLE key, CK_BBOOL checkauth);
 
 CK_RV ep11tok_sign(STDLL_TokData_t * tokdata, SESSION * session,
                    CK_BBOOL length_only, CK_BYTE * in_data,
@@ -551,7 +552,8 @@ CK_RV ep11tok_encrypt_single(STDLL_TokData_t *tokdata, SESSION *session,
                              CK_ULONG_PTR p_output_data_len);
 
 CK_RV ep11tok_decrypt_init(STDLL_TokData_t * tokdata, SESSION * session,
-                           CK_MECHANISM_PTR mech, CK_OBJECT_HANDLE key);
+                           CK_MECHANISM_PTR mech, CK_OBJECT_HANDLE key,
+                           CK_BBOOL checkauth);
 
 CK_RV ep11tok_decrypt_single(STDLL_TokData_t *tokdata, SESSION *session,
                              CK_MECHANISM *mech, CK_BBOOL length_only,

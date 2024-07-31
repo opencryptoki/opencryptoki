@@ -309,7 +309,7 @@ CK_RV ec_hash_sign(STDLL_TokData_t *tokdata,
     sign_mech.pParameter = NULL;
 
     rc = sign_mgr_init(tokdata, sess, &sign_ctx, &sign_mech, FALSE, ctx->key,
-                       FALSE);
+                       FALSE, FALSE);
     if (rc != CKR_OK) {
         TRACE_DEVEL("Sign Mgr Init failed.\n");
         goto error;
@@ -418,7 +418,7 @@ CK_RV ec_hash_sign_final(STDLL_TokData_t *tokdata,
     sign_mech.pParameter = NULL;
 
     rc = sign_mgr_init(tokdata, sess, &sign_ctx, &sign_mech, FALSE, ctx->key,
-                       FALSE);
+                       FALSE, FALSE);
     if (rc != CKR_OK) {
         TRACE_DEVEL("Sign Mgr Init failed.\n");
         goto done;
