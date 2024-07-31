@@ -1868,19 +1868,6 @@ CK_RV template_validate_base_attribute(TEMPLATE *tmpl, CK_ATTRIBUTE *attr,
                      MODE_UNWRAP)) != 0)
             return CKR_OK;
         break;
-    case CKA_ALWAYS_AUTHENTICATE:
-        if (attr->ulValueLen != sizeof(CK_BBOOL) || attr->pValue == NULL) {
-            TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
-            return CKR_ATTRIBUTE_VALUE_INVALID;
-        }
-        if (mode == MODE_MODIFY || mode == MODE_COPY) {
-            TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_READ_ONLY));
-            return CKR_ATTRIBUTE_READ_ONLY;
-        }
-        if (*(CK_BBOOL *)attr->pValue == FALSE)
-            return CKR_OK;
-        TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
-        return CKR_ATTRIBUTE_VALUE_INVALID;
     case CKA_LABEL:
         return CKR_OK;
     case CKA_IBM_OPAQUE:
