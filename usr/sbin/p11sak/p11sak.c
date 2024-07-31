@@ -1027,8 +1027,8 @@ static const struct p11sak_opt p11sak_generic_opts[] = {
       .arg =  { .type = ARG_TYPE_STRING, .required = true,                     \
                 .value.string = &opt_attr, .name = "ATTRS", },                 \
       .description = "Filter the key by its boolean attribute values:\n"       \
-                     "P L M B Y R E D G C V O W U S A X N T I K Z (optional). "\
-                     "Specify a set of these letters without any blanks in "   \
+                     "P L M B Y R E D G C V O W U S A X N T I H K Z (optional)"\
+                     ". Specify a set of these letters without any blanks in " \
                      "between. See below for the meaning of the attribute "    \
                      "letters. Attributes that are not specified are not "     \
                      "used to filter the keys.", }
@@ -1115,7 +1115,7 @@ static const struct p11sak_opt p11sak_generate_key_opts[] = {
       .arg =  { .type = ARG_TYPE_STRING, .required = true,
                 .value.string = &opt_attr, .name = "ATTRS", },
       .description = "The boolean attributes to set for the key:\n"
-                     "P M B Y R E D G C V O W U S X T I K (optional). "
+                     "P M B Y R E D G C V O W U S X T I H K (optional). "
                      "Specify a set of these letters without any blanks in "
                      "between. See below for the meaning of the attribute "
                      "letters. For asymmetric keys set individual key "
@@ -1698,7 +1698,7 @@ static const struct p11sak_opt p11sak_import_key_opts[] = {
       .arg =  { .type = ARG_TYPE_STRING, .required = true,
                 .value.string = &opt_attr, .name = "ATTRS", },
       .description = "The boolean attributes to set for the key:\n"
-                     "P M B Y R E D G C V O W U S X T I K (optional). "
+                     "P M B Y R E D G C V O W U S X T I H K (optional). "
                      "Specify a set of these letters without any blanks in "
                      "between. See below for the meaning of the attribute "
                      "letters.", },
@@ -2228,9 +2228,11 @@ static const struct p11sak_attr p11sak_bool_attrs[] = {
     DECLARE_BOOL_ATTR(CKA_ALWAYS_SENSITIVE,  'A', true,  false, true,  false),
     DECLARE_BOOL_ATTR(CKA_EXTRACTABLE,       'X', true,  false, true,  true),
     DECLARE_BOOL_ATTR(CKA_NEVER_EXTRACTABLE, 'N', true,  false, true,  false),
-    DECLARE_BOOL_ATTR_SO(CKA_TRUSTED,        'T', true,  true,  false,  true,
+    DECLARE_BOOL_ATTR_SO(CKA_TRUSTED,        'T', true,  true,  false, true,
                                                   true),
     DECLARE_BOOL_ATTR(CKA_WRAP_WITH_TRUSTED, 'I', true,  false, true,  true),
+    DECLARE_BOOL_ATTR(CKA_ALWAYS_AUTHENTICATE,
+                                             'H', false, false, true,  true),
     DECLARE_BOOL_ATTR(CKA_IBM_PROTKEY_EXTRACTABLE,
                                              'K', true,  false, true,  true),
     DECLARE_BOOL_ATTR(CKA_IBM_PROTKEY_NEVER_EXTRACTABLE,
