@@ -2236,6 +2236,10 @@ The following letters are associated with the respective
 .B I
 \- CKA_WRAP_WITH_TRUSTED
 .IP "\(bu" 2
+.B H
+\- CKA_ALWAYS_AUTHENTICATE (for keys of class CKO_PRIVATE_KEY only, can only be
+set to TRUE if CKA_PRIVATE is also TRUE)
+.IP "\(bu" 2
 .B K
 \- CKA_IBM_PROTKEY_EXTRACTABLE (IBM specific, not all tokens support this)
 .IP "\(bu" 2
