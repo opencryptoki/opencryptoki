@@ -69,7 +69,7 @@ OCK_TESTS+=" pkcs11/get_interface pkcs11/getobjectsize pkcs11/sess_opstate"
 OCK_TESTS+=" misc_tests/fork misc_tests/obj_mgmt_tests" 
 OCK_TESTS+=" misc_tests/obj_mgmt_lock_tests misc_tests/reencrypt"
 OCK_TESTS+=" misc_tests/events misc_tests/cca_export_import_test"
-OCK_TESTS+=" misc_tests/dual_functions"
+OCK_TESTS+=" misc_tests/dual_functions misc_tests/always_auth"
 OCK_TEST=""
 OCK_BENCHS="pkcs11/*bench"
 
