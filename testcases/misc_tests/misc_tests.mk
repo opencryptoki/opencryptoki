@@ -8,7 +8,8 @@ noinst_PROGRAMS +=							\
 	testcases/misc_tests/obj_lock testcases/misc_tests/tok2tok_transport \
 	testcases/misc_tests/obj_lock testcases/misc_tests/reencrypt    \
 	testcases/misc_tests/cca_export_import_test			\
-	testcases/misc_tests/events testcases/misc_tests/dual_functions
+	testcases/misc_tests/events testcases/misc_tests/dual_functions \
+	testcases/misc_tests/always_auth
 
 EXTRA_DIST += testcases/misc_tests/dh-key.pem				\
 	testcases/misc_tests/dsa-key.pem				\
@@ -116,3 +117,8 @@ testcases_misc_tests_dual_functions_CFLAGS = ${testcases_inc}
 testcases_misc_tests_dual_functions_LDADD = testcases/common/libcommon.la
 testcases_misc_tests_dual_functions_SOURCES = 				\
 	testcases/misc_tests/dual_functions.c
+	
+testcases_misc_tests_always_auth_CFLAGS = ${testcases_inc}
+testcases_misc_tests_always_auth_LDADD = testcases/common/libcommon.la
+testcases_misc_tests_always_auth_SOURCES = 				\
+	testcases/misc_tests/always_auth.c
