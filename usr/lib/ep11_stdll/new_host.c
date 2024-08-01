@@ -43,6 +43,7 @@
 #include "../api/policy.h"
 
 void SC_SetFunctionList(void);
+CK_RV SC_Logout(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession);
 CK_RV SC_Finalize(STDLL_TokData_t *tokdata, CK_SLOT_ID sid, SLOT_INFO *sinfp,
                   struct trace_handle_t *t, CK_BBOOL in_fork_initializer);
 static void _ep11tok_logout_session(STDLL_TokData_t * tokdata, void *node_value,
@@ -1302,7 +1303,8 @@ CK_RV SC_Login(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
     /* PKCS #11 v2.01 requires that all sessions have the same login status:
      * --> all sessions are public, all are SO or all are USER
      */
-    if (userType == CKU_USER) {
+    switch (userType) {
+    case CKU_USER:
         if (session_mgr_so_session_exists(tokdata)) {
             TRACE_ERROR("%s\n", ock_err(ERR_USER_ANOTHER_ALREADY_LOGGED_IN));
             rc = CKR_USER_ANOTHER_ALREADY_LOGGED_IN;
@@ -1311,7 +1313,9 @@ CK_RV SC_Login(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
             TRACE_ERROR("%s\n", ock_err(ERR_USER_ALREADY_LOGGED_IN));
             rc = CKR_USER_ALREADY_LOGGED_IN;
         }
-    } else if (userType == CKU_SO) {
+        break;
+
+    case CKU_SO:
         if (session_mgr_user_session_exists(tokdata)) {
             TRACE_ERROR("%s\n", ock_err(ERR_USER_ANOTHER_ALREADY_LOGGED_IN));
             rc = CKR_USER_ANOTHER_ALREADY_LOGGED_IN;
@@ -1324,16 +1328,42 @@ CK_RV SC_Login(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
             TRACE_ERROR("%s\n", ock_err(ERR_SESSION_READ_ONLY_EXISTS));
             rc = CKR_SESSION_READ_ONLY_EXISTS;
         }
-    } else {
+        break;
+
+    case CKU_CONTEXT_SPECIFIC:
+        /*
+         * Although not explicitly required by the PKCS#11 standard, check that
+         * a USER session exists. C_Login with CKU_CONTEXT_SPECIFIC is performed
+         * due to CKA_ALWAYS_AUTHENTICATE=TRUE on a key used with an operation.
+         * CKA_ALWAYS_AUTHENTICATE=TRUE is only allowed for keys of class
+         * CKO_PRIVATE_KEY that have CKA_PRIVATE=TRUE. Key objects with
+         * CKA_PRIVATE=TRUE can only be accessed in a USER session, so a
+         * C_Login with CKU_CONTEXT_SPECIFIC can also only happen when a USER
+         * session exists.
+         */
+        if (!session_mgr_user_session_exists(tokdata)) {
+            TRACE_ERROR("%s\n", ock_err(ERR_USER_NOT_LOGGED_IN));
+            rc = CKR_USER_NOT_LOGGED_IN;
+        }
+        if (!(sess->sign_ctx.active && sess->sign_ctx.auth_required) &&
+            !(sess->decr_ctx.active && sess->decr_ctx.auth_required)) {
+            TRACE_ERROR("%s\n", ock_err(ERR_OPERATION_NOT_INITIALIZED));
+            rc = CKR_OPERATION_NOT_INITIALIZED;
+        }
+        break;
+
+    default:
         rc = CKR_USER_TYPE_INVALID;
         TRACE_ERROR("%s\n", ock_err(ERR_USER_TYPE_INVALID));
+        break;
     }
     if (rc != CKR_OK)
         goto done;
 
     dat = &tokdata->nv_token_data->dat;
 
-    if (userType == CKU_USER) {
+    switch (userType) {
+    case CKU_USER:
         if (*flags & CKF_USER_PIN_LOCKED) {
             TRACE_ERROR("%s\n", ock_err(ERR_PIN_LOCKED));
             rc = CKR_PIN_LOCKED;
@@ -1431,7 +1461,9 @@ CK_RV SC_Login(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
             TRACE_ERROR("Failed to release process lock.\n");
             goto done;
         }
-    } else {
+        break;
+
+    case CKU_SO:
         if (*flags & CKF_SO_PIN_LOCKED) {
             TRACE_ERROR("%s\n", ock_err(ERR_PIN_LOCKED));
             rc = CKR_PIN_LOCKED;
@@ -1493,22 +1525,106 @@ CK_RV SC_Login(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
         }
 
         rc = load_masterkey_so(tokdata);
-        if (rc != CKR_OK)
+        if (rc != CKR_OK) {
             TRACE_DEVEL("Failed to load SO's masterkey.\n");
+        }
+        break;
+    case CKU_CONTEXT_SPECIFIC:
+        if (*flags & CKF_USER_PIN_LOCKED) {
+            TRACE_ERROR("%s\n", ock_err(ERR_PIN_LOCKED));
+            rc = CKR_PIN_LOCKED;
+            goto done;
+        }
+
+        if (!(*flags & CKF_USER_PIN_INITIALIZED)) {
+            TRACE_ERROR("%s\n", ock_err(ERR_USER_PIN_NOT_INITIALIZED));
+            rc = CKR_USER_PIN_NOT_INITIALIZED;
+            goto done;
+        }
+
+        if (tokdata->version < TOK_NEW_DATA_STORE) {
+            rc = compute_sha1(tokdata, pPin, ulPinLen, hash_sha);
+            if (rc != CKR_OK) {
+                TRACE_DEVEL("compute_sha1 failed.\n");
+                goto done;
+            }
+            if (memcmp(tokdata->nv_token_data->user_pin_sha, hash_sha,
+                       SHA1_HASH_SIZE) != 0) {
+                set_login_flags(userType, flags);
+                TRACE_ERROR("%s\n", ock_err(ERR_PIN_INCORRECT));
+                rc = CKR_PIN_INCORRECT;
+                goto done;
+            }
+            /* Successful login, clear flags */
+            *flags &= ~(CKF_USER_PIN_LOCKED |
+                        CKF_USER_PIN_FINAL_TRY | CKF_USER_PIN_COUNT_LOW);
+
+        } else {
+            rc = compute_PKCS5_PBKDF2_HMAC(tokdata, pPin, ulPinLen,
+                                           dat->user_login_salt, 64,
+                                           dat->user_login_it, EVP_sha512(),
+                                           256 / 8, login_key);
+            if (rc != CKR_OK) {
+                TRACE_DEVEL("PBKDF2 failed.\n");
+                goto done;
+            }
+
+            if (CRYPTO_memcmp(dat->user_login_key,
+                              login_key, 256 / 8) != 0) {
+                set_login_flags(userType, flags);
+                TRACE_ERROR("%s\n", ock_err(ERR_PIN_INCORRECT));
+                rc = CKR_PIN_INCORRECT;
+                goto done;
+            }
+
+            /* Successful login, clear flags */
+            *flags &= ~(CKF_USER_PIN_LOCKED |
+                        CKF_USER_PIN_FINAL_TRY | CKF_USER_PIN_COUNT_LOW);
+        }
+
+        /*
+         * Reset flag in operation context to indicate that a login has been
+         * successfully performed
+         */
+        if (sess->sign_ctx.active && sess->sign_ctx.auth_required)
+            sess->sign_ctx.auth_required = FALSE;
+        if (sess->decr_ctx.active && sess->decr_ctx.auth_required)
+            sess->decr_ctx.auth_required = FALSE;
+        break;
+
+    default:
+        rc = CKR_USER_TYPE_INVALID;
+        TRACE_ERROR("%s\n", ock_err(ERR_USER_TYPE_INVALID));
+        goto done;
     }
 
 done:
-    if (rc == CKR_OK) {
+    if (rc == CKR_OK && userType != CKU_CONTEXT_SPECIFIC) {
         rc = session_mgr_login_all(tokdata, userType);
         if (rc != CKR_OK)
             TRACE_DEVEL("session_mgr_login_all failed.\n");
     }
 
-    if (rc == CKR_OK) {
+    if (rc == CKR_OK && userType != CKU_CONTEXT_SPECIFIC) {
         bt_for_each_node(tokdata, &tokdata->sess_btree, _ep11tok_login_session,
                          &rc);
         if (rc != CKR_OK)
             TRACE_DEVEL("_ep11tok_login_session failed.\n");
+    }
+
+    /*
+     * PKCS#11 states for failing C_Login with user type CKU_CONTEXT_SPECIFIC:
+     * '... repeated failed re-authentication attempts may cause the PIN to be
+     * locked. C_Login returns in this case CKR_PIN_LOCKED and this also logs
+     * the user out from the token'
+     */
+    if (userType == CKU_CONTEXT_SPECIFIC &&
+        rc == CKR_PIN_INCORRECT &&
+        pin_locked(&sess->session_info,
+                    tokdata->nv_token_data->token_info.flags)) {
+        TRACE_DEVEL("USER pin now locked, logout the user\n");
+        SC_Logout(tokdata, sSession);
+        rc = CKR_PIN_LOCKED;
     }
 
     TRACE_INFO("C_Login: rc = 0x%08lx\n", rc);
