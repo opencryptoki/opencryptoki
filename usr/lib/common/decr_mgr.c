@@ -709,6 +709,10 @@ CK_RV decr_mgr_decrypt(STDLL_TokData_t *tokdata,
         TRACE_ERROR("%s\n", ock_err(ERR_OPERATION_NOT_INITIALIZED));
         return CKR_OPERATION_NOT_INITIALIZED;
     }
+    if (ctx->auth_required == TRUE) {
+        TRACE_ERROR("%s\n", ock_err(ERR_USER_NOT_LOGGED_IN));
+        return CKR_USER_NOT_LOGGED_IN;
+    }
     if (ctx->multi_init == FALSE) {
         ctx->multi = FALSE;
         ctx->multi_init = TRUE;
@@ -875,6 +879,10 @@ CK_RV decr_mgr_decrypt_update(STDLL_TokData_t *tokdata,
         TRACE_ERROR("%s\n", ock_err(ERR_OPERATION_NOT_INITIALIZED));
         return CKR_OPERATION_NOT_INITIALIZED;
     }
+    if (ctx->auth_required == TRUE) {
+        TRACE_ERROR("%s\n", ock_err(ERR_USER_NOT_LOGGED_IN));
+        return CKR_USER_NOT_LOGGED_IN;
+    }
     if (ctx->multi_init == FALSE) {
         ctx->multi = TRUE;
         ctx->multi_init = TRUE;
@@ -1023,6 +1031,10 @@ CK_RV decr_mgr_decrypt_final(STDLL_TokData_t *tokdata,
     if (ctx->active == FALSE) {
         TRACE_ERROR("%s\n", ock_err(ERR_OPERATION_NOT_INITIALIZED));
         return CKR_OPERATION_NOT_INITIALIZED;
+    }
+    if (ctx->auth_required == TRUE) {
+        TRACE_ERROR("%s\n", ock_err(ERR_USER_NOT_LOGGED_IN));
+        return CKR_USER_NOT_LOGGED_IN;
     }
     if (ctx->multi_init == FALSE) {
         ctx->multi = TRUE;

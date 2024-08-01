@@ -2512,6 +2512,11 @@ CK_RV SC_Decrypt(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
         rc = CKR_OPERATION_NOT_INITIALIZED;
         goto done;
     }
+    if (sess->decr_ctx.auth_required == TRUE) {
+        TRACE_ERROR("%s\n", ock_err(ERR_USER_NOT_LOGGED_IN));
+        rc = CKR_USER_NOT_LOGGED_IN;
+        goto done;
+    }
 
     if (!pData)
         length_only = TRUE;
@@ -2612,6 +2617,11 @@ CK_RV SC_DecryptUpdate(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
         rc = CKR_OPERATION_NOT_INITIALIZED;
         goto done;
     }
+    if (sess->decr_ctx.auth_required == TRUE) {
+        TRACE_ERROR("%s\n", ock_err(ERR_USER_NOT_LOGGED_IN));
+        rc = CKR_USER_NOT_LOGGED_IN;
+        goto done;
+    }
 
     if (sess->decr_ctx.multi_init == FALSE) {
         sess->decr_ctx.multi = TRUE;
@@ -2695,6 +2705,11 @@ CK_RV SC_DecryptFinal(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
         ep11tok_mech_single_only(&sess->decr_ctx.mech)) {
         TRACE_ERROR("%s\n", ock_err(ERR_OPERATION_NOT_INITIALIZED));
         rc = CKR_OPERATION_NOT_INITIALIZED;
+        goto done;
+    }
+    if (sess->decr_ctx.auth_required == TRUE) {
+        TRACE_ERROR("%s\n", ock_err(ERR_USER_NOT_LOGGED_IN));
+        rc = CKR_USER_NOT_LOGGED_IN;
         goto done;
     }
 
@@ -3109,6 +3124,11 @@ CK_RV SC_Sign(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
         rc = CKR_OPERATION_NOT_INITIALIZED;
         goto done;
     }
+    if (sess->sign_ctx.auth_required == TRUE) {
+        TRACE_ERROR("%s\n", ock_err(ERR_USER_NOT_LOGGED_IN));
+        rc = CKR_USER_NOT_LOGGED_IN;
+        goto done;
+    }
 
     if (!pSignature)
         length_only = TRUE;
@@ -3203,6 +3223,11 @@ CK_RV SC_SignUpdate(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
         rc = CKR_OPERATION_NOT_INITIALIZED;
         goto done;
     }
+    if (sess->sign_ctx.auth_required == TRUE) {
+        TRACE_ERROR("%s\n", ock_err(ERR_USER_NOT_LOGGED_IN));
+        rc = CKR_USER_NOT_LOGGED_IN;
+        goto done;
+    }
 
     if (ep11tok_libica_mech_available(tokdata, sess->sign_ctx.mech.mechanism,
                                       sess->sign_ctx.key)) {
@@ -3284,6 +3309,11 @@ CK_RV SC_SignFinal(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
         ep11tok_mech_single_only(&sess->sign_ctx.mech)) {
         TRACE_ERROR("%s\n", ock_err(ERR_OPERATION_NOT_INITIALIZED));
         rc = CKR_OPERATION_NOT_INITIALIZED;
+        goto done;
+    }
+    if (sess->sign_ctx.auth_required == TRUE) {
+        TRACE_ERROR("%s\n", ock_err(ERR_USER_NOT_LOGGED_IN));
+        rc = CKR_USER_NOT_LOGGED_IN;
         goto done;
     }
 
