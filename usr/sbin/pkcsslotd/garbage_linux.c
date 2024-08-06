@@ -22,6 +22,10 @@
 #include "pkcsslotd.h"
 #include "err.h"
 
+#if defined(_AIX)
+    #include <sys/procfs.h>
+#endif
+
 #define PROC_BASE "/proc"
 
 #if !defined(NOGARBAGE)
@@ -409,20 +413,43 @@ BOOL CheckForGarbage(Slot_Mgr_Shr_t *MemPtr)
 
 int Stat2Proc(int pid, proc_t *p)
 {
+#if defined(_AIX)
+    struct psinfo psinfo;
+#else
     char buf[800 + 1];      // about 40 fields, 64-bit decimal is about 20 chars
+#endif
     char fbuf[800];         // about 40 fields, 64-bit decimal is about 20 chars
     char *tmp;
     int fd, num;
 
+#if defined(_AIX)
+    sprintf(fbuf, "%s/%d/psinfo", PROC_BASE, pid);
+#else
     sprintf(fbuf, "%s/%d/stat", PROC_BASE, pid);
+#endif
     fflush(stdout);
     if ((fd = open(fbuf, O_RDONLY, 0)) == -1)
         return FALSE;
 
+#if defined(_AIX)
+    num = read(fd, &psinfo, sizeof(psinfo));
+#else
     num = read(fd, buf, 800);
+#endif
 
     close(fd);
 
+#if defined(_AIX)
+    if (num != sizeof(psinfo))
+        return FALSE;
+
+    /* on AIX only set those fields that are used by the caller */
+    p->pid = psinfo.pr_pid;
+    p->start_time = psinfo.pr_start.tv_sec;
+    p->flags = psinfo.pr_flag;
+    p->state = 0;
+
+#else
     if (num < 80)
         return FALSE;
 
@@ -480,6 +507,7 @@ int Stat2Proc(int pid, proc_t *p)
         return FALSE;
     if (p->pid != pid)
         return FALSE;
+#endif
 
     return TRUE;
 }
