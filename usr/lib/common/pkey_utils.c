@@ -548,7 +548,7 @@ CK_RV pkey_aes_ecb(STDLL_TokData_t *tokdata, SESSION *session, OBJECT *key_obj,
     }
 
     /* Call CPACF */
-    memcpy(param.key, pkey_attr->pValue, pkey_attr->ulValueLen);
+    memcpy(param.key, pkey_attr->pValue, MIN(pkey_attr->ulValueLen, sizeof(param.key)));
     while (len > 0 && num_tries < PKEY_CONVERT_KEY_RETRIES) {
         bytes_processed = s390_km(fc, &param, out_pos, in_pos, len);
         if (bytes_processed < len) {
@@ -559,7 +559,7 @@ CK_RV pkey_aes_ecb(STDLL_TokData_t *tokdata, SESSION *session, OBJECT *key_obj,
                               protkey, &protkey_len);
             if (ret != CKR_OK)
                 goto done;
-            memcpy(param.key, protkey, protkey_len);
+            memcpy(param.key, protkey, MIN(protkey_len, sizeof(param.key)));
         }
         in_pos += bytes_processed;
         out_pos += bytes_processed;
@@ -645,7 +645,7 @@ CK_RV pkey_aes_cbc(STDLL_TokData_t *tokdata, SESSION *session, OBJECT *key_obj,
 
     /* Call CPACF */
     memcpy(param.iv, iv, 16);
-    memcpy(param.key, pkey_attr->pValue, pkey_attr->ulValueLen);
+    memcpy(param.key, pkey_attr->pValue, MIN(pkey_attr->ulValueLen, sizeof(param.key)));
 
     while (len > 0 || num_tries < PKEY_CONVERT_KEY_RETRIES) {
         bytes_processed = s390_kmc(fc, &param, out_pos, in_pos, len);
@@ -657,7 +657,7 @@ CK_RV pkey_aes_cbc(STDLL_TokData_t *tokdata, SESSION *session, OBJECT *key_obj,
                               protkey, &protkey_len);
             if (ret != CKR_OK)
                 goto done;
-            memcpy(param.key, protkey, protkey_len);
+            memcpy(param.key, protkey, MIN(protkey_len, sizeof(param.key)));
         }
         in_pos += bytes_processed;
         out_pos += bytes_processed;
@@ -758,7 +758,8 @@ CK_RV pkey_aes_cmac(STDLL_TokData_t *tokdata, SESSION *session,
     /* Setup parm block */
     memset(parm_block, 0, sizeof(parm_block));
     parm_block_lookup_init(&pb_lookup, parm_block, AES_BLOCK_SIZE);
-    memcpy(pb_lookup.keys, pkey_attr->pValue, pkey_attr->ulValueLen);
+    memcpy(pb_lookup.keys, pkey_attr->pValue,
+           MIN(pkey_attr->ulValueLen, MAXPROTKEYSIZE));
 
     /* copy iv into param block, if available (intermediate) */
     if (iv != NULL)
@@ -777,7 +778,7 @@ CK_RV pkey_aes_cmac(STDLL_TokData_t *tokdata, SESSION *session,
                                   protkey, &protkey_len);
                 if (ret != CKR_OK)
                     goto done;
-                memcpy(pb_lookup.keys, protkey, protkey_len);
+                memcpy(pb_lookup.keys, protkey, MIN(protkey_len, MAXPROTKEYSIZE));
             }
             in_pos += bytes_processed;
             out_pos += bytes_processed;
@@ -815,7 +816,7 @@ CK_RV pkey_aes_cmac(STDLL_TokData_t *tokdata, SESSION *session,
                                           protkey, &protkey_len);
                         if (ret != CKR_OK)
                             goto done;
-                        memcpy(pb_lookup.keys, protkey, protkey_len);
+                        memcpy(pb_lookup.keys, protkey, MIN(protkey_len, MAXPROTKEYSIZE));
                     }
                     in_pos += bytes_processed;
                     out_pos += bytes_processed;
