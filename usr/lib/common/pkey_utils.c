@@ -904,8 +904,14 @@ struct cpacf_km_xts_aes_256_param {
 };
 
 struct aes_xts_param {
-    uint8_t param_km[sizeof(struct cpacf_km_xts_aes_256_param)];
-    uint8_t param_pcc[sizeof(struct cpacf_pcc_xts_aes_256_param)];
+    union {
+        struct cpacf_km_xts_aes_256_param param_s;
+        uint8_t param_km[sizeof(struct cpacf_km_xts_aes_256_param)];
+    } km;
+    union {
+        struct cpacf_pcc_xts_aes_256_param param_s;
+        uint8_t param_pcc[sizeof(struct cpacf_pcc_xts_aes_256_param)];
+    } pcc;
     unsigned int fc;
     unsigned int keylen;
     convert_key_t convert_key;
@@ -925,10 +931,10 @@ static CK_RV pkey_aes_xts_iv_from_tweak(CK_BYTE *tweak, CK_BYTE* iv,
     CK_RV ret;
 
     offset = AES_XTS_PCC_I(param->keylen * 8);
-    memcpy(param->param_pcc + offset, tweak, AES_BLOCK_SIZE);
+    memcpy(param->pcc.param_pcc + offset, tweak, AES_BLOCK_SIZE);
 
     while (rc != 0 && num_tries < PKEY_CONVERT_KEY_RETRIES) {
-        rc = s390_pcc(param->fc & 0x7f, param->param_pcc);
+        rc = s390_pcc(param->fc & 0x7f, param->pcc.param_pcc);
         if (rc != 0) {
             TRACE_DEVEL("%s rc from s390_pcc = %d, probably caused by "
                         "an LGR. Rederiving protkey and retrying ...\n",
@@ -943,13 +949,15 @@ static CK_RV pkey_aes_xts_iv_from_tweak(CK_BYTE *tweak, CK_BYTE* iv,
              * pkey_aes_xts_cipher_blocks will then use the re-derived key
              * as well.
              */
-            memcpy(param->param_km, protkey, protkey_len / 2);
+            memcpy(param->km.param_s.protkey, protkey,
+                   MIN(protkey_len / 2, sizeof(param->km.param_s.protkey)));
             /*
              * Copy XTS key 2 into CPACF parmblock for PCC instruction. Key 2
              * is used to create the iv from tweak via PCC. The key object
              * itself contains both keys in re-derived form after convert_key.
              */
-            memcpy(param->param_pcc, protkey + protkey_len / 2, protkey_len / 2);
+            memcpy(param->pcc.param_s.protkey, protkey + protkey_len / 2,
+                   MIN(protkey_len / 2, sizeof(param->pcc.param_s.protkey)));
             num_tries++;
         }
     }
@@ -959,7 +967,7 @@ static CK_RV pkey_aes_xts_iv_from_tweak(CK_BYTE *tweak, CK_BYTE* iv,
     }
 
     offset = AES_XTS_PCC_XTSPARAM(param->keylen * 8);
-    memcpy(iv, param->param_pcc + offset, AES_BLOCK_SIZE);
+    memcpy(iv, param->pcc.param_pcc + offset, AES_BLOCK_SIZE);
 
     return CKR_OK;
 }
@@ -979,10 +987,10 @@ static CK_RV pkey_aes_xts_cipher_blocks(CK_BYTE *in, CK_BYTE *out, CK_ULONG len,
     CK_RV ret;
 
     int offset = AES_XTS_KM_XTSPARAM(param->keylen * 8);
-    memcpy(param->param_km + offset, iv, AES_BLOCK_SIZE);
+    memcpy(param->km.param_km + offset, iv, AES_BLOCK_SIZE);
 
     while (len2 > 0 && num_tries < PKEY_CONVERT_KEY_RETRIES) {
-        bytes_processed = s390_km(param->fc, param->param_km, out_pos, in_pos, len2);
+        bytes_processed = s390_km(param->fc, param->km.param_km, out_pos, in_pos, len2);
         if (bytes_processed < len2) {
             TRACE_DEVEL("%s partial completion probably caused by an LGR: "
                         "%d of %ld bytes processed.\n",
@@ -997,7 +1005,8 @@ static CK_RV pkey_aes_xts_cipher_blocks(CK_BYTE *in, CK_BYTE *out, CK_ULONG len,
              * op to create the iv from tweak via PCC. But the key object now
              * contains both keys in rederived form.
              */
-            memcpy(param->param_km, protkey, protkey_len / 2);
+            memcpy(param->km.param_s.protkey, protkey,
+                   MIN(protkey_len / 2, sizeof(param->km.param_s.protkey)));
         }
         in_pos += bytes_processed;
         out_pos += bytes_processed;
@@ -1011,7 +1020,7 @@ static CK_RV pkey_aes_xts_cipher_blocks(CK_BYTE *in, CK_BYTE *out, CK_ULONG len,
         goto done;
     }
 
-    memcpy(iv, param->param_km + offset, AES_BLOCK_SIZE);
+    memcpy(iv, param->km.param_km + offset, AES_BLOCK_SIZE);
     ret = CKR_OK;
 
 done:
@@ -1074,9 +1083,10 @@ CK_RV pkey_aes_xts(STDLL_TokData_t *tokdata, SESSION *session,
     }
     keylen = keylen / 2;
 
-    memcpy(param.param_km, pkey_attr->pValue, pkey_attr->ulValueLen / 2);
-    memcpy(param.param_pcc, (CK_BYTE *)pkey_attr->pValue + pkey_attr->ulValueLen / 2,
-           pkey_attr->ulValueLen / 2);
+    memcpy(param.km.param_s.protkey, pkey_attr->pValue,
+           MIN(pkey_attr->ulValueLen / 2, sizeof(param.km.param_s.protkey)));
+    memcpy(param.pcc.param_s.protkey, (CK_BYTE *)pkey_attr->pValue + pkey_attr->ulValueLen / 2,
+           MIN(pkey_attr->ulValueLen / 2, sizeof(param.pcc.param_s.protkey)));
     param.fc = fc;
     param.keylen = keylen;
     param.convert_key = convert_key;
