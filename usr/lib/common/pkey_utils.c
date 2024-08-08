@@ -32,6 +32,19 @@
 #include "pkey_utils.h"
 
 
+/*
+ * The CPACF buffers for p521 key and signature parts have 80 bytes each,
+ * but only the 66 right-most bytes are used. P521 signatures have 132 bytes.
+ */
+#define P521_BUF_OFFSET           14
+
+/*
+ * The CPACF buffers for ED448 key and signature parts have 64 bytes each,
+ * but only the 57 right-most bytes are used. ED448 signatures have 114 bytes.
+ */
+#define ED448_BUF_OFFSET          7
+
+
 static const CK_BYTE p256[] = OCK_PRIME256V1;
 static const CK_BYTE p384[] = OCK_SECP384R1;
 static const CK_BYTE p521[] = OCK_SECP521R1;
@@ -1196,32 +1209,53 @@ CK_RV pkey_ec_sign(STDLL_TokData_t *tokdata, SESSION *session,
     curve_type = get_cpacf_curve_type(privkey->template);
     switch (curve_type) {
     case curve_p256:
-        if (hash_len > 32)
-            hash_len = 32;
-        off = 32 - hash_len;
+        if (pkey_attr->ulValueLen != sizeof(param.P256.priv) + sizeof(param.P256.vp)) {
+            TRACE_ERROR("Protected key has an invalid length of %ld bytes.\n",
+                        pkey_attr->ulValueLen);
+            ret = CKR_ATTRIBUTE_VALUE_INVALID;
+            goto done;
+        }
+        if (hash_len > sizeof(param.P256.hash))
+            hash_len = sizeof(param.P256.hash);
+        off = sizeof(param.P256.hash) - hash_len;
         memcpy(param.P256.hash + off, hash, hash_len);
-        memcpy(param.P256.priv, pkey_attr->pValue, 32);
-        memcpy(param.P256.vp, (char *)pkey_attr->pValue + 32, 32);
-        *sig_len = 2 * 32;
+        memcpy(param.P256.priv, pkey_attr->pValue, sizeof(param.P256.priv));
+        memcpy(param.P256.vp, (char *)pkey_attr->pValue + sizeof(param.P256.priv),
+               sizeof(param.P256.vp));
+        *sig_len = 2 * sizeof(param.P256.sig_r);
         break;
     case curve_p384:
-        if (hash_len > 48)
-            hash_len = 48;
-        off = 48 - hash_len;
+        if (pkey_attr->ulValueLen != sizeof(param.P384.priv) + sizeof(param.P384.vp)) {
+            TRACE_ERROR("Protected key has an invalid length of %ld bytes.\n",
+                        pkey_attr->ulValueLen);
+            ret = CKR_ATTRIBUTE_VALUE_INVALID;
+            goto done;
+        }
+        if (hash_len > sizeof(param.P384.hash))
+            hash_len = sizeof(param.P384.hash);
+        off = sizeof(param.P384.hash) - hash_len;
         memcpy(param.P384.hash + off, hash, hash_len);
-        memcpy(param.P384.priv, pkey_attr->pValue, 48);
-        memcpy(param.P384.vp, (char *)pkey_attr->pValue + 48, 32);
-        *sig_len = 2 * 48;
+        memcpy(param.P384.priv, pkey_attr->pValue, sizeof(param.P384.priv));
+        memcpy(param.P384.vp, (char *)pkey_attr->pValue + sizeof(param.P384.priv),
+               sizeof(param.P384.vp));
+        *sig_len = 2 * sizeof(param.P384.sig_r);
         break;
     case curve_p521:
-        if (hash_len > 66)
-            hash_len = 66;
+        if (pkey_attr->ulValueLen != sizeof(param.P521.priv) + sizeof(param.P521.vp)) {
+            TRACE_ERROR("Protected key has an invalid length of %ld bytes.\n",
+                        pkey_attr->ulValueLen);
+            ret = CKR_ATTRIBUTE_VALUE_INVALID;
+            goto done;
+        }
+        if (hash_len > sizeof(param.P521.hash) - P521_BUF_OFFSET)
+            hash_len = sizeof(param.P521.hash) - P521_BUF_OFFSET;
         /* Note that the pkey for p521 has 80 + 32 bytes. */
-        off = 80 - hash_len;
+        off = sizeof(param.P521.hash) - hash_len;
         memcpy(param.P521.hash + off, hash, hash_len);
-        memcpy(param.P521.priv, pkey_attr->pValue, pkey_attr->ulValueLen - 32);
-        memcpy(param.P521.vp, (char *)pkey_attr->pValue + pkey_attr->ulValueLen - 32, 32);
-        *sig_len = 2 * 66;
+        memcpy(param.P521.priv, pkey_attr->pValue, sizeof(param.P521.priv));
+        memcpy(param.P521.vp, (char *)pkey_attr->pValue + sizeof(param.P521.priv),
+               sizeof(param.P521.vp));
+        *sig_len = 2 * (sizeof(param.P521.sig_r) - P521_BUF_OFFSET);
         break;
     default:
         TRACE_ERROR("Could not determine the curve type.\n");
@@ -1308,16 +1342,19 @@ retry:
         retry_count++;
         switch (curve_type) {
         case curve_p256:
-            memcpy(param.P256.priv, protkey, 32);
-            memcpy(param.P256.vp, protkey + 32, 32);
+            memcpy(param.P256.priv, protkey, sizeof(param.P256.priv));
+            memcpy(param.P256.vp, protkey + sizeof(param.P256.priv),
+                   sizeof(param.P256.vp));
             goto retry;
         case curve_p384:
-            memcpy(param.P384.priv, protkey, 48);
-            memcpy(param.P384.vp, protkey + 48, 32);
+            memcpy(param.P384.priv, protkey, sizeof(param.P384.priv));
+            memcpy(param.P384.vp, protkey + sizeof(param.P384.priv),
+                   sizeof(param.P384.vp));
             goto retry;
         case curve_p521:
-            memcpy(param.P521.priv, protkey, 80);
-            memcpy(param.P521.vp, protkey + 80, 32);
+            memcpy(param.P521.priv, protkey, sizeof(param.P521.priv));
+            memcpy(param.P521.vp, protkey + sizeof(param.P521.priv),
+                   sizeof(param.P521.vp));
             goto retry;
         default:
             TRACE_ERROR("Could not determine the curve type.\n");
@@ -1335,8 +1372,11 @@ retry:
         break;
     case curve_p521:
         /* r and s are both righ-aligned in the param block */
-        memcpy(sig, param.P521.sig_r + 14, 66);
-        memcpy(sig + 66, param.P521.sig_s + 14, 66);
+        memcpy(sig, param.P521.sig_r + P521_BUF_OFFSET,
+               sizeof(param.P521.sig_r) - P521_BUF_OFFSET);
+        memcpy(sig + sizeof(param.P521.sig_r) - P521_BUF_OFFSET,
+               param.P521.sig_s + P521_BUF_OFFSET,
+               sizeof(param.P521.sig_s) - P521_BUF_OFFSET);
         break;
     default:
         TRACE_ERROR("Could not determine the curve type.\n");
@@ -1404,16 +1444,30 @@ CK_RV pkey_ibm_ed_sign(STDLL_TokData_t *tokdata, SESSION *session,
     curve_type = get_cpacf_curve_type(privkey->template);
     switch (curve_type) {
     case curve_ed25519:
+        if (pkey_attr->ulValueLen != sizeof(edparam.ED25519.priv) + sizeof(edparam.ED25519.vp)) {
+            TRACE_ERROR("Protected key has an invalid length of %ld bytes.\n",
+                        pkey_attr->ulValueLen);
+            ret = CKR_ATTRIBUTE_VALUE_INVALID;
+            goto done;
+        }
         fc = KDSA_ENCRYPTED_EDDSA_SIGN_ED25519;
-        memcpy(edparam.ED25519.priv, pkey_attr->pValue, 32);
-        memcpy(edparam.ED25519.vp, (char *)pkey_attr->pValue + 32, 32);
-        *sig_len = 2 * 32;
+        memcpy(edparam.ED25519.priv, pkey_attr->pValue, sizeof(edparam.ED25519.priv));
+        memcpy(edparam.ED25519.vp, (char *)pkey_attr->pValue + sizeof(edparam.ED25519.priv),
+               sizeof(edparam.ED25519.vp));
+        *sig_len = 2 * sizeof(edparam.ED25519.sig_r);
         break;
     case curve_ed448:
+        if (pkey_attr->ulValueLen != sizeof(edparam.ED448.priv) + sizeof(edparam.ED448.vp)) {
+            TRACE_ERROR("Protected key has an invalid length of %ld bytes.\n",
+                        pkey_attr->ulValueLen);
+            ret = CKR_ATTRIBUTE_VALUE_INVALID;
+            goto done;
+        }
         fc = KDSA_ENCRYPTED_EDDSA_SIGN_ED448;
-        memcpy(edparam.ED448.priv, pkey_attr->pValue, 64);
-        memcpy(edparam.ED448.vp, (char *)pkey_attr->pValue + 64, 32);
-        *sig_len = 2 * 57;
+        memcpy(edparam.ED448.priv, pkey_attr->pValue, sizeof(edparam.ED448.priv));
+        memcpy(edparam.ED448.vp, (char *)pkey_attr->pValue + sizeof(edparam.ED448.priv),
+               sizeof(edparam.ED448.vp));
+        *sig_len = 2 * (sizeof(edparam.ED448.sig_r) - ED448_BUF_OFFSET);
         break;
     default:
         TRACE_ERROR("Could not determine the curve type.\n");
@@ -1467,12 +1521,14 @@ retry:
         retry_count++;
         switch (curve_type) {
         case curve_ed25519:
-            memcpy(edparam.ED25519.priv, protkey, 32);
-            memcpy(edparam.ED25519.vp, protkey + 32, 32);
+            memcpy(edparam.ED25519.priv, protkey, sizeof(edparam.ED25519.priv));
+            memcpy(edparam.ED25519.vp, protkey + sizeof(edparam.ED25519.priv),
+                   sizeof(edparam.ED25519.vp));
             goto retry;
         case curve_ed448:
-            memcpy(edparam.ED448.priv, protkey, 64);
-            memcpy(edparam.ED448.vp, protkey + 64, 32);
+            memcpy(edparam.ED448.priv, protkey, sizeof(edparam.ED448.priv));
+            memcpy(edparam.ED448.vp, protkey + sizeof(edparam.ED448.priv),
+                   sizeof(edparam.ED448.vp));
             goto retry;
         default:
             TRACE_ERROR("Could not determine the curve type.\n");
@@ -1486,14 +1542,15 @@ retry:
     case curve_ed25519:
         /* r and s are consecutive in the param block */
         s390_flip_endian_32(sig, edparam.ED25519.sig_r);
-        s390_flip_endian_32(sig + 32, edparam.ED25519.sig_s);
+        s390_flip_endian_32(sig + sizeof(edparam.ED25519.sig_r), edparam.ED25519.sig_s);
         break;
     case curve_ed448:
         /* r and s are right aligned in the param block */
         s390_flip_endian_64(edparam.ED448.sig_r, edparam.ED448.sig_r);
         s390_flip_endian_64(edparam.ED448.sig_s, edparam.ED448.sig_s);
-        memcpy(sig, edparam.ED448.sig_r, 57);
-        memcpy(sig + 57, edparam.ED448.sig_s, 57);
+        memcpy(sig, edparam.ED448.sig_r, sizeof(edparam.ED448.sig_r) - ED448_BUF_OFFSET);
+        memcpy(sig + sizeof(edparam.ED448.sig_r) - ED448_BUF_OFFSET,
+               edparam.ED448.sig_s, sizeof(edparam.ED448.sig_s) - ED448_BUF_OFFSET);
         break;
     default:
         TRACE_ERROR("Could not determine the curve type.\n");
@@ -1573,35 +1630,65 @@ struct {                          \
     curve_type = get_cpacf_curve_type(pubkey->template);
     switch (curve_type) {
     case curve_p256:
-        if (hash_len > sig_len / 2)
-            hash_len = sig_len / 2;
+        if (sig_len != 2 * sizeof(param.P256.sig_r)) {
+            TRACE_ERROR("Signature has an invalid length of %ld bytes.\n", sig_len);
+            ret = CKR_ARGUMENTS_BAD;
+            goto done;
+        }
+        if (ecpoint_len != 2 * sizeof(param.P256.pub_x)) {
+            TRACE_ERROR("Public key has an invalid length of %ld bytes.\n", ecpoint_len);
+            ret = CKR_ATTRIBUTE_VALUE_INVALID;
+            goto done;
+        }
+        if (hash_len > sizeof(param.P256.hash))
+            hash_len = sizeof(param.P256.hash);
         fc = KDSA_ECDSA_VERIFY_P256;
-        hash_off = 32 - hash_len;
-        memcpy(param.P256.sig_r, sig, sig_len);
+        hash_off = sizeof(param.P256.hash) - hash_len;
+        memcpy(param.P256.sig_r, sig, 2 * sizeof(param.P256.sig_r));
         memcpy(param.P256.hash + hash_off, hash, hash_len);
-        memcpy(param.P256.pub_x, ecpoint, ecpoint_len);
+        memcpy(param.P256.pub_x, ecpoint, 2 * sizeof(param.P256.pub_x));
         break;
     case curve_p384:
-        if (hash_len > sig_len / 2)
-            hash_len = sig_len / 2;
+        if (sig_len != 2 * sizeof(param.P384.sig_r)) {
+            TRACE_ERROR("Signature has an invalid length of %ld bytes.\n", sig_len);
+            ret = CKR_ARGUMENTS_BAD;
+            goto done;
+        }
+        if (ecpoint_len != 2 * sizeof(param.P384.pub_x)) {
+            TRACE_ERROR("Public key has an invalid length of %ld bytes.\n", ecpoint_len);
+            ret = CKR_ATTRIBUTE_VALUE_INVALID;
+            goto done;
+        }
+        if (hash_len > sizeof(param.P384.hash))
+            hash_len = sizeof(param.P384.hash);
         fc = KDSA_ECDSA_VERIFY_P384;
-        hash_off = 48 - hash_len;
-        memcpy(param.P384.sig_r, sig, sig_len);
+        hash_off = sizeof(param.P384.hash) - hash_len;
+        memcpy(param.P384.sig_r, sig, 2 * sizeof(param.P384.sig_r));
         memcpy(param.P384.hash + hash_off, hash, hash_len);
-        memcpy(param.P384.pub_x, ecpoint, ecpoint_len);
+        memcpy(param.P384.pub_x, ecpoint, 2 * sizeof(param.P384.pub_x));
         break;
     case curve_p521:
+        if (sig_len != 2 * (sizeof(param.P521.sig_r) - P521_BUF_OFFSET)) {
+            TRACE_ERROR("Signature has an invalid length of %ld bytes.\n", sig_len);
+            ret = CKR_ARGUMENTS_BAD;
+            goto done;
+        }
+        if (ecpoint_len != 2 * (sizeof(param.P521.pub_x) - P521_BUF_OFFSET)) {
+            TRACE_ERROR("Public key has an invalid length of %ld bytes.\n", ecpoint_len);
+            ret = CKR_ATTRIBUTE_VALUE_INVALID;
+            goto done;
+        }
         if (hash_len > sig_len / 2)
             hash_len = sig_len / 2;
         fc = KDSA_ECDSA_VERIFY_P521;
         /* Note that the pkey for p521 has 80 + 32 bytes. */
-        hash_off = 80 - hash_len;
-        key_off = 80 - (sig_len / 2);
+        hash_off = sizeof(param.P521.hash) - hash_len;
+        key_off = sizeof(param.P521.pub_x) - (ecpoint_len / 2);
         memcpy(param.P521.sig_r + key_off, sig, sig_len / 2);
         memcpy(param.P521.sig_s + key_off, sig + (sig_len / 2), sig_len / 2);
         memcpy(param.P521.hash + hash_off, hash, hash_len);
-        memcpy(param.P521.pub_x + key_off, ecpoint, sig_len / 2);
-        memcpy(param.P521.pub_y + key_off, ecpoint + (sig_len / 2), sig_len / 2);
+        memcpy(param.P521.pub_x + key_off, ecpoint, ecpoint_len / 2);
+        memcpy(param.P521.pub_y + key_off, ecpoint + (ecpoint_len / 2), ecpoint_len / 2);
         break;
     default:
         TRACE_ERROR("Could not determine the curve type.\n");
@@ -1681,16 +1768,37 @@ struct {                            \
     curve_type = get_cpacf_curve_type(pubkey->template);
     switch (curve_type) {
     case curve_ed25519:
+        if (sig_len != 2 * sizeof(edparam.ED25519.sig_r)) {
+            TRACE_ERROR("Signature has an invalid length of %ld bytes.\n", sig_len);
+            ret = CKR_ARGUMENTS_BAD;
+            goto done;
+        }
         fc = KDSA_EDDSA_VERIFY_ED25519;
+        /*
+         * The flip_endian_32 will copy the 32-byte signature parts and public
+         * key into the CPACF buffers and flip to little-endian as required
+         * by CPACF.
+         */
         s390_flip_endian_32(edparam.ED25519.sig_r, sig);
-        s390_flip_endian_32(edparam.ED25519.sig_s, sig + (sig_len / 2));
+        s390_flip_endian_32(edparam.ED25519.sig_s, sig + sizeof(edparam.ED25519.sig_r));
         s390_flip_endian_32(edparam.ED25519.pub, ecpoint);
         break;
     case curve_ed448:
+        if (sig_len != 2 * (sizeof(edparam.ED448.sig_r) - ED448_BUF_OFFSET)) {
+            TRACE_ERROR("Signature has an invalid length of %ld bytes.\n", sig_len);
+            ret = CKR_ARGUMENTS_BAD;
+            goto done;
+        }
         fc = KDSA_EDDSA_VERIFY_ED448;
+        /*
+         * Copy the 57-byte signature parts and public key into the CPACF parm
+         * block left-aligned. The subsequent flip_endian_64 will result in
+         * right-aligned 57 meaningful little-endian bytes in the 64-byte
+         * buffers.
+         */
         memcpy(edparam.ED448.sig_r, sig, sig_len / 2);
         memcpy(edparam.ED448.sig_s, sig + (sig_len / 2), sig_len / 2);
-        memcpy(edparam.ED448.pub, ecpoint, ecpoint_len);
+        memcpy(edparam.ED448.pub, ecpoint, sizeof(edparam.ED448.pub));
         s390_flip_endian_64(edparam.ED448.sig_r, edparam.ED448.sig_r);
         s390_flip_endian_64(edparam.ED448.sig_s, edparam.ED448.sig_s);
         s390_flip_endian_64(edparam.ED448.pub, edparam.ED448.pub);
@@ -1708,8 +1816,8 @@ struct {                            \
         break;
     case curve_ed448:
         rc = s390_kdsa(fc, edparam.buff, msg, msg_len);
-        if (sig[113] != 0) {
-            /* KDSA doesn't check last byte */
+        if (sig[2 * (sizeof(edparam.ED448.sig_r) - ED448_BUF_OFFSET) - 1] != 0) {
+            /* KDSA doesn't check last byte sig[113] */
             rc = 1;
         }
         break;
