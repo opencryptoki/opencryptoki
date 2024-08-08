@@ -135,6 +135,7 @@ static bool opt_uri_pem = false;
 static bool opt_uri_pin_value = false;
 static char *opt_uri_pin_source = NULL;
 static bool opt_oqsprovider_pem = false;
+static bool opt_hsm_mkvp = false;
 
 static bool opt_slot_is_set(const struct p11sak_arg *arg);
 static CK_RV generic_get_key_size(const struct p11sak_objtype *keytype,
@@ -315,6 +316,22 @@ static void print_ibm_dilithium_keyform_attr(const char *attr,
 static void print_ibm_kyber_keyform_attr(const char *attr,
                                          const CK_ATTRIBUTE *val,
                                          int indent, bool sensitive);
+static void p11sak_print_mkvp_cca_short(const struct p11sak_token_info *info,
+                                        const CK_BYTE *secure_key,
+                                        CK_ULONG secure_key_len,
+                                        const char *separator);
+static void p11sak_print_mkvp_cca_long(const struct p11sak_token_info *info,
+                                       const CK_BYTE *secure_key,
+                                       CK_ULONG secure_key_len,
+                                       int indent);
+static void p11sak_print_mkvp_ep11_short(const struct p11sak_token_info *info,
+                                         const CK_BYTE *secure_key,
+                                         CK_ULONG secure_key_len,
+                                         const char *separator);
+static void p11sak_print_mkvp_ep11_long(const struct p11sak_token_info *info,
+                                        const CK_BYTE *secure_key,
+                                        CK_ULONG secure_key_len,
+                                        int indent);
 
 #define DECLARE_CERT_ATTRS                                                     \
     { .name = "CKA_LABEL", .type = CKA_LABEL,                                  \
@@ -1379,6 +1396,12 @@ static const struct p11sak_opt p11sak_list_key_opts[] = {
       .arg =  { .type = ARG_TYPE_PLAIN, .required = false,
                 .value.plain = &opt_detailed_uri, },
       .description = "Show detailed PKCS#11 URI.", },
+    { .short_opt = 'm', .long_opt = "hsm-mkvp", .required = false,
+      .arg =  { .type = ARG_TYPE_PLAIN, .required = false,
+                .value.plain = &opt_hsm_mkvp, },
+      .description = "Show the HSM master key verification patterns (MKVPs) of "
+                     "the key objects. Only valid for secure key tokens, such "
+                     "as the CCA and EP11 tokens.", },
     { .short_opt = 'S', .long_opt = "sort", .required = false,
       .arg =  { .type = ARG_TYPE_STRING, .required = true,
                 .value.string = &opt_sort, .name = "SORT-SPEC" },
@@ -2260,8 +2283,16 @@ static const struct p11sak_custom_attr_type custom_attr_types[] = {
 };
 
 static const struct p11sak_token_info p11sak_known_tokens[] = {
-    { .type = TOKTYPE_CCA,  .manufacturer = "IBM", .model = "CCA", },
-    { .type = TOKTYPE_EP11, .manufacturer = "IBM", .model = "EP11", },
+    { .type = TOKTYPE_CCA,  .manufacturer = "IBM", .model = "CCA",
+      .mkvp_size = 8,  .mktype_cell_size = 8,
+      .secure_key_attr = CKA_IBM_OPAQUE,
+      .print_mkvp_short = p11sak_print_mkvp_cca_short,
+      .print_mkvp_long = p11sak_print_mkvp_cca_long, },
+    { .type = TOKTYPE_EP11, .manufacturer = "IBM", .model = "EP11",
+      .mkvp_size = 16, .mktype_cell_size = 8,
+      .secure_key_attr = CKA_IBM_OPAQUE,
+      .print_mkvp_short = p11sak_print_mkvp_ep11_short,
+      .print_mkvp_long = p11sak_print_mkvp_ep11_long, },
     { .type = TOKTYPE_UNKNOWN, },
 };
 
@@ -5897,6 +5928,219 @@ static CK_RV prepare_uri(CK_OBJECT_HANDLE key, CK_OBJECT_CLASS *class,
     return CKR_OK;
 }
 
+static const CK_BYTE *p11sak_get_cca_wkvp(const struct p11sak_token_info *info,
+                                          const CK_BYTE *secure_key,
+                                          CK_ULONG secure_key_len,
+                                          const char **mktype)
+{
+    const struct cca_token_header *header =
+                        (const struct cca_token_header *)secure_key;
+    CK_ULONG mkvp_offset = 0;
+
+    if (secure_key_len <= sizeof(*header))
+        return NULL;
+
+    /*
+     * For token format, values and offsets, see manual "Common Cryptographic
+     * Architecture Application Programmer's Guide" chapter 20 "Key token
+     * formats"
+     */
+    if (header->id == 0x01 &&
+        (header->version == 0x00 || header->version == 0x01)) {
+        /* Internal secure CCA DES DATA key with exact 64 bytes */
+        mkvp_offset = sizeof(*header);
+        *mktype = "CCA SYM";
+    } else if (header->id == 0x01 && header->version == 0x04) {
+        /* Internal secure CCA AES DATA key with exact 64 bytes */
+        mkvp_offset = sizeof(*header);
+        *mktype = "CCA AES";
+    } else if (header->id == 0x01 && header->version == 0x05) {
+        /* Internal variable length secure CCA key */
+        if (secure_key_len < be16toh(header->len) || secure_key_len < 42)
+            return NULL;
+        if (secure_key[41] == 0x02 &&
+            be16toh(*((uint16_t*)(&secure_key[42]))) == 0x0001) {
+            /* Internal variable length secure CCA AES CIPHER key */
+            mkvp_offset = 10;
+            *mktype = "CCA AES";
+        } else if (secure_key[41] == 0x03 &&
+             be16toh(*((uint16_t*)(&secure_key[42]))) == 0x0002) {
+             /* Internal variable length secure CCA HMAC key */
+             mkvp_offset = 10;
+             *mktype = "CCA AES";
+        } else {
+            return NULL;
+        }
+    } else if (header->id == 0x1f) {
+        /* Internal secure CCA private key */
+        if (secure_key_len < be16toh(header->len))
+            return NULL;
+        if (secure_key[sizeof(header)] == 0x30) {
+            /* Internal secure CCA private RSA key, ME format */
+            mkvp_offset = sizeof(header) + 104;
+            *mktype = "CCA APKA";
+        } else if (secure_key[sizeof(header)] == 0x31) {
+            /* Internal secure CCA private RSA key, CRT format */
+            mkvp_offset = sizeof(header) + 116;
+            *mktype = "CCA APKA";
+        } else if (secure_key[sizeof(header)] == 0x20) {
+            /* Internal secure CCA private ECC key */
+            mkvp_offset = sizeof(header) + 16;
+            *mktype = "CCA APKA";
+        } else if (secure_key[sizeof(header)] == 0x50) {
+            /* Internal secure CCA private QSA key */
+            mkvp_offset = sizeof(header) + 118;
+            *mktype = "CCA APKA";
+        } else {
+            return NULL;
+        }
+    } else  {
+       return NULL;
+    }
+
+    if (secure_key_len < mkvp_offset + info->mkvp_size)
+        return NULL;
+
+    return &secure_key[mkvp_offset];
+}
+
+static void p11sak_print_mkvp_cca_short(const struct p11sak_token_info *info,
+                                        const CK_BYTE *secure_key,
+                                        CK_ULONG secure_key_len,
+                                        const char *separator)
+{
+    unsigned int i;
+    const CK_BYTE *mkvp;
+    const char *mktype = NULL;
+
+    mkvp = p11sak_get_cca_wkvp(info, secure_key, secure_key_len, &mktype);
+    if (mkvp == NULL) {
+        printf("%-*s | %-*s", MAX(LIST_MKVP_MIN_CELL_SIZE, info->mkvp_size * 2),
+               "-", MAX(LIST_MKTYPE_MIN_CELL_SIZE, info->mktype_cell_size),
+               "-");
+        return;
+    }
+
+    for (i = 0; i < info->mkvp_size; i++)
+        printf("%02X", mkvp[i]);
+    for (i = info->mkvp_size * 2; i < LIST_MKVP_MIN_CELL_SIZE; i++)
+        printf(" ");
+    printf("%s%-*s", separator, MAX(LIST_MKTYPE_MIN_CELL_SIZE,
+                                    info->mktype_cell_size), mktype);
+}
+
+static void p11sak_print_mkvp_cca_long(const struct p11sak_token_info *info,
+                                       const CK_BYTE *secure_key,
+                                       CK_ULONG secure_key_len,
+                                       int indent)
+{
+    unsigned int i;
+    const CK_BYTE *mkvp;
+    const char *mktype = NULL;
+
+    mkvp = p11sak_get_cca_wkvp(info, secure_key, secure_key_len, &mktype);
+    if (mkvp == NULL)
+        return;
+
+    printf("%*sMKVP: ", indent, "");
+    for (i = 0; i < info->mkvp_size; i++)
+        printf("%02X", mkvp[i]);
+    printf(" (%s)\n", mktype);
+}
+
+static const CK_BYTE *p11sak_get_ep11_wkvp(const struct p11sak_token_info *info,
+                                           const CK_BYTE *secure_key,
+                                           CK_ULONG secure_key_len)
+{
+    CK_ULONG len, spki_len, wkid_len, i, val = 0;
+
+    /*
+     * From the EP11 structure document:
+     *    Session identifiers are guaranteed not to have 0x30 as their first
+     *    byte. This allows a single-byte check to differentiate between blobs
+     *    starting with session identifiers, and MACed SPKIs, which may be
+     *    used as blobs under other conditions.
+     * Key and state blobs start with the session identifier (32 bytes).
+     * SPKIs start with a DER encoded SPKI, which itself stars with a SEQUENCE
+     * denoted by 0x30 followed by the DER encoded length of the SPKI.
+     */
+    if (secure_key_len > 5 && secure_key[0] == 0x30) {
+        len = secure_key[1] & 0x7F;
+        if (secure_key[1] & 0x80) {
+            /* long form, len contains number of length bytes */
+            if (len > 4)
+                return NULL;
+            for (i = 0; i < len; i++) {
+                if (i > 0)
+                    val <<= 8;
+                val |= secure_key[2 + i];
+            }
+            spki_len = 2 + len + val;
+        } else {
+            /* short form */
+            spki_len = 2 + len;
+        }
+
+        /* An OCTET STRING with short form length must follow */
+        if (secure_key_len < spki_len + 2 || secure_key[spki_len] != 0x04)
+            return NULL;
+
+        wkid_len = secure_key[spki_len + 1];
+        if (wkid_len != info->mkvp_size)
+            return NULL;
+
+        return &secure_key[spki_len + 2];
+    }
+
+    /* Secure key */
+    if (secure_key_len <= EP11_WKVP_OFFSET + info->mkvp_size)
+        return NULL;
+
+    return &secure_key[EP11_WKVP_OFFSET];
+}
+
+static void p11sak_print_mkvp_ep11_short(const struct p11sak_token_info *info,
+                                         const CK_BYTE *secure_key,
+                                         CK_ULONG secure_key_len,
+                                         const char *separator)
+{
+    unsigned int i;
+    const CK_BYTE *wkvp;
+
+    wkvp = p11sak_get_ep11_wkvp(info, secure_key, secure_key_len);
+    if (wkvp == NULL) {
+        printf("%-*s | %-*s", MAX(LIST_MKVP_MIN_CELL_SIZE, info->mkvp_size * 2),
+               "-", MAX(LIST_MKTYPE_MIN_CELL_SIZE, info->mktype_cell_size),
+               "-");
+        return;
+    }
+
+    for (i = 0; i < info->mkvp_size; i++)
+        printf("%02X", wkvp[i]);
+    for (i = info->mkvp_size * 2; i < LIST_MKVP_MIN_CELL_SIZE; i++)
+        printf(" ");
+    printf("%s%-*s", separator, MAX(LIST_MKTYPE_MIN_CELL_SIZE,
+                                    info->mktype_cell_size), "EP11-WK");
+}
+
+static void p11sak_print_mkvp_ep11_long(const struct p11sak_token_info *info,
+                                        const CK_BYTE *secure_key,
+                                        CK_ULONG secure_key_len,
+                                        int indent)
+{
+    unsigned int i;
+    const CK_BYTE *wkvp;
+
+    wkvp = p11sak_get_ep11_wkvp(info, secure_key, secure_key_len);
+    if (wkvp == NULL)
+        return;
+
+    printf("%*sMKVP: ", indent, "");
+    for (i = 0; i < info->mkvp_size; i++)
+        printf("%02X", wkvp[i]);
+    printf(" (EP11-WK)\n");
+}
+
 static CK_RV handle_obj_list(CK_OBJECT_HANDLE key, CK_OBJECT_CLASS class,
                              const struct p11sak_objtype *objtype,
                              CK_ULONG keysize, const char *typestr,
@@ -5905,6 +6149,7 @@ static CK_RV handle_obj_list(CK_OBJECT_HANDLE key, CK_OBJECT_CLASS class,
 {
     struct p11sak_list_data *data = private;
     struct p11_uri *uri = NULL;
+    CK_ATTRIBUTE secure_key_attr = { 0 };
     CK_RV rc;
 
     UNUSED(keysize);
@@ -5918,6 +6163,19 @@ static CK_RV handle_obj_list(CK_OBJECT_HANDLE key, CK_OBJECT_CLASS class,
         return rc;
     }
 
+    if (opt_hsm_mkvp && token_info != NULL) {
+        /* Get secure key attr, ignore if key does not have that attribute */
+        secure_key_attr.type = token_info->secure_key_attr;
+        rc = get_attribute(key, &secure_key_attr);
+        if (rc != CKR_OK && rc != CKR_ATTRIBUTE_TYPE_INVALID) {
+            warnx("Failed to retrieve attribute %s from object "
+                  "\"%s\": 0x%lX: %s",
+                  p11_get_ckm(&mechtable_funcs, secure_key_attr.type),
+                  label, rc, p11_get_ckr(rc));
+            return rc;
+        }
+    }
+
     if (opt_long) {
         rc = prepare_uri(key, &class, objtype, typestr, label, &uri);
         if (rc != CKR_OK)
@@ -5926,15 +6184,36 @@ static CK_RV handle_obj_list(CK_OBJECT_HANDLE key, CK_OBJECT_CLASS class,
         printf("Label: \"%s\"\n", label);
         printf("    URI: %s\n", p11_uri_format(uri));
         printf("    %s: %s\n", objtype->obj_liststr, typestr);
+        if (opt_hsm_mkvp && token_info != NULL &&
+            secure_key_attr.pValue != NULL && secure_key_attr.ulValueLen > 0) {
+            token_info->print_mkvp_long(token_info,
+                                        secure_key_attr.pValue,
+                                        secure_key_attr.ulValueLen,
+                                        4);
+        }
         printf("    Attributes:\n");
         printf("        CKA_TOKEN: CK_TRUE\n");
     } else {
         printf("| ");
     }
 
-    rc = print_boolean_attrs(key, class, objtype, typestr, label, data);
-    if (rc != CKR_OK)
-        goto done;
+    if (!opt_long && opt_hsm_mkvp && token_info != NULL) {
+        if (secure_key_attr.pValue != NULL && secure_key_attr.ulValueLen > 0)
+            token_info->print_mkvp_short(token_info,
+                                         secure_key_attr.pValue,
+                                         secure_key_attr.ulValueLen,
+                                         " | ");
+        else
+            printf("%-*s | %-*s", MAX(LIST_MKVP_MIN_CELL_SIZE,
+                                      token_info->mkvp_size * 2),
+                   "-", MAX(LIST_MKTYPE_MIN_CELL_SIZE,
+                            token_info->mktype_cell_size), "-");
+        printf(" ");
+    } else {
+        rc = print_boolean_attrs(key, class, objtype, typestr, label, data);
+        if (rc != CKR_OK)
+            goto done;
+    }
 
     if (opt_long)
         print_obj_attrs(key, class, objtype, 8);
@@ -5964,6 +6243,8 @@ done:
             free(uri->obj_id[0].pValue);
         p11_uri_free(uri);
     }
+    if (secure_key_attr.pValue != NULL)
+        free(secure_key_attr.pValue);
 
     return rc;
 }
@@ -6150,6 +6431,13 @@ static CK_RV p11sak_list_key(void)
     if (opt_keytype != NULL)
         keytype = opt_keytype->private.ptr;
 
+    if (opt_hsm_mkvp && token_info == NULL) {
+        warnx("Option '-m'/'--hsm-mkvp' can only be used with secure key "
+              "tokens");
+        rc = CKR_ARGUMENTS_BAD;
+        goto done;
+    }
+
     for (attr = p11sak_bool_attrs, data.num_bool_attrs = 0; attr->name != NULL;
                                         attr++, data.num_bool_attrs++)
         ;
@@ -6174,7 +6462,26 @@ static CK_RV p11sak_list_key(void)
             goto done;
     }
 
-    if (!opt_long) {
+    if (opt_hsm_mkvp && !opt_long) {
+        printf("| MASTER KEY VERIFICATION PATTERN ");
+        for(i = LIST_MKVP_MIN_CELL_SIZE; i < token_info->mkvp_size; i++)
+            printf(" ");
+        printf(" | %-*s ", MAX(LIST_MKTYPE_MIN_CELL_SIZE,
+                               token_info->mktype_cell_size), "MK TYPE");
+        printf("| %*s | LABEL\n", LIST_KEYTYPE_CELL_SIZE, "KEY TYPE");
+        printf("|-");
+        for(i = 0; i < MAX(LIST_MKVP_MIN_CELL_SIZE, token_info->mkvp_size * 2);
+                                                                    i++)
+            printf("-");
+        printf("-+-");
+        for (i = 0; i < MAX(LIST_MKTYPE_MIN_CELL_SIZE,
+                            token_info->mktype_cell_size); i++)
+            printf("-");
+        printf("-+-");
+        for (i = 0; i < LIST_KEYTYPE_CELL_SIZE; i++)
+            printf("-");
+        printf("-+--------------------\n");
+    } else if (!opt_long) {
         printf("| ");
         for (attr = p11sak_bool_attrs; attr->name != NULL; attr++)
             printf("%c ", attr->letter);
