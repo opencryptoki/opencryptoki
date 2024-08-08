@@ -316,4 +316,16 @@ static const CK_BYTE ed25519[] = OCK_ED25519;
 static const CK_BYTE ed448[] = OCK_ED448;
 #endif
 
+enum p11sak_toke_type {
+    TOKTYPE_UNKNOWN = 0,
+    TOKTYPE_CCA = 1,
+    TOKTYPE_EP11 = 2,
+};
+
+struct p11sak_token_info {
+    enum p11sak_toke_type type;
+    const char *manufacturer;
+    const char *model;
+};
+
 #endif

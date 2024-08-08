@@ -91,6 +91,7 @@ static CK_FUNCTION_LIST *pkcs11_funcs = NULL;
 static CK_SESSION_HANDLE pkcs11_session = CK_INVALID_HANDLE;
 static CK_INFO pkcs11_info;
 static CK_TOKEN_INFO pkcs11_tokeninfo;
+static const struct p11sak_token_info *token_info = NULL;
 static CK_SLOT_INFO pkcs11_slotinfo;
 static char *uri_pin = NULL;
 
@@ -2258,9 +2259,43 @@ static const struct p11sak_custom_attr_type custom_attr_types[] = {
     { .type = NULL, },
 };
 
+static const struct p11sak_token_info p11sak_known_tokens[] = {
+    { .type = TOKTYPE_CCA,  .manufacturer = "IBM", .model = "CCA", },
+    { .type = TOKTYPE_EP11, .manufacturer = "IBM", .model = "EP11", },
+    { .type = TOKTYPE_UNKNOWN, },
+};
+
 #if defined(_AIX)
     static void *global_private = NULL;
 #endif
+
+
+static const struct p11sak_token_info *find_known_token(
+                                                   const CK_TOKEN_INFO *info)
+{
+    unsigned int i;
+    char manufacturer[sizeof(info->manufacturerID) + 1] = { 0 };
+    char model[sizeof(info->model) + 1]  = { 0 };
+    char *ch;
+
+    memcpy(manufacturer, info->manufacturerID, sizeof(info->manufacturerID));
+    ch = strchr(manufacturer, ' ');
+    if (ch != NULL)
+        *ch = '\0';
+
+    memcpy(model, info->model, sizeof(info->model));
+    ch = strchr(model, ' ');
+    if (ch != NULL)
+        *ch = '\0';
+
+    for (i = 0; p11sak_known_tokens[i].type != TOKTYPE_UNKNOWN; i++) {
+        if (strcmp(manufacturer, p11sak_known_tokens[i].manufacturer) == 0 &&
+            strcmp(model, p11sak_known_tokens[i].model) == 0)
+            return &p11sak_known_tokens[i];
+    }
+
+    return NULL;
+}
 
 static const struct p11sak_cmd *find_command(const char *cmd)
 {
@@ -11076,6 +11111,8 @@ static CK_RV open_pkcs11_session(CK_SLOT_ID slot, CK_FLAGS flags,
               slot, rc, p11_get_ckr(rc));
         return rc;
     }
+
+    token_info = find_known_token(&pkcs11_tokeninfo);
 
     rc = pkcs11_funcs->C_OpenSession(slot, flags, NULL, NULL, &pkcs11_session);
     if (rc != CKR_OK) {
