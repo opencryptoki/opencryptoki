@@ -48,6 +48,8 @@
 
 #define FIND_OBJECTS_COUNT      64
 #define LIST_KEYTYPE_CELL_SIZE  22
+#define LIST_MKVP_MIN_CELL_SIZE 32
+#define LIST_MKTYPE_MIN_CELL_SIZE 8
 #define LIST_CERTTYPE_CELL_SIZE  9
 #define LIST_CERT_CN_CELL_SIZE  22
 
@@ -322,10 +324,31 @@ enum p11sak_toke_type {
     TOKTYPE_EP11 = 2,
 };
 
+#define EP11_WKVP_OFFSET        32
+
+struct cca_token_header {
+    unsigned char id;
+    unsigned char reserved1;
+    unsigned short len;
+    unsigned char version;
+    unsigned char reserved2[3];
+};
+
 struct p11sak_token_info {
     enum p11sak_toke_type type;
     const char *manufacturer;
     const char *model;
+    unsigned int mkvp_size;
+    unsigned int mktype_cell_size;
+    CK_ATTRIBUTE_TYPE secure_key_attr;
+    void (*print_mkvp_long)(const struct p11sak_token_info *info,
+                            const CK_BYTE *secure_key,
+                            CK_ULONG secure_key_len,
+                            int indent);
+    void (*print_mkvp_short)(const struct p11sak_token_info *info,
+                             const CK_BYTE *secure_key,
+                             CK_ULONG secure_key_len,
+                             const char *separator);
 };
 
 #endif
