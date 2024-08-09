@@ -300,6 +300,10 @@ static int check_tokens_present(void)
         if (tokens[i].present == false)
             printf("  Slot %lu\n", tokens[i].id);
     }
+    printf("Reasons for a token not being present can be that a prereq of the token\n"
+           "is not fulfilled, or the current user '%s' has no permissions to use\n"
+           "the token, i.e. because it is not a member of the token's user group.\n\n",
+           cuserid(NULL));
     printf("ATTENTION: If you start a concurrent master key change operation while not\n"
            "all expected tokens are present, the key objects of those tokens may be lost,\n"
            "if the token would be affected by the master key change.\n");

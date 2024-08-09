@@ -106,6 +106,9 @@ void PopulateSlotInfo(Slot_Info_t_64 *slot_info, unsigned int *processed)
 
             slot_info[id].version = sinfo[id].version;
 
+            memcpy(slot_info[id].usergroup, sinfo[id].usergroup,
+                   strlen(sinfo[id].usergroup));
+
             slot_count++;
         }
     }

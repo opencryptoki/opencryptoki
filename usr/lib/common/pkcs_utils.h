@@ -45,7 +45,7 @@ CK_RV aes_256_gcm_seal(unsigned char *out, unsigned char tag[16],
 int verify_pins(char *data_store, const char *sopin, unsigned long sopinlen,
                 const char *userpin, unsigned long userpinlen);
 
-void set_perm(int file);
+CK_RV set_perm(int file, const char *group);
 
 #ifdef OCK_TOOL
 /* Log levels */

@@ -42,6 +42,10 @@ opencryptoki_libopencryptoki_la_SOURCES = usr/lib/api/api_interface.c	\
 	usr/lib/config/cfgparse.y usr/lib/config/cfglex.l		\
 	usr/lib/common/btree.c
 
+if AIX
+opencryptoki_libopencryptoki_la_SOURCES += usr/lib/common/aix/short_name.c
+endif
+
 nodist_opencryptoki_libopencryptoki_la_SOURCES =			\
 	usr/lib/api/mechtable.c
 

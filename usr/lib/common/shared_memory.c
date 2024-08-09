@@ -151,7 +151,8 @@ static char *convert_path_to_shm_name(const char *file_path)
  * error is returned (if `force` is zero) or the shared memory is reinitialized
  * (if `force` is non zero).
  */
-int sm_open(const char *sm_name, int mode, void **p_addr, size_t len, int force)
+int sm_open(const char *sm_name, int mode, void **p_addr, size_t len, int force,
+            const char *group)
 {
     int rc;
     int fd = -1;
@@ -172,10 +173,13 @@ int sm_open(const char *sm_name, int mode, void **p_addr, size_t len, int force)
         goto done;
     }
 
-    grp = getgrnam(PKCS_GROUP);
+    if (group == NULL || group[0] == '\0')
+        group = PKCS_GROUP;
+
+    grp = getgrnam(group);
     if (!grp) {
         rc = -errno;
-        SYS_ERROR(errno, "getgrname(\"%s\"): %s\n", PKCS_GROUP,
+        SYS_ERROR(errno, "getgrname(\"%s\"): %s\n", group,
                   strerror(errno));
         goto done;
     }
@@ -225,11 +229,13 @@ int sm_open(const char *sm_name, int mode, void **p_addr, size_t len, int force)
      */
     if (stat_buf.st_gid != grp->gr_gid ||
         (stat_buf.st_mode & ~S_IFMT) != (unsigned int)mode) {
-        TRACE_ERROR("SHM segment has wrong gid/mode combination (expected: %u/0%o; got: %u/0%o)\n",
-                    grp->gr_gid, mode, stat_buf.st_gid, stat_buf.st_mode);
+        TRACE_ERROR("SHM segment '%s' has wrong gid/mode combination "
+                    "(expected: %u/0%o; got: %u/0%o)\n",
+                    name, grp->gr_gid, mode, stat_buf.st_gid, stat_buf.st_mode);
         OCK_SYSLOG(LOG_ERR,
-                   "SHM segment has wrong gid/mode combination (expected: %u/0%o; got: %u/0%o)\n",
-                   grp->gr_gid, mode, stat_buf.st_gid, stat_buf.st_mode);
+                   "SHM segment '%s' has wrong gid/mode combination "
+                   "(expected: %u/0%o; got: %u/0%o)\n",
+                   name, grp->gr_gid, mode, stat_buf.st_gid, stat_buf.st_mode);
         rc = -EINVAL;
         goto done;
     }

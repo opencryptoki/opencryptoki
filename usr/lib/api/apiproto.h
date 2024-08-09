@@ -47,6 +47,7 @@ void RemoveFromSessionList(CK_SESSION_HANDLE);
 int Valid_Session(CK_SESSION_HANDLE, ST_SESSION_T *);
 void DL_UnLoad(API_Slot_t *, CK_SLOT_ID, CK_BBOOL inchildforkinit);
 void DL_Unload(API_Slot_t *);
+CK_RV check_user_and_group(const char *group);
 
 void CK_Info_From_Internal(CK_INFO_PTR dest, CK_INFO_PTR_64 src);
 

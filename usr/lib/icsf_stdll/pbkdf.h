@@ -29,8 +29,7 @@
  */
 #define ITERATIONS 1000
 
-#define ICSF_CONFIG_PATH CONFIG_PATH "/icsf"
-#define RACFFILE ICSF_CONFIG_PATH "/RACF"
+#define RACFFILE            "RACF"
 
 #define ICSF_MK_FILE_VERSION    2
 
@@ -63,7 +62,7 @@ CK_RV pbkdf_openssl(STDLL_TokData_t *tokdata,
 
 CK_RV secure_racf(STDLL_TokData_t *tokdata,
                   CK_BYTE * racfpwd, CK_ULONG racflen, CK_BYTE * mk,
-                  CK_ULONG mklen);
+                  CK_ULONG mklen, const char *tokname);
 
 CK_RV secure_masterkey(STDLL_TokData_t *tokdata,
                        CK_BYTE * masterkey, CK_ULONG len, CK_BYTE * pin,

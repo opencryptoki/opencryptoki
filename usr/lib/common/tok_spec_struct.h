@@ -53,7 +53,7 @@ struct token_specific_struct {
     } data_store;
 
     // Create lockfile if different from standard way.
-    int (*t_creatlock) (void);
+    int (*t_creatlock) (STDLL_TokData_t *);
 
     // Create or attach to token's shared memory
     CK_RV(*t_attach_shm) (STDLL_TokData_t *, CK_SLOT_ID slot_id);

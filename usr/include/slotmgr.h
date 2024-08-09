@@ -229,6 +229,7 @@ typedef struct {
     char tokname[NAME_MAX + 1]; // token specific directory
     LW_SHM_TYPE *shm_addr;      // token specific shm address
     uint32_t version; // version: major<<16|minor
+    char usergroup[LOGIN_NAME_MAX]; // group of users having access to the token
 } Slot_Info_t_64;
 
 typedef Slot_Info_t_64 SLOT_INFO;

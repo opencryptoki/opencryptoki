@@ -24,6 +24,9 @@ endif
 if ENABLE_PKCSHSM_MK_CHANGE
 include usr/sbin/pkcshsm_mk_change/pkcshsm_mk_change.mk
 endif
+if ENABLE_PKCSTOK_ADMIN
+include usr/sbin/pkcstok_admin/pkcstok_admin.mk
+endif
 
 include usr/sbin/pkcsslotd/pkcsslotd.mk
 include usr/sbin/pkcsconf/pkcsconf.mk

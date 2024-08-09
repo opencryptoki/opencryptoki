@@ -3219,7 +3219,7 @@ CK_RV token_specific_get_mechanism_info(STDLL_TokData_t * tokdata,
     return ock_generic_get_mechanism_info(tokdata, type, pInfo, NULL);
 }
 
-int token_specific_creatlock(void)
+int token_specific_creatlock(STDLL_TokData_t *tokdata)
 {
     char lockfile[PATH_MAX + (sizeof(LOCKDIR_PATH) - 1)
                   + 2 * (sizeof(SUB_DIR) - 1)
@@ -3232,6 +3232,7 @@ int token_specific_creatlock(void)
     int lockfd = -1;;
     int ret = -1;
     struct group *grp = NULL;
+    const char *group;
 
     /* get userid */
     pw = getpwuid(getuid());
@@ -3249,35 +3250,57 @@ int token_specific_creatlock(void)
 	 * daemon **/
     sprintf(lockdir, "%s/%s", LOCKDIR_PATH, SUB_DIR);
 
+    group = tokdata->tokgroup;
+    if (group == NULL || group[0] == '\0')
+        group = PKCS_GROUP;
+
+    grp = getgrnam(group);
+    if (grp == NULL) {
+        OCK_SYSLOG(LOG_ERR, "getgrname(%s): %s\n", group, strerror(errno));
+        TRACE_ERROR("getgrname(%s): %s\n", group, strerror(errno));
+        goto err;
+    }
+
     ret = stat(lockdir, &statbuf);
     if (ret != 0 && errno == ENOENT) {
         /* dir does not exist, try to create it */
         ret = mkdir(lockdir, S_IRWXU | S_IRWXG);
         if (ret != 0) {
-            OCK_SYSLOG(LOG_ERR,
-                       "Directory(%s) missing: %s\n", lockdir, strerror(errno));
+            OCK_SYSLOG(LOG_ERR, "Directory(%s) missing: %s\n",
+                       lockdir, strerror(errno));
+            TRACE_ERROR("Directory(%s) missing: %s\n",
+                        lockdir, strerror(errno));
             goto err;
         }
-        grp = getgrnam(PKCS_GROUP);
-        if (grp == NULL) {
-            fprintf(stderr, "getgrname(%s): %s", PKCS_GROUP, strerror(errno));
-            goto err;
-        }
-        /* set ownership to euid, and pkcs11 group */
+
+        /* set ownership to euid, and token group */
         if (chown(lockdir, geteuid(), grp->gr_gid) != 0) {
-            fprintf(stderr, "Failed to set owner:group \
-					ownership\
-					on %s directory", lockdir);
+            OCK_SYSLOG(LOG_ERR, "Failed to set owner:group ownership on "
+                       "'%s' directory\n", lockdir);
+            TRACE_ERROR("Failed to set owner:group ownership on '%s' "
+                        "directory\n", lockdir);
             goto err;
         }
-        /* mkdir does not set group permission right, so
-         ** trying explictly here again */
+        /* mkdir does not set group permission right, set explicitly here */
         if (chmod(lockdir, S_IRWXU | S_IRWXG) != 0) {
-            fprintf(stderr, "Failed to change \
-					permissions\
-					on %s directory", lockdir);
+            OCK_SYSLOG(LOG_ERR, "Failed to change permissions on '%s' "
+                       "directory\n", lockdir);
+            TRACE_ERROR("Failed to change permissions on '%s' directory\n",
+                        lockdir);
             goto err;
         }
+    } else if (ret != 0) {
+        OCK_SYSLOG(LOG_ERR, "Could not stat directory '%s': %s\n", lockdir,
+                   strerror(errno));
+        TRACE_ERROR("Could not stat directory '%s': %s\n", lockdir,
+                    strerror(errno));
+        goto err;
+    } else if (statbuf.st_gid != grp->gr_gid) {
+        OCK_SYSLOG(LOG_ERR, "Directory '%s' is not owned by token group "
+                   "'%s'\n", lockdir, group);
+        TRACE_ERROR("Directory '%s' is not owned by token group '%s'\n",
+                    lockdir, group);
+        goto err;
     }
 
     /* create user-specific directory */

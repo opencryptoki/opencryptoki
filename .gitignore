@@ -72,6 +72,7 @@ usr/sbin/pkcsicsf/pkcsicsf
 usr/sbin/pkcsslotd/pkcsslotd
 usr/sbin/pkcsstats/pkcsstats
 usr/sbin/pkcstok_migrate/pkcstok_migrate
+usr/sbin/pkcstok_admin/pkcstok_admin
 usr/sbin/pkcsep11_migrate/pkcsep11_migrate
 usr/sbin/pkcsep11_session/pkcsep11_session
 usr/sbin/pkcshsm_mk_change/pkcshsm_mk_change
@@ -92,6 +93,7 @@ man/man1/p11sak.1
 man/man1/pkcsep11_session.1
 man/man1/pkcsicsf.1
 man/man1/pkcstok_migrate.1
+man/man1/pkcstok_admin.1
 man/man1/pkcsep11_migrate.1
 man/man1/pkcscca.1
 man/man1/pkcsconf.1

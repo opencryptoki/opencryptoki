@@ -28,7 +28,15 @@ EOF
     if [ "x$4" != "x" ]; then
        echo "confname = $4" >> "${OCKCONFDIR}/opencryptoki.conf"
     fi
+    if test ! -z ${TOKEN_GROUP}; then
+       echo "usergroup = ${TOKEN_GROUP}" >> "${OCKCONFDIR}/opencryptoki.conf"
+    fi
     echo "}" >> "${OCKCONFDIR}/opencryptoki.conf"
+
+    pkcstok_admin remove --token $3 --force &> /dev/null
+    if test ! -z ${TOKEN_GROUP}; then
+        pkcstok_admin create --token $3 --group ${TOKEN_GROUP} --force &> /dev/null
+    fi
 }
 
 # Usage: genep11cfg num configline
@@ -74,6 +82,16 @@ if test $(($(date +%-j)%2)) == 1; then
     echo "Using FIPS compliant token store"
 else
     echo "Using legacy token store"
+fi
+
+if test ! -z ${PKCS11_TEST_USER}; then
+    if test ! -z ${PKCS11_TEST_GROUP}; then
+        TOKEN_GROUP=${PKCS11_TEST_GROUP}
+    else
+        TOKEN_GROUP="tokgroup"
+    fi
+    getent group ${TOKEN_GROUP} >/dev/null || groupadd -r ${TOKEN_GROUP}
+    usermod -a -G ${TOKEN_GROUP} ${PKCS11_TEST_USER}
 fi
 
 # initialize opencryptoki.conf
