@@ -2695,10 +2695,20 @@ static CK_RV ccatok_pkey_get_firmware_wkvp(STDLL_TokData_t *tokdata)
     }
 
     /* Save WKVP in token data */
+    if (pthread_rwlock_wrlock(&cca_data->pkey_rwlock)) {
+        TRACE_ERROR("%s Failed to lock pkey lock\n", __func__);
+        ret = CKR_CANT_LOCK;
+        goto done;
+    }
+
     memcpy(&cca_data->pkey_mk_vp, (CK_BYTE *)pkey_attr->pValue + AES_KEY_SIZE_256,
            PKEY_MK_VP_LENGTH);
 
     __sync_or_and_fetch(&cca_data->pkey_wrap_supported, 1);
+
+    if (pthread_rwlock_unlock(&cca_data->pkey_rwlock)) {
+        TRACE_ERROR("%s Failed to unlock pkey lock\n", __func__);
+    }
 
 done:
 
@@ -2733,20 +2743,29 @@ static CK_BBOOL ccatok_pkey_is_valid(STDLL_TokData_t *tokdata, OBJECT *key_obj)
     struct cca_private_data *cca_data = tokdata->private_data;
     CK_ATTRIBUTE *pkey_attr = NULL;
     int vp_offset;
+    CK_BBOOL ret = CK_FALSE;
 
     if (template_attribute_get_non_empty(key_obj->template, CKA_IBM_OPAQUE_PKEY,
                                          &pkey_attr) == CKR_OK) {
         if (pkey_attr->ulValueLen >= AES_KEY_SIZE_128 + PKEY_MK_VP_LENGTH) {
             vp_offset = pkey_attr->ulValueLen - PKEY_MK_VP_LENGTH;
+            if (pthread_rwlock_rdlock(&cca_data->pkey_rwlock)) {
+                TRACE_ERROR("%s Failed to lock pkey lock\n", __func__);
+                goto done;
+            }
             if (memcmp((CK_BYTE *)pkey_attr->pValue + vp_offset,
                        &cca_data->pkey_mk_vp,
                        PKEY_MK_VP_LENGTH) == 0) {
-                return CK_TRUE;
+                ret = CK_TRUE;
+            }
+            if (pthread_rwlock_unlock(&cca_data->pkey_rwlock)) {
+                TRACE_ERROR("%s Failed to unlock pkey lock\n", __func__);
             }
         }
     }
 
-    return CK_FALSE;
+done:
+    return ret;
 }
 
 /**
@@ -2761,6 +2780,7 @@ static CK_RV ccatok_pkey_update(STDLL_TokData_t *tokdata, OBJECT *key_obj,
     CK_ATTRIBUTE *pkey_attr = NULL;
     CK_RV ret;
     int vp_offset;
+    int num_retries = 0;
 
     /* Get secure key from obj */
     if (template_attribute_get_non_empty(key_obj->template, CKA_IBM_OPAQUE,
@@ -2770,6 +2790,7 @@ static CK_RV ccatok_pkey_update(STDLL_TokData_t *tokdata, OBJECT *key_obj,
         goto done;
     }
 
+retry:
     /* Transform the secure key into a protected key */
     ret = ccatok_pkey_skey2pkey(tokdata, skey_attr, &pkey_attr, aes_xts);
     if (ret != CKR_OK) {
@@ -2777,19 +2798,71 @@ static CK_RV ccatok_pkey_update(STDLL_TokData_t *tokdata, OBJECT *key_obj,
         goto done;
     }
 
-    /* Check if the new pkey's verification pattern matches the one in
-     * cca_data. This should always be the case, because we just
-     * created the pkey with the current MK. */
-    vp_offset = pkey_attr->ulValueLen - PKEY_MK_VP_LENGTH;
-    if (memcmp(&cca_data->pkey_mk_vp, (CK_BYTE *)pkey_attr->pValue + vp_offset,
-               PKEY_MK_VP_LENGTH) != 0) {
-        TRACE_ERROR("vp of this pkey does not match with the one in cca_data (should not occur)\n");
-        ret = CKR_FUNCTION_FAILED;
+    if (pthread_rwlock_rdlock(&cca_data->pkey_rwlock)) {
+        TRACE_ERROR("%s Failed to lock pkey lock\n", __func__);
+        ret = CKR_CANT_LOCK;
         goto done;
     }
 
-    /* Now update the key obj. If it's a token obj, it will be also updated
-     * in the repository. */
+    /*
+     * Check if the new pkey's verification pattern matches the one in
+     * cca_data. This should always be the case, except there was a live
+     * guest relocation (LGR) in the middle of the process.
+     */
+    vp_offset = pkey_attr->ulValueLen - PKEY_MK_VP_LENGTH;
+    if (memcmp(&cca_data->pkey_mk_vp, (CK_BYTE *)pkey_attr->pValue + vp_offset,
+               PKEY_MK_VP_LENGTH) != 0) {
+        TRACE_ERROR("vp of this pkey does not match with the one in cca_data\n");
+        ret = CKR_FUNCTION_FAILED;
+    }
+
+    if (aes_xts) {
+        /*
+         * Check if the new pkey's verification pattern matches the one in
+         * cca_data. This should always be the case, except there was a live
+         * guest relocation (LGR) in the middle of the process.
+         * AES XTS has two keys, two keys are concatenated.
+         * Second key is checked above and the first key is checked here
+         */
+        vp_offset = pkey_attr->ulValueLen / 2 - PKEY_MK_VP_LENGTH;
+        if (memcmp(&cca_data->pkey_mk_vp, (CK_BYTE *)pkey_attr->pValue + vp_offset,
+                   PKEY_MK_VP_LENGTH) != 0) {
+            TRACE_ERROR("vp of this pkey does not match with the one in cca_data\n");
+            ret = CKR_FUNCTION_FAILED;
+        }
+    }
+
+    if (pthread_rwlock_unlock(&cca_data->pkey_rwlock)) {
+        TRACE_ERROR("%s Failed to unlock pkey lock\n", __func__);
+    }
+
+    if (ret != CKR_OK)  {
+        /*
+         * Verification pattern does not match. Create it again and retry.
+         * If there was an LGR, this op now takes place on the new system
+         * and should succeed.
+         */
+        ret = ccatok_pkey_get_firmware_wkvp(tokdata);
+        if (ret != CKR_OK)
+            goto done;
+
+        num_retries++;
+        if (num_retries < PKEY_CONVERT_KEY_RETRIES) {
+            if (pkey_attr != NULL)
+                free(pkey_attr);
+            TRACE_DEVEL("%s VP mismatch probably due to LGR, retry %d of %d ...\n",
+                        __func__, num_retries, PKEY_CONVERT_KEY_RETRIES);
+            goto retry;
+        }
+    }
+
+    if (ret != CKR_OK)
+        goto done;
+
+    /*
+     * Now update the key obj. If it's a token obj, it will be also updated
+     * in the repository.
+     */
     ret = pkey_update_and_save(tokdata, key_obj, &pkey_attr);
     if (ret != CKR_OK) {
         TRACE_ERROR("pkey_update_and_save failed with rc=0x%lx\n", ret);
@@ -2799,7 +2872,6 @@ static CK_RV ccatok_pkey_update(STDLL_TokData_t *tokdata, OBJECT *key_obj,
     ret = CKR_OK;
 
 done:
-
     if (pkey_attr != NULL)
         free(pkey_attr);
 
@@ -2938,6 +3010,134 @@ static CK_RV ccatok_pkey_check(STDLL_TokData_t *tokdata, SESSION *session,
 done:
 
     return ret;
+}
+
+static CK_RV ccatok_pkey_convert_key(STDLL_TokData_t *tokdata, SESSION *session,
+                                     OBJECT *key_obj, CK_BBOOL xts_mode,
+                                     CK_BYTE *protkey, CK_ULONG *protkey_len)
+{
+    struct cca_private_data *cca_private = tokdata->private_data;
+    int num_retries = 0, vp_offset1, vp_offset2;
+    CK_ATTRIBUTE *skey_attr = NULL;
+    CK_ATTRIBUTE *pkey_attr = NULL;
+    CK_RV rc, rc2;
+
+    /* Try to obtain a write lock on the key_obj */
+    rc = object_unlock(key_obj);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("object_unlock failed, rc=0x%lx\n", rc);
+        goto done;
+    }
+
+    rc = object_lock(key_obj, WRITE_LOCK);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not obtain write lock.\n");
+        goto done;
+    }
+
+    /*
+     * The key_obj could be modified between unlock and lock. Therefore get
+     * the attribute when we have the write lock here.
+     */
+    if (template_attribute_get_non_empty(key_obj->template,
+                                         CKA_IBM_OPAQUE, &skey_attr) != CKR_OK) {
+        TRACE_ERROR("This key has no blob: should not occur!\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto unlock;
+    }
+
+retry:
+    /* Convert secure key to protected key. */
+    rc = ccatok_pkey_skey2pkey(tokdata, skey_attr, &pkey_attr, xts_mode);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("protkey creation failed, rc=0x%lx\n", rc);
+        goto unlock;
+    }
+
+    /*
+     * In case of XTS, check if the wkvp's of the two keys are identical.
+     * An LGR could have happened between the creation of the two keys.
+     */
+    if (xts_mode) {
+        vp_offset1 = pkey_attr->ulValueLen / 2 - PKEY_MK_VP_LENGTH;
+        vp_offset2 = pkey_attr->ulValueLen - PKEY_MK_VP_LENGTH;
+        if (memcmp((CK_BYTE *)pkey_attr->pValue + vp_offset1,
+                   (CK_BYTE *)pkey_attr->pValue + vp_offset2,
+                   PKEY_MK_VP_LENGTH) != 0) {
+            num_retries++;
+            if (num_retries < PKEY_CONVERT_KEY_RETRIES) {
+                TRACE_DEVEL("%s vp of xts key 1 does not match with vp of "
+                            "xts key 2, retry %d of %d ...\n",
+                            __func__, num_retries, PKEY_CONVERT_KEY_RETRIES);
+                goto retry;
+            }
+            rc = CKR_FUNCTION_FAILED;
+            goto unlock;
+        }
+    }
+
+    /*
+     * Save new protkey attr in key_obj. This happens only in memory,
+     * works also for r/o sessions.
+     */
+    rc = template_update_attribute(key_obj->template, pkey_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed, rc=0x%lx\n", rc);
+        goto unlock;
+    }
+
+    /* If we have a r/w session, also save obj to disk. */
+    if (ccatok_pkey_session_ok_for_obj(session, key_obj)) {
+        if (object_is_token_object(key_obj)) {
+            rc = object_mgr_save_token_object(tokdata, key_obj);
+            if (rc != CKR_OK) {
+                TRACE_ERROR("Could not save token obj to repository, rc=0x%lx.\n", rc);
+                goto unlock;
+            }
+        }
+    }
+
+    /* Update wkvp in CCA private data. */
+    if (pthread_rwlock_wrlock(&cca_private->pkey_rwlock)) {
+        TRACE_ERROR("%s Failed to lock pkey lock\n", __func__);
+        rc = CKR_CANT_LOCK;
+        goto unlock;
+    }
+    memcpy(&cca_private->pkey_mk_vp,
+           (CK_BYTE *)pkey_attr->pValue + pkey_attr->ulValueLen - PKEY_MK_VP_LENGTH,
+           PKEY_MK_VP_LENGTH);
+    if (pthread_rwlock_unlock(&cca_private->pkey_rwlock)) {
+        TRACE_ERROR("%s Failed to unlock pkey lock\n", __func__);
+    }
+
+    /* Pass back new protkey. Need to do this before unlocking the obj. */
+    if (*protkey_len < pkey_attr->ulValueLen) {
+        rc = CKR_BUFFER_TOO_SMALL;
+        goto unlock;
+    }
+    memcpy(protkey, pkey_attr->pValue, pkey_attr->ulValueLen);
+    *protkey_len = pkey_attr->ulValueLen;
+
+unlock:
+    rc2 = object_unlock(key_obj);
+    if (rc2 != CKR_OK) {
+        TRACE_ERROR("object_unlock failed, rc=0x%lx\n", rc2);
+        if (rc == CKR_OK)
+            rc = rc2;
+        goto done;
+    }
+
+    rc2 = object_lock(key_obj, READ_LOCK);
+    if (rc2 != CKR_OK) {
+        TRACE_ERROR("object_lock for READ failed, rc=0x%lx\n", rc2);
+        if (rc == CKR_OK)
+            rc = rc2;
+        goto done;
+    }
+
+done:
+
+    return rc;
 }
 #endif
 
@@ -3309,8 +3509,10 @@ CK_RV token_specific_aes_xts(STDLL_TokData_t *tokdata, SESSION *session,
     rc = ccatok_pkey_check(tokdata, session, key_obj, &mech);
     switch (rc) {
     case CKR_OK:
-        rc = pkey_aes_xts(key_obj, init_v, in_data, in_data_len,
-                          out_data, out_data_len, encrypt, initial, final, iv);
+        rc = pkey_aes_xts(tokdata, session, key_obj, init_v,
+                          in_data, in_data_len, out_data, out_data_len,
+                          encrypt, initial, final, iv,
+                          ccatok_pkey_convert_key);
         goto done;
     default:
         goto done;
@@ -3986,6 +4188,12 @@ CK_RV token_specific_init(STDLL_TokData_t * tokdata, CK_SLOT_ID SlotNumber,
     }
 #endif
 
+    if (pthread_rwlock_init(&cca_private->pkey_rwlock, NULL) != 0) {
+        TRACE_ERROR("Initializing PKEY lock failed.\n");
+        rc = CKR_CANT_LOCK;
+        goto error;
+    }
+
     return CKR_OK;
 
 error:
@@ -4023,6 +4231,8 @@ CK_RV token_specific_final(STDLL_TokData_t *tokdata,
 
         pthread_rwlock_destroy(&cca_private->min_card_version_rwlock);
 #endif
+
+        pthread_rwlock_destroy(&cca_private->pkey_rwlock);
 
         free(cca_private);
     }
@@ -5771,8 +5981,9 @@ CK_RV token_specific_aes_ecb(STDLL_TokData_t * tokdata,
     rc = ccatok_pkey_check(tokdata, session, key, &mech);
     switch (rc) {
     case CKR_OK:
-        rc = pkey_aes_ecb(key, in_data, in_data_len,
-                          out_data, out_data_len, encrypt);
+        rc = pkey_aes_ecb(tokdata, session, key, in_data, in_data_len,
+                          out_data, out_data_len, encrypt,
+                          ccatok_pkey_convert_key);
         goto done;
     case CKR_FUNCTION_NOT_SUPPORTED:
         /* fallback */
@@ -5911,8 +6122,9 @@ CK_RV token_specific_aes_cbc(STDLL_TokData_t * tokdata,
     rc = ccatok_pkey_check(tokdata, session, key, &mech);
     switch (rc) {
     case CKR_OK:
-        rc = pkey_aes_cbc(key, init_v, in_data, in_data_len,
-                          out_data, out_data_len, encrypt);
+        rc = pkey_aes_cbc(tokdata, session, key, init_v, in_data, in_data_len,
+                          out_data, out_data_len, encrypt,
+                          ccatok_pkey_convert_key);
         goto done;
     case CKR_FUNCTION_NOT_SUPPORTED:
         /* fallback */
@@ -6548,8 +6760,9 @@ CK_RV token_specific_ec_sign(STDLL_TokData_t * tokdata,
     rc = ccatok_pkey_check(tokdata, sess, key_obj, &mech);
     switch (rc) {
     case CKR_OK:
-        rc = pkey_ec_sign(key_obj, in_data, in_data_len,
-                          out_data, out_data_len, NULL);
+        rc = pkey_ec_sign(tokdata, sess, key_obj, in_data, in_data_len,
+                          out_data, out_data_len, NULL,
+                          ccatok_pkey_convert_key);
         goto done;
     case CKR_FUNCTION_NOT_SUPPORTED:
         /* fallback */

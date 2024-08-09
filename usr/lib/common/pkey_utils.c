@@ -113,16 +113,16 @@ int get_msa_level(void)
  *
  * Executes the KM (CIPHER MESSAGE) operation of the CPU.
  *
- * Returns -1 for failure, 0 for the query func, number of processed
+ * Returns 0 for the query func, number of processed
  * bytes for encryption/decryption funcs
  */
-static int s390_km(unsigned long func, void *param, unsigned char *dest,
-           const unsigned char *src, long src_len)
+static unsigned int s390_km(unsigned long func, void *param, unsigned char *dest,
+                            const unsigned char *src, unsigned long src_len)
 {
-    register long __func __asm__("0") = func;
+    register unsigned long __func __asm__("0") = func;
     register void *__param __asm__("1") = param;
     register const unsigned char *__src __asm__("2") = src;
-    register long __src_len __asm__("3") = src_len;
+    register unsigned long __src_len __asm__("3") = src_len;
     register unsigned char *__dest __asm__("4") = dest;
 
     __asm__ volatile (
@@ -145,16 +145,16 @@ static int s390_km(unsigned long func, void *param, unsigned char *dest,
  *
  * Executes the KMC (CIPHER MESSAGE WITH CHAINING) operation of the CPU.
  *
- * Returns -1 for failure, 0 for the query func, number of processed
+ * Returns 0 for the query func, number of processed
  * bytes for encryption/decryption funcs
  */
-static int s390_kmc(unsigned long func, void *param, unsigned char *dest,
-            const unsigned char *src, long src_len)
+static unsigned int s390_kmc(unsigned long func, void *param, unsigned char *dest,
+                             const unsigned char *src, unsigned long src_len)
 {
-    register long __func __asm__("0") = func;
+    register unsigned long __func __asm__("0") = func;
     register void *__param __asm__("1") = param;
     register const unsigned char *__src __asm__("2") = src;
-    register long __src_len __asm__("3") = src_len;
+    register unsigned long __src_len __asm__("3") = src_len;
     register unsigned char *__dest __asm__("4") = dest;
 
     __asm__ volatile (
@@ -212,16 +212,16 @@ static int s390_kdsa(unsigned long func, void *param,
  *
  * Executes the KMAC (COMPUTE MESSAGE AUTHENTICATION CODE) operation of the CPU.
  *
- * Returns -1 for failure, 0 for the query func, number of processed
+ * Returns 0 for the query func, number of processed
  * bytes for encryption/decryption funcs
  */
-static int s390_kmac(unsigned long func, void *param,
-            const unsigned char *src, long src_len)
+static unsigned int s390_kmac(unsigned long func, void *param,
+                              const unsigned char *src, unsigned long src_len)
 {
-    register long __func __asm__("0") = func;
+    register unsigned long __func __asm__("0") = func;
     register void *__param __asm__("1") = param;
     register const unsigned char *__src __asm__("2") = src;
-    register long __src_len __asm__("3") = src_len;
+    register unsigned long __src_len __asm__("3") = src_len;
 
     __asm__ volatile (
         "0:     .insn   rre, 0xb91e0000,%0,%0 \n"
@@ -489,9 +489,10 @@ unsigned long get_function_code(CK_ULONG clear_keylen, CK_BYTE encrypt)
  * via the KM-encrypted-AES instruction. The protected key must be
  * available in the key template as CKA_IBM_OPAQUE_PKEY.
  */
-CK_RV pkey_aes_ecb(OBJECT *key_obj, CK_BYTE *in_data,
-                   CK_ULONG in_data_len, CK_BYTE *out_data,
-                   CK_ULONG_PTR p_output_data_len, CK_BYTE encrypt)
+CK_RV pkey_aes_ecb(STDLL_TokData_t *tokdata, SESSION *session, OBJECT *key_obj,
+                   CK_BYTE *in_data, CK_ULONG in_data_len,
+                   CK_BYTE *out_data, CK_ULONG_PTR p_output_data_len,
+                   CK_BYTE encrypt, convert_key_t convert_key)
 {
     CK_RV ret;
     unsigned long fc;
@@ -500,7 +501,13 @@ CK_RV pkey_aes_ecb(OBJECT *key_obj, CK_BYTE *in_data,
     struct __attribute__((packed)){
         uint8_t key[MAXPROTKEYSIZE];
     } param;
-    int bytes_processed = 0;
+    unsigned int bytes_processed = 0;
+    int num_tries = 0;
+    CK_BYTE protkey[MAXPROTKEYSIZE];
+    CK_ULONG protkey_len = sizeof(protkey);
+    CK_BYTE *in_pos = in_data;
+    CK_BYTE *out_pos = out_data;
+    CK_ULONG len = in_data_len;
 
     /* Check parms */
     if (in_data_len == 0) {
@@ -541,15 +548,32 @@ CK_RV pkey_aes_ecb(OBJECT *key_obj, CK_BYTE *in_data,
     }
 
     /* Call CPACF */
-    memcpy(param.key, pkey_attr->pValue, pkey_attr->ulValueLen);
-    bytes_processed = s390_km(fc, &param, out_data, in_data, in_data_len);
-    if (bytes_processed <= 0) {
+    memcpy(param.key, pkey_attr->pValue, MIN(pkey_attr->ulValueLen, sizeof(param.key)));
+    while (len > 0 && num_tries < PKEY_CONVERT_KEY_RETRIES) {
+        bytes_processed = s390_km(fc, &param, out_pos, in_pos, len);
+        if (bytes_processed < len) {
+            TRACE_DEVEL("%s partial completion probably caused by an LGR: "
+                        "%d of %ld bytes processed.\n",
+                        __func__, bytes_processed, len);
+            ret = convert_key(tokdata, session, key_obj, CK_FALSE,
+                              protkey, &protkey_len);
+            if (ret != CKR_OK)
+                goto done;
+            memcpy(param.key, protkey, MIN(protkey_len, sizeof(param.key)));
+        }
+        in_pos += bytes_processed;
+        out_pos += bytes_processed;
+        len -= bytes_processed;
+        num_tries++;
+    }
+
+    if (len > 0) {
         TRACE_ERROR("CPACF error: s390_km returned %i\n", bytes_processed);
         ret = CKR_FUNCTION_FAILED;
         goto done;
     }
 
-    *p_output_data_len = bytes_processed;
+    *p_output_data_len = in_data_len;
     ret = CKR_OK;
 
 done:
@@ -560,9 +584,10 @@ done:
 /**
  * Performs an AES-CBC operation via CPACF using a protected key.
  */
-CK_RV pkey_aes_cbc(OBJECT *key_obj, CK_BYTE *iv,
-                   CK_BYTE *in_data, CK_ULONG in_data_len, CK_BYTE *out_data,
-                   CK_ULONG_PTR p_output_data_len, CK_BYTE encrypt)
+CK_RV pkey_aes_cbc(STDLL_TokData_t *tokdata, SESSION *session, OBJECT *key_obj,
+                   CK_BYTE *iv, CK_BYTE *in_data, CK_ULONG in_data_len,
+                   CK_BYTE *out_data, CK_ULONG_PTR p_output_data_len,
+                   CK_BYTE encrypt, convert_key_t convert_key)
 {
     CK_RV ret;
     unsigned long fc;
@@ -572,7 +597,13 @@ CK_RV pkey_aes_cbc(OBJECT *key_obj, CK_BYTE *iv,
         uint8_t iv[16];
         uint8_t key[MAXPROTKEYSIZE];
     } param;
-    int bytes_processed = 0;
+    unsigned int bytes_processed = 0;
+    int num_tries = 0;
+    CK_BYTE protkey[MAXPROTKEYSIZE];
+    CK_ULONG protkey_len = sizeof(protkey);
+    CK_BYTE *in_pos = in_data;
+    CK_BYTE *out_pos = out_data;
+    CK_ULONG len = in_data_len;
 
     /* Check parms */
     if (in_data_len == 0) {
@@ -614,15 +645,33 @@ CK_RV pkey_aes_cbc(OBJECT *key_obj, CK_BYTE *iv,
 
     /* Call CPACF */
     memcpy(param.iv, iv, 16);
-    memcpy(param.key, pkey_attr->pValue, pkey_attr->ulValueLen);
-    bytes_processed = s390_kmc(fc, &param, out_data, in_data, in_data_len);
-    if (bytes_processed <= 0) {
+    memcpy(param.key, pkey_attr->pValue, MIN(pkey_attr->ulValueLen, sizeof(param.key)));
+
+    while (len > 0 || num_tries < PKEY_CONVERT_KEY_RETRIES) {
+        bytes_processed = s390_kmc(fc, &param, out_pos, in_pos, len);
+        if (bytes_processed < len) {
+            TRACE_DEVEL("%s partial completion probably caused by an LGR: "
+                        "%d of %ld bytes processed.\n",
+                        __func__, bytes_processed, len);
+            ret = convert_key(tokdata, session, key_obj, CK_FALSE,
+                              protkey, &protkey_len);
+            if (ret != CKR_OK)
+                goto done;
+            memcpy(param.key, protkey, MIN(protkey_len, sizeof(param.key)));
+        }
+        in_pos += bytes_processed;
+        out_pos += bytes_processed;
+        len -= bytes_processed;
+        num_tries++;
+    }
+
+    if (len > 0) {
         TRACE_ERROR("CPACF error: s390_kmc returned %i\n", bytes_processed);
         ret = CKR_FUNCTION_FAILED;
         goto done;
     }
 
-    *p_output_data_len = bytes_processed;
+    *p_output_data_len = in_data_len;
     memcpy(iv, param.iv, AES_BLOCK_SIZE);
     ret = CKR_OK;
 
@@ -659,8 +708,10 @@ static inline void parm_block_lookup_init(struct parm_block_lookup *lookup,
 /**
  * Calculates an AES-CMAC via CPACF using a protected key.
  */
-CK_RV pkey_aes_cmac(OBJECT *key_obj, CK_BYTE *message,
-                    CK_ULONG message_len, CK_BYTE *cmac, CK_BYTE *iv)
+CK_RV pkey_aes_cmac(STDLL_TokData_t *tokdata, SESSION *session,
+                    OBJECT *key_obj, CK_BYTE *message,
+                    CK_ULONG message_len, CK_BYTE *cmac, CK_BYTE *iv,
+                    convert_key_t convert_key)
 {
     CK_RV ret;
     parm_block_t parm_block;
@@ -671,6 +722,13 @@ CK_RV pkey_aes_cmac(OBJECT *key_obj, CK_BYTE *message,
     CK_ULONG clear_keylen;
     CK_ATTRIBUTE *pkey_attr = NULL;
     int rc;
+    unsigned int bytes_processed;
+    int num_tries;
+    CK_BYTE protkey[MAXPROTKEYSIZE];
+    CK_ULONG protkey_len = sizeof(protkey);
+    CK_BYTE *in_pos = message;
+    CK_BYTE *out_pos = cmac;
+    CK_ULONG len = message_len;
 
     /* Determine clear key length */
     if (template_attribute_get_ulong(key_obj->template, CKA_VALUE_LEN,
@@ -700,7 +758,8 @@ CK_RV pkey_aes_cmac(OBJECT *key_obj, CK_BYTE *message,
     /* Setup parm block */
     memset(parm_block, 0, sizeof(parm_block));
     parm_block_lookup_init(&pb_lookup, parm_block, AES_BLOCK_SIZE);
-    memcpy(pb_lookup.keys, pkey_attr->pValue, pkey_attr->ulValueLen);
+    memcpy(pb_lookup.keys, pkey_attr->pValue,
+           MIN(pkey_attr->ulValueLen, MAXPROTKEYSIZE));
 
     /* copy iv into param block, if available (intermediate) */
     if (iv != NULL)
@@ -708,9 +767,26 @@ CK_RV pkey_aes_cmac(OBJECT *key_obj, CK_BYTE *message,
 
     if (cmac == NULL) {
         /* intermediate */
-        rc = s390_kmac(fc, pb_lookup.iv, message, message_len);
-        memset(pb_lookup.keys, 0, pkey_attr->ulValueLen);
-        if (rc < 0) {
+        num_tries = 0;
+        while (len > 0 && num_tries < PKEY_CONVERT_KEY_RETRIES) {
+            bytes_processed = s390_kmac(fc, pb_lookup.iv, in_pos, len);
+            if (bytes_processed < len) {
+                TRACE_DEVEL("%s partial completion probably caused by an LGR: "
+                            "%d of %ld bytes processed.\n",
+                            __func__, bytes_processed, len);
+                ret = convert_key(tokdata, session, key_obj, CK_FALSE,
+                                  protkey, &protkey_len);
+                if (ret != CKR_OK)
+                    goto done;
+                memcpy(pb_lookup.keys, protkey, MIN(protkey_len, MAXPROTKEYSIZE));
+            }
+            in_pos += bytes_processed;
+            out_pos += bytes_processed;
+            len -= bytes_processed;
+            num_tries++;
+        }
+
+        if (len > 0) {
             ret = CKR_FUNCTION_FAILED;
             goto done;
         }
@@ -728,9 +804,26 @@ CK_RV pkey_aes_cmac(OBJECT *key_obj, CK_BYTE *message,
             }
 
             if (length_head) {
-                rc = s390_kmac(fc, pb_lookup.iv,
-                           message, length_head);
-                if (rc < 0) {
+                num_tries = 0;
+                len = length_head;
+                while (len > 0 && num_tries < PKEY_CONVERT_KEY_RETRIES) {
+                    bytes_processed = s390_kmac(fc, pb_lookup.iv, in_pos, len);
+                    if (bytes_processed < len) {
+                        TRACE_DEVEL("%s partial completion probably caused by an LGR: "
+                                    "%d of %ld bytes processed.\n",
+                                    __func__, bytes_processed, len);
+                        ret = convert_key(tokdata, session, key_obj, CK_FALSE,
+                                          protkey, &protkey_len);
+                        if (ret != CKR_OK)
+                            goto done;
+                        memcpy(pb_lookup.keys, protkey, MIN(protkey_len, MAXPROTKEYSIZE));
+                    }
+                    in_pos += bytes_processed;
+                    out_pos += bytes_processed;
+                    len -= bytes_processed;
+                    num_tries++;
+                }
+                if (len > 0) {
                     memset(pb_lookup.keys, 0, pkey_attr->ulValueLen);
                     ret = CKR_FUNCTION_FAILED;
                     goto done;
@@ -741,7 +834,12 @@ CK_RV pkey_aes_cmac(OBJECT *key_obj, CK_BYTE *message,
             memcpy(pb_lookup.message, message + length_head, length_tail);
         }
         /* calculate final block (last/full) */
-        rc = s390_pcc(fc, pb_lookup.base);
+        num_tries = 0;
+        rc = 1;
+        while (rc != 0 && num_tries < PKEY_CONVERT_KEY_RETRIES) {
+            rc = s390_pcc(fc, pb_lookup.base);
+            num_tries++;
+        }
         memset(pb_lookup.keys, 0, pkey_attr->ulValueLen);
         if (rc != 0) {
             ret = CKR_FUNCTION_FAILED;
@@ -807,29 +905,70 @@ struct cpacf_km_xts_aes_256_param {
 };
 
 struct aes_xts_param {
-    uint8_t param_km[sizeof(struct cpacf_km_xts_aes_256_param)];
-    uint8_t param_pcc[sizeof(struct cpacf_pcc_xts_aes_256_param)];
+    union {
+        struct cpacf_km_xts_aes_256_param param_s;
+        uint8_t param_km[sizeof(struct cpacf_km_xts_aes_256_param)];
+    } km;
+    union {
+        struct cpacf_pcc_xts_aes_256_param param_s;
+        uint8_t param_pcc[sizeof(struct cpacf_pcc_xts_aes_256_param)];
+    } pcc;
     unsigned int fc;
     unsigned int keylen;
+    convert_key_t convert_key;
+    STDLL_TokData_t *tokdata;
+    SESSION *session;
+    OBJECT *key_obj;
 };
 
 static CK_RV pkey_aes_xts_iv_from_tweak(CK_BYTE *tweak, CK_BYTE* iv,
                                         void *cb_data)
 {
     struct aes_xts_param *param = cb_data;
-    int offset, rc;
+    convert_key_t convert_key = param->convert_key;
+    int offset, rc = 1, num_tries = 0;
+    CK_BYTE protkey[MAXPROTKEYSIZE * 2];
+    CK_ULONG protkey_len = sizeof(protkey);
+    CK_RV ret;
 
     offset = AES_XTS_PCC_I(param->keylen * 8);
-    memcpy(param->param_pcc + offset, tweak, AES_BLOCK_SIZE);
+    memcpy(param->pcc.param_pcc + offset, tweak, AES_BLOCK_SIZE);
 
-    rc = s390_pcc(param->fc & 0x7f, param->param_pcc);
+    while (rc != 0 && num_tries < PKEY_CONVERT_KEY_RETRIES) {
+        rc = s390_pcc(param->fc & 0x7f, param->pcc.param_pcc);
+        if (rc != 0) {
+            TRACE_DEVEL("%s rc from s390_pcc = %d, probably caused by "
+                        "an LGR. Rederiving protkey and retrying ...\n",
+                        __func__, rc);
+            ret = convert_key(param->tokdata, param->session, param->key_obj,
+                              CK_TRUE, protkey, &protkey_len);
+            if (ret != CKR_OK)
+                break;
+            /*
+             * Copy XTS key 1 into CPACF parmblock for KM instruction. After
+             * re-deriving the iv from tweak, the subsequent calls to
+             * pkey_aes_xts_cipher_blocks will then use the re-derived key
+             * as well.
+             */
+            memcpy(param->km.param_s.protkey, protkey,
+                   MIN(protkey_len / 2, sizeof(param->km.param_s.protkey)));
+            /*
+             * Copy XTS key 2 into CPACF parmblock for PCC instruction. Key 2
+             * is used to create the iv from tweak via PCC. The key object
+             * itself contains both keys in re-derived form after convert_key.
+             */
+            memcpy(param->pcc.param_s.protkey, protkey + protkey_len / 2,
+                   MIN(protkey_len / 2, sizeof(param->pcc.param_s.protkey)));
+            num_tries++;
+        }
+    }
     if (rc != 0) {
         TRACE_ERROR("s390_pcc function failed\n");
         return CKR_FUNCTION_FAILED;
     }
 
     offset = AES_XTS_PCC_XTSPARAM(param->keylen * 8);
-    memcpy(iv, param->param_pcc + offset, AES_BLOCK_SIZE);
+    memcpy(iv, param->pcc.param_pcc + offset, AES_BLOCK_SIZE);
 
     return CKR_OK;
 }
@@ -838,28 +977,66 @@ static CK_RV pkey_aes_xts_cipher_blocks(CK_BYTE *in, CK_BYTE *out, CK_ULONG len,
                                         CK_BYTE *iv, void *cb_data)
 {
     struct aes_xts_param *param = cb_data;
-    int rc;
+    convert_key_t convert_key = param->convert_key;
+    unsigned int bytes_processed = 0;
+    int num_tries = 0;
+    CK_BYTE protkey[MAXPROTKEYSIZE * 2];
+    CK_ULONG protkey_len = sizeof(protkey);
+    CK_BYTE *in_pos = in;
+    CK_BYTE *out_pos = out;
+    CK_ULONG len2 = len;
+    CK_RV ret;
 
     int offset = AES_XTS_KM_XTSPARAM(param->keylen * 8);
-    memcpy(param->param_km + offset, iv, AES_BLOCK_SIZE);
+    memcpy(param->km.param_km + offset, iv, AES_BLOCK_SIZE);
 
-    rc = s390_km(param->fc, param->param_km, out, in, len);
-    if (rc < 0) {
-        TRACE_ERROR("s390_km function failed\n");
-        return CKR_FUNCTION_FAILED;
+    while (len2 > 0 && num_tries < PKEY_CONVERT_KEY_RETRIES) {
+        bytes_processed = s390_km(param->fc, param->km.param_km, out_pos, in_pos, len2);
+        if (bytes_processed < len2) {
+            TRACE_DEVEL("%s partial completion probably caused by an LGR: "
+                        "%d of %ld bytes processed.\n",
+                        __func__, bytes_processed, len2);
+            ret = convert_key(param->tokdata, param->session, param->key_obj,
+                              CK_TRUE, protkey, &protkey_len);
+            if (ret != CKR_OK)
+                goto done;
+            /*
+             * Copy XTS key 1 into CPACF parmblock for KM instruction. Key 2
+             * is no more needed, as it was only used at the beginning of the
+             * op to create the iv from tweak via PCC. But the key object now
+             * contains both keys in rederived form.
+             */
+            memcpy(param->km.param_s.protkey, protkey,
+                   MIN(protkey_len / 2, sizeof(param->km.param_s.protkey)));
+        }
+        in_pos += bytes_processed;
+        out_pos += bytes_processed;
+        len2 -= bytes_processed;
+        num_tries++;
     }
 
-    memcpy(iv, param->param_km + offset, AES_BLOCK_SIZE);
-    return CKR_OK;
+    if (len2 > 0) {
+        TRACE_ERROR("s390_km function failed\n");
+        ret = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+
+    memcpy(iv, param->km.param_km + offset, AES_BLOCK_SIZE);
+    ret = CKR_OK;
+
+done:
+    return ret;
 }
 
 /**
  * Performs an AES-XTS operation via CPACF using a protected key.
  */
-CK_RV pkey_aes_xts(OBJECT *key_obj, CK_BYTE *tweak,
+CK_RV pkey_aes_xts(STDLL_TokData_t *tokdata, SESSION *session,
+                   OBJECT *key_obj, CK_BYTE *tweak,
                    CK_BYTE *in_data, CK_ULONG in_data_len, CK_BYTE *out_data,
                    CK_ULONG_PTR p_output_data_len, CK_BYTE encrypt,
-                   CK_BBOOL initial, CK_BBOOL final, CK_BYTE *iv)
+                   CK_BBOOL initial, CK_BBOOL final, CK_BYTE *iv,
+                   convert_key_t convert_key)
 {
     CK_RV ret = CKR_OK;
     CK_ATTRIBUTE *pkey_attr = NULL;
@@ -907,17 +1084,22 @@ CK_RV pkey_aes_xts(OBJECT *key_obj, CK_BYTE *tweak,
     }
     keylen = keylen / 2;
 
-    memcpy(param.param_km, pkey_attr->pValue, pkey_attr->ulValueLen / 2);
-    memcpy(param.param_pcc, (CK_BYTE *)pkey_attr->pValue + pkey_attr->ulValueLen / 2,
-           pkey_attr->ulValueLen / 2);
+    memcpy(param.km.param_s.protkey, pkey_attr->pValue,
+           MIN(pkey_attr->ulValueLen / 2, sizeof(param.km.param_s.protkey)));
+    memcpy(param.pcc.param_s.protkey, (CK_BYTE *)pkey_attr->pValue + pkey_attr->ulValueLen / 2,
+           MIN(pkey_attr->ulValueLen / 2, sizeof(param.pcc.param_s.protkey)));
     param.fc = fc;
     param.keylen = keylen;
+    param.convert_key = convert_key;
+    param.tokdata = tokdata;
+    param.session = session;
+    param.key_obj = key_obj;
 
     ret = aes_xts_cipher(in_data, in_data_len, out_data, p_output_data_len,
-                        tweak, encrypt, initial, final, iv,
-                        pkey_aes_xts_iv_from_tweak,
-                        pkey_aes_xts_cipher_blocks,
-                        &param);
+                         tweak, encrypt, initial, final, iv,
+                         pkey_aes_xts_iv_from_tweak,
+                         pkey_aes_xts_cipher_blocks,
+                         &param);
 
     return ret;
 }
@@ -966,9 +1148,11 @@ done:
 /**
  * Sign the given hash via CPACF using the given protected private key.
  */
-CK_RV pkey_ec_sign(OBJECT *privkey, CK_BYTE *hash, CK_ULONG hash_len,
+CK_RV pkey_ec_sign(STDLL_TokData_t *tokdata, SESSION *session,
+                   OBJECT *privkey, CK_BYTE *hash, CK_ULONG hash_len,
                    CK_BYTE *sig, CK_ULONG *sig_len,
-                   void (*rng_cb)(unsigned char *, size_t))
+                   void (*rng_cb)(unsigned char *, size_t),
+                   convert_key_t convert_key)
 {
 #define DEF_PARAM(curve, size)        \
     struct {                          \
@@ -995,6 +1179,9 @@ CK_RV pkey_ec_sign(OBJECT *privkey, CK_BYTE *hash, CK_ULONG hash_len,
     CK_ATTRIBUTE *pkey_attr = NULL;
     int rc, off;
     cpacf_curve_type_t curve_type;
+    CK_BYTE protkey[112]; /* max = 80 (p521) + 32 wkvp */
+    CK_ULONG protkey_len = sizeof(protkey);
+    CK_ULONG retry_count = 0;
 
     /* Get protected key from key object */
     if (template_attribute_get_non_empty(privkey->template, CKA_IBM_OPAQUE_PKEY,
@@ -1009,31 +1196,52 @@ CK_RV pkey_ec_sign(OBJECT *privkey, CK_BYTE *hash, CK_ULONG hash_len,
     curve_type = get_cpacf_curve_type(privkey->template);
     switch (curve_type) {
     case curve_p256:
+        if (pkey_attr->ulValueLen != sizeof(param.P256.priv) + sizeof(param.P256.vp)) {
+            TRACE_ERROR("Protected key has an invalid length of %ld bytes.\n",
+                        pkey_attr->ulValueLen);
+            ret = CKR_ATTRIBUTE_VALUE_INVALID;
+            goto done;
+        }
         if (hash_len > 32)
             hash_len = 32;
         off = 32 - hash_len;
         memcpy(param.P256.hash + off, hash, hash_len);
-        memcpy(param.P256.priv, pkey_attr->pValue, 32);
-        memcpy(param.P256.vp, (char *)pkey_attr->pValue + 32, 32);
+        memcpy(param.P256.priv, pkey_attr->pValue,
+               MIN(pkey_attr->ulValueLen - 32, sizeof(param.P256.priv)));
+        memcpy(param.P256.vp, (char *)pkey_attr->pValue + 32, sizeof(param.P256.vp));
         *sig_len = 2 * 32;
         break;
     case curve_p384:
+        if (pkey_attr->ulValueLen != sizeof(param.P384.priv) + sizeof(param.P384.vp)) {
+            TRACE_ERROR("Protected key has an invalid length of %ld bytes.\n",
+                        pkey_attr->ulValueLen);
+            ret = CKR_ATTRIBUTE_VALUE_INVALID;
+            goto done;
+        }
         if (hash_len > 48)
             hash_len = 48;
         off = 48 - hash_len;
         memcpy(param.P384.hash + off, hash, hash_len);
-        memcpy(param.P384.priv, pkey_attr->pValue, 48);
-        memcpy(param.P384.vp, (char *)pkey_attr->pValue + 48, 32);
+        memcpy(param.P384.priv, pkey_attr->pValue,
+               MIN(pkey_attr->ulValueLen - 32, sizeof(param.P384.priv)));
+        memcpy(param.P384.vp, (char *)pkey_attr->pValue + 48, sizeof(param.P384.vp));
         *sig_len = 2 * 48;
         break;
     case curve_p521:
+        if (pkey_attr->ulValueLen != sizeof(param.P521.priv) + sizeof(param.P521.vp)) {
+            TRACE_ERROR("Protected key has an invalid length of %ld bytes.\n",
+                        pkey_attr->ulValueLen);
+            ret = CKR_ATTRIBUTE_VALUE_INVALID;
+            goto done;
+        }
         if (hash_len > 66)
             hash_len = 66;
         /* Note that the pkey for p521 has 80 + 32 bytes. */
         off = 80 - hash_len;
         memcpy(param.P521.hash + off, hash, hash_len);
-        memcpy(param.P521.priv, pkey_attr->pValue, pkey_attr->ulValueLen - 32);
-        memcpy(param.P521.vp, (char *)pkey_attr->pValue + pkey_attr->ulValueLen - 32, 32);
+        memcpy(param.P521.priv, pkey_attr->pValue,
+               MIN(pkey_attr->ulValueLen - 32, sizeof(param.P521.priv)));
+        memcpy(param.P521.vp, (char *)pkey_attr->pValue + 80, sizeof(param.P521.vp));
         *sig_len = 2 * 66;
         break;
     default:
@@ -1078,6 +1286,10 @@ CK_RV pkey_ec_sign(OBJECT *privkey, CK_BYTE *hash, CK_ULONG hash_len,
     }
 
     /* Call CPACF */
+retry:
+    if (retry_count > PKEY_CONVERT_KEY_RETRIES)
+        goto done;
+
     rc = s390_kdsa(fc, param.buff, NULL, 0);
     switch (rc) {
     case 0:
@@ -1101,12 +1313,38 @@ CK_RV pkey_ec_sign(OBJECT *privkey, CK_BYTE *hash, CK_ULONG hash_len,
             break;
         }
         ret = CKR_FUNCTION_FAILED;
-        goto done;
         break;
     default: /* rc = 2 */
         TRACE_ERROR("%s rc from KDSA = 2\n", __func__);
         ret = CKR_FUNCTION_FAILED;
-        goto done;
+    }
+
+    if (ret != CKR_OK) {
+        ret = convert_key(tokdata, session, privkey, CK_FALSE,
+                          protkey, &protkey_len);
+        if (ret != CKR_OK)
+            goto done;
+        TRACE_DEVEL("%s KDSA failed probably caused by an LGR, hash len "
+                    "was %ld, retrying ...\n", __func__, hash_len);
+        retry_count++;
+        switch (curve_type) {
+        case curve_p256:
+            memcpy(param.P256.priv, protkey, 32);
+            memcpy(param.P256.vp, protkey + 32, 32);
+            goto retry;
+        case curve_p384:
+            memcpy(param.P384.priv, protkey, 48);
+            memcpy(param.P384.vp, protkey + 48, 32);
+            goto retry;
+        case curve_p521:
+            memcpy(param.P521.priv, protkey, 80);
+            memcpy(param.P521.vp, protkey + 80, 32);
+            goto retry;
+        default:
+            TRACE_ERROR("Could not determine the curve type.\n");
+            ret = CKR_FUNCTION_FAILED;
+            goto done;
+        }
     }
 
     /* Provide signature to caller */
@@ -1142,8 +1380,10 @@ done:
  * Note: The original input message is passed to CPACF without being
  * pre-hashed. Hashing is done internally in CPACF.
  */
-CK_RV pkey_ibm_ed_sign(OBJECT *privkey, CK_BYTE *msg, CK_ULONG msg_len,
-                       CK_BYTE *sig, CK_ULONG *sig_len)
+CK_RV pkey_ibm_ed_sign(STDLL_TokData_t *tokdata, SESSION *session,
+                       OBJECT *privkey, CK_BYTE *msg, CK_ULONG msg_len,
+                       CK_BYTE *sig, CK_ULONG *sig_len,
+                       convert_key_t convert_key)
 {
 #define DEF_EDPARAM(curve, size)      \
     struct {                          \
@@ -1168,6 +1408,9 @@ CK_RV pkey_ibm_ed_sign(OBJECT *privkey, CK_BYTE *msg, CK_ULONG msg_len,
     CK_ATTRIBUTE *pkey_attr = NULL;
     int rc;
     cpacf_curve_type_t curve_type;
+    CK_BYTE protkey[96]; /* max = 64 (ed448) + 32 wkvp */
+    CK_ULONG protkey_len = sizeof(protkey);
+    CK_ULONG retry_count = 0;
 
     /* Get protected key from key object */
     if (template_attribute_get_non_empty(privkey->template, CKA_IBM_OPAQUE_PKEY,
@@ -1182,15 +1425,29 @@ CK_RV pkey_ibm_ed_sign(OBJECT *privkey, CK_BYTE *msg, CK_ULONG msg_len,
     curve_type = get_cpacf_curve_type(privkey->template);
     switch (curve_type) {
     case curve_ed25519:
+        if (pkey_attr->ulValueLen != sizeof(edparam.ED25519.priv) + sizeof(edparam.ED25519.vp)) {
+            TRACE_ERROR("Protected key has an invalid length of %ld bytes.\n",
+                        pkey_attr->ulValueLen);
+            ret = CKR_ATTRIBUTE_VALUE_INVALID;
+            goto done;
+        }
         fc = KDSA_ENCRYPTED_EDDSA_SIGN_ED25519;
-        memcpy(edparam.ED25519.priv, pkey_attr->pValue, 32);
-        memcpy(edparam.ED25519.vp, (char *)pkey_attr->pValue + 32, 32);
+        memcpy(edparam.ED25519.priv, pkey_attr->pValue,
+               MIN(pkey_attr->ulValueLen, sizeof(edparam.ED25519.priv)));
+        memcpy(edparam.ED25519.vp, (char *)pkey_attr->pValue + 32, sizeof(edparam.ED25519.vp));
         *sig_len = 2 * 32;
         break;
     case curve_ed448:
+        if (pkey_attr->ulValueLen != sizeof(edparam.ED448.priv) + sizeof(edparam.ED448.vp)) {
+            TRACE_ERROR("Protected key has an invalid length of %ld bytes.\n",
+                        pkey_attr->ulValueLen);
+            ret = CKR_ATTRIBUTE_VALUE_INVALID;
+            goto done;
+        }
         fc = KDSA_ENCRYPTED_EDDSA_SIGN_ED448;
-        memcpy(edparam.ED448.priv, pkey_attr->pValue, 64);
-        memcpy(edparam.ED448.vp, (char *)pkey_attr->pValue + 64, 32);
+        memcpy(edparam.ED448.priv, pkey_attr->pValue,
+               MIN(pkey_attr->ulValueLen, sizeof(edparam.ED448.priv)));
+        memcpy(edparam.ED448.vp, (char *)pkey_attr->pValue + 64, sizeof(edparam.ED448.vp));
         *sig_len = 2 * 57;
         break;
     default:
@@ -1206,6 +1463,10 @@ CK_RV pkey_ibm_ed_sign(OBJECT *privkey, CK_BYTE *msg, CK_ULONG msg_len,
     }
 
     /* Call CPACF */
+retry:
+    if (retry_count > PKEY_CONVERT_KEY_RETRIES)
+        goto done;
+
     rc = s390_kdsa(fc, edparam.buff, msg, msg_len);
     switch (rc) {
     case 0:
@@ -1225,12 +1486,34 @@ CK_RV pkey_ibm_ed_sign(OBJECT *privkey, CK_BYTE *msg, CK_ULONG msg_len,
             break;
         }
         ret = CKR_FUNCTION_FAILED;
-        goto done;
         break;
     default: /* rc = 2 */
         TRACE_ERROR("%s rc from KDSA = 2\n", __func__);
         ret = CKR_FUNCTION_FAILED;
-        goto done;
+    }
+
+    if (ret != CKR_OK) {
+        ret = convert_key(tokdata, session, privkey,
+                          CK_FALSE, protkey, &protkey_len);
+        if (ret != CKR_OK)
+            goto done;
+        TRACE_DEVEL("%s KDSA failed probably caused by an LGR, msg len "
+                    "was %ld, retrying ...\n", __func__, msg_len);
+        retry_count++;
+        switch (curve_type) {
+        case curve_ed25519:
+            memcpy(edparam.ED25519.priv, protkey, 32);
+            memcpy(edparam.ED25519.vp, protkey + 32, 32);
+            goto retry;
+        case curve_ed448:
+            memcpy(edparam.ED448.priv, protkey, 64);
+            memcpy(edparam.ED448.vp, protkey + 64, 32);
+            goto retry;
+        default:
+            TRACE_ERROR("Could not determine the curve type.\n");
+            ret = CKR_FUNCTION_FAILED;
+            goto done;
+        }
     }
 
     /* Provide signature to caller */
@@ -1325,35 +1608,65 @@ struct {                          \
     curve_type = get_cpacf_curve_type(pubkey->template);
     switch (curve_type) {
     case curve_p256:
+        if (sig_len != sizeof(param.P256.sig_r) + sizeof(param.P256.sig_s)) {
+            TRACE_ERROR("Signature has an invalid length of %ld bytes.\n", sig_len);
+            ret = CKR_ARGUMENTS_BAD;
+            goto done;
+        }
+        if (ecpoint_len != sizeof(param.P256.pub_x) + sizeof(param.P256.pub_y)) {
+            TRACE_ERROR("Public key has an invalid length of %ld bytes.\n", ecpoint_len);
+            ret = CKR_ATTRIBUTE_VALUE_INVALID;
+            goto done;
+        }
         if (hash_len > sig_len / 2)
             hash_len = sig_len / 2;
         fc = KDSA_ECDSA_VERIFY_P256;
         hash_off = 32 - hash_len;
-        memcpy(param.P256.sig_r, sig, sig_len);
+        memcpy(param.P256.sig_r, sig, MIN(sig_len, 2 * sizeof(param.P256.sig_r)));
         memcpy(param.P256.hash + hash_off, hash, hash_len);
-        memcpy(param.P256.pub_x, ecpoint, ecpoint_len);
+        memcpy(param.P256.pub_x, ecpoint, MIN(ecpoint_len, 2 * sizeof(param.P256.pub_x)));
         break;
     case curve_p384:
+        if (sig_len != sizeof(param.P384.sig_r) + sizeof(param.P384.sig_s)) {
+            TRACE_ERROR("Signature has an invalid length of %ld bytes.\n", sig_len);
+            ret = CKR_ARGUMENTS_BAD;
+            goto done;
+        }
+        if (ecpoint_len != sizeof(param.P384.pub_x) + sizeof(param.P384.pub_y)) {
+            TRACE_ERROR("Public key has an invalid length of %ld bytes.\n", ecpoint_len);
+            ret = CKR_ATTRIBUTE_VALUE_INVALID;
+            goto done;
+        }
         if (hash_len > sig_len / 2)
             hash_len = sig_len / 2;
         fc = KDSA_ECDSA_VERIFY_P384;
         hash_off = 48 - hash_len;
-        memcpy(param.P384.sig_r, sig, sig_len);
+        memcpy(param.P384.sig_r, sig, MIN(sig_len, 2 * sizeof(param.P384.sig_r)));
         memcpy(param.P384.hash + hash_off, hash, hash_len);
-        memcpy(param.P384.pub_x, ecpoint, ecpoint_len);
+        memcpy(param.P384.pub_x, ecpoint, MIN(ecpoint_len, 2 * sizeof(param.P384.pub_x)));
         break;
     case curve_p521:
+        if (sig_len != sizeof(param.P521.sig_r) - 14 + sizeof(param.P521.sig_s) - 14) {
+            TRACE_ERROR("Signature has an invalid length of %ld bytes.\n", sig_len);
+            ret = CKR_ARGUMENTS_BAD;
+            goto done;
+        }
+        if (ecpoint_len != sizeof(param.P521.pub_x) - 14 + sizeof(param.P521.pub_y) - 14) {
+            TRACE_ERROR("Public key has an invalid length of %ld bytes.\n", ecpoint_len);
+            ret = CKR_ATTRIBUTE_VALUE_INVALID;
+            goto done;
+        }
         if (hash_len > sig_len / 2)
             hash_len = sig_len / 2;
         fc = KDSA_ECDSA_VERIFY_P521;
         /* Note that the pkey for p521 has 80 + 32 bytes. */
         hash_off = 80 - hash_len;
-        key_off = 80 - (sig_len / 2);
-        memcpy(param.P521.sig_r + key_off, sig, sig_len / 2);
-        memcpy(param.P521.sig_s + key_off, sig + (sig_len / 2), sig_len / 2);
+        key_off = 80 - (ecpoint_len / 2);
+        memcpy(param.P521.sig_r + key_off, sig, MIN(sig_len / 2, sizeof(param.P521.sig_r)));
+        memcpy(param.P521.sig_s + key_off, sig + (sig_len / 2), MIN(sig_len / 2, sizeof(param.P521.sig_s)));
         memcpy(param.P521.hash + hash_off, hash, hash_len);
-        memcpy(param.P521.pub_x + key_off, ecpoint, sig_len / 2);
-        memcpy(param.P521.pub_y + key_off, ecpoint + (sig_len / 2), sig_len / 2);
+        memcpy(param.P521.pub_x + key_off, ecpoint, MIN(ecpoint_len / 2, sizeof(param.P521.pub_x)));
+        memcpy(param.P521.pub_y + key_off, ecpoint + (ecpoint_len / 2), MIN(ecpoint_len / 2, sizeof(param.P521.pub_y)));
         break;
     default:
         TRACE_ERROR("Could not determine the curve type.\n");
@@ -1433,16 +1746,26 @@ struct {                            \
     curve_type = get_cpacf_curve_type(pubkey->template);
     switch (curve_type) {
     case curve_ed25519:
+        if (sig_len != sizeof(edparam.ED25519.sig_r) + sizeof(edparam.ED25519.sig_s)) {
+            TRACE_ERROR("Signature has an invalid length of %ld bytes.\n", sig_len);
+            ret = CKR_ARGUMENTS_BAD;
+            goto done;
+        }
         fc = KDSA_EDDSA_VERIFY_ED25519;
         s390_flip_endian_32(edparam.ED25519.sig_r, sig);
         s390_flip_endian_32(edparam.ED25519.sig_s, sig + (sig_len / 2));
         s390_flip_endian_32(edparam.ED25519.pub, ecpoint);
         break;
     case curve_ed448:
+        if (sig_len != sizeof(edparam.ED448.sig_r) + sizeof(edparam.ED448.sig_s)) {
+            TRACE_ERROR("Signature has an invalid length of %ld bytes.\n", sig_len);
+            ret = CKR_ARGUMENTS_BAD;
+            goto done;
+        }
         fc = KDSA_EDDSA_VERIFY_ED448;
-        memcpy(edparam.ED448.sig_r, sig, sig_len / 2);
-        memcpy(edparam.ED448.sig_s, sig + (sig_len / 2), sig_len / 2);
-        memcpy(edparam.ED448.pub, ecpoint, ecpoint_len);
+        memcpy(edparam.ED448.sig_r, sig, MIN(sig_len / 2, sizeof(edparam.ED448.sig_r)));
+        memcpy(edparam.ED448.sig_s, sig + (sig_len / 2), MIN(sig_len / 2, sizeof(edparam.ED448.sig_s)));
+        memcpy(edparam.ED448.pub, ecpoint, MIN(ecpoint_len, sizeof(edparam.ED448.pub)));
         s390_flip_endian_64(edparam.ED448.sig_r, edparam.ED448.sig_r);
         s390_flip_endian_64(edparam.ED448.sig_s, edparam.ED448.sig_s);
         s390_flip_endian_64(edparam.ED448.pub, edparam.ED448.pub);

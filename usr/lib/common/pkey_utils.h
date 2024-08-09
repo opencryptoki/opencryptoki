@@ -81,6 +81,11 @@ typedef enum {
     curve_ed448,
 } cpacf_curve_type_t;
 
+#define PKEY_CONVERT_KEY_RETRIES    100
+typedef CK_RV (*convert_key_t) (STDLL_TokData_t *tokdata, SESSION *session,
+                                OBJECT *key_obj, CK_BBOOL xts_mode,
+                                CK_BYTE *protkey, CK_ULONG *protkey_len);
+
 int get_msa_level(void);
 
 CK_BBOOL pkey_is_ec_public_key(TEMPLATE *tmpl);
@@ -93,29 +98,38 @@ CK_BBOOL pkey_op_supported_by_cpacf(int msa_level, CK_MECHANISM_TYPE type,
 
 CK_BBOOL pkey_op_ec_curve_supported_by_cpacf(TEMPLATE *tmpl);
 
-CK_RV pkey_aes_ecb(OBJECT *key, CK_BYTE * in_data,
-                   CK_ULONG in_data_len, CK_BYTE * out_data,
-                   CK_ULONG_PTR p_output_data_len, CK_BYTE encrypt);
-
-CK_RV pkey_aes_cbc(OBJECT *key, CK_BYTE *iv,
+CK_RV pkey_aes_ecb(STDLL_TokData_t *tokdata, SESSION *session, OBJECT *key_obj,
                    CK_BYTE *in_data, CK_ULONG in_data_len,
                    CK_BYTE *out_data, CK_ULONG_PTR p_output_data_len,
-                   CK_BYTE encrypt);
+                   CK_BYTE encrypt, convert_key_t convert_key);
 
-CK_RV pkey_aes_cmac(OBJECT *key_obj, CK_BYTE *message,
-                    CK_ULONG message_len, CK_BYTE *cmac, CK_BYTE *iv);
+CK_RV pkey_aes_cbc(STDLL_TokData_t *tokdata, SESSION *session, OBJECT *key_obj,
+                   CK_BYTE *iv, CK_BYTE *in_data, CK_ULONG in_data_len,
+                   CK_BYTE *out_data, CK_ULONG_PTR p_output_data_len,
+                   CK_BYTE encrypt, convert_key_t convert_key);
 
-CK_RV pkey_aes_xts(OBJECT *key_obj, CK_BYTE *tweak,
+CK_RV pkey_aes_cmac(STDLL_TokData_t *tokdata, SESSION *session,
+                    OBJECT *key_obj, CK_BYTE *message,
+                    CK_ULONG message_len, CK_BYTE *cmac, CK_BYTE *iv,
+                    convert_key_t convert_key);
+
+CK_RV pkey_aes_xts(STDLL_TokData_t *tokdata, SESSION *session,
+                   OBJECT *key_obj, CK_BYTE *tweak,
                    CK_BYTE *in_data, CK_ULONG in_data_len, CK_BYTE *out_data,
                    CK_ULONG_PTR p_output_data_len, CK_BYTE encrypt, CK_BBOOL initial,
-                   CK_BBOOL final, CK_BYTE *iv);
+                   CK_BBOOL final, CK_BYTE *iv,
+                   convert_key_t convert_key);
 
-CK_RV pkey_ec_sign(OBJECT *privkey, CK_BYTE *hash, CK_ULONG hashlen,
+CK_RV pkey_ec_sign(STDLL_TokData_t *tokdata, SESSION *session,
+                   OBJECT *privkey, CK_BYTE *hash, CK_ULONG hash_len,
                    CK_BYTE *sig, CK_ULONG *sig_len,
-                   void (*rng_cb)(unsigned char *, size_t));
+                   void (*rng_cb)(unsigned char *, size_t),
+                   convert_key_t convert_key);
 
-CK_RV pkey_ibm_ed_sign(OBJECT *privkey, CK_BYTE *msg, CK_ULONG msg_len,
-                       CK_BYTE *sig, CK_ULONG *sig_len);
+CK_RV pkey_ibm_ed_sign(STDLL_TokData_t *tokdata, SESSION *session,
+                       OBJECT *privkey, CK_BYTE *msg, CK_ULONG msg_len,
+                       CK_BYTE *sig, CK_ULONG *sig_len,
+                       convert_key_t convert_key);
 
 CK_RV pkey_ec_verify(OBJECT *pubkey, CK_BYTE *hash, CK_ULONG hashlen,
                      CK_BYTE *sig, CK_ULONG sig_len);

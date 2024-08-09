@@ -777,10 +777,12 @@ CK_RV token_specific_aes_mac(STDLL_TokData_t *tokdata, CK_BYTE *message,
     return openssl_specific_aes_mac(tokdata, message, message_len, key, mac);
 }
 
-CK_RV token_specific_aes_cmac(STDLL_TokData_t *tokdata, CK_BYTE *message,
+CK_RV token_specific_aes_cmac(STDLL_TokData_t *tokdata, SESSION *session, CK_BYTE *message,
                               CK_ULONG message_len, OBJECT *key, CK_BYTE *mac,
                               CK_BBOOL first, CK_BBOOL last, CK_VOID_PTR *ctx)
 {
+
+    UNUSED(session);
 
     return openssl_specific_aes_cmac(tokdata, message, message_len, key, mac,
                                      first, last, ctx);

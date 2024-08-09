@@ -287,7 +287,7 @@ CK_RV token_specific_aes_cfb(STDLL_TokData_t *,
 CK_RV token_specific_aes_mac(STDLL_TokData_t *,
                              CK_BYTE *, CK_ULONG, OBJECT *, CK_BYTE *);
 
-CK_RV token_specific_aes_cmac(STDLL_TokData_t *,
+CK_RV token_specific_aes_cmac(STDLL_TokData_t *, SESSION *,
                               CK_BYTE *, CK_ULONG, OBJECT *, CK_BYTE *,
                               CK_BBOOL, CK_BBOOL, CK_VOID_PTR *);
 

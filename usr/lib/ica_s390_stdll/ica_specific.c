@@ -4441,13 +4441,15 @@ CK_RV token_specific_aes_mac(STDLL_TokData_t *tokdata, CK_BYTE *message,
     return rc;
 }
 
-CK_RV token_specific_aes_cmac(STDLL_TokData_t *tokdata, CK_BYTE *message,
+CK_RV token_specific_aes_cmac(STDLL_TokData_t *tokdata, SESSION *session, CK_BYTE *message,
                               CK_ULONG message_len, OBJECT *key, CK_BYTE *mac,
                               CK_BBOOL first, CK_BBOOL last, CK_VOID_PTR *ctx)
 {
     ica_private_data_t *ica_data = (ica_private_data_t *)tokdata->private_data;
     CK_RV rc;
     CK_ATTRIBUTE *attr = NULL;
+
+    UNUSED(session);
 
     if (!ica_data->ica_aes_available)
         return openssl_specific_aes_cmac(tokdata, message, message_len,
