@@ -633,6 +633,7 @@ attribute of the key.
 .IR ATTRS ]
 .RB [ \-\-long | \-l ]
 .RB [ \-\-detailed\-uri ]
+.RB [ \-\-hsm\-mkvp | \-m ]
 .RB [ \-\-sort | \-S
 .IR SORT-SPEC ]
 .RB [ \-\-help | \-h ]
@@ -683,6 +684,11 @@ option. When option
 .BR \-\-long | \-l
 is specified, the keys are listed in long format, displaying the values of all
 attributes defined for the key type, including non-boolean attributes.
+When option
+.BR \-\-hsm\-mkvp | \-m
+is specified, the HSM master key verification patterns (MKVPs) of the keys are
+displayed. This is only possible for secure key tokens, such as the CCA and EP11
+tokens.
 .PP
 By default, the keys are displayed in the order as they are retrieved from the
 PKCS\~#11 implementation. To display the keys in a certain order, specify the
@@ -2314,6 +2320,16 @@ short, tabular format, showing only the boolean attributes, the key type
 .TP 8
 .B \-\-detailed\-uri
 Displayes a detailed PKCS\~#11 URI.
+.RE
+.PP
+.
+.
+.
+.TP 8
+.BR \-\-hsm\-mkvp | \-m
+Shows the HSM master key verification patterns (MKVPs) of the key objects.
+This option is only valid for secure key tokens, such as the CCA and EP11
+tokens.
 .RE
 .PP
 
