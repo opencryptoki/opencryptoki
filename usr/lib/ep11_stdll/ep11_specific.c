@@ -15474,6 +15474,7 @@ static CK_RV update_ep11_attrs_from_blob(STDLL_TokData_t *tokdata,
     CK_RV rc = CKR_OK;
     CK_ULONG i;
     CK_BYTE *useblob, *blob;
+    CK_OBJECT_CLASS class;
     size_t usebloblen;
 
     CK_ATTRIBUTE ibm_attrs[] = {
@@ -15490,7 +15491,13 @@ static CK_RV update_ep11_attrs_from_blob(STDLL_TokData_t *tokdata,
     };
     CK_ULONG num_ibm_attrs = sizeof(ibm_attrs) / sizeof(CK_ATTRIBUTE);
 
-    if (!ep11_data->pkey_wrap_supported)
+    if (template_attribute_get_ulong(key_obj->template, CKA_CLASS,
+                                     &class) != CKR_OK) {
+        TRACE_ERROR("This key has no CKA_CLASS: should not occur!\n");
+        return CKR_FUNCTION_FAILED;
+    }
+
+    if (!ep11_data->pkey_wrap_supported || class == CKO_PUBLIC_KEY)
         num_ibm_attrs -= 2;
 
     if (template_attribute_get_non_empty(key_obj->template, CKA_IBM_OPAQUE,
