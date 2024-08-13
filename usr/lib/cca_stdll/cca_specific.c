@@ -3289,7 +3289,7 @@ static CK_RV ccatok_pkey_check_attrs(STDLL_TokData_t *tokdata,
         return CKR_OK;
 
     /*
-     * At this point, the key has CKA_IBM_PROKEY_EXTRACTABLE = true and it has
+     * At this point, the key has CKA_IBM_PROTKEY_EXTRACTABLE = true and it has
      * a secure key token, so let's check if the secure key token is
      * CPACF-exportable.
      */
@@ -3305,7 +3305,8 @@ static CK_RV ccatok_pkey_check_attrs(STDLL_TokData_t *tokdata,
          */
         if (pkey_op_ec_curve_supported_by_cpacf(templ) &&
             !ccatok_token_is_cpacf_exportable(sec_key, sec_len)) {
-            TRACE_ERROR("ECC secure key is CKA_IBM_PROTKEY_EXTRACTABLE, but token is not CPACF-exportable.\n");
+            TRACE_ERROR("ECC secure key is CKA_IBM_PROTKEY_EXTRACTABLE, "
+                        "but token is not CPACF-exportable.\n");
             return CKR_TEMPLATE_INCONSISTENT;
         }
         break;
@@ -3314,7 +3315,6 @@ static CK_RV ccatok_pkey_check_attrs(STDLL_TokData_t *tokdata,
     }
 
     return CKR_OK;
-
 }
 
 CK_RV ccatok_pkey_check_aes_xts(TEMPLATE *tmpl)
