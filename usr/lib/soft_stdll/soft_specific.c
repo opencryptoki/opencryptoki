@@ -902,7 +902,6 @@ CK_RV token_specific_dh_pkcs_key_pair_gen(STDLL_TokData_t *tokdata,
                                           TEMPLATE *priv_tmpl)
 {
     CK_RV rv;
-    CK_BBOOL rc;
     CK_ATTRIBUTE *prime_attr = NULL;
     CK_ATTRIBUTE *base_attr = NULL;
     CK_ATTRIBUTE *temp_attr = NULL;
@@ -1062,7 +1061,7 @@ CK_RV token_specific_dh_pkcs_key_pair_gen(STDLL_TokData_t *tokdata,
 #else
     if (!EVP_PKEY_get_bn_param(pkey, OSSL_PKEY_PARAM_PUB_KEY, &temp_bn)) {
         TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
-        rc = CKR_FUNCTION_FAILED;
+        rv = CKR_FUNCTION_FAILED;
         goto done;
     }
 #endif
@@ -1071,13 +1070,13 @@ CK_RV token_specific_dh_pkcs_key_pair_gen(STDLL_TokData_t *tokdata,
     temp_byte = malloc(temp_bn_len);
     temp_bn_len = BN_bn2bin(temp_bn, temp_byte);
     // in bytes
-    rc = build_attribute(CKA_VALUE, temp_byte, temp_bn_len, &temp_attr);
-    if (rc != CKR_OK) {
+    rv = build_attribute(CKA_VALUE, temp_byte, temp_bn_len, &temp_attr);
+    if (rv != CKR_OK) {
         TRACE_DEVEL("build_attribute failed\n");
         goto done;
     }
-    rc = template_update_attribute(publ_tmpl, temp_attr);
-    if (rc != CKR_OK) {
+    rv = template_update_attribute(publ_tmpl, temp_attr);
+    if (rv != CKR_OK) {
         TRACE_ERROR("template_update_attribute failed\n");
         free(temp_attr);
         goto done;
@@ -1095,7 +1094,7 @@ CK_RV token_specific_dh_pkcs_key_pair_gen(STDLL_TokData_t *tokdata,
 #else
     if (!EVP_PKEY_get_bn_param(pkey, OSSL_PKEY_PARAM_PRIV_KEY, &temp_bn)) {
         TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
-        rc = CKR_FUNCTION_FAILED;
+        rv = CKR_FUNCTION_FAILED;
         goto done;
     }
 #endif
@@ -1103,14 +1102,14 @@ CK_RV token_specific_dh_pkcs_key_pair_gen(STDLL_TokData_t *tokdata,
     temp_byte2 = malloc(temp_bn_len);
     temp_bn_len = BN_bn2bin(temp_bn, temp_byte2);
     // in bytes
-    rc = build_attribute(CKA_VALUE, temp_byte2, temp_bn_len, &temp_attr);
+    rv = build_attribute(CKA_VALUE, temp_byte2, temp_bn_len, &temp_attr);
     OPENSSL_cleanse(temp_byte2, temp_bn_len);
-    if (rc != CKR_OK) {
+    if (rv != CKR_OK) {
         TRACE_DEVEL("build_attribute failed\n");
         goto done;
     }
-    rc = template_update_attribute(priv_tmpl, temp_attr);
-    if (rc != CKR_OK) {
+    rv = template_update_attribute(priv_tmpl, temp_attr);
+    if (rv != CKR_OK) {
         TRACE_ERROR("template_update_attribute failed\n");
         free(temp_attr);
         goto done;
@@ -1133,37 +1132,37 @@ CK_RV token_specific_dh_pkcs_key_pair_gen(STDLL_TokData_t *tokdata,
     value_bits_attr->pValue =
         (CK_BYTE *) value_bits_attr + sizeof(CK_ATTRIBUTE);
     *(CK_ULONG *) value_bits_attr->pValue = 8 * temp_bn_len;
-    rc = template_update_attribute(priv_tmpl, value_bits_attr);
-    if (rc != CKR_OK) {
+    rv = template_update_attribute(priv_tmpl, value_bits_attr);
+    if (rv != CKR_OK) {
         TRACE_ERROR("template_update_attribute failed\n");
         free(temp_attr);
         goto done;
     }
 
     // Add prime and base to the private key template
-    rc = build_attribute(CKA_PRIME,
+    rv = build_attribute(CKA_PRIME,
                          (unsigned char *) prime_attr->pValue,
                          prime_attr->ulValueLen, &temp_attr);  // in bytes
-    if (rc != CKR_OK) {
+    if (rv != CKR_OK) {
         TRACE_DEVEL("build_attribute failed\n");
         goto done;
     }
-    rc = template_update_attribute(priv_tmpl, temp_attr);
-    if (rc != CKR_OK) {
+    rv = template_update_attribute(priv_tmpl, temp_attr);
+    if (rv != CKR_OK) {
         TRACE_ERROR("template_update_attribute failed\n");
         free(temp_attr);
         goto done;
     }
 
-    rc = build_attribute(CKA_BASE,
+    rv = build_attribute(CKA_BASE,
                          (unsigned char *) base_attr->pValue,
                          base_attr->ulValueLen, &temp_attr);     // in bytes
-    if (rc != CKR_OK) {
+    if (rv != CKR_OK) {
         TRACE_DEVEL("build_attribute failed\n");
         goto done;
     }
-    rc = template_update_attribute(priv_tmpl, temp_attr);
-    if (rc != CKR_OK) {
+    rv = template_update_attribute(priv_tmpl, temp_attr);
+    if (rv != CKR_OK) {
         TRACE_ERROR("template_update_attribute failed\n");
         free(temp_attr);
         goto done;

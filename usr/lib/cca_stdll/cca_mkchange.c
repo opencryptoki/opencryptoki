@@ -1766,7 +1766,6 @@ static CK_RV cca_finalize_sessions_cb(STDLL_TokData_t *tokdata,
 
     if (!template_attribute_find(key_obj->template, CKA_IBM_OPAQUE,
                                  &opaque_attr)) {
-        rc = CKR_ATTRIBUTE_TYPE_INVALID;
         TRACE_ERROR("%s Failed to get CKA_IBM_OPAQUE\n", __func__);
         OCK_SYSLOG(LOG_ERR, "Slot %lu: Failed to gCKA_IBM_OPAQUE\n",
                    tokdata->slot_id);

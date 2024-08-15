@@ -636,6 +636,8 @@ CK_RV do_LogoutExtended(XCP_LoginAlgorithm_t alg,
                          retry_count ++) {
 
 #define RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, session)              \
+                         if ((target_info) == NULL)                      \
+                             break;                                      \
                          if (target_info->single_apqn &&                 \
                              ((rc) == CKR_IBM_TARGET_INVALID ||          \
                               ((rc) == CKR_FUNCTION_FAILED &&            \

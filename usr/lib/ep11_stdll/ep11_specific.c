@@ -9543,6 +9543,7 @@ CK_RV ep11tok_sign_init(STDLL_TokData_t * tokdata, SESSION * session,
                                                &ctx->auth_required);
         if (rc != CKR_OK) {
             TRACE_ERROR("key_object_is_always_authenticate failed\n");
+            free(ep11_sign_state);
             goto done;
         }
     }
@@ -10936,7 +10937,7 @@ static CK_RV ep11_ende_crypt_init(STDLL_TokData_t * tokdata, SESSION * session,
                                                    &ctx->auth_required);
             if (rc != CKR_OK) {
                 TRACE_ERROR("key_object_is_always_authenticate failed\n");
-                goto done;
+                goto error;
             }
         }
 
@@ -15118,12 +15119,15 @@ CK_RV token_specific_set_attribute_values(STDLL_TokData_t *tokdata,
         RETRY_UPDATE_BLOB_START(tokdata, target_info,
                                 ibm_opaque_attr->pValue,
                                 ktype != CKK_AES_XTS ?
-                                     ibm_opaque_attr->ulValueLen :
-                                     ibm_opaque_attr->ulValueLen / 2,
-                                ibm_opaque_reenc_attr->pValue,
-                                ktype != CKK_AES_XTS ?
-                                    ibm_opaque_reenc_attr->ulValueLen :
-                                    ibm_opaque_reenc_attr->ulValueLen / 2,
+                                    ibm_opaque_attr->ulValueLen :
+                                    ibm_opaque_attr->ulValueLen / 2,
+                                ibm_opaque_reenc_attr != NULL ?
+                                    ibm_opaque_reenc_attr->pValue : NULL,
+                                ibm_opaque_reenc_attr != NULL ?
+                                    (ktype != CKK_AES_XTS ?
+                                        ibm_opaque_reenc_attr->ulValueLen :
+                                        ibm_opaque_reenc_attr->ulValueLen / 2) :
+                                    0,
                                 keyblob, keyblobsize);
             rc = dll_m_SetAttributeValue(keyblob, keyblobsize,
                                          attributes, num_attributes,
@@ -15133,10 +15137,13 @@ CK_RV token_specific_set_attribute_values(STDLL_TokData_t *tokdata,
                               ktype != CKK_AES_XTS ?
                                   ibm_opaque_attr->ulValueLen :
                                   ibm_opaque_attr->ulValueLen / 2,
-                              ibm_opaque_reenc_attr->pValue,
-                              ktype != CKK_AES_XTS ?
-                                  ibm_opaque_reenc_attr->ulValueLen :
-                                  ibm_opaque_reenc_attr->ulValueLen / 2,
+                              ibm_opaque_reenc_attr != NULL ?
+                                  ibm_opaque_reenc_attr->pValue : NULL,
+                              ibm_opaque_reenc_attr != NULL ?
+                                  (ktype != CKK_AES_XTS ?
+                                      ibm_opaque_reenc_attr->ulValueLen :
+                                      ibm_opaque_reenc_attr->ulValueLen / 2) :
+                                  0,
                               keyblob, keyblobsize, rc);
         RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, session)
 
@@ -15153,9 +15160,13 @@ CK_RV token_specific_set_attribute_values(STDLL_TokData_t *tokdata,
                                     (CK_BYTE *)ibm_opaque_attr->pValue +
                                          (ibm_opaque_attr->ulValueLen / 2),
                                     ibm_opaque_attr->ulValueLen / 2,
-                                    (CK_BYTE *)ibm_opaque_reenc_attr->pValue +
-                                        (ibm_opaque_reenc_attr->ulValueLen / 2),
-                                    ibm_opaque_reenc_attr->ulValueLen / 2,
+                                    ibm_opaque_reenc_attr != NULL ?
+                                      (CK_BYTE *)ibm_opaque_reenc_attr->pValue +
+                                      (ibm_opaque_reenc_attr->ulValueLen / 2) :
+                                      NULL,
+                                    ibm_opaque_reenc_attr != NULL ?
+                                        ibm_opaque_reenc_attr->ulValueLen / 2 :
+                                        0,
                                     keyblob, keyblobsize);
                 rc = dll_m_SetAttributeValue(keyblob, keyblobsize,
                                              attributes, num_attributes,
@@ -15164,9 +15175,13 @@ CK_RV token_specific_set_attribute_values(STDLL_TokData_t *tokdata,
                                   (CK_BYTE *)ibm_opaque_attr->pValue +
                                        (ibm_opaque_attr->ulValueLen / 2),
                                   ibm_opaque_attr->ulValueLen / 2,
-                                  (CK_BYTE *)ibm_opaque_reenc_attr->pValue +
-                                      (ibm_opaque_reenc_attr->ulValueLen / 2),
-                                  ibm_opaque_reenc_attr->ulValueLen / 2,
+                                  ibm_opaque_reenc_attr != NULL ?
+                                    (CK_BYTE *)ibm_opaque_reenc_attr->pValue +
+                                    (ibm_opaque_reenc_attr->ulValueLen / 2) :
+                                    NULL,
+                                  ibm_opaque_reenc_attr != NULL ?
+                                      ibm_opaque_reenc_attr->ulValueLen / 2 :
+                                      0,
                                   keyblob, keyblobsize, rc);
             RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, session)
 

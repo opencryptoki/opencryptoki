@@ -1105,7 +1105,8 @@ CK_RV ecdh_pkcs_derive(STDLL_TokData_t *tokdata, SESSION *sess,
 
     default:
         TRACE_ERROR("Unsupported KDF: 0x%lx\n", pParms->kdf);
-        return CKR_MECHANISM_PARAM_INVALID;
+        rc = CKR_MECHANISM_PARAM_INVALID;
+        goto end;
     }
 
     /* Return the hashed and truncated derived bytes as CKA_VALUE attribute */
