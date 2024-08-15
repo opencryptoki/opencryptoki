@@ -630,6 +630,7 @@ CK_RV generate_EC_KeyPair(CK_SESSION_HANDLE session,
     CK_ATTRIBUTE publicKeyTemplate[] = {
         {CKA_VERIFY, &true, sizeof(true)},
         {CKA_EC_PARAMS, ec_params, ec_params_len},
+        {CKA_IBM_PROTKEY_EXTRACTABLE, &pkeyextractable, sizeof(CK_BBOOL)},
     };
     CK_ATTRIBUTE privateKeyTemplate[] = {
         {CKA_TOKEN, &true, sizeof(true)},
@@ -717,10 +718,12 @@ CK_RV create_ECPublicKey(CK_SESSION_HANDLE session,
                          CK_BYTE params[],
                          CK_ULONG params_len,
                          CK_BYTE pointq[],
-                         CK_ULONG pointq_len, CK_OBJECT_HANDLE * publ_key)
+                         CK_ULONG pointq_len, CK_OBJECT_HANDLE * publ_key,
+                         CK_BBOOL extractable)
 {
     CK_RV rc;
     CK_OBJECT_CLASS class = CKO_PUBLIC_KEY;
+    CK_BBOOL pkeyextractable = !extractable;
     CK_KEY_TYPE keyType = CKK_EC;
     CK_UTF8CHAR label[] = "An EC public key object";
     CK_BBOOL true = TRUE;
@@ -732,7 +735,8 @@ CK_RV create_ECPublicKey(CK_SESSION_HANDLE session,
         {CKA_VERIFY, &true, sizeof(true)},
         {CKA_DERIVE, &true, sizeof(true)},
         {CKA_EC_PARAMS, params, params_len},
-        {CKA_EC_POINT, pointq, pointq_len}
+        {CKA_EC_POINT, pointq, pointq_len},
+        {CKA_IBM_PROTKEY_EXTRACTABLE, &pkeyextractable, sizeof(CK_BBOOL)},
     };
 
     // create key

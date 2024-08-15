@@ -1246,7 +1246,7 @@ CK_RV run_DeriveECDHKeyKAT(void)
         rc = create_ECPublicKey(session,
                                 ecdh_tv[i].params, ecdh_tv[i].params_len,
                                 ecdh_tv[i].pubkeyA, ecdh_tv[i].pubkey_len,
-                                &publ_keyA);
+                                &publ_keyA, !pkey);
         if (rc != CKR_OK) {
             if (rc == CKR_POLICY_VIOLATION) {
                 testcase_skip("EC key import is not allowed by policy");
@@ -1284,7 +1284,7 @@ CK_RV run_DeriveECDHKeyKAT(void)
         rc = create_ECPublicKey(session,
                                 ecdh_tv[i].params, ecdh_tv[i].params_len,
                                 ecdh_tv[i].pubkeyB, ecdh_tv[i].pubkey_len,
-                                &publ_keyB);
+                                &publ_keyB, !pkey);
         if (rc != CKR_OK) {
             if (rc == CKR_CURVE_NOT_SUPPORTED) {
                 testcase_skip("Slot %u doesn't support this curve: %s",
@@ -2029,7 +2029,7 @@ CK_RV run_ImportECCKeyPairSignVerify(void)
 
         rc = create_ECPublicKey(session, ec_tv[i].params, ec_tv[i].params_len,
                                 ec_tv[i].pubkey, ec_tv[i].pubkey_len,
-                                &publ_key);
+                                &publ_key, !pkey);
         if (rc != CKR_OK) {
             if (rc == CKR_POLICY_VIOLATION) {
                 testcase_skip("EC key import is not allowed by policy");
@@ -2239,7 +2239,7 @@ CK_RV run_TransferECCKeyPairSignVerify(void)
 
         rc = create_ECPublicKey(session, ec_tv[i].params, ec_tv[i].params_len,
                                 ec_tv[i].pubkey, ec_tv[i].pubkey_len,
-                                &publ_key);
+                                &publ_key, !pkey);
         if (rc != CKR_OK) {
             if (rc == CKR_POLICY_VIOLATION) {
                 testcase_skip("EC key import is not allowed by policy");
