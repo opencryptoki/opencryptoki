@@ -1100,6 +1100,8 @@ retry:
 
     rc = encrypt_padded_pin(padded_pin, padded_pin_len, shared_key,
                             &enc_padded_pin, &enc_padded_pin_len);
+    if (rc != CKR_OK)
+        goto done;
 
     switch (func_id) {
     case __FNID_LoginExtended:

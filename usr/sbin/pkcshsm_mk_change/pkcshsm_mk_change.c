@@ -1520,7 +1520,8 @@ static void terminate(void)
         term_event_client(event_fd);
 
     if (dll != NULL) {
-        func_list->C_Finalize(NULL);
+        if (func_list != NULL)
+            func_list->C_Finalize(NULL);
         dlclose(dll);
     }
 

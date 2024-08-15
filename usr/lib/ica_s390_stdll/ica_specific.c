@@ -1885,9 +1885,11 @@ static ica_rsa_key_mod_expo_t *rsa_convert_mod_expo_key(CK_ATTRIBUTE *modulus,
     return modexpokey;
 
 err:
-    free(modexpokey->modulus);
-    free(modexpokey->exponent);
-    free(modexpokey);
+    if (modexpokey != NULL) {
+        free(modexpokey->modulus);
+        free(modexpokey->exponent);
+        free(modexpokey);
+    }
 
     return NULL;
 }
@@ -2414,8 +2416,7 @@ retry:
     //
     tmpsize = privKey->key_length / 2;
     ptr = p11_bigint_trim(privKey->q, &tmpsize);
-    rc = build_attribute(CKA_PRIME_2, privKey->q,
-                         privKey->key_length / 2, &attr);
+    rc = build_attribute(CKA_PRIME_2, ptr, tmpsize, &attr);
     if (rc != CKR_OK) {
         TRACE_DEVEL("build_attribute failed\n");
         goto privkey_cleanup;
@@ -3437,6 +3438,11 @@ CK_RV new_gcm_specific_aes_gcm_final(STDLL_TokData_t *tokdata, SESSION *sess,
         } else {
             /* Perform final update without data to calculate final tag */
             rc = ica_aes_gcm_kma_update(NULL, NULL, 0, NULL, 0, 1, 1, gcm_ctx);
+            if (rc != 0) {
+                TRACE_ERROR("ica_aes_gcm_kma_update failed, rc=%ld\n",rc);
+                rc = CKR_FUNCTION_FAILED;
+                goto done;
+            }
             *out_data_len = tag_data_len;
         }
 

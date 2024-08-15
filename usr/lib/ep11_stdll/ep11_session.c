@@ -983,7 +983,7 @@ CK_RV ep11tok_login_session(STDLL_TokData_t *tokdata, SESSION *session)
     }
 
     if (ep11_data->strict_mode) {
-        if (!ep11_session->pin_blob_valid) {
+        if (ep11_session == NULL || !ep11_session->pin_blob_valid) {
             rc = CKR_DEVICE_ERROR;
             TRACE_ERROR("%s no pinblob available\n", __func__);
             goto done;

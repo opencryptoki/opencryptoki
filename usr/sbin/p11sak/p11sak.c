@@ -4661,8 +4661,10 @@ static CK_RV get_obj_infos(CK_OBJECT_HANDLE obj, CK_OBJECT_CLASS *class,
         return rc;
 
     rc = get_class_and_type_values(obj, label_val, &class_val, &otype_val);
-    if (rc != CKR_OK)
+    if (rc != CKR_OK) {
+        free(label_val);
         return rc;
+    }
 
     switch (class_val) {
     case CKO_SECRET_KEY:
@@ -4855,14 +4857,14 @@ static CK_RV iterate_objects(const struct p11sak_objtype *objtype,
     if (id_filter != NULL) {
         rc = parse_id(id_filter, &attrs, &num_attrs);
         if (rc != CKR_OK)
-            return rc;
+            goto done;
     }
 
     if (attr_filter != NULL) {
         rc = parse_boolean_attrs(NULL, opt_attr, &attrs, &num_attrs,
                                  false, NULL);
         if (rc != CKR_OK)
-            return rc;
+            goto done;
     }
 
     rc = pkcs11_funcs->C_FindObjectsInit(pkcs11_session, attrs, num_attrs);
@@ -5759,7 +5761,8 @@ static void print_custom_attrs(CK_OBJECT_HANDLE key,
         }
 
         /* Ignore any standard attributes also defined in the config file */
-        for (skip = false, attr = standard_attrs; attr->name != NULL; attr++) {
+        for (skip = false, attr = standard_attrs;
+                            attr != NULL && attr->name != NULL; attr++) {
             if (attr->type == confignode_to_intval(id)->value) {
                  skip = true;
                  break;
@@ -6828,14 +6831,14 @@ static CK_RV handle_obj_set_attr(CK_OBJECT_HANDLE obj, CK_OBJECT_CLASS class,
         if (rc != CKR_OK) {
             warnx("Failed to add %s %s attribute CKA_LABEL: 0x%lX: %s",
                   objtype->name, objtype->obj_typestr, rc, p11_get_ckr(rc));
-            return rc;
+            goto done;
         }
     }
 
     if (opt_new_id != NULL) {
         rc = parse_id(opt_new_id, &attrs, &num_attrs);
         if (rc != CKR_OK)
-            return rc;
+            goto done;
     }
 
     rc = pkcs11_funcs->C_SetAttributeValue(pkcs11_session, obj,
@@ -7013,14 +7016,17 @@ static CK_RV handle_obj_copy(CK_OBJECT_HANDLE key, CK_OBJECT_CLASS class,
         if (rc != CKR_OK) {
             warnx("Failed to add %s %s attribute CKA_LABEL: 0x%lX: %s",
                   objtype->name, objtype->obj_typestr, rc, p11_get_ckr(rc));
-            return rc;
+            data->num_failed++;
+            goto done;
         }
     }
 
     if (opt_new_id != NULL) {
         rc = parse_id(opt_new_id, &attrs, &num_attrs);
-        if (rc != CKR_OK)
-            return rc;
+        if (rc != CKR_OK) {
+            data->num_failed++;
+            goto done;
+        }
     }
 
     rc = pkcs11_funcs->C_CopyObject(pkcs11_session, key, attrs, num_attrs,
@@ -10588,14 +10594,14 @@ static CK_RV p11sak_cert_extract_pubkey(const struct p11sak_objtype *certtype,
         if (rc != CKR_OK) {
             warnx("Failed to add %s key attribute CKA_LABEL: 0x%lX: %s",
                     certtype->name, rc, p11_get_ckr(rc));
-            return rc;
+            goto done;
         }
     }
 
     if (opt_new_id != NULL) {
         rc = parse_id(opt_new_id, &attrs, &num_attrs);
         if (rc != CKR_OK)
-            return rc;
+            goto done;
     }
 
     rc = certtype->extract_x509_pubkey(certtype, &attrs, &num_attrs, cert, label);
@@ -11387,6 +11393,11 @@ static CK_RV load_pkcs11_lib(void)
     if (rc != CKR_OK) {
         warnx("C_GetFunctionList() on PKCS#11 library '%s' failed with 0x%lX: %s)\n",
               libname, rc, p11_get_ckr(rc));
+        return CKR_FUNCTION_FAILED;
+    }
+
+    if (pkcs11_funcs == NULL) {
+        warnx("C_GetFunctionList() on PKCS#11 library '%s' failed\n", libname);
         return CKR_FUNCTION_FAILED;
     }
 
