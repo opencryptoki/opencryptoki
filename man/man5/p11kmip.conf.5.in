@@ -1,0 +1,122 @@
+.TH P11KMIP.CONF 5 "August 2023" "@PACKAGE_VERSION@" "openCryptoki"
+.SH NAME
+p11kmip.conf \- Configuration file for the \fBp11kmip\fP
+command.
+.
+.
+.
+.SH DESCRIPTION
+The
+.B p11kmip
+tool uses the configuration file \fB/etc/opencryptoki/p11kmip.conf\fP to read information about
+how to connect to a KMIP server and interact with a PKCS\~#11 token repository.
+.PP
+A custom file path can be set with  environment variable
+\fBP11KMIP_DEFAULT_CONF_FILE\fP. If the environment variable is not set, then
+the global \fB/etc/opencryptoki/p11kmip.conf\fP config file is read.
+If this file is unavailable, an error message is displayed.
+.
+.
+.
+.SH SYNTAX
+.
+.P
+There are two sections in the configuration. Both consist of a title, brackets,
+and a set of key\-value pairs.
+
+The first section configures the connection to the KMIP server. It contains
+the following keywords: 
+.B host
+,
+.B tls_client_cert
+,
+.B tls_client_key
+,
+.B wrap_key_format
+,
+.B wrap_key_algorithm
+,
+.B wrap_key_size
+,
+.B wrap_padding_method
+,
+.B wrap_hashing_algorithm .
+
+.PP
+Example:
+
+kmip {
+   host = "0.0.0.0:5696"
+   tls_client_cert = "/tmp/certs/client_certificate_jane_doe.pem"
+   tls_client_key = "/tmp/certs/client_key_jane_doe.pem"
+
+   wrap_key_format = "PKCS1"
+   wrap_key_algorithm = "RSA"
+   wrap_key_size = 2048
+   wrap_padding_method = "PKCS1.5"
+   wrap_hashing_algorithm = "SHA-1"
+}
+
+
+The
+.B host
+value must be the hostname of the KMIP server with which to connect, enclosed in quotes.
+
+The
+.B tls_client_cert
+value must be the path of the KMIP client certificate, enclosed in quotes.
+
+The
+.B tls_client_key
+value must be the path of the KMIP client key, enclosed in quotes.
+
+The
+.B wrap_key_format
+value must be the format of the wrapping key when sent to or from the KMIP server, enclosed
+in quotes. Currently only formats "PKCS1", "PKCS8", and "TransparentPublicKey" are supported.
+
+The 
+.B wrap_key_algorithm
+value must be the algorithm of the wrapping key, enclosed in quotes. Current only "RSA" is
+supported.
+
+The
+.B wrap_key_size
+value must be an integer specifying the size of the wrapping key. Currently only size 2048 is
+supported.
+
+The
+.B wrap_padding_method
+value must be the padding method used during the key wrap. Currently padding methods
+"PKCS1.5" and "OAEP" are supported.
+
+The
+.B wrap_hashing_algorithm
+value is the hashing algorithm used when "OAEP" is specified. Currently hashing algorithms
+"SHA-1" and "SHA-256" are supported.
+
+The second section configures interaction with the PKCS\~#11 token repository. It contains
+the following keyword: 
+.B slot .
+
+.PP
+Example:
+pkcs11 {
+   slot = 0
+}
+
+The
+.B slot
+value must be an integer specifying the slot number to use.
+
+.PP
+
+.SH Notes
+The pound sign ('#') is used to indicate a comment up to and including the end
+of line.
+
+.SH "SEE ALSO"
+.PD 0
+.TP
+\fBp11kmip\fP(1)
+.PD

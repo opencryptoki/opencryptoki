@@ -119,6 +119,10 @@ if ENABLE_P11SAK
 	test -f $(DESTDIR)$(sysconfdir)/opencryptoki || $(MKDIR_P) $(DESTDIR)$(sysconfdir)/opencryptoki || true
 	test -f $(DESTDIR)$(sysconfdir)/opencryptoki/p11sak_defined_attrs.conf || $(INSTALL) -g $(pkcs_group) -m 0640 $(srcdir)/usr/sbin/p11sak/p11sak_defined_attrs.conf $(DESTDIR)$(sysconfdir)/opencryptoki/p11sak_defined_attrs.conf || true
 endif
+if ENABLE_P11KMIP
+	test -f $(DESTDIR)$(sysconfdir)/opencryptoki || $(MKDIR_P) $(DESTDIR)$(sysconfdir)/opencryptoki || true
+	test -f $(DESTDIR)$(sysconfdir)/opencryptoki/p11kmip.conf || $(INSTALL) -g $(pkcs_group) -m 0640 $(srcdir)/usr/sbin/p11kmip/p11kmip.conf $(DESTDIR)$(sysconfdir)/opencryptoki/p11kmip.conf || true
+endif
 if ENABLE_ICATOK
 	cd $(DESTDIR)$(libdir)/opencryptoki/stdll && \
 		ln -fs libpkcs11_ica.$(SHLIBEXT) PKCS11_ICA.$(SHLIBEXT)

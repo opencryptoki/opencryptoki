@@ -252,12 +252,14 @@ exit 0
 %{_unitdir}/pkcsslotd.service
 %{_sbindir}/pkcsconf
 %{_sbindir}/pkcsslotd
+%{_sbindir}/p11kmip
 %{_sbindir}/p11sak
 %{_sbindir}/pkcstok_migrate
 %{_sbindir}/pkcsstats
 %{_sbindir}/pkcshsm_mk_change
 %{_sbindir}/pkcstok_admin
 %{_mandir}/man1/pkcsconf.1*
+%{_mandir}/man1/p11kmip.1*
 %{_mandir}/man1/p11sak.1*
 %{_mandir}/man1/pkcstok_migrate.1*
 %{_mandir}/man1/pkcsstats.1*
