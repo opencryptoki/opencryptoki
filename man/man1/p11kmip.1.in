@@ -1,0 +1,644 @@
+.TH P11KMIP 1 "August 2023" "@PACKAGE_VERSION@" "openCryptoki"
+.SH NAME
+p11kmip \- Transfer secret keys between PKCS\~#11 and KMIP.
+.
+.
+.
+.SH SYNOPSIS
+.B p11kmip
+.I command
+.RB [ OPTIONS ]
+.PP
+.
+.B p11kmip
+.BR \-\-help | \-h
+.br
+.B p11kmip
+.BR \-\-version | \-v
+.
+.
+.
+.SH DESCRIPTION
+The \fBp11kmip\fP tool can be used to transfer secret keys between a PKCS\~#11
+key repository and a KMIP server. Secret keys may be imported or exported, and
+are wrapped using public-key cryptography during transit. Public keys used for
+wrapping may also be sent and recieved. Only AES keys are supported as
+secret keys, and only RSA is supported for key wrapping.
+.
+.
+.
+.SH COMMANDS
+The \fBp11kmip\fP tool supports commands to import and export keys between
+a PKCS\~#11 token repository and KMIP server.
+.PP
+.SS "Importing secret keys"
+.B p11kmip
+.BR import\-key | import | imp
+.BR \-\-targkey\-label | \-t
+.I TARGKEY\-LABEL
+.BR \-\-wrapkey\-label | \-w
+.I WRAPKEY\-LABEL
+.RB [ \-\-unwrapkey\-label | \-u
+.IR UNWRAPKEY\-LABEL ]
+.RB [ \-\-send\-wrapkey ]
+.RB [ \-\-targkey\-attrs 
+.IR TARGKEY\-ATTRS ]
+.RB [ \-\-targkey\-id
+.IR ID ]
+.RB [ \-\-gen\-targkey ]
+.RB [ \-\-targkey\-length
+.IR LENGTH ]
+.RB [ OPTIONS ]
+.PP
+Use the
+.BR import\-key
+command to import an AES symmetric key located on a KMIP server to a
+PKCS\~#11 token repository.
+
+The
+.BR \-\-targkey\-label | \-t
+.I TARGKEY\-LABEL
+option specifies the KMIP name attribute of the symmetric key to be imported.
+Once imported into the PKCS\~#11 token repository, the
+.B CKA_LABEL
+attribute of the symmetric key will be set to the same value as
+.IR TARGKEY\-LABEL .
+The 
+.BR \-\-wrapkey\-label | \-w
+.I WRAPKEY\-LABEL
+option species the KMIP name attribute of the 2048-bit RSA public key
+located on the KMIP server to be used for wrapping the imported key.
+.
+
+The imported key will be unwrapped using a 2048-bit RSA private key 
+located in the PKCS\~#11 token repository with an
+.B CKA_LABEL
+attribute value that is the same as
+.I WRAPKEY\-LABEL
+, unless the
+.B \-\-unwrapkey\-label | \-u
+.I UNWRAPKEY\-LABEL
+option identifies a different private key instead.
+
+When the
+.BR \-\-send\-wrapkey
+option is specified, the 
+.BR \-\-wrapkey\-label | \-w
+.I WRAPKEY\-LABEL
+option will instead be used to identify a public key 
+located in the PKCS\~#11 token repository, with a 
+.B CKA_LABEL
+attribute value that is the same as specified by 
+.IR WRAPKEY\-LABEL .
+This public key is sent and registered on the KMIP server with a KMIP name
+specified by 
+.BR \-\-wrapkey\-label .
+The public key will then be used for wrapping.
+
+After the import operation has been completed successfully, information will be displayed
+about the keys involved. This includes the 
+.B CKA_LABEL
+attribute values of the imported key and wrapping public key, the KMIP UID attributes
+of both keys, and a SHA-256 digest of the imported symmetric key from both the KMIP server and the
+PKCS\~#11 token repository.
+
+Example:
+  Secret Key
+     PKCS#11 Label...SECRET_KEY_LABEL
+     PKCS#11 Digest..FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+     KMIP UID........SECRET_KEY_UUID
+     KMIP Digest.....AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+  Public Key
+     PKCS#11 Label...PUBLIC_KEY_LABEL
+     KMIP UID........PUBLIC_KEY_UUID
+
+The 
+.B \-\-targkey\-attrs 
+.I TARGKEY\-ATTRS 
+option can be used to set the boolean attributes of the imported key 
+(see below for detailed description of the attributes). The
+.B \-\-targkey\-id
+.I ID 
+option may be used to set the value of the 
+.BR CKA_ID
+attribute of the target key.
+
+When the
+.BR \-\-gen\-targkey
+option is specified, the AES key to be imported will first be generated on the
+KMIP server. In this case, the value of the 
+.BR \-\-targkey\-label | \-t
+.I TARGKEY\-LABEL
+option will be used as the KMIP name attribute of the generated key.
+
+The 
+.B \-\-targkey\-length 
+.I LENGTH 
+option may be used to specify the length of the generated with the
+.BR \-\-gen\-targkey
+option, and is only valid when specified with that option. 
+.I LENGTH 
+must be one of 128, 192, or 256. The default is 256.
+
+See below for a detailed description of 
+.BR OPTIONS .
+The 
+.BR \-\-help | \-h
+option will also show the arguments and options available.
+.
+.PP
+.SS "Exporting secret keys"
+.B p11kmip
+.BR export\-key | export | exp
+.BR \-\-targkey\-label | \-t
+.I TARGKEY\-LABEL
+.BR \-\-wrapkey\-label | \-w
+.I WRAPKEY\-LABEL
+.RB [ \-\-retr\-wrapkey ]
+.RB [ \-\-wrapkey\-attrs 
+.IR WRAPKEY\-ATTRS ]
+.RB [ \-\-wrapkey\-id
+.IR ID ]
+.RB [ OPTIONS ]
+.PP
+Use the
+.BR export\-key
+command to export a AES symmetric key located in a PKCS\~#11 token
+repository to a KMIP server.
+
+The
+.BR \-\-targkey\-label | \-t
+.I TARGKEY\-LABEL
+option specifies the 
+.B CKA_LABEL
+attribute value of the symmetric key to be exported.
+Once exported to the KMIP server, the KMIP name attribute of the 
+symmetric key will be set to the same value as
+.IR TARGKEY\-LABEL .
+The 
+.BR \-\-wrapkey\-label | \-w
+.I WRAPKEY\-LABEL
+option species the 
+.B CKA_LABEL
+attribute value of the 2048-bit RSA public key located in the
+PKCS\~#11 token repository to be used for wrapping the exported key.
+
+The exported key will be unwrapped using a 2048-bit RSA private key 
+located on the KMIP server with a KMIP name attribute that is the same as
+.I WRAPKEY\-LABEL
+.
+
+When the
+.BR \-\-retr\-wrapkey
+option is specified, the 
+.BR \-\-wrapkey\-label | \-w
+.I WRAPKEY\-LABEL
+option will instead be used to identify a public key 
+located on the KMIP server with a KMIP name attribute that is the
+same as 
+.IR WRAPKEY\-LABEL .
+This public key will be retrieved from the KMIP server and imported into the
+PKCS\~#11 token repository, with a 
+.B CKA_LABEL
+attribute value of
+.I WRAPKEY\-LABEL 
+, and used to wrap the exported key. When the wrapping key is being retrieved 
+from the KMIP server, the
+.B \-\-wrapkey\-attrs 
+.I WRAPKEY\-ATTRS
+option can be used to set the boolean attributes of the retrieved public key 
+(see below for detailed description of the attributes). The
+.B \-\-wrapkey\-id
+.I ID 
+option may be used to set the value of the 
+.BR CKA_ID
+attribute of the public key.
+
+After the export operation has been completed successfully, information will be displayed
+about the keys involved. This includes the 
+.B CKA_LABEL
+attribute values of the exported symmetric key and wrapping public key, the KMIP UID attributes
+of both keys, and a SHA-256 digest of the exported symmetric key from both the KMIP server and the
+PKCS\~#11 token repository.
+
+Example:
+  Secret Key
+     PKCS#11 Label...SECRET_KEY_LABEL
+     PKCS#11 Digest..FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+     KMIP UID........SECRET_KEY_UUID
+     KMIP Digest.....AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+  Public Key
+     PKCS#11 Label...PUBLIC_KEY_LABEL
+     KMIP UID........PUBLIC_KEY_UUID
+
+See below for a detailed description of 
+.BR OPTIONS .
+The 
+.BR \-\-help | \-h
+option will also show the arguments and options available.
+.
+.
+.SH OPTIONS
+
+.TP 8
+.BR \-\-wrapkey\-attrs \-a\~\fIWRAPKEY\-ATTRS\fP | \-\-targkey\-attrs \-a\~\fITARGKEY\-ATTRS\fP
+For the
+.B export\-key
+command, specify the PKCS\~#11 boolean attributes that are to be set for the 
+retrieved wrapping key. For the
+.B import\-key
+, specify the PKCS\~#11 boolean attributes that are to be set for the 
+imported symmetric key.
+.PP
+.RS 8
+.B Note:
+Not all boolean attributes are applicable to all key types and/or commands and
+will be silently ignored if not applicable.
+.PP
+The respective attributes are set to
+.B TRUE
+when the corresponding letter is specified in uppercase, or
+.B FALSE
+when the corresponding letter is specified in lowercase.
+Attributes (except \fBCKA_TOKEN\fP and \fBCKA_SENSITIVE\fP, see below) that are
+not specified get the default value as defined by the PKCS\~#11 standard or the
+used PKCS\~#11 token implementation when generating keys, or are not updated
+when setting the attributes of an existing key.
+.PP
+Attribute
+.B CKA_TOKEN
+is always set to \fBTRUE\fP for imported symmetric keys, and is set to \fBTRUE\fP
+by default for public keys. This is because session keys are not persistent, and
+thus would no longer exist after the session that the
+.B p11kmip
+tool has opened is closed when it exists. For public keys only, this can be overridden by 
+specifying the respective uppercase or lowercase letter for the CKA_TOKEN attribute in 
+the attribute string, as desired.
+.PP
+When importing or recieving a key with the
+.B p11kmip
+tool, attribute
+.B CKA_SENSITIVE
+defaults to \fBTRUE\fP for symmetric keys. However, this can be overridden by 
+specifying the respective uppercase or lowercase letter for the CKA_SENSITIVE
+attribute in the attribute string, as desired.
+.PP
+.B Note:
+The default setting for the
+.B CKA_SENSITIVE
+attribute is defined by the
+.B p11kmip
+tool, and might be different from the default setting that would be chosen by
+the used PKCS\~#11 implementation.
+.PP
+The following letters are associated with the respective
+.BR CK_ATTRIBUTE :
+.IP "\(bu" 2
+.B H
+\- CKA_TOKEN
+.IP "\(bu" 2
+.B P
+\- CKA_PRIVATE
+.IP "\(bu" 2
+.B M
+\- CKA_MODIFIABLE
+.IP "\(bu" 2
+.B B
+\- CKA_COPYABLE
+.IP "\(bu" 2
+.B Y
+\- CKA_DESTROYABLE
+.IP "\(bu" 2
+.B S
+\- CKA_SENSITIVE
+.IP "\(bu" 2
+.B X
+\- CKA_EXTRACTABLE
+.IP "\(bu" 2
+.B K
+\- CKA_IBM_PROTKEY_EXTRACTABLE (IBM specific, not all tokens support this)
+.PP
+For multiple attributes, specify a set of these letters without any blanks in
+between, e. g. \fB'MlD'\fP. An uppercase letter means \fBTRUE\fP, while a
+lowercase letter means \fBFALSE\fP.
+From Example above, \fB'MbS'\fP corresponds to: \fBCKA_MODIFIABLE=TRUE,
+CKA_COPYABLE=FALSE, CKA_SENSITIVE=TRUE\fP.
+.PP
+.RE
+.
+.
+.
+.TP 8
+.BR \-\-slot | \-s\~\fISLOT\fP
+Specifies the slot number of the PKCS\~#11 token to use.
+.PP
+.RS 8
+Alternatively, the slot number may be specified using the
+.B PKCS11_SLOT_ID 
+environment variable or the \fBp11kmip.conf\fP configuration
+file. See \fBp11kmip.conf\fP(5) for more details about using the configuration file. 
+When one or more of these are set, the option takes highest priority, the 
+environment variable second highest, and the configuration file least priority. 
+When none are set, an error occurs.
+.RE
+.
+.
+.
+.TP 8
+.BR \-\-pin | \-p\~\fIPIN\fP
+Specifies the PKCS\~#11 token user PIN to login with.
+.PP
+.RS 8
+Alternatively, the
+.B PKCS11_USER_PIN
+environment variable may be used to provide the token user PIN.
+If neither this option is specified nor the environment variable is set,
+the user is prompted for the PIN.
+.RE
+.PP
+.
+.
+.
+.TP 8
+.BR \-\-force\-pin\-prompt
+Force the
+.B p11kmip
+tool to prompt for the token user PIN (regardless of if it has been specified
+elsewhere)
+.PP
+.
+.
+.
+.TP 8
+.BR \-\-kmip\-host\~\fIHOSTNAME\fP
+The hostname of the KMIP server with which to connect.
+.PP
+.RS 8
+Alternatively, the hostname may be specified using the 
+.B KMIP_HOSTNAME
+environment variable or the \fBp11kmip.conf\fP configuration
+file. See \fBp11kmip.conf\fP(5) for more details about using the configuration file. 
+When one or more of these are set, the option takes highest priority, the 
+environment variable second highest, and the configuration file least priority. 
+When none are set, an error occurs.
+.RE
+.
+.
+.
+.TP 8
+.BR \-\-kmip\-client\-cert\~\fICERT\-\PATH\fP
+A path to the TLS client certificate to use for the KMIP connection.
+.PP
+.RS 8
+Alternatively, the client certificate path may be specified using the
+.B KMIP_CLIENT_CERT
+environment variable, or the \fBp11kmip.conf\fP configuration
+file. See \fBp11kmip.conf\fP(5) for more details about using the configuration file.
+When one or more of these are set, the option takes highest priority, the 
+environment variable second highest, and the configuration file least priority. 
+When none are set, an error occurs.
+.RE
+.
+.
+.
+.TP 8
+.BR \-\-kmip\-client\-key\~\fIKEY\-\PATH\fP
+A path to the TLS client key to use for the KMIP connection.
+.PP
+.RS 8
+Alternatively, the client key path may be specified using the
+.B KMIP_CLIENT_KEY
+environment variable or the \fBp11kmip.conf\fP configuration
+file. See \fBp11kmip.conf\fP(5) for more more details about using the configuration file.
+When one or more of these are set, the option takes highest priority, the 
+environment variable second highest, and the configuration file least priority. 
+When none are set, an error occurs.
+.RE
+.
+.
+.
+.TP 8
+.BR \-\-pem\-password\~\fIPEM\-\PASSWORD\fP
+The password to use for the TLS client key PEM file, if it is password-protected.
+.PP
+.RS 8
+Alternatively, the PEM password may be specified using the
+.B KMIP_PEM_PASSWORD
+environment variable. When both are set, the option takes higher priority. When
+neither are set, the user is prompted for the password.
+.RE
+.PP
+.
+.
+.
+.TP 8
+.BR \-\-force\-pem\-password\-prompt
+Force the
+.B p11kmip
+tool to prompt for the TLS client key PEM password (regardless of if it has been
+specified elsewhere).
+.PP
+.
+.
+.
+.TP 8
+.BR \-\-tls\-verify\-hostname
+Enforce verification of the KMIP server hostname.
+.PP
+.
+.
+.
+.TP 8
+.BR \-\-tls\-no\-verify\-certificate
+Skip verification of the KMIP server TLS certificate.
+.PP
+.
+.
+.
+.TP 8
+.BR \-\-tls\-trust\-server\-cert
+Perform verification of the KMIP server TLS certificate, but do not prompt the
+user for trust of this server.
+.PP
+.
+.
+.
+.TP 8
+.BR \-\-debug | \-d
+Increase debug information.
+.PP
+.
+.
+.
+.TP 8
+.BR \-\-quiet | \-q
+Suppress messages.
+.PP
+.
+.
+.
+.TP 8
+.BR \-\-short | \-r
+Print shortened results.
+
+Example:
+SECRET_KEY_LABEL:FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+SECRET_KEY_UUID:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+.PP
+.
+.
+.
+.TP 8
+.BR \-\-help | \-h
+Prints help for the usage of the
+.B p11kmip
+tool and/or the respective command and then exits.
+.RE
+.PP
+.
+.
+.
+.TP 8
+.BR \-\-version | \-v
+Prints the version of the
+.B p11kmip
+tool and then exits.
+.RE
+.PP
+.
+.
+.
+.SH "FILES"
+.
+.SS "/etc/opencryptoki/p11kmip.conf"
+This configuration file can be used to specify persistent settings to be used
+by the
+.B p11kmip
+for connections to KMIP servers and interactions with PKCS\~#11 token
+repositories. A custom file path can be set with  environment variable
+\fBP11KMIP_DEFAULT_CONF_FILE\fP. If the environment variable is not set, then
+the global \fB/etc/opencryptoki/p11kmip.conf\fP config file is read.
+If this file is unavailable, an error message is displayed.
+.PP
+.
+.
+.
+.SH "ENVIRONMENT VARIABLES"
+
+.SS "P11KMIP_DEFAULT_CONF_FILE"
+A custom path for the \fBp11kmip.conf\fP config file can be set
+with the environment variable \fBP11KMIP_DEFAULT_CONF_FILE\fP.
+If the environment variable is not set, then
+the global \fB/etc/opencryptoki/p11kmip.conf\fP config file is read.
+If this file is unavailable, an error message is displayed.
+.PP
+.
+.SS "PKCS11_USER_PIN"
+The PKCS\~#11 token user PIN can be specified via the environment variable
+\fBPKCS11_USER_PIN\fP. If this environment variable is not set, and the option
+.BR \-\-pin | \-p
+.I PIN
+is not specified, p11kmip will prompt for the token user PIN interactively.
+.PP
+.
+.SS "PKCS11_SLOT_ID"
+The PKCS\~#11 token slot number can be specified via the environment variable
+\fBPKCS11_SLOT_ID\fP. If this environment variable is not set, and the option
+.BR \-\-pin | \-p\~\fIPIN\fP
+is not specified, the value will be read from the \fBp11kmip.conf\fP 
+configuration file.
+.PP
+.
+.SS "PKCSLIB"
+An alternative PKCS\~#11 library name can be specified with the \fBPKCSLIB\fP
+environment variable. If this environment variable is not set, then the default
+PKCS\~#11 library \fBlibopencryptoki.so\fP is used.
+.PP
+.
+.SS "KMIP_HOSTNAME"
+The hostname of the KMIP server with which to connect can be specified 
+using the \fBKMIP_HOSTNAME\fP environment variable. If this environment variable
+is not set, and the option
+.BR \-\-kmip\-host\~\fHOSTNAME\fP
+is not specified, the value will be read from the \fBp11kmip.conf\fP 
+configuration file.
+.PP
+.
+.SS "KMIP_CLIENT_CERT"
+The path to the TLS client certificate to use for the KMIP connection can be
+specified using the \fBKMIP_CLIENT_CERT\fP environment variable.
+If this environment variable is not set, and the option
+.BR \-\-kmip\-client\-cert\~\fCERT\-\PATH\fP
+.PP
+.
+.SS "KMIP_CLIENT_KEY"
+The path to the TLS client key to use for the KMIP connection can be specified
+using the \fBKMIP_CLIENT_KEY\fP environment variable.
+If this environment variable is not set, and the option
+.BR \-\-kmip\-client\-key\~\fKEY\-\PATH\fP
+.PP
+.
+.SS "KMIP_PEM_PASSWORD"
+The PEM file used for the TLS client key may be password protected. The PEM
+password can be specified via the environment variable
+\fBKMIP_PEM_PASSWORD\fP. If this environment variable is not set, and the
+option 
+.BR \-\-pem\-password\~\fPEM\-\PASSWORD\fP
+is not specified, p11kmip will prompt for the PEM password interactively.
+.
+.
+.
+.SH "EXIT STATUS"
+The
+.B p11kmip
+tool returns error codes as defined by the PKCS\~#11 standard, i.e. the
+\fBCKR_nnn\fP errors. On success, \fBCKR_OK\fP (which is zero) is returned.
+.PP
+The PKCS\~#11 error codes may originate from a PKCS\~#11 function called by the
+.B p11kmip
+tool, or from the
+.B p11kmip
+tool itself, like the following:
+
+.SS CKR_ARGUMENTS_BAD (0x00000007):
+An argument, option or keyword is not valid.
+.PP
+.
+.
+.
+.SS CKR_DATA_INVALID (0x00000020):
+The \fBp11kmip.conf\fP cannot be parsed or its syntax is invalid.
+.PP
+.
+.
+.
+.SS CKR_MECHANISM_INVALID (0x00000070):
+The token does not support the key generation mechanism for the specified key
+type.
+.PP
+.
+.
+.
+.SS CKR_KEY_SIZE_RANGE (0x00000062):
+The token does not support the key size for the specified key type.
+.PP
+.
+.
+.
+.SS CKR_HOST_MEMORY (0x00000002):
+Allocating memory has failed.
+.PP
+.
+.
+.
+.SS CKR_FUNCTION_FAILED (0x00000006):
+A subfunction or library call has failed.
+.PP
+.
+.
+.
+.SH "SEE ALSO"
+.PD 0
+.TP
+\fBp11kmip.conf\fP(5)
+.PD

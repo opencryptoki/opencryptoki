@@ -27,6 +27,9 @@ endif
 if ENABLE_PKCSTOK_ADMIN
 include usr/sbin/pkcstok_admin/pkcstok_admin.mk
 endif
+if ENABLE_P11KMIP
+include usr/sbin/p11kmip/p11kmip.mk
+endif
 
 include usr/sbin/pkcsslotd/pkcsslotd.mk
 include usr/sbin/pkcsconf/pkcsconf.mk
