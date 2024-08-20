@@ -95,7 +95,7 @@ if test ! -z ${PKCS11_TEST_USER}; then
 fi
 
 # initialize opencryptoki.conf
-echo "version opencryptoki-3.23" > "${OCKCONFDIR}/opencryptoki.conf"
+echo "version opencryptoki-3.24" > "${OCKCONFDIR}/opencryptoki.conf"
 
 # enable full statistics
 echo "statistics (on,implicit,internal)" >> "${OCKCONFDIR}/opencryptoki.conf"

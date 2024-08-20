@@ -1,3 +1,31 @@
++ openCryptoki 3.24
+- Add support for building Opencryptoki on the IBM AIX platform
+- Add support for the CCA token on non-IBM Z platforms (x86_64, ppc64)
+- Add support for protecting tokens with a token specific user group
+- EP11: Add support for combined CKA_EXTRACTABLE and CKA_IBM_PROTKEY_EXTRACTABLE
+- CCA: Add support for Koblitz curve secp256k1. Requires CCA v7.2 or later
+- CCA: Add support for IBM Dilithium (CKM_IBM_DILITHIUM). On Linux on IBM Z:
+  Requires CCA v7.1 or later for Round2-65, and CCA v8.0 for the Round 3
+  variants. On other platforms: Requires CCA v7.2.43 or later for Round2-65, 
+  the Round 3 variants are currently not supported
+- CCA: Add support for RSA-OAEP with SHA224, SHA384, and SHA512 on en-/decrypt.
+  Requires CCA v8.1 or later on Linux on IBM Z, not supported on other platforms
+- CCA: Add support for PKCS#11 v3.0 SHA3 mechanisms. Requires CCA v8.1 on Linux
+  on IBM Z, not supported on other platforms
+- ICA: Support new libica AES-GCM api using the KMA instruction on z14 and later
+- ICA/Soft/ICSF: Add support for PKCS#11 v3.0 SHA3 mechanisms
+- ICA/Soft: Add support for SHA based key derivation mechanisms
+- ICA/Soft: Add support for CKD_*_SP800 KDFs for ECDH
+- EP11/CCA/ICA/Soft: Add support for CKA_ALWAYS_AUTHENTICATE
+- EP11/CCA: Support live guest relocation for protected key (PKEY) operations
+- Soft: Experimental support for IBM Dilithium via OpenSSL OQS provider
+- ICSF: Add support for SHA-2 mechanisms
+- ICSF: Performance improvements for attribute retrieval
+- p11sak: Add support for exporting a key or certificate as URI-PEM file
+- p11sak: Import/export of IBM Dilithium keys in 'oqsprovider' format PEM files
+- p11sak: Add option to show the master key verification patterns of secure keys
+- Bug fixes
+
 + openCryptoki 3.23
 - EP11: Add support for FIPS-session mode
 - Updates to harden against RSA timing attacks
