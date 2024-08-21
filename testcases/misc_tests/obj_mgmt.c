@@ -979,7 +979,7 @@ CK_RV do_CreateTokenObjects(void)
     testcase_begin("starting...");
 
     if (skip_token_obj == TRUE) {
-        testcase_skip("Skipping tests that creates token objects");
+        testcase_skip("Skipping tests that create token objects");
         return CKR_OK;
     }
 
@@ -1355,7 +1355,7 @@ CK_RV do_HWFeatureSearch(void)
     };
 
     if (skip_token_obj == TRUE) {
-        testcase_skip("Skipping tests that creates token objects");
+        testcase_skip("Skipping tests that create token objects");
         return CKR_OK;
     }
 
@@ -1580,7 +1580,7 @@ CK_RV do_ProfileSearch(void)
     };
 
     if (skip_token_obj == TRUE) {
-        testcase_skip("Skipping tests that creates token objects");
+        testcase_skip("Skipping tests that create token objects");
         return CKR_OK;
     }
 

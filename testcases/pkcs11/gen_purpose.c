@@ -39,7 +39,7 @@ CK_RV do_GetInfo(void)
         goto testcase_cleanup;
     }
 
-    testcase_pass("Library info successfully sourced");
+    testcase_pass("Library info retrieved successfully");
 
 testcase_cleanup:
     testcase_user_logout();
@@ -198,7 +198,7 @@ CK_RV do_GetTokenInfo(void)
         goto testcase_cleanup;
     }
 
-    testcase_pass("C_GetTokenInfo returned error when given invalid slot.");
+    testcase_pass("C_GetTokenInfo returned error when used with an invalid slot.");
 
 testcase_cleanup:
     testcase_user_logout();
@@ -240,10 +240,9 @@ CK_RV do_GetMechanismList(void)
     }
 
     if (count)
-        testcase_pass("C_GetMechanismList returned mechanism count.");
+        testcase_pass("C_GetMechanismList successfully returned mechanism count.");
     else
-        testcase_fail("C_GetMechanismList did not not return "
-                      "mechanism count.");
+        testcase_fail("C_GetMechanismList did not return mechanism count.");
 
     mech_list = (CK_MECHANISM_TYPE *) calloc(1, count * sizeof(CK_MECHANISM_TYPE));
     if (!mech_list) {

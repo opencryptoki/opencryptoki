@@ -236,7 +236,7 @@ CK_RV do_DestroyObjects(void)
     rc = funcs->C_DestroyObject(session, keyobj_no_destroy);
     if (rc == CKR_ACTION_PROHIBITED) {
         testcase_pass("C_DestroyObject() did not delete the object. rc = %s "
-                "(as expetded)", p11_get_ckr(rc));
+                "(as expected)", p11_get_ckr(rc));
     } else {
         testcase_fail("C_DestroyObject() should have failed with "
                       "CKR_ACTION_PROHIBITED, but got rc = %s.",
