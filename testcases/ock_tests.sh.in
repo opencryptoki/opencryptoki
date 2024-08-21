@@ -12,7 +12,7 @@
 #	ocktests.sh
 #
 # DESCRIPTION
-#	Simple Bash script that checks the enviroment in which the ock-tests will run
+#	Simple Bash script that checks the environment in which the ock-tests will run
 #	and starts them.
 #
 # ALGORITHM

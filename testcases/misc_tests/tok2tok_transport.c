@@ -477,13 +477,13 @@ CK_RV do_perform_operation(CK_MECHANISM *mech,
         }
 
         if (output_size != input_size) {
-            testcase_error("Decrypted data has different size then original "
+            testcase_error("Decrypted data has different size than original "
                            "data: orig: %lu decr: %lu", input_size,
                            output_size);
             return CKR_FUNCTION_FAILED;
         }
         if (memcmp(input_data, output_data, input_size) != 0) {
-            testcase_error("Decrypted data is different then original data");
+            testcase_error("Decrypted data is different than original data");
             return CKR_FUNCTION_FAILED;
         }
     } else if (sign && verify) {

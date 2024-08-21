@@ -1237,7 +1237,7 @@ CK_RV do_HWFeatureSearch(void)
     }
 
     if (got_it != 1) {
-        testcase_fail("could not find the corect object handle");
+        testcase_fail("could not find the correct object handle");
         rc = -1;
         goto destroy;
     }
