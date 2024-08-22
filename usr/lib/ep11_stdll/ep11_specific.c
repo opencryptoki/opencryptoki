@@ -12097,7 +12097,7 @@ CK_RV ep11tok_is_mechanism_supported(STDLL_TokData_t *tokdata,
         status = check_required_versions(tokdata, hmac_req_versions,
                                          NUM_HMAC_REQ);
         if (status == -1) {
-            TRACE_INFO("%s Mech '%s' banned due to mixed firmware versions\n",
+            TRACE_INFO("%s Mech '%s' banned due to old card or mixed firmware versions\n",
                        __func__, ep11_get_ckm(tokdata, type));
             rc = CKR_MECHANISM_INVALID;
             goto out;
@@ -12114,7 +12114,7 @@ CK_RV ep11tok_is_mechanism_supported(STDLL_TokData_t *tokdata,
         status = check_required_versions(tokdata, oaep_req_versions,
                                          NUM_OAEP_REQ);
         if (status != 1) {
-            TRACE_INFO("%s Mech '%s' banned due to mixed firmware versions\n",
+            TRACE_INFO("%s Mech '%s' banned due to old card or mixed firmware versions\n",
                        __func__, ep11_get_ckm(tokdata, type));
             rc = CKR_MECHANISM_INVALID;
             goto out;
@@ -12132,7 +12132,7 @@ CK_RV ep11tok_is_mechanism_supported(STDLL_TokData_t *tokdata,
         status = check_required_versions(tokdata, ibm_sha3_req_versions,
                                          NUM_IBM_SHA3_REQ);
         if (status != 1) {
-            TRACE_INFO("%s Mech '%s' banned due to mixed firmware versions\n",
+            TRACE_INFO("%s Mech '%s' banned due to old card or mixed firmware versions\n",
                        __func__, ep11_get_ckm(tokdata, type));
             rc = CKR_MECHANISM_INVALID;
             goto out;
@@ -12146,7 +12146,7 @@ CK_RV ep11tok_is_mechanism_supported(STDLL_TokData_t *tokdata,
         status = check_required_versions(tokdata, cmac_req_versions,
                                          NUM_CMAC_REQ);
         if (status != 1) {
-            TRACE_INFO("%s Mech '%s' banned due to mixed firmware versions\n",
+            TRACE_INFO("%s Mech '%s' banned due to old card or mixed firmware versions\n",
                        __func__, ep11_get_ckm(tokdata, type));
             rc = CKR_MECHANISM_INVALID;
             goto out;
@@ -12167,7 +12167,7 @@ CK_RV ep11tok_is_mechanism_supported(STDLL_TokData_t *tokdata,
         status = check_required_versions(tokdata, edwards_req_versions,
                                          NUM_EDWARDS_REQ);
         if (status != 1) {
-            TRACE_INFO("%s Mech '%s' banned due to mixed firmware versions\n",
+            TRACE_INFO("%s Mech '%s' banned due to old card or mixed firmware versions\n",
                        __func__, ep11_get_ckm(tokdata, type));
             rc = CKR_MECHANISM_INVALID;
             goto out;
@@ -12184,7 +12184,7 @@ CK_RV ep11tok_is_mechanism_supported(STDLL_TokData_t *tokdata,
         status = check_required_versions(tokdata, ibm_dilithium_req_versions,
                                          NUM_DILITHIUM_REQ);
         if (status != 1) {
-            TRACE_INFO("%s Mech '%s' banned due to mixed firmware versions\n",
+            TRACE_INFO("%s Mech '%s' banned due to old card or mixed firmware versions\n",
                        __func__, ep11_get_ckm(tokdata, type));
             rc = CKR_MECHANISM_INVALID;
             goto out;
@@ -12201,7 +12201,7 @@ CK_RV ep11tok_is_mechanism_supported(STDLL_TokData_t *tokdata,
         status = check_required_versions(tokdata, ibm_kyber_req_versions,
                                          NUM_KYBER_REQ);
         if (status != 1) {
-            TRACE_INFO("%s Mech '%s' banned due to mixed firmware versions\n",
+            TRACE_INFO("%s Mech '%s' banned due to old card or mixed firmware versions\n",
                        __func__, ep11_get_ckm(tokdata, type));
             rc = CKR_MECHANISM_INVALID;
             goto out;
@@ -12220,7 +12220,7 @@ CK_RV ep11tok_is_mechanism_supported(STDLL_TokData_t *tokdata,
         status = check_required_versions(tokdata, ibm_cpacf_wrap_req_versions,
                                          NUM_CPACF_WRAP_REQ);
         if (status != 1) {
-            TRACE_INFO("%s Mech '%s' banned due to mixed firmware versions\n",
+            TRACE_INFO("%s Mech '%s' banned due to old card or mixed firmware versions\n",
                        __func__, ep11_get_ckm(tokdata, type));
             rc = CKR_MECHANISM_INVALID;
             goto out;
@@ -12238,7 +12238,7 @@ CK_RV ep11tok_is_mechanism_supported(STDLL_TokData_t *tokdata,
         status = check_required_versions(tokdata, ibm_btc_req_versions,
                                          NUM_BTC_REQ);
         if (status != 1) {
-            TRACE_INFO("%s Mech '%s' banned due to mixed firmware versions\n",
+            TRACE_INFO("%s Mech '%s' banned due to old card or mixed firmware versions\n",
                        __func__, ep11_get_ckm(tokdata, type));
             rc = CKR_MECHANISM_INVALID;
             goto out;
@@ -12255,7 +12255,7 @@ CK_RV ep11tok_is_mechanism_supported(STDLL_TokData_t *tokdata,
         status = check_required_versions(tokdata, ibm_ecdsa_other_req_versions,
                                          NUM_ECDSA_OTHER_REQ);
         if (status != 1) {
-            TRACE_INFO("%s Mech '%s' banned due to mixed firmware versions\n",
+            TRACE_INFO("%s Mech '%s' banned due to old card or mixed firmware versions\n",
                        __func__, ep11_get_ckm(tokdata, type));
             rc = CKR_MECHANISM_INVALID;
             goto out;
