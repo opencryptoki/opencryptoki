@@ -214,8 +214,8 @@ CK_RV trace_initialize(void)
     }
 
 #ifdef PACKAGE_VERSION
-    TRACE_INFO("**** OCK Trace level %d activated for OCK version %s ****\n",
-            trace.level, PACKAGE_VERSION);
+    TRACE_ERROR("**** OCK Trace level %d activated for OCK version %s ****\n",
+                trace.level, PACKAGE_VERSION);
 #endif
 
     return (CKR_OK);
