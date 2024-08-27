@@ -5,11 +5,10 @@ language: c
 
 before_install:
     - if [[ "$TRAVIS_DIST" != "focal" ]]; then sudo apt-get -qq update; fi
-    - sudo apt-get install -y expect libldap2-dev wget libudev-dev autoconf-archive libcap-dev
+    - sudo apt-get install -y expect libldap2-dev wget libudev-dev autoconf-archive libcap-dev pv
     - if [[ "$TRAVIS_CPU_ARCH" != "amd64" ]]; then sudo apt-get install -y trousers libtspi-dev; fi
     - if [[ "$TRAVIS_CPU_ARCH" = "s390x" && "$TRAVIS_DIST" != "focal" ]]; then sudo apt-get install -y libica4 libica-dev; fi
     - if [[ "$TRAVIS_CPU_ARCH" = "s390x" && "$TRAVIS_DIST" = "focal" ]]; then sudo apt-get install -y libica3 libica-dev; fi
-    - pip install git+https://github.com/naftulikay/travis-pls
 
 jobs:
     include:
@@ -72,5 +71,5 @@ script:
     - sudo pkcsconf -s
     - sudo pkcsconf -t
     - cd testcases
-    - travis-pls --interval 300 sudo PKCS11_SO_PIN=76543210 PKCS11_USER_PIN=01234567 PKCSLIB=/usr/local/lib/pkcs11/libopencryptoki.so ./ock_tests.sh -s 3 | grep --line-buffered -A 2 -B 2 "SKIP\|FAIL\|ERROR\|Total=\|Now executing\|travis pls"
+    - sudo PKCS11_SO_PIN=76543210 PKCS11_USER_PIN=01234567 PKCSLIB=/usr/local/lib/pkcs11/libopencryptoki.so ./ock_tests.sh -s 3 | grep --line-buffered -A 2 -B 2 "SKIP\|FAIL\|ERROR\|Total=\|Now executing" | pv -t -i 1 -f
     - sudo SLOT=3 PKCS11_USER_PIN=01234567 PKCS11_SO_PIN=76543210 PKCSLIB=/usr/local/lib/pkcs11/libopencryptoki.so ./misc_tests/p11sak_test.sh
