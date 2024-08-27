@@ -316,7 +316,7 @@ main_script()
             init_slot $i || { echo "SKIPPING slot $i"; exit; }
         fi
         for item in $OCK_TRACE_TOKENS; do
-            [[ "$i" == "$item" ]] && export OPENCRYPTOKI_TRACE_LEVEL=4
+            [[ "$i" == "$item" ]] && export OPENCRYPTOKI_TRACE_LEVEL="${OCK_TRACE_LEVEL:-4}"
         done
         if [ "$LOGFILE" = "1" ]; then
             echo "test output for slot $i stored in log-slot_$i.txt"
