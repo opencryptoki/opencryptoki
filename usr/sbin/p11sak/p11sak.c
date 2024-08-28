@@ -5978,21 +5978,21 @@ static const CK_BYTE *p11sak_get_cca_wkvp(const struct p11sak_token_info *info,
         /* Internal secure CCA private key */
         if (secure_key_len < be16toh(header->len))
             return NULL;
-        if (secure_key[sizeof(header)] == 0x30) {
+        if (secure_key[sizeof(*header)] == 0x30) {
             /* Internal secure CCA private RSA key, ME format */
-            mkvp_offset = sizeof(header) + 104;
+            mkvp_offset = sizeof(*header) + 104;
             *mktype = "CCA APKA";
-        } else if (secure_key[sizeof(header)] == 0x31) {
+        } else if (secure_key[sizeof(*header)] == 0x31) {
             /* Internal secure CCA private RSA key, CRT format */
-            mkvp_offset = sizeof(header) + 116;
+            mkvp_offset = sizeof(*header) + 116;
             *mktype = "CCA APKA";
-        } else if (secure_key[sizeof(header)] == 0x20) {
+        } else if (secure_key[sizeof(*header)] == 0x20) {
             /* Internal secure CCA private ECC key */
-            mkvp_offset = sizeof(header) + 16;
+            mkvp_offset = sizeof(*header) + 16;
             *mktype = "CCA APKA";
-        } else if (secure_key[sizeof(header)] == 0x50) {
+        } else if (secure_key[sizeof(*header)] == 0x50) {
             /* Internal secure CCA private QSA key */
-            mkvp_offset = sizeof(header) + 118;
+            mkvp_offset = sizeof(*header) + 118;
             *mktype = "CCA APKA";
         } else {
             return NULL;
