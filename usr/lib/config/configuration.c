@@ -334,22 +334,33 @@ confignode_allocfileversiondumpable(char *version, int line, char *comment)
 {
     struct ConfigFileVersionNode *res;
     struct ConfigEOCNode *eoc;
-    char *key;
+    char *key, *cmt = NULL;
 
     key = strdup(version);
     if (!key)
         return NULL;
+    if (comment != NULL) {
+        cmt = strdup(comment);
+        if (cmt == NULL) {
+            free(key);
+            return NULL;
+        }
+    }
     res = confignode_allocfileversion(key, line);
     if (res) {
-        eoc = confignode_alloceoc(comment ? strdup(comment) : NULL, line);
+        eoc = confignode_alloceoc(cmt, line);
         if (eoc) {
             confignode_append(&(res->base), &(eoc->base));
         } else {
             confignode_freefileversion(res);
+            if (cmt != NULL)
+                free(cmt);
             res = NULL;
         }
     } else {
         free(key);
+        if (cmt != NULL)
+            free(cmt);
     }
     return res;
 }
@@ -360,22 +371,33 @@ confignode_allocintvaldumpable(char *key, unsigned long val, int line,
 {
     struct ConfigIntValNode *res;
     struct ConfigEOCNode *eoc;
-    char *dkey;
+    char *dkey, *cmt = NULL;
 
     dkey = strdup(key);
     if (!dkey)
         return NULL;
+    if (comment != NULL) {
+        cmt = strdup(comment);
+        if (cmt == NULL) {
+            free(dkey);
+            return NULL;
+        }
+    }
     res = confignode_allocintval(dkey, val, line);
     if (res) {
-        eoc = confignode_alloceoc(comment ? strdup(comment) : NULL, line);
+        eoc = confignode_alloceoc(cmt, line);
         if (eoc) {
             confignode_append(&(res->base), &(eoc->base));
         } else {
             confignode_freeintval(res);
+            if (cmt != NULL)
+                free(cmt);
             res = NULL;
         }
     } else {
         free(dkey);
+        if (cmt != NULL)
+            free(cmt);
     }
     return res;
 }
@@ -386,22 +408,33 @@ confignode_allocversionvaldumpable(char *key, unsigned long val, int line,
 {
     struct ConfigVersionValNode *res;
     struct ConfigEOCNode *eoc;
-    char *dkey;
+    char *dkey, *cmt = NULL;
 
     dkey = strdup(key);
     if (!dkey)
         return NULL;
+    if (comment != NULL) {
+        cmt = strdup(comment);
+        if (cmt == NULL) {
+            free(dkey);
+            return NULL;
+        }
+    }
     res = confignode_allocversionval(dkey, val, line);
     if (res) {
-        eoc = confignode_alloceoc(comment ? strdup(comment) : NULL, line);
+        eoc = confignode_alloceoc(cmt, line);
         if (eoc) {
             confignode_append(&(res->base), &(eoc->base));
         } else {
             confignode_freeversionval(res);
+            if (cmt != NULL)
+                free(cmt);
             res = NULL;
         }
     } else {
         free(dkey);
+        if (cmt != NULL)
+            free(cmt);
     }
     return res;
 }
@@ -411,7 +444,7 @@ confignode_allocstringvaldumpable(char *key, char *val, int line, char *comment)
 {
     struct ConfigStringValNode *res;
     struct ConfigEOCNode *eoc;
-    char *str, *dkey;
+    char *str, *dkey, *cmt = NULL;
 
     dkey = strdup(key);
     str = strdup(val);
@@ -420,18 +453,30 @@ confignode_allocstringvaldumpable(char *key, char *val, int line, char *comment)
         free(dkey);
         return NULL;
     }
+    if (comment != NULL) {
+        cmt = strdup(comment);
+        if (cmt == NULL) {
+            free(str);
+            free(dkey);
+            return NULL;
+        }
+    }
     res = confignode_allocstringval(dkey, str, line);
     if (res) {
-        eoc = confignode_alloceoc(comment ? strdup(comment) : NULL, line);
+        eoc = confignode_alloceoc(cmt, line);
         if (eoc) {
             confignode_append(&(res->base), &(eoc->base));
         } else {
             confignode_freestringval(res);
+            if (cmt != NULL)
+                free(cmt);
             res = NULL;
         }
     } else {
         free(str);
         free(dkey);
+        if (cmt != NULL)
+            free(cmt);
     }
     return res;
 }
@@ -441,7 +486,7 @@ confignode_allocbarevaldumpable(char *key, char *val, int line, char *comment)
 {
     struct ConfigBareValNode *res;
     struct ConfigEOCNode *eoc;
-    char *str, *dkey;
+    char *str, *dkey, *cmt = NULL;
 
     dkey = strdup(key);
     str = strdup(val);
@@ -450,18 +495,30 @@ confignode_allocbarevaldumpable(char *key, char *val, int line, char *comment)
         free(dkey);
         return NULL;
     }
+    if (comment != NULL) {
+        cmt = strdup(comment);
+        if (cmt == NULL) {
+            free(str);
+            free(dkey);
+            return NULL;
+        }
+    }
     res = confignode_allocbareval(dkey, str, line);
     if (res) {
-        eoc = confignode_alloceoc(comment ? strdup(comment) : NULL, line);
+        eoc = confignode_alloceoc(cmt, line);
         if (eoc) {
             confignode_append(&(res->base), &(eoc->base));
         } else {
             confignode_freebareval(res);
+            if (cmt != NULL)
+                free(cmt);
             res = NULL;
         }
     } else {
         free(str);
         free(dkey);
+        if (cmt != NULL)
+            free(cmt);
     }
     return res;
 }
@@ -474,24 +531,35 @@ confignode_allocidxstructdumpable(char *key, unsigned long num,
 {
     struct ConfigIdxStructNode *res = NULL;
     struct ConfigEOCNode *eoc;
-    char *dkey;
+    char *dkey, *cmt = NULL;
 
     dkey = strdup(key);
     if (!dkey)
         return NULL;
+    if (comment != NULL) {
+        cmt = strdup(comment);
+        if (cmt == NULL) {
+            free(dkey);
+            return NULL;
+        }
+    }
     /* First allocate eoc node such that if allocating res fails, we do not
        take ownership of beforeOpen or value. */
-    eoc = confignode_alloceoc(comment ? strdup(comment) : NULL, line);
+    eoc = confignode_alloceoc(cmt, line);
     if (eoc) {
         res = confignode_allocidxstruct(dkey, num, beforeOpen, value, line);
         if (res) {
             confignode_append(&(res->base), &(eoc->base));
         } else {
             confignode_freeeoc(eoc);
+            if (cmt != NULL)
+                free(cmt);
             free(dkey);
         }
     } else {
         free(dkey);
+        if (cmt != NULL)
+            free(cmt);
     }
     return res;
 }
@@ -503,24 +571,35 @@ confignode_allocstructdumpable(char *key,
 {
     struct ConfigStructNode *res = NULL;
     struct ConfigEOCNode *eoc;
-    char *dkey;
+    char *dkey, *cmt = NULL;
 
     dkey = strdup(key);
     if (!dkey)
         return NULL;
+    if (comment != NULL) {
+        cmt = strdup(comment);
+        if (cmt == NULL) {
+            free(dkey);
+            return NULL;
+        }
+    }
     /* First allocate eoc node such that if allocating res fails, we do not
        take ownership of beforeOpen or value. */
-    eoc = confignode_alloceoc(comment ? strdup(comment) : NULL, line);
+    eoc = confignode_alloceoc(cmt, line);
     if (eoc) {
         res = confignode_allocstruct(dkey, beforeOpen, value, line);
         if (res) {
             confignode_append(&(res->base), &(eoc->base));
         } else {
             confignode_freeeoc(eoc);
+            if (cmt != NULL)
+                free(cmt);
             free(dkey);
         }
     } else {
         free(dkey);
+        if (cmt != NULL)
+            free(cmt);
     }
     return res;
 }
@@ -533,24 +612,35 @@ confignode_allocbarelistdumpable(char *key,
 {
     struct ConfigBareListNode *res = NULL;
     struct ConfigEOCNode *eoc;
-    char *dkey;
+    char *dkey, *cmt = NULL;
 
     dkey = strdup(key);
     if (!dkey)
         return NULL;
+    if (comment != NULL) {
+        cmt = strdup(comment);
+        if (cmt == NULL) {
+            free(dkey);
+            return NULL;
+        }
+    }
     /* First allocate eoc node such that if allocating res fails, we do not
        take ownership of beforeOpen or value. */
-    eoc = confignode_alloceoc(comment ? strdup(comment) : NULL, line);
+    eoc = confignode_alloceoc(cmt, line);
     if (eoc) {
         res = confignode_allocbarelist(dkey, beforeOpen, value, line);
         if (res) {
             confignode_append(&(res->base), &(eoc->base));
         } else {
             confignode_freeeoc(eoc);
+            if (cmt != NULL)
+                free(cmt);
             free(dkey);
         }
     } else {
         free(dkey);
+        if (cmt != NULL)
+            free(cmt);
     }
     return res;
 }
@@ -560,22 +650,33 @@ confignode_allocbaredumpable(char *bareval, int line, char *comment)
 {
     struct ConfigBareNode *res;
     struct ConfigEOCNode *eoc;
-    char *dkey;
+    char *dkey, *cmt = NULL;
 
     dkey = strdup(bareval);
     if (!dkey)
         return NULL;
+    if (comment != NULL) {
+        cmt = strdup(comment);
+        if (cmt == NULL) {
+            free(dkey);
+            return NULL;
+        }
+    }
     res = confignode_allocbare(dkey, line);
     if (res) {
-        eoc = confignode_alloceoc(comment ? strdup(comment) : NULL, line);
+        eoc = confignode_alloceoc(cmt, line);
         if (eoc) {
             confignode_append(&(res->base), &(eoc->base));
         } else {
             confignode_freebare(res);
+            if (cmt != NULL)
+                free(cmt);
             res = NULL;
         }
     } else {
         free(dkey);
+        if (cmt != NULL)
+            free(cmt);
     }
     return res;
 }
@@ -585,22 +686,33 @@ confignode_allocbareconstdumpable(char *key, int line, char *comment)
 {
     struct ConfigBareConstNode *res;
     struct ConfigEOCNode *eoc;
-    char *dkey;
+    char *dkey, *cmt = NULL;
 
     dkey = strdup(key);
     if (!dkey)
         return NULL;
+    if (comment != NULL) {
+        cmt = strdup(comment);
+        if (cmt == NULL) {
+            free(dkey);
+            return NULL;
+        }
+    }
     res = confignode_allocbareconst(dkey, line);
     if (res) {
-        eoc = confignode_alloceoc(comment ? strdup(comment) : NULL, line);
+        eoc = confignode_alloceoc(cmt, line);
         if (eoc) {
             confignode_append(&(res->base), &(eoc->base));
         } else {
             confignode_freebareconst(res);
+            if (cmt != NULL)
+                free(cmt);
             res = NULL;
         }
     } else {
         free(dkey);
+        if (cmt != NULL)
+            free(cmt);
     }
     return res;
 }
@@ -611,16 +723,27 @@ confignode_allocnumpairdumpable(unsigned long value1, unsigned long value2,
 {
     struct ConfigNumPairNode *res;
     struct ConfigEOCNode *eoc;
+    char *cmt = NULL;
 
+    if (comment != NULL) {
+        cmt = strdup(comment);
+        if (cmt == NULL)
+            return NULL;
+    }
     res = confignode_allocnumpair(value1, value2, line);
     if (res) {
-        eoc = confignode_alloceoc(comment ? strdup(comment) : NULL, line);
+        eoc = confignode_alloceoc(cmt, line);
         if (eoc) {
             confignode_append(&(res->base), &(eoc->base));
         } else {
             confignode_freenumpair(res);
+            if (cmt != NULL)
+                free(cmt);
             res = NULL;
         }
+    } else {
+        if (cmt != NULL)
+            free(cmt);
     }
     return res;
 }
@@ -633,7 +756,7 @@ confignode_allocnumpairlistdumpable(char *key, char* end,
 {
     struct ConfigNumPairListNode *res = NULL;
     struct ConfigEOCNode *eoc;
-    char *dkey, *dend;
+    char *dkey, *dend, *cmt = NULL;
 
     dkey = strdup(key);
     if (!dkey)
@@ -643,21 +766,33 @@ confignode_allocnumpairlistdumpable(char *key, char* end,
         free(dkey);
         return NULL;
     }
+    if (comment != NULL) {
+        cmt = strdup(comment);
+        if (cmt == NULL) {
+            free(dkey);
+            free(dend);
+            return NULL;
+        }
+    }
     /* First allocate eoc node such that if allocating res fails, we do not
        take ownership of beforeOpen or value. */
-    eoc = confignode_alloceoc(comment ? strdup(comment) : NULL, line);
+    eoc = confignode_alloceoc(cmt, line);
     if (eoc) {
         res = confignode_allocnumpairlist(dkey, dend, beforeFirst, value, line);
         if (res) {
             confignode_append(&(res->base), &(eoc->base));
         } else {
             confignode_freeeoc(eoc);
+            if (cmt != NULL)
+                free(cmt);
             free(dkey);
             free(dend);
         }
     } else {
         free(dkey);
         free(dend);
+        if (cmt != NULL)
+            free(cmt);
     }
     return res;
 }
@@ -667,16 +802,27 @@ confignode_allocbarestringconstdumpable(char *key, int line, char *comment)
 {
     struct ConfigBareStringConstNode *res;
     struct ConfigEOCNode *eoc;
+    char *cmt = NULL;
 
+    if (comment != NULL) {
+        cmt = strdup(comment);
+        if (cmt == NULL)
+            return NULL;
+    }
     res = confignode_allocbarestringconst(key, line);
     if (res) {
-        eoc = confignode_alloceoc(comment ? strdup(comment) : NULL, line);
+        eoc = confignode_alloceoc(cmt, line);
         if (eoc) {
             confignode_append(&(res->base), &(eoc->base));
         } else {
             confignode_freebarestringconst(res);
+            if (cmt != NULL)
+                free(cmt);
             res = NULL;
         }
+    } else {
+        if (cmt != NULL)
+            free(cmt);
     }
     return res;
 }
