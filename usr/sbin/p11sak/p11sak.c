@@ -6259,7 +6259,7 @@ static CK_RV p11sak_list_obj_compare(CK_OBJECT_HANDLE obj1,
     struct p11sak_list_data *data = private;
     CK_OBJECT_CLASS class1, class2;
     CK_KEY_TYPE ktype1, ktype2;
-    CK_ULONG keysize1, keysize2;
+    CK_ULONG keysize1 = 0, keysize2 = 0;
     char *label1 = NULL, *label2 = NULL;
     char *cn1 = NULL, *cn2 = NULL;
     CK_RV rc;
@@ -6278,6 +6278,8 @@ static CK_RV p11sak_list_obj_compare(CK_OBJECT_HANDLE obj1,
     for (i = 0; i < MAX_SORT_FIELDS; i++) {
         switch (data->sort_info[i].field) {
         case SORT_LABEL:
+            if (label1 == NULL || label2 == NULL)
+                break;
             *result = strcmp(label1, label2);
             break;
         case SORT_KEYTYPE:
@@ -6290,6 +6292,8 @@ static CK_RV p11sak_list_obj_compare(CK_OBJECT_HANDLE obj1,
             *result = (long)keysize1 - (long)keysize2;
             break;
         case SORT_CN:
+            if (cn1 == NULL || cn2 == NULL)
+                break;
             *result = strcmp(cn1, cn2);
             break;
         case SORT_NONE:
