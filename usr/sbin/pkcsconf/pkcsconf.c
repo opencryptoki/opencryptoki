@@ -996,6 +996,10 @@ CK_RV init(void)
     }
 
     symPtr(&FunctionPtr);
+    if (!FunctionPtr) {
+        warnx("Error getting function list, C_GetFunctionList returned NULL");
+        return -1;
+    }
 
     /* If we get here we know the slot manager is running and we can use PKCS11
      * calls, so we will execute the PKCS11 Initilize command. */
