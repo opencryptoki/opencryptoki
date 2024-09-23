@@ -71,6 +71,9 @@ CK_RV ep11tok_is_mechanism_supported(STDLL_TokData_t *tokdata,
                                      CK_MECHANISM_TYPE type);
 CK_RV ep11tok_is_mechanism_supported_ex(STDLL_TokData_t *tokdata,
                                         CK_MECHANISM_PTR mech);
+static CK_RV ep11tok_pkcs11_mech_translate(STDLL_TokData_t *tokdata,
+                                           CK_MECHANISM_TYPE type,
+                                           CK_MECHANISM_TYPE* ep11_type);
 
 static m_GenerateRandom_t dll_m_GenerateRandom;
 static m_SeedRandom_t dll_m_SeedRandom;
@@ -5318,15 +5321,19 @@ CK_BBOOL ep11tok_libica_digest_available(STDLL_TokData_t *tokdata,
         use_libica = ep11_data->libica.ica_sha512_256 != NULL;
         break;
 #ifdef SHA3_224
+    case CKM_SHA3_224:
     case CKM_IBM_SHA3_224:
         use_libica = ep11_data->libica.ica_sha3_224 != NULL;
         break;
+    case CKM_SHA3_256:
     case CKM_IBM_SHA3_256:
         use_libica = ep11_data->libica.ica_sha3_256 != NULL;
         break;
+    case CKM_SHA3_384:
     case CKM_IBM_SHA3_384:
         use_libica = ep11_data->libica.ica_sha3_384 != NULL;
         break;
+    case CKM_SHA3_512:
     case CKM_IBM_SHA3_512:
         use_libica = ep11_data->libica.ica_sha3_512 != NULL;
         break;
@@ -5403,6 +5410,22 @@ static CK_RV ep11tok_digest_from_mech(CK_MECHANISM_TYPE mech,
 
     case CKM_IBM_SHA3_512:
         *digest_mech = CKM_IBM_SHA3_512;
+        break;
+
+    case CKM_SHA3_224:
+        *digest_mech = CKM_SHA3_224;
+        break;
+
+    case CKM_SHA3_256:
+        *digest_mech = CKM_SHA3_256;
+        break;
+
+    case CKM_SHA3_384:
+        *digest_mech = CKM_SHA3_384;
+        break;
+
+    case CKM_SHA3_512:
+        *digest_mech = CKM_SHA3_512;
         break;
 
     default:
@@ -5575,18 +5598,22 @@ CK_RV ep11tok_libica_digest(STDLL_TokData_t *tokdata,
                                               &ctx->ctx.sha512, out_data);
         break;
 #ifdef SHA3_224
+    case CKM_SHA3_224:
     case CKM_IBM_SHA3_224:
         rc = ep11_data->libica.ica_sha3_224(message_part, in_data_len, in_data,
                                             &ctx->ctx.sha3_224, out_data);
         break;
+    case CKM_SHA3_256:
     case CKM_IBM_SHA3_256:
         rc = ep11_data->libica.ica_sha3_256(message_part, in_data_len, in_data,
                                             &ctx->ctx.sha3_256, out_data);
         break;
+    case CKM_SHA3_384:
     case CKM_IBM_SHA3_384:
         rc = ep11_data->libica.ica_sha3_384(message_part, in_data_len, in_data,
                                             &ctx->ctx.sha3_384, out_data);
         break;
+    case CKM_SHA3_512:
     case CKM_IBM_SHA3_512:
         rc = ep11_data->libica.ica_sha3_512(message_part, in_data_len, in_data,
                                             &ctx->ctx.sha3_512, out_data);
@@ -5627,6 +5654,7 @@ CK_RV token_specific_sha_init(STDLL_TokData_t * tokdata, DIGEST_CONTEXT * c,
     CK_BYTE *state, *usestate;
     libica_sha_context_t *libica_ctx;
     ep11_target_info_t* target_info;
+    CK_MECHANISM ep11_mech = *mech;
 
     state = calloc(state_len, 1); /* freed by dig_mgr.c */
     if (!state) {
@@ -5646,6 +5674,8 @@ CK_RV token_specific_sha_init(STDLL_TokData_t * tokdata, DIGEST_CONTEXT * c,
         libica_ctx->first = CK_TRUE;
         rc = get_sha_block_size(mech->mechanism, &libica_ctx->block_size);
     } else {
+        ep11tok_pkcs11_mech_translate(tokdata, mech->mechanism,
+                                      &ep11_mech.mechanism);
         /*
          * state is allocated large enough to hold 2 times the max state blob.
          * Initially use the first half only. The second half is for the
@@ -5657,7 +5687,7 @@ CK_RV token_specific_sha_init(STDLL_TokData_t * tokdata, DIGEST_CONTEXT * c,
         RETRY_UPDATE_BLOB_START(tokdata, target_info, state, state_len,
                                 state + state_len, state_len,
                                 usestate, usestate_len)
-            rc = dll_m_DigestInit(usestate, &usestate_len, mech,
+            rc = dll_m_DigestInit(usestate, &usestate_len, &ep11_mech,
                                   target_info->target);
             if (rc == CKR_OK && retry == 1) {
                 /*
@@ -9456,6 +9486,7 @@ CK_RV ep11tok_sign_init(STDLL_TokData_t * tokdata, SESSION * session,
     CK_BYTE *useblob, *usestate;
     size_t useblobsize, usestate_len;
     CK_ULONG strength_index = POLICY_STRENGTH_IDX_0;
+    CK_MECHANISM ep11_mech;
 
     UNUSED(recover_mode);
 
@@ -9548,6 +9579,10 @@ CK_RV ep11tok_sign_init(STDLL_TokData_t * tokdata, SESSION * session,
         }
     }
 
+    ep11_mech = *mech;
+    ep11tok_pkcs11_mech_translate(tokdata, mech->mechanism,
+                                  &ep11_mech.mechanism);
+
     /*
      * state is allocated large enough to hold 2 times the max state blob.
      * Initially use the first half only. The second half is for the
@@ -9562,10 +9597,10 @@ CK_RV ep11tok_sign_init(STDLL_TokData_t * tokdata, SESSION * session,
                                  ep11_sign_state + ep11_sign_state_l,
                                  ep11_sign_state_l,
                                  usestate, usestate_len, rc)
-        if (ep11_pqc_obj_strength_supported(target_info, mech->mechanism,
+        if (ep11_pqc_obj_strength_supported(target_info, ep11_mech.mechanism,
                                             key_obj))
             rc = dll_m_SignInit(usestate, &usestate_len,
-                                mech, useblob, useblobsize,
+                                &ep11_mech, useblob, useblobsize,
                                 target_info->target);
         else
             rc = CKR_KEY_SIZE_RANGE;
@@ -9592,7 +9627,7 @@ CK_RV ep11tok_sign_init(STDLL_TokData_t * tokdata, SESSION * session,
     if (rc != CKR_OK) {
         rc = ep11_error_to_pkcs11_error(rc, session);
         TRACE_ERROR("%s rc=0x%lx blobsize=0x%zx key=0x%lx mech=0x%lx\n",
-                    __func__, rc, keyblobsize, key, mech->mechanism);
+                    __func__, rc, keyblobsize, key, ep11_mech.mechanism);
         free(ep11_sign_state);
     } else {
         /* SIGN_VERIFY_CONTEX holds all needed for continuing,
@@ -9620,7 +9655,7 @@ CK_RV ep11tok_sign_init(STDLL_TokData_t * tokdata, SESSION * session,
         }
 
         TRACE_INFO("%s rc=0x%lx blobsize=0x%zx key=0x%lx mech=0x%lx\n",
-                   __func__, rc, keyblobsize, key, mech->mechanism);
+                   __func__, rc, keyblobsize, key, ep11_mech.mechanism);
     }
 
 done:
@@ -9831,6 +9866,7 @@ CK_RV ep11tok_sign_single(STDLL_TokData_t *tokdata, SESSION *session,
     struct ECDSA_OTHER_MECH_PARAM mech_ep11;
     CK_BYTE *useblob;
     size_t useblobsize;
+    CK_MECHANISM ep11_mech;
 
     UNUSED(length_only);
 
@@ -9862,12 +9898,16 @@ CK_RV ep11tok_sign_single(STDLL_TokData_t *tokdata, SESSION *session,
         mech = &mech_ep11.mech;
     }
 
+    ep11_mech = *mech;
+    ep11tok_pkcs11_mech_translate(tokdata, mech->mechanism,
+                                  &ep11_mech.mechanism);
+
     RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
     RETRY_REENC_BLOB_START(tokdata, target_info, key_obj, keyblob, keyblobsize,
                            useblob, useblobsize, rc)
-        if (ep11_pqc_obj_strength_supported(target_info, mech->mechanism,
+        if (ep11_pqc_obj_strength_supported(target_info, ep11_mech.mechanism,
                                             key_obj))
-            rc = dll_m_SignSingle(useblob, useblobsize, mech,
+            rc = dll_m_SignSingle(useblob, useblobsize, &ep11_mech,
                                   in_data, in_data_len,
                                   signature, sig_len, target_info->target);
         else
@@ -9904,6 +9944,7 @@ CK_RV ep11tok_verify_init(STDLL_TokData_t * tokdata, SESSION * session,
     CK_BYTE *useblob, *usestate;
     size_t useblob_len, usestate_len;
     CK_ULONG strength_index = POLICY_STRENGTH_IDX_0;
+    CK_MECHANISM ep11_mech;
 
     if (!ep11_sign_state) {
         TRACE_ERROR("%s Memory allocation failed\n", __func__);
@@ -9996,6 +10037,10 @@ CK_RV ep11tok_verify_init(STDLL_TokData_t * tokdata, SESSION * session,
         mech = &mech_ep11.mech;
     }
 
+    ep11_mech = *mech;
+    ep11tok_pkcs11_mech_translate(tokdata, mech->mechanism,
+                                  &ep11_mech.mechanism);
+
     /*
      * state is allocated large enough to hold 2 times the max state blob.
      * Initially use the first half only. The second half is for the
@@ -10010,9 +10055,9 @@ CK_RV ep11tok_verify_init(STDLL_TokData_t * tokdata, SESSION * session,
                                  ep11_sign_state + ep11_sign_state_l,
                                  ep11_sign_state_l,
                                  usestate, usestate_len, rc)
-        if (ep11_pqc_obj_strength_supported(target_info, mech->mechanism,
+        if (ep11_pqc_obj_strength_supported(target_info, ep11_mech.mechanism,
                                             key_obj))
-            rc = dll_m_VerifyInit(usestate, &usestate_len, mech,
+            rc = dll_m_VerifyInit(usestate, &usestate_len, &ep11_mech,
                                   useblob, useblob_len, target_info->target);
         else
             rc = CKR_KEY_SIZE_RANGE;
@@ -10039,7 +10084,7 @@ CK_RV ep11tok_verify_init(STDLL_TokData_t * tokdata, SESSION * session,
         rc = ep11_error_to_pkcs11_error(rc, session);
         TRACE_ERROR("%s rc=0x%lx spki_len=0x%zx key=0x%lx "
                     "ep11_sign_state_l=0x%zx mech=0x%lx\n", __func__,
-                    rc, spki_len, key, ep11_sign_state_l, mech->mechanism);
+                    rc, spki_len, key, ep11_sign_state_l, ep11_mech.mechanism);
         free(ep11_sign_state);
     } else {
         ctx->key = key;
@@ -10065,7 +10110,7 @@ CK_RV ep11tok_verify_init(STDLL_TokData_t * tokdata, SESSION * session,
 
         TRACE_INFO("%s rc=0x%lx spki_len=0x%zx key=0x%lx "
                    "ep11_sign_state_l=0x%zx mech=0x%lx\n", __func__,
-                   rc, spki_len, key, ep11_sign_state_l, mech->mechanism);
+                   rc, spki_len, key, ep11_sign_state_l, ep11_mech.mechanism);
     }
 
 done:
@@ -10269,6 +10314,7 @@ CK_RV ep11tok_verify_single(STDLL_TokData_t *tokdata, SESSION *session,
     struct ECDSA_OTHER_MECH_PARAM mech_ep11;
     CK_BYTE *useblob;
     size_t useblob_len;
+    CK_MECHANISM ep11_mech;
 
     rc = h_opaque_2_blob(tokdata, key, &spki, &spki_len, &key_obj, READ_LOCK);
     if (rc != CKR_OK) {
@@ -10307,12 +10353,16 @@ CK_RV ep11tok_verify_single(STDLL_TokData_t *tokdata, SESSION *session,
         mech = &mech_ep11.mech;
     }
 
+    ep11_mech = *mech;
+    ep11tok_pkcs11_mech_translate(tokdata, mech->mechanism,
+                                  &ep11_mech.mechanism);
+
     RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
     RETRY_REENC_BLOB_START(tokdata, target_info, key_obj, spki, spki_len,
                            useblob, useblob_len, rc)
-        if (ep11_pqc_obj_strength_supported(target_info, mech->mechanism,
+        if (ep11_pqc_obj_strength_supported(target_info, ep11_mech.mechanism,
                                             key_obj))
-            rc = dll_m_VerifySingle(useblob, useblob_len, mech, 
+            rc = dll_m_VerifySingle(useblob, useblob_len, &ep11_mech,
                                     in_data, in_data_len,
                                     signature, sig_len, target_info->target);
         else
@@ -11829,6 +11879,47 @@ static const CK_MECHANISM_TYPE ep11_supported_mech_list[] = {
 static const CK_ULONG supported_mech_list_len =
     (sizeof(ep11_supported_mech_list) / sizeof(CK_MECHANISM_TYPE));
 
+struct mech_translate {
+    CK_MECHANISM_TYPE pkcs11_mech;
+    CK_MECHANISM_TYPE ep11_mech;
+};
+
+/* Translate PKCS#11 v3.0 SHA3 mechs to IBM-specific SHA3 mechs */
+static const struct mech_translate pkcs11_mechanism_translation[] = {
+    { CKM_SHA3_224,      CKM_IBM_SHA3_224 },
+    { CKM_SHA3_224_HMAC, CKM_IBM_SHA3_224_HMAC },
+    { CKM_SHA3_256,      CKM_IBM_SHA3_256 },
+    { CKM_SHA3_256_HMAC, CKM_IBM_SHA3_256_HMAC },
+    { CKM_SHA3_384,      CKM_IBM_SHA3_384 },
+    { CKM_SHA3_384_HMAC, CKM_IBM_SHA3_384_HMAC },
+    { CKM_SHA3_512,      CKM_IBM_SHA3_512 },
+    { CKM_SHA3_512_HMAC, CKM_IBM_SHA3_512_HMAC },
+};
+
+static const CK_ULONG pkcs11_mechanism_translation_len =
+    (sizeof(pkcs11_mechanism_translation) / sizeof(struct mech_translate));
+
+static CK_RV ep11tok_pkcs11_mech_translate(STDLL_TokData_t *tokdata,
+                                           CK_MECHANISM_TYPE type,
+                                           CK_MECHANISM_TYPE* ep11_type)
+{
+    CK_ULONG i;
+
+    for (i = 0; i < pkcs11_mechanism_translation_len; i++) {
+        if (type == pkcs11_mechanism_translation[i].pkcs11_mech) {
+            TRACE_DEVEL("%s Mech '%s' is backed by '%s'\n", __func__,
+                        ep11_get_ckm(tokdata,
+                                pkcs11_mechanism_translation[i].pkcs11_mech),
+                        ep11_get_ckm(tokdata,
+                                pkcs11_mechanism_translation[i].ep11_mech));
+            *ep11_type = pkcs11_mechanism_translation[i].ep11_mech;
+            return CKR_OK;
+        }
+    }
+
+    return CKR_MECHANISM_INVALID;
+}
+
 /* Note: Do not move this function inside
    ep11tok_is_mechanism_supported since that would introduce an
    endless loop.  Also do not use it in ep11tok_get_mechanism_info for
@@ -11845,6 +11936,27 @@ static CK_RV ep11tok_check_policy_for_mech(STDLL_TokData_t *tokdata,
     if (rc != CKR_OK)
         return rc;
     return tokdata->policy->update_mech_info(tokdata->policy, mech, pinfo);
+}
+
+static CK_RV ep11tok_mechanism_list_add_translated(
+                                        STDLL_TokData_t * tokdata,
+                                        CK_MECHANISM_TYPE_PTR pMechanismList,
+                                        CK_ULONG_PTR pulCount, CK_ULONG size)
+{
+    CK_ULONG i;
+
+    for (i = 0; i < pkcs11_mechanism_translation_len; i++) {
+        if (ep11tok_is_mechanism_supported(tokdata,
+                      pkcs11_mechanism_translation[i].pkcs11_mech) != CKR_OK)
+            continue;
+
+        if (pMechanismList != NULL && *pulCount < size)
+            pMechanismList[*pulCount] =
+                        pkcs11_mechanism_translation[i].pkcs11_mech;
+        *pulCount += 1;
+    }
+
+    return CKR_OK;
 }
 
 /* filtering out some mechanisms we do not want to provide
@@ -11937,6 +12049,8 @@ CK_RV ep11tok_get_mechanism_list(STDLL_TokData_t * tokdata,
             ep11tok_is_mechanism_supported(tokdata, CKM_AES_XTS_KEY_GEN) == CKR_OK) {
             *pulCount += 2;
         }
+        rc = ep11tok_mechanism_list_add_translated(tokdata, pMechanismList,
+                                                   pulCount, 0);
     } else {
         /* 2. call, content request */
         size = *pulCount;
@@ -12019,6 +12133,8 @@ CK_RV ep11tok_get_mechanism_list(STDLL_TokData_t * tokdata,
                 pMechanismList[*pulCount] = CKM_AES_XTS;
             *pulCount = *pulCount + 1;
         }
+        rc = ep11tok_mechanism_list_add_translated(tokdata, pMechanismList,
+                                                   pulCount, size);
         if (*pulCount > size)
             rc = CKR_BUFFER_TOO_SMALL;
     }
@@ -12044,6 +12160,9 @@ CK_RV ep11tok_is_mechanism_supported(STDLL_TokData_t *tokdata,
     int status;
     CK_RV rc = CKR_OK;
     ep11_target_info_t* target_info;
+    CK_MECHANISM_TYPE orig_mech = type;
+
+    ep11tok_pkcs11_mech_translate(tokdata, type, &type);
 
     for (i = 0; i < supported_mech_list_len; i++) {
         if (type == ep11_supported_mech_list[i]) {
@@ -12067,7 +12186,7 @@ CK_RV ep11tok_is_mechanism_supported(STDLL_TokData_t *tokdata,
                                 target_info->control_points_len,
                                 target_info->max_control_point_index) != CKR_OK) {
         TRACE_INFO("%s Mech '%s' banned due to control point\n",
-                   __func__, ep11_get_ckm(tokdata, type));
+                   __func__, ep11_get_ckm(tokdata, orig_mech));
         rc = CKR_MECHANISM_INVALID;
         goto out;
     }
@@ -12098,7 +12217,7 @@ CK_RV ep11tok_is_mechanism_supported(STDLL_TokData_t *tokdata,
                                          NUM_HMAC_REQ);
         if (status == -1) {
             TRACE_INFO("%s Mech '%s' banned due to old card or mixed firmware versions\n",
-                       __func__, ep11_get_ckm(tokdata, type));
+                       __func__, ep11_get_ckm(tokdata, orig_mech));
             rc = CKR_MECHANISM_INVALID;
             goto out;
         }
@@ -12115,7 +12234,7 @@ CK_RV ep11tok_is_mechanism_supported(STDLL_TokData_t *tokdata,
                                          NUM_OAEP_REQ);
         if (status != 1) {
             TRACE_INFO("%s Mech '%s' banned due to old card or mixed firmware versions\n",
-                       __func__, ep11_get_ckm(tokdata, type));
+                       __func__, ep11_get_ckm(tokdata, orig_mech));
             rc = CKR_MECHANISM_INVALID;
             goto out;
         }
@@ -12133,7 +12252,7 @@ CK_RV ep11tok_is_mechanism_supported(STDLL_TokData_t *tokdata,
                                          NUM_IBM_SHA3_REQ);
         if (status != 1) {
             TRACE_INFO("%s Mech '%s' banned due to old card or mixed firmware versions\n",
-                       __func__, ep11_get_ckm(tokdata, type));
+                       __func__, ep11_get_ckm(tokdata, orig_mech));
             rc = CKR_MECHANISM_INVALID;
             goto out;
         }
@@ -12147,7 +12266,7 @@ CK_RV ep11tok_is_mechanism_supported(STDLL_TokData_t *tokdata,
                                          NUM_CMAC_REQ);
         if (status != 1) {
             TRACE_INFO("%s Mech '%s' banned due to old card or mixed firmware versions\n",
-                       __func__, ep11_get_ckm(tokdata, type));
+                       __func__, ep11_get_ckm(tokdata, orig_mech));
             rc = CKR_MECHANISM_INVALID;
             goto out;
         }
@@ -12159,7 +12278,7 @@ CK_RV ep11tok_is_mechanism_supported(STDLL_TokData_t *tokdata,
     case CKM_IBM_ED448_SHA3:
         if (compare_ck_version(&ep11_data->ep11_lib_version, &ver3) < 0) {
             TRACE_INFO("%s Mech '%s' banned due to host library version\n",
-                       __func__, ep11_get_ckm(tokdata, type));
+                       __func__, ep11_get_ckm(tokdata, orig_mech));
             rc = CKR_MECHANISM_INVALID;
             goto out;
         }
@@ -12168,7 +12287,7 @@ CK_RV ep11tok_is_mechanism_supported(STDLL_TokData_t *tokdata,
                                          NUM_EDWARDS_REQ);
         if (status != 1) {
             TRACE_INFO("%s Mech '%s' banned due to old card or mixed firmware versions\n",
-                       __func__, ep11_get_ckm(tokdata, type));
+                       __func__, ep11_get_ckm(tokdata, orig_mech));
             rc = CKR_MECHANISM_INVALID;
             goto out;
         }
@@ -12177,7 +12296,7 @@ CK_RV ep11tok_is_mechanism_supported(STDLL_TokData_t *tokdata,
     case CKM_IBM_DILITHIUM:
         if (compare_ck_version(&ep11_data->ep11_lib_version, &ver3) <= 0) {
             TRACE_INFO("%s Mech '%s' banned due to host library version\n",
-                       __func__, ep11_get_ckm(tokdata, type));
+                       __func__, ep11_get_ckm(tokdata, orig_mech));
             rc = CKR_MECHANISM_INVALID;
             goto out;
         }
@@ -12185,7 +12304,7 @@ CK_RV ep11tok_is_mechanism_supported(STDLL_TokData_t *tokdata,
                                          NUM_DILITHIUM_REQ);
         if (status != 1) {
             TRACE_INFO("%s Mech '%s' banned due to old card or mixed firmware versions\n",
-                       __func__, ep11_get_ckm(tokdata, type));
+                       __func__, ep11_get_ckm(tokdata, orig_mech));
             rc = CKR_MECHANISM_INVALID;
             goto out;
         }
@@ -12194,7 +12313,7 @@ CK_RV ep11tok_is_mechanism_supported(STDLL_TokData_t *tokdata,
     case CKM_IBM_KYBER:
         if (compare_ck_version(&ep11_data->ep11_lib_version, &ver4) < 0) {
             TRACE_INFO("%s Mech '%s' banned due to host library version\n",
-                       __func__, ep11_get_ckm(tokdata, type));
+                       __func__, ep11_get_ckm(tokdata, orig_mech));
             rc = CKR_MECHANISM_INVALID;
             goto out;
         }
@@ -12202,7 +12321,7 @@ CK_RV ep11tok_is_mechanism_supported(STDLL_TokData_t *tokdata,
                                          NUM_KYBER_REQ);
         if (status != 1) {
             TRACE_INFO("%s Mech '%s' banned due to old card or mixed firmware versions\n",
-                       __func__, ep11_get_ckm(tokdata, type));
+                       __func__, ep11_get_ckm(tokdata, orig_mech));
             rc = CKR_MECHANISM_INVALID;
             goto out;
         }
@@ -12212,7 +12331,7 @@ CK_RV ep11tok_is_mechanism_supported(STDLL_TokData_t *tokdata,
     case CKM_IBM_CPACF_WRAP:
         if (compare_ck_version(&ep11_data->ep11_lib_version, &ver3) <= 0) {
             TRACE_INFO("%s Mech '%s' banned due to host library version\n",
-                       __func__, ep11_get_ckm(tokdata, type));
+                       __func__, ep11_get_ckm(tokdata, orig_mech));
 
             rc = CKR_MECHANISM_INVALID;
             goto out;
@@ -12221,7 +12340,7 @@ CK_RV ep11tok_is_mechanism_supported(STDLL_TokData_t *tokdata,
                                          NUM_CPACF_WRAP_REQ);
         if (status != 1) {
             TRACE_INFO("%s Mech '%s' banned due to old card or mixed firmware versions\n",
-                       __func__, ep11_get_ckm(tokdata, type));
+                       __func__, ep11_get_ckm(tokdata, orig_mech));
             rc = CKR_MECHANISM_INVALID;
             goto out;
         }
@@ -12231,7 +12350,7 @@ CK_RV ep11tok_is_mechanism_supported(STDLL_TokData_t *tokdata,
     case CKM_IBM_BTC_DERIVE:
         if (compare_ck_version(&ep11_data->ep11_lib_version, &ver3_1) < 0) {
             TRACE_INFO("%s Mech '%s' banned due to host library version\n",
-                       __func__, ep11_get_ckm(tokdata, type));
+                       __func__, ep11_get_ckm(tokdata, orig_mech));
             rc = CKR_MECHANISM_INVALID;
             goto out;
         }
@@ -12239,7 +12358,7 @@ CK_RV ep11tok_is_mechanism_supported(STDLL_TokData_t *tokdata,
                                          NUM_BTC_REQ);
         if (status != 1) {
             TRACE_INFO("%s Mech '%s' banned due to old card or mixed firmware versions\n",
-                       __func__, ep11_get_ckm(tokdata, type));
+                       __func__, ep11_get_ckm(tokdata, orig_mech));
             rc = CKR_MECHANISM_INVALID;
             goto out;
         }
@@ -12248,7 +12367,7 @@ CK_RV ep11tok_is_mechanism_supported(STDLL_TokData_t *tokdata,
     case CKM_IBM_ECDSA_OTHER:
         if (compare_ck_version(&ep11_data->ep11_lib_version, &ver3_1) < 0) {
             TRACE_INFO("%s Mech '%s' banned due to host library version\n",
-                       __func__, ep11_get_ckm(tokdata, type));
+                       __func__, ep11_get_ckm(tokdata, orig_mech));
             rc = CKR_MECHANISM_INVALID;
             goto out;
         }
@@ -12256,7 +12375,7 @@ CK_RV ep11tok_is_mechanism_supported(STDLL_TokData_t *tokdata,
                                          NUM_ECDSA_OTHER_REQ);
         if (status != 1) {
             TRACE_INFO("%s Mech '%s' banned due to old card or mixed firmware versions\n",
-                       __func__, ep11_get_ckm(tokdata, type));
+                       __func__, ep11_get_ckm(tokdata, orig_mech));
             rc = CKR_MECHANISM_INVALID;
             goto out;
         }
@@ -12269,7 +12388,7 @@ CK_RV ep11tok_is_mechanism_supported(STDLL_TokData_t *tokdata,
             ep11tok_is_mechanism_supported(tokdata, CKM_IBM_CPACF_WRAP) != CKR_OK ||
             ep11tok_is_mechanism_supported(tokdata, CKM_AES_KEY_GEN) != CKR_OK) {
             TRACE_INFO("%s Mech '%s' not suppported\n", __func__,
-                       ep11_get_ckm(tokdata, type));
+                       ep11_get_ckm(tokdata, orig_mech));
             rc = CKR_MECHANISM_INVALID;
             goto out;
         }
@@ -12333,6 +12452,8 @@ CK_RV ep11tok_get_mechanism_info(STDLL_TokData_t * tokdata,
                     ep11_get_ckm(tokdata, type));
         return rc;
     }
+
+    ep11tok_pkcs11_mech_translate(tokdata, type, &type);
 
     target_info = get_target_info(tokdata);
     if (target_info == NULL)
