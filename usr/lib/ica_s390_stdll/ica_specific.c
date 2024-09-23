@@ -63,6 +63,7 @@ typedef struct {
     int ica_sha512_224_available;
     int ica_sha512_256_available;
     int ica_sha3_available;
+    int ica_shake_available;
     int ica_aes_available;
     int ica_new_gcm_available;
     int ica_des_available;
@@ -247,6 +248,28 @@ typedef unsigned int (*ica_sha3_512_t)(unsigned int message_part,
 static ica_sha3_512_t                  p_ica_sha3_512;
 #endif
 
+#ifdef SHAKE128
+typedef unsigned int (*ica_shake_128_t)(unsigned int message_part,
+                                        uint64_t input_length,
+                                        const unsigned char *input_data,
+                                        shake_128_context_t *shake_128_context,
+                                        unsigned char *output_data,
+                                        unsigned int output_length);
+
+static ica_shake_128_t                  p_ica_shake_128;
+#endif
+
+#ifdef SHAKE256
+typedef unsigned int (*ica_shake_256_t)(unsigned int message_part,
+                                        uint64_t input_length,
+                                        const unsigned char *input_data,
+                                        shake_256_context_t *shake_128_context,
+                                        unsigned char *output_data,
+                                        unsigned int output_length);
+
+static ica_shake_256_t                  p_ica_shake_256;
+#endif
+
 #ifndef HAVE_ALT_FIX_FOR_CVE2022_4304
 int ossl_bn_rsa_do_unblind(const unsigned char *intermediate,
                            const BIGNUM *unblind,
@@ -327,6 +350,12 @@ static CK_RV load_libica(ica_private_data_t *ica_data)
 #endif
 #ifdef SHA3_512
     BIND(ica_data->libica_dso, ica_sha3_512);
+#endif
+#ifdef SHAKE128
+    BIND(ica_data->libica_dso, ica_shake_128);
+#endif
+#ifdef SHAKE256
+    BIND(ica_data->libica_dso, ica_shake_256);
 #endif
 
     BIND(ica_data->libica_dso, ica_cleanup);
@@ -1022,6 +1051,9 @@ int ica_sha_supported(STDLL_TokData_t *tokdata, CK_MECHANISM_TYPE mech)
     case CKM_IBM_SHA3_384:
     case CKM_IBM_SHA3_512:
         return ica_data->ica_sha3_available;
+    case CKM_SHAKE_128_KEY_DERIVATION:
+    case CKM_SHAKE_256_KEY_DERIVATION:
+        return ica_data->ica_shake_available;
     default:
         return FALSE;
     }
@@ -1816,6 +1848,155 @@ CK_RV token_specific_sha_final(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *ctx,
 
 out:
     return rv;
+}
+
+static CK_RV ica_specific_shake_key_derive(STDLL_TokData_t *tokdata,
+                                           SESSION *sess,
+                                           CK_MECHANISM *mech,
+                                           OBJECT *base_key_obj,
+                                           CK_KEY_TYPE base_key_type,
+                                           OBJECT *derived_key_obj,
+                                           CK_KEY_TYPE derived_key_type,
+                                           CK_ULONG derived_key_len)
+{
+    CK_ATTRIBUTE *base_key_value = NULL;
+    CK_ATTRIBUTE *value_attr = NULL, *vallen_attr = NULL;
+    CK_BYTE *derived_key_value = NULL;
+    CK_RV rc;
+
+    UNUSED(tokdata);
+    UNUSED(sess);
+    UNUSED(base_key_type);
+
+    rc = template_attribute_get_non_empty(base_key_obj->template,
+                                          CKA_VALUE, &base_key_value);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_VALUE for the base key.\n");
+        return rc;
+    }
+
+    derived_key_value = malloc(derived_key_len);
+    if (derived_key_value == NULL) {
+        TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+        rc = CKR_HOST_MEMORY;
+        goto out;
+    }
+
+    switch (mech->mechanism) {
+    case CKM_SHAKE_128_KEY_DERIVATION:
+        {
+            shake_128_context_t shake_128_context;
+
+            rc = p_ica_shake_128(SHA_MSG_PART_ONLY,
+                                 base_key_value->ulValueLen,
+                                 base_key_value->pValue,
+                                 &shake_128_context,
+                                 derived_key_value, derived_key_len);
+            rc = rc != 0 ? CKR_FUNCTION_FAILED : CKR_OK;
+        }
+        break;
+    case CKM_SHAKE_256_KEY_DERIVATION:
+        {
+            shake_256_context_t shake_256_context;
+
+            rc = p_ica_shake_256(SHA_MSG_PART_ONLY,
+                                 base_key_value->ulValueLen,
+                                 base_key_value->pValue,
+                                 &shake_256_context,
+                                 derived_key_value, derived_key_len);
+            rc = rc != 0 ? CKR_FUNCTION_FAILED : CKR_OK;
+        }
+        break;
+    default:
+        TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
+        rc = CKR_MECHANISM_INVALID;
+    }
+
+    if (rc != CKR_OK)
+        goto out;
+
+    rc = build_attribute(CKA_VALUE, derived_key_value, derived_key_len,
+                         &value_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Failed to build the attribute from CKA_VALUE, rc=%s.\n",
+                    ock_err(rc));
+        goto out;
+    }
+
+    switch (derived_key_type) {
+    case CKK_GENERIC_SECRET:
+    case CKK_AES:
+    case CKK_AES_XTS:
+        /* Supply CKA_VALUE_LEN since this is required for those key types */
+        rc = build_attribute(CKA_VALUE_LEN, (CK_BYTE*)&derived_key_len,
+                             sizeof(derived_key_len), &vallen_attr);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("Failed to build the attribute from CKA_VALUE_LEN, "
+                        "rc=%s.\n", ock_err(rc));
+            goto out;
+        }
+        break;
+    case CKK_DES:
+        if (des_check_weak_key(derived_key_value)) {
+            TRACE_ERROR("Derived key is a weak DES key\n");
+            rc = CKR_FUNCTION_FAILED;
+            goto out;
+        }
+        break;
+    default:
+        break;
+    }
+
+    rc = template_update_attribute(derived_key_obj->template, value_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto out;
+    }
+    value_attr = NULL;
+
+    if (vallen_attr != NULL) {
+        rc = template_update_attribute(derived_key_obj->template, vallen_attr);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("template_update_attribute failed\n");
+            goto out;
+        }
+        vallen_attr = NULL;
+    }
+
+out:
+    if (derived_key_value != NULL) {
+        OPENSSL_cleanse(derived_key_value, derived_key_len);
+        free(derived_key_value);
+    }
+
+    if (value_attr != NULL)
+        free(value_attr);
+    if (vallen_attr != NULL)
+        free(vallen_attr);
+
+    return rc;
+}
+
+CK_RV token_specific_shake_key_derive(STDLL_TokData_t *tokdata, SESSION *sess,
+                                      CK_MECHANISM *mech,
+                                      OBJECT *base_key_obj,
+                                      CK_KEY_TYPE base_key_type,
+                                      OBJECT *derived_key_obj,
+                                      CK_KEY_TYPE derived_key_type,
+                                      CK_ULONG derived_key_len)
+{
+
+    if (!ica_sha_supported(tokdata, mech->mechanism))
+        return openssl_specific_shake_key_derive(tokdata, sess, mech,
+                                                 base_key_obj, base_key_type,
+                                                 derived_key_obj,
+                                                 derived_key_type,
+                                                 derived_key_len);
+
+    return ica_specific_shake_key_derive(tokdata, sess, mech,
+                                         base_key_obj, base_key_type,
+                                         derived_key_obj, derived_key_type,
+                                         derived_key_len);
 }
 
 #ifndef LITE
@@ -4690,6 +4871,12 @@ static const REF_MECH_LIST_ELEMENT ref_mech_list[] = {
     {54, CKM_MD5_HMAC, {8, 2048, CKF_SIGN | CKF_VERIFY}},
     {55, CKM_MD5_HMAC_GENERAL, {8, 2048, CKF_SIGN | CKF_VERIFY}},
 #endif
+#ifdef SHAKE128
+    {SHAKE128, CKM_SHAKE_128_KEY_DERIVATION, {8, 2048, CKF_DERIVE}},
+#endif
+#ifdef SHAKE256
+    {SHAKE256, CKM_SHAKE_256_KEY_DERIVATION, {8, 2048, CKF_DERIVE}},
+#endif
     {P_RNG, CKM_AES_KEY_GEN, {16, 32, CKF_GENERATE}},
     {P_RNG, CKM_AES_XTS_KEY_GEN, {32, 64, CKF_GENERATE}},
     {AES_ECB, CKM_AES_ECB,
@@ -5081,6 +5268,10 @@ static CK_RV mech_list_ica_initialize(STDLL_TokData_t *tokdata)
 #ifdef SHA3_512
         if (libica_func_list[i].mech_mode_id == SHA3_512)
             ica_data->ica_sha3_available = TRUE;
+#endif
+#ifdef SHAKE256
+        if (libica_func_list[i].mech_mode_id == SHAKE256)
+            ica_data->ica_shake_available = TRUE;
 #endif
 
         /* Remember if libica supports AES mechanisms (HW or SW) */
