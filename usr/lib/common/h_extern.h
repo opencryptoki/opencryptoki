@@ -1713,6 +1713,11 @@ CK_RV ckm_sha_derive(STDLL_TokData_t *tokdata, SESSION *sess,
                      CK_ATTRIBUTE *pTemplate, CK_ULONG ulCount,
                      CK_OBJECT_HANDLE *derived_key_obj);
 
+CK_RV ckm_shake_derive(STDLL_TokData_t *tokdata, SESSION *sess,
+                       CK_MECHANISM *mech, OBJECT *base_key_obj,
+                       CK_ATTRIBUTE *pTemplate, CK_ULONG ulCount,
+                       CK_OBJECT_HANDLE *derived_key_obj);
+
 #if !(NOMD2)
 // MD2 mechanisms
 //

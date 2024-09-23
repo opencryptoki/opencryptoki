@@ -628,7 +628,9 @@ CK_RV ckm_sha_derive(STDLL_TokData_t *tokdata, SESSION *sess,
     if (derived_keylen == 0)
         derived_keylen = allowed_keysize;
 
-    if (derived_keylen > hsize || derived_keylen > allowed_keysize) {
+    if (derived_keylen > hsize ||
+        (derived_keytype != CKK_GENERIC_SECRET &&
+         derived_keylen != allowed_keysize)) {
         TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCONSISTENT));
         return CKR_TEMPLATE_INCONSISTENT;
     }
@@ -692,7 +694,7 @@ CK_RV ckm_sha_derive(STDLL_TokData_t *tokdata, SESSION *sess,
     case CKK_GENERIC_SECRET:
     case CKK_AES:
     case CKK_AES_XTS:
-        /* Supply CKA_VAUE_LEN since this is required for those key types */
+        /* Supply CKA_VALUE_LEN since this is required for those key types */
         rc = build_attribute(CKA_VALUE_LEN, (CK_BYTE*)&derived_keylen,
                              sizeof(derived_keylen), &vallen_attr);
         if (rc != CKR_OK) {
@@ -770,3 +772,173 @@ end:
 
     return rc;
 }
+
+CK_RV ckm_shake_derive(STDLL_TokData_t *tokdata, SESSION *sess,
+                       CK_MECHANISM *mech, OBJECT *base_key_obj,
+                       CK_ATTRIBUTE *pTemplate, CK_ULONG ulCount,
+                       CK_OBJECT_HANDLE *derived_key_handle)
+{
+    OBJECT *derived_key_obj = NULL;
+    CK_ULONG  allowed_keysize = 0;
+    CK_ULONG derived_keytype = 0, derived_keylen = 0;
+    CK_ULONG base_key_class, base_key_type;
+    CK_RV rc;
+
+    if (token_specific.t_shake_key_derive == NULL) {
+        TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
+        return CKR_MECHANISM_INVALID;
+    }
+
+    rc = get_ulong_attribute_by_type(pTemplate, ulCount, CKA_VALUE_LEN,
+                                     &derived_keylen);
+    if (rc == CKR_ATTRIBUTE_VALUE_INVALID) {
+        TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
+        return rc;
+    }
+
+    rc = get_ulong_attribute_by_type(pTemplate, ulCount, CKA_KEY_TYPE,
+                                     &derived_keytype);
+    if (rc == CKR_ATTRIBUTE_VALUE_INVALID) {
+        TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
+        return rc;
+    }
+
+    /*
+     * According to PKCS#11:
+     * - no key length and no key type: CKR_TEMPLATE_INCOMPLETE
+     * - no key type, but length given: CKK_GENERIC_SECRET of specified length.
+     * - no key length but key type specified: key must have a well-defined
+     *                                         length, otherwise error.
+     * - key length and key type specified: length must be compatible with key
+     *                                      type, otherwise error.
+     */
+    if (derived_keytype == 0 && derived_keylen == 0) {
+        TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCOMPLETE));
+        return CKR_TEMPLATE_INCOMPLETE;
+    }
+
+    if (derived_keytype == 0)
+        derived_keytype = CKK_GENERIC_SECRET;
+
+    switch (derived_keytype) {
+    case CKK_GENERIC_SECRET:
+        if (derived_keylen == 0) {
+            TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCONSISTENT));
+            return CKR_TEMPLATE_INCONSISTENT;
+        }
+        allowed_keysize = derived_keylen;
+        break;
+    case CKK_DES:
+        allowed_keysize = DES_KEY_SIZE;
+        break;
+    case CKK_DES2:
+        allowed_keysize = 2 * DES_KEY_SIZE;
+        break;
+    case CKK_DES3:
+        allowed_keysize = 3 * DES_KEY_SIZE;
+        break;
+    case CKK_AES:
+        switch (derived_keylen) {
+        case AES_KEY_SIZE_128:
+        case AES_KEY_SIZE_192:
+        case AES_KEY_SIZE_256:
+            allowed_keysize = derived_keylen;
+            break;
+        default:
+            TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCONSISTENT));
+            return CKR_TEMPLATE_INCONSISTENT;
+        }
+        break;
+    case CKK_AES_XTS:
+        switch (derived_keylen) {
+        case 2 * AES_KEY_SIZE_128:
+        case 2 * AES_KEY_SIZE_256:
+            allowed_keysize = derived_keylen;
+            break;
+        default:
+            TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCONSISTENT));
+            return CKR_TEMPLATE_INCONSISTENT;
+        }
+        break;
+    default:
+        TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCONSISTENT));
+        return CKR_TEMPLATE_INCONSISTENT;
+    }
+
+    if (derived_keylen == 0)
+        derived_keylen = allowed_keysize;
+
+    if (derived_keylen != allowed_keysize) {
+        TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCONSISTENT));
+        return CKR_TEMPLATE_INCONSISTENT;
+    }
+
+    if (!template_get_class(base_key_obj->template, &base_key_class,
+                            &base_key_type)) {
+        TRACE_ERROR("Could not find CKA_CLASS in the template\n");
+        return CKR_TEMPLATE_INCOMPLETE;
+    }
+
+    if (base_key_class != CKO_SECRET_KEY) {
+        TRACE_ERROR("Base key is not a secret key\n");
+        return CKR_KEY_TYPE_INCONSISTENT;
+    }
+
+    switch (base_key_type) {
+    case CKK_GENERIC_SECRET:
+    case CKK_DES:
+    case CKK_DES2:
+    case CKK_DES3:
+    case CKK_AES:
+    case CKK_AES_XTS:
+        break;
+    default:
+        TRACE_ERROR("Base key type is not supported\n");
+        return CKR_KEY_TYPE_INCONSISTENT;
+    }
+
+    rc = object_mgr_create_skel(tokdata, sess, pTemplate, ulCount, MODE_DERIVE,
+                                CKO_SECRET_KEY, derived_keytype,
+                                &derived_key_obj);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Object Mgr create skeleton failed, rc=%s.\n", ock_err(rc));
+        return rc;
+    }
+
+    rc = token_specific.t_shake_key_derive(tokdata, sess, mech,
+                                           base_key_obj, base_key_type,
+                                           derived_key_obj, derived_keytype,
+                                           derived_keylen);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("Token specific shake key derive failed.\n");
+        goto end;
+    }
+
+    rc = key_mgr_derive_always_sensitive_never_extractable_attrs(tokdata,
+                                                base_key_obj, derived_key_obj);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("key_mgr_derive_always_sensitive_never_extractable_attrs "
+                    "failed\n");
+        goto end;
+    }
+
+    rc = object_mgr_create_final(tokdata, sess, derived_key_obj,
+                                 derived_key_handle);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Object Mgr create final failed, rc=%s.\n", ock_err(rc));
+        goto end;
+    }
+
+    INC_COUNTER(tokdata, sess, mech, base_key_obj, POLICY_STRENGTH_IDX_0);
+
+    rc = CKR_OK;
+
+end:
+    if (rc != CKR_OK && derived_key_obj != NULL) {
+        object_free(derived_key_obj);
+        derived_key_handle = CK_INVALID_HANDLE;
+    }
+
+    return rc;
+}
+

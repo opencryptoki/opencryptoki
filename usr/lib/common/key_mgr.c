@@ -1692,6 +1692,16 @@ CK_RV key_mgr_derive_key(STDLL_TokData_t *tokdata,
         rc = ckm_sha_derive(tokdata, sess, mech, base_key_obj, new_attrs,
                             new_attr_count, derived_key);
         break;
+    case CKM_SHAKE_128_KEY_DERIVATION:
+    case CKM_SHAKE_256_KEY_DERIVATION:
+        if (!derived_key) {
+            TRACE_ERROR("%s received bad argument(s)\n", __func__);
+            rc = CKR_FUNCTION_FAILED;
+            break;
+        }
+        rc = ckm_shake_derive(tokdata, sess, mech, base_key_obj, new_attrs,
+                              new_attr_count, derived_key);
+        break;
     default:
         TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
         rc = CKR_MECHANISM_INVALID;

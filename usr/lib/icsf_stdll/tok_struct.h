@@ -94,6 +94,8 @@ token_spec_t token_specific = {
     &token_specific_sha,
     &token_specific_sha_update,
     &token_specific_sha_final,
+    // SHAKE derive
+    NULL,                       // shake_key_derive
     //HMAC
     NULL,                       // hmac_sign_init
     NULL,                       // hmac_sign

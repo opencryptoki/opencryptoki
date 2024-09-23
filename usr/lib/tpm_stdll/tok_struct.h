@@ -85,6 +85,8 @@ struct token_specific_struct token_specific = {
     NULL,                       // sha
     NULL,                       // sha_update
     NULL,                       // sha_final
+    // SHAKE derive
+    NULL,                       // shake_key_derive
     // HMAC
     NULL,                       // hmac_sign_init
     NULL,                       // hmac_sign
