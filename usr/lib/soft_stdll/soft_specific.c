@@ -199,6 +199,8 @@ static const MECH_LIST_ELEMENT soft_mech_list[] = {
     {CKM_MD5_HMAC, {8, 2048, CKF_SIGN | CKF_VERIFY}},
     {CKM_MD5_HMAC_GENERAL, {8, 2048, CKF_SIGN | CKF_VERIFY}},
 #endif
+    {CKM_SHAKE_128_KEY_DERIVATION, {8, 2048, CKF_DERIVE}},
+    {CKM_SHAKE_256_KEY_DERIVATION, {8, 2048, CKF_DERIVE}},
     {CKM_SSL3_PRE_MASTER_KEY_GEN, {48, 48, CKF_GENERATE}},
     {CKM_SSL3_MASTER_KEY_DERIVE, {48, 48, CKF_DERIVE}},
     {CKM_SSL3_KEY_AND_MAC_DERIVE, {48, 48, CKF_DERIVE}},
@@ -1237,6 +1239,20 @@ CK_RV token_specific_sha_final(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *ctx,
                                CK_BYTE *out_data, CK_ULONG *out_data_len)
 {
     return openssl_specific_sha_final(tokdata, ctx, out_data, out_data_len);
+}
+
+CK_RV token_specific_shake_key_derive(STDLL_TokData_t *tokdata, SESSION *sess,
+                                      CK_MECHANISM *mech,
+                                      OBJECT *base_key_obj,
+                                      CK_KEY_TYPE base_key_type,
+                                      OBJECT *derived_key_obj,
+                                      CK_KEY_TYPE derived_key_type,
+                                      CK_ULONG derived_key_len)
+{
+    return openssl_specific_shake_key_derive(tokdata, sess, mech,
+                                             base_key_obj, base_key_type,
+                                             derived_key_obj, derived_key_type,
+                                             derived_key_len);
 }
 
 CK_RV token_specific_hmac_sign_init(STDLL_TokData_t *tokdata, SESSION *sess,
