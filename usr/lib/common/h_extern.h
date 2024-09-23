@@ -3148,6 +3148,14 @@ CK_RV openssl_specific_sha_update(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *ctx,
 CK_RV openssl_specific_sha_final(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *ctx,
                                  CK_BYTE *out_data, CK_ULONG *out_data_len);
 
+CK_RV openssl_specific_shake_key_derive(STDLL_TokData_t *tokdata, SESSION *sess,
+                                        CK_MECHANISM *mech,
+                                        OBJECT *base_key_obj,
+                                        CK_KEY_TYPE base_key_type,
+                                        OBJECT *derived_key_obj,
+                                        CK_KEY_TYPE derived_key_type,
+                                        CK_ULONG derived_key_len);
+
 CK_RV openssl_specific_aes_ecb(STDLL_TokData_t *tokdata,
                                CK_BYTE *in_data,
                                CK_ULONG in_data_len,

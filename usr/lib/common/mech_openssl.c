@@ -3295,6 +3295,134 @@ out:
     return rc;
 }
 
+CK_RV openssl_specific_shake_key_derive(STDLL_TokData_t *tokdata, SESSION *sess,
+                                        CK_MECHANISM *mech,
+                                        OBJECT *base_key_obj,
+                                        CK_KEY_TYPE base_key_type,
+                                        OBJECT *derived_key_obj,
+                                        CK_KEY_TYPE derived_key_type,
+                                        CK_ULONG derived_key_len)
+{
+    CK_ATTRIBUTE *base_key_value = NULL;
+    CK_ATTRIBUTE *value_attr = NULL, *vallen_attr = NULL;
+    CK_BYTE *derived_key_value = NULL;
+    EVP_MD_CTX *ctx = NULL;
+    const EVP_MD *md = NULL;
+    CK_RV rc;
+
+    UNUSED(tokdata);
+    UNUSED(sess);
+    UNUSED(base_key_type);
+
+    rc = template_attribute_get_non_empty(base_key_obj->template,
+                                          CKA_VALUE, &base_key_value);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_VALUE for the base key.\n");
+        return rc;
+    }
+
+    derived_key_value = malloc(derived_key_len);
+    if (derived_key_value == NULL) {
+        TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+        rc = CKR_HOST_MEMORY;
+        goto out;
+    }
+
+    ctx = EVP_MD_CTX_new();
+    if (ctx == NULL) {
+        TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+        rc = CKR_HOST_MEMORY;
+        goto out;
+    }
+
+    switch (mech->mechanism) {
+    case CKM_SHAKE_128_KEY_DERIVATION:
+        md = EVP_shake128();
+        break;
+    case CKM_SHAKE_256_KEY_DERIVATION:
+        md = EVP_shake256();
+        break;
+    default:
+        TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
+        rc = CKR_MECHANISM_INVALID;
+        goto out;
+    }
+
+    if (md == NULL ||
+        !EVP_DigestInit_ex(ctx, md, NULL) ||
+        !EVP_DigestUpdate(ctx, base_key_value->pValue,
+                          base_key_value->ulValueLen) ||
+        !EVP_DigestFinalXOF(ctx, derived_key_value, derived_key_len)) {
+        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+
+    rc = build_attribute(CKA_VALUE, derived_key_value, derived_key_len,
+                         &value_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Failed to build the attribute from CKA_VALUE, rc=%s.\n",
+                    ock_err(rc));
+        goto out;
+    }
+
+    switch (derived_key_type) {
+    case CKK_GENERIC_SECRET:
+    case CKK_AES:
+    case CKK_AES_XTS:
+        /* Supply CKA_VALUE_LEN since this is required for those key types */
+        rc = build_attribute(CKA_VALUE_LEN, (CK_BYTE*)&derived_key_len,
+                             sizeof(derived_key_len), &vallen_attr);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("Failed to build the attribute from CKA_VALUE_LEN, "
+                        "rc=%s.\n", ock_err(rc));
+            goto out;
+        }
+        break;
+    case CKK_DES:
+        if (des_check_weak_key(derived_key_value)) {
+            TRACE_ERROR("Derived key is a weak DES key\n");
+            rc = CKR_FUNCTION_FAILED;
+            goto out;
+        }
+        break;
+    default:
+        break;
+    }
+
+    rc = template_update_attribute(derived_key_obj->template, value_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto out;
+    }
+    value_attr = NULL;
+
+    if (vallen_attr != NULL) {
+        rc = template_update_attribute(derived_key_obj->template, vallen_attr);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("template_update_attribute failed\n");
+            goto out;
+        }
+        vallen_attr = NULL;
+    }
+
+out:
+    if (ctx != NULL)
+        EVP_MD_CTX_free(ctx);
+
+    if (derived_key_value != NULL) {
+        OPENSSL_cleanse(derived_key_value, derived_key_len);
+        free(derived_key_value);
+    }
+
+    if (value_attr != NULL)
+        free(value_attr);
+    if (vallen_attr != NULL)
+        free(vallen_attr);
+
+    return rc;
+}
+
 static const EVP_CIPHER *openssl_cipher_from_mech(CK_MECHANISM_TYPE mech,
                                                   CK_ULONG keylen,
                                                   CK_KEY_TYPE keytype)
