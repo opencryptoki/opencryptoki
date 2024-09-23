@@ -1637,7 +1637,7 @@ CK_RV do_SHA_derive_key(void)
     };
     CK_ULONG derive_tmpl_len = sizeof(derive_tmpl) / sizeof(CK_ATTRIBUTE);
 
-    CK_MECHANISM derive_mechs[9] = {
+    CK_MECHANISM derive_mechs[11] = {
         { CKM_SHA1_KEY_DERIVATION, 0, 0 },
         { CKM_SHA224_KEY_DERIVATION, 0, 0 },
         { CKM_SHA256_KEY_DERIVATION, 0, 0 },
@@ -1646,7 +1646,9 @@ CK_RV do_SHA_derive_key(void)
         { CKM_SHA3_224_KEY_DERIVATION, 0, 0 },
         { CKM_SHA3_256_KEY_DERIVATION, 0, 0 },
         { CKM_SHA3_384_KEY_DERIVATION, 0, 0 },
-        { CKM_SHA3_512_KEY_DERIVATION, 0, 0 }
+        { CKM_SHA3_512_KEY_DERIVATION, 0, 0 },
+        { CKM_SHAKE_128_KEY_DERIVATION, 0, 0 },
+        { CKM_SHAKE_256_KEY_DERIVATION, 0, 0 }
     };
 
     struct {
@@ -1692,6 +1694,16 @@ CK_RV do_SHA_derive_key(void)
             /* SHA-1 can produce only 20 bytes, not sufficient for a 3DES key */
             if (key_type == CKK_DES3 &&
                 derive_mechs[i].mechanism == CKM_SHA1_KEY_DERIVATION)
+                continue;
+
+            /*
+             * SHAKE doesn't have a default digest size, so key type and/or
+             * length must be specified
+             */
+            if ((derive_mechs[i].mechanism == CKM_SHAKE_128_KEY_DERIVATION ||
+                 derive_mechs[i].mechanism == CKM_SHAKE_256_KEY_DERIVATION) &&
+                 (key_type == (CK_ULONG)-1 ||
+                  (key_type == CKK_GENERIC_SECRET && key_len == 0)))
                 continue;
 
             testcase_begin("Derive key with %s keytype=0x%lx, value_len=%lu",
