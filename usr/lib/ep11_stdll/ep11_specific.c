@@ -5416,18 +5416,26 @@ static CK_RV ep11tok_digest_from_mech(CK_MECHANISM_TYPE mech,
         break;
 
     case CKM_SHA3_224:
+    case CKM_SHA3_224_RSA_PKCS:
+    case CKM_ECDSA_SHA3_224:
         *digest_mech = CKM_SHA3_224;
         break;
 
     case CKM_SHA3_256:
+    case CKM_SHA3_256_RSA_PKCS:
+    case CKM_ECDSA_SHA3_256:
         *digest_mech = CKM_SHA3_256;
         break;
 
     case CKM_SHA3_384:
+    case CKM_SHA3_384_RSA_PKCS:
+    case CKM_ECDSA_SHA3_384:
         *digest_mech = CKM_SHA3_384;
         break;
 
     case CKM_SHA3_512:
+    case CKM_SHA3_512_RSA_PKCS:
+    case CKM_ECDSA_SHA3_512:
         *digest_mech = CKM_SHA3_512;
         break;
 
@@ -5543,6 +5551,10 @@ CK_BBOOL ep11tok_libica_mech_available(STDLL_TokData_t *tokdata,
        case CKM_ECDSA_SHA256:
        case CKM_ECDSA_SHA384:
        case CKM_ECDSA_SHA512:
+       case CKM_ECDSA_SHA3_224:
+       case CKM_ECDSA_SHA3_256:
+       case CKM_ECDSA_SHA3_384:
+       case CKM_ECDSA_SHA3_512:
            if (!ep11tok_ec_curve_supported(tokdata, hKey))
                return CK_FALSE;
            break;
@@ -12055,6 +12067,93 @@ static CK_RV ep11tok_mechanism_list_add_translated(
     return CKR_OK;
 }
 
+struct sha_combined {
+    CK_MECHANISM_TYPE combined_mech;
+    CK_MECHANISM_TYPE hash_mech;
+    CK_MECHANISM_TYPE base_mech;
+};
+
+/*
+ * Note: For RSA-PSS, EP11 requires that the data-hash function is the same
+ * as the 'mgf' and 'hashalg' fields in the mechanism parameter.
+ * So CKM_SHA3_nnn_RSA_PKCS_PSS would need to use CKM_[IBM_]SHA3_nnn and
+ * CKG_[IBM_]MGF1_SHA3_nnn. However, EP11 currently does not support the SHA3
+ * algorithms for the RSA-PSS mechanism parameter (only for RSA-OAEP).
+ * Thus CKM_SHA3_nnn_RSA_PKCS_PSS can not be supported with SHA3 hashing,
+ * even though the data hashing would be performed by libica.
+ */
+static const struct sha_combined sha3_combined_libica_only_mechs[] = {
+    { CKM_SHA3_224_RSA_PKCS, CKM_IBM_SHA3_224, CKM_RSA_PKCS },
+    { CKM_SHA3_256_RSA_PKCS, CKM_IBM_SHA3_256, CKM_RSA_PKCS },
+    { CKM_SHA3_384_RSA_PKCS, CKM_IBM_SHA3_384, CKM_RSA_PKCS },
+    { CKM_SHA3_512_RSA_PKCS, CKM_IBM_SHA3_512, CKM_RSA_PKCS },
+    { CKM_ECDSA_SHA3_224, CKM_IBM_SHA3_224, CKM_ECDSA },
+    { CKM_ECDSA_SHA3_256, CKM_IBM_SHA3_256, CKM_ECDSA },
+    { CKM_ECDSA_SHA3_384, CKM_IBM_SHA3_384, CKM_ECDSA },
+    { CKM_ECDSA_SHA3_512, CKM_IBM_SHA3_512, CKM_ECDSA },
+};
+
+static const CK_ULONG sha3_combined_libica_only_mechs_len =
+    (sizeof(sha3_combined_libica_only_mechs) / sizeof(struct sha_combined));
+
+static const struct sha_combined *ep11tok_find_sha3_combined_libica_only_mech(
+                                                   STDLL_TokData_t *tokdata,
+                                                   CK_MECHANISM_TYPE type)
+{
+    ep11_private_data_t *ep11_data = tokdata->private_data;
+    CK_ULONG i;
+
+    for (i = 0; i < sha3_combined_libica_only_mechs_len; i++) {
+        if (type == sha3_combined_libica_only_mechs[i].combined_mech) {
+            /* Only supported if hash mech is available via libica */
+            if (!ep11tok_libica_digest_available(tokdata, ep11_data,
+                              sha3_combined_libica_only_mechs[i].hash_mech))
+                continue;
+
+            TRACE_DEVEL("%s Mech '%s' is a combined libica-only mech backed by "
+                        "'%s' and '%s'\n",
+                        __func__, ep11_get_ckm(tokdata, type),
+                        ep11_get_ckm(tokdata,
+                                sha3_combined_libica_only_mechs[i].hash_mech),
+                        ep11_get_ckm(tokdata,
+                                sha3_combined_libica_only_mechs[i].base_mech));
+
+            return &sha3_combined_libica_only_mechs[i];
+        }
+    }
+
+    return NULL;
+}
+
+static CK_RV ep11tok_mechanism_list_add_sha3_combined(
+                                        STDLL_TokData_t *tokdata,
+                                        CK_MECHANISM_TYPE_PTR pMechanismList,
+                                        CK_ULONG_PTR pulCount, CK_ULONG size)
+{
+    ep11_private_data_t *ep11_data = tokdata->private_data;
+    CK_ULONG i;
+
+    for (i = 0; i < sha3_combined_libica_only_mechs_len; i++) {
+        if (ep11tok_is_mechanism_supported(tokdata,
+                sha3_combined_libica_only_mechs[i].hash_mech) != CKR_OK ||
+            ep11tok_is_mechanism_supported(tokdata,
+                sha3_combined_libica_only_mechs[i].base_mech) != CKR_OK)
+            continue;
+
+        /* Only add if hash mech is available via libica */
+        if (!ep11tok_libica_digest_available(tokdata, ep11_data,
+                                sha3_combined_libica_only_mechs[i].hash_mech))
+            continue;
+
+        if (pMechanismList != NULL && *pulCount < size)
+            pMechanismList[*pulCount] =
+                    sha3_combined_libica_only_mechs[i].combined_mech;
+        *pulCount += 1;
+    }
+
+    return CKR_OK;
+}
+
 /* filtering out some mechanisms we do not want to provide
  * makes it complicated
  */
@@ -12147,6 +12246,10 @@ CK_RV ep11tok_get_mechanism_list(STDLL_TokData_t * tokdata,
         }
         rc = ep11tok_mechanism_list_add_translated(tokdata, pMechanismList,
                                                    pulCount, 0);
+        if (rc != CKR_OK)
+            goto out;
+        rc = ep11tok_mechanism_list_add_sha3_combined(tokdata, pMechanismList,
+                                                      pulCount, 0);
     } else {
         /* 2. call, content request */
         size = *pulCount;
@@ -12233,6 +12336,12 @@ CK_RV ep11tok_get_mechanism_list(STDLL_TokData_t * tokdata,
                                                    pulCount, size);
         if (*pulCount > size)
             rc = CKR_BUFFER_TOO_SMALL;
+        if (rc != CKR_OK)
+            goto out;
+        rc = ep11tok_mechanism_list_add_sha3_combined(tokdata, pMechanismList,
+                                                      pulCount, size);
+        if (*pulCount > size)
+            rc = CKR_BUFFER_TOO_SMALL;
     }
 
 out:
@@ -12257,6 +12366,13 @@ CK_RV ep11tok_is_mechanism_supported(STDLL_TokData_t *tokdata,
     CK_RV rc = CKR_OK;
     ep11_target_info_t* target_info;
     CK_MECHANISM_TYPE orig_mech = type;
+    const struct sha_combined *comb_mech;
+
+    comb_mech = ep11tok_find_sha3_combined_libica_only_mech(tokdata, type);
+    if (comb_mech != NULL &&
+        ep11tok_is_mechanism_supported(tokdata,
+                                       comb_mech->hash_mech) == CKR_OK)
+        type = comb_mech->base_mech;
 
     ep11tok_pkcs11_mech_translate(tokdata, type, &type);
 
@@ -12541,6 +12657,7 @@ CK_RV ep11tok_get_mechanism_info(STDLL_TokData_t * tokdata,
     CK_RV rc;
     int status;
     ep11_target_info_t* target_info;
+    const struct sha_combined *comb_mech;
 
     rc = ep11tok_is_mechanism_supported(tokdata, type);
     if (rc != CKR_OK) {
@@ -12550,6 +12667,11 @@ CK_RV ep11tok_get_mechanism_info(STDLL_TokData_t * tokdata,
     }
 
     ep11tok_pkcs11_mech_translate(tokdata, type, &type);
+
+    /* Get base-mech for combined libica-only mechanism */
+    comb_mech = ep11tok_find_sha3_combined_libica_only_mech(tokdata, type);
+    if(comb_mech != NULL)
+        type = comb_mech->base_mech;
 
     target_info = get_target_info(tokdata);
     if (target_info == NULL)
@@ -12606,6 +12728,10 @@ CK_RV ep11tok_get_mechanism_info(STDLL_TokData_t * tokdata,
     case CKM_SHA384_RSA_PKCS_PSS:
     case CKM_SHA512_RSA_PKCS:
     case CKM_SHA512_RSA_PKCS_PSS:
+    case CKM_SHA3_256_RSA_PKCS:
+    case CKM_SHA3_224_RSA_PKCS:
+    case CKM_SHA3_384_RSA_PKCS:
+    case CKM_SHA3_512_RSA_PKCS:
     case CKM_RSA_X_509:
     case CKM_RSA_X9_31:
         /* EP11 card always in a FIPS mode rejecting
