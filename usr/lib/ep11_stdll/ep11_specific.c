@@ -74,6 +74,9 @@ CK_RV ep11tok_is_mechanism_supported_ex(STDLL_TokData_t *tokdata,
 static CK_RV ep11tok_pkcs11_mech_translate(STDLL_TokData_t *tokdata,
                                            CK_MECHANISM_TYPE type,
                                            CK_MECHANISM_TYPE* ep11_type);
+static CK_RV ep11tok_pkcs11_mgf_translate(STDLL_TokData_t *tokdata,
+                                          CK_RSA_PKCS_MGF_TYPE mgf,
+                                          CK_RSA_PKCS_MGF_TYPE* ep11_mgf);
 
 static m_GenerateRandom_t dll_m_GenerateRandom;
 static m_SeedRandom_t dll_m_SeedRandom;
@@ -9451,6 +9454,38 @@ static CK_RV ep11tok_ecdsa_other_mech_adjust(CK_MECHANISM *mech,
     return CKR_OK;
 }
 
+struct RSA_OAEP_MECH_PARAM {
+    CK_MECHANISM mech;
+    CK_RSA_PKCS_OAEP_PARAMS param;
+};
+
+static CK_RV ep11tok_rsa_oaep_mech_adjust(STDLL_TokData_t *tokdata,
+                                          CK_MECHANISM *mech,
+                                          struct RSA_OAEP_MECH_PARAM *mech_ep11)
+{
+    if (mech->mechanism != CKM_RSA_PKCS_OAEP)
+        return CKR_MECHANISM_INVALID;
+
+    if (mech->ulParameterLen != sizeof(CK_RSA_PKCS_OAEP_PARAMS) ||
+        mech->pParameter == NULL) {
+        TRACE_ERROR("%s Invalid mechanism param for CKM_RSA_PKCS_OAEP\n",
+                    __func__);
+        return CKR_MECHANISM_PARAM_INVALID;
+    }
+
+    mech_ep11->mech.mechanism = mech->mechanism;
+    mech_ep11->mech.pParameter = &mech_ep11->param;
+    mech_ep11->mech.ulParameterLen = sizeof(mech_ep11->param);
+
+    memcpy(&mech_ep11->param, mech->pParameter, sizeof(mech_ep11->param));
+    ep11tok_pkcs11_mech_translate(tokdata, mech_ep11->param.hashAlg,
+                                  &mech_ep11->param.hashAlg);
+    ep11tok_pkcs11_mgf_translate(tokdata, mech_ep11->param.mgf,
+                                 &mech_ep11->param.mgf);
+
+    return CKR_OK;
+}
+
 CK_BOOL ep11tok_mech_single_only(CK_MECHANISM *mech)
 {
     switch (mech->mechanism) {
@@ -10582,6 +10617,7 @@ CK_RV ep11tok_decrypt_single(STDLL_TokData_t *tokdata, SESSION *session,
     OBJECT *key_obj = NULL;
     CK_BYTE *useblob;
     size_t useblobsize;
+    struct RSA_OAEP_MECH_PARAM rsa_oaep_mech_ep11;
 
     UNUSED(length_only);
 
@@ -10604,6 +10640,13 @@ CK_RV ep11tok_decrypt_single(STDLL_TokData_t *tokdata, SESSION *session,
     if (rc != CKR_OK) {
         TRACE_ERROR("POLICY_VIOLATION on decrypt single\n");
         goto done;
+    }
+
+    if (mech->mechanism == CKM_RSA_PKCS_OAEP) {
+        rc = ep11tok_rsa_oaep_mech_adjust(tokdata, mech, &rsa_oaep_mech_ep11);
+        if (rc != CKR_OK)
+            goto done;
+        mech = &rsa_oaep_mech_ep11.mech;
     }
 
     RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
@@ -10823,6 +10866,7 @@ CK_RV ep11tok_encrypt_single(STDLL_TokData_t *tokdata, SESSION *session,
     OBJECT *key_obj = NULL;
     CK_BYTE *useblob;
     size_t useblobsize;
+    struct RSA_OAEP_MECH_PARAM rsa_oaep_mech_ep11;
 
     UNUSED(length_only);
 
@@ -10856,6 +10900,13 @@ CK_RV ep11tok_encrypt_single(STDLL_TokData_t *tokdata, SESSION *session,
     if (rc != CKR_OK) {
         TRACE_ERROR("%s check_key_restriction rc=0x%lx\n", __func__, rc);
         goto done;
+    }
+
+    if (mech->mechanism == CKM_RSA_PKCS_OAEP) {
+        rc = ep11tok_rsa_oaep_mech_adjust(tokdata, mech, &rsa_oaep_mech_ep11);
+        if (rc != CKR_OK)
+            goto done;
+        mech = &rsa_oaep_mech_ep11.mech;
     }
 
     RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
@@ -10898,6 +10949,7 @@ static CK_RV ep11_ende_crypt_init(STDLL_TokData_t * tokdata, SESSION * session,
     CK_BYTE *useblob, *usestate;
     size_t useblob_len, usestate_len;
     CK_ULONG strength_index = POLICY_STRENGTH_IDX_0;
+    struct RSA_OAEP_MECH_PARAM rsa_oaep_mech_ep11;
 
     ep11_state = calloc(ep11_state_l, 1); /* freed by encr/decr_mgr.c */
     if (!ep11_state) {
@@ -10971,6 +11023,13 @@ static CK_RV ep11_ende_crypt_init(STDLL_TokData_t * tokdata, SESSION * session,
         goto done;
     }
 #endif /* NO_PKEY */
+
+    if (mech->mechanism == CKM_RSA_PKCS_OAEP) {
+        rc = ep11tok_rsa_oaep_mech_adjust(tokdata, mech, &rsa_oaep_mech_ep11);
+        if (rc != CKR_OK)
+            goto error;
+        mech = &rsa_oaep_mech_ep11.mech;
+    }
 
     /*
      * ep11_state is allocated large enough to hold 2 times the max state blob.
@@ -11899,6 +11958,22 @@ static const struct mech_translate pkcs11_mechanism_translation[] = {
 static const CK_ULONG pkcs11_mechanism_translation_len =
     (sizeof(pkcs11_mechanism_translation) / sizeof(struct mech_translate));
 
+struct mgf_translate {
+    CK_RSA_PKCS_MGF_TYPE pkcs11_mgf;
+    CK_RSA_PKCS_MGF_TYPE ep11_mgf;
+};
+
+/* Translate PKCS#11 v3.0 SHA3 MGFs to IBM-specific SHA3 MGFs */
+static const struct mgf_translate pkcs11_mgf_translation[] = {
+    { CKG_MGF1_SHA3_224, CKG_IBM_MGF1_SHA3_224 },
+    { CKG_MGF1_SHA3_256, CKG_IBM_MGF1_SHA3_256 },
+    { CKG_MGF1_SHA3_384, CKG_IBM_MGF1_SHA3_384 },
+    { CKG_MGF1_SHA3_512, CKG_IBM_MGF1_SHA3_512 },
+};
+
+static const CK_ULONG pkcs11_mgf_translation_len =
+    (sizeof(pkcs11_mgf_translation) / sizeof(struct mgf_translate));
+
 static CK_RV ep11tok_pkcs11_mech_translate(STDLL_TokData_t *tokdata,
                                            CK_MECHANISM_TYPE type,
                                            CK_MECHANISM_TYPE* ep11_type)
@@ -11913,6 +11988,27 @@ static CK_RV ep11tok_pkcs11_mech_translate(STDLL_TokData_t *tokdata,
                         ep11_get_ckm(tokdata,
                                 pkcs11_mechanism_translation[i].ep11_mech));
             *ep11_type = pkcs11_mechanism_translation[i].ep11_mech;
+            return CKR_OK;
+        }
+    }
+
+    return CKR_MECHANISM_INVALID;
+}
+
+static CK_RV ep11tok_pkcs11_mgf_translate(STDLL_TokData_t *tokdata,
+                                          CK_RSA_PKCS_MGF_TYPE mgf,
+                                          CK_RSA_PKCS_MGF_TYPE* ep11_mgf)
+{
+    CK_ULONG i;
+
+    UNUSED(tokdata);
+
+    for (i = 0; i < pkcs11_mgf_translation_len; i++) {
+        if (mgf == pkcs11_mgf_translation[i].pkcs11_mgf) {
+            TRACE_DEVEL("%s MGF 0x%lx is backed by 0x%lx\n", __func__,
+                        pkcs11_mgf_translation[i].pkcs11_mgf,
+                        pkcs11_mgf_translation[i].ep11_mgf);
+            *ep11_mgf = pkcs11_mgf_translation[i].ep11_mgf;
             return CKR_OK;
         }
     }
