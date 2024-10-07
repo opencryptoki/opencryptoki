@@ -24,8 +24,73 @@
 #include "regress.h"
 #include "common.c"
 
-// define this to enable the AES cipher key import test:
-// #define CCA_AES_CIPHER_KEY_SUPPORTED
+/** Create an AES key handle with given value **/
+CK_RV create_cca_AESKey(CK_SESSION_HANDLE session, CK_BBOOL extractable,
+                        unsigned char key[], unsigned char key_len,
+                        CK_KEY_TYPE keyType, CK_IBM_CCA_AES_KEY_MODE_TYPE mode,
+                        CK_OBJECT_HANDLE * h_key)
+{
+    CK_RV rc;
+    CK_BBOOL true = TRUE;
+    CK_BBOOL false = FALSE;
+    CK_OBJECT_CLASS keyClass = CKO_SECRET_KEY;
+    CK_BBOOL pkeyextractable = !extractable;
+    CK_ATTRIBUTE keyTemplate[] = {
+        {CKA_EXTRACTABLE, &extractable, sizeof(CK_BBOOL)},
+        {CKA_CLASS, &keyClass, sizeof(keyClass)},
+        {CKA_KEY_TYPE, &keyType, sizeof(keyType)},
+        {CKA_ENCRYPT, &true, sizeof(true)},
+        {CKA_TOKEN, &false, sizeof(false)},
+        {CKA_VALUE, key, key_len},
+        {CKA_IBM_PROTKEY_EXTRACTABLE, &pkeyextractable, sizeof(CK_BBOOL)},
+        {CKA_IBM_CCA_AES_KEY_MODE, &mode, sizeof(mode)},
+    };
+    CK_ULONG keyTemplate_len = sizeof(keyTemplate) / sizeof(CK_ATTRIBUTE);
+
+    if (combined_extract)
+        pkeyextractable = CK_TRUE;
+
+    rc = funcs->C_CreateObject(session, keyTemplate, keyTemplate_len, h_key);
+    if (rc != CKR_OK) {
+        if (is_rejected_by_policy(rc, session))
+            rc = CKR_POLICY_VIOLATION;
+        else
+            testcase_error("C_CreateObject rc=%s", p11_get_ckr(rc));
+    }
+
+    return rc;
+}
+
+static CK_RV extract_restrict(CK_SESSION_HANDLE session, CK_OBJECT_HANDLE handle)
+{
+    CK_RV rc;
+    CK_BBOOL ck_false = FALSE;
+    CK_ATTRIBUTE a_extract = { CKA_EXTRACTABLE, &ck_false, sizeof(ck_false) };
+
+    rc = funcs->C_SetAttributeValue(session, handle, &a_extract, 1);
+    if (rc != CKR_OK) {
+        testcase_error("C_SetAttributeValue() rc=%s", p11_get_ckr(rc));
+        return rc;
+    }
+
+    return CKR_OK;
+}
+
+static CK_RV convert_to_cipher_key(CK_SESSION_HANDLE session,
+                                   CK_OBJECT_HANDLE handle)
+{
+    CK_RV rc;
+    CK_IBM_CCA_AES_KEY_MODE_TYPE mode = CK_IBM_CCA_AES_CIPHER_KEY;
+    CK_ATTRIBUTE a_extract = { CKA_IBM_CCA_AES_KEY_MODE, &mode, sizeof(mode) };
+
+    rc = funcs->C_SetAttributeValue(session, handle, &a_extract, 1);
+    if (rc != CKR_OK) {
+        testcase_error("C_SetAttributeValue() rc=%s", p11_get_ckr(rc));
+        return rc;
+    }
+
+    return CKR_OK;
+}
 
 static CK_RV export_ibm_opaque(CK_SESSION_HANDLE session, CK_OBJECT_HANDLE handle,
                                CK_BYTE **buf, CK_ULONG *buflen)
@@ -121,7 +186,8 @@ static CK_RV import_cca_aes_key(CK_SESSION_HANDLE session,
                                 const char *label,
                                 CK_BYTE *ccatoken, CK_ULONG tokenlen,
                                 CK_OBJECT_HANDLE *handle,
-                                CK_KEY_TYPE keyType)
+                                CK_KEY_TYPE keyType,
+                                CK_IBM_CCA_AES_KEY_MODE_TYPE exp_mode)
 {
     CK_RV rc;
     CK_OBJECT_CLASS keyClass = CKO_SECRET_KEY;
@@ -137,50 +203,31 @@ static CK_RV import_cca_aes_key(CK_SESSION_HANDLE session,
         {CKA_IBM_PROTKEY_EXTRACTABLE, &true, sizeof(true)}
     };
     CK_ULONG nattr = sizeof(template) / sizeof(CK_ATTRIBUTE);
+    CK_IBM_CCA_AES_KEY_MODE_TYPE mode;
+    CK_ATTRIBUTE a_mode = { CKA_IBM_CCA_AES_KEY_MODE, &mode, sizeof(mode) };
 
     rc = funcs->C_CreateObject(session, template, nattr, handle);
     if (rc != CKR_OK) {
         testcase_error("C_CreateObject() rc=%s", p11_get_ckr(rc));
+        goto out;
     }
 
-    return rc;
-}
-
-#if CCA_AES_CIPHER_KEY_SUPPORTED
-static CK_RV import_cca_aes_cipher_key(CK_SESSION_HANDLE session,
-                                       const char *label,
-                                       CK_BYTE *ccatoken, CK_ULONG tokenlen,
-                                       unsigned int keybitsize,
-                                       CK_OBJECT_HANDLE *handle)
-{
-    CK_RV rc;
-    CK_OBJECT_CLASS keyClass = CKO_SECRET_KEY;
-    CK_KEY_TYPE keyType = CKK_AES;
-    CK_BYTE value[32];
-    CK_BBOOL true = TRUE;
-    CK_BBOOL false = FALSE;
-    CK_ATTRIBUTE template[] = {
-        {CKA_CLASS, &keyClass, sizeof(keyClass)},
-        {CKA_KEY_TYPE, &keyType, sizeof(keyType)},
-        {CKA_LABEL, (char *) label, strlen(label) + 1},
-        {CKA_ENCRYPT, &true, sizeof(true)},
-        {CKA_TOKEN, &false, sizeof(false)},
-        {CKA_VALUE, value, sizeof(value)},
-        {CKA_IBM_OPAQUE, ccatoken, tokenlen}
-    };
-    CK_ULONG nattr = sizeof(template) / sizeof(CK_ATTRIBUTE);
-
-    memset(value, 0, sizeof(value));
-    template[5].ulValueLen = keybitsize / 8;
-
-    rc = funcs->C_CreateObject(session, template, nattr, handle);
+    rc = funcs->C_GetAttributeValue(session, *handle, &a_mode, 1);
     if (rc != CKR_OK) {
-        testcase_error("C_CreateObject() rc=%s", p11_get_ckr(rc));
+        testcase_error("C_GetAttributeValue() rc=%s", p11_get_ckr(rc));
+        goto out;
     }
 
+    if (mode != exp_mode) {
+        testcase_error("CCA key mode not as expected (%lu != %lu)",
+                       mode, exp_mode);
+        rc = CKR_ATTRIBUTE_VALUE_INVALID;
+        goto out;
+    }
+
+out:
     return rc;
 }
-#endif
 
 static CK_RV import_cca_gen_sec_key(CK_SESSION_HANDLE session,
                                     const char *label,
@@ -639,7 +686,7 @@ out:
     return rc;
 }
 
-static CK_RV cca_aes_data_export_import_tests(void)
+static CK_RV cca_aes_export_import_tests(CK_IBM_CCA_AES_KEY_MODE_TYPE mode)
 {
     CK_RV rc = CKR_OK;
     CK_FLAGS flags;
@@ -654,7 +701,7 @@ static CK_RV cca_aes_data_export_import_tests(void)
                      0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f };
     CK_MECHANISM mech = { CKM_AES_CBC, iv, sizeof(iv) };
     CK_OBJECT_HANDLE hkey = CK_INVALID_HANDLE, hikey = CK_INVALID_HANDLE;
-    CK_BYTE data[160], encdata1[160], encdata2[160];
+    CK_BYTE data[160], encdata1[160], encdata2[160], encdata3[160];;
     CK_ULONG ilen, len;
     CK_BYTE *opaquekey = NULL;
     CK_ULONG opaquekeylen;
@@ -671,18 +718,20 @@ static CK_RV cca_aes_data_export_import_tests(void)
 
     for (keylen = 16; keylen <= 32; keylen += 8) {
 
-        testcase_begin("CCA export/import test with AES%u data key", 8 * keylen);
+        testcase_begin("CCA export/import test with AES-%u %s key", 8 * keylen,
+                       mode == CK_IBM_CCA_AES_DATA_KEY ? "DATA" : "CIPHER");
 
         // create ock aes key
 
-        rc = create_AESKey(session, CK_TRUE, key, keylen, CKK_AES, &hkey);
+        rc = create_cca_AESKey(session, CK_TRUE, key, keylen, CKK_AES, mode,
+                               &hkey);
         if (rc != CKR_OK) {
         if (rc == CKR_POLICY_VIOLATION) {
             testcase_skip("AES key generation is not allowed by policy");
             continue;
         }
 
-            testcase_error("create_AESKey() rc=%s", p11_get_ckr(rc));
+            testcase_error("create_cca_AESKey() rc=%s", p11_get_ckr(rc));
             goto error;
         }
 
@@ -717,7 +766,8 @@ static CK_RV cca_aes_data_export_import_tests(void)
         // re-import this cca token as a new key object
 
         snprintf(label, sizeof(label), "re-imported_aes%u_key", 8 * keylen);
-        rc = import_cca_aes_key(session, label, opaquekey, opaquekeylen, &hikey, CKK_AES);
+        rc = import_cca_aes_key(session, label, opaquekey, opaquekeylen, &hikey,
+                                CKK_AES, mode);
         if (rc != CKR_OK) {
             testcase_fail("import_cca_aes_key rc=%s", p11_get_ckr(rc));
             goto error;
@@ -748,7 +798,47 @@ static CK_RV cca_aes_data_export_import_tests(void)
             goto error;
         }
 
-        testcase_pass("CCA export/import test with AES%u data key: ok", 8 * keylen);
+        /* Set extractable to FALSE on original key */
+        rc = extract_restrict(session, hkey);
+        if (rc != CKR_OK) {
+            testcase_fail("extract_restrict rc=%s", p11_get_ckr(rc));
+            goto error;
+        }
+
+        /* Convert to CIPHER key */
+        rc = convert_to_cipher_key(session, hkey);
+        if (rc != CKR_OK) {
+            testcase_fail("extract_restrict rc=%s", p11_get_ckr(rc));
+            goto error;
+        }
+
+        /* encrypt some data with this converted key */
+
+        rc = funcs->C_EncryptInit(session, &mech, hkey);
+        if (rc != CKR_OK) {
+            testcase_error("C_EncryptInit rc=%s", p11_get_ckr(rc));
+            goto error;
+        }
+        ilen = len = sizeof(data);
+        rc = funcs->C_Encrypt(session, data, ilen, encdata3, &len);
+        if (rc != CKR_OK) {
+            testcase_error("C_Encrypt rc=%s", p11_get_ckr(rc));
+            goto error;
+        }
+        if (ilen != len) {
+            testcase_fail("plain and encrypted data len does not match");
+            goto error;
+        }
+
+        /* and check the encrypted data to be equal */
+
+        if (memcmp(encdata1, encdata3, len) != 0) {
+            testcase_fail("encrypted data from original and converted key is NOT the same");
+            goto error;
+        }
+
+        testcase_pass("CCA export/import test with AES-%u %s key: ok", 8 * keylen,
+                      mode == CK_IBM_CCA_AES_DATA_KEY ? "DATA" : "CIPHER");
 
 error:
         free(opaquekey);
@@ -769,7 +859,7 @@ out:
     return rc;
 }
 
-static CK_RV cca_aes_xts_data_export_import_tests(void)
+static CK_RV cca_aes_xts_export_import_tests(CK_IBM_CCA_AES_KEY_MODE_TYPE mode)
 {
     CK_RV rc = CKR_OK;
     CK_FLAGS flags;
@@ -788,7 +878,7 @@ static CK_RV cca_aes_xts_data_export_import_tests(void)
                      0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f };
     CK_MECHANISM mech = { CKM_AES_XTS, iv, sizeof(iv) };
     CK_OBJECT_HANDLE hkey = CK_INVALID_HANDLE, hikey = CK_INVALID_HANDLE;
-    CK_BYTE data[160], encdata1[160], encdata2[160];
+    CK_BYTE data[160], encdata1[160], encdata2[160], encdata3[160];;
     CK_ULONG ilen, len;
     CK_BYTE *opaquekey = NULL;
     CK_ULONG opaquekeylen;
@@ -810,19 +900,21 @@ static CK_RV cca_aes_xts_data_export_import_tests(void)
 
     for (keylen = 32; keylen <= 64; keylen += 32) {
 
-        testcase_begin("CCA export/import test with AES-XTS %u data key",
-                       8 * keylen / 2);
+        testcase_begin("CCA export/import test with AES-XTS-%u %s key",
+                       8 * keylen / 2,
+                       mode == CK_IBM_CCA_AES_DATA_KEY ? "DATA" : "CIPHER");
 
         // create ock aes key
 
-        rc = create_AESKey(session, CK_FALSE, key, keylen, CKK_AES_XTS, &hkey);
+        rc = create_cca_AESKey(session, CK_FALSE, key, keylen, CKK_AES_XTS,
+                               mode, &hkey);
         if (rc != CKR_OK) {
         if (rc == CKR_POLICY_VIOLATION) {
             testcase_skip("AES-XTS key generation is not allowed by policy");
             continue;
         }
 
-            testcase_error("create_AESKey() rc=%s", p11_get_ckr(rc));
+            testcase_error("create_cca_AESKey() rc=%s", p11_get_ckr(rc));
             goto error;
         }
 
@@ -859,7 +951,7 @@ static CK_RV cca_aes_xts_data_export_import_tests(void)
         snprintf(label, sizeof(label), "re-imported_aes-xts-%u_key",
                  8 * keylen / 8);
         rc = import_cca_aes_key(session, label, opaquekey, opaquekeylen, &hikey,
-                                CKK_AES_XTS);
+                                CKK_AES_XTS, mode);
         if (rc != CKR_OK) {
             testcase_fail("import_cca_aes_key rc=%s", p11_get_ckr(rc));
             goto error;
@@ -890,8 +982,48 @@ static CK_RV cca_aes_xts_data_export_import_tests(void)
             goto error;
         }
 
-        testcase_pass("CCA export/import test with AES-XTS %u data key: ok",
-                      8 * keylen / 2);
+        /* Set extractable to FALSE on original key */
+        rc = extract_restrict(session, hkey);
+        if (rc != CKR_OK) {
+            testcase_fail("extract_restrict rc=%s", p11_get_ckr(rc));
+            goto error;
+        }
+
+        /* Convert to CIPHER key */
+        rc = convert_to_cipher_key(session, hkey);
+        if (rc != CKR_OK) {
+            testcase_fail("extract_restrict rc=%s", p11_get_ckr(rc));
+            goto error;
+        }
+
+        /* encrypt some data with this converted key */
+
+        rc = funcs->C_EncryptInit(session, &mech, hkey);
+        if (rc != CKR_OK) {
+            testcase_error("C_EncryptInit rc=%s", p11_get_ckr(rc));
+            goto error;
+        }
+        ilen = len = sizeof(data);
+        rc = funcs->C_Encrypt(session, data, ilen, encdata3, &len);
+        if (rc != CKR_OK) {
+            testcase_error("C_Encrypt rc=%s", p11_get_ckr(rc));
+            goto error;
+        }
+        if (ilen != len) {
+            testcase_fail("plain and encrypted data len does not match");
+            goto error;
+        }
+
+        /* and check the encrypted data to be equal */
+
+        if (memcmp(encdata1, encdata3, len) != 0) {
+            testcase_fail("encrypted data from original and converted key is NOT the same");
+            goto error;
+        }
+
+        testcase_pass("CCA export/import test with AES-XTS-%u %s key: ok",
+                      8 * keylen / 2,
+                      mode == CK_IBM_CCA_AES_DATA_KEY ? "DATA" : "CIPHER");
 
 error:
         free(opaquekey);
@@ -911,101 +1043,6 @@ testcase_cleanup:
 out:
     return rc;
 }
-
-#if CCA_AES_CIPHER_KEY_SUPPORTED
-static CK_RV cca_aes_cipher_import_tests(void)
-{
-    CK_RV rc = CKR_OK;
-    CK_FLAGS flags;
-    CK_SESSION_HANDLE session;
-    CK_BYTE user_pin[PKCS11_MAX_PIN_LEN];
-    CK_ULONG user_pin_len;
-    CK_BYTE key[1024] = { 0 };
-    CK_BYTE iv[] = { 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
-                     0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f };
-    CK_MECHANISM mech = { CKM_AES_CBC, iv, sizeof(iv) };
-    CK_OBJECT_HANDLE hkey = CK_INVALID_HANDLE;
-    CK_BYTE data[160], encdata[160];
-    CK_ULONG ilen, len, keylen;
-    unsigned int i, keybitlen[] = { 128, 192, 256, 0 };
-    char filename[256], label[80];
-    FILE *f;
-
-    if (!is_cca_token(SLOT_ID)) {
-        testcase_skip("this slot is not a CCA token");
-        goto out;
-    }
-
-    testcase_rw_session();
-    testcase_user_login();
-
-    for (i = 0; keybitlen[i]; i++) {
-
-        testcase_begin("CCA import test with AES%u cipher key", keybitlen[i]);
-
-        // Opencryptoki can't create CCA AES cipher keys.
-        // So let's read a raw CCA AES cipher key from the pkey sysfs api
-
-        sprintf(filename, "/sys/devices/virtual/misc/pkey/ccacipher/ccacipher_aes_%u", keybitlen[i]);
-        f = fopen(filename, "r");
-        if (!f) {
-            testcase_error("Can't open file '%s'", filename);
-            goto error;
-        }
-        keylen = fread(key, 1, sizeof(key), f);
-        if (ferror(f) || keylen < 1) {
-            testcase_error("Can't read cipher key from file '%s'", filename);
-            fclose(f);
-            goto error;
-        }
-        fclose(f);
-
-        testcase_new_assertion();
-
-        // import this key into Opencryptoki as an AES key object :-)
-
-        snprintf(label, sizeof(label), "imported_aes%u_cipher_key", keybitlen[i]);
-        rc = import_cca_aes_cipher_key(session, label, key, keylen, keybitlen[i], &hkey);
-        if (rc != CKR_OK) {
-            testcase_fail("import_cca_aes_cipher_key rc=%s", p11_get_ckr(rc));
-            goto error;
-        }
-
-        // encrypt same data with this key just to make sure it is working
-
-        rc = funcs->C_EncryptInit(session, &mech, hkey);
-        if (rc != CKR_OK) {
-            testcase_error("C_EncryptInit rc=%s", p11_get_ckr(rc));
-            goto error;
-        }
-        ilen = len = sizeof(data);
-        rc = funcs->C_Encrypt(session, data, ilen, encdata, &len);
-        if (rc != CKR_OK) {
-            testcase_error("C_Encrypt rc=%s", p11_get_ckr(rc));
-            goto error;
-        }
-        if (ilen != len) {
-            testcase_fail("plain and encrypted data len does not match");
-            goto error;
-        }
-
-        // that's it here
-
-        testcase_pass("CCA import test with AES%u cipher key: ok", keybitlen[i]);
-
-error:
-        if (hkey != CK_INVALID_HANDLE) {
-            funcs->C_DestroyObject(session, hkey);
-            hkey = CK_INVALID_HANDLE;
-        }
-    }
-
-testcase_cleanup:
-    testcase_close_session();
-out:
-    return rc;
-}
-#endif
 
 static CK_RV cca_hmac_data_export_import_tests(void)
 {
@@ -1074,6 +1111,13 @@ static CK_RV cca_hmac_data_export_import_tests(void)
         rc = export_ibm_opaque(session, hkey, &opaquekey, &opaquekeylen);
         if (rc != CKR_OK) {
             testcase_fail("export_ibm_opaque rc=%s", p11_get_ckr(rc));
+            goto error;
+        }
+
+        /* Set extractable to FALSE */
+        rc = extract_restrict(session, hkey);
+        if (rc != CKR_OK) {
+            testcase_fail("extract_restrict rc=%s", p11_get_ckr(rc));
             goto error;
         }
 
@@ -1965,11 +2009,19 @@ static CK_RV cca_export_import_tests(void)
     if (rc != CKR_OK && rv == CKR_OK)
         rv = rc;
 
-    rc = cca_aes_data_export_import_tests();
+    rc = cca_aes_export_import_tests(CK_IBM_CCA_AES_DATA_KEY);
     if (rc != CKR_OK && rv == CKR_OK)
         rv = rc;
 
-    rc = cca_aes_xts_data_export_import_tests();
+    rc = cca_aes_xts_export_import_tests(CK_IBM_CCA_AES_DATA_KEY);
+    if (rc != CKR_OK && rv == CKR_OK)
+        rv = rc;
+
+    rc = cca_aes_export_import_tests(CK_IBM_CCA_AES_CIPHER_KEY);
+    if (rc != CKR_OK && rv == CKR_OK)
+        rv = rc;
+
+    rc = cca_aes_xts_export_import_tests(CK_IBM_CCA_AES_CIPHER_KEY);
     if (rc != CKR_OK && rv == CKR_OK)
         rv = rc;
 
@@ -1984,12 +2036,6 @@ static CK_RV cca_export_import_tests(void)
     rc = cca_ecc_export_import_tests();
     if (rc != CKR_OK && rv == CKR_OK)
         rv = rc;
-
-#if CCA_AES_CIPHER_KEY_SUPPORTED
-    rc = cca_aes_cipher_import_tests();
-    if (rc != CKR_OK && rv == CKR_OK)
-        rv = rc;
-#endif
 
     rc = cca_ibm_dilithium_export_import_tests();
     if (rc != CKR_OK && rv == CKR_OK)
