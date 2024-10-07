@@ -7178,7 +7178,8 @@ CK_RV aes_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
             return CKR_ATTRIBUTE_TYPE_INVALID;
         }
         if (mode == MODE_CREATE || mode == MODE_DERIVE ||
-            mode == MODE_KEYGEN || mode == MODE_UNWRAP) {
+            mode == MODE_KEYGEN || mode == MODE_UNWRAP ||
+            mode == MODE_COPY || mode == MODE_MODIFY) {
             if (attr->ulValueLen != sizeof(CK_IBM_CCA_AES_KEY_MODE_TYPE) ||
                 attr->pValue == NULL) {
                 TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
@@ -7186,6 +7187,12 @@ CK_RV aes_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
             }
             switch (*(CK_IBM_CCA_AES_KEY_MODE_TYPE *)attr->pValue) {
             case CK_IBM_CCA_AES_DATA_KEY:
+                /* Modify/Copy can only set it to mode CIPHER */
+                if (mode == MODE_COPY && mode == MODE_MODIFY) {
+                    TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
+                    return CKR_ATTRIBUTE_VALUE_INVALID;
+                }
+                return CKR_OK;
             case CK_IBM_CCA_AES_CIPHER_KEY:
                 return CKR_OK;
             default:
