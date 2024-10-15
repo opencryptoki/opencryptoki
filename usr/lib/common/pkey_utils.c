@@ -740,7 +740,6 @@ CK_RV pkey_aes_cmac(STDLL_TokData_t *tokdata, SESSION *session,
     CK_BYTE protkey[MAXPROTKEYSIZE];
     CK_ULONG protkey_len = sizeof(protkey);
     CK_BYTE *in_pos = message;
-    CK_BYTE *out_pos = cmac;
     CK_ULONG len = message_len;
 
     /* Determine clear key length */
@@ -794,7 +793,6 @@ CK_RV pkey_aes_cmac(STDLL_TokData_t *tokdata, SESSION *session,
                 memcpy(pb_lookup.keys, protkey, MIN(protkey_len, MAXPROTKEYSIZE));
             }
             in_pos += bytes_processed;
-            out_pos += bytes_processed;
             len -= bytes_processed;
             num_tries++;
         }
@@ -832,7 +830,6 @@ CK_RV pkey_aes_cmac(STDLL_TokData_t *tokdata, SESSION *session,
                         memcpy(pb_lookup.keys, protkey, MIN(protkey_len, MAXPROTKEYSIZE));
                     }
                     in_pos += bytes_processed;
-                    out_pos += bytes_processed;
                     len -= bytes_processed;
                     num_tries++;
                 }
