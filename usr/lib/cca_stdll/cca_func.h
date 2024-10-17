@@ -1274,3 +1274,35 @@ typedef void (*CSUACFV_t)(long *return_code,
                           unsigned char *exit_data,
                           long *version_data_length,
                           unsigned char *version_data);
+
+/* Restrict Key Attribute */
+typedef void (*CSNBRKA_t)(long *return_code,
+                          long *reason_code,
+                          long *exit_data_length,
+                          unsigned char *exit_data,
+                          long *rule_array_count,
+                          unsigned char *rule_array,
+                          long *key_identifier_length,
+                          unsigned char *key_identifier,
+                          long *ey_encrypting_key_identifier_length,
+                          unsigned char *ey_encrypting_key_identifier,
+                          long *opt_parameter1_length,
+                          unsigned char *opt_parameter1,
+                          long *opt_parameter2_length,
+                          unsigned char *opt_parameter2);
+
+/* Key Translate2 */
+typedef void (*CSNBKTR2_t)(long *return_code,
+                           long *reason_code,
+                           long *exit_data_length,
+                           unsigned char *exit_data,
+                           long *rule_array_count,
+                           unsigned char *rule_array,
+                           long *input_key_token_length,
+                           unsigned char *input_key_token,
+                           long *input_KEK_key_identifier_length,
+                           unsigned char *input_KEK_key_identifier,
+                           long *output_KEK_key_identifier_length,
+                           unsigned char *output_KEK_key_identifier,
+                           long *output_key_token_length,
+                           unsigned char *output_key_token);

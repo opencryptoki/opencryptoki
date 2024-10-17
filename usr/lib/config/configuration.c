@@ -552,8 +552,6 @@ confignode_allocidxstructdumpable(char *key, unsigned long num,
             confignode_append(&(res->base), &(eoc->base));
         } else {
             confignode_freeeoc(eoc);
-            if (cmt != NULL)
-                free(cmt);
             free(dkey);
         }
     } else {
@@ -592,8 +590,6 @@ confignode_allocstructdumpable(char *key,
             confignode_append(&(res->base), &(eoc->base));
         } else {
             confignode_freeeoc(eoc);
-            if (cmt != NULL)
-                free(cmt);
             free(dkey);
         }
     } else {
@@ -633,8 +629,6 @@ confignode_allocbarelistdumpable(char *key,
             confignode_append(&(res->base), &(eoc->base));
         } else {
             confignode_freeeoc(eoc);
-            if (cmt != NULL)
-                free(cmt);
             free(dkey);
         }
     } else {
@@ -783,8 +777,6 @@ confignode_allocnumpairlistdumpable(char *key, char* end,
             confignode_append(&(res->base), &(eoc->base));
         } else {
             confignode_freeeoc(eoc);
-            if (cmt != NULL)
-                free(cmt);
             free(dkey);
             free(dend);
         }

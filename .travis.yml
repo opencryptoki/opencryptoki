@@ -58,18 +58,18 @@ jobs:
           env: CONFIG_OPTS="--enable-swtok --enable-icsftok --enable-ccatok --enable-tpmtok --enable-icatok --enable-ep11tok --enable-testcases --with-systemd" CFLAGS="-O3 -Wno-clobbered -Werror"
 
 before_script:
-    - ./bootstrap.sh
+    - ./bootstrap.sh 2> >(tee)
 
 script:
-    - openssl version
-    - ./configure --silent $CONFIG_OPTS && make -j 5 V=0
-    - make check V=0
-    - sudo make install
-    - sudo ldconfig
-    - sudo pkcsslotd
-    - sudo pkcsconf -i
-    - sudo pkcsconf -s
-    - sudo pkcsconf -t
+    - openssl version 2> >(tee)
+    - ./configure --silent $CONFIG_OPTS 2> >(tee) && make -j 5 V=0 2> >(tee)
+    - make check V=0 2> >(tee)
+    - sudo make install 2> >(tee)
+    - sudo ldconfig 2> >(tee)
+    - sudo pkcsslotd 2> >(tee)
+    - sudo pkcsconf -i 2> >(tee)
+    - sudo pkcsconf -s 2> >(tee)
+    - sudo pkcsconf -t 2> >(tee)
     - cd testcases
     - sudo PKCS11_SO_PIN=76543210 PKCS11_USER_PIN=01234567 PKCSLIB=/usr/local/lib/pkcs11/libopencryptoki.so ./ock_tests.sh -s 3 | grep --line-buffered -A 2 -B 2 "SKIP\|FAIL\|ERROR\|Total=\|Now executing" | pv -t -i 1 -f
-    - sudo SLOT=3 PKCS11_USER_PIN=01234567 PKCS11_SO_PIN=76543210 PKCSLIB=/usr/local/lib/pkcs11/libopencryptoki.so ./misc_tests/p11sak_test.sh
+    - sudo SLOT=3 PKCS11_USER_PIN=01234567 PKCS11_SO_PIN=76543210 PKCSLIB=/usr/local/lib/pkcs11/libopencryptoki.so ./misc_tests/p11sak_test.sh 2> >(tee)
