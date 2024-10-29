@@ -1152,6 +1152,8 @@ CK_RV ecdh_pkcs_derive(STDLL_TokData_t *tokdata, SESSION *sess,
         TRACE_ERROR("template_update_attribute failed\n");
         free(value_attr);
         free(vallen_attr);
+        object_free(temp_obj);
+        temp_obj = NULL;
         goto end;
     }
 
@@ -1160,6 +1162,8 @@ CK_RV ecdh_pkcs_derive(STDLL_TokData_t *tokdata, SESSION *sess,
         if (rc != CKR_OK) {
             TRACE_ERROR("template_update_attribute failed\n");
             free(vallen_attr);
+            object_free(temp_obj);
+            temp_obj = NULL;
             goto end;
         }
     }
