@@ -124,6 +124,8 @@ CK_RV dh_pkcs_derive(STDLL_TokData_t *tokdata,
     if (rc != CKR_OK) {
         TRACE_ERROR("template_update_attribute failed\n");
         free(new_attr);
+        object_free(temp_obj);
+        temp_obj = NULL;
         return rc;
     }
 
