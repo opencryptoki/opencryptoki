@@ -15,7 +15,7 @@ This package includes several cryptographic tokens:
 CCA, ICA, TPM, SWToken, ICSF and EP11.
 
 For a more in-depth overview of openCryptoki, please refer to manual
-[openCryptoki - An Open Source Implementation of PKCS #11](https://www.ibm.com/docs/en/linux-on-systems?topic=11-version-317)
+[openCryptoki - An Open Source Implementation of PKCS #11](https://www.ibm.com/docs/en/linux-on-systems?topic=support-opencryptoki-open-source-pkcs-11)
 
 **Note:** The TPM token is deprecated, because it supports only TPM version 1.2.
 Does not work with TPM version 2.0. We plan to remove the TPM token in a future 
