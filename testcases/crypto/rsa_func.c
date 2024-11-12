@@ -1536,6 +1536,10 @@ CK_RV do_WrapUnwrapRSA(struct GENERATED_TEST_SUITE_INFO * tsuite)
                               "and/or MGF other than SHA-1");
                 goto tv_cleanup;
             }
+            if (rc == CKR_KEY_NOT_WRAPPABLE && is_cca_token(slot_id)) {
+                testcase_skip("CCA Token does not support to wrap CIPHER keys");
+                goto tv_cleanup;
+            }
 
             testcase_error("C_WrapKey(), rc=%s.", p11_get_ckr(rc));
             goto error;
