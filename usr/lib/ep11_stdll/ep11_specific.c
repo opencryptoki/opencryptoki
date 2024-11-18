@@ -6430,7 +6430,7 @@ static CK_RV ep11tok_kyber_mech_pre_process(STDLL_TokData_t *tokdata,
         return CKR_MECHANISM_PARAM_INVALID;
     }
 
-    if (kyber_params->bPrepend) {
+    if (kyber_params->hSecret != CK_INVALID_HANDLE) {
         rc = h_opaque_2_blob(tokdata, kyber_params->hSecret,
                              &mech_ep11->params.pBlob,
                              &mech_ep11->params.ulBlobLen,
