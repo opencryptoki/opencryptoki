@@ -57,30 +57,31 @@ typedef struct kemParam {
     CK_ULONG shard_data_len;
     CK_BYTE shared_data[32];
     CK_BBOOL hybrid;
+    CK_BBOOL prepend;
 } _kemParam;
 
 const _kemParam kemInput[] = {
-    { CKD_NULL, 32, 0, {0x00}, CK_FALSE },
-    { CKD_IBM_HYBRID_SHA1_KDF, 16, 0, {0x00}, CK_TRUE },
+    { CKD_NULL, 32, 0, {0x00}, CK_FALSE, CK_FALSE },
+    { CKD_IBM_HYBRID_SHA1_KDF, 16, 0, {0x00}, CK_TRUE, CK_FALSE },
     { CKD_IBM_HYBRID_SHA1_KDF, 32, 16,
       { 0x32,0x3F,0xA3,0x16,0x9D,0x8E,0x9C,0x65,0x93,0xF5,0x94,0x76,0xBC,0x14,0x20,0x00 },
-      CK_TRUE },
-    { CKD_IBM_HYBRID_SHA224_KDF, 16, 0, {0x00}, CK_TRUE },
+      CK_TRUE, CK_TRUE },
+    { CKD_IBM_HYBRID_SHA224_KDF, 16, 0, {0x00}, CK_TRUE, CK_FALSE },
     { CKD_IBM_HYBRID_SHA224_KDF, 32, 16,
       { 0x32,0x3F,0xA3,0x16,0x9D,0x8E,0x9C,0x65,0x93,0xF5,0x94,0x76,0xBC,0x14,0x20,0x00 },
-      CK_TRUE },
-    { CKD_IBM_HYBRID_SHA256_KDF, 16, 0, {0x00}, CK_TRUE },
+      CK_TRUE, CK_TRUE },
+    { CKD_IBM_HYBRID_SHA256_KDF, 16, 0, {0x00}, CK_TRUE, CK_FALSE },
     { CKD_IBM_HYBRID_SHA256_KDF, 32, 16,
       { 0x32,0x3F,0xA3,0x16,0x9D,0x8E,0x9C,0x65,0x93,0xF5,0x94,0x76,0xBC,0x14,0x20,0x00 },
-      CK_TRUE },
-    { CKD_IBM_HYBRID_SHA384_KDF, 16, 0, {0x00}, CK_TRUE },
+      CK_TRUE, CK_TRUE },
+    { CKD_IBM_HYBRID_SHA384_KDF, 16, 0, {0x00}, CK_TRUE, CK_FALSE },
     { CKD_IBM_HYBRID_SHA384_KDF, 32, 16,
       { 0x32,0x3F,0xA3,0x16,0x9D,0x8E,0x9C,0x65,0x93,0xF5,0x94,0x76,0xBC,0x14,0x20,0x00 },
-      CK_TRUE },
-    { CKD_IBM_HYBRID_SHA512_KDF, 16, 0, {0x00}, CK_TRUE },
+      CK_TRUE, CK_TRUE },
+    { CKD_IBM_HYBRID_SHA512_KDF, 16, 0, {0x00}, CK_TRUE, CK_FALSE },
     { CKD_IBM_HYBRID_SHA512_KDF, 32, 16,
       { 0x32,0x3F,0xA3,0x16,0x9D,0x8E,0x9C,0x65,0x93,0xF5,0x94,0x76,0xBC,0x14,0x20,0x00 },
-      CK_TRUE },
+      CK_TRUE, CK_TRUE },
 };
 
 static const char *p11_get_ckd(CK_EC_KDF_TYPE kdf)
@@ -250,6 +251,7 @@ CK_RV run_EnDecapsulateKyber(CK_SESSION_HANDLE session,
                              CK_ULONG secret_key_len,
                              CK_IBM_KYBER_KDF_TYPE kdf,
                              CK_BBOOL hybrid,
+                             CK_BBOOL prepend,
                              const CK_BYTE *pSharedData,
                              CK_ULONG ulSharedDataLen,
                              const CK_BYTE *pCipher,
@@ -315,7 +317,7 @@ CK_RV run_EnDecapsulateKyber(CK_SESSION_HANDLE session,
     kyber_params.kdf = kdf;
     kyber_params.pSharedData = (CK_BYTE *)pSharedData;
     kyber_params.ulSharedDataLen = ulSharedDataLen;
-    kyber_params.bPrepend = (hybrid_key != CK_INVALID_HANDLE);
+    kyber_params.bPrepend = prepend;
     kyber_params.hSecret = hybrid_key;
 
     /* Size query */
@@ -355,7 +357,7 @@ decapsulate:
     kyber_params.kdf = kdf;
     kyber_params.pSharedData = (CK_BYTE *)pSharedData;
     kyber_params.ulSharedDataLen = ulSharedDataLen;
-    kyber_params.bPrepend = (hybrid_key != CK_INVALID_HANDLE);
+    kyber_params.bPrepend = prepend;
     kyber_params.hSecret = hybrid_key;
     kyber_params.ulCipherLen = cipher_len;
     kyber_params.pCipher = cipher;
@@ -630,6 +632,7 @@ CK_RV run_GenerateKyberKeyPairEnDecryptKEM(void)
                                         kemInput[j].secret_key_len,
                                         kemInput[j].kdf,
                                         kemInput[j].hybrid,
+                                        kemInput[j].prepend,
                                         kemInput[j].shared_data,
                                         kemInput[j].shard_data_len,
                                         NULL, 0, NULL, 0);
@@ -751,7 +754,7 @@ CK_RV run_ImportKyberKeyPairKEM(void)
         testcase_new_assertion();
         rc = run_EnDecapsulateKyber(session, priv_key, publ_key,
                                     kyber_tv[i].secret_len,
-                                    CKD_NULL, CK_FALSE, NULL, 0,
+                                    CKD_NULL, CK_FALSE, CK_FALSE, NULL, 0,
                                     kyber_tv[i].cipher, kyber_tv[i].cipher_len,
                                     kyber_tv[i].secret, kyber_tv[i].secret_len);
         if (rc != 0) {
@@ -1036,7 +1039,7 @@ CK_RV run_TransferKyberKeyPair(void)
         testcase_new_assertion();
         rc = run_EnDecapsulateKyber(session, unwrapped_key, publ_key,
                                     kyber_tv[i].secret_len,
-                                    CKD_NULL, CK_FALSE, NULL, 0,
+                                    CKD_NULL, CK_FALSE, CK_FALSE, NULL, 0,
                                     kyber_tv[i].cipher, kyber_tv[i].cipher_len,
                                     kyber_tv[i].secret, kyber_tv[i].secret_len);
         if (rc != 0) {
