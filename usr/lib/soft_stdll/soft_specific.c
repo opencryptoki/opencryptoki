@@ -276,6 +276,9 @@ CK_RV token_specific_init(STDLL_TokData_t *tokdata, CK_SLOT_ID SlotNumber,
                           char *conf_name)
 {
     struct soft_private_data *soft_private;
+#if OPENSSL_VERSION_PREREQ(3, 0)
+    const struct pqc_oid *oid;
+#endif
     CK_RV rc;
 
     UNUSED(conf_name);
@@ -304,12 +307,25 @@ CK_RV token_specific_init(STDLL_TokData_t *tokdata, CK_SLOT_ID SlotNumber,
      * and configured separately, it does not come with OpenSSL 3.x by default.
      * If loading the 'oqsprovider' fails, this is not an error, it just means
      * that the soft token does not support any quantum safe mechanisms.
+     * Also check if the 'oqsprovider' does support the Dilithium R3_44 variant.
+     * If not don't consider it loaded, because it can't support any of the
+     * Dilithium variants supported by the Soft token.
      */
     soft_private->oqs_provider = OSSL_PROVIDER_load(NULL, "oqsprovider");
     if (soft_private->oqs_provider == NULL) {
         TRACE_DEVEL("OSSL_PROVIDER_load for 'oqsprovider' failed, no quantum "
                     "safe mechanisms are supported.\n");
         ERR_pop_to_mark();
+    } else {
+        oid = find_pqc_by_keyform(dilithium_oids,
+                                  CK_IBM_DILITHIUM_KEYFORM_ROUND3_44);
+        if (oid == NULL || openssl_get_pqc_oid_name(oid) == NULL) {
+            OSSL_PROVIDER_unload(soft_private->oqs_provider);
+            soft_private->oqs_provider = NULL;
+            TRACE_DEVEL("The 'oqsprovider' does not support Dilithium R3_44, "
+                        "no quantum safe mechanisms are supported.\n");
+            ERR_pop_to_mark();
+        }
     }
 #endif
 
