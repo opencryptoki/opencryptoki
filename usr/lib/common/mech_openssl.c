@@ -5744,6 +5744,8 @@ const char *openssl_get_pqc_oid_name(const struct pqc_oid *oid)
 {
     const CK_BYTE *poid = oid->oid;
     ASN1_OBJECT *obj = NULL;
+    const char *alg_name;
+    EVP_PKEY_CTX *ctx = NULL;
     int nid;
 
     if (d2i_ASN1_OBJECT(&obj, &poid, oid->oid_len) == NULL)
@@ -5755,7 +5757,17 @@ const char *openssl_get_pqc_oid_name(const struct pqc_oid *oid)
     if (nid == NID_undef)
         return NULL;
 
-    return OBJ_nid2ln(nid);
+    alg_name = OBJ_nid2ln(nid);
+    if (alg_name == NULL)
+        return NULL;
+
+    /* Try to fetch that algorithm to check if it is really supported */
+    ctx = EVP_PKEY_CTX_new_from_name(NULL, alg_name, NULL);
+    if (ctx == NULL)
+        alg_name = NULL;
+    EVP_PKEY_CTX_free(ctx);
+
+    return alg_name;
 }
 
 static CK_RV get_key_from_pkey(EVP_PKEY *pkey, const char *param,
