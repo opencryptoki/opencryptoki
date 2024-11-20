@@ -208,6 +208,34 @@ struct cca_key_derivation_data {
 #define CCA_KEY_DERIVE_TYPE_DATA     0x01 /* DATA key */
 #define CCA_KEY_DERIVE_TYPE_CIPHER   0x04 /* CIPHER key */
 
+struct cca_acp_segment {
+    uint16_t       start_bit_no;
+    uint16_t       end_bit_no;
+    uint16_t       num_bytes;
+    uint16_t       reserved;
+} __attribute__ ((__packed__));
+
+#define ACP_BYTE_NO(acp)      ((acp) / 8)
+#define ACP_BIT_IN_BYTE(acp)  ((acp) % 8)
+#define ACP_BIT_MASK(acp)     (0x80 >> ACP_BIT_IN_BYTE(acp))
+
+struct cca_role_data {
+    uint16_t       version;            /* 0x0101 */
+    char           comment[20];
+    uint16_t       auth_level;
+    uint16_t       lower_time_limit;   /* 0xhhmm */
+    uint16_t       upper_time_limit;   /* 0xhhmm */
+    uint8_t        days_valid;         /* 7 bits, Sunday, Monday ... Saturday */
+    uint16_t       num_segments;
+    uint16_t       reserved;
+} __attribute__ ((__packed__));
+
+struct cca_acp_info {
+    CK_BBOOL acp_03B8; /* Symmetric Key Export - AES, CKM-RAKW */
+    CK_BBOOL acp_03CD; /* Permit import of an AES key token from a PKCS#11
+                          CKM_RSA_AES_KEY_WRAP object */
+};
+
 /* CCA STDLL constants */
 
 #define CCATOK_MAX_N_LEN  512
@@ -334,6 +362,8 @@ struct cca_private_data {
     int msa_level;
     CK_BBOOL cka_sensitive_default_true;
     int aes_key_mode;
+    pthread_rwlock_t acp_info_rwlock;
+    struct cca_acp_info acp_info;
 };
 
 #define CCA_CFG_EXPECTED_MKVPS  "EXPECTED_MKVPS"

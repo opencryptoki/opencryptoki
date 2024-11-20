@@ -4366,6 +4366,204 @@ done:
     return ret;
 }
 
+static CK_BBOOL cca_get_acp(struct cca_role_data *role_data,
+                            CK_ULONG role_data_size, CK_ULONG acp_num)
+{
+    struct cca_acp_segment *acp_segment;
+    CK_BBOOL ret = CK_FALSE, found = CK_FALSE;
+    CK_BYTE *bitmap;
+    CK_ULONG i, ofs, bit_no;
+
+    if (role_data == NULL || role_data_size < sizeof(struct cca_role_data))
+        goto out;
+
+    ofs = sizeof(struct cca_role_data);
+    for (i = 0; i < role_data->num_segments && ofs < role_data_size; i++) {
+        if (ofs + sizeof(struct cca_acp_segment) > role_data_size)
+            goto out;
+
+        acp_segment =
+              (struct cca_acp_segment *)((CK_BYTE*)role_data + ofs);
+        ofs += sizeof(struct cca_acp_segment);
+
+        if (acp_num >= acp_segment->start_bit_no &&
+            acp_num <= acp_segment->end_bit_no) {
+            if (ofs + acp_segment->num_bytes > role_data_size)
+                goto out;
+
+            bitmap = ((CK_BYTE *)acp_segment) + sizeof(struct cca_acp_segment);
+            bit_no = acp_num - acp_segment->start_bit_no;
+
+            if (ACP_BYTE_NO(bit_no) > acp_segment->num_bytes)
+                goto out;
+
+            ret = (bitmap[ACP_BYTE_NO(bit_no)] & ACP_BIT_MASK(bit_no)) != 0;
+            found = CK_TRUE;
+            goto out;
+        }
+
+        ofs += acp_segment->num_bytes;
+    }
+
+out:
+    TRACE_DEVEL("ACP 0x%04lx: %s %s\n", acp_num, ret ? "enabled" : "disabled",
+                found ? "" : "(not in any segment)");
+
+    return ret;
+}
+
+typedef struct {
+    CK_BBOOL acps_set;
+    struct cca_acp_info acp_info;
+} cca_acp_info_data_t;
+
+/*
+ * Callback function used by cca_get_acp_infos() to determine the
+ * minimum ACP settings among all available APQNs.
+ */
+static CK_RV cca_get_acp_info_handler(STDLL_TokData_t *tokdata,
+                                      const char *adapter,
+                                      unsigned short card,
+                                      unsigned short domain,
+                                      void *handler_data)
+{
+    cca_acp_info_data_t *data = (cca_acp_info_data_t *)handler_data;
+    unsigned char rule_array[CCA_RULE_ARRAY_SIZE] = { 0, };
+    unsigned char role_name[8] = { 0 };
+    unsigned char roles_data[4000], role_data[4000];
+    long return_code, reason_code, rule_array_count, roles_data_len;
+    long i, role_data_len;
+    struct cca_role_data *role_info;
+    CK_BBOOL found = CK_FALSE;
+
+    UNUSED(tokdata);
+    UNUSED(adapter);
+
+    TRACE_DEBUG("APQN %02X.%04X (adapter '%s')\n", card, domain, adapter);
+
+    memcpy(rule_array, "LSTROLES", CCA_KEYWORD_SIZE);
+    rule_array_count = 1;
+    roles_data_len = sizeof(roles_data);
+
+    dll_CSUAACM(&return_code, &reason_code,
+                NULL, NULL,
+                &rule_array_count, rule_array,
+                role_name,
+                &roles_data_len, roles_data);
+
+    if (return_code != CCA_SUCCESS) {
+        TRACE_ERROR("CSUAACM (LSTROLES) failed for of APQN %02X.%04X. "
+                    "return:%ld, reason:%ld\n", card, domain,
+                    return_code, reason_code);
+        return CKR_FUNCTION_FAILED;
+    }
+
+    for (i = 0; i < roles_data_len / 8; i++) {
+        memcpy(role_name, &roles_data[i * 8], 8);
+        TRACE_DEVEL("Found role '%.8s' for APQN %02X.%04X\n", role_name,
+                    card, domain);
+
+        memcpy(rule_array, "GET-ROLE", CCA_KEYWORD_SIZE);
+        rule_array_count = 1;
+        role_data_len = sizeof(role_data);
+
+        dll_CSUAACM(&return_code, &reason_code,
+                    NULL, NULL,
+                    &rule_array_count, rule_array,
+                    role_name,
+                    &role_data_len, role_data);
+
+        if (return_code != CCA_SUCCESS) {
+            TRACE_ERROR("CSUAACM (GET-ROLE) failed for APQN %02X.%04X. "
+                        "return:%ld, reason:%ld\n", card, domain,
+                        return_code, reason_code);
+            return CKR_FUNCTION_FAILED;
+        }
+
+        TRACE_DEBUG_DUMP("Role-Data: ", (CK_BYTE *)role_data, role_data_len);
+
+        if (role_data_len < (long)sizeof(struct cca_role_data)) {
+            TRACE_ERROR("No role data is available for APQN %02X.%04X\n",
+                        card, domain);
+            return CKR_FUNCTION_FAILED;
+        }
+
+        role_info = (struct cca_role_data *)role_data;
+
+        /* Identify default role */
+        if ((memcmp(role_name, "DFLT", 4) != 0 &&    /* since z13 */
+             memcmp(role_name, "DEFALT", 6) != 0) || /* before z13 */
+            role_info->lower_time_limit != 0x0000 ||
+            (role_info->upper_time_limit != 0x0000 &&
+             role_info->upper_time_limit != 0x173b) || /* 23:59 */
+            role_info->days_valid != 0xfe)
+            continue;
+
+        TRACE_DEVEL("Using ACPs of default role '%.8s' of APQN %02X.%04X\n",
+                    role_name, card, domain);
+
+        data->acp_info.acp_03B8 &= cca_get_acp(role_info, role_data_len, 0x3B8);
+        data->acp_info.acp_03CD &= cca_get_acp(role_info, role_data_len, 0x3CD);
+
+        data->acps_set = CK_TRUE;
+        found = CK_TRUE;
+        break;
+    }
+
+    if (!found) {
+        TRACE_ERROR("No default role found\n");
+        return CKR_FUNCTION_FAILED;
+    }
+
+    return CKR_OK;
+}
+
+/* Called during token_specific_init() , no need to obtain CCA adapter lock */
+static CK_RV cca_get_acp_infos(STDLL_TokData_t *tokdata)
+{
+    struct cca_private_data *cca_private = tokdata->private_data;
+    cca_acp_info_data_t acp_info_data;
+    CK_RV ret;
+
+    /* Determine min ACP setting by iterating over all APQNs */
+    memset(&acp_info_data, 0, sizeof(cca_acp_info_data_t));
+    acp_info_data.acp_info.acp_03B8 = CK_TRUE;
+    acp_info_data.acp_info.acp_03CD = CK_TRUE;
+
+    ret = cca_iterate_adapters(tokdata, cca_get_acp_info_handler,
+                               &acp_info_data);
+
+    if (ret != CKR_OK || acp_info_data.acps_set == 0) {
+        TRACE_ERROR("cca_iterate_adapters failed, could not determine ACPs.\n");
+        ret = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+
+    TRACE_DEVEL("ACP 0x03B8: %s\n",
+                acp_info_data.acp_info.acp_03B8 ? "enabled" : "disabled");
+    TRACE_DEVEL("ACP 0x03CD: %s\n",
+                acp_info_data.acp_info.acp_03CD ? "enabled" : "disabled");
+
+    /* Update ACP infos in cca_private_data, needs write-lock. */
+    if (pthread_rwlock_wrlock(&cca_private->acp_info_rwlock) != 0) {
+        TRACE_ERROR("CCA acp_info RW-lock failed.\n");
+        ret = CKR_CANT_LOCK;
+        goto done;
+    }
+
+    cca_private->acp_info = acp_info_data.acp_info;
+    if (pthread_rwlock_unlock(&cca_private->acp_info_rwlock) != 0) {
+        TRACE_ERROR("CCA acp_info RW-unlock failed.\n");
+        ret = CKR_CANT_LOCK;
+        goto done;
+    }
+
+    ret = CKR_OK;
+
+done:
+    return ret;
+}
+
 static CK_BBOOL cca_pqc_strength_supported(STDLL_TokData_t * tokdata,
                                            CK_MECHANISM_TYPE mech,
                                            CK_ULONG keyform)
@@ -4574,6 +4772,16 @@ CK_RV token_specific_init(STDLL_TokData_t * tokdata, CK_SLOT_ID SlotNumber,
     if (rc != CKR_OK)
         goto error;
 
+    if (pthread_rwlock_init(&cca_private->acp_info_rwlock, NULL) != 0) {
+        TRACE_ERROR("Initializing the acp_info RW-Lock failed\n");
+        rc = CKR_CANT_LOCK;
+        goto error;
+    }
+
+    rc = cca_get_acp_infos(tokdata);
+    if (rc != CKR_OK)
+        goto error;
+
 #ifndef NO_PKEY
     cca_private->msa_level = get_msa_level();
     TRACE_INFO("MSA level = %i\n", cca_private->msa_level);
@@ -4642,10 +4850,10 @@ CK_RV token_specific_final(STDLL_TokData_t *tokdata,
 #ifndef NO_PKEY
         if (cca_private->pkeyfd >= 0)
             close(cca_private->pkeyfd);
-
-        pthread_rwlock_destroy(&cca_private->min_card_version_rwlock);
 #endif
 
+        pthread_rwlock_destroy(&cca_private->min_card_version_rwlock);
+        pthread_rwlock_destroy(&cca_private->acp_info_rwlock);
         pthread_rwlock_destroy(&cca_private->pkey_rwlock);
 
         free(cca_private);
@@ -13397,6 +13605,13 @@ static CK_RV cca_handle_apqn_event(STDLL_TokData_t *tokdata,
     if (__sync_fetch_and_and(&cca_private->inconsistent, FALSE) == TRUE) {
         TRACE_INFO("CCA master key setup is now consistent again\n");
         OCK_SYSLOG(LOG_INFO, "CCA master key setup is now consistent again\n");
+    }
+
+    /* Get ACP infos again after APQN set changed */
+    rc = cca_get_acp_infos(tokdata);
+    if (rc != CKR_OK) {
+        TRACE_WARNING("Could not re-determine min ACP settings\n");
+        return rc;
     }
 
     /* Re-check after APQN set change if protected key support is available */
