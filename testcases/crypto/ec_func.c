@@ -1078,7 +1078,7 @@ CK_RV run_DeriveECDHKey(void)
                         }
 
                         if (enc1_len != enc2_len ||
-                            memcmp(enc1, enc2, mac1_len) != 0) {
+                            memcmp(enc1, enc2, enc1_len) != 0) {
                             testcase_fail("ERROR: derived keys do not produce the "
                                           "same encrypted cipher text");
                             goto testcase_cleanup;
