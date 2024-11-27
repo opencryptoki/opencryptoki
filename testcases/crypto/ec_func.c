@@ -965,6 +965,11 @@ CK_RV run_DeriveECDHKey(void)
                             testcase_skip("key derivation is not allowed by policy");
                             continue;
                         }
+                        if (rc == CKR_FUNCTION_CANCELED) {
+                            testcase_skip("key derivation is not allowed by "
+                                          "adapter control point");
+                            continue;
+                        }
 
                         testcase_fail("C_DeriveKey #1: rc = %s",
                                       p11_get_ckr(rc));
@@ -1034,6 +1039,13 @@ CK_RV run_DeriveECDHKey(void)
                         }
                         if (is_rejected_by_policy(rc, session)) {
                             testcase_skip("key derivation is not allowed by policy");
+                            if (secret_keyA != CK_INVALID_HANDLE)
+                                funcs->C_DestroyObject(session, secret_keyA);
+                            continue;
+                        }
+                        if (rc == CKR_FUNCTION_CANCELED) {
+                            testcase_skip("key derivation is not allowed by "
+                                          "adapter control point");
                             if (secret_keyA != CK_INVALID_HANDLE)
                                 funcs->C_DestroyObject(session, secret_keyA);
                             continue;
