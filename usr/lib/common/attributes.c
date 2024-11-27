@@ -342,33 +342,34 @@ CK_RV validate_attribute_array(CK_ATTRIBUTE_PTR attrs, CK_ULONG num_attrs)
     CK_RV rc;
 
     if (num_attrs > 0 && attrs == NULL) {
-        TRACE_ERROR("%s\n", ock_err(CKR_ATTRIBUTE_VALUE_INVALID));
+        TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
         return CKR_ATTRIBUTE_VALUE_INVALID;
     }
 
     for (i = 0; i < num_attrs; i++) {
         if (!is_attribute_defined(attrs[i].type)) {
             TRACE_ERROR("%s: element %lu\n",
-                        ock_err(CKR_ATTRIBUTE_TYPE_INVALID), i);
+                        ock_err(ERR_ATTRIBUTE_TYPE_INVALID), i);
             return CKR_ATTRIBUTE_TYPE_INVALID;
         }
 
         if (attrs[i].ulValueLen > 0 && attrs[i].pValue == NULL) {
             TRACE_ERROR("%s: element %lu\n",
-                        ock_err(CKR_ATTRIBUTE_VALUE_INVALID), i);
+                        ock_err(ERR_ATTRIBUTE_VALUE_INVALID), i);
             return CKR_ATTRIBUTE_VALUE_INVALID;
         }
 
         if (is_attribute_attr_array(attrs[i].type)) {
             if (attrs[i].ulValueLen % sizeof(CK_ATTRIBUTE)) {
                 TRACE_ERROR("%s: element %lu\n",
-                            ock_err(CKR_ATTRIBUTE_VALUE_INVALID), i);
+                            ock_err(ERR_ATTRIBUTE_VALUE_INVALID), i);
                 return CKR_ATTRIBUTE_VALUE_INVALID;
             }
             rc = validate_attribute_array((CK_ATTRIBUTE_PTR)attrs[i].pValue,
                                 attrs[i].ulValueLen / sizeof(CK_ATTRIBUTE));
             if (rc != CKR_OK) {
-                TRACE_ERROR("%s: element %lu\n", ock_err(rc), i);
+                TRACE_ERROR("validate_attribute_array rc=0x%lx: element %lu\n",
+                            rc, i);
                 return rc;
             }
         }

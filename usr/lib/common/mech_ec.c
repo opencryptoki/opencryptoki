@@ -653,7 +653,7 @@ static CK_RV ckm_kdf(STDLL_TokData_t *tokdata, SESSION *sess, CK_ULONG kdf,
     rc = digest_mgr_digest(tokdata, sess, FALSE, &ctx, data, data_len, hash,
                            h_len);
     if (rc != CKR_OK) {
-        TRACE_ERROR("digest_mgr_digest failed with rc = %s\n", ock_err(rc));
+        TRACE_ERROR("digest_mgr_digest failed with rc=0x%lx\n", rc);
         digest_mgr_cleanup(tokdata, sess, &ctx);
         return rc;
     }
@@ -1010,7 +1010,7 @@ CK_RV ecdh_pkcs_derive(STDLL_TokData_t *tokdata, SESSION *sess,
     rc = object_mgr_create_skel(tokdata, sess, pTemplate, ulCount, MODE_DERIVE,
                                 class, keytype, &temp_obj);
     if (rc != CKR_OK) {
-        TRACE_ERROR("Object Mgr create skeleton failed, rc=%s.\n", ock_err(rc));
+        TRACE_ERROR("Object Mgr create skeleton failed, rc=0x%lx.\n", rc);
         return rc;
     }
 
@@ -1019,7 +1019,7 @@ CK_RV ecdh_pkcs_derive(STDLL_TokData_t *tokdata, SESSION *sess,
                                                    pParms, temp_obj,
                                                    class, keytype);
         if (rc != CKR_OK) {
-            TRACE_ERROR("t_ecdh_pkcs_derive_kdf failed, rc=%s.\n", ock_err(rc));
+            TRACE_ERROR("t_ecdh_pkcs_derive_kdf failed, rc=0x%lx.\n", rc);
             goto end;
         }
 
@@ -1135,8 +1135,8 @@ CK_RV ecdh_pkcs_derive(STDLL_TokData_t *tokdata, SESSION *sess,
     /* Return the hashed and truncated derived bytes as CKA_VALUE attribute */
     rc = build_attribute(CKA_VALUE, derived_key, key_len, &value_attr);
     if (rc != CKR_OK) {
-        TRACE_ERROR("Failed to build the attribute from CKA_VALUE, rc=%s.\n",
-                    ock_err(rc));
+        TRACE_ERROR("Failed to build the attribute from CKA_VALUE, rc=0x%lx.\n",
+                    rc);
         goto end;
     }
 
@@ -1148,8 +1148,8 @@ CK_RV ecdh_pkcs_derive(STDLL_TokData_t *tokdata, SESSION *sess,
         rc = build_attribute(CKA_VALUE_LEN, (CK_BYTE*)&key_len,
                              sizeof(key_len), &vallen_attr);
         if (rc != CKR_OK) {
-            TRACE_ERROR("Failed to build the attribute from CKA_VALUE_LEN, rc=%s.\n",
-                        ock_err(rc));
+            TRACE_ERROR("Failed to build the attribute from CKA_VALUE_LEN, "
+                        "rc=0x%lx.\n", rc);
             free(value_attr);
             goto end;
         }
@@ -1181,7 +1181,7 @@ derive_done:
      * handle and store the key */
     rc = object_mgr_create_final(tokdata, sess, temp_obj, derived_key_obj);
     if (rc != CKR_OK) {
-        TRACE_ERROR("Object Mgr create final failed, rc=%s.\n", ock_err(rc));
+        TRACE_ERROR("Object Mgr create final failed, rc=0x%lx.\n", rc);
         goto end;
     }
     temp_obj = NULL;

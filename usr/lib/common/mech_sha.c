@@ -677,7 +677,7 @@ CK_RV ckm_sha_derive(STDLL_TokData_t *tokdata, SESSION *sess,
                            base_key_value->pValue, base_key_value->ulValueLen,
                            derived_key_value, &hsize);
     if (rc != CKR_OK) {
-        TRACE_ERROR("digest_mgr_digest failed with rc = %s\n", ock_err(rc));
+        TRACE_ERROR("digest_mgr_digest failed with rc=0x%lx\n", rc);
         digest_mgr_cleanup(tokdata, sess, &ctx);
         return rc;
     }
@@ -685,8 +685,8 @@ CK_RV ckm_sha_derive(STDLL_TokData_t *tokdata, SESSION *sess,
     rc = build_attribute(CKA_VALUE, derived_key_value, derived_keylen,
                          &value_attr);
     if (rc != CKR_OK) {
-        TRACE_ERROR("Failed to build the attribute from CKA_VALUE, rc=%s.\n",
-                    ock_err(rc));
+        TRACE_ERROR("Failed to build the attribute from CKA_VALUE, rc=0x%lx.\n",
+                    rc);
         return rc;
     }
 
@@ -699,7 +699,7 @@ CK_RV ckm_sha_derive(STDLL_TokData_t *tokdata, SESSION *sess,
                              sizeof(derived_keylen), &vallen_attr);
         if (rc != CKR_OK) {
             TRACE_ERROR("Failed to build the attribute from CKA_VALUE_LEN, "
-                        "rc=%s.\n", ock_err(rc));
+                        "rc=0x%lx.\n", rc);
             goto end;
         }
         break;
@@ -751,7 +751,7 @@ CK_RV ckm_sha_derive(STDLL_TokData_t *tokdata, SESSION *sess,
     rc = object_mgr_create_final(tokdata, sess, derived_key_obj,
                                  derived_key_handle);
     if (rc != CKR_OK) {
-        TRACE_ERROR("Object Mgr create final failed, rc=%s.\n", ock_err(rc));
+        TRACE_ERROR("Object Mgr create final failed, rc=0x%lx.\n", rc);
         goto end;
     }
 
@@ -901,7 +901,7 @@ CK_RV ckm_shake_derive(STDLL_TokData_t *tokdata, SESSION *sess,
                                 CKO_SECRET_KEY, derived_keytype,
                                 &derived_key_obj);
     if (rc != CKR_OK) {
-        TRACE_ERROR("Object Mgr create skeleton failed, rc=%s.\n", ock_err(rc));
+        TRACE_ERROR("Object Mgr create skeleton failed, rc=0x%lx.\n", rc);
         return rc;
     }
 
@@ -925,7 +925,7 @@ CK_RV ckm_shake_derive(STDLL_TokData_t *tokdata, SESSION *sess,
     rc = object_mgr_create_final(tokdata, sess, derived_key_obj,
                                  derived_key_handle);
     if (rc != CKR_OK) {
-        TRACE_ERROR("Object Mgr create final failed, rc=%s.\n", ock_err(rc));
+        TRACE_ERROR("Object Mgr create final failed, rc=0x%lx.\n", rc);
         goto end;
     }
 

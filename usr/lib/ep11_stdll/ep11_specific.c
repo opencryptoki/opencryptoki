@@ -5177,7 +5177,7 @@ retry_xts:
             goto retry_xts;
 
         if (blobsize + blobsize2 > MAX_BLOBSIZE) {
-            TRACE_ERROR("%s\n", ock_err(CKR_HOST_MEMORY));
+            TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
             rc = CKR_HOST_MEMORY;
             goto error;
         }

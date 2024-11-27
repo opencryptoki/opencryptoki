@@ -1918,8 +1918,8 @@ static CK_RV ica_specific_shake_key_derive(STDLL_TokData_t *tokdata,
     rc = build_attribute(CKA_VALUE, derived_key_value, derived_key_len,
                          &value_attr);
     if (rc != CKR_OK) {
-        TRACE_ERROR("Failed to build the attribute from CKA_VALUE, rc=%s.\n",
-                    ock_err(rc));
+        TRACE_ERROR("Failed to build the attribute from CKA_VALUE, rc=0x%lx.\n",
+                    rc);
         goto out;
     }
 
@@ -1932,7 +1932,7 @@ static CK_RV ica_specific_shake_key_derive(STDLL_TokData_t *tokdata,
                              sizeof(derived_key_len), &vallen_attr);
         if (rc != CKR_OK) {
             TRACE_ERROR("Failed to build the attribute from CKA_VALUE_LEN, "
-                        "rc=%s.\n", ock_err(rc));
+                        "rc=0x%lx.\n", rc);
             goto out;
         }
         break;

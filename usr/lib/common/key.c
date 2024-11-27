@@ -719,7 +719,7 @@ CK_RV publ_key_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
         rc = validate_attribute_array((CK_ATTRIBUTE_PTR)attr->pValue,
                                       attr->ulValueLen / sizeof(CK_ATTRIBUTE));
         if (rc != CKR_OK) {
-            TRACE_ERROR("%s\n", ock_err(rc));
+            TRACE_ERROR("validate_attribute_array rc=0x%lx\n", rc);
             return rc;
         }
         if (mode == MODE_CREATE || mode == MODE_KEYGEN ||
@@ -1336,7 +1336,7 @@ CK_RV priv_key_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
         rc = validate_attribute_array((CK_ATTRIBUTE_PTR)attr->pValue,
                                       attr->ulValueLen / sizeof(CK_ATTRIBUTE));
         if (rc != CKR_OK) {
-            TRACE_ERROR("%s\n", ock_err(rc));
+            TRACE_ERROR("validate_attribute_array rc=0x%lx\n", rc);
             return rc;
         }
         if (mode == MODE_CREATE || mode == MODE_KEYGEN ||
@@ -1943,7 +1943,7 @@ CK_RV secret_key_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
         rc = validate_attribute_array((CK_ATTRIBUTE_PTR)attr->pValue,
                                       attr->ulValueLen / sizeof(CK_ATTRIBUTE));
         if (rc != CKR_OK) {
-            TRACE_ERROR("%s\n", ock_err(rc));
+            TRACE_ERROR("validate_attribute_array rc=0x%lx\n", rc);
             return rc;
         }
         if (mode == MODE_CREATE || mode == MODE_KEYGEN ||
