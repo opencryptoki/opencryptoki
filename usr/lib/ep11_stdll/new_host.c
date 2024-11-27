@@ -1051,7 +1051,7 @@ CK_RV SC_CloseSession(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
 
         rc = ep11tok_logout_session(tokdata, sess, in_fork_initializer);
         if (rc != CKR_OK) {
-            TRACE_ERROR("ep11tok_logout_session failed: %s\n", ock_err(rc));
+            TRACE_ERROR("ep11tok_logout_session failed: rc=0x%lx\n", rc);
             goto done;
         }
 

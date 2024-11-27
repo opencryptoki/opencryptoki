@@ -3538,8 +3538,8 @@ retry:
                          key_type, key_size / 2, FALSE, &new_mk);
     }
     if (rc != CKR_OK) {
-        TRACE_ERROR("%s cca_%skey_gen function failed\n", ock_err(rc),
-                    mode == CK_IBM_CCA_AES_CIPHER_KEY ? "cipher_" : "");
+        TRACE_ERROR("cca_%skey_gen function failed: rc=0x%lx\n",
+                    mode == CK_IBM_CCA_AES_CIPHER_KEY ? "cipher_" : "", rc);
         return rc;
     }
 
@@ -3554,8 +3554,8 @@ retry:
                          key_form, key_type, key_size / 2, TRUE, &new_mk2);
     }
     if (rc != CKR_OK) {
-        TRACE_ERROR("%s cca_%skey_gen function failed\n", ock_err(rc),
-                    mode == CK_IBM_CCA_AES_CIPHER_KEY ? "cipher_" : "");
+        TRACE_ERROR("cca_%skey_gen function failed: rc=0x%lx\n",
+                    mode == CK_IBM_CCA_AES_CIPHER_KEY ? "cipher_" : "", rc);
         return rc;
     }
 

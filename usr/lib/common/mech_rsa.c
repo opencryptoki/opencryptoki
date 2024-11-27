@@ -1451,7 +1451,7 @@ CK_RV rsa_pss_sign(STDLL_TokData_t *tokdata, SESSION *sess,
      * It assumes the input data is the hashed message.
      */
     if (in_data_len != hlen) {
-        TRACE_ERROR("%s\n", ock_err(CKR_DATA_LEN_RANGE));
+        TRACE_ERROR("%s\n", ock_err(ERR_DATA_LEN_RANGE));
         rc = CKR_DATA_LEN_RANGE;
         goto done;
     }
