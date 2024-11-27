@@ -11497,11 +11497,12 @@ CK_RV token_specific_ecdh_pkcs_derive_kdf(STDLL_TokData_t *tokdata,
     if (return_code != CCA_SUCCESS) {
         TRACE_ERROR("CSNDEDH (EC Diffie-Hellman) failed. return:%ld,"
                     " reason:%ld\n", return_code, reason_code);
+        rc = CKR_FUNCTION_FAILED;
         if (return_code == 8 &&
             reason_code >= 2243 && reason_code <= 2246)
             rc = CKR_KEY_FUNCTION_NOT_PERMITTED;
-        else
-           rc = CKR_FUNCTION_FAILED;
+        if (return_code == 8 && reason_code == 90)
+            rc = CKR_FUNCTION_CANCELED; /* Control point prohibits function */
         goto done;
     }
 
