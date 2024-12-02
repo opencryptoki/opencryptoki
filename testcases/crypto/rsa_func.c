@@ -254,10 +254,10 @@ CK_RV do_EncryptDecryptRSA(struct GENERATED_TEST_SUITE_INFO *tsuite)
             if (rc == CKR_MECHANISM_PARAM_INVALID &&
                 mech.mechanism == CKM_RSA_PKCS_OAEP &&
                 is_cca_token(slot_id) &&
-                (oaep_params.hashAlg != CKM_SHA_1 ||
-                 oaep_params.hashAlg != CKM_SHA256 ||
-                 oaep_params.mgf != CKG_MGF1_SHA1 ||
-                 oaep_params.mgf != CKG_MGF1_SHA256)) {
+                ((oaep_params.hashAlg != CKM_SHA_1 &&
+                  oaep_params.hashAlg != CKM_SHA256) ||
+                 (oaep_params.mgf != CKG_MGF1_SHA1 &&
+                  oaep_params.mgf != CKG_MGF1_SHA256))) {
                 testcase_skip("CCA Token does only support RSA OAEP with hash "
                               "and/or MGF other than SHA-1/SHA256 with "
                               "CCA 8.1 or later");
@@ -274,10 +274,10 @@ CK_RV do_EncryptDecryptRSA(struct GENERATED_TEST_SUITE_INFO *tsuite)
             if (rc == CKR_MECHANISM_PARAM_INVALID &&
                 mech.mechanism == CKM_RSA_PKCS_OAEP &&
                 is_cca_token(slot_id) &&
-                (oaep_params.hashAlg != CKM_SHA_1 ||
-                 oaep_params.hashAlg != CKM_SHA256 ||
-                 oaep_params.mgf != CKG_MGF1_SHA1 ||
-                 oaep_params.mgf != CKG_MGF1_SHA256)) {
+                ((oaep_params.hashAlg != CKM_SHA_1 &&
+                  oaep_params.hashAlg != CKM_SHA256) ||
+                 (oaep_params.mgf != CKG_MGF1_SHA1 &&
+                  oaep_params.mgf != CKG_MGF1_SHA256))) {
                 testcase_skip("CCA Token does only support RSA OAEP with hash "
                               "and/or MGF other than SHA-1/SHA256 with "
                               "CCA 8.1 or later");
@@ -622,14 +622,14 @@ CK_RV do_EncryptDecryptImportRSA(struct PUBLISHED_TEST_SUITE_INFO *tsuite,
             if (rc == CKR_MECHANISM_PARAM_INVALID &&
                 mech.mechanism == CKM_RSA_PKCS_OAEP &&
                 is_cca_token(slot_id) &&
-                (((CK_RSA_PKCS_OAEP_PARAMS *)mech.pParameter)->hashAlg !=
-                                                                CKM_SHA_1 ||
-                 ((CK_RSA_PKCS_OAEP_PARAMS *)mech.pParameter)->hashAlg !=
-                                                                 CKM_SHA256 ||
-                 ((CK_RSA_PKCS_OAEP_PARAMS *)mech.pParameter)->mgf !=
-                                                             CKG_MGF1_SHA1 ||
-                 ((CK_RSA_PKCS_OAEP_PARAMS *)mech.pParameter)->mgf !=
-                                                             CKG_MGF1_SHA256)) {
+                ((((CK_RSA_PKCS_OAEP_PARAMS *)mech.pParameter)->hashAlg !=
+                                                                CKM_SHA_1 &&
+                  ((CK_RSA_PKCS_OAEP_PARAMS *)mech.pParameter)->hashAlg !=
+                                                                 CKM_SHA256) ||
+                 (((CK_RSA_PKCS_OAEP_PARAMS *)mech.pParameter)->mgf !=
+                                                             CKG_MGF1_SHA1 &&
+                  ((CK_RSA_PKCS_OAEP_PARAMS *)mech.pParameter)->mgf !=
+                                                             CKG_MGF1_SHA256))) {
                 testcase_skip("CCA Token does only support RSA OAEP with hash "
                               "and/or MGF other than SHA-1/SHA256 with "
                               "CCA 8.1 or later");
@@ -646,14 +646,14 @@ CK_RV do_EncryptDecryptImportRSA(struct PUBLISHED_TEST_SUITE_INFO *tsuite,
             if (rc == CKR_MECHANISM_PARAM_INVALID &&
                 mech.mechanism == CKM_RSA_PKCS_OAEP &&
                 is_cca_token(slot_id) &&
-                (((CK_RSA_PKCS_OAEP_PARAMS *)mech.pParameter)->hashAlg !=
-                                                                CKM_SHA_1 ||
-                 ((CK_RSA_PKCS_OAEP_PARAMS *)mech.pParameter)->hashAlg !=
-                                                                 CKM_SHA256 ||
-                 ((CK_RSA_PKCS_OAEP_PARAMS *)mech.pParameter)->mgf !=
-                                                             CKG_MGF1_SHA1 ||
-                 ((CK_RSA_PKCS_OAEP_PARAMS *)mech.pParameter)->mgf !=
-                                                             CKG_MGF1_SHA256)) {
+                ((((CK_RSA_PKCS_OAEP_PARAMS *)mech.pParameter)->hashAlg !=
+                                                                CKM_SHA_1 &&
+                  ((CK_RSA_PKCS_OAEP_PARAMS *)mech.pParameter)->hashAlg !=
+                                                                 CKM_SHA256) ||
+                 (((CK_RSA_PKCS_OAEP_PARAMS *)mech.pParameter)->mgf !=
+                                                             CKG_MGF1_SHA1 &&
+                  ((CK_RSA_PKCS_OAEP_PARAMS *)mech.pParameter)->mgf !=
+                                                             CKG_MGF1_SHA256))) {
                 testcase_skip("CCA Token does only support RSA OAEP with hash "
                               "and/or MGF other than SHA-1/SHA256 with "
                               "CCA 8.1 or later");
