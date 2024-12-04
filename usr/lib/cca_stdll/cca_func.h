@@ -578,7 +578,7 @@ typedef void (*CSNDPKX_t) (long *return_code,
                            long *target_key_token_length,
                            unsigned char *target_key_token);
 
-/* PKA Symmetric Key Import */
+/* Symmetric Key Import */
 typedef void (*CSNDSYI_t) (long *return_code,
                            long *reason_code,
                            long *exit_data_length,
@@ -592,7 +592,23 @@ typedef void (*CSNDSYI_t) (long *return_code,
                            long *target_key_identifier_length,
                            unsigned char *target_key_identifier);
 
-/* PKA Symmetric Key Export */
+/* Symmetric Key Import 2 */
+typedef void (*CSNDSYI2_t) (long *return_code,
+                            long *reason_code,
+                            long *exit_data_length,
+                            unsigned char *exit_data,
+                            long *rule_array_count,
+                            unsigned char *rule_array,
+                            long *enciphered_key_length,
+                            unsigned char *enciphered_key,
+                            long *transport_key_length,
+                            unsigned char *transport_key,
+                            long *key_name_len,
+                            unsigned char *key_name,
+                            long *target_key_identifier_length,
+                            unsigned char *target_key_identifier);
+
+/* Symmetric Key Export */
 typedef void (*CSNDSYX_t) (long *return_code,
                            long *reason_code,
                            long *exit_data_length,

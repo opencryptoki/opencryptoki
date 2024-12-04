@@ -199,7 +199,8 @@ CK_RV key_mgr_generate_key(STDLL_TokData_t *tokdata,
                            SESSION *sess,
                            CK_MECHANISM *mech,
                            CK_ATTRIBUTE *pTemplate,
-                           CK_ULONG ulCount, CK_OBJECT_HANDLE *handle)
+                           CK_ULONG ulCount, CK_OBJECT_HANDLE *handle,
+                           CK_BBOOL count_statistics)
 {
     OBJECT *key_obj = NULL;
     CK_ATTRIBUTE *new_attr = NULL;
@@ -395,7 +396,7 @@ CK_RV key_mgr_generate_key(STDLL_TokData_t *tokdata,
         goto error;
     }
 
-    if (rc == CKR_OK)
+    if (count_statistics == TRUE && rc == CKR_OK)
         INC_COUNTER(tokdata, sess, mech, key_obj, POLICY_STRENGTH_IDX_0);
 
     return rc;
@@ -422,7 +423,8 @@ CK_RV key_mgr_generate_key_pair(STDLL_TokData_t *tokdata,
                                 CK_ATTRIBUTE *priv_tmpl,
                                 CK_ULONG priv_count,
                                 CK_OBJECT_HANDLE *publ_key_handle,
-                                CK_OBJECT_HANDLE *priv_key_handle)
+                                CK_OBJECT_HANDLE *priv_key_handle,
+                                CK_BBOOL count_statistics)
 {
     OBJECT *publ_key_obj = NULL;
     OBJECT *priv_key_obj = NULL;
@@ -719,7 +721,7 @@ CK_RV key_mgr_generate_key_pair(STDLL_TokData_t *tokdata,
         goto error;
     }
 
-    if (rc == CKR_OK)
+    if (count_statistics == TRUE && rc == CKR_OK)
         INC_COUNTER(tokdata, sess, mech, priv_key_obj, POLICY_STRENGTH_IDX_0);
 
     return rc;
@@ -749,7 +751,8 @@ CK_RV key_mgr_wrap_key(STDLL_TokData_t *tokdata,
                        CK_MECHANISM *mech,
                        CK_OBJECT_HANDLE h_wrapping_key,
                        CK_OBJECT_HANDLE h_key,
-                       CK_BYTE *wrapped_key, CK_ULONG *wrapped_key_len)
+                       CK_BYTE *wrapped_key, CK_ULONG *wrapped_key_len,
+                       CK_BBOOL count_statistics)
 {
     ENCR_DECR_CONTEXT *ctx = NULL;
     OBJECT *wrapping_key_obj = NULL;
@@ -896,6 +899,12 @@ CK_RV key_mgr_wrap_key(STDLL_TokData_t *tokdata,
     case CKM_AES_CFB64:
     case CKM_AES_CFB128:
     case CKM_AES_XTS:
+    case CKM_AES_KEY_WRAP:
+    case CKM_AES_KEY_WRAP_PAD:
+    case CKM_AES_KEY_WRAP_KWP:
+    case CKM_AES_KEY_WRAP_PKCS7:
+    case CKM_RSA_AES_KEY_WRAP:
+    case CKM_ECDH_AES_KEY_WRAP:
         if ((class != CKO_SECRET_KEY) && (class != CKO_PRIVATE_KEY)) {
             TRACE_ERROR
                 ("Specified mechanism only wraps secret & private keys.\n");
@@ -1065,7 +1074,11 @@ CK_RV key_mgr_wrap_key(STDLL_TokData_t *tokdata,
     case CKM_AES_CFB8:
     case CKM_AES_CFB64:
     case CKM_AES_CFB128:
-        rc = ckm_aes_wrap_format(tokdata, length_only, &data, &data_len);
+    case CKM_AES_KEY_WRAP:
+        rc = ckm_aes_wrap_format(tokdata, length_only,
+                                 mech->mechanism == CKM_AES_KEY_WRAP ?
+                                     AES_KEY_WRAP_BLOCK_SIZE : AES_BLOCK_SIZE,
+                                 &data, &data_len);
         if (rc != CKR_OK) {
             TRACE_DEVEL("ckm_aes_wrap_format failed.\n");
             if (data) {
@@ -1075,6 +1088,11 @@ CK_RV key_mgr_wrap_key(STDLL_TokData_t *tokdata,
             goto done;
         }
         break;
+    case CKM_AES_KEY_WRAP_PAD:
+    case CKM_AES_KEY_WRAP_KWP:
+    case CKM_AES_KEY_WRAP_PKCS7:
+    case CKM_RSA_AES_KEY_WRAP:
+    case CKM_ECDH_AES_KEY_WRAP:
     case CKM_DES_CBC_PAD:
     case CKM_DES3_CBC_PAD:
     case CKM_AES_CBC_PAD:
@@ -1135,7 +1153,7 @@ CK_RV key_mgr_wrap_key(STDLL_TokData_t *tokdata,
     free(ctx);
 
 done:
-    if (rc == CKR_OK)
+    if (count_statistics == TRUE && rc == CKR_OK)
         INC_COUNTER(tokdata, sess, mech, wrapping_key_obj,
                     POLICY_STRENGTH_IDX_0);
 
@@ -1162,7 +1180,8 @@ CK_RV key_mgr_unwrap_key(STDLL_TokData_t *tokdata,
                          CK_BYTE *wrapped_key,
                          CK_ULONG wrapped_key_len,
                          CK_OBJECT_HANDLE h_unwrapping_key,
-                         CK_OBJECT_HANDLE *h_unwrapped_key)
+                         CK_OBJECT_HANDLE *h_unwrapped_key,
+                         CK_BBOOL count_statistics)
 {
     ENCR_DECR_CONTEXT *ctx = NULL;
     OBJECT *key_obj = NULL, *unwrapping_key_obj = NULL;
@@ -1172,6 +1191,7 @@ CK_RV key_mgr_unwrap_key(STDLL_TokData_t *tokdata,
     CK_BBOOL fromend, not_opaque = FALSE, flag;
     CK_ATTRIBUTE *new_attrs = NULL;
     CK_ULONG new_attr_count = 0;
+    CK_MECHANISM *statistics_mech = mech;
     CK_RV rc;
 
     if (!sess || !wrapped_key || !h_unwrapped_key) {
@@ -1267,6 +1287,12 @@ CK_RV key_mgr_unwrap_key(STDLL_TokData_t *tokdata,
     case CKM_DES3_CBC_PAD:
     case CKM_AES_CBC_PAD:
     case CKM_AES_XTS:
+    case CKM_AES_KEY_WRAP:
+    case CKM_AES_KEY_WRAP_PAD:
+    case CKM_AES_KEY_WRAP_KWP:
+    case CKM_AES_KEY_WRAP_PKCS7:
+    case CKM_RSA_AES_KEY_WRAP:
+    case CKM_ECDH_AES_KEY_WRAP:
         if ((keyclass != CKO_SECRET_KEY) && (keyclass != CKO_PRIVATE_KEY)) {
             TRACE_ERROR("Specified mech unwraps secret & private keys only.\n");
             rc = CKR_ARGUMENTS_BAD;
@@ -1309,6 +1335,7 @@ CK_RV key_mgr_unwrap_key(STDLL_TokData_t *tokdata,
         case CKM_AES_CFB64:
         case CKM_AES_CFB128:
         case CKM_AES_XTS:
+        case CKM_AES_KEY_WRAP:
             if (keytype != CKK_AES && keytype != CKK_AES_XTS &&
                 keytype != CKK_GENERIC_SECRET) {
                 TRACE_ERROR("The key type does not allow CKA_VALUE_LEN to be "
@@ -1386,11 +1413,6 @@ CK_RV key_mgr_unwrap_key(STDLL_TokData_t *tokdata,
     rc = decr_mgr_decrypt(tokdata, sess,
                           FALSE,
                           ctx, wrapped_key, wrapped_key_len, data, &data_len);
-
-    decr_mgr_cleanup(tokdata, sess, ctx);
-    free(ctx);
-    ctx = NULL;
-
     if (rc != CKR_OK) {
         if (rc == CKR_ENCRYPTED_DATA_LEN_RANGE)
             rc = CKR_WRAPPED_KEY_LEN_RANGE;
@@ -1407,6 +1429,18 @@ CK_RV key_mgr_unwrap_key(STDLL_TokData_t *tokdata,
         fromend = TRUE;
     else
         fromend = FALSE;
+
+    if (mech->mechanism == CKM_RSA_AES_KEY_WRAP) {
+        /*
+         * For CKM_RSA_AES_KEY_WRAP, the mechanism parameter copy in ctx has
+         * been updated to hold the actual size of the temp. AES key. Use this
+         * for statistics counting, not the user supplied mechanism parameter,
+         * which might contain an invalid/incorrect AES key size.
+         * Ctx is cleaned up and freed only after statistics counting, so the
+         * copied (and updated) mechanism parameter is still available.
+         */
+        statistics_mech = &ctx->mech;
+    }
 
     // extract the key type from the PrivateKeyInfo::AlgorithmIndicator
     if (keyclass == CKO_PRIVATE_KEY) {
@@ -1472,8 +1506,8 @@ final:
     }
 
 done:
-    if (rc == CKR_OK)
-        INC_COUNTER(tokdata, sess, mech, unwrapping_key_obj,
+    if (count_statistics == TRUE && rc == CKR_OK)
+        INC_COUNTER(tokdata, sess, statistics_mech, unwrapping_key_obj,
                     POLICY_STRENGTH_IDX_0);
 
     if (rc != CKR_OK && key_obj)
@@ -1577,7 +1611,8 @@ CK_RV key_mgr_derive_key(STDLL_TokData_t *tokdata,
                          CK_MECHANISM *mech,
                          CK_OBJECT_HANDLE base_key,
                          CK_OBJECT_HANDLE *derived_key,
-                         CK_ATTRIBUTE *pTemplate, CK_ULONG ulCount)
+                         CK_ATTRIBUTE *pTemplate, CK_ULONG ulCount,
+                         CK_BBOOL count_statistics)
 {
     OBJECT *base_key_obj = NULL;
     CK_ATTRIBUTE *new_attrs = NULL;
@@ -1647,11 +1682,13 @@ CK_RV key_mgr_derive_key(STDLL_TokData_t *tokdata,
             break;
         }
         rc = ssl3_master_key_derive(tokdata, sess, mech, base_key_obj,
-                                    new_attrs, new_attr_count, derived_key);
+                                    new_attrs, new_attr_count, derived_key,
+                                    count_statistics);
         break;
     case CKM_SSL3_KEY_AND_MAC_DERIVE:
         rc = ssl3_key_and_mac_derive(tokdata, sess, mech, base_key_obj,
-                                     new_attrs, new_attr_count);
+                                     new_attrs, new_attr_count,
+                                     count_statistics);
         break;
 /* Begin code contributed by Corrent corp. */
 #ifndef NODH
@@ -1662,7 +1699,8 @@ CK_RV key_mgr_derive_key(STDLL_TokData_t *tokdata,
             break;
         }
         rc = dh_pkcs_derive(tokdata, sess, mech, base_key_obj,
-                            new_attrs, new_attr_count, derived_key);
+                            new_attrs, new_attr_count, derived_key,
+                            count_statistics);
         break;
 #endif
 /* End code contributed by Corrent corp. */
@@ -1673,7 +1711,8 @@ CK_RV key_mgr_derive_key(STDLL_TokData_t *tokdata,
             break;
         }
         rc = ecdh_pkcs_derive(tokdata, sess, mech, base_key_obj, new_attrs,
-                              new_attr_count, derived_key);
+                              new_attr_count, derived_key,
+                              count_statistics);
         break;
     case CKM_SHA1_KEY_DERIVATION:
     case CKM_SHA224_KEY_DERIVATION:
@@ -1690,7 +1729,7 @@ CK_RV key_mgr_derive_key(STDLL_TokData_t *tokdata,
             break;
         }
         rc = ckm_sha_derive(tokdata, sess, mech, base_key_obj, new_attrs,
-                            new_attr_count, derived_key);
+                            new_attr_count, derived_key, count_statistics);
         break;
     case CKM_SHAKE_128_KEY_DERIVATION:
     case CKM_SHAKE_256_KEY_DERIVATION:

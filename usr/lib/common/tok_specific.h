@@ -307,6 +307,11 @@ CK_RV token_specific_aes_xts(STDLL_TokData_t *, SESSION  *,
                              OBJECT *, CK_BYTE *, CK_BBOOL, CK_BBOOL,
                              CK_BBOOL, CK_BYTE*);
 
+CK_RV token_specific_aes_key_wrap(STDLL_TokData_t *, SESSION *,
+                                  CK_BYTE *, CK_ULONG, CK_BYTE *, CK_ULONG *,
+                                  OBJECT *, CK_BYTE *, CK_ULONG,
+                                  CK_BBOOL, CK_BBOOL);
+
 CK_RV token_specific_dsa_generate_keypair(STDLL_TokData_t *,
                                           TEMPLATE *, TEMPLATE *);
 CK_RV token_specific_dsa_sign(STDLL_TokData_t *, CK_BYTE *, CK_ULONG, CK_ULONG);

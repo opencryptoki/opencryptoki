@@ -74,7 +74,8 @@ CK_RV do_EncryptDecryptRSA(struct GENERATED_TEST_SUITE_INFO *tsuite)
     testcase_user_login();
 
     // skip tests if the slot doesn't support this mechanism
-    if (!mech_supported(slot_id, tsuite->mech.mechanism)) {
+    if (!mech_supported_flags(slot_id, tsuite->mech.mechanism,
+                              CKF_ENCRYPT | CKF_DECRYPT)) {
         testsuite_skip(tsuite->tvcount,
                        "Slot %u doesn't support %s (0x%x)",
                        (unsigned int) slot_id,
@@ -1227,6 +1228,7 @@ CK_RV do_WrapUnwrapRSA(struct GENERATED_TEST_SUITE_INFO * tsuite)
     CK_BYTE clear[32], cipher[32], re_cipher[32];
     CK_ULONG cipher_len = 32, re_cipher_len = 32;
     CK_RSA_PKCS_OAEP_PARAMS oaep_params;
+    CK_RSA_AES_KEY_WRAP_PARAMS rsa_aeskw_params;
 
     CK_SESSION_HANDLE session;
     CK_FLAGS flags;
@@ -1351,6 +1353,19 @@ CK_RV do_WrapUnwrapRSA(struct GENERATED_TEST_SUITE_INFO * tsuite)
                  free(s);
                  continue;
              }
+
+            if (tsuite->mech.mechanism == CKM_RSA_AES_KEY_WRAP &&
+                (tsuite->tv[i].keytype.mechanism != CKM_AES_KEY_GEN ||
+                 tsuite->tv[i].oaep_params.hashAlg != CKM_SHA_1 ||
+                 tsuite->tv[i].oaep_params.mgf != CKG_MGF1_SHA1 ||
+                 (tsuite->tv[i].oaep_params.source == CKZ_DATA_SPECIFIED &&
+                 tsuite->tv[i].oaep_params.ulSourceDataLen > 0))) {
+                 testcase_skip("CCA Token cannot use RSA AES keywrap with "
+                               "OAEP params other than SHA-1 and empty source "
+                               "data");
+                 free(s);
+                 continue;
+             }
         }
         if (is_soft_token(slot_id)) {
             if (!is_valid_soft_pubexp(tsuite->tv[i].publ_exp,
@@ -1406,6 +1421,11 @@ CK_RV do_WrapUnwrapRSA(struct GENERATED_TEST_SUITE_INFO * tsuite)
             oaep_params = tsuite->tv[i].oaep_params;
             wrap_mech.pParameter = &oaep_params;
             wrap_mech.ulParameterLen = sizeof(CK_RSA_PKCS_OAEP_PARAMS);
+        } else if (wrap_mech.mechanism == CKM_RSA_AES_KEY_WRAP) {
+            rsa_aeskw_params.ulAESKeyBits = 256;
+            rsa_aeskw_params.pOAEPParams = &tsuite->tv[i].oaep_params;
+            wrap_mech.pParameter = &rsa_aeskw_params;
+            wrap_mech.ulParameterLen = sizeof(CK_RSA_AES_KEY_WRAP_PARAMS);
         }
 
         if (!mech_supported(slot_id, wrap_mech.mechanism)) {
@@ -1537,7 +1557,11 @@ CK_RV do_WrapUnwrapRSA(struct GENERATED_TEST_SUITE_INFO * tsuite)
                 goto tv_cleanup;
             }
             if (rc == CKR_KEY_NOT_WRAPPABLE && is_cca_token(slot_id)) {
-                testcase_skip("CCA Token does not support to wrap CIPHER keys");
+                testcase_skip("CCA Token does not support to wrap %s keys "
+                              "with %s",
+                              wrap_mech.mechanism == CKM_RSA_AES_KEY_WRAP ?
+                                                      "DATA" : "CIPHER",
+                              mech_to_str(wrap_mech.mechanism));
                 goto tv_cleanup;
             }
 

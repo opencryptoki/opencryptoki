@@ -3697,7 +3697,7 @@ CK_RV SC_GenerateKey(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
     }
 
     rc = key_mgr_generate_key(tokdata, sess, pMechanism, pTemplate,
-                              ulCount, phKey);
+                              ulCount, phKey, TRUE);
     if (rc != CKR_OK)
         TRACE_DEVEL("key_mgr_generate_key() failed.\n");
 
@@ -3789,7 +3789,7 @@ CK_RV SC_GenerateKeyPair(STDLL_TokData_t *tokdata,
                                    ulPublicKeyAttributeCount,
                                    pPrivateKeyTemplate,
                                    ulPrivateKeyAttributeCount,
-                                   phPublicKey, phPrivateKey);
+                                   phPublicKey, phPrivateKey, TRUE);
     if (rc != CKR_OK)
         TRACE_DEVEL("key_mgr_generate_key_pair() failed.\n");
 
@@ -3870,7 +3870,8 @@ CK_RV SC_WrapKey(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
     }
 
     rc = key_mgr_wrap_key(tokdata, sess, length_only, pMechanism,
-                          hWrappingKey, hKey, pWrappedKey, pulWrappedKeyLen);
+                          hWrappingKey, hKey, pWrappedKey, pulWrappedKeyLen,
+                          TRUE);
     if (rc != CKR_OK)
         TRACE_DEVEL("key_mgr_wrap_key() failed.\n");
 
@@ -3928,7 +3929,7 @@ CK_RV SC_UnwrapKey(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
 
     rc = key_mgr_unwrap_key(tokdata, sess, pMechanism, pTemplate, ulCount,
                             pWrappedKey, ulWrappedKeyLen, hUnwrappingKey,
-                            phKey);
+                            phKey, TRUE);
     if (rc != CKR_OK)
         TRACE_DEVEL("key_mgr_unwrap_key() failed.\n");
 
@@ -4009,7 +4010,7 @@ CK_RV SC_DeriveKey(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
     }
 
     rc = key_mgr_derive_key(tokdata, sess, pMechanism, hBaseKey, phKey,
-                            pTemplate, ulCount);
+                            pTemplate, ulCount, TRUE);
     if (rc != CKR_OK)
         TRACE_DEVEL("key_mgr_derive_key() failed.\n");
 

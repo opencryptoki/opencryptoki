@@ -45,6 +45,7 @@ CK_RV decr_mgr_init(STDLL_TokData_t *tokdata,
     CK_ULONG strength = POLICY_STRENGTH_IDX_0;
     CK_GCM_PARAMS gcm_params;
     CK_MECHANISM temp_mech;
+    CK_ULONG aeskw_iv_len = AES_KEY_WRAP_KWP_IV_SIZE;
 
     if (!sess) {
         TRACE_ERROR("Invalid function arguments.\n");
@@ -376,6 +377,70 @@ CK_RV decr_mgr_init(STDLL_TokData_t *tokdata,
         ctx->context_len = 0;
         ctx->context = NULL;
         break;
+    case CKM_ECDH_AES_KEY_WRAP:
+        /* CKM_ECDH_AES_KEY_WRAP can only be used for wrap/unwrap */
+        if (operation != OP_UNWRAP) {
+            TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
+            rc = CKR_MECHANISM_INVALID;
+            goto done;
+        }
+
+        if (mech->ulParameterLen != sizeof(CK_ECDH_AES_KEY_WRAP_PARAMS) ||
+            mech->pParameter == NULL) {
+            TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
+            rc = CKR_MECHANISM_PARAM_INVALID;
+            goto done;
+        }
+
+        rc = template_attribute_get_ulong(key_obj->template, CKA_KEY_TYPE,
+                                          &keytype);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("Could not find CKA_KEY_TYPE for the key.\n");
+            goto done;
+        }
+
+        if (keytype != CKK_EC) {
+            TRACE_ERROR("%s\n", ock_err(ERR_KEY_TYPE_INCONSISTENT));
+            rc = CKR_KEY_TYPE_INCONSISTENT;
+            goto done;
+        }
+        // cannot be used for multi-part operations
+        //
+        ctx->context_len = 0;
+        ctx->context = NULL;
+        break;
+    case CKM_RSA_AES_KEY_WRAP:
+        /* CKM_RSA_AES_KEY_WRAP can only be used for wrap/unwrap */
+        if (operation != OP_UNWRAP) {
+            TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
+            rc = CKR_MECHANISM_INVALID;
+            goto done;
+        }
+
+        if (mech->ulParameterLen != sizeof(CK_RSA_AES_KEY_WRAP_PARAMS) ||
+            mech->pParameter == NULL) {
+            TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
+            rc = CKR_MECHANISM_PARAM_INVALID;
+            goto done;
+        }
+
+        rc = template_attribute_get_ulong(key_obj->template, CKA_KEY_TYPE,
+                                          &keytype);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("Could not find CKA_KEY_TYPE for the key.\n");
+            goto done;
+        }
+
+        if (keytype != CKK_RSA) {
+            TRACE_ERROR("%s\n", ock_err(ERR_KEY_TYPE_INCONSISTENT));
+            rc = CKR_KEY_TYPE_INCONSISTENT;
+            goto done;
+        }
+        // RSA cannot be used for multi-part operations
+        //
+        ctx->context_len = 0;
+        ctx->context = NULL;
+        break;
     case CKM_AES_ECB:
         // XXX Copied from DES3, should be verified - KEY
         if (mech->ulParameterLen != 0) {
@@ -585,6 +650,38 @@ CK_RV decr_mgr_init(STDLL_TokData_t *tokdata,
             goto done;
         }
         memset(ctx->context, 0x0, sizeof(AES_XTS_CONTEXT));
+        break;
+    case CKM_AES_KEY_WRAP:
+    case CKM_AES_KEY_WRAP_PAD:
+    case CKM_AES_KEY_WRAP_PKCS7:
+        aeskw_iv_len = AES_KEY_WRAP_IV_SIZE;
+        /* fallthrough */
+    case CKM_AES_KEY_WRAP_KWP:
+        if ((mech->ulParameterLen != 0 && mech->pParameter == NULL) ||
+            (mech->ulParameterLen == 0 && mech->pParameter != NULL) ||
+            (mech->ulParameterLen != 0 &&
+             mech->ulParameterLen != aeskw_iv_len)) {
+            TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
+            rc = CKR_MECHANISM_PARAM_INVALID;
+            goto done;
+        }
+
+        rc = template_attribute_get_ulong(key_obj->template, CKA_KEY_TYPE,
+                                          &keytype);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("Could not find CKA_KEY_TYPE for the key.\n");
+            goto done;
+        }
+
+        if (keytype != CKK_AES) {
+            TRACE_ERROR("%s\n", ock_err(ERR_KEY_TYPE_INCONSISTENT));
+            rc = CKR_KEY_TYPE_INCONSISTENT;
+            goto done;
+        }
+
+        /* AES key wrap cannot be used for multi-part operations */
+        ctx->context_len = 0;
+        ctx->context = NULL;
         break;
     default:
         TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
@@ -800,6 +897,14 @@ CK_RV decr_mgr_decrypt(STDLL_TokData_t *tokdata,
         return rsa_x509_decrypt(tokdata, sess, length_only,
                                 ctx,
                                 in_data, in_data_len, out_data, out_data_len);
+    case CKM_ECDH_AES_KEY_WRAP:
+        return ecdh_aes_key_unwrap(tokdata, sess, length_only, ctx,
+                                   in_data, in_data_len,
+                                   out_data, out_data_len);
+    case CKM_RSA_AES_KEY_WRAP:
+        return rsa_aes_key_unwrap(tokdata, sess, length_only, ctx,
+                                  in_data, in_data_len,
+                                  out_data, out_data_len);
     case CKM_AES_CBC:
         return aes_cbc_decrypt(tokdata, sess, length_only,
                                ctx,
@@ -840,9 +945,16 @@ CK_RV decr_mgr_decrypt(STDLL_TokData_t *tokdata,
                                in_data, in_data_len,
                                out_data, out_data_len, 0x10);
     case CKM_AES_XTS:
-            return aes_xts_decrypt(tokdata, sess, length_only, ctx,
-                                   in_data, in_data_len,
-                                   out_data, out_data_len);
+        return aes_xts_decrypt(tokdata, sess, length_only, ctx,
+                               in_data, in_data_len,
+                               out_data, out_data_len);
+    case CKM_AES_KEY_WRAP:
+    case CKM_AES_KEY_WRAP_PAD:
+    case CKM_AES_KEY_WRAP_KWP:
+    case CKM_AES_KEY_WRAP_PKCS7:
+        return aes_key_wrap_decrypt(tokdata, sess, length_only, ctx,
+                                    in_data, in_data_len,
+                                    out_data, out_data_len);
     default:
         TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
         return CKR_MECHANISM_INVALID;

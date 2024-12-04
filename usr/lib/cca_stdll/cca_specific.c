@@ -146,6 +146,7 @@ static CSNDDSV_t dll_CSNDDSV;
 CSNDKTC_t dll_CSNDKTC;
 static CSNDPKX_t dll_CSNDPKX;
 static CSNDSYI_t dll_CSNDSYI;
+static CSNDSYI2_t dll_CSNDSYI2;
 static CSNDSYX_t dll_CSNDSYX;
 static CSUACFQ_t dll_CSUACFQ;
 static CSUACFC_t dll_CSUACFC;
@@ -300,6 +301,7 @@ static const MECH_LIST_ELEMENT cca_mech_list[] = {
     {CKM_GENERIC_SECRET_KEY_GEN, {80, 2048, CKF_HW | CKF_GENERATE}},
     {CKM_IBM_DILITHIUM, {256, 256, CKF_HW | CKF_GENERATE_KEY_PAIR |
                          CKF_SIGN | CKF_VERIFY}},
+    {CKM_RSA_AES_KEY_WRAP, {2048, 4096, CKF_HW | CKF_WRAP | CKF_UNWRAP}},
 };
 
 static const CK_ULONG cca_mech_list_len =
@@ -869,6 +871,7 @@ static CK_RV cca_resolve_lib_sym(void *hdl)
     LDSYM_VERIFY(hdl, CSNDKTC);
     LDSYM_VERIFY(hdl, CSNDPKX);
     LDSYM_VERIFY(hdl, CSNDSYI);
+    LDSYM_VERIFY(hdl, CSNDSYI2);
     LDSYM_VERIFY(hdl, CSNDSYX);
     LDSYM_VERIFY(hdl, CSUACFQ);
     LDSYM_VERIFY(hdl, CSUACFC);
@@ -4366,6 +4369,204 @@ done:
     return ret;
 }
 
+static CK_BBOOL cca_get_acp(struct cca_role_data *role_data,
+                            CK_ULONG role_data_size, CK_ULONG acp_num)
+{
+    struct cca_acp_segment *acp_segment;
+    CK_BBOOL ret = CK_FALSE, found = CK_FALSE;
+    CK_BYTE *bitmap;
+    CK_ULONG i, ofs, bit_no;
+
+    if (role_data == NULL || role_data_size < sizeof(struct cca_role_data))
+        goto out;
+
+    ofs = sizeof(struct cca_role_data);
+    for (i = 0; i < role_data->num_segments && ofs < role_data_size; i++) {
+        if (ofs + sizeof(struct cca_acp_segment) > role_data_size)
+            goto out;
+
+        acp_segment =
+              (struct cca_acp_segment *)((CK_BYTE*)role_data + ofs);
+        ofs += sizeof(struct cca_acp_segment);
+
+        if (acp_num >= acp_segment->start_bit_no &&
+            acp_num <= acp_segment->end_bit_no) {
+            if (ofs + acp_segment->num_bytes > role_data_size)
+                goto out;
+
+            bitmap = ((CK_BYTE *)acp_segment) + sizeof(struct cca_acp_segment);
+            bit_no = acp_num - acp_segment->start_bit_no;
+
+            if (ACP_BYTE_NO(bit_no) > acp_segment->num_bytes)
+                goto out;
+
+            ret = (bitmap[ACP_BYTE_NO(bit_no)] & ACP_BIT_MASK(bit_no)) != 0;
+            found = CK_TRUE;
+            goto out;
+        }
+
+        ofs += acp_segment->num_bytes;
+    }
+
+out:
+    TRACE_DEVEL("ACP 0x%04lx: %s %s\n", acp_num, ret ? "enabled" : "disabled",
+                found ? "" : "(not in any segment)");
+
+    return ret;
+}
+
+typedef struct {
+    CK_BBOOL acps_set;
+    struct cca_acp_info acp_info;
+} cca_acp_info_data_t;
+
+/*
+ * Callback function used by cca_get_acp_infos() to determine the
+ * minimum ACP settings among all available APQNs.
+ */
+static CK_RV cca_get_acp_info_handler(STDLL_TokData_t *tokdata,
+                                      const char *adapter,
+                                      unsigned short card,
+                                      unsigned short domain,
+                                      void *handler_data)
+{
+    cca_acp_info_data_t *data = (cca_acp_info_data_t *)handler_data;
+    unsigned char rule_array[CCA_RULE_ARRAY_SIZE] = { 0, };
+    unsigned char role_name[8] = { 0 };
+    unsigned char roles_data[4000], role_data[4000];
+    long return_code, reason_code, rule_array_count, roles_data_len;
+    long i, role_data_len;
+    struct cca_role_data *role_info;
+    CK_BBOOL found = CK_FALSE;
+
+    UNUSED(tokdata);
+    UNUSED(adapter);
+
+    TRACE_DEBUG("APQN %02X.%04X (adapter '%s')\n", card, domain, adapter);
+
+    memcpy(rule_array, "LSTROLES", CCA_KEYWORD_SIZE);
+    rule_array_count = 1;
+    roles_data_len = sizeof(roles_data);
+
+    dll_CSUAACM(&return_code, &reason_code,
+                NULL, NULL,
+                &rule_array_count, rule_array,
+                role_name,
+                &roles_data_len, roles_data);
+
+    if (return_code != CCA_SUCCESS) {
+        TRACE_ERROR("CSUAACM (LSTROLES) failed for of APQN %02X.%04X. "
+                    "return:%ld, reason:%ld\n", card, domain,
+                    return_code, reason_code);
+        return CKR_FUNCTION_FAILED;
+    }
+
+    for (i = 0; i < roles_data_len / 8; i++) {
+        memcpy(role_name, &roles_data[i * 8], 8);
+        TRACE_DEVEL("Found role '%.8s' for APQN %02X.%04X\n", role_name,
+                    card, domain);
+
+        memcpy(rule_array, "GET-ROLE", CCA_KEYWORD_SIZE);
+        rule_array_count = 1;
+        role_data_len = sizeof(role_data);
+
+        dll_CSUAACM(&return_code, &reason_code,
+                    NULL, NULL,
+                    &rule_array_count, rule_array,
+                    role_name,
+                    &role_data_len, role_data);
+
+        if (return_code != CCA_SUCCESS) {
+            TRACE_ERROR("CSUAACM (GET-ROLE) failed for APQN %02X.%04X. "
+                        "return:%ld, reason:%ld\n", card, domain,
+                        return_code, reason_code);
+            return CKR_FUNCTION_FAILED;
+        }
+
+        TRACE_DEBUG_DUMP("Role-Data: ", (CK_BYTE *)role_data, role_data_len);
+
+        if (role_data_len < (long)sizeof(struct cca_role_data)) {
+            TRACE_ERROR("No role data is available for APQN %02X.%04X\n",
+                        card, domain);
+            return CKR_FUNCTION_FAILED;
+        }
+
+        role_info = (struct cca_role_data *)role_data;
+
+        /* Identify default role */
+        if ((memcmp(role_name, "DFLT", 4) != 0 &&    /* since z13 */
+             memcmp(role_name, "DEFALT", 6) != 0) || /* before z13 */
+            role_info->lower_time_limit != 0x0000 ||
+            (role_info->upper_time_limit != 0x0000 &&
+             role_info->upper_time_limit != 0x173b) || /* 23:59 */
+            role_info->days_valid != 0xfe)
+            continue;
+
+        TRACE_DEVEL("Using ACPs of default role '%.8s' of APQN %02X.%04X\n",
+                    role_name, card, domain);
+
+        data->acp_info.acp_03B8 &= cca_get_acp(role_info, role_data_len, 0x3B8);
+        data->acp_info.acp_03CD &= cca_get_acp(role_info, role_data_len, 0x3CD);
+
+        data->acps_set = CK_TRUE;
+        found = CK_TRUE;
+        break;
+    }
+
+    if (!found) {
+        TRACE_ERROR("No default role found\n");
+        return CKR_FUNCTION_FAILED;
+    }
+
+    return CKR_OK;
+}
+
+/* Called during token_specific_init() , no need to obtain CCA adapter lock */
+static CK_RV cca_get_acp_infos(STDLL_TokData_t *tokdata)
+{
+    struct cca_private_data *cca_private = tokdata->private_data;
+    cca_acp_info_data_t acp_info_data;
+    CK_RV ret;
+
+    /* Determine min ACP setting by iterating over all APQNs */
+    memset(&acp_info_data, 0, sizeof(cca_acp_info_data_t));
+    acp_info_data.acp_info.acp_03B8 = CK_TRUE;
+    acp_info_data.acp_info.acp_03CD = CK_TRUE;
+
+    ret = cca_iterate_adapters(tokdata, cca_get_acp_info_handler,
+                               &acp_info_data);
+
+    if (ret != CKR_OK || acp_info_data.acps_set == 0) {
+        TRACE_ERROR("cca_iterate_adapters failed, could not determine ACPs.\n");
+        ret = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+
+    TRACE_DEVEL("ACP 0x03B8: %s\n",
+                acp_info_data.acp_info.acp_03B8 ? "enabled" : "disabled");
+    TRACE_DEVEL("ACP 0x03CD: %s\n",
+                acp_info_data.acp_info.acp_03CD ? "enabled" : "disabled");
+
+    /* Update ACP infos in cca_private_data, needs write-lock. */
+    if (pthread_rwlock_wrlock(&cca_private->acp_info_rwlock) != 0) {
+        TRACE_ERROR("CCA acp_info RW-lock failed.\n");
+        ret = CKR_CANT_LOCK;
+        goto done;
+    }
+
+    cca_private->acp_info = acp_info_data.acp_info;
+    if (pthread_rwlock_unlock(&cca_private->acp_info_rwlock) != 0) {
+        TRACE_ERROR("CCA acp_info RW-unlock failed.\n");
+        ret = CKR_CANT_LOCK;
+        goto done;
+    }
+
+    ret = CKR_OK;
+
+done:
+    return ret;
+}
+
 static CK_BBOOL cca_pqc_strength_supported(STDLL_TokData_t * tokdata,
                                            CK_MECHANISM_TYPE mech,
                                            CK_ULONG keyform)
@@ -4485,6 +4686,77 @@ static CK_BBOOL cca_rsa_oaep_2_1_supported(STDLL_TokData_t *tokdata)
     return ret;
 }
 
+static CK_BBOOL cca_rsa_aeskw_supported(STDLL_TokData_t *tokdata,
+                                        CK_KEY_TYPE key_type)
+{
+    CK_BBOOL supp = CK_FALSE;
+#ifdef __s390__
+    CK_BBOOL aes_supp;
+    struct cca_private_data *cca_private = tokdata->private_data;
+    const struct cca_version cca_v8_2 = { .ver = 8, .rel = 2, .mod = 0 };
+
+    /*
+     * The following ACPs must be enabled to support CKM_RSA_AES_KEY_WRAP
+     * to wrap/unwrap certain key types:
+     *
+     * AES (requires CCA 8.2 or later):
+     * - X'03B8' Symmetric Key Export - AES, CKM-RAKW
+     * - X'03CD' Permit import of an AES key token from a PKCS#11
+     *           CKM_RSA_AES_KEY_WRAP object
+     *
+     * Note: These ACPs are DISABLED by default, and must be explicitly enabled
+     *       by the crypto card admin to use CKM_RSA_AES_KEY_WRAP.
+     */
+
+    if (pthread_rwlock_rdlock(&cca_private->acp_info_rwlock)
+                                                        != 0) {
+        TRACE_ERROR("CCA acp_info RD-Lock failed.\n");
+        return FALSE;
+    }
+
+    aes_supp = cca_private->acp_info.acp_03B8 &&
+               cca_private->acp_info.acp_03CD;
+
+    if (pthread_rwlock_unlock(&cca_private->acp_info_rwlock)
+                                                        != 0) {
+        TRACE_ERROR("CCA acp_info RD-Unlock failed.\n");
+        return FALSE;
+    }
+
+    switch (key_type) {
+    case CKK_AES:
+    case (CK_KEY_TYPE)-1:
+        supp = aes_supp;
+        break;
+    default:
+        return FALSE;
+    }
+
+    if (pthread_rwlock_rdlock(&cca_private->min_card_version_rwlock)
+                                                        != 0) {
+        TRACE_ERROR("CCA min_card_version RD-Lock failed.\n");
+        return FALSE;
+    }
+
+    supp = supp &&
+           compare_cca_version(&cca_private->cca_lib_version,
+                               &cca_v8_2) >= 0 &&
+           compare_cca_version(&cca_private->min_card_version,
+                               &cca_v8_2) >= 0;
+
+    if (pthread_rwlock_unlock(&cca_private->min_card_version_rwlock)
+                                                        != 0) {
+        TRACE_ERROR("CCA min_card_version RD-Unlock failed.\n");
+        return FALSE;
+    }
+#else
+    UNUSED(tokdata);
+    UNUSED(key_type);
+#endif
+
+    return supp;
+}
+
 CK_RV token_specific_init(STDLL_TokData_t * tokdata, CK_SLOT_ID SlotNumber,
                           char *conf_name)
 {
@@ -4574,6 +4846,16 @@ CK_RV token_specific_init(STDLL_TokData_t * tokdata, CK_SLOT_ID SlotNumber,
     if (rc != CKR_OK)
         goto error;
 
+    if (pthread_rwlock_init(&cca_private->acp_info_rwlock, NULL) != 0) {
+        TRACE_ERROR("Initializing the acp_info RW-Lock failed\n");
+        rc = CKR_CANT_LOCK;
+        goto error;
+    }
+
+    rc = cca_get_acp_infos(tokdata);
+    if (rc != CKR_OK)
+        goto error;
+
 #ifndef NO_PKEY
     cca_private->msa_level = get_msa_level();
     TRACE_INFO("MSA level = %i\n", cca_private->msa_level);
@@ -4642,10 +4924,10 @@ CK_RV token_specific_final(STDLL_TokData_t *tokdata,
 #ifndef NO_PKEY
         if (cca_private->pkeyfd >= 0)
             close(cca_private->pkeyfd);
-
-        pthread_rwlock_destroy(&cca_private->min_card_version_rwlock);
 #endif
 
+        pthread_rwlock_destroy(&cca_private->min_card_version_rwlock);
+        pthread_rwlock_destroy(&cca_private->acp_info_rwlock);
         pthread_rwlock_destroy(&cca_private->pkey_rwlock);
 
         free(cca_private);
@@ -6940,6 +7222,9 @@ static CK_BBOOL token_specific_filter_mechanism(STDLL_TokData_t *tokdata,
     case CKM_ECDSA_SHA3_384:
     case CKM_ECDSA_SHA3_512:
         rc = cca_sha3_supported(tokdata);
+        break;
+    case CKM_RSA_AES_KEY_WRAP:
+        rc = cca_rsa_aeskw_supported(tokdata, -1);
         break;
     default:
         rc = CK_TRUE;
@@ -12689,7 +12974,7 @@ static CK_RV ccatok_unwrap_key_rsa_pkcs(STDLL_TokData_t *tokdata,
     }
 
     if (key_class != CKO_SECRET_KEY)
-        return CKR_UNWRAPPING_KEY_TYPE_INCONSISTENT;
+        return CKR_WRAPPED_KEY_INVALID;
 
     rc = template_attribute_get_ulong(key->template, CKA_KEY_TYPE, &key_type);
     if (rc != CKR_OK) {
@@ -12952,6 +13237,418 @@ error:
     return rc;
 }
 
+static CK_RV ccatok_wrap_key_rsa_aeskw_aes(STDLL_TokData_t *tokdata,
+                                           CK_BBOOL length_only,
+                                           CK_ATTRIBUTE *wrap_key_opaque,
+                                           CK_ATTRIBUTE *key_opaque,
+                                           CK_BYTE *wrapped_key,
+                                           CK_ULONG *wrapped_key_len)
+{
+    long return_code, reason_code, rule_array_count;
+    unsigned char rule_array[CCA_RULE_ARRAY_SIZE] = { 0 };
+    CK_BYTE buffer[3500] = { 0, };
+    long buffer_len = sizeof(buffer);
+    enum cca_token_type keytype;
+    unsigned int keybitsize;
+    const CK_BYTE *mkvp;
+
+    if (!cca_rsa_aeskw_supported(tokdata, CKK_AES)) {
+        TRACE_ERROR("CKM_RSA_AES_KEY_WRAP requires CCA 8.2 or later and "
+                    "certain ACPs set for wrapping AES keys\n");
+        return CKR_KEY_NOT_WRAPPABLE;
+    }
+
+    if (analyse_cca_key_token((CK_BYTE *)key_opaque->pValue,
+                              key_opaque->ulValueLen,
+                              &keytype, &keybitsize, &mkvp) == FALSE) {
+        TRACE_ERROR("Invalid/unknown cca token, cannot get key type\n");
+        return CKR_FUNCTION_FAILED;
+    }
+
+    if (keytype != sec_aes_cipher_key) {
+        TRACE_ERROR("CCA does not support wrapping with CKM_RSA_AES_KEY_WRAP "
+                    "for AES DATA keys\n");
+        return CKR_KEY_NOT_WRAPPABLE;
+    }
+
+    rule_array_count = 2;
+    memcpy(rule_array, "AES     CKM-RAKW", 2 * CCA_KEYWORD_SIZE);
+
+    USE_CCA_ADAPTER_START(tokdata, return_code, reason_code)
+    RETRY_NEW_MK_BLOB_START()
+        dll_CSNDSYX(&return_code, &reason_code, NULL, NULL, &rule_array_count,
+                    rule_array, (long *)&key_opaque->ulValueLen,
+                    key_opaque->pValue, (long *)&wrap_key_opaque->ulValueLen,
+                    wrap_key_opaque->pValue, &buffer_len, buffer);
+    RETRY_NEW_MK_BLOB2_END(tokdata, return_code, reason_code,
+                           key_opaque->pValue, key_opaque->ulValueLen,
+                           wrap_key_opaque->pValue, wrap_key_opaque->ulValueLen)
+    USE_CCA_ADAPTER_END(tokdata, return_code, reason_code)
+
+    if (return_code != CCA_SUCCESS) {
+        TRACE_ERROR("CSNDSYX (SYMMETRIC KEY EXPORT) failed."
+                    " return:%ld, reason:%ld\n", return_code, reason_code);
+
+        if (return_code == 8 && reason_code == 90)
+            return CKR_FUNCTION_CANCELED; /* Control point prohibits function */
+        if (return_code == 8 && reason_code == 760)
+            return CKR_WRAPPING_KEY_SIZE_RANGE; /* must be  >= 2048 bit */
+        return CKR_FUNCTION_FAILED;
+    }
+
+    if (length_only) {
+        *wrapped_key_len = buffer_len;
+        return CKR_OK;
+    }
+
+    if ((CK_ULONG)buffer_len > *wrapped_key_len) {
+        *wrapped_key_len = buffer_len;
+        return CKR_BUFFER_TOO_SMALL;
+    }
+
+    memcpy(wrapped_key, buffer, buffer_len);
+    *wrapped_key_len = buffer_len;
+
+    return CKR_OK;
+}
+
+static CK_RV ccatok_wrap_key_rsa_aeskw(STDLL_TokData_t *tokdata,
+                                       CK_MECHANISM *mech,
+                                       CK_BBOOL length_only,
+                                       OBJECT *wrapping_key, OBJECT *key,
+                                       CK_BYTE *wrapped_key,
+                                       CK_ULONG *wrapped_key_len)
+{
+    CK_ATTRIBUTE *key_opaque, *wrap_key_opaque;
+    CK_OBJECT_CLASS key_class;
+    CK_KEY_TYPE key_type;
+    CK_RSA_AES_KEY_WRAP_PARAMS *params;
+    CK_RSA_PKCS_OAEP_PARAMS *oaep;
+    CK_RV rc;
+
+    params = (CK_RSA_AES_KEY_WRAP_PARAMS *)mech->pParameter;
+    if (params == NULL ||
+        mech->ulParameterLen != sizeof(CK_RSA_AES_KEY_WRAP_PARAMS))
+        return CKR_MECHANISM_PARAM_INVALID;
+
+    if (params->ulAESKeyBits != 256) {
+        TRACE_ERROR("CCA only supports AES-256 as temporary key size\n");
+        return CKR_MECHANISM_PARAM_INVALID;
+    }
+
+    oaep = params->pOAEPParams;
+    if (oaep == NULL)
+        return CKR_MECHANISM_PARAM_INVALID;
+
+    if (oaep->source == CKZ_DATA_SPECIFIED &&
+        oaep->ulSourceDataLen > 0) {
+        TRACE_ERROR("CCA does not support non-empty OAEP source data\n");
+        return CKR_MECHANISM_PARAM_INVALID;
+    }
+
+    if (oaep->hashAlg != CKM_SHA_1 || oaep->mgf != CKG_MGF1_SHA1) {
+        TRACE_ERROR("CCA only supports SHA-1 as hash algorithm and MGF\n");
+        return CKR_MECHANISM_PARAM_INVALID;
+    }
+
+    rc = template_attribute_get_non_empty(wrapping_key->template,
+                                          CKA_IBM_OPAQUE, &wrap_key_opaque);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_IBM_OPAQUE for the wrapping key.\n");
+        return rc;
+    }
+
+    rc = template_attribute_get_ulong(key->template, CKA_CLASS, &key_class);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_CLASS for the key.\n");
+        return rc;
+    }
+
+    rc = template_attribute_get_ulong(key->template, CKA_KEY_TYPE, &key_type);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_KEY_TYPE for the key.\n");
+        return rc;
+    }
+
+    rc = template_attribute_get_non_empty(key->template, CKA_IBM_OPAQUE,
+                                          &key_opaque);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_IBM_OPAQUE for the key.\n");
+        return rc;
+    }
+
+    switch (key_class) {
+    case CKO_SECRET_KEY:
+        switch (key_type) {
+        case CKK_AES:
+            return ccatok_wrap_key_rsa_aeskw_aes(tokdata, length_only,
+                                                 wrap_key_opaque, key_opaque,
+                                                 wrapped_key, wrapped_key_len);
+        default:
+            TRACE_ERROR("The type of they key to wrap is not supported.\n");
+            return CKR_KEY_NOT_WRAPPABLE;
+        }
+        break;
+    default:
+        TRACE_ERROR("The class of the key to wrap is not supported.\n");
+        return CKR_KEY_NOT_WRAPPABLE;
+    }
+}
+
+static CK_RV ccatok_unwrap_key_rsa_aeskw_aes(STDLL_TokData_t *tokdata,
+                                             CK_ATTRIBUTE *wrap_key_opaque,
+                                             OBJECT *key,
+                                             CK_BYTE *wrapped_key,
+                                             CK_ULONG wrapped_key_len)
+{
+    long return_code, reason_code, rule_array_count;
+    unsigned char rule_array[CCA_RULE_ARRAY_SIZE] = { 0 };
+    unsigned char exit_data[4] = { 0, };
+    unsigned char key_name[CCA_KEY_ID_SIZE] = { 0, };
+    long exit_data_len = 0, key_name_length = 0;
+    CK_BYTE buffer[725] = { 0, };
+    CK_BYTE dummy[AES_KEY_SIZE_256] = { 0, };
+    long buffer_len = sizeof(buffer);
+    CK_ULONG buf_len = sizeof(buffer);
+    CK_ATTRIBUTE *key_opaque = NULL;
+    CK_ATTRIBUTE *value = NULL, *value_len = NULL;
+    CK_ULONG key_size = 0;
+    enum cca_token_type keytype;
+    unsigned int keybitsize;
+    const CK_BYTE *mkvp;
+    CK_BBOOL new_mk;
+    CK_IBM_CCA_AES_KEY_MODE_TYPE mode;
+    CK_RV rc;
+
+    if (!cca_rsa_aeskw_supported(tokdata, CKK_AES)) {
+        TRACE_ERROR("CKM_RSA_AES_KEY_WRAP requires CCA 8.2 or later and "
+                    "certain ACPs set for unwrapping AES keys\n");
+        return CKR_WRAPPED_KEY_INVALID;
+    }
+
+    rc = cca_get_and_set_aes_key_mode(tokdata, key->template, &mode);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("cca_get_and_set_aes_key_mode failed\n");
+        return rc;
+    }
+
+    if (mode != CK_IBM_CCA_AES_CIPHER_KEY) {
+        TRACE_ERROR("CCA does not support unwrapping with CKM_RSA_AES_KEY_WRAP "
+                    "for AES DATA keys\n");
+        return CKR_WRAPPED_KEY_INVALID;
+    }
+
+    rc = cca_build_aes_cipher_token(tokdata, key->template,
+                                    buffer, &buf_len);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("cca_build_aes_cipher_token failed\n");
+        return rc;
+    }
+
+    rule_array_count = 2;
+    memcpy(rule_array, "AES     CKM-RAKW", 2 * CCA_KEYWORD_SIZE);
+
+    USE_CCA_ADAPTER_START(tokdata, return_code, reason_code)
+    RETRY_NEW_MK_BLOB_START()
+        dll_CSNDSYI2(&return_code, &reason_code,
+                     &exit_data_len, exit_data,
+                     &rule_array_count, rule_array,
+                     (long *)&wrapped_key_len, wrapped_key,
+                     (long *)&wrap_key_opaque->ulValueLen,
+                     wrap_key_opaque->pValue,
+                     &key_name_length, key_name,
+                     &buffer_len, buffer);
+    RETRY_NEW_MK_BLOB_END(tokdata, return_code, reason_code,
+                          wrap_key_opaque->pValue, wrap_key_opaque->ulValueLen)
+    USE_CCA_ADAPTER_END(tokdata, return_code, reason_code)
+
+    if (return_code != CCA_SUCCESS) {
+        TRACE_ERROR("CSNDSYI2 (SYMMETRIC KEY IMPORT2) failed."
+                    " return:%ld, reason:%ld\n", return_code, reason_code);
+
+        if (return_code == 8 && reason_code == 90)
+            return CKR_FUNCTION_CANCELED; /* Control point prohibits function */
+        if (return_code == 8 && reason_code == 33)
+            return CKR_FUNCTION_CANCELED; /* Control point prohibits function */
+        if (return_code == 8 && reason_code == 760)
+            return CKR_UNWRAPPING_KEY_SIZE_RANGE; /* must be  >= 2048 bit */
+        if (return_code == 8 && reason_code == 55)
+            return CKR_WRAPPED_KEY_INVALID; /* temp AES key not 256 bits */
+        return CKR_FUNCTION_FAILED;
+    }
+
+    if (analyse_cca_key_token(buffer, buffer_len,
+                              &keytype, &keybitsize, &mkvp) == FALSE ||
+        mkvp == NULL) {
+        TRACE_ERROR("Invalid/unknown cca token has been unwrapped\n");
+        return CKR_FUNCTION_FAILED;
+    }
+
+    if (keytype != sec_aes_cipher_key) {
+        TRACE_ERROR("Invalid cca token has been unwrapped\n");
+        return CKR_FUNCTION_FAILED;
+    }
+
+    if (keybitsize == 0) {
+        /* Indicates V1 payload. Get unwrapped key size from wrapped data */
+        if (analyse_cca_key_token(wrap_key_opaque->pValue,
+                                  wrap_key_opaque->ulValueLen,
+                                  &keytype, &keybitsize, &mkvp) == FALSE ||
+            mkvp == NULL) {
+            TRACE_ERROR("Invalid/unknown cca token used as wrapping key\n");
+            return CKR_FUNCTION_FAILED;
+        }
+
+        /* Unwrapped key size is input size - RSA modulus size - AESKW block */
+        key_size = wrapped_key_len - (keybitsize / 8) - AES_KEY_WRAP_BLOCK_SIZE;
+    } else {
+        key_size = keybitsize / 8;
+    }
+
+    if (check_expected_mkvp(tokdata, keytype, mkvp, &new_mk) != CKR_OK) {
+        TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
+        return CKR_DEVICE_ERROR;
+    }
+
+    rc = cca_reencipher_created_key(tokdata, key->template, buffer, buffer_len,
+                                    new_mk, keytype, FALSE);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("cca_reencipher_created_key failed: 0x%lx\n", rc);
+        return rc;
+    }
+
+    rc = build_attribute(CKA_IBM_OPAQUE, buffer, buffer_len, &key_opaque);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("build_attribute failed\n");
+        goto error;
+    }
+
+    rc = build_attribute(CKA_VALUE, dummy, key_size, &value);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("build_attribute failed\n");
+        goto error;
+    }
+
+    rc = build_attribute(CKA_VALUE_LEN, (CK_BYTE *)&key_size,
+                         sizeof(CK_ULONG), &value_len);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("build_attribute failed\n");
+        goto error;
+    }
+
+    rc = template_update_attribute(key->template, key_opaque);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("template_update_attribute failed\n");
+        goto error;
+    }
+    key_opaque = NULL;
+    rc = template_update_attribute(key->template, value);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("template_update_attribute failed\n");
+        goto error;
+    }
+    value = NULL;
+    if (value_len != NULL) {
+        rc = template_update_attribute(key->template, value_len);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("template_update_attribute failed\n");
+            goto error;
+        }
+        value_len = NULL;
+    }
+
+    return CKR_OK;
+
+error:
+    if (key_opaque)
+        free(key_opaque);
+    if (value)
+        free(value);
+    if (value_len)
+        free(value_len);
+
+    return rc;
+}
+
+static CK_RV ccatok_unwrap_key_rsa_aeskw(STDLL_TokData_t *tokdata,
+                                         CK_MECHANISM *mech,
+                                         OBJECT *wrapping_key, OBJECT *key,
+                                         CK_BYTE *wrapped_key,
+                                         CK_ULONG wrapped_key_len)
+{
+    CK_ATTRIBUTE *wrap_key_opaque;
+    CK_OBJECT_CLASS key_class;
+    CK_KEY_TYPE key_type;
+    CK_RSA_AES_KEY_WRAP_PARAMS *params;
+    CK_RSA_PKCS_OAEP_PARAMS *oaep;
+    CK_RV rc;
+
+    params = (CK_RSA_AES_KEY_WRAP_PARAMS *)mech->pParameter;
+    if (params == NULL ||
+        mech->ulParameterLen != sizeof(CK_RSA_AES_KEY_WRAP_PARAMS))
+        return CKR_MECHANISM_PARAM_INVALID;
+
+    /* CCA always uses a AES-256 bit temporary key */
+    if (params->ulAESKeyBits == 0)
+        params->ulAESKeyBits = 256;
+    if (params->ulAESKeyBits != 256) {
+        TRACE_ERROR("CCA only supports AES-256 as temporary key size\n");
+        return CKR_MECHANISM_PARAM_INVALID;
+    }
+
+    oaep = params->pOAEPParams;
+    if (oaep == NULL)
+        return CKR_MECHANISM_PARAM_INVALID;
+
+    if (oaep->source == CKZ_DATA_SPECIFIED &&
+        oaep->ulSourceDataLen > 0) {
+        TRACE_ERROR("CCA does not support non-empty OAEP source data\n");
+        return CKR_MECHANISM_PARAM_INVALID;
+    }
+
+    if (oaep->hashAlg != CKM_SHA_1 || oaep->mgf != CKG_MGF1_SHA1) {
+        TRACE_ERROR("CCA only supports SHA-1 as hash algorithm and MGF\n");
+        return CKR_MECHANISM_PARAM_INVALID;
+    }
+
+    rc = template_attribute_get_non_empty(wrapping_key->template,
+                                          CKA_IBM_OPAQUE, &wrap_key_opaque);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_IBM_OPAQUE for the wrapping key.\n");
+        return rc;
+    }
+
+    rc = template_attribute_get_ulong(key->template, CKA_CLASS, &key_class);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_CLASS for the key.\n");
+        return rc;
+    }
+
+    rc = template_attribute_get_ulong(key->template, CKA_KEY_TYPE, &key_type);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_KEY_TYPE for the key.\n");
+        return rc;
+    }
+
+    switch (key_class) {
+    case CKO_SECRET_KEY:
+        switch (key_type) {
+        case CKK_AES:
+            return ccatok_unwrap_key_rsa_aeskw_aes(tokdata, wrap_key_opaque,
+                                                   key, wrapped_key,
+                                                   wrapped_key_len);
+        default:
+            TRACE_ERROR("The type of they key to wrap is not supported.\n");
+            return CKR_KEY_NOT_WRAPPABLE;
+        }
+        break;
+    default:
+        TRACE_ERROR("The class of the key to wrap is not supported.\n");
+        return CKR_KEY_NOT_WRAPPABLE;
+    }
+    return CKR_OK;
+}
+
 CK_RV token_specific_key_wrap(STDLL_TokData_t *tokdata, SESSION *session,
                               CK_MECHANISM *mech, CK_BBOOL length_only,
                               OBJECT *wrapping_key, OBJECT *key,
@@ -12994,6 +13691,13 @@ CK_RV token_specific_key_wrap(STDLL_TokData_t *tokdata, SESSION *session,
         return ccatok_wrap_key_rsa_pkcs(tokdata,
                                         mech, length_only, wrapping_key, key,
                                         wrapped_key, wrapped_key_len);
+    case CKM_RSA_AES_KEY_WRAP:
+        if (wrap_key_class != CKO_PUBLIC_KEY && wrap_key_type != CKK_RSA)
+            return CKR_WRAPPING_KEY_TYPE_INCONSISTENT;
+
+        return ccatok_wrap_key_rsa_aeskw(tokdata,
+                                         mech, length_only, wrapping_key, key,
+                                         wrapped_key, wrapped_key_len);
     default:
         return CKR_MECHANISM_INVALID;
     }
@@ -13046,6 +13750,16 @@ CK_RV token_specific_key_unwrap(STDLL_TokData_t *tokdata, SESSION *session,
         rc = ccatok_unwrap_key_rsa_pkcs(tokdata,
                                         mech, unwrapping_key, unwrapped_key,
                                         wrapped_key, wrapped_key_len);
+        if (rc != CKR_OK)
+            goto error;
+        break;
+    case CKM_RSA_AES_KEY_WRAP:
+        if (unwrap_key_class != CKO_PRIVATE_KEY && unwrap_keytype != CKK_RSA)
+            return CKR_WRAPPING_KEY_TYPE_INCONSISTENT;
+
+        rc = ccatok_unwrap_key_rsa_aeskw(tokdata,
+                                         mech, unwrapping_key, unwrapped_key,
+                                         wrapped_key, wrapped_key_len);
         if (rc != CKR_OK)
             goto error;
         break;
@@ -13397,6 +14111,13 @@ static CK_RV cca_handle_apqn_event(STDLL_TokData_t *tokdata,
     if (__sync_fetch_and_and(&cca_private->inconsistent, FALSE) == TRUE) {
         TRACE_INFO("CCA master key setup is now consistent again\n");
         OCK_SYSLOG(LOG_INFO, "CCA master key setup is now consistent again\n");
+    }
+
+    /* Get ACP infos again after APQN set changed */
+    rc = cca_get_acp_infos(tokdata);
+    if (rc != CKR_OK) {
+        TRACE_WARNING("Could not re-determine min ACP settings\n");
+        return rc;
     }
 
     /* Re-check after APQN set change if protected key support is available */

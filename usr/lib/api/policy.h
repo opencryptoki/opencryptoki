@@ -100,6 +100,9 @@ typedef CK_RV (*check_token_store_f)(policy_t p, CK_BBOOL newversion,
                                      CK_MECHANISM_TYPE encalgo, CK_SLOT_ID slot,
                                      struct tokstore_strength *ts);
 
+/* Get the strength of an AES key of the specified key bit size */
+typedef CK_ULONG (*get_aes_key_strength_f)(policy_t p, CK_ULONG aes_key_bits);
+
 struct policy {
     void *priv;
     CK_BBOOL active;
@@ -108,6 +111,7 @@ struct policy {
     is_mech_allowed_f is_mech_allowed;
     update_mech_info_f update_mech_info;
     check_token_store_f check_token_store;
+    get_aes_key_strength_f get_sym_key_strength;
 };
 
 /*

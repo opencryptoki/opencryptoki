@@ -61,10 +61,24 @@ CK_RSA_PKCS_OAEP_PARAMS oaep_params_sha256_source = {
         .ulSourceDataLen = 3,
 };
 
+CK_RSA_AES_KEY_WRAP_PARAMS rsa_aeskw_aes_256_oaep_sha1_params = {
+        .ulAESKeyBits = 256,
+        .pOAEPParams = &oaep_params_sha1,
+};
+
 CK_BYTE aes_iv[16] = { 0x00,0x01,0x02,0x03,0x04,0x05,0x06,0x07,
                        0x08,0x09,0x0a,0x0b,0x0c,0x0d,0x0e,0x0f };
 
 CK_BYTE des_iv[8] = { 0x00,0x01,0x02,0x03,0x04,0x05,0x06,0x07 };
+
+CK_ECDH_AES_KEY_WRAP_PARAMS ecdh_aeskw_aes_256__params = {
+        .ulAESKeyBits = 256,
+        .kdf = CKD_SHA256_KDF,
+        .ulSharedDataLen = 3,
+        .pSharedData = (CK_BYTE *)"abc",
+};
+
+CK_BYTE prime256v1[] = OCK_PRIME256V1;
 
 struct wrapping_mech_info {
     char *name;
@@ -74,6 +88,8 @@ struct wrapping_mech_info {
     CK_ULONG rsa_publ_exp_len;
     CK_BYTE rsa_publ_exp[4];
     CK_ULONG sym_keylen;
+    CK_BYTE ec_parms_len;
+    CK_BYTE *ec_parms;
 };
 
 struct wrapping_mech_info wrapping_tests[] = {
@@ -204,6 +220,107 @@ struct wrapping_mech_info wrapping_tests[] = {
         .sym_keylen = 64,
     },
     {
+        .name = "Wrap/Unwrap with AES 128 KEY WRAP",
+        .wrapping_mech = { CKM_AES_KEY_WRAP, NULL, 0 },
+        .wrapping_key_gen_mech = { CKM_AES_KEY_GEN, 0, 0 },
+        .sym_keylen = 16,
+    },
+    {
+        .name = "Wrap/Unwrap with AES 192 KEY WRAP",
+        .wrapping_mech = { CKM_AES_KEY_WRAP, NULL, 0 },
+        .wrapping_key_gen_mech = { CKM_AES_KEY_GEN, 0, 0 },
+        .sym_keylen = 24,
+    },
+    {
+        .name = "Wrap/Unwrap with AES 256 KEY WRAP",
+        .wrapping_mech = { CKM_AES_KEY_WRAP, NULL, 0 },
+        .wrapping_key_gen_mech = { CKM_AES_KEY_GEN, 0, 0 },
+        .sym_keylen = 32,
+    },
+    {
+        .name = "Wrap/Unwrap with AES 128 KEY WRAP PAD",
+        .wrapping_mech = { CKM_AES_KEY_WRAP_PAD, NULL, 0 },
+        .wrapping_key_gen_mech = { CKM_AES_KEY_GEN, 0, 0 },
+        .sym_keylen = 16,
+    },
+    {
+        .name = "Wrap/Unwrap with AES 192 KEY WRAP PAD",
+        .wrapping_mech = { CKM_AES_KEY_WRAP_PAD, NULL, 0 },
+        .wrapping_key_gen_mech = { CKM_AES_KEY_GEN, 0, 0 },
+        .sym_keylen = 24,
+    },
+    {
+        .name = "Wrap/Unwrap with AES 256 KEY WRAP PAD",
+        .wrapping_mech = { CKM_AES_KEY_WRAP_PAD, NULL, 0 },
+        .wrapping_key_gen_mech = { CKM_AES_KEY_GEN, 0, 0 },
+        .sym_keylen = 32,
+    },
+    {
+        .name = "Wrap/Unwrap with AES 128 KEY WRAP KWP",
+        .wrapping_mech = { CKM_AES_KEY_WRAP_KWP, NULL, 0 },
+        .wrapping_key_gen_mech = { CKM_AES_KEY_GEN, 0, 0 },
+        .sym_keylen = 16,
+    },
+    {
+        .name = "Wrap/Unwrap with AES 192 KEY WRAP KWP",
+        .wrapping_mech = { CKM_AES_KEY_WRAP_KWP, NULL, 0 },
+        .wrapping_key_gen_mech = { CKM_AES_KEY_GEN, 0, 0 },
+        .sym_keylen = 24,
+    },
+    {
+        .name = "Wrap/Unwrap with AES 256 KEY WRAP KWP",
+        .wrapping_mech = { CKM_AES_KEY_WRAP_KWP, NULL, 0 },
+        .wrapping_key_gen_mech = { CKM_AES_KEY_GEN, 0, 0 },
+        .sym_keylen = 32,
+    },
+    {
+        .name = "Wrap/Unwrap with AES 128 KEY WRAP PKCS7",
+        .wrapping_mech = { CKM_AES_KEY_WRAP_PKCS7, NULL, 0 },
+        .wrapping_key_gen_mech = { CKM_AES_KEY_GEN, 0, 0 },
+        .sym_keylen = 16,
+    },
+    {
+        .name = "Wrap/Unwrap with AES 192 KEY WRAP PKCS7",
+        .wrapping_mech = { CKM_AES_KEY_WRAP_PKCS7, NULL, 0 },
+        .wrapping_key_gen_mech = { CKM_AES_KEY_GEN, 0, 0 },
+        .sym_keylen = 24,
+    },
+    {
+        .name = "Wrap/Unwrap with AES 256 KEY WRAP PKCS7",
+        .wrapping_mech = { CKM_AES_KEY_WRAP_PKCS7, NULL, 0 },
+        .wrapping_key_gen_mech = { CKM_AES_KEY_GEN, 0, 0 },
+        .sym_keylen = 32,
+    },
+    {
+        .name = "Wrap/Unwrap with RSA 2048 AES KEY WRAP (AES 256, OAEP SHA-1)",
+        .wrapping_mech = { CKM_RSA_AES_KEY_WRAP,
+                           &rsa_aeskw_aes_256_oaep_sha1_params,
+                           sizeof(CK_RSA_AES_KEY_WRAP_PARAMS) },
+        .wrapping_key_gen_mech = { CKM_RSA_PKCS_KEY_PAIR_GEN, 0, 0 },
+        .rsa_modbits = 2048,
+        .rsa_publ_exp_len = 3,
+        .rsa_publ_exp = {0x01, 0x00, 0x01},
+    },
+    {
+        .name = "Wrap/Unwrap with RSA 4096 AES KEY WRAP (AES 256, OAEP SHA-1)",
+        .wrapping_mech = { CKM_RSA_AES_KEY_WRAP,
+                           &rsa_aeskw_aes_256_oaep_sha1_params,
+                           sizeof(CK_RSA_AES_KEY_WRAP_PARAMS) },
+        .wrapping_key_gen_mech = { CKM_RSA_PKCS_KEY_PAIR_GEN, 0, 0 },
+        .rsa_modbits = 4096,
+        .rsa_publ_exp_len = 3,
+        .rsa_publ_exp = {0x01, 0x00, 0x01},
+    },
+    {
+        .name = "Wrap/Unwrap with ECDH AES KEY WRAP (AES 256, P-256)",
+        .wrapping_mech = { CKM_ECDH_AES_KEY_WRAP,
+                           &ecdh_aeskw_aes_256__params,
+                           sizeof(CK_ECDH_AES_KEY_WRAP_PARAMS) },
+        .wrapping_key_gen_mech = { CKM_EC_KEY_PAIR_GEN, 0, 0 },
+        .ec_parms = prime256v1,
+        .ec_parms_len = sizeof(prime256v1),
+    },
+    {
         .name = "Wrap/Unwrap with DES ECB",
         .wrapping_mech = { CKM_DES_ECB, 0, 0 },
         .wrapping_key_gen_mech = { CKM_DES_KEY_GEN, 0, 0 },
@@ -252,8 +369,6 @@ struct wrapping_mech_info wrapping_tests[] = {
 
 #define NUM_WRAPPING_TESTS sizeof(wrapping_tests) / \
                                 sizeof(struct wrapping_mech_info)
-
-CK_BYTE prime256v1[] = OCK_PRIME256V1;
 
 struct wrapped_mech_info {
     char *name;
@@ -616,6 +731,22 @@ CK_RV do_wrap_key_test(struct wrapped_mech_info *tsuite,
         goto testcase_cleanup;
     }
 
+    if (wrap_mech->mechanism == CKM_AES_KEY_WRAP &&
+        tsuite->wrapped_key_gen_mech.mechanism == CKM_DES_KEY_GEN) {
+        testcase_skip("Mechanism CKM_AES_KEY_WRAP can not wrap DES keys "
+                      "(min 16 bytes required)");
+        goto testcase_cleanup;
+    }
+
+    if (wrap_mech->mechanism == CKM_AES_KEY_WRAP &&
+        tsuite->wrapped_key_gen_mech.mechanism == CKM_GENERIC_SECRET_KEY_GEN &&
+        tsuite->sym_keylen < 16) {
+        testcase_skip("Mechanism CKM_AES_KEY_WRAP can not wrap generic secret "
+                      "keys of size %lu (min 16 bytes required)",
+                      tsuite->sym_keylen);
+        goto testcase_cleanup;
+    }
+
     /* Generate the to be wrapped key in slot 1 */
     switch (tsuite->wrapped_key_gen_mech.mechanism) {
     case CKM_RSA_PKCS_KEY_PAIR_GEN:
@@ -771,8 +902,14 @@ CK_RV do_wrap_key_test(struct wrapped_mech_info *tsuite,
                           sym_key != CK_INVALID_HANDLE ? sym_key : priv_key,
                           wrapped_key, &wrapped_key_size);
     if (rc != CKR_OK) {
-        if (rc == CKR_KEY_NOT_WRAPPABLE) {
+        if (rc == CKR_KEY_NOT_WRAPPABLE ||
+            rc == CKR_WRAPPING_KEY_TYPE_INCONSISTENT) {
             testcase_skip("Key not wrappable");
+            rc = CKR_OK;
+            goto testcase_cleanup;
+        }
+        if (rc == CKR_KEY_SIZE_RANGE || rc == CKR_WRAPPING_KEY_SIZE_RANGE) {
+            testcase_skip("Key size not supported");
             rc = CKR_OK;
             goto testcase_cleanup;
         }
@@ -862,12 +999,13 @@ CK_RV do_wrap_key_test(struct wrapped_mech_info *tsuite,
                             wrapped_key, wrapped_key_size, unwrap_tmpl,
                             unwrap_tmpl_num, &unwrapped_key);
     if (rc != CKR_OK) {
-        if (rc == CKR_KEY_NOT_WRAPPABLE || rc == CKR_WRAPPED_KEY_INVALID) {
+        if (rc == CKR_KEY_NOT_WRAPPABLE || rc == CKR_WRAPPED_KEY_INVALID ||
+            rc == CKR_UNWRAPPING_KEY_TYPE_INCONSISTENT) {
             testcase_skip("Key not (un-)wrappable");
             rc = CKR_OK;
             goto testcase_cleanup;
         }
-        if (rc == CKR_KEY_SIZE_RANGE) {
+        if (rc == CKR_KEY_SIZE_RANGE || rc == CKR_UNWRAPPING_KEY_SIZE_RANGE) {
             testcase_skip("Key size not supported");
             rc = CKR_OK;
             goto testcase_cleanup;
@@ -986,9 +1124,15 @@ CK_RV do_wrapping_test(struct wrapping_mech_info *tsuite)
     CK_BYTE key[64];
     CK_ULONG key_size = 0;
     CK_BYTE value[64];
+    CK_BYTE ec_params[50];
+    CK_BYTE ec_point[500];
     CK_ATTRIBUTE rsa_publ_tmpl[] = {
         {CKA_MODULUS, modulus, sizeof(modulus) },
         {CKA_PUBLIC_EXPONENT, publ_exp, sizeof(publ_exp) },
+    };
+    CK_ATTRIBUTE ec_publ_tmpl[] = {
+        {CKA_EC_PARAMS, ec_params, sizeof(ec_params) },
+        {CKA_EC_POINT, ec_point, sizeof(ec_point) },
     };
     CK_ATTRIBUTE sym_tmpl[] = {
         {CKA_VALUE, value, sizeof(value) },
@@ -1114,6 +1258,13 @@ CK_RV do_wrapping_test(struct wrapping_mech_info *tsuite)
                                        tsuite->rsa_publ_exp,
                                        tsuite->rsa_publ_exp_len,
                                        &publ_wrap_key2, &priv_wrap_key2);
+        break;
+
+    case CKM_EC_KEY_PAIR_GEN:
+        rc = generate_EC_KeyPair(session2, tsuite->ec_parms,
+                                 tsuite->ec_parms_len,
+                                 &publ_wrap_key2, &priv_wrap_key2,
+                                 FALSE);
         break;
 
     case CKM_AES_KEY_GEN:
@@ -1263,6 +1414,20 @@ CK_RV do_wrapping_test(struct wrapping_mech_info *tsuite)
 
         rc = create_DESKey(session1, sym_tmpl[0].pValue, sym_tmpl[0].ulValueLen,
                            &sym_wrap_key1);
+        break;
+
+    case CKM_EC_KEY_PAIR_GEN:
+        rc = funcs->C_GetAttributeValue(session2, publ_wrap_key2,
+                                        ec_publ_tmpl, 2);
+        if (rc != CKR_OK) {
+            testcase_error("C_GetAttributeValue(), rc=%s.", p11_get_ckr(rc));
+            goto testcase_cleanup;
+        }
+        rc = create_ECPublicKey(session1, ec_publ_tmpl[0].pValue,
+                                ec_publ_tmpl[0].ulValueLen,
+                                ec_publ_tmpl[1].pValue,
+                                ec_publ_tmpl[1].ulValueLen, &publ_wrap_key1,
+                                FALSE);
         break;
 
     default:
