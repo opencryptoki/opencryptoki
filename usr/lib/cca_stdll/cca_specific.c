@@ -2608,7 +2608,9 @@ static CK_RV ccatok_pkey_skey2pkey(STDLL_TokData_t *tokdata,
             cca_mk_change_find_op_by_keytype(tokdata, key_type) != NULL) {
             sleep(1);
             num_retries++;
+            continue;
         }
+        break;
     }
 
     if (ret != CKR_OK || !pkey_wrap_handler_data.wrap_was_successful) {
