@@ -1007,6 +1007,9 @@ typedef CK_ULONG CK_MECHANISM_TYPE;
 #define CKM_ECDH1_COFACTOR_DERIVE      0x00001051
 #define CKM_ECMQV_DERIVE               0x00001052
 
+#define CKM_ECDH_AES_KEY_WRAP          0x00001053
+#define CKM_RSA_AES_KEY_WRAP           0x00001054
+
 #define CKM_JUNIPER_KEY_GEN            0x00001060
 #define CKM_JUNIPER_ECB128             0x00001061
 #define CKM_JUNIPER_CBC128             0x00001062
@@ -1038,6 +1041,9 @@ typedef CK_ULONG CK_MECHANISM_TYPE;
 #define CKM_AES_CFB128                 0x00002107
 
 #define CKM_AES_KEY_WRAP               0x00002109
+#define CKM_AES_KEY_WRAP_PAD           0x0000210A /* Deprecated with v3.1 */
+#define CKM_AES_KEY_WRAP_KWP           0x0000210B
+#define CKM_AES_KEY_WRAP_PKCS7         0x0000210C
 
 #define CKM_VENDOR_DEFINED             0x80000000
 
@@ -1649,6 +1655,13 @@ typedef struct CK_RSA_PKCS_PSS_PARAMS {
 
 typedef CK_RSA_PKCS_PSS_PARAMS CK_PTR CK_RSA_PKCS_PSS_PARAMS_PTR;
 
+typedef struct CK_RSA_AES_KEY_WRAP_PARAMS {
+    CK_ULONG                      ulAESKeyBits;
+    CK_RSA_PKCS_OAEP_PARAMS_PTR   pOAEPParams;
+} CK_RSA_AES_KEY_WRAP_PARAMS;
+
+typedef CK_RSA_AES_KEY_WRAP_PARAMS CK_PTR CK_RSA_AES_KEY_WRAP_PARAMS_PTR;
+
 /* ECDH mechanisms */
 typedef CK_ULONG CK_EC_KDF_TYPE;
 
@@ -1659,6 +1672,15 @@ typedef struct CK_ECDH1_DERIVE_PARAMS {
     CK_ULONG ulPublicDataLen;
     CK_BYTE_PTR pPublicData;
 } CK_ECDH1_DERIVE_PARAMS;
+
+typedef struct CK_ECDH_AES_KEY_WRAP_PARAMS {
+    CK_ULONG           ulAESKeyBits;
+    CK_EC_KDF_TYPE     kdf;
+    CK_ULONG           ulSharedDataLen;
+    CK_BYTE_PTR        pSharedData;
+} CK_ECDH_AES_KEY_WRAP_PARAMS;
+
+typedef CK_ECDH_AES_KEY_WRAP_PARAMS CK_PTR CK_ECDH_AES_KEY_WRAP_PARAMS_PTR;
 
 /* Attribute bound wrapping mechanism */
 typedef struct CK_IBM_ATTRIBUTEBOUND_WRAP {

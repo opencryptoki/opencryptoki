@@ -14,6 +14,7 @@
 #include "slotmgr.h"
 #include "mechtable.h"
 #include "supportedstrengths.h"
+#include "policy.h"
 
 /*
  * Statistics are collected in a shared memory segment per user.
@@ -52,6 +53,7 @@ struct statistics {
     char shm_name[PATH_MAX];
     CK_BYTE *shm_data;
     statistics_increment_f increment_func; /* NULL if statistics disabled */
+    struct policy *policy;
 };
 
 #define INC_COUNTER(tokdata, sess, mech, key, no_key_strength)              \
@@ -64,7 +66,7 @@ struct statistics {
 
 CK_RV statistics_init(struct statistics *statistics,
                       Slot_Mgr_Socket_t *slots_infos, CK_ULONG flags,
-                      uid_t uid);
+                      uid_t uid, struct policy *policy);
 void statistics_term(struct statistics *statistics);
 
 #endif

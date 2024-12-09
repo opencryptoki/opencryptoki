@@ -1909,6 +1909,11 @@ CK_RV template_validate_base_attribute(TEMPLATE *tmpl, CK_ATTRIBUTE *attr,
         break;
     case CKA_UNIQUE_ID:
         break;
+    case CKA_HIDDEN:
+        if ((mode & (MODE_CREATE | MODE_DERIVE | MODE_KEYGEN |
+                     MODE_UNWRAP)) != 0)
+            return CKR_OK;
+        break;
     default:
         TRACE_ERROR("%s: %lx\n", ock_err(ERR_ATTRIBUTE_TYPE_INVALID),
                     attr->type);

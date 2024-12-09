@@ -48,7 +48,8 @@ CK_RV dh_pkcs_derive(STDLL_TokData_t *tokdata,
                      CK_MECHANISM *mech,
                      OBJECT *base_key_obj,
                      CK_ATTRIBUTE *pTemplate,
-                     CK_ULONG ulCount, CK_OBJECT_HANDLE *handle)
+                     CK_ULONG ulCount, CK_OBJECT_HANDLE *handle,
+                     CK_BBOOL count_statistic)
 {
     CK_RV rc;
     CK_ULONG keyclass = 0, keytype = 0;
@@ -97,7 +98,7 @@ CK_RV dh_pkcs_derive(STDLL_TokData_t *tokdata,
     rc = ckm_dh_pkcs_derive(tokdata, sess,
                             mech->pParameter, mech->ulParameterLen,
                             base_key_obj, secret_key_value, &secret_key_value_len,
-                            mech);
+                            mech, count_statistic);
     if (rc != CKR_OK)
         return rc;
 
@@ -155,7 +156,8 @@ CK_RV ckm_dh_pkcs_derive(STDLL_TokData_t *tokdata,
                          CK_ULONG other_pubkey_len,
                          OBJECT *base_key_obj,
                          CK_BYTE *secret_value, CK_ULONG *secret_value_len,
-                         CK_MECHANISM_PTR mech)
+                         CK_MECHANISM_PTR mech,
+                         CK_BBOOL count_statistic)
 {
     CK_RV rc;
     CK_BYTE p[256];
@@ -211,7 +213,7 @@ CK_RV ckm_dh_pkcs_derive(STDLL_TokData_t *tokdata,
         TRACE_DEVEL("Token specific dh pkcs derive failed.\n");
 
 done:
-    if (rc == CKR_OK)
+    if (count_statistic == TRUE && rc == CKR_OK)
         INC_COUNTER(tokdata, sess, mech, base_key_obj, POLICY_STRENGTH_IDX_0);
 
     return rc;

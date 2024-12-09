@@ -35,8 +35,8 @@ CK_RV do_EncryptDecryptAES(struct generated_test_suite_info *tsuite)
 {
     int i;
     CK_BYTE original[BIG_REQUEST];
-    CK_BYTE crypt[BIG_REQUEST + AES_BLOCK_SIZE];
-    CK_BYTE decrypt[BIG_REQUEST + AES_BLOCK_SIZE];
+    CK_BYTE crypt[BIG_REQUEST + 2 * AES_BLOCK_SIZE];
+    CK_BYTE decrypt[BIG_REQUEST + 2 * AES_BLOCK_SIZE];
     CK_BYTE user_pin[PKCS11_MAX_PIN_LEN];
     CK_ULONG j;
     CK_ULONG user_pin_len;
@@ -111,6 +111,15 @@ CK_RV do_EncryptDecryptAES(struct generated_test_suite_info *tsuite)
 
         /** generate data **/
         orig_len = sizeof(original);
+
+        switch (tsuite->mech.mechanism) {
+        case CKM_AES_CBC_PAD:
+        case CKM_AES_KEY_WRAP_PAD:
+        case CKM_AES_KEY_WRAP_KWP:
+        case CKM_AES_KEY_WRAP_PKCS7:
+            orig_len -= 3; /* not a multiple of 8 bytes (force padding) */
+            break;
+        }
 
         for (j = 0; j < orig_len; j++)
             original[j] = j % 255;
@@ -229,6 +238,17 @@ CK_RV do_EncryptDecryptUpdateAES(struct generated_test_suite_info * tsuite)
     if ((is_ep11_token(slot_id) || is_cca_token(slot_id)) &&
         tsuite->mech.mechanism == CKM_AES_XTS && pkey == FALSE) {
         testcase_skip("Slot supports AES-XTS only for protected keys.\n");
+        goto testcase_cleanup;
+    }
+
+    switch (tsuite->mech.mechanism) {
+    case CKM_AES_KEY_WRAP:
+    case CKM_AES_KEY_WRAP_PAD:
+    case CKM_AES_KEY_WRAP_KWP:
+    case CKM_AES_KEY_WRAP_PKCS7:
+        testcase_skip("Mechanism %s (0x%x) does not support multi-part "
+                      "operations.\n", mech_to_str(tsuite->mech.mechanism),
+                      (unsigned int) tsuite->mech.mechanism);
         goto testcase_cleanup;
     }
 
@@ -686,6 +706,17 @@ CK_RV do_EncryptUpdateAES(struct published_test_suite_info * tsuite)
         goto testcase_cleanup;
     }
 
+    switch (tsuite->mech.mechanism) {
+    case CKM_AES_KEY_WRAP:
+    case CKM_AES_KEY_WRAP_PAD:
+    case CKM_AES_KEY_WRAP_KWP:
+    case CKM_AES_KEY_WRAP_PKCS7:
+        testcase_skip("Mechanism %s (0x%x) does not support multi-part "
+                      "operations.\n", mech_to_str(tsuite->mech.mechanism),
+                      (unsigned int) tsuite->mech.mechanism);
+        goto testcase_cleanup;
+    }
+
     /* Skip tests if pkey = false, but the slot doesn't support CKM_AES_XTS */
     if (is_ep11_token(slot_id) && tsuite->mech.mechanism == CKM_AES_XTS && pkey == FALSE) {
         testcase_skip("Slot supports AES-XTS only for protected keys.\n");
@@ -1078,6 +1109,17 @@ CK_RV do_DecryptUpdateAES(struct published_test_suite_info * tsuite)
         goto testcase_cleanup;
     }
 
+    switch (tsuite->mech.mechanism) {
+    case CKM_AES_KEY_WRAP:
+    case CKM_AES_KEY_WRAP_PAD:
+    case CKM_AES_KEY_WRAP_KWP:
+    case CKM_AES_KEY_WRAP_PKCS7:
+        testcase_skip("Mechanism %s (0x%x) does not support multi-part "
+                      "operations.\n", mech_to_str(tsuite->mech.mechanism),
+                      (unsigned int) tsuite->mech.mechanism);
+        goto testcase_cleanup;
+    }
+
     /* Skip tests if pkey = false, but the slot doesn't support CKM_AES_XTS */
     if (is_ep11_token(slot_id) && tsuite->mech.mechanism == CKM_AES_XTS && pkey == FALSE) {
         testcase_skip("Slot supports AES-XTS only for protected keys.\n");
@@ -1261,8 +1303,8 @@ CK_RV do_WrapUnwrapAES(struct generated_test_suite_info * tsuite)
 {
     unsigned int i, j;
     CK_BYTE original[BIG_REQUEST + AES_BLOCK_SIZE];
-    CK_BYTE crypt[BIG_REQUEST + AES_BLOCK_SIZE];
-    CK_BYTE decrypt[BIG_REQUEST + AES_BLOCK_SIZE];
+    CK_BYTE crypt[BIG_REQUEST + 2 * AES_BLOCK_SIZE];
+    CK_BYTE decrypt[BIG_REQUEST + 2 * AES_BLOCK_SIZE];
     CK_BYTE_PTR wrapped_data = NULL;
     CK_BYTE user_pin[PKCS11_MAX_PIN_LEN];
     CK_SESSION_HANDLE session;
@@ -1376,8 +1418,8 @@ CK_RV do_WrapUnwrapAES(struct generated_test_suite_info * tsuite)
 
         /** generate data **/
         orig_len = BIG_REQUEST;
-        crypt_len = BIG_REQUEST + AES_BLOCK_SIZE;
-        decrypt_len = BIG_REQUEST + AES_BLOCK_SIZE;
+        crypt_len = BIG_REQUEST + 2 * AES_BLOCK_SIZE;
+        decrypt_len = BIG_REQUEST + 2 * AES_BLOCK_SIZE;
         for (j = 0; j < orig_len; j++) {
             original[j] = j % 255;
         }
@@ -1537,8 +1579,8 @@ CK_RV do_WrapUnwrapRSA(struct generated_test_suite_info * tsuite)
     unsigned int i;
     CK_BYTE original[BIG_REQUEST];
     CK_BYTE decipher[BIG_REQUEST + AES_BLOCK_SIZE];
-    CK_BYTE cipher[BIG_REQUEST + AES_BLOCK_SIZE];
-    CK_BYTE wrapped_data[BIG_REQUEST + AES_BLOCK_SIZE];
+    CK_BYTE cipher[BIG_REQUEST + 2 * AES_BLOCK_SIZE];
+    CK_BYTE wrapped_data[BIG_REQUEST + 2 * AES_BLOCK_SIZE];
     CK_BYTE user_pin[PKCS11_MAX_PIN_LEN];
     CK_BYTE pub_exp[] = { 0x01, 0x00, 0x01 };
     CK_MECHANISM mech, mech2;

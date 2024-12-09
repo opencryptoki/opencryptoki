@@ -266,6 +266,11 @@ struct token_specific_struct {
                        CK_BYTE *, CK_ULONG *, OBJECT *, CK_BYTE *, CK_BBOOL,
                        CK_BBOOL, CK_BBOOL, CK_BYTE*);
 
+    CK_RV(*t_aes_key_wrap) (STDLL_TokData_t *, SESSION *,
+                            CK_BYTE *, CK_ULONG, CK_BYTE *, CK_ULONG *,
+                            OBJECT *, CK_BYTE *, CK_ULONG,
+                            CK_BBOOL, CK_BBOOL);
+
     // Token Specific DSA functions
     CK_RV(*t_dsa_generate_keypair) (STDLL_TokData_t *, TEMPLATE *, TEMPLATE *);
 
