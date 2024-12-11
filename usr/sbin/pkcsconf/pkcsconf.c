@@ -312,8 +312,10 @@ done:
     free(SlotList);
     if (FunctionPtr)
         FunctionPtr->C_Finalize(NULL);
+#ifndef WITH_SANITIZER
     if (dllPtr)
         dlclose(dllPtr);
+#endif
 
     return rv;
 }

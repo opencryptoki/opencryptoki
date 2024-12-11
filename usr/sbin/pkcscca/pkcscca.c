@@ -669,21 +669,27 @@ CK_FUNCTION_LIST *p11_init(void)
     if (getfunclist == NULL) {
         print_error("Couldn't get the address of the C_GetFunctionList "
                     "routine.");
+#ifndef WITH_SANITIZER
         dlclose(p11_lib);
+#endif
         return NULL;
     }
 
     rv = getfunclist(&funcs);
     if (rv != CKR_OK) {
         p11_error("C_GetFunctionList", rv);
+#ifndef WITH_SANITIZER
         dlclose(p11_lib);
+#endif
         return NULL;
     }
 
     rv = funcs->C_Initialize(NULL_PTR);
     if (rv != CKR_OK) {
         p11_error("C_Initialize", rv);
+#ifndef WITH_SANITIZER
         dlclose(p11_lib);
+#endif
         return NULL;
     }
 
@@ -697,8 +703,10 @@ void p11_fini(CK_FUNCTION_LIST *funcs)
 {
     funcs->C_Finalize(NULL_PTR);
 
+#ifndef WITH_SANITIZER
     if (p11_lib)
         dlclose(p11_lib);
+#endif
 }
 
 /* Expect attribute array to have 3 entries,

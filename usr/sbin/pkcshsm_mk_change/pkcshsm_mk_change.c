@@ -1347,7 +1347,9 @@ static int init_ock(void)
 #endif
         warnx("Error loading PKCS#11 library: dlsym(C_GetFunctionList): %s",
               dlerror());
+#ifndef WITH_SANITIZER
         dlclose(dll);
+#endif
         dll = NULL;
         return err;
     }
@@ -1355,7 +1357,9 @@ static int init_ock(void)
     sym_ptr(&func_list);
     if (func_list == NULL) {
         warnx("Error getting function list from PKCS11 library");
+#ifndef WITH_SANITIZER
         dlclose(dll);
+#endif
         dll = NULL;
         return ELIBACC;
     }
@@ -1364,7 +1368,9 @@ static int init_ock(void)
     if (rc != CKR_OK) {
         warnx("Error initializing the PKCS11 library: 0x%lX (%s)", rc,
                p11_get_ckr(rc));
+#ifndef WITH_SANITIZER
         dlclose(dll);
+#endif
         dll = NULL;
         func_list = NULL;
         return ELIBACC;
@@ -1522,7 +1528,9 @@ static void terminate(void)
     if (dll != NULL) {
         if (func_list != NULL)
             func_list->C_Finalize(NULL);
+#ifndef WITH_SANITIZER
         dlclose(dll);
+#endif
     }
 
     hsm_mk_change_lock_destroy();
