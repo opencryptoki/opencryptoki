@@ -382,11 +382,11 @@ BOOL CheckForGarbage(Slot_Mgr_Shr_t *MemPtr)
             /* NULL out everything except the mutex */
             /*                                      */
 
-            memset(&(pProc->inuse), '\0', sizeof(pProc->inuse));
-            memset(&(pProc->proc_id), '\0', sizeof(pProc->proc_id));
-            memset(&(pProc->slotmap), '\0', sizeof(pProc->slotmap));
-            memset(&(pProc->blocking), '\0', sizeof(pProc->blocking));
-            memset(&(pProc->error), '\0', sizeof(pProc->error));
+            pProc->inuse = CK_FALSE;
+            pProc->proc_id = 0;
+            pProc->slotmap = 0;
+            pProc->blocking = 0;
+            pProc->error = 0;
             memset(&(pProc->slot_session_count), '\0',
                    sizeof(pProc->slot_session_count));
             memset(&(pProc->reg_time), '\0', sizeof(pProc->reg_time));
