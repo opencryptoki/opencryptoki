@@ -1362,7 +1362,7 @@ static int listener_socket_create(const char *file_path)
 
     memset(&address, 0, sizeof(struct sockaddr_un));
     address.sun_family = AF_UNIX;
-    strncpy(address.sun_path, file_path, sizeof(address.sun_path));
+    strncpy(address.sun_path, file_path, sizeof(address.sun_path) - 1);
     address.sun_path[sizeof(address.sun_path) - 1] = '\0';
 
     if (bind(listener_socket,
