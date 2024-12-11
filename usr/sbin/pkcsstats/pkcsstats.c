@@ -731,7 +731,9 @@ int init_ock(void **dll, CK_FUNCTION_LIST_PTR *func_list)
     if (sym_ptr == NULL) {
         warnx("Error loading PKCS#11 library: dlsym(C_GetFunctionList): %s",
               dlerror());
+#ifndef WITH_SANITIZER
         dlclose(*dll);
+#endif
         *dll = NULL;
         return 1;
     }
@@ -739,7 +741,9 @@ int init_ock(void **dll, CK_FUNCTION_LIST_PTR *func_list)
     sym_ptr(func_list);
     if (*func_list == NULL) {
         warnx("Error getting function list from PKCS11 library");
+#ifndef WITH_SANITIZER
         dlclose(*dll);
+#endif
         *dll = NULL;
         return 1;
     }
@@ -748,7 +752,9 @@ int init_ock(void **dll, CK_FUNCTION_LIST_PTR *func_list)
     if (rc != CKR_OK) {
         warnx("Error initializing the PKCS11 library: 0x%lX (%s)", rc,
                p11_get_ckr(rc));
+#ifndef WITH_SANITIZER
         dlclose(*dll);
+#endif
         *dll = NULL;
         *func_list = NULL;
         return 1;
@@ -1014,7 +1020,9 @@ done:
 
     if (dll != NULL) {
         func_list->C_Finalize(NULL);
+#ifndef WITH_SANITIZER
         dlclose(dll);
+#endif
     }
 
     free(user_name);

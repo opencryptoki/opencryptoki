@@ -305,7 +305,9 @@ int clean_up(void)
         show_error("C_Finalize", rc);
 
     /* Decrement the reference count to libopencryptoki.so */
+#ifndef WITH_SANITIZER
     dlclose(dl_handle);
+#endif
 
     return rc;
 }

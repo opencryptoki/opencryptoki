@@ -641,7 +641,9 @@ void DL_Unload(API_Slot_t *sltp)
     dllload = sltp->dll_information;
     dllload->dll_load_count--;
     if (dllload->dll_load_count == 0) {
+#ifndef WITH_SANITIZER
         dlclose(dllload->dlop_p);
+#endif
         dllload->dll_name = NULL;
     }
     // Clear out the slot information

@@ -11551,8 +11551,10 @@ static void term_pkcs11(void)
             warnx("C_Finalize failed: 0x%lX: %s", rc, p11_get_ckr(rc));
     }
 
+#ifndef WITH_SANITIZER
     if (pkcs11_lib != NULL)
         dlclose(pkcs11_lib);
+#endif
 
     pkcs11_lib = NULL;
     pkcs11_funcs = NULL;

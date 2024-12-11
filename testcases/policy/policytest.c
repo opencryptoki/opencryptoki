@@ -93,8 +93,10 @@ CK_BYTE DH_PUBL_BASE[128] = {
 
 static void unloadLib(void)
 {
+#ifndef WITH_SANITIZER
     if (pkcs11lib)
         dlclose(pkcs11lib);
+#endif
 }
 
 static void finalizeLib(void)

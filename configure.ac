@@ -83,6 +83,12 @@ AC_ARG_ENABLE([debug],
 	[],
 	[enable_debug=no])
 
+dnl --- sanitizer support
+AC_ARG_ENABLE([sanitizer],
+	AS_HELP_STRING([--enable-sanitizer],[enable sanitizer build (may not work in all environments) @<:@default=no@:>@]),
+	[],
+	[enable_sanitizer=no])
+
 dnl --- build testcases
 AC_ARG_ENABLE([testcases],
 	AS_HELP_STRING([--enable-testcases],[build the test cases @<:@default=no@:>@]),
@@ -341,6 +347,19 @@ if test "x$enable_debug" = "xyes"; then
 	AC_DEFINE([DEBUG])
 else
 	CFLAGS="$CFLAGS -O2 -g3"
+fi
+
+dnl --- enable_sanitizer
+if test "x$enable_sanitizer" = "xyes"; then
+	AC_CHECK_LIB([asan], [strcpy], [LDFLAGS="-lasan $LDFLAGS"],
+			[AC_MSG_ERROR(['libasan' library is missing on your system. Please install 'libasan'.])])
+	AC_CHECK_LIB([ubsan], [strcpy], [LDFLAGS="-lubsan $LDFLAGS"],
+			[AC_MSG_ERROR(['libubsan' library is missing on your system. Please install 'libubsan'.])])
+	if test "x$enable_debug" = "xyes"; then
+		CFLAGS="$CFLAGS -O2 -g3 -DDEBUG"
+	fi
+	CFLAGS="$CFLAGS -fstack-protector-all -fsanitize=address,signed-integer-overflow,undefined -Wformat -Wformat-security -Werror=format-security -Warray-bounds -Werror=array-bounds -D_FORTIFY_SOURCE=2"
+	AC_DEFINE([WITH_SANITIZER])
 fi
 
 if test "x$build_aix" = "xno"; then
@@ -830,4 +849,8 @@ echo "pkcsslotd user:		$pkcsslotd_user"
 echo "pkcs group:		$pkcs_group"
 echo
 echo "CFLAGS=$CFLAGS"
+echo "LDFLAGS=$LDFLAGS"
 echo
+if test "x$enable_sanitizer" = "xyes"; then
+	echo "Sanitizer is enabled, \"export LSAN_OPTIONS=fast_unwind_on_malloc=false\" may be required to get useful stack traces."
+fi

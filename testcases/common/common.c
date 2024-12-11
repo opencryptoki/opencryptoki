@@ -55,7 +55,9 @@ static void *pkcs11lib = NULL;
 static void unload_pkcslib(void)
 {
     if (pkcs11lib != NULL) {
+#ifndef WITH_SANITIZER
          dlclose(pkcs11lib);
+#endif
     }
 }
 
@@ -1640,7 +1642,9 @@ ret:
         ifs = NULL;
 
         if (pkcs11lib != NULL) {
+#ifndef WITH_SANITIZER
             dlclose(pkcs11lib);
+#endif
             pkcs11lib = NULL;
 	}
     }
