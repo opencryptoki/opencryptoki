@@ -1564,6 +1564,14 @@ CK_RV do_WrapUnwrapRSA(struct GENERATED_TEST_SUITE_INFO * tsuite)
                               mech_to_str(wrap_mech.mechanism));
                 goto tv_cleanup;
             }
+            if (rc == CKR_WRAPPING_KEY_SIZE_RANGE &&
+                wrap_mech.mechanism == CKM_RSA_AES_KEY_WRAP) {
+                testcase_skip("%s: Cannot wrap a temporary AES key of size %lu "
+                              "with the given RSA key size and OAEP parameters",
+                              mech_to_str(wrap_mech.mechanism),
+                              rsa_aeskw_params.ulAESKeyBits);
+                goto tv_cleanup;
+            }
 
             testcase_error("C_WrapKey(), rc=%s.", p11_get_ckr(rc));
             goto error;
