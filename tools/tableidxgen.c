@@ -596,8 +596,7 @@ static void generatelicense(FILE *fp)
     /* Remove trailing newline character */
     tstr[strlen(tstr) - 1] = 0;
     fputs("/*\n", fp);
-    fprintf(fp, " * COPYRIGHT (c) International Business Machines Corp. %d\n",
-            tm->tm_year + 1900);
+    fprintf(fp, " * COPYRIGHT (c) International Business Machines Corp. 2024\n");
     fputs(" *\n", fp);
     fputs(" * This program is provided under the terms of the Common Public License,\n",
           fp);
