@@ -589,8 +589,11 @@ static void generatelicense(FILE *fp)
     time_t t;
     struct tm *tm;
     char *tstr;
+    char *source_date_epoch;
 
-    t = time(NULL);
+    if ((source_date_epoch = getenv("SOURCE_DATE_EPOCH")) == NULL ||
+        (t = (time_t)strtoll(source_date_epoch, NULL, 10)) <= 0)
+            t = time(NULL);
     tm = localtime(&t);
     tstr = asctime(tm);
     /* Remove trailing newline character */
