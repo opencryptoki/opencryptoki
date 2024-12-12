@@ -57,6 +57,7 @@ typedef struct {
     int ica_ec_derive_available;
     int ica_rsa_keygen_available;
     int ica_rsa_endecrypt_available;
+    int ica_rsa_no_small_pub_exp;
     int ica_p_rng_available;
     int ica_sha1_available;
     int ica_sha2_available;
@@ -2358,6 +2359,14 @@ static CK_RV ica_specific_rsa_keygen(STDLL_TokData_t *tokdata,
         goto pubkey_cleanup;
     }
 
+    /* Check if small public exponents are allowed */
+    if (ica_data->ica_rsa_no_small_pub_exp &&
+        *((unsigned long *) ptr) != 0 &&
+        *((unsigned long *) ptr) < 65537) {
+        TRACE_ERROR("No small RSA public exponents allowed\n");
+        rc = CKR_KEY_SIZE_RANGE;
+        goto pubkey_cleanup;
+    }
 
     /* Build privKey:
      * buffers pointed by p, q, dp, dq and qInverse in struct
@@ -5041,11 +5050,14 @@ static CK_BBOOL isMechanismHW(STDLL_TokData_t *tokdata, CK_ULONG mechanism)
 #define KEY_SIZE_2048  0x04
 #define KEY_SIZE_4096  0x08
 
+#define RSA_NO_SMALL_EXP   0x00010000 /* e >= 65537 */
+
 static void adjust_rsa_key_sizes(unsigned int mask,
                                  CK_MECHANISM_INFO *mech_info)
 {
     CK_ULONG min = 0, max = 0;
 
+    mask &= (KEY_SIZE_512 | KEY_SIZE_1024 | KEY_SIZE_2048 | KEY_SIZE_4096);
     if (mask == 0)
         return;
 
@@ -5238,8 +5250,11 @@ static CK_RV mech_list_ica_initialize(STDLL_TokData_t *tokdata)
         /* Remember if libica supports RSA mechanisms (HW or SW) */
         if (libica_func_list[i].mech_mode_id == RSA_KEY_GEN_ME) {
             ica_data->ica_rsa_keygen_available = TRUE;
-            if (libica_func_list[i].property != 0)
+            if (libica_func_list[i].property != 0) {
                 rsa_props = libica_func_list[i].property;
+                ica_data->ica_rsa_no_small_pub_exp =
+                        ((rsa_props & RSA_NO_SMALL_EXP) != 0);
+            }
         }
         if (libica_func_list[i].mech_mode_id == RSA_ME) {
             ica_data->ica_rsa_endecrypt_available = TRUE;
