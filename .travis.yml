@@ -61,6 +61,7 @@ before_script:
     - ./bootstrap.sh 2> >(tee)
 
 script:
+    - set -o pipefail
     - openssl version 2> >(tee)
     - ./configure --silent $CONFIG_OPTS 2> >(tee) && make -j 5 V=0 2> >(tee)
     - make check V=0 2> >(tee)
