@@ -185,6 +185,10 @@ CK_RV do_SignVerifyUpdateRSA(struct GENERATED_TEST_SUITE_INFO *tsuite)
                 testcase_skip("RSA key generation is not allowed by policy");
                 continue;
             }
+            if (rc == CKR_KEY_SIZE_RANGE) {
+                testcase_skip("RSA key size is not in supported range");
+                continue;
+            }
 
             testcase_error("generate_RSA_PKCS_KeyPair_cached(), rc=%s",
                            p11_get_ckr(rc));
@@ -426,6 +430,10 @@ CK_RV do_SignVerifyUpdate_RSAPSS(struct GENERATED_TEST_SUITE_INFO * tsuite)
         if (rc != CKR_OK) {
             if (rc == CKR_POLICY_VIOLATION) {
                 testcase_skip("RSA key generation is not allowed by policy");
+                continue;
+            }
+            if (rc == CKR_KEY_SIZE_RANGE) {
+                testcase_skip("RSA key size is not in supported range");
                 continue;
             }
 
