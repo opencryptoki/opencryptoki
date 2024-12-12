@@ -17,7 +17,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <time.h>
 #include <unistd.h>
 
 #include "pkcs11types.h"
@@ -586,15 +585,6 @@ static void dumpstringfun(FILE *fp)
 
 static void generatelicense(FILE *fp)
 {
-    time_t t;
-    struct tm *tm;
-    char *tstr;
-
-    t = time(NULL);
-    tm = localtime(&t);
-    tstr = asctime(tm);
-    /* Remove trailing newline character */
-    tstr[strlen(tstr) - 1] = 0;
     fputs("/*\n", fp);
     fprintf(fp, " * COPYRIGHT (c) International Business Machines Corp. 2024\n");
     fputs(" *\n", fp);
@@ -607,7 +597,7 @@ static void generatelicense(FILE *fp)
     fputs(" * found in the file LICENSE file or at\n", fp);
     fputs(" * https://opensource.org/licenses/cpl1.0.php\n", fp);
     fputs(" */\n", fp);
-    fprintf(fp, "/* AUTO-GENERATED on %s.  DO NOT EDIT! */\n\n", tstr);
+    fprintf(fp, "/* AUTO-GENERATED.  DO NOT EDIT! */\n\n");
 }
 
 static void generateheader(char *hname)
