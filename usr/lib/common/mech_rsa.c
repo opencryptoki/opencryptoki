@@ -666,19 +666,6 @@ CK_RV rsa_oaep_crypt(STDLL_TokData_t *tokdata, SESSION *sess,
         goto done;
     }
 
-    if (length_only == TRUE) {
-        *out_data_len = modulus_bytes;
-        rc = CKR_OK;
-        goto done;
-    }
-
-    if (*out_data_len < modulus_bytes) {
-        *out_data_len = modulus_bytes;
-        TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
-        rc = CKR_BUFFER_TOO_SMALL;
-        goto done;
-    }
-
     /*
      * To help mitigate timing and fault attacks when decrypting,
      * check oaep parameters that are passed in right now and compute
@@ -709,6 +696,27 @@ CK_RV rsa_oaep_crypt(STDLL_TokData_t *tokdata, SESSION *sess,
     if (modulus_bytes < (2 * hlen + 2)) {
         TRACE_ERROR("%s\n", ock_err(ERR_KEY_SIZE_RANGE));
         rc = CKR_KEY_SIZE_RANGE;
+        goto done;
+    }
+
+    if (encrypt) {
+        if (in_data_len > (modulus_bytes - 2 * hlen - 2)) {
+            TRACE_ERROR("%s\n", ock_err(ERR_DATA_LEN_RANGE));
+            rc = CKR_DATA_LEN_RANGE;
+            goto done;
+        }
+    }
+
+    if (length_only == TRUE) {
+        *out_data_len = modulus_bytes;
+        rc = CKR_OK;
+        goto done;
+    }
+
+    if (*out_data_len < modulus_bytes) {
+        *out_data_len = modulus_bytes;
+        TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
+        rc = CKR_BUFFER_TOO_SMALL;
         goto done;
     }
 
@@ -3063,6 +3071,14 @@ CK_RV rsa_aes_key_wrap(STDLL_TokData_t *tokdata, SESSION *sess,
     if (rc != CKR_OK) {
         TRACE_ERROR("Failed to wrap temporary AES key: %s (0x%lx)\n",
                     p11_get_ckr(rc), rc);
+        if (rc == CKR_DATA_LEN_RANGE) {
+            /*
+             * An AES key of a certain size can only be wrapped by OAEP with a
+             * large enough RSA key size. E.g. RSA 1014 with OAEP and SHA-384
+             * can not wrap a 32 bytes AES key.
+             */
+            rc = CKR_WRAPPING_KEY_SIZE_RANGE;
+        }
         goto done;
     }
 
@@ -3108,6 +3124,14 @@ CK_RV rsa_aes_key_wrap(STDLL_TokData_t *tokdata, SESSION *sess,
     if (rc != CKR_OK) {
         TRACE_ERROR("Failed to wrap temporary AES key: %s (0x%lx)\n",
                     p11_get_ckr(rc), rc);
+        if (rc == CKR_DATA_LEN_RANGE) {
+            /*
+             * An AES key of a certain size can only be wrapped by OAEP with a
+             * large enough RSA key size. E.g. RSA 1014 with OAEP and SHA-384
+             * can not wrap a 32 bytes AES key.
+             */
+            rc = CKR_WRAPPING_KEY_SIZE_RANGE;
+        }
         goto done;
     }
 
