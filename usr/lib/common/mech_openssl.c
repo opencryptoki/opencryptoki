@@ -3668,18 +3668,18 @@ static CK_RV openssl_cipher_perform(OBJECT *key, CK_MECHANISM_TYPE mech,
         return CKR_HOST_MEMORY;
     }
 
-    if (EVP_CipherInit_ex(ctx, cipher, NULL, key_attr->pValue,
-                          init_v, encrypt ? 1 : 0) != 1) {
-        TRACE_ERROR("%s\n", ock_err(ERR_GENERAL_ERROR));
-        rc = CKR_GENERAL_ERROR;
-        goto done;
-    }
-
     switch (mech) {
     case CKM_AES_KEY_WRAP:
     case CKM_AES_KEY_WRAP_KWP:
         EVP_CIPHER_CTX_set_flags(ctx, EVP_CIPHER_CTX_FLAG_WRAP_ALLOW);
         break;
+    }
+
+    if (EVP_CipherInit_ex(ctx, cipher, NULL, key_attr->pValue,
+                          init_v, encrypt ? 1 : 0) != 1) {
+        TRACE_ERROR("%s\n", ock_err(ERR_GENERAL_ERROR));
+        rc = CKR_GENERAL_ERROR;
+        goto done;
     }
 
     if (EVP_CIPHER_CTX_set_padding(ctx, 0) != 1
