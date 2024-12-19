@@ -57,6 +57,7 @@ typedef struct {
     int ica_ec_derive_available;
     int ica_rsa_keygen_available;
     int ica_rsa_endecrypt_available;
+    int ica_rsa_no_small_pub_exp;
     int ica_p_rng_available;
     int ica_sha1_available;
     int ica_sha2_available;
@@ -2358,6 +2359,14 @@ static CK_RV ica_specific_rsa_keygen(STDLL_TokData_t *tokdata,
         goto pubkey_cleanup;
     }
 
+    /* Check if small public exponents are allowed */
+    if (ica_data->ica_rsa_no_small_pub_exp &&
+        *((unsigned long *) ptr) != 0 &&
+        *((unsigned long *) ptr) < 65537) {
+        TRACE_ERROR("No small RSA public exponents allowed\n");
+        rc = CKR_KEY_SIZE_RANGE;
+        goto pubkey_cleanup;
+    }
 
     /* Build privKey:
      * buffers pointed by p, q, dp, dq and qInverse in struct
@@ -4803,8 +4812,8 @@ static const REF_MECH_LIST_ELEMENT ref_mech_list[] = {
     {DES3_CMAC, CKM_DES3_CMAC, {16, 24, CKF_SIGN | CKF_VERIFY}},
     {DES3_CMAC, CKM_DES3_CMAC_GENERAL, {16, 24, CKF_SIGN | CKF_VERIFY}},
     {DES_CFB, CKM_DES_CFB8, {8, 8, CKF_ENCRYPT | CKF_DECRYPT}},
-    {DES3_OFB, CKM_DES_OFB64, {8, 8, CKF_ENCRYPT | CKF_DECRYPT}},
-    {DES3_CFB, CKM_DES_CFB64, {8, 8, CKF_ENCRYPT | CKF_DECRYPT}},
+    {DES_OFB, CKM_DES_OFB64, {8, 8, CKF_ENCRYPT | CKF_DECRYPT}},
+    {DES_CFB, CKM_DES_CFB64, {8, 8, CKF_ENCRYPT | CKF_DECRYPT}},
     {SHA1, CKM_SHA_1, {0, 0, CKF_DIGEST}},
     {SHA1, CKM_SHA_1_HMAC, {80, 2048, CKF_SIGN | CKF_VERIFY}},
     {SHA1, CKM_SHA_1_HMAC_GENERAL, {80, 2048, CKF_SIGN | CKF_VERIFY}},
@@ -5041,11 +5050,14 @@ static CK_BBOOL isMechanismHW(STDLL_TokData_t *tokdata, CK_ULONG mechanism)
 #define KEY_SIZE_2048  0x04
 #define KEY_SIZE_4096  0x08
 
+#define RSA_NO_SMALL_EXP   0x00010000 /* e >= 65537 */
+
 static void adjust_rsa_key_sizes(unsigned int mask,
                                  CK_MECHANISM_INFO *mech_info)
 {
     CK_ULONG min = 0, max = 0;
 
+    mask &= (KEY_SIZE_512 | KEY_SIZE_1024 | KEY_SIZE_2048 | KEY_SIZE_4096);
     if (mask == 0)
         return;
 
@@ -5122,94 +5134,109 @@ static CK_RV mech_list_ica_initialize(STDLL_TokData_t *tokdata)
     CK_ULONG tmp, ulActMechCtr, ulPreDefMechCtr, refIdx;
     CK_BBOOL rsa_hw, ec_hw, sha_hw;
 
+    /*
+     * Add mechanisms where we have a SW fallback unconditionally, but only
+     * if libica is not in FIPS mode. If libica is in FIPS mode, the loop below
+     * will add those mechanisms that libica supports and that are FIPS
+     * approved. Mechanisms that are not FIPS approved will not be added, even
+     * if there is a SW fallback. Because the SW fallback is OpenSSL-based,
+     * and OpenSSL is most likely also in FIPS mode in this case, the SW
+     * fallback would also fail if using an algorithm that is not FIPS approved.
+     */
+    if (ica_fips_status() == 0) {
 #if !(NOMD5)
-    addMechanismToList(tokdata, CKM_MD5, 0, 0);
-    addMechanismToList(tokdata, CKM_MD5_HMAC, 0, 0);
-    addMechanismToList(tokdata, CKM_MD5_HMAC_GENERAL, 0, 0);
+        addMechanismToList(tokdata, CKM_MD5, 0, 0);
+        addMechanismToList(tokdata, CKM_MD5_HMAC, 0, 0);
+        addMechanismToList(tokdata, CKM_MD5_HMAC_GENERAL, 0, 0);
 #endif
 
-    /* We have RSA support (SW) in any case, regardless if libica supports it */
-    addMechanismToList(tokdata, CKM_RSA_PKCS_KEY_PAIR_GEN, 0, 0);
-    addMechanismToList(tokdata, CKM_RSA_PKCS, 0, 0);
+        /* We have RSA support (SW) in any case, regardless if libica supports it */
+        addMechanismToList(tokdata, CKM_RSA_PKCS_KEY_PAIR_GEN, 0, 0);
+        addMechanismToList(tokdata, CKM_RSA_PKCS, 0, 0);
 #if !(NOX509)
-    addMechanismToList(tokdata, CKM_RSA_X_509, 0, 0);
+        addMechanismToList(tokdata, CKM_RSA_X_509, 0, 0);
 #endif
 
-    /* We have RNG support (SW) in any case, regardless if libica supports it */
+        /* We have EC support (SW) in any case, regardless if libica supports it */
+        addMechanismToList(tokdata, CKM_EC_KEY_PAIR_GEN, 0, 0);
+        addMechanismToList(tokdata, CKM_ECDSA, 0, 0);
+
+        /* We have SHA support (SW) in any case, regardless if libica supports it */
+        addMechanismToList(tokdata, CKM_SHA_1, 0, 0);
+        addMechanismToList(tokdata, CKM_SHA224, 0, 0);
+        addMechanismToList(tokdata, CKM_SHA256, 0, 0);
+        addMechanismToList(tokdata, CKM_SHA384, 0, 0);
+        addMechanismToList(tokdata, CKM_SHA512, 0, 0);
+#ifdef NID_sha512_224WithRSAEncryption
+        addMechanismToList(tokdata, CKM_SHA512_224, 0, 0);
+#endif
+#ifdef NID_sha512_256WithRSAEncryption
+        addMechanismToList(tokdata, CKM_SHA512_256, 0, 0);
+#endif
+#ifdef NID_sha3_224
+        addMechanismToList(tokdata, CKM_SHA3_224, 0, 0);
+        addMechanismToList(tokdata, CKM_IBM_SHA3_224, 0, 0);
+#endif
+#ifdef NID_sha3_256
+        addMechanismToList(tokdata, CKM_SHA3_256, 0, 0);
+        addMechanismToList(tokdata, CKM_IBM_SHA3_256, 0, 0);
+#endif
+#ifdef NID_sha3_384
+        addMechanismToList(tokdata, CKM_SHA3_384, 0, 0);
+        addMechanismToList(tokdata, CKM_IBM_SHA3_384, 0, 0);
+#endif
+#ifdef NID_sha3_512
+        addMechanismToList(tokdata, CKM_SHA3_512, 0, 0);
+        addMechanismToList(tokdata, CKM_IBM_SHA3_512, 0, 0);
+#endif
+
+        /* We have AES support (SW) in any case, regardless if libica supports it */
+        addMechanismToList(tokdata, CKM_AES_ECB, 0, 0);
+        addMechanismToList(tokdata, CKM_AES_CBC, 0, 0);
+        addMechanismToList(tokdata, CKM_AES_CBC_PAD, 0, 0);
+        addMechanismToList(tokdata, CKM_AES_CTR, 0, 0);
+#if OPENSSL_VERSION_PREREQ(3, 0) || OPENSSL_VERSION_NUMBER >= 0x101010cfL
+        /*
+         * AES-OFB/CFB currently only works with >= OpenSSl 3.0 or >= OpenSSL 1.1.1l,
+         * due to a bug in OpenSSL <= 1.1.1k in s390x_aes_ofb_cipher() not updating
+         * the IV in the context.
+         */
+        addMechanismToList(tokdata, CKM_AES_OFB, 0, 0);
+        addMechanismToList(tokdata, CKM_AES_CFB8, 0, 0);
+        /* CFB64 is not supported as SW fallback */
+        addMechanismToList(tokdata, CKM_AES_CFB128, 0, 0);
+#endif
+        addMechanismToList(tokdata, CKM_AES_GCM, 0, 0);
+        addMechanismToList(tokdata, CKM_AES_MAC, 0, 0);
+        addMechanismToList(tokdata, CKM_AES_MAC_GENERAL, 0, 0);
+        addMechanismToList(tokdata, CKM_AES_CMAC, 0, 0);
+        addMechanismToList(tokdata, CKM_AES_CMAC_GENERAL, 0, 0);
+
+        /* We have DES/3DES support (SW) in any case, regardless if libica supports it */
+        addMechanismToList(tokdata, CKM_DES_ECB, 0, 0);
+        addMechanismToList(tokdata, CKM_DES_CBC, 0, 0);
+        addMechanismToList(tokdata, CKM_DES_CBC_PAD, 0, 0);
+        addMechanismToList(tokdata, CKM_DES3_ECB, 0, 0);
+        addMechanismToList(tokdata, CKM_DES3_CBC, 0, 0);
+        addMechanismToList(tokdata, CKM_DES3_CBC_PAD, 0, 0);
+        addMechanismToList(tokdata, CKM_DES_OFB64, 0, 0);
+        addMechanismToList(tokdata, CKM_DES_CFB8, 0, 0);
+        addMechanismToList(tokdata, CKM_DES_CFB64, 0, 0);
+        addMechanismToList(tokdata, CKM_DES3_MAC, 0, 0);
+        addMechanismToList(tokdata, CKM_DES3_MAC_GENERAL, 0, 0);
+        addMechanismToList(tokdata, CKM_DES3_CMAC, 0, 0);
+        addMechanismToList(tokdata, CKM_DES3_CMAC_GENERAL, 0, 0);
+    }
+
+    /*
+     * We have RNG support (SW) in any case, regardless if libica supports it,
+     * and independent of FIPS mode
+     */
     addMechanismToList(tokdata, CKM_GENERIC_SECRET_KEY_GEN, 0, 0);
     addMechanismToList(tokdata, CKM_DES_KEY_GEN, 0, 0);
     addMechanismToList(tokdata, CKM_DES3_KEY_GEN, 0, 0);
     addMechanismToList(tokdata, CKM_AES_KEY_GEN, 0, 0);
-
-    /* We have EC support (SW) in any case, regardless if libica supports it */
-    addMechanismToList(tokdata, CKM_EC_KEY_PAIR_GEN, 0, 0);
-    addMechanismToList(tokdata, CKM_ECDSA, 0, 0);
-
-    /* We have SHA support (SW) in any case, regardless if libica supports it */
-    addMechanismToList(tokdata, CKM_SHA_1, 0, 0);
-    addMechanismToList(tokdata, CKM_SHA224, 0, 0);
-    addMechanismToList(tokdata, CKM_SHA256, 0, 0);
-    addMechanismToList(tokdata, CKM_SHA384, 0, 0);
-    addMechanismToList(tokdata, CKM_SHA512, 0, 0);
-#ifdef NID_sha512_224WithRSAEncryption
-    addMechanismToList(tokdata, CKM_SHA512_224, 0, 0);
-#endif
-#ifdef NID_sha512_256WithRSAEncryption
-    addMechanismToList(tokdata, CKM_SHA512_256, 0, 0);
-#endif
-#ifdef NID_sha3_224
-    addMechanismToList(tokdata, CKM_SHA3_224, 0, 0);
-    addMechanismToList(tokdata, CKM_IBM_SHA3_224, 0, 0);
-#endif
-#ifdef NID_sha3_256
-    addMechanismToList(tokdata, CKM_SHA3_256, 0, 0);
-    addMechanismToList(tokdata, CKM_IBM_SHA3_256, 0, 0);
-#endif
-#ifdef NID_sha3_384
-    addMechanismToList(tokdata, CKM_SHA3_384, 0, 0);
-    addMechanismToList(tokdata, CKM_IBM_SHA3_384, 0, 0);
-#endif
-#ifdef NID_sha3_512
-    addMechanismToList(tokdata, CKM_SHA3_512, 0, 0);
-    addMechanismToList(tokdata, CKM_IBM_SHA3_512, 0, 0);
-#endif
-
-    /* We have AES support (SW) in any case, regardless if libica supports it */
-    addMechanismToList(tokdata, CKM_AES_ECB, 0, 0);
-    addMechanismToList(tokdata, CKM_AES_CBC, 0, 0);
-    addMechanismToList(tokdata, CKM_AES_CBC_PAD, 0, 0);
-    addMechanismToList(tokdata, CKM_AES_CTR, 0, 0);
-#if OPENSSL_VERSION_PREREQ(3, 0) || OPENSSL_VERSION_NUMBER >= 0x101010cfL
-    /*
-     * AES-OFB/CFB currently only works with >= OpenSSl 3.0 or >= OpenSSL 1.1.1l,
-     * due to a bug in OpenSSL <= 1.1.1k in s390x_aes_ofb_cipher() not updating
-     * the IV in the context.
-     */
-    addMechanismToList(tokdata, CKM_AES_OFB, 0, 0);
-    addMechanismToList(tokdata, CKM_AES_CFB8, 0, 0);
-    /* CFB64 is not supported as SW fallback */
-    addMechanismToList(tokdata, CKM_AES_CFB128, 0, 0);
-#endif
-    addMechanismToList(tokdata, CKM_AES_GCM, 0, 0);
-    addMechanismToList(tokdata, CKM_AES_MAC, 0, 0);
-    addMechanismToList(tokdata, CKM_AES_MAC_GENERAL, 0, 0);
-    addMechanismToList(tokdata, CKM_AES_CMAC, 0, 0);
-    addMechanismToList(tokdata, CKM_AES_CMAC_GENERAL, 0, 0);
-
-    /* We have DES/3DES support (SW) in any case, regardless if libica supports it */
-    addMechanismToList(tokdata, CKM_DES_ECB, 0, 0);
-    addMechanismToList(tokdata, CKM_DES_CBC, 0, 0);
-    addMechanismToList(tokdata, CKM_DES_CBC_PAD, 0, 0);
-    addMechanismToList(tokdata, CKM_DES3_ECB, 0, 0);
-    addMechanismToList(tokdata, CKM_DES3_CBC, 0, 0);
-    addMechanismToList(tokdata, CKM_DES3_CBC_PAD, 0, 0);
-    addMechanismToList(tokdata, CKM_DES_OFB64, 0, 0);
-    addMechanismToList(tokdata, CKM_DES_CFB8, 0, 0);
-    addMechanismToList(tokdata, CKM_DES_CFB64, 0, 0);
-    addMechanismToList(tokdata, CKM_DES3_MAC, 0, 0);
-    addMechanismToList(tokdata, CKM_DES3_MAC_GENERAL, 0, 0);
-    addMechanismToList(tokdata, CKM_DES3_CMAC, 0, 0);
-    addMechanismToList(tokdata, CKM_DES3_CMAC_GENERAL, 0, 0);
+    addMechanismToList(tokdata, CKM_AES_XTS_KEY_GEN, 0, 0);
 
     rc = ica_get_functionlist(NULL, &ica_specific_mech_list_len);
     if (rc != CKR_OK) {
@@ -5238,8 +5265,11 @@ static CK_RV mech_list_ica_initialize(STDLL_TokData_t *tokdata)
         /* Remember if libica supports RSA mechanisms (HW or SW) */
         if (libica_func_list[i].mech_mode_id == RSA_KEY_GEN_ME) {
             ica_data->ica_rsa_keygen_available = TRUE;
-            if (libica_func_list[i].property != 0)
+            if (libica_func_list[i].property != 0) {
                 rsa_props = libica_func_list[i].property;
+                ica_data->ica_rsa_no_small_pub_exp =
+                        ((rsa_props & RSA_NO_SMALL_EXP) != 0);
+            }
         }
         if (libica_func_list[i].mech_mode_id == RSA_ME) {
             ica_data->ica_rsa_endecrypt_available = TRUE;
