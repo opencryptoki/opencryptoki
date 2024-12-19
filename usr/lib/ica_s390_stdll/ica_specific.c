@@ -4812,8 +4812,8 @@ static const REF_MECH_LIST_ELEMENT ref_mech_list[] = {
     {DES3_CMAC, CKM_DES3_CMAC, {16, 24, CKF_SIGN | CKF_VERIFY}},
     {DES3_CMAC, CKM_DES3_CMAC_GENERAL, {16, 24, CKF_SIGN | CKF_VERIFY}},
     {DES_CFB, CKM_DES_CFB8, {8, 8, CKF_ENCRYPT | CKF_DECRYPT}},
-    {DES3_OFB, CKM_DES_OFB64, {8, 8, CKF_ENCRYPT | CKF_DECRYPT}},
-    {DES3_CFB, CKM_DES_CFB64, {8, 8, CKF_ENCRYPT | CKF_DECRYPT}},
+    {DES_OFB, CKM_DES_OFB64, {8, 8, CKF_ENCRYPT | CKF_DECRYPT}},
+    {DES_CFB, CKM_DES_CFB64, {8, 8, CKF_ENCRYPT | CKF_DECRYPT}},
     {SHA1, CKM_SHA_1, {0, 0, CKF_DIGEST}},
     {SHA1, CKM_SHA_1_HMAC, {80, 2048, CKF_SIGN | CKF_VERIFY}},
     {SHA1, CKM_SHA_1_HMAC_GENERAL, {80, 2048, CKF_SIGN | CKF_VERIFY}},
@@ -5152,6 +5152,7 @@ static CK_RV mech_list_ica_initialize(STDLL_TokData_t *tokdata)
     addMechanismToList(tokdata, CKM_DES_KEY_GEN, 0, 0);
     addMechanismToList(tokdata, CKM_DES3_KEY_GEN, 0, 0);
     addMechanismToList(tokdata, CKM_AES_KEY_GEN, 0, 0);
+    addMechanismToList(tokdata, CKM_AES_XTS_KEY_GEN, 0, 0);
 
     /* We have EC support (SW) in any case, regardless if libica supports it */
     addMechanismToList(tokdata, CKM_EC_KEY_PAIR_GEN, 0, 0);
