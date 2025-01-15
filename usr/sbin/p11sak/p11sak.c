@@ -6641,12 +6641,12 @@ static CK_RV p11sak_import_dilithium_pkey(const struct p11tool_objtype *keytype,
         if (rc != CKR_OK)
             goto out;
 
-        if (priv_len != oid->len_info.dilithium.rho_len +
-                        oid->len_info.dilithium.seed_len +
-                        oid->len_info.dilithium.tr_len +
-                        oid->len_info.dilithium.s1_len +
-                        oid->len_info.dilithium.s2_len +
-                        oid->len_info.dilithium.t0_len) {
+        if (priv_len != oid->len_info.ml_dsa.rho_len +
+                        oid->len_info.ml_dsa.seed_len +
+                        oid->len_info.ml_dsa.tr_len +
+                        oid->len_info.ml_dsa.s1_len +
+                        oid->len_info.ml_dsa.s2_len +
+                        oid->len_info.ml_dsa.t0_len) {
             warnx("Size of private Dilithium key is not valid.");
             rc = CKR_FUNCTION_FAILED;
             goto out;
@@ -6655,47 +6655,47 @@ static CK_RV p11sak_import_dilithium_pkey(const struct p11tool_objtype *keytype,
         ofs = 0;
         rc = p11tool_add_attribute(CKA_IBM_DILITHIUM_RHO,
                                    priv_key + ofs,
-                                   oid->len_info.dilithium.rho_len,
+                                   oid->len_info.ml_dsa.rho_len,
                                    attrs, num_attrs);
         if (rc != CKR_OK)
            goto out;
 
-        ofs += oid->len_info.dilithium.rho_len;
+        ofs += oid->len_info.ml_dsa.rho_len;
         rc = p11tool_add_attribute(CKA_IBM_DILITHIUM_SEED,
                                    priv_key + ofs,
-                                   oid->len_info.dilithium.seed_len,
+                                   oid->len_info.ml_dsa.seed_len,
                                    attrs, num_attrs);
         if (rc != CKR_OK)
            goto out;
 
-        ofs += oid->len_info.dilithium.seed_len;
+        ofs += oid->len_info.ml_dsa.seed_len;
         rc = p11tool_add_attribute(CKA_IBM_DILITHIUM_TR,
                                    priv_key + ofs,
-                                   oid->len_info.dilithium.tr_len,
+                                   oid->len_info.ml_dsa.tr_len,
                                    attrs, num_attrs);
         if (rc != CKR_OK)
            goto out;
 
-        ofs += oid->len_info.dilithium.tr_len;
+        ofs += oid->len_info.ml_dsa.tr_len;
         rc = p11tool_add_attribute(CKA_IBM_DILITHIUM_S1,
                                    priv_key + ofs,
-                                   oid->len_info.dilithium.s1_len,
+                                   oid->len_info.ml_dsa.s1_len,
                                    attrs, num_attrs);
         if (rc != CKR_OK)
            goto out;
 
-        ofs += oid->len_info.dilithium.s1_len;
+        ofs += oid->len_info.ml_dsa.s1_len;
         rc = p11tool_add_attribute(CKA_IBM_DILITHIUM_S2,
                                    priv_key + ofs,
-                                   oid->len_info.dilithium.s2_len,
+                                   oid->len_info.ml_dsa.s2_len,
                                    attrs, num_attrs);
         if (rc != CKR_OK)
            goto out;
 
-        ofs += oid->len_info.dilithium.s2_len;
+        ofs += oid->len_info.ml_dsa.s2_len;
         rc = p11tool_add_attribute(CKA_IBM_DILITHIUM_T0,
                                    priv_key + ofs,
-                                   oid->len_info.dilithium.t0_len,
+                                   oid->len_info.ml_dsa.t0_len,
                                    attrs, num_attrs);
         if (rc != CKR_OK)
            goto out;
@@ -6707,8 +6707,8 @@ static CK_RV p11sak_import_dilithium_pkey(const struct p11tool_objtype *keytype,
     if (rc != CKR_OK)
         goto out;
 
-    if (pub_len != oid->len_info.dilithium.rho_len +
-                   oid->len_info.dilithium.t1_len) {
+    if (pub_len != oid->len_info.ml_dsa.rho_len +
+                   oid->len_info.ml_dsa.t1_len) {
         warnx("Size of public Dilithium key is not valid.");
         rc = CKR_FUNCTION_FAILED;
         goto out;
@@ -6716,14 +6716,14 @@ static CK_RV p11sak_import_dilithium_pkey(const struct p11tool_objtype *keytype,
 
     ofs = 0;
     rc = p11tool_add_attribute(CKA_IBM_DILITHIUM_RHO,
-                               pub_key + ofs, oid->len_info.dilithium.rho_len,
+                               pub_key + ofs, oid->len_info.ml_dsa.rho_len,
                                attrs, num_attrs);
     if (rc != CKR_OK)
        goto out;
 
-    ofs += oid->len_info.dilithium.rho_len;
+    ofs += oid->len_info.ml_dsa.rho_len;
     rc = p11tool_add_attribute(CKA_IBM_DILITHIUM_T1,
-                               pub_key + ofs, oid->len_info.dilithium.t1_len,
+                               pub_key + ofs, oid->len_info.ml_dsa.t1_len,
                                attrs, num_attrs);
     if (rc != CKR_OK)
        goto out;
@@ -8338,12 +8338,12 @@ static CK_RV p11sak_export_dilithium_pkey(const struct p11tool_objtype *keytype,
     }
 
     if (private) {
-        priv_len = oid->len_info.dilithium.rho_len +
-                   oid->len_info.dilithium.seed_len +
-                   oid->len_info.dilithium.tr_len +
-                   oid->len_info.dilithium.s1_len +
-                   oid->len_info.dilithium.s2_len +
-                   oid->len_info.dilithium.t0_len;
+        priv_len = oid->len_info.ml_dsa.rho_len +
+                   oid->len_info.ml_dsa.seed_len +
+                   oid->len_info.ml_dsa.tr_len +
+                   oid->len_info.ml_dsa.s1_len +
+                   oid->len_info.ml_dsa.s2_len +
+                   oid->len_info.ml_dsa.t0_len;
 
         priv_key = calloc(1, priv_len);
         if (priv_key == NULL) {
@@ -8354,22 +8354,22 @@ static CK_RV p11sak_export_dilithium_pkey(const struct p11tool_objtype *keytype,
 
         ofs = 0;
         priv_attrs[0].pValue = priv_key + ofs;
-        priv_attrs[0].ulValueLen = oid->len_info.dilithium.rho_len;
-        ofs += oid->len_info.dilithium.rho_len;
+        priv_attrs[0].ulValueLen = oid->len_info.ml_dsa.rho_len;
+        ofs += oid->len_info.ml_dsa.rho_len;
         priv_attrs[1].pValue = priv_key + ofs;
-        priv_attrs[1].ulValueLen = oid->len_info.dilithium.seed_len;
-        ofs += oid->len_info.dilithium.seed_len;
+        priv_attrs[1].ulValueLen = oid->len_info.ml_dsa.seed_len;
+        ofs += oid->len_info.ml_dsa.seed_len;
         priv_attrs[2].pValue = priv_key + ofs;
-        priv_attrs[2].ulValueLen = oid->len_info.dilithium.tr_len;
-        ofs += oid->len_info.dilithium.tr_len;
+        priv_attrs[2].ulValueLen = oid->len_info.ml_dsa.tr_len;
+        ofs += oid->len_info.ml_dsa.tr_len;
         priv_attrs[3].pValue = priv_key + ofs;
-        priv_attrs[3].ulValueLen = oid->len_info.dilithium.s1_len;
-        ofs += oid->len_info.dilithium.s1_len;
+        priv_attrs[3].ulValueLen = oid->len_info.ml_dsa.s1_len;
+        ofs += oid->len_info.ml_dsa.s1_len;
         priv_attrs[4].pValue = priv_key + ofs;
-        priv_attrs[4].ulValueLen = oid->len_info.dilithium.s2_len;
-        ofs += oid->len_info.dilithium.s2_len;
+        priv_attrs[4].ulValueLen = oid->len_info.ml_dsa.s2_len;
+        ofs += oid->len_info.ml_dsa.s2_len;
         priv_attrs[5].pValue = priv_key + ofs;
-        priv_attrs[5].ulValueLen = oid->len_info.dilithium.t0_len;
+        priv_attrs[5].ulValueLen = oid->len_info.ml_dsa.t0_len;
 
         rc = p11tool_pkcs11_funcs->C_GetAttributeValue(p11tool_pkcs11_session,
                                                        key, priv_attrs, 6);
@@ -8382,12 +8382,12 @@ static CK_RV p11sak_export_dilithium_pkey(const struct p11tool_objtype *keytype,
             goto out;
         }
 
-        if (priv_attrs[0].ulValueLen != oid->len_info.dilithium.rho_len ||
-            priv_attrs[1].ulValueLen != oid->len_info.dilithium.seed_len ||
-            priv_attrs[2].ulValueLen != oid->len_info.dilithium.tr_len ||
-            priv_attrs[3].ulValueLen != oid->len_info.dilithium.s1_len ||
-            priv_attrs[4].ulValueLen != oid->len_info.dilithium.s2_len ||
-            priv_attrs[5].ulValueLen != oid->len_info.dilithium.t0_len) {
+        if (priv_attrs[0].ulValueLen != oid->len_info.ml_dsa.rho_len ||
+            priv_attrs[1].ulValueLen != oid->len_info.ml_dsa.seed_len ||
+            priv_attrs[2].ulValueLen != oid->len_info.ml_dsa.tr_len ||
+            priv_attrs[3].ulValueLen != oid->len_info.ml_dsa.s1_len ||
+            priv_attrs[4].ulValueLen != oid->len_info.ml_dsa.s2_len ||
+            priv_attrs[5].ulValueLen != oid->len_info.ml_dsa.t0_len) {
             warnx("Failed to retrieve private key attributes from %s key "
                   "object \"%s\": Private key component lengths are wrong.",
                   keytype->name, label);
@@ -8396,8 +8396,8 @@ static CK_RV p11sak_export_dilithium_pkey(const struct p11tool_objtype *keytype,
         }
     }
 
-    pub_len = oid->len_info.dilithium.rho_len +
-              oid->len_info.dilithium.t1_len;
+    pub_len = oid->len_info.ml_dsa.rho_len +
+              oid->len_info.ml_dsa.t1_len;
 
     pub_key = calloc(1, pub_len);
     if (pub_key == NULL) {
@@ -8408,10 +8408,10 @@ static CK_RV p11sak_export_dilithium_pkey(const struct p11tool_objtype *keytype,
 
     ofs = 0;
     pub_attrs[0].pValue = pub_key + ofs;
-    pub_attrs[0].ulValueLen = oid->len_info.dilithium.rho_len;
-    ofs += oid->len_info.dilithium.rho_len;
+    pub_attrs[0].ulValueLen = oid->len_info.ml_dsa.rho_len;
+    ofs += oid->len_info.ml_dsa.rho_len;
     pub_attrs[1].pValue = pub_key + ofs;
-    pub_attrs[1].ulValueLen = oid->len_info.dilithium.t1_len;
+    pub_attrs[1].ulValueLen = oid->len_info.ml_dsa.t1_len;
 
     rc = p11tool_pkcs11_funcs->C_GetAttributeValue(p11tool_pkcs11_session, key,
                                                    pub_attrs, 2);
@@ -8424,8 +8424,8 @@ static CK_RV p11sak_export_dilithium_pkey(const struct p11tool_objtype *keytype,
         goto out;
     }
 
-    if (pub_attrs[0].ulValueLen != oid->len_info.dilithium.rho_len ||
-        pub_attrs[1].ulValueLen != oid->len_info.dilithium.t1_len) {
+    if (pub_attrs[0].ulValueLen != oid->len_info.ml_dsa.rho_len ||
+        pub_attrs[1].ulValueLen != oid->len_info.ml_dsa.t1_len) {
         warnx("Failed to retrieve public key attributes from %s key "
               "object \"%s\": Public key component lengths are wrong.",
               keytype->name, label);

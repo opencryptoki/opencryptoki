@@ -24,6 +24,14 @@ extern const CK_BYTE dilithium_r3_87[];
 extern const CK_BYTE kyber_r2_768[];
 extern const CK_BYTE kyber_r2_1024[];
 
+extern const CK_BYTE ml_dsa_44[];
+extern const CK_BYTE ml_dsa_65[];
+extern const CK_BYTE ml_dsa_87[];
+
+extern const CK_BYTE ml_kem_512[];
+extern const CK_BYTE ml_kem_786[];
+extern const CK_BYTE ml_kem_1024[];
+
 struct pqc_oid {
     const CK_BYTE *oid;
     CK_ULONG oid_len;
@@ -39,12 +47,22 @@ struct pqc_oid {
             CK_ULONG s2_len;
             CK_ULONG t0_len;
             CK_ULONG t1_len;
-        } dilithium;
+            CK_ULONG priv_seed_len;
+        } ml_dsa;
+        struct {
+            CK_ULONG sk_len;
+            CK_ULONG pk_len;
+            CK_ULONG fs_len;
+            CK_ULONG priv_seed_len;
+            CK_ULONG pubseed_len;
+        } ml_kem;
     } len_info;
 };
 
 extern const struct pqc_oid dilithium_oids[];
 extern const struct pqc_oid kyber_oids[];
+extern const struct pqc_oid ml_dsa_oids[];
+extern const struct pqc_oid ml_kem_oids[];
 
 const struct pqc_oid *find_pqc_by_keyform(const struct pqc_oid *pqcs,
                                           CK_ULONG keyform);
