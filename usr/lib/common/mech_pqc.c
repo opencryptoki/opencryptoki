@@ -183,12 +183,12 @@ CK_RV ibm_dilithium_pack_priv_key(TEMPLATE *templ, const struct pqc_oid *oid,
     CK_RV rc;
 
     if (buf == NULL) {
-        *buf_len = oid->len_info.dilithium.rho_len +
-                   oid->len_info.dilithium.seed_len +
-                   oid->len_info.dilithium.tr_len +
-                   oid->len_info.dilithium.s1_len +
-                   oid->len_info.dilithium.s2_len +
-                   oid->len_info.dilithium.t0_len;
+        *buf_len = oid->len_info.ml_dsa.rho_len +
+                   oid->len_info.ml_dsa.seed_len +
+                   oid->len_info.ml_dsa.tr_len +
+                   oid->len_info.ml_dsa.s1_len +
+                   oid->len_info.ml_dsa.s2_len +
+                   oid->len_info.ml_dsa.t0_len;
         return CKR_OK;
     }
 
@@ -234,12 +234,12 @@ CK_RV ibm_dilithium_pack_priv_key(TEMPLATE *templ, const struct pqc_oid *oid,
         return rc;
     }
 
-    PACK_PART(rho, oid->len_info.dilithium.rho_len, buf, *buf_len, ofs);
-    PACK_PART(seed, oid->len_info.dilithium.seed_len, buf, *buf_len, ofs);
-    PACK_PART(tr, oid->len_info.dilithium.tr_len, buf, *buf_len, ofs);
-    PACK_PART(s1, oid->len_info.dilithium.s1_len, buf, *buf_len, ofs);
-    PACK_PART(s2, oid->len_info.dilithium.s2_len, buf, *buf_len, ofs);
-    PACK_PART(t0, oid->len_info.dilithium.t0_len, buf, *buf_len, ofs);
+    PACK_PART(rho, oid->len_info.ml_dsa.rho_len, buf, *buf_len, ofs);
+    PACK_PART(seed, oid->len_info.ml_dsa.seed_len, buf, *buf_len, ofs);
+    PACK_PART(tr, oid->len_info.ml_dsa.tr_len, buf, *buf_len, ofs);
+    PACK_PART(s1, oid->len_info.ml_dsa.s1_len, buf, *buf_len, ofs);
+    PACK_PART(s2, oid->len_info.ml_dsa.s2_len, buf, *buf_len, ofs);
+    PACK_PART(t0, oid->len_info.ml_dsa.t0_len, buf, *buf_len, ofs);
 
     *buf_len = ofs;
 
@@ -254,8 +254,8 @@ CK_RV ibm_dilithium_pack_pub_key(TEMPLATE *templ, const struct pqc_oid *oid,
     CK_RV rc;
 
     if (buf == NULL) {
-        *buf_len = oid->len_info.dilithium.rho_len +
-                   oid->len_info.dilithium.t1_len;
+        *buf_len = oid->len_info.ml_dsa.rho_len +
+                   oid->len_info.ml_dsa.t1_len;
         return CKR_OK;
     }
 
@@ -273,8 +273,8 @@ CK_RV ibm_dilithium_pack_pub_key(TEMPLATE *templ, const struct pqc_oid *oid,
         return rc;
     }
 
-    PACK_PART(rho, oid->len_info.dilithium.rho_len, buf, *buf_len, ofs);
-    PACK_PART(t1, oid->len_info.dilithium.t1_len, buf, *buf_len, ofs);
+    PACK_PART(rho, oid->len_info.ml_dsa.rho_len, buf, *buf_len, ofs);
+    PACK_PART(t1, oid->len_info.ml_dsa.t1_len, buf, *buf_len, ofs);
 
     *buf_len = ofs;
 
@@ -304,17 +304,17 @@ CK_RV ibm_dilithium_unpack_priv_key(CK_BYTE *buf, CK_ULONG buf_len,
     CK_ULONG ofs = 0;
     CK_RV rc;
 
-    UNPACK_PART(rho, CKA_IBM_DILITHIUM_RHO, oid->len_info.dilithium.rho_len,
+    UNPACK_PART(rho, CKA_IBM_DILITHIUM_RHO, oid->len_info.ml_dsa.rho_len,
                 buf, buf_len, ofs, rc, out);
-    UNPACK_PART(seed, CKA_IBM_DILITHIUM_SEED, oid->len_info.dilithium.seed_len,
+    UNPACK_PART(seed, CKA_IBM_DILITHIUM_SEED, oid->len_info.ml_dsa.seed_len,
                 buf, buf_len, ofs, rc, out);
-    UNPACK_PART(tr, CKA_IBM_DILITHIUM_TR, oid->len_info.dilithium.tr_len,
+    UNPACK_PART(tr, CKA_IBM_DILITHIUM_TR, oid->len_info.ml_dsa.tr_len,
                 buf, buf_len, ofs, rc, out);
-    UNPACK_PART(s1, CKA_IBM_DILITHIUM_S1, oid->len_info.dilithium.s1_len,
+    UNPACK_PART(s1, CKA_IBM_DILITHIUM_S1, oid->len_info.ml_dsa.s1_len,
                 buf, buf_len, ofs, rc, out);
-    UNPACK_PART(s2, CKA_IBM_DILITHIUM_S2, oid->len_info.dilithium.s2_len,
+    UNPACK_PART(s2, CKA_IBM_DILITHIUM_S2, oid->len_info.ml_dsa.s2_len,
                 buf, buf_len, ofs, rc, out);
-    UNPACK_PART(t0, CKA_IBM_DILITHIUM_T0, oid->len_info.dilithium.t0_len,
+    UNPACK_PART(t0, CKA_IBM_DILITHIUM_T0, oid->len_info.ml_dsa.t0_len,
                 buf, buf_len, ofs, rc, out);
 
     rc = template_update_attribute(templ, rho);
@@ -384,9 +384,9 @@ CK_RV ibm_dilithium_unpack_pub_key(CK_BYTE *buf, CK_ULONG buf_len,
     CK_ULONG ofs = 0;
     CK_RV rc;
 
-    UNPACK_PART(rho, CKA_IBM_DILITHIUM_RHO, oid->len_info.dilithium.rho_len,
+    UNPACK_PART(rho, CKA_IBM_DILITHIUM_RHO, oid->len_info.ml_dsa.rho_len,
                 buf, buf_len, ofs, rc, out);
-    UNPACK_PART(t1, CKA_IBM_DILITHIUM_T1, oid->len_info.dilithium.t1_len,
+    UNPACK_PART(t1, CKA_IBM_DILITHIUM_T1, oid->len_info.ml_dsa.t1_len,
                 buf, buf_len, ofs, rc, out);
 
     rc = template_update_attribute(templ, rho);

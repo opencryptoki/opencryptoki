@@ -9557,8 +9557,8 @@ CK_RV token_create_ibm_dilithium_keypair(TEMPLATE *publ_tmpl,
     t1_len = be16toh(*((uint16_t *)(publ_tok + CCA_QSA_EXTTOK_PUBLKEY_OFFSET +
                                     CCA_QSA_EXTTOK_T1_OFFSET)));
 
-    if (rho_len != oid->len_info.dilithium.rho_len ||
-        t1_len != oid->len_info.dilithium.t1_len) {
+    if (rho_len != oid->len_info.ml_dsa.rho_len ||
+        t1_len != oid->len_info.ml_dsa.t1_len) {
         TRACE_ERROR("CCA QSA key token has invalid key component length\n");
         return CKR_FUNCTION_FAILED;
     }
