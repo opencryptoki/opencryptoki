@@ -1,5 +1,5 @@
 /*
- * (C) Copyright IBM Corp. 2012, 2024
+ * (C) Copyright IBM Corp. 2012, 2025
  *
  * This program is provided under the terms of the Common Public License,
  * version 1.0 (CPL-1.0). Any use, reproduction or distribution for this
@@ -10,12 +10,13 @@
  *----------------------------------------------------------------------
  *  EP11 service mail address: EP11SERV@de.ibm.com
  *
- *  Use this mail address for Bugs and Comments with the EP11 product.
- *----------------------------------------------------------------------
- */
+ *  Use this e-mail address for Bugs and Comments with the EP11 product.
+ *----------------------------------------------------------------------*/
 
 #if !defined(XCP_H__)
 #define XCP_H__
+
+#define XCP_API_VERSION 0x0906
 #if !defined(CKR_OK)
 #include "pkcs11.h"
 #endif
@@ -99,12 +100,16 @@
 /*--------------------------------------------------------------------------*/
 #define XCP_COMMON_PUBLIC_H__
 
+#ifndef XCP_H__
+#define CK_DISABLE_TRUE_FALSE
+#endif
 
-#define  XCP_API_VERSION  0x081e     /* major[8] minor[8] */
+#define  XCP_API_VERSION_Z16  0x0827     /* major[8] minor[8] */
+#define  XCP_API_VERSION_Z17  0x0906     /* major[8] minor[8] */
 #define  XCP_API_ORDINAL  0x0006
-                       /* increment this with every major/minor change */
+	       /* increment this with every major/minor change */
 
-#define  XCP_HOST_API_VER  0x040100   /* major[8] minor[8] fixpack[8] */
+#define  XCP_HOST_API_VER  0x040200   /* major[8] minor[8] fixpack[8] */
 
 /* HSM connection information; not for PKCS11 user consumption */
 #define  XCP_HSM_AGENT_ID   0x5843           /* ASCII "XC" */
@@ -299,6 +304,7 @@ typedef enum {
 
 #define  CKM_IBM_ECDSA_OTHER                (CKM_VENDOR_DEFINED +0x10031)
 
+
 typedef enum {
 
 	ECSG_IBM_ECSDSA_S256        = 3,
@@ -340,11 +346,17 @@ typedef struct XCP_EC_AGGREGATE_PARAMS {
 } XCP_EC_AGGREGATE_PARAMS;
 
 
-
 #define  CK_IBM_ECSG_IBM_ECSDSA_S256             ECSG_IBM_ECSDSA_S256
 #define  CK_IBM_ECSG_IBM_ECDSA_COMPR_MULTI_S256  ECSG_IBM_ECDSA_COMPR_MULTI_S256
 #define  CK_IBM_ECSG_IBM_BLS                     ECSG_IBM_BLS
 #define  CK_IBM_ECSG_IBM_MAX                     ECSG_IBM_MAX
+
+#define  CKM_IBM_ML_DSA_KEY_PAIR_GEN     (CKM_VENDOR_DEFINED +0x10035)
+#define  CKM_IBM_ML_DSA                  (CKM_VENDOR_DEFINED +0x10036)
+         // ^^^ sign/verify only
+#define  CKM_IBM_ML_KEM_KEY_PAIR_GEN     (CKM_VENDOR_DEFINED +0x10037)
+#define  CKM_IBM_ML_KEM                  (CKM_VENDOR_DEFINED +0x10038)
+         // ^^^ key transport, and (hybrid) key derivation
 
 
 //---  transport additions  --------------------------------------------------
@@ -440,6 +452,8 @@ typedef struct XCP_EC_AGGREGATE_PARAMS {
 // query or modify login session an object is bound to
 #define  CKA_IBM_LOGIN_SESSION     (CKA_VENDOR_DEFINED +0x1000f)
 
+#define  CKA_IBM_PARAMETER_SET        (CKA_VENDOR_DEFINED +0x10010)
+
 // query MAC'd spki from a private key
 #define  CKA_IBM_MACED_PUBLIC_KEY_INFO (CKA_VENDOR_DEFINED +0x20002)
 
@@ -453,6 +467,10 @@ typedef struct XCP_EC_AGGREGATE_PARAMS {
 #define CKK_IBM_PQC_DILITHIUM      (CKK_VENDOR_DEFINED +0x10023)
 
 #define CKK_IBM_PQC_KYBER          (CKK_VENDOR_DEFINED +0x10024)
+
+#define CKK_IBM_ML_DSA         (CKK_VENDOR_DEFINED +0x10025)
+
+#define CKK_IBM_ML_KEM         (CKK_VENDOR_DEFINED +0x10026)
 
 
 
@@ -613,6 +631,9 @@ typedef enum {
 
 	CKF_IBM_HW_DUAL_OA = 0x1000, // module supports dual OA certs/signatures
 	                             // see CK_IBM_XCPXQ_OA_CAP for more details
+	CKF_IBM_HW_RSA_IMPLICIT_REJECTION
+	                   = 0x2000, // module performs implicit rejection of
+				     // data with invalid RSA PKCS 1.5 padding
 } XCP_CK_EXTFLAGS_t;
 
 // these numbers apply to current version, subject to change
@@ -1282,6 +1303,8 @@ typedef enum {
 
 typedef CK_ULONG CK_IBM_KEM_MODE;
 
+#define  XCP_ML_KEM_DSA_MAX_SEED_BYTES	64
+
 #define  CK_IBM_KEM_ENCAPSULATE  XCP_KEM_ENCAPSULATE
 #define  CK_IBM_KEM_DECAPSULATE  XCP_KEM_DECAPSULATE
 
@@ -1567,8 +1590,13 @@ typedef enum {
                                           // with both EXTRACTABLE and
                                           // PROTKEY_EXTRACTABLE attributes set
     XCP_CPB_ALG_EC_PAIRING_FRIENDLY = 76,
-    XCP_CPBITS_MAX             = XCP_CPB_ALG_EC_PAIRING_FRIENDLY
 
+    XCP_CPB_ALG_DILITHIUM           = 77, // support for pre-Standard dilithium
+    XCP_CPB_ALG_KYBER               = 78, // support for pre-Standard kyber
+    XCP_CPB_ALG_ML_DSA              = 79, // support for NIST 204
+    XCP_CPB_ALG_ML_KEM              = 80, // support for NIST 203
+
+    XCP_CPBITS_MAX             = XCP_CPB_ALG_ML_KEM
                                      // marks last used CPB
 } XCP_CPbit_t;
 
@@ -2619,6 +2647,28 @@ typedef enum {
 #define XCP_PQC_KYBER_R2_1024 "\x6\xB\x2B\x6\x1\x4\x1\x2\x82\xB\x5\x4\x4"
 #define XCP_PQC_KYBER_R2_1024_BYTES 13
 
+// NIST Standards
+typedef CK_ULONG CK_IBM_ML_DSA_PARAMETER_SET_TYPE;
+#define  CKP_IBM_ML_DSA_44 ((CK_IBM_ML_DSA_PARAMETER_SET_TYPE)1)
+#define  CKP_IBM_ML_DSA_65 ((CK_IBM_ML_DSA_PARAMETER_SET_TYPE)2)
+#define  CKP_IBM_ML_DSA_87 ((CK_IBM_ML_DSA_PARAMETER_SET_TYPE)3)
+
+typedef CK_ULONG CK_IBM_ML_KEM_PARAMETER_SET_TYPE;
+#define  CKP_IBM_ML_KEM_512  ((CK_IBM_ML_KEM_PARAMETER_SET_TYPE)1)
+#define  CKP_IBM_ML_KEM_768  ((CK_IBM_ML_KEM_PARAMETER_SET_TYPE)2)
+#define  CKP_IBM_ML_KEM_1024 ((CK_IBM_ML_KEM_PARAMETER_SET_TYPE)3)
+
+typedef CK_ULONG CK_IBM_HEDGE_TYPE;
+#define CKH_IBM_HEDGE_PREFERRED        ((CK_IBM_HEDGE_TYPE)1)
+#define CKH_IBM_HEDGE_REQUIRED         ((CK_IBM_HEDGE_TYPE)2)
+#define CKH_IBM_DETERMINISTIC_REQUIRED ((CK_IBM_HEDGE_TYPE)3)
+
+typedef struct CK_IBM_SIGN_ADDITIONAL_CONTEXT {
+    CK_IBM_HEDGE_TYPE hedgeVariant;
+    CK_BYTE_PTR pContext;
+    CK_ULONG ulContextLen;
+} CK_IBM_SIGN_ADDITIONAL_CONTEXT;
+
 /*------------------------------------*/
 typedef enum {
 	XCP_PQC_S_DILITHIUM_R2_54      =  1,      /* Round-2 Dilithium */
@@ -2630,8 +2680,14 @@ typedef enum {
 	XCP_PQC_S_KYBER_R2_512     =  7,      /* Round-2 Kyber */
 	XCP_PQC_S_KYBER_R2_768     =  8,
 	XCP_PQC_S_KYBER_R2_1024    =  9,
+	XCP_PQC_S_ML_DSA_44 = 10, /* NIST Standards */
+	XCP_PQC_S_ML_DSA_65 = 11,
+	XCP_PQC_S_ML_DSA_87 = 12,
+	XCP_PQC_S_ML_KEM_512 = 13,
+	XCP_PQC_S_ML_KEM_768 = 14,
+	XCP_PQC_S_ML_KEM_1024 = 15,
 
-	XCP_PQC_MAX               = XCP_PQC_S_KYBER_R2_1024,
+	XCP_PQC_MAX               = XCP_PQC_S_ML_KEM_1024,
 } XCP_PQCStrength_t;
 
 
@@ -2943,7 +2999,7 @@ typedef enum {
 
 //--------------------------------------
 // socket use only
-#define  XCP_MAXCONNECTIONS 64       /* max value for active connections */
+#define  XCP_MAXCONNECTIONS 256      /* max value for active connections */
 #define  XCP_MAX_PORT     0xffff
 
 // hostname and port value fore one module
@@ -3339,9 +3395,9 @@ int m_shutdown(void);
 
 /*--  build identification  ------------------------------------------------*/
 
-#define  XCP_BUILD_ID    0xd5b72359
-#define  XCP_BUILD_DATE  0x20240119       /* UTC */
-#define  XCP_BUILD_TIME  0x125837         /* UTC */
+#define  XCP_BUILD_ID    0x3942f3bb
+#define  XCP_BUILD_DATE  0x20250923       /* UTC */
+#define  XCP_BUILD_TIME  0x083816         /* UTC */
 
 /*--------------------------------------------------------------------------*/
 #define __XCP_REASONCODES_H__ 1
@@ -3495,7 +3551,8 @@ typedef enum {
 	XCP_RSC_ADM_KTYPE_CHANGE_PROHIBITED = 145,  /* Key type configuration change prohibited, not enough remaining admins to meet security */
 	XCP_RSC_ADM_SVC_ADMIN_POLICY_VIOLATION = 146,  /* Changing security policy or thresholds prohibited, not enough svc admins to meet security */
 	XCP_RSC_ADM_EP11_ADMIN_POLICY_VIOLATION = 147,  /* Changing security policy or thresholds prohibited, not enough ep11 admins to meet security */
-	XCP_RSC_MAX = XCP_RSC_ADM_EP11_ADMIN_POLICY_VIOLATION
+	XCP_RSC_CMD_NOT_ALLOWED_IN_INACTIVE_STATE = 148,  /* Command rejected, card is in inactive state */
+	XCP_RSC_MAX = XCP_RSC_CMD_NOT_ALLOWED_IN_INACTIVE_STATE
 } XCP_ReasonCode_t ;
 
 
