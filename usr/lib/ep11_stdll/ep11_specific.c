@@ -460,6 +460,42 @@ static CK_BBOOL ep11_pqc_strength_supported(ep11_target_info_t *target_info,
             return FALSE;
         }
         break;
+    case CKM_IBM_ML_DSA:
+    case CKM_IBM_ML_DSA_KEY_PAIR_GEN:
+        switch (oid->keyform) {
+        case CKP_IBM_ML_DSA_44:
+            strength = XCP_PQC_S_ML_DSA_44;
+            break;
+        case CKP_IBM_ML_DSA_65:
+            strength = XCP_PQC_S_ML_DSA_65;
+            break;
+        case CKP_IBM_ML_DSA_87:
+            strength = XCP_PQC_S_ML_DSA_87;
+            break;
+        default:
+            TRACE_DEVEL("ML-DSA keyform %lu not supported by EP11\n",
+                        oid->keyform);
+            return FALSE;
+        }
+        break;
+    case CKM_IBM_ML_KEM:
+    case CKM_IBM_ML_KEM_KEY_PAIR_GEN:
+        switch (oid->keyform) {
+        case CKP_IBM_ML_KEM_512:
+            strength = XCP_PQC_S_ML_KEM_512;
+            break;
+        case CKP_IBM_ML_KEM_768:
+            strength = XCP_PQC_S_ML_KEM_768;
+            break;
+        case CKP_IBM_ML_KEM_1024:
+            strength = XCP_PQC_S_ML_KEM_1024;
+            break;
+        default:
+            TRACE_DEVEL("ML-KEM keyform %lu not supported by EP11\n",
+                        oid->keyform);
+            return FALSE;
+        }
+        break;
     default:
         return FALSE;
     }
@@ -483,6 +519,10 @@ static CK_BBOOL ep11_pqc_obj_strength_supported(ep11_target_info_t *target_info,
     switch (mech) {
     case CKM_IBM_DILITHIUM:
     case CKM_IBM_KYBER:
+    case CKM_IBM_ML_DSA:
+    case CKM_IBM_ML_DSA_KEY_PAIR_GEN:
+    case CKM_IBM_ML_KEM:
+    case CKM_IBM_ML_KEM_KEY_PAIR_GEN:
         break;
     default:
         return TRUE;
@@ -2466,7 +2506,7 @@ static CK_RV check_key_attributes(STDLL_TokData_t * tokdata,
             attr_cnt = sizeof(check_types_pub) / sizeof(CK_ULONG);
         }
         /* do nothing for CKM_DH_PKCS_KEY_PAIR_GEN, CKK_IBM_PQC_DILITHIUM,
-           and CKK_IBM_PQC_KYBER */
+           CKK_IBM_PQC_KYBER, CKK_IBM_ML_DSA and CKK_IBM_ML_KEM */
         break;
     case CKO_PRIVATE_KEY:
         if ((kt == CKK_EC) || (kt == CKK_ECDSA) || (kt == CKK_DSA)) {
@@ -2481,7 +2521,8 @@ static CK_RV check_key_attributes(STDLL_TokData_t * tokdata,
             check_types = &check_types_derive[0];
             attr_cnt = sizeof(check_types_derive) / sizeof(CK_ULONG);
         }
-        /* Do nothing for CKK_IBM_PQC_DILITHIUM and CKK_IBM_PQC_KYBER */
+        /* Do nothing for CKK_IBM_PQC_DILITHIUM, CKK_IBM_PQC_KYBER and
+         * CKK_IBM_ML_DSA and CKK_IBM_ML_KEM */
         break;
     default:
         return CKR_OK;
@@ -2686,6 +2727,21 @@ static CK_BBOOL attr_applicable_for_ep11(STDLL_TokData_t * tokdata,
             attr->type == CKA_WRAP || attr->type == CKA_UNWRAP ||
             attr->type == CKA_IBM_KYBER_KEYFORM ||
             attr->type == CKA_IBM_KYBER_MODE)
+            return CK_FALSE;
+        break;
+    case CKK_IBM_ML_DSA:
+        /* CKA_IBM_PARAMETER_SET will be added later */
+        if (attr->type == CKA_ENCRYPT || attr->type == CKA_DECRYPT ||
+            attr->type == CKA_WRAP || attr->type == CKA_UNWRAP ||
+            attr->type == CKA_DERIVE || attr->type == CKA_IBM_PARAMETER_SET)
+            return CK_FALSE;
+        break;
+    case CKK_IBM_ML_KEM:
+        /* CKA_IBM_PARAMETER_SET will be added later */
+        if (attr->type == CKA_SIGN || attr->type == CKA_VERIFY ||
+            attr->type == CKA_WRAP || attr->type == CKA_UNWRAP ||
+            attr->type == CKA_ENCRYPT || attr->type == CKA_DECRYPT ||
+            attr->type == CKA_IBM_PARAMETER_SET)
             return CK_FALSE;
         break;
     default:
@@ -9969,10 +10025,10 @@ error:
     return rc;
 }
 
-static CK_RV ibm_pqc_generate_keypair(STDLL_TokData_t *tokdata,
-                                      SESSION *sess,
-                                      CK_MECHANISM_PTR pMechanism,
-                                      TEMPLATE *publ_tmpl, TEMPLATE *priv_tmpl)
+static CK_RV pqc_generate_keypair(STDLL_TokData_t *tokdata,
+                                  SESSION *sess,
+                                  CK_MECHANISM_PTR pMechanism,
+                                  TEMPLATE *publ_tmpl, TEMPLATE *priv_tmpl)
 {
     ep11_private_data_t *ep11_data = tokdata->private_data;
     CK_RV rc;
@@ -9996,6 +10052,9 @@ static CK_RV ibm_pqc_generate_keypair(STDLL_TokData_t *tokdata,
     const struct pqc_oid *pqc_oid;
     const char *key_type_str;
     CK_ULONG raw_spki_len;
+    CK_ATTRIBUTE_TYPE param_attr;
+    CK_BYTE *param_val;
+    CK_ULONG param_len;
 
     switch (pMechanism->mechanism) {
     case CKM_IBM_DILITHIUM:
@@ -10005,6 +10064,14 @@ static CK_RV ibm_pqc_generate_keypair(STDLL_TokData_t *tokdata,
     case CKM_IBM_KYBER:
         key_type_str = "Kyber";
         ktype = CKK_IBM_PQC_KYBER;
+        break;
+    case CKM_IBM_ML_DSA_KEY_PAIR_GEN:
+        key_type_str = "ML-DSA";
+        ktype = CKK_IBM_ML_DSA;
+        break;
+    case CKM_IBM_ML_KEM_KEY_PAIR_GEN:
+        key_type_str = "ML-KEM";
+        ktype = CKK_IBM_ML_KEM;
         break;
     default:
         TRACE_ERROR("Invalid mechanism provided for %s\n ", __func__);
@@ -10040,6 +10107,10 @@ static CK_RV ibm_pqc_generate_keypair(STDLL_TokData_t *tokdata,
             pqc_oid = find_pqc_by_keyform(kyber_oids,
                                           CK_IBM_KYBER_KEYFORM_ROUND2_1024);
             break;
+        case CKM_IBM_ML_DSA_KEY_PAIR_GEN:
+        case CKM_IBM_ML_KEM_KEY_PAIR_GEN:
+            /* No default for ML-DSA and ML-KEM */
+            /* fallthrough */
         default:
             /* pqc_oid stays NULL */
             break;
@@ -10054,10 +10125,25 @@ static CK_RV ibm_pqc_generate_keypair(STDLL_TokData_t *tokdata,
     TRACE_INFO("%s Generate %s key with keyform %lu\n", __func__, key_type_str,
                pqc_oid->keyform);
 
+    switch (pMechanism->mechanism) {
+    case CKM_IBM_DILITHIUM:
+    case CKM_IBM_KYBER:
+        param_attr = CKA_IBM_PQC_PARAMS;
+        param_val = (CK_BYTE *)pqc_oid->oid;
+        param_len = pqc_oid->oid_len;
+        break;
+    case CKM_IBM_ML_DSA_KEY_PAIR_GEN:
+    case CKM_IBM_ML_KEM_KEY_PAIR_GEN:
+        param_attr = CKA_IBM_PARAMETER_SET;
+        param_val = (CK_BYTE *)&pqc_oid->keyform;
+        param_len = sizeof(pqc_oid->keyform);
+        break;
+    default:
+        return CKR_MECHANISM_INVALID;
+    }
+
     rc = add_to_attribute_array(&new_publ_attrs, &new_publ_attrs_len,
-                                CKA_IBM_PQC_PARAMS,
-                                (CK_BYTE *)pqc_oid->oid,
-                                pqc_oid->oid_len);
+                                param_attr, param_val, param_len);
     if (rc != CKR_OK) {
         TRACE_ERROR("%s add_to_attribute_array failed with rc=0x%lx\n",
                     __func__, rc);
@@ -10065,9 +10151,7 @@ static CK_RV ibm_pqc_generate_keypair(STDLL_TokData_t *tokdata,
     }
 
     rc = add_to_attribute_array(&new_priv_attrs, &new_priv_attrs_len,
-                                CKA_IBM_PQC_PARAMS,
-                                (CK_BYTE *)pqc_oid->oid,
-                                pqc_oid->oid_len);
+                                param_attr, param_val, param_len);
     if (rc != CKR_OK) {
         TRACE_ERROR("%s add_to_attribute_array failed with rc=0x%lx\n",
                     __func__, rc);
@@ -10343,9 +10427,11 @@ CK_RV ep11tok_generate_key_pair(STDLL_TokData_t * tokdata, SESSION * sess,
         break;
     case CKM_IBM_DILITHIUM:
     case CKM_IBM_KYBER:
-        rc = ibm_pqc_generate_keypair(tokdata, sess, pMechanism,
-                                      public_key_obj->template,
-                                      private_key_obj->template);
+    case CKM_IBM_ML_DSA_KEY_PAIR_GEN:
+    case CKM_IBM_ML_KEM_KEY_PAIR_GEN:
+        rc = pqc_generate_keypair(tokdata, sess, pMechanism,
+                                  public_key_obj->template,
+                                  private_key_obj->template);
         break;
     default:
         TRACE_ERROR("%s invalid mech %s\n", __func__,
