@@ -5,7 +5,8 @@ noinst_PROGRAMS += testcases/crypto/aes_tests				\
 	testcases/crypto/ssl3_tests testcases/crypto/ec_tests		\
 	testcases/crypto/rsaupdate_tests				\
 	testcases/crypto/dilithium_tests testcases/crypto/ab_tests	\
-	testcases/crypto/kyber_tests
+	testcases/crypto/kyber_tests testcases/crypto/ibm_ml_dsa_tests	\
+	testcases/crypto/ibm_ml_kem_tests
 noinst_HEADERS +=							\
 	testcases/crypto/aes.h testcases/crypto/des.h			\
 	testcases/crypto/des3.h testcases/crypto/digest.h		\
@@ -65,3 +66,11 @@ testcases_crypto_ab_tests_SOURCES = testcases/crypto/abfunc.c
 testcases_crypto_kyber_tests_CFLAGS = ${testcases_inc}
 testcases_crypto_kyber_tests_LDADD = testcases/common/libcommon.la
 testcases_crypto_kyber_tests_SOURCES = testcases/crypto/kyber_func.c
+
+testcases_crypto_ibm_ml_dsa_tests_CFLAGS = ${testcases_inc}
+testcases_crypto_ibm_ml_dsa_tests_LDADD = testcases/common/libcommon.la
+testcases_crypto_ibm_ml_dsa_tests_SOURCES = testcases/crypto/ibm_ml_dsa_func.c
+
+testcases_crypto_ibm_ml_kem_tests_CFLAGS = ${testcases_inc}
+testcases_crypto_ibm_ml_kem_tests_LDADD = testcases/common/libcommon.la
+testcases_crypto_ibm_ml_kem_tests_SOURCES = testcases/crypto/ibm_ml_kem_func.c
