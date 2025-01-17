@@ -1063,6 +1063,381 @@ CK_RV create_KyberPublicKey(CK_SESSION_HANDLE session,
     return rc;
 }
 
+CK_RV generate_IBM_ML_DSA_KeyPair(CK_SESSION_HANDLE session,
+                                  CK_ULONG parameter_set,
+                                  CK_OBJECT_HANDLE *publ_key,
+                                  CK_OBJECT_HANDLE *priv_key,
+                                  CK_BBOOL extractable)
+{
+    CK_RV rc;
+    CK_MECHANISM mech = { CKM_IBM_ML_DSA_KEY_PAIR_GEN, NULL, 0 };
+    CK_BBOOL pkeyextractable = !extractable;
+    CK_BYTE subject[] = {0};
+    CK_BYTE id[] = { 123 };
+    CK_BBOOL true = TRUE;
+    CK_ATTRIBUTE publicKeyTemplate[] = {
+        {CKA_VERIFY, &true, sizeof(true)},
+        {CKA_IBM_PARAMETER_SET, &parameter_set, sizeof(parameter_set)},
+    };
+    CK_ATTRIBUTE privateKeyTemplate[] = {
+        {CKA_TOKEN, &true, sizeof(true)},
+        {CKA_PRIVATE, &true, sizeof(true)},
+        {CKA_SUBJECT, subject, 0},
+        {CKA_ID, id, sizeof(id)},
+        {CKA_SENSITIVE, &true, sizeof(true)},
+        {CKA_SIGN, &true, sizeof(true)},
+        {CKA_EXTRACTABLE, &extractable, sizeof(CK_BBOOL)},
+        {CKA_IBM_PROTKEY_EXTRACTABLE, &pkeyextractable, sizeof(CK_BBOOL)},
+        {CKA_IBM_PARAMETER_SET, &parameter_set, sizeof(parameter_set)},
+    };
+    CK_ULONG num_publ_attrs = sizeof(publicKeyTemplate) / sizeof(CK_ATTRIBUTE);
+    CK_ULONG num_priv_attrs = sizeof(privateKeyTemplate) / sizeof(CK_ATTRIBUTE);
+
+    if (combined_extract)
+        pkeyextractable = CK_TRUE;
+
+    // generate keys
+    rc = funcs->C_GenerateKeyPair(session,
+                                  &mech,
+                                  publicKeyTemplate, num_publ_attrs,
+                                  privateKeyTemplate, num_priv_attrs,
+                                  publ_key, priv_key);
+
+    if (is_rejected_by_policy(rc, session))
+        rc = CKR_POLICY_VIOLATION;
+
+    return rc;
+}
+
+/** Create an IBM ML-DSA private key using private values **/
+CK_RV create_IBM_ML_DSA_PrivateKey(CK_SESSION_HANDLE session,
+                                   CK_BYTE pkcs8[], CK_ULONG pkcs8_len,
+                                   CK_ULONG parameter_set,
+                                   CK_BYTE rho[], CK_ULONG rho_len,
+                                   CK_BYTE seed[], CK_ULONG seed_len,
+                                   CK_BYTE tr[], CK_ULONG tr_len,
+                                   CK_BYTE s1[], CK_ULONG s1_len,
+                                   CK_BYTE s2[], CK_ULONG s2_len,
+                                   CK_BYTE t0[], CK_ULONG t0_len,
+                                   CK_BYTE t1[], CK_ULONG t1_len,
+                                   CK_BYTE priv_seed[], CK_ULONG priv_seed_len,
+                                   CK_OBJECT_HANDLE * priv_key)
+{
+    CK_OBJECT_CLASS class = CKO_PRIVATE_KEY;
+    CK_KEY_TYPE keyType = CKK_IBM_ML_DSA;
+    CK_UTF8CHAR label[] = "A IBM ML-DSA private key object";
+    CK_BYTE subject[] = {0};
+    CK_BYTE id[] = { 123 };
+    CK_RV rc;
+
+    CK_BBOOL true = TRUE;
+    CK_ATTRIBUTE template[] = {
+        {CKA_CLASS, &class, sizeof(class)},
+        {CKA_KEY_TYPE, &keyType, sizeof(keyType)},
+        {CKA_TOKEN, &true, sizeof(true)},
+        {CKA_PRIVATE, &true, sizeof(true)},
+        {CKA_LABEL, label, sizeof(label)},
+        {CKA_SUBJECT, subject, 0},
+        {CKA_ID, id, sizeof(id)},
+        {CKA_SENSITIVE, &true, sizeof(true)},
+        {CKA_SIGN, &true, sizeof(true)},
+        {CKA_IBM_ML_DSA_RHO, rho, rho_len},
+        {CKA_IBM_ML_DSA_SEED, seed, seed_len},
+        {CKA_IBM_ML_DSA_TR, tr, tr_len},
+        {CKA_IBM_ML_DSA_S1, s1, s1_len},
+        {CKA_IBM_ML_DSA_S2, s2, s2_len},
+        {CKA_IBM_ML_DSA_T0, t0, t0_len},
+        {CKA_IBM_ML_DSA_T1, t1, t1_len},
+        {CKA_IBM_PARAMETER_SET, &parameter_set, sizeof(parameter_set)},
+    };
+    CK_ATTRIBUTE template_pkcs8[] = {
+        {CKA_CLASS, &class, sizeof(class)},
+        {CKA_KEY_TYPE, &keyType, sizeof(keyType)},
+        {CKA_TOKEN, &true, sizeof(true)},
+        {CKA_PRIVATE, &true, sizeof(true)},
+        {CKA_LABEL, label, sizeof(label)},
+        {CKA_SUBJECT, subject, 0},
+        {CKA_ID, id, sizeof(id)},
+        {CKA_SENSITIVE, &true, sizeof(true)},
+        {CKA_SIGN, &true, sizeof(true)},
+        {CKA_VALUE, pkcs8, pkcs8_len},
+    };
+    CK_ATTRIBUTE template_seed[] = {
+        {CKA_CLASS, &class, sizeof(class)},
+        {CKA_KEY_TYPE, &keyType, sizeof(keyType)},
+        {CKA_TOKEN, &true, sizeof(true)},
+        {CKA_PRIVATE, &true, sizeof(true)},
+        {CKA_LABEL, label, sizeof(label)},
+        {CKA_SUBJECT, subject, 0},
+        {CKA_ID, id, sizeof(id)},
+        {CKA_SENSITIVE, &true, sizeof(true)},
+        {CKA_SIGN, &true, sizeof(true)},
+        {CKA_IBM_ML_DSA_PRIVATE_SEED, priv_seed, priv_seed_len},
+        {CKA_IBM_PARAMETER_SET, &parameter_set, sizeof(parameter_set)},
+    };
+
+    // create key
+    if (pkcs8_len > 0)
+        rc = funcs->C_CreateObject(session, template_pkcs8,
+                                   sizeof(template_pkcs8) / sizeof(CK_ATTRIBUTE),
+                                   priv_key);
+    else if (priv_seed_len > 0)
+            rc = funcs->C_CreateObject(session, template_seed,
+                                       sizeof(template_seed) / sizeof(CK_ATTRIBUTE),
+                                       priv_key);
+    else
+        rc = funcs->C_CreateObject(session, template,
+                                   sizeof(template) / sizeof(CK_ATTRIBUTE),
+                                   priv_key);
+    if (rc != CKR_OK) {
+        if (rc == CKR_KEY_SIZE_RANGE)
+            testcase_notice("C_CreateObject rc=%s", p11_get_ckr(rc));
+        else if (is_rejected_by_policy(rc, session))
+            rc = CKR_POLICY_VIOLATION;
+        else
+            testcase_error("C_CreateObject rc=%s", p11_get_ckr(rc));
+    }
+
+    return rc;
+}
+
+/** Create an IBM ML-DSA public key using  (rho, t1) **/
+CK_RV create_IBM_ML_DSA_PublicKey(CK_SESSION_HANDLE session,
+                                 CK_BYTE spki[], CK_ULONG spki_len,
+                                 CK_ULONG parameter_set,
+                                 CK_BYTE rho[], CK_ULONG rho_len,
+                                 CK_BYTE t1[], CK_ULONG t1_len,
+                                 CK_OBJECT_HANDLE * publ_key)
+{
+    CK_RV rc;
+    CK_OBJECT_CLASS class = CKO_PUBLIC_KEY;
+    CK_KEY_TYPE keyType = CKK_IBM_ML_DSA;
+    CK_UTF8CHAR label[] = "A IBM ML-DSA public key object";
+    CK_BBOOL true = TRUE;
+    CK_ATTRIBUTE template[] = {
+        {CKA_CLASS, &class, sizeof(class)},
+        {CKA_KEY_TYPE, &keyType, sizeof(keyType)},
+        {CKA_TOKEN, &true, sizeof(true)},
+        {CKA_LABEL, label, sizeof(label)},
+        {CKA_VERIFY, &true, sizeof(true)},
+        {CKA_IBM_ML_DSA_RHO, rho, rho_len},
+        {CKA_IBM_ML_DSA_T1, t1, t1_len},
+        {CKA_IBM_PARAMETER_SET, &parameter_set, sizeof(parameter_set)},
+    };
+    CK_ATTRIBUTE template_spki[] = {
+        {CKA_CLASS, &class, sizeof(class)},
+        {CKA_KEY_TYPE, &keyType, sizeof(keyType)},
+        {CKA_TOKEN, &true, sizeof(true)},
+        {CKA_LABEL, label, sizeof(label)},
+        {CKA_VERIFY, &true, sizeof(true)},
+        {CKA_VALUE, spki, spki_len},
+    };
+
+    // create key
+    if (spki_len > 0)
+        rc = funcs->C_CreateObject(session, template_spki,
+                               sizeof(template_spki) / sizeof(CK_ATTRIBUTE),
+                               publ_key);
+    else
+        rc = funcs->C_CreateObject(session, template,
+                               sizeof(template) / sizeof(CK_ATTRIBUTE),
+                               publ_key);
+    if (rc != CKR_OK) {
+        if (rc == CKR_KEY_SIZE_RANGE)
+            testcase_notice("C_CreateObject rc=%s", p11_get_ckr(rc));
+        else if (is_rejected_by_policy(rc, session))
+            rc = CKR_POLICY_VIOLATION;
+        else
+            testcase_error("C_CreateObject rc=%s", p11_get_ckr(rc));
+    }
+
+    return rc;
+}
+
+CK_RV generate_IBM_ML_KEM_KeyPair(CK_SESSION_HANDLE session,
+                                  CK_ULONG parameter_set,
+                                  CK_OBJECT_HANDLE *publ_key,
+                                  CK_OBJECT_HANDLE *priv_key,
+                                  CK_BBOOL extractable)
+{
+    CK_RV rc;
+    CK_MECHANISM mech = { CKM_IBM_ML_KEM_KEY_PAIR_GEN, NULL, 0 };
+    CK_BBOOL pkeyextractable = !extractable;
+    CK_BYTE subject[] = {0};
+    CK_BYTE id[] = { 123 };
+    CK_BBOOL true = TRUE;
+    CK_ATTRIBUTE publicKeyTemplate[] = {
+        {CKA_DERIVE, &true, sizeof(true)},
+        {CKA_IBM_PARAMETER_SET, &parameter_set, sizeof(parameter_set)},
+    };
+    CK_ATTRIBUTE privateKeyTemplate[] = {
+        {CKA_TOKEN, &true, sizeof(true)},
+        {CKA_PRIVATE, &true, sizeof(true)},
+        {CKA_SUBJECT, subject, 0},
+        {CKA_ID, id, sizeof(id)},
+        {CKA_SENSITIVE, &true, sizeof(true)},
+        {CKA_DERIVE, &true, sizeof(true)},
+        {CKA_EXTRACTABLE, &extractable, sizeof(CK_BBOOL)},
+        {CKA_IBM_PROTKEY_EXTRACTABLE, &pkeyextractable, sizeof(CK_BBOOL)},
+        {CKA_IBM_PARAMETER_SET, &parameter_set, sizeof(parameter_set)},
+    };
+    CK_ULONG num_publ_attrs = sizeof(publicKeyTemplate) / sizeof(CK_ATTRIBUTE);
+    CK_ULONG num_priv_attrs = sizeof(privateKeyTemplate) / sizeof(CK_ATTRIBUTE);
+
+    if (combined_extract)
+        pkeyextractable = CK_TRUE;
+
+    // generate keys
+    rc = funcs->C_GenerateKeyPair(session,
+                                  &mech,
+                                  publicKeyTemplate, num_publ_attrs,
+                                  privateKeyTemplate, num_priv_attrs,
+                                  publ_key, priv_key);
+
+    if (is_rejected_by_policy(rc, session))
+        rc = CKR_POLICY_VIOLATION;
+
+    return rc;
+}
+
+/** Create an IBM ML-KEM private key using private values **/
+CK_RV create_IBM_ML_KEM_PrivateKey(CK_SESSION_HANDLE session,
+                                   CK_BYTE pkcs8[], CK_ULONG pkcs8_len,
+                                   CK_ULONG parameter_set,
+                                   CK_BYTE sk[], CK_ULONG sk_len,
+                                   CK_BYTE pk[], CK_ULONG pk_len,
+                                   CK_BYTE priv_seed[], CK_ULONG priv_seed_len,
+                                   CK_OBJECT_HANDLE * priv_key)
+{
+    CK_OBJECT_CLASS class = CKO_PRIVATE_KEY;
+    CK_KEY_TYPE keyType = CKK_IBM_ML_KEM;
+    CK_UTF8CHAR label[] = "A IBM ML-KEM private key object";
+    CK_BYTE subject[] = {0};
+    CK_BYTE id[] = { 123 };
+    CK_RV rc;
+
+    CK_BBOOL true = TRUE;
+    CK_ATTRIBUTE template[] = {
+        {CKA_CLASS, &class, sizeof(class)},
+        {CKA_KEY_TYPE, &keyType, sizeof(keyType)},
+        {CKA_TOKEN, &true, sizeof(true)},
+        {CKA_PRIVATE, &true, sizeof(true)},
+        {CKA_LABEL, label, sizeof(label)},
+        {CKA_SUBJECT, subject, 0},
+        {CKA_ID, id, sizeof(id)},
+        {CKA_SENSITIVE, &true, sizeof(true)},
+        {CKA_SIGN, &true, sizeof(true)},
+        {CKA_DERIVE, &true, sizeof(true)},
+        {CKA_IBM_ML_KEM_SK, sk, sk_len},
+        {CKA_IBM_ML_KEM_PK, pk, pk_len},
+        {CKA_IBM_PARAMETER_SET, &parameter_set, sizeof(parameter_set)},
+    };
+    CK_ATTRIBUTE template_pkcs8[] = {
+        {CKA_CLASS, &class, sizeof(class)},
+        {CKA_KEY_TYPE, &keyType, sizeof(keyType)},
+        {CKA_TOKEN, &true, sizeof(true)},
+        {CKA_PRIVATE, &true, sizeof(true)},
+        {CKA_LABEL, label, sizeof(label)},
+        {CKA_SUBJECT, subject, 0},
+        {CKA_ID, id, sizeof(id)},
+        {CKA_SENSITIVE, &true, sizeof(true)},
+        {CKA_SIGN, &true, sizeof(true)},
+        {CKA_DERIVE, &true, sizeof(true)},
+        {CKA_VALUE, pkcs8, pkcs8_len},
+    };
+    CK_ATTRIBUTE template_seed[] = {
+        {CKA_CLASS, &class, sizeof(class)},
+        {CKA_KEY_TYPE, &keyType, sizeof(keyType)},
+        {CKA_TOKEN, &true, sizeof(true)},
+        {CKA_PRIVATE, &true, sizeof(true)},
+        {CKA_LABEL, label, sizeof(label)},
+        {CKA_SUBJECT, subject, 0},
+        {CKA_ID, id, sizeof(id)},
+        {CKA_SENSITIVE, &true, sizeof(true)},
+        {CKA_SIGN, &true, sizeof(true)},
+        {CKA_DERIVE, &true, sizeof(true)},
+        {CKA_IBM_ML_KEM_PRIVATE_SEED, priv_seed, priv_seed_len},
+        {CKA_IBM_PARAMETER_SET, &parameter_set, sizeof(parameter_set)},
+    };
+
+    // create key
+    if (pkcs8_len > 0)
+        rc = funcs->C_CreateObject(session, template_pkcs8,
+                                   sizeof(template_pkcs8) / sizeof(CK_ATTRIBUTE),
+                                   priv_key);
+    else if (priv_seed_len > 0)
+            rc = funcs->C_CreateObject(session, template_seed,
+                                       sizeof(template_seed) / sizeof(CK_ATTRIBUTE),
+                                       priv_key);
+    else
+        rc = funcs->C_CreateObject(session, template,
+                                   sizeof(template) / sizeof(CK_ATTRIBUTE),
+                                   priv_key);
+    if (rc != CKR_OK) {
+        if (rc == CKR_KEY_SIZE_RANGE)
+            testcase_notice("C_CreateObject rc=%s", p11_get_ckr(rc));
+        else if (is_rejected_by_policy(rc, session))
+            rc = CKR_POLICY_VIOLATION;
+        else
+            testcase_error("C_CreateObject rc=%s", p11_get_ckr(rc));
+    }
+
+    return rc;
+}
+
+/** Create an IBM ML-KEM public key using **/
+CK_RV create_IBM_ML_KEM_PublicKey(CK_SESSION_HANDLE session,
+                                  CK_BYTE spki[], CK_ULONG spki_len,
+                                  CK_ULONG parameter_set,
+                                  CK_BYTE pk[], CK_ULONG pk_len,
+                                  CK_OBJECT_HANDLE * publ_key)
+{
+    CK_RV rc;
+    CK_OBJECT_CLASS class = CKO_PUBLIC_KEY;
+    CK_KEY_TYPE keyType = CKK_IBM_ML_KEM;
+    CK_UTF8CHAR label[] = "A IBM ML-KEM public key object";
+    CK_BBOOL true = TRUE;
+    CK_ATTRIBUTE template[] = {
+        {CKA_CLASS, &class, sizeof(class)},
+        {CKA_KEY_TYPE, &keyType, sizeof(keyType)},
+        {CKA_TOKEN, &true, sizeof(true)},
+        {CKA_LABEL, label, sizeof(label)},
+        {CKA_VERIFY, &true, sizeof(true)},
+        {CKA_DERIVE, &true, sizeof(true)},
+        {CKA_IBM_ML_KEM_PK, pk, pk_len},
+        {CKA_IBM_PARAMETER_SET, &parameter_set, sizeof(parameter_set)},
+    };
+    CK_ATTRIBUTE template_spki[] = {
+        {CKA_CLASS, &class, sizeof(class)},
+        {CKA_KEY_TYPE, &keyType, sizeof(keyType)},
+        {CKA_TOKEN, &true, sizeof(true)},
+        {CKA_LABEL, label, sizeof(label)},
+        {CKA_VERIFY, &true, sizeof(true)},
+        {CKA_DERIVE, &true, sizeof(true)},
+        {CKA_VALUE, spki, spki_len},
+    };
+
+    // create key
+    if (spki_len > 0)
+        rc = funcs->C_CreateObject(session, template_spki,
+                               sizeof(template_spki) / sizeof(CK_ATTRIBUTE),
+                               publ_key);
+    else
+        rc = funcs->C_CreateObject(session, template,
+                               sizeof(template) / sizeof(CK_ATTRIBUTE),
+                               publ_key);
+    if (rc != CKR_OK) {
+        if (rc == CKR_KEY_SIZE_RANGE)
+            testcase_notice("C_CreateObject rc=%s", p11_get_ckr(rc));
+        else if (is_rejected_by_policy(rc, session))
+            rc = CKR_POLICY_VIOLATION;
+        else
+            testcase_error("C_CreateObject rc=%s", p11_get_ckr(rc));
+    }
+
+    return rc;
+}
+
 /** Create an DSA public key using the prime 'p', subprime 'q', base 'g' and private value 'y' **/
 CK_RV create_DSAPrivateKey(CK_SESSION_HANDLE session,
                            CK_BYTE prime[],
