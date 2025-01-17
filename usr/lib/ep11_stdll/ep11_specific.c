@@ -171,6 +171,7 @@ static CK_RV get_control_points(STDLL_TokData_t * tokdata,
 static CK_RV ep11tok_get_ep11_library_version(CK_VERSION *lib_version);
 static void free_card_versions(ep11_card_version_t *card_version);
 static int check_card_version(STDLL_TokData_t *tokdata, CK_ULONG card_type,
+                              CK_ULONG apply_to_firmware_version_only,
                               const CK_VERSION *ep11_lib_version,
                               const CK_VERSION *firmware_version,
                               const CK_ULONG *firmware_API_version);
@@ -251,6 +252,17 @@ static const version_req_t ibm_kyber_req_versions[] = {
         { .card_type = 8, .min_firmware_version = &ibm_cex8p_kyber_support }
 };
 #define NUM_KYBER_REQ (sizeof(ibm_kyber_req_versions) / sizeof(version_req_t))
+
+static const CK_VERSION ibm_cex8p_ml_dsa_kem_support_v9 = { .major = 9, .minor = 5 };
+static const CK_VERSION ibm_cex8p_ml_dsa_kem_support_v8 = { .major = 8, .minor = 37 };
+
+static const version_req_t ibm_mldsa_kem_req_versions[] = {
+        { .card_type = 8, .apply_to_firmware_version_only = 8,
+          .min_firmware_version = &ibm_cex8p_ml_dsa_kem_support_v8 },
+        { .card_type = 8, .apply_to_firmware_version_only = 9,
+          .min_firmware_version = &ibm_cex8p_ml_dsa_kem_support_v9 }
+};
+#define NUM_ML_DSA_KEM_REQ (sizeof(ibm_mldsa_kem_req_versions) / sizeof(version_req_t))
 
 static const CK_VERSION ibm_cex6p_reencrypt_single_support =
                                                     { .major = 6, .minor = 15 };
@@ -11038,6 +11050,7 @@ CK_BOOL ep11tok_mech_single_only(CK_MECHANISM *mech)
     case CKM_IBM_ED448_SHA3:
     case CKM_IBM_DILITHIUM:
     case CKM_IBM_EC_AGGREGATE:
+    case CKM_IBM_ML_DSA:
         return CK_TRUE;
     default:
         return CK_FALSE;
@@ -13541,6 +13554,10 @@ static const CK_MECHANISM_TYPE ep11_supported_mech_list[] = {
     CKM_IBM_ED25519_SHA512,
     CKM_IBM_ED448_SHA3,
     CKM_IBM_KYBER,
+    CKM_IBM_ML_DSA,
+    CKM_IBM_ML_DSA_KEY_PAIR_GEN,
+    CKM_IBM_ML_KEM,
+    CKM_IBM_ML_KEM_KEY_PAIR_GEN,
     CKM_IBM_SHA3_224,
     CKM_IBM_SHA3_224_HMAC,
     CKM_IBM_SHA3_256,
@@ -14064,6 +14081,7 @@ CK_RV ep11tok_is_mechanism_supported(STDLL_TokData_t *tokdata,
     CK_VERSION ver3 = { .major = 3, .minor = 0 };
     CK_VERSION ver3_1 = { .major = 3, .minor = 0x10 };
     CK_VERSION ver4 = { .major = 4, .minor = 0 };
+    CK_VERSION ver4_2 = { .major = 4, .minor = 0x20 };
     CK_BBOOL found = FALSE;
     CK_ULONG i;
     int status;
@@ -14235,6 +14253,26 @@ CK_RV ep11tok_is_mechanism_supported(STDLL_TokData_t *tokdata,
         }
         status = check_required_versions(tokdata, ibm_kyber_req_versions,
                                          NUM_KYBER_REQ);
+        if (status != 1) {
+            TRACE_INFO("%s Mech '%s' banned due to old card or mixed firmware versions\n",
+                       __func__, ep11_get_ckm(tokdata, orig_mech));
+            rc = CKR_MECHANISM_INVALID;
+            goto out;
+        }
+        break;
+
+    case CKM_IBM_ML_DSA:
+    case CKM_IBM_ML_DSA_KEY_PAIR_GEN:
+    case CKM_IBM_ML_KEM:
+    case CKM_IBM_ML_KEM_KEY_PAIR_GEN:
+        if (compare_ck_version(&ep11_data->ep11_lib_version, &ver4_2) < 0) {
+            TRACE_INFO("%s Mech '%s' banned due to host library version\n",
+                       __func__, ep11_get_ckm(tokdata, orig_mech));
+            rc = CKR_MECHANISM_INVALID;
+            goto out;
+        }
+        status = check_required_versions(tokdata, ibm_mldsa_kem_req_versions,
+                                         NUM_ML_DSA_KEM_REQ);
         if (status != 1) {
             TRACE_INFO("%s Mech '%s' banned due to old card or mixed firmware versions\n",
                        __func__, ep11_get_ckm(tokdata, orig_mech));
@@ -16304,6 +16342,18 @@ static CK_RV ep11tok_get_ep11_library_version(CK_VERSION *lib_version)
                     rc);
         return rc;
     }
+
+#ifdef EP11_HSMSIM
+#ifdef EP11_HSMSIM_HOSTLIB_VER_MAJOR
+    host_version &= 0x0000FFFF;
+    host_version |= (EP11_HSMSIM_HOSTLIB_VER_MAJOR << 16);
+#endif
+#ifdef EP11_HSMSIM_HOSTLIB_VER_MINOR
+    host_version &= 0xFFFF0000;
+    host_version |= (EP11_HSMSIM_HOSTLIB_VER_MINOR << 8);
+#endif
+#endif
+
     TRACE_DEVEL("%s host_version=0x08%x\n", __func__, host_version);
     lib_version->major = (host_version & 0x00FF0000) >> 16;
     /* Minor is 4 bits release number and 4 bits modification level */
@@ -16670,9 +16720,10 @@ static int check_required_versions(STDLL_TokData_t *tokdata,
 
     for (i = 0; i < num_req; i++) {
         status = check_card_version(tokdata, req[i].card_type,
-                                           req[i].min_lib_version,
-                                           req[i].min_firmware_version,
-                                           req[i].min_firmware_API_version);
+                                    req[i].apply_to_firmware_version_only,
+                                    req[i].min_lib_version,
+                                    req[i].min_firmware_version,
+                                    req[i].min_firmware_API_version);
         if (status == 0)
             req_not_fullfilled = CK_TRUE;
         if (status == 1)
@@ -16735,6 +16786,7 @@ out:
  * Those parameters that are NULL are not checked.
  */
 static int check_card_version(STDLL_TokData_t *tokdata, CK_ULONG card_type,
+                              CK_ULONG apply_to_firmware_version_only,
                               const CK_VERSION *ep11_lib_version,
                               const CK_VERSION *firmware_version,
                               const CK_ULONG *firmware_API_version)
@@ -16760,7 +16812,10 @@ static int check_card_version(STDLL_TokData_t *tokdata, CK_ULONG card_type,
 
     card_version = target_info->card_versions;
     while (card_version != NULL) {
-        if (card_version->card_type == card_type)
+        if (card_version->card_type == card_type &&
+            (apply_to_firmware_version_only == 0 ||
+             apply_to_firmware_version_only ==
+                                 card_version->firmware_version.major))
             break;
         card_version = card_version->next;
     }

@@ -85,6 +85,7 @@ typedef struct {
     const CK_VERSION *min_firmware_version;
     const CK_ULONG *min_firmware_API_version;
     CK_ULONG card_type;
+    CK_ULONG apply_to_firmware_version_only;
 } version_req_t;
 
 typedef CK_CHAR ep11_serialno_t[16];
