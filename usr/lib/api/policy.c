@@ -794,6 +794,9 @@ static CK_RV policy_check_signature_size(struct policy_private *pp,
             case CKM_SSL3_SHA1_MAC:
                 params = 8;
                 break;
+            case CKM_IBM_DILITHIUM:
+                siglen = 256;
+                break;
             default:
                 break;
             }
