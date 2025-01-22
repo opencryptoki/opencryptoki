@@ -351,45 +351,16 @@ static CK_RV check_expected_mkvp(STDLL_TokData_t *tokdata, CK_BYTE *blob,
                                  size_t blobsize, CK_BBOOL *new_wk)
 {
     ep11_private_data_t *ep11_data = tokdata->private_data;
-    CK_ULONG data_len = 0, spki_len = 0, wkid_len = 0;
-    CK_BYTE *data, *wkid;
+    CK_BYTE *wkid;
     CK_RV rc;
 
     if (new_wk != NULL)
         *new_wk = FALSE;
 
-    /*
-     * Check if MACed SPKI or key blob. From the EP11 structure document:
-     *    Session identifiers are guaranteed not to have 0x30 as their first
-     *    byte. This allows a single-byte check to differentiate between blobs
-     *    starting with session identifiers, and MACed SPKIs, which may be
-     *    used as blobs under other conditions.
-     * Key blobs start with the session identifier (32 bytes).
-     * SPKIs start with a DER encoded SPKI, which itself starts with a SEQUENCE
-     * denoted by 0x30 followed by the DER encoded length of the SPKI.
-     */
-    if (blobsize > 5 && blob[0] == 0x30 &&
-        ber_decode_SEQUENCE(blob, &data, &data_len, &spki_len) == CKR_OK) {
-        /* It is a SPKI, WKID follows as OCTET STRING right after SPKI data */
-        if (blobsize < spki_len + 2 + XCP_WKID_BYTES) {
-            TRACE_ERROR("MACed SPKI is too small\n");
-            return CKR_FUNCTION_FAILED;
-        }
-
-        rc = ber_decode_OCTET_STRING(blob + spki_len, &wkid, &wkid_len,
-                                     &data_len);
-        if (rc != CKR_OK || wkid_len != XCP_WKID_BYTES) {
-            TRACE_ERROR("Invalid MACed SPKI encoding\n");
-            return CKR_FUNCTION_FAILED;
-        }
-    } else {
-        /* It is a key blob, WKID starts at EP11_BLOB_WKID_OFFSET */
-        if (blobsize < EP11_BLOB_WKID_OFFSET + XCP_WKID_BYTES) {
-            TRACE_ERROR("EP11 key blob is too small\n");
-            return CKR_FUNCTION_FAILED;
-        }
-
-        wkid = blob + EP11_BLOB_WKID_OFFSET;
+    rc = ep11tok_extract_blob_info(blob, blobsize, NULL, &wkid, NULL, NULL);
+    if (rc != CKR_OK || wkid == NULL) {
+        TRACE_ERROR("ep11tok_extract_blob_info failed\n");
+        return CKR_FUNCTION_FAILED;
     }
 
     if (memcmp(wkid, ep11_data->expected_wkvp, XCP_WKID_BYTES) != 0) {
@@ -1509,6 +1480,258 @@ done:
 }
 #endif /* NO_PKEY */
 
+CK_RV ep11tok_extract_blob_info(CK_BYTE *blob, CK_ULONG blob_len,
+                                CK_BBOOL *is_spki, CK_BYTE **wkid,
+                                CK_BYTE** session_id, XCP_Attr_t **bool_attrs)
+{
+    CK_BYTE *data;
+    CK_ULONG data_len, field_len, ofs, i;
+    blob_attr_header_t *hdr;
+
+    /* From EP11 structure document section 7.4.1 SPKI with MAC */
+    const struct {
+        const char* field;
+        CK_ULONG min_len;
+        CK_BYTE **ptr;
+    } fields[] = {
+        { "WKID", XCP_WKID_BYTES, wkid },
+        { "SessionID", XCP_WK_BYTES, session_id },
+        { "Salt", XCP_SPKISALT_BYTES, NULL },
+        { "Mode", XCP_BLOBCLRMODE_BYTES, NULL },
+        { "Attrs", sizeof(blob_attr_header_t) + XCP_BLOBCLRATTR_BYTES,
+                                                            (CK_BYTE **)&hdr },
+        { NULL, 0, NULL },
+    };
+
+    /*
+     * Check if MACed SPKI or key/state blob. From the EP11 structure document:
+     *    Session identifiers are guaranteed not to have 0x30 as their first
+     *    byte. This allows a single-byte check to differentiate between blobs
+     *    starting with session identifiers, and MACed SPKIs, which may be
+     *    used as blobs under other conditions.
+     * Key blobs start with the session identifier (32 bytes).
+     * SPKIs start with a DER encoded SPKI, which itself starts with a SEQUENCE
+     * denoted by 0x30 followed by the DER encoded length of the SPKI.
+     */
+    if (blob_len > 5 && blob[0] == 0x30 &&
+        ber_decode_SEQUENCE(blob, &data, &data_len, &field_len) == CKR_OK) {
+        /* It is a SPKI, fields follow as OCTET STRINGs right after SPKI data */
+        if (blob_len < field_len) {
+            TRACE_ERROR("MACed SPKI is too small\n");
+            return CKR_FUNCTION_FAILED;
+        }
+
+        if (is_spki != NULL)
+            *is_spki = TRUE;
+
+        if (blob_len == field_len) {
+            TRACE_DEVEL("Raw-SPKI (non-MACed), no info to return\n");
+            if (wkid != NULL)
+                *wkid = NULL;
+            if (session_id != NULL)
+                *session_id = NULL;
+            if (bool_attrs != NULL)
+                *bool_attrs = NULL;
+
+            return CKR_OK;
+        }
+
+        ofs = field_len;
+
+        for (i = 0; fields[i].field != NULL; i++) {
+            if (ofs + 2 + fields[i].min_len > blob_len) {
+                TRACE_ERROR("MACed SPKI is too small to contain field %s\n",
+                            fields[i].field);
+                return CKR_FUNCTION_FAILED;
+            }
+
+            if (ber_decode_OCTET_STRING(blob + ofs, &data, &data_len,
+                                        &field_len) != CKR_OK) {
+                TRACE_ERROR("Failed to decode MACed SPKI field %s\n",
+                            fields[i].field);
+                return CKR_FUNCTION_FAILED;
+            }
+
+            if (data_len < fields[i].min_len || ofs + field_len > blob_len) {
+                TRACE_ERROR("MACed SPKI field %s is too small\n",
+                            fields[i].field);
+                return CKR_FUNCTION_FAILED;
+            }
+
+            if (fields[i].ptr != NULL)
+                *fields[i].ptr = data;
+
+            ofs += field_len;
+        }
+
+        if (hdr->version != EP11_BLOB_ATTR_HDR_VERSION) {
+            TRACE_ERROR("MACed SPKI attributes heder is invalid\n");
+            return CKR_FUNCTION_FAILED;
+        }
+
+        if (bool_attrs != NULL)
+            *bool_attrs = (XCP_Attr_t*)&data[sizeof(blob_attr_header_t) + 4];
+    } else {
+        /* It is a key blob */
+        if (blob_len < EP11_BLOB_VERSION_OFFSET + sizeof(uint16_t) ||
+            *(uint16_t *)&blob[EP11_BLOB_VERSION_OFFSET] != EP11_BLOB_VERSION) {
+            TRACE_ERROR("Key blob is too small or is invalid\n");
+            return CKR_FUNCTION_FAILED;
+        }
+
+        if (is_spki != NULL)
+            *is_spki = FALSE;
+        if (wkid != NULL)
+            *wkid = &blob[EP11_BLOB_WKID_OFFSET];
+        if (session_id != NULL)
+            *session_id = blob;
+        if (bool_attrs != NULL)
+            *bool_attrs = (XCP_Attr_t *)&blob[EP11_BLOB_BOOL_ATTR_OFFSET];
+    }
+
+    return CKR_OK;
+}
+
+static const struct {
+    XCP_Attr_t ep11_attr;
+    CK_ATTRIBUTE_TYPE pkcs11_attr;
+    CK_BBOOL can_set_to_false; /* allow to restrict key usage */
+    CK_BBOOL can_set_to_true; /* allow to lift key usage */
+} ep11_pkcs11_attr_map[] = {
+    { XCP_BLOB_EXTRACTABLE, CKA_EXTRACTABLE, TRUE, FALSE },
+    { XCP_BLOB_NEVER_EXTRACTABLE, CKA_NEVER_EXTRACTABLE, FALSE, FALSE },
+    { XCP_BLOB_MODIFIABLE, CKA_MODIFIABLE, TRUE, FALSE },
+    { XCP_BLOB_NEVER_MODIFIABLE, CKA_IBM_NEVER_MODIFIABLE, FALSE, FALSE },
+    { XCP_BLOB_RESTRICTABLE, CKA_IBM_RESTRICTABLE, FALSE, FALSE },
+    { XCP_BLOB_ATTRBOUND, CKA_IBM_ATTRBOUND, FALSE, FALSE },
+    { XCP_BLOB_USE_AS_DATA, CKA_IBM_USE_AS_DATA, TRUE, TRUE },
+    { XCP_BLOB_SIGN, CKA_SIGN, TRUE, TRUE },
+    { XCP_BLOB_DECRYPT, CKA_DECRYPT, TRUE, TRUE },
+    { XCP_BLOB_ENCRYPT, CKA_ENCRYPT, TRUE, TRUE },
+    { XCP_BLOB_DERIVE, CKA_DERIVE, TRUE, TRUE },
+    { XCP_BLOB_UNWRAP, CKA_UNWRAP, TRUE, TRUE },
+    { XCP_BLOB_WRAP, CKA_WRAP, TRUE, TRUE },
+    { XCP_BLOB_VERIFY, CKA_VERIFY, TRUE, TRUE },
+    { XCP_BLOB_TRUSTED, CKA_TRUSTED, TRUE, FALSE },
+    { XCP_BLOB_WRAP_W_TRUSTED, CKA_WRAP_WITH_TRUSTED , TRUE, TRUE},
+    { XCP_BLOB_PROTKEY_EXTRACTABLE, CKA_IBM_PROTKEY_EXTRACTABLE, TRUE, FALSE },
+    { XCP_BLOB_PROTKEY_NEVER_EXTRACTABLE, CKA_IBM_PROTKEY_NEVER_EXTRACTABLE,
+                                                                FALSE, FALSE },
+    { 0, 0, 0, 0 },
+};
+
+static CK_RV ep11tok_check_blob_import_attrs(STDLL_TokData_t *tokdata,
+                                             CK_OBJECT_CLASS class,
+                                             TEMPLATE *tmpl,
+                                             CK_BYTE *blob, CK_ULONG blob_len)
+{
+    CK_ULONG keytype, i;
+    XCP_Attr_t *bool_attrs = NULL, *bool_attrs2 = NULL;
+    CK_ATTRIBUTE *attr;
+    CK_BBOOL is_spki, blob_val, user_val;
+    CK_RV rc;
+
+    UNUSED(tokdata);
+
+    rc = template_attribute_get_ulong(tmpl, CKA_KEY_TYPE, &keytype);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("CKA_KEY_TYPE not found\n");
+        return CKR_TEMPLATE_INCOMPLETE;
+    }
+
+    rc = ep11tok_extract_blob_info(blob, keytype == CKK_AES_XTS ?
+                                                    blob_len / 2 : blob_len,
+                                   &is_spki, NULL, NULL, &bool_attrs);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("ep11tok_extract_blob_info failed\n");
+        return CKR_ATTRIBUTE_VALUE_INVALID;
+    }
+
+    if (keytype == CKK_AES_XTS) {
+        rc = ep11tok_extract_blob_info(blob + blob_len / 2, blob_len / 2,
+                                       NULL, NULL, NULL, &bool_attrs2);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("ep11tok_extract_blob_info failed\n");
+            return CKR_ATTRIBUTE_VALUE_INVALID;
+        }
+
+        if (*bool_attrs != *bool_attrs2) {
+            TRACE_ERROR("AES-XTS keys are inconsistent\n");
+            return CKR_ATTRIBUTE_VALUE_INVALID;
+        }
+    }
+
+    if (is_spki) {
+        /* It's a (MACed) SPKI blob */
+        if (class != CKO_PUBLIC_KEY) {
+            TRACE_ERROR("SPKI-blob is only allowed for public keys\n");
+            return CKR_TEMPLATE_INCONSISTENT;
+        }
+
+        if (bool_attrs == NULL) {
+            TRACE_DEVEL("Raw-SPKI (non-MACed), no attributes to check\n");
+            return CKR_OK;
+        }
+
+        TRACE_DEVEL("MACed-SPKI boolean attrs: 0x%08x\n", *bool_attrs);
+    } else {
+        /* It's a key blob */
+        if (class != CKO_PRIVATE_KEY && class != CKO_SECRET_KEY) {
+            TRACE_ERROR("Key-blob is only allowed for private or secret keys\n");
+            return CKR_TEMPLATE_INCONSISTENT;
+        }
+
+        TRACE_DEVEL("Key-Blob boolean attrs: 0x%08x\n", *bool_attrs);
+    }
+
+    for (i = 0; ep11_pkcs11_attr_map[i].ep11_attr != 0; i++) {
+        blob_val = (*bool_attrs & ep11_pkcs11_attr_map[i].ep11_attr) != 0 ?
+                                                    CK_TRUE : CK_FALSE;
+
+        if (template_attribute_find(tmpl, ep11_pkcs11_attr_map[i].pkcs11_attr,
+                                    &attr) &&
+            attr->ulValueLen == sizeof(CK_BBOOL) && attr->pValue != NULL) {
+            user_val = *((CK_BBOOL *)attr->pValue);
+            if (blob_val != user_val) {
+                /* User supplied attribute is different than in blob */
+                if ((*bool_attrs & XCP_BLOB_MODIFIABLE) == 0) {
+                    TRACE_ERROR("Attribute %s=%s in template can not be "
+                                "applied to the blob because the blob has "
+                                "CKA_MODIFIABLE=FALSE\n",
+                               p11_get_cka(ep11_pkcs11_attr_map[i].pkcs11_attr),
+                               user_val ? "TRUE" : "FALSE");
+                    return CKR_ATTRIBUTE_VALUE_INVALID;
+                }
+                if ((user_val == FALSE &&
+                                    ep11_pkcs11_attr_map[i].can_set_to_false) ||
+                    (user_val == TRUE &&
+                                    ep11_pkcs11_attr_map[i].can_set_to_true)) {
+                    /* Update of attr is allowed */
+                    blob_val = user_val;
+                } else {
+                    TRACE_ERROR("Attribute %s=%s in template conflicts with "
+                               "blob attribute setting %s\n",
+                               p11_get_cka(ep11_pkcs11_attr_map[i].pkcs11_attr),
+                               user_val ? "TRUE" : "FALSE",
+                               blob_val ? "TRUE" : "FALSE");
+                    return CKR_ATTRIBUTE_VALUE_INVALID;
+                }
+            }
+        }
+
+        rc = template_build_update_attribute(tmpl,
+                                             ep11_pkcs11_attr_map[i].pkcs11_attr,
+                                             &blob_val, sizeof(blob_val));
+        if (rc != CKR_OK) {
+            TRACE_ERROR("template_build_update_attribute failed for %s\n",
+                        p11_get_cka(ep11_pkcs11_attr_map[i].pkcs11_attr));
+            return rc;
+        }
+    }
+
+    return CKR_OK;
+}
+
 /**
  * This function is called whenever a new object is created. It sets
  * attribute CKA_IBM_PROTKEY_EXTRACTABLE according to the PKEY_MODE token
@@ -1524,7 +1747,7 @@ CK_RV token_specific_set_attrs_for_new_object(STDLL_TokData_t *tokdata,
                                               CK_ULONG mode, TEMPLATE *tmpl)
 {
     ep11_private_data_t *ep11_data = tokdata->private_data;
-    CK_ATTRIBUTE *sensitive_attr = NULL;
+    CK_ATTRIBUTE *sensitive_attr = NULL, *opaque = NULL;
     CK_BBOOL sensitive, extractable, pkey_extractable, btrue = CK_TRUE;
 #ifndef NO_PKEY
     CK_ATTRIBUTE *ecp_attr = NULL;
@@ -1537,6 +1760,20 @@ CK_RV token_specific_set_attrs_for_new_object(STDLL_TokData_t *tokdata,
     if (class != CKO_SECRET_KEY && class != CKO_PRIVATE_KEY &&
         class != CKO_PUBLIC_KEY)
         return CKR_OK;
+
+    if (mode == MODE_CREATE &&
+        template_attribute_find(tmpl, CKA_IBM_OPAQUE, &opaque) == TRUE &&
+        opaque->ulValueLen > 0 && opaque->pValue != NULL) {
+        /* Check for conflicting attrs in to-be-imported blob and template */
+        ret = ep11tok_check_blob_import_attrs(tokdata, class, tmpl,
+                                              (CK_BYTE*)opaque->pValue,
+                                              opaque->ulValueLen);
+        if (ret != CKR_OK) {
+            TRACE_ERROR("ep11tok_check_blob_import_attrs failed ret=0x%lx\n",
+                        ret);
+            goto done;
+        }
+    }
 
     if (class == CKO_PRIVATE_KEY ||
         (class == CKO_SECRET_KEY && ep11_data->cka_sensitive_default_true)) {
