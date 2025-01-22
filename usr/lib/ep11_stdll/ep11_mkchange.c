@@ -30,49 +30,16 @@ CK_BBOOL ep11tok_is_blob_new_wkid(STDLL_TokData_t *tokdata,
                                    CK_BYTE *blob, CK_ULONG blob_len)
 {
     ep11_private_data_t *ep11_data = tokdata->private_data;
-    CK_ULONG data_len = 0, spki_len = 0, wkid_len = 0;
-    CK_BYTE *data;
+    CK_BYTE *wkid;
     CK_RV rc;
 
-    /*
-     * Check if MACed SPKI or key/state blob. From the EP11 structure document:
-     *    Session identifiers are guaranteed not to have 0x30 as their first
-     *    byte. This allows a single-byte check to differentiate between blobs
-     *    starting with session identifiers, and MACed SPKIs, which may be
-     *    used as blobs under other conditions.
-     * Key and state blobs start with the session identifier (32 bytes).
-     * SPKIs start with a DER encoded SPKI, which itself stars with a SEQUENCE
-     * denoted by 0x30 followed by the DER encoded length of the SPKI.
-     */
-    if (blob_len > 5 && blob[0] == 0x30 &&
-        ber_decode_SEQUENCE(blob, &data, &data_len, &spki_len) == CKR_OK) {
-        /* Its a SPKI, WKID follows as OCTET STRING right after SPKI data */
-        if (blob_len < spki_len + 2 + XCP_WKID_BYTES) {
-            TRACE_ERROR("MACed SPKI is too small\n");
-            return CK_FALSE;
-        }
-
-        rc = ber_decode_OCTET_STRING(blob + spki_len, &data, &data_len,
-                                     &wkid_len);
-        if (rc != CKR_OK || data_len != XCP_WKID_BYTES) {
-            TRACE_ERROR("Invalid MACed SPKI encoding\n");
-            return CK_FALSE;
-        }
-
-        if (memcmp(data, ep11_data->new_wkvp, XCP_WKID_BYTES) == 0)
-            return CK_TRUE;
-
+    rc = ep11tok_extract_blob_info(blob, blob_len, NULL, &wkid, NULL, NULL);
+    if (rc != CKR_OK || wkid == NULL) {
+        TRACE_ERROR("ep11tok_extract_blob_info failed\n");
         return CK_FALSE;
     }
 
-    /* Key or state blob */
-    if (blob_len < EP11_BLOB_WKID_OFFSET + XCP_WKID_BYTES) {
-        TRACE_ERROR("EP11 blob is too small\n");
-        return CK_FALSE;
-    }
-
-    if (memcmp(blob + EP11_BLOB_WKID_OFFSET, ep11_data->new_wkvp,
-               XCP_WKID_BYTES) == 0)
+    if (memcmp(wkid, ep11_data->new_wkvp, XCP_WKID_BYTES) == 0)
         return CK_TRUE;
 
     return CK_FALSE;

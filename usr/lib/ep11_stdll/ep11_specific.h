@@ -43,6 +43,19 @@
 #define MAX_SIGN_STATE_BYTES        12288
 #define MAX_APQN                    256
 #define EP11_BLOB_WKID_OFFSET       32
+#define EP11_BLOB_BOOL_ATTR_OFFSET  52 /* second 32 bits of bool attr field */
+#define EP11_BLOB_VERSION_OFFSET    64
+#define EP11_BLOB_VERSION           0x1234
+
+typedef struct {
+    uint32_t version  : 4,
+             reserved : 4,
+             num_int_attrs : 8,
+             num_varlen_attrs : 4,
+             wordcount_varlen_attrs : 12;
+} __attribute__ ((packed)) blob_attr_header_t;
+
+#define EP11_BLOB_ATTR_HDR_VERSION  1
 
 typedef struct cp_mech_config {
     CK_MECHANISM_TYPE mech;
@@ -604,6 +617,9 @@ CK_RV do_LogoutExtended(XCP_LoginAlgorithm_t alg,
                         const CK_BYTE *pin, CK_ULONG pin_len,
                         const CK_BYTE *nonce, CK_ULONG nonce_len,
                         target_t target);
+CK_RV ep11tok_extract_blob_info(CK_BYTE *blob, CK_ULONG blob_len, CK_BBOOL *is_spki,
+                        CK_BYTE **wkvp, CK_BYTE** session_id,
+                        XCP_Attr_t **bool_attrs);
 
 /*
  * Macros to enclose EP11 library calls involving session bound blobs.
