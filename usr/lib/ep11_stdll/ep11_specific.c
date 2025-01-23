@@ -6574,7 +6574,7 @@ static CK_RV ep11tok_btc_mech_post_process(STDLL_TokData_t *tokdata,
     switch (class) {
     case CKO_PUBLIC_KEY:
         /* Derived blob is an SPKI, extract public EC key attributes */
-        rc = ecdsa_priv_unwrap_get_data(key_obj->template, blob, bloblen);
+        rc = ecdsa_priv_unwrap_get_data(key_obj->template, blob, bloblen, TRUE);
         if (rc != CKR_OK) {
             TRACE_ERROR("%s ecdsa_priv_unwrap_get_data failed with "
                         "rc=0x%lx\n", __func__, rc);
@@ -11778,16 +11778,20 @@ CK_RV ep11tok_unwrap_key(STDLL_TokData_t * tokdata, SESSION * session,
          */
         switch (*(CK_KEY_TYPE *) keytype_attr->pValue) {
         case CKK_EC:
-            rc = ecdsa_priv_unwrap_get_data(key_obj->template, csum, cslen);
+            rc = ecdsa_priv_unwrap_get_data(key_obj->template, csum, cslen,
+                                            FALSE);
             break;
         case CKK_RSA:
-            rc = rsa_priv_unwrap_get_data(key_obj->template, csum, cslen);
+            rc = rsa_priv_unwrap_get_data(key_obj->template, csum, cslen,
+                                          FALSE);
             break;
         case CKK_DSA:
-            rc = dsa_priv_unwrap_get_data(key_obj->template, csum, cslen);
+            rc = dsa_priv_unwrap_get_data(key_obj->template, csum, cslen,
+                                          FALSE);
             break;
         case CKK_DH:
-            rc = dh_priv_unwrap_get_data(key_obj->template, csum, cslen);
+            rc = dh_priv_unwrap_get_data(key_obj->template, csum, cslen,
+                                         FALSE);
             break;
         case CKK_IBM_PQC_DILITHIUM:
             rc = ibm_dilithium_priv_unwrap_get_data(key_obj->template,

@@ -2683,7 +2683,8 @@ CK_RV rsa_priv_wrap_get_data(TEMPLATE *tmpl, CK_BBOOL length_only,
                              CK_BYTE **data, CK_ULONG *data_len);
 CK_RV rsa_priv_unwrap(TEMPLATE *tmpl, CK_BYTE *data, CK_ULONG data_len);
 CK_RV rsa_priv_unwrap_get_data(TEMPLATE *tmpl,
-                              CK_BYTE *data, CK_ULONG total_length);
+                               CK_BYTE *data, CK_ULONG total_length,
+                               CK_BBOOL is_public);
 CK_RV rsa_priv_check_and_swap_pq(TEMPLATE *tmpl);
 
 // dsa routines
@@ -2703,7 +2704,8 @@ CK_RV dsa_priv_wrap_get_data(TEMPLATE *tmpl, CK_BBOOL length_only,
                              CK_BYTE **data, CK_ULONG *data_len);
 CK_RV dsa_priv_unwrap(TEMPLATE *tmpl, CK_BYTE *data, CK_ULONG data_len);
 CK_RV dsa_priv_unwrap_get_data(TEMPLATE *tmpl,
-                              CK_BYTE *data, CK_ULONG total_length);
+                               CK_BYTE *data, CK_ULONG total_length,
+                               CK_BBOOL is_public);
 
 // ecdsa routines
 //
@@ -2721,7 +2723,7 @@ CK_RV ecdsa_priv_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
 CK_RV ecdsa_priv_wrap_get_data(TEMPLATE *tmpl, CK_BBOOL length_only,
                                CK_BYTE **data, CK_ULONG *data_len);
 CK_RV ecdsa_priv_unwrap_get_data(TEMPLATE *tmpl, CK_BYTE *data,
-                                 CK_ULONG data_len);
+                                 CK_ULONG data_len, CK_BBOOL is_public);
 CK_RV ec_priv_unwrap(TEMPLATE *tmpl, CK_BYTE *data, CK_ULONG data_len);
 
 // Dilithium routines
@@ -2743,7 +2745,7 @@ CK_RV ibm_dilithium_priv_unwrap(TEMPLATE *tmpl, CK_BYTE *data,
                                 CK_ULONG total_length, CK_BBOOL add_value);
 CK_RV ibm_dilithium_priv_unwrap_get_data(TEMPLATE *tmpl,
                                          CK_BYTE *data, CK_ULONG total_length,
-                                         CK_BBOOL add_value);
+                                         CK_BBOOL is_public);
 
 // Kyber routines
 //
@@ -2764,7 +2766,7 @@ CK_RV ibm_kyber_priv_unwrap(TEMPLATE *tmpl, CK_BYTE *data,
                             CK_ULONG total_length, CK_BBOOL add_value);
 CK_RV ibm_kyber_priv_unwrap_get_data(TEMPLATE *tmpl,
                                      CK_BYTE *data, CK_ULONG total_length,
-                                     CK_BBOOL add_value);
+                                     CK_BBOOL is_public);
 
 // PQC helper routines
 //
@@ -2778,7 +2780,7 @@ CK_RV ibm_pqc_priv_unwrap(TEMPLATE *tmpl, CK_KEY_TYPE keytype, CK_BYTE *data,
                           CK_ULONG total_length, CK_BBOOL add_value);
 CK_RV ibm_pqc_priv_unwrap_get_data(TEMPLATE *tmpl, CK_KEY_TYPE keytype,
                                    CK_BYTE *data, CK_ULONG total_length,
-                                   CK_BBOOL add_value);
+                                   CK_BBOOL is_public);
 const struct pqc_oid *ibm_pqc_get_keyform_mode(TEMPLATE *tmpl,
                                                CK_MECHANISM_TYPE mech);
 CK_RV ibm_pqc_add_keyform_mode(TEMPLATE *tmpl, const struct pqc_oid *oid,
@@ -2801,7 +2803,8 @@ CK_RV dh_priv_wrap_get_data(TEMPLATE *tmpl,
                             CK_BBOOL length_only, CK_BYTE **data,
                             CK_ULONG *data_len);
 CK_RV dh_priv_unwrap_get_data(TEMPLATE *tmpl,
-                              CK_BYTE *data, CK_ULONG total_length);
+                              CK_BYTE *data, CK_ULONG total_length,
+                              CK_BBOOL is_public);
 CK_RV dh_priv_unwrap(TEMPLATE *tmpl, CK_BYTE *data, CK_ULONG data_len);
 
 // Generic secret key routines
