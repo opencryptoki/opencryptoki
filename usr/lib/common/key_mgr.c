@@ -95,6 +95,38 @@ CK_RV key_mgr_apply_always_sensitive_never_extractable_attrs(
     }
     new_attr = NULL;
 
+    /*
+     * Also apply CKA_IBM_PROTKEY_NEVER_EXTRACTABLE if attribute
+     * CKA_IBM_PROTKEY_EXTRACTABLE is available in the key
+     */
+    rc = template_attribute_get_bool(key_obj->template,
+                                     CKA_IBM_PROTKEY_EXTRACTABLE, &flag);
+    if (rc == CKR_TEMPLATE_INCOMPLETE) {
+        rc = CKR_OK;
+        goto error;
+    }
+    if (rc != CKR_OK) {
+        TRACE_ERROR("CKA_IBM_PROTKEY_EXTRACTABLE in key object template is "
+                    "invalid.\n");
+        goto error;
+    }
+
+    rc = build_attribute(CKA_IBM_PROTKEY_NEVER_EXTRACTABLE, &ck_true,
+                         sizeof(CK_BBOOL), &new_attr);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("build_attribute failed\n");
+        goto error;
+    }
+    if (flag == TRUE)
+        *(CK_BBOOL *)new_attr->pValue = FALSE;
+
+    rc = template_update_attribute(key_obj->template, new_attr);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("template_update_attribute failed.\n");
+        goto error;
+    }
+    new_attr = NULL;
+
 error:
     if (new_attr != NULL)
         free(new_attr);

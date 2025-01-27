@@ -1336,11 +1336,23 @@ CK_RV ep11tok_pkey_check_aes_xts(STDLL_TokData_t *tokdata, OBJECT *key_obj,
 CK_RV ep11tok_pkey_add_protkey_attr_to_tmpl(TEMPLATE *tmpl)
 {
     CK_ATTRIBUTE *pkey_attr = NULL;
-    CK_BBOOL btrue = CK_TRUE;
+    CK_BBOOL btrue = CK_TRUE, bfalse = CK_FALSE;
     CK_RV ret;
 
     if (!template_attribute_find(tmpl, CKA_IBM_PROTKEY_EXTRACTABLE, &pkey_attr)) {
         ret = build_attribute(CKA_IBM_PROTKEY_EXTRACTABLE, &btrue,
+                              sizeof(CK_BBOOL), &pkey_attr);
+        if (ret != CKR_OK) {
+            TRACE_ERROR("build_attribute failed with ret=0x%lx\n", ret);
+            goto done;
+        }
+        ret = template_update_attribute(tmpl, pkey_attr);
+        if (ret != CKR_OK) {
+            TRACE_ERROR("update_attribute failed with ret=0x%lx\n", ret);
+            free(pkey_attr);
+            goto done;
+        }
+        ret = build_attribute(CKA_IBM_PROTKEY_NEVER_EXTRACTABLE, &bfalse,
                               sizeof(CK_BBOOL), &pkey_attr);
         if (ret != CKR_OK) {
             TRACE_ERROR("build_attribute failed with ret=0x%lx\n", ret);
@@ -2424,6 +2436,7 @@ static CK_RV build_ep11_attrs(STDLL_TokData_t * tokdata, TEMPLATE *template,
         /* EP11 handles this as 'read only' and reports an error if specified */
         switch (attr->type) {
         case CKA_NEVER_EXTRACTABLE:
+        case CKA_IBM_PROTKEY_NEVER_EXTRACTABLE:
         case CKA_LOCAL:
             break;
         /* EP11 does not like empty (zero length) attributes of that types */

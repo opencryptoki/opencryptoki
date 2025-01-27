@@ -119,6 +119,7 @@ CK_RV key_object_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     CK_ATTRIBUTE *keygenmech_attr = NULL;
     CK_ATTRIBUTE *allowedmechs_attr = NULL;
     CK_ATTRIBUTE *pkey_attr = NULL;
+    CK_ATTRIBUTE *pkey_nextr_attr = NULL;
     CK_RV rc;
 
     UNUSED(mode);
@@ -135,9 +136,12 @@ CK_RV key_object_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     allowedmechs_attr = (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE));
     pkey_attr =
         (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE) + sizeof(CK_BBOOL));
+    pkey_nextr_attr =
+            (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE) + sizeof(CK_BBOOL));
 
     if (!id_attr || !sdate_attr || !edate_attr || !derive_attr || !local_attr
-        || !keygenmech_attr || !allowedmechs_attr || !pkey_attr) {
+        || !keygenmech_attr || !allowedmechs_attr || !pkey_attr
+        || !pkey_nextr_attr) {
         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
         rc = CKR_HOST_MEMORY;
         goto error;
@@ -178,6 +182,11 @@ CK_RV key_object_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     pkey_attr->ulValueLen = sizeof(CK_BBOOL);
     pkey_attr->pValue = (CK_BBOOL *) pkey_attr + sizeof(CK_ATTRIBUTE);
     *(CK_BBOOL *) pkey_attr->pValue = FALSE;
+
+    pkey_nextr_attr->type = CKA_IBM_PROTKEY_NEVER_EXTRACTABLE;
+    pkey_nextr_attr->ulValueLen = sizeof(CK_BBOOL);
+    pkey_nextr_attr->pValue = (CK_BBOOL *)pkey_nextr_attr + sizeof(CK_ATTRIBUTE);
+    *(CK_BBOOL *)pkey_nextr_attr->pValue = TRUE;
 
     rc = template_update_attribute(tmpl, id_attr);
     if (rc != CKR_OK) {
@@ -227,6 +236,12 @@ CK_RV key_object_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
         goto error;
     }
     pkey_attr = NULL;
+    rc = template_update_attribute(tmpl, pkey_nextr_attr);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("template_update_attribute failed.\n");
+        goto error;
+    }
+    pkey_nextr_attr = NULL;
 
     return CKR_OK;
 
@@ -247,6 +262,8 @@ error:
         free(allowedmechs_attr);
     if (pkey_attr)
         free(pkey_attr);
+    if (pkey_nextr_attr)
+        free(pkey_nextr_attr);
 
     return rc;
 }
@@ -257,6 +274,9 @@ error:
 CK_RV key_object_validate_attribute(TEMPLATE *tmpl, CK_ATTRIBUTE *attr,
                                     CK_ULONG mode)
 {
+    CK_RV rc;
+    CK_BBOOL ck_false = TRUE;
+
     switch (attr->type) {
     case CKA_KEY_TYPE:
         if (attr->ulValueLen != sizeof(CK_KEY_TYPE) || attr->pValue == NULL) {
@@ -310,6 +330,16 @@ CK_RV key_object_validate_attribute(TEMPLATE *tmpl, CK_ATTRIBUTE *attr,
             value != FALSE) {
             TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_READ_ONLY));
             return CKR_ATTRIBUTE_READ_ONLY;
+        }
+        if (value == TRUE) {
+            rc = template_build_update_attribute(tmpl,
+                                             CKA_IBM_PROTKEY_NEVER_EXTRACTABLE,
+                                             (CK_BYTE *)&ck_false,
+                                             sizeof(ck_false));
+            if (rc != CKR_OK) {
+                TRACE_DEVEL("template_build_update_attribute failed.\n");
+                return rc;
+            }
         }
         return CKR_OK;
         break;
@@ -1289,7 +1319,7 @@ CK_RV priv_key_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
                 TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_READ_ONLY));
                 return CKR_ATTRIBUTE_READ_ONLY;
             }
-            if (value == FALSE) {
+            if (value == TRUE) {
                 CK_ATTRIBUTE *attr;
 
                 attr =

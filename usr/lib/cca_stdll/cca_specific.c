@@ -3245,7 +3245,7 @@ CK_RV token_specific_set_attrs_for_new_object(STDLL_TokData_t *tokdata,
     CK_ATTRIBUTE *sensitive_attr = NULL;
 #ifndef NO_PKEY
     CK_ATTRIBUTE *pkey_attr = NULL, *ecp_attr = NULL;
-    CK_BBOOL add_pkey_extractable = CK_FALSE;
+    CK_BBOOL add_pkey_extractable = CK_FALSE, bfalse = CK_FALSE;
 #endif
     CK_BBOOL sensitive;
     CK_BBOOL btrue = CK_TRUE;
@@ -3314,6 +3314,19 @@ CK_RV token_specific_set_attrs_for_new_object(STDLL_TokData_t *tokdata,
             if (!template_attribute_find(tmpl, CKA_IBM_PROTKEY_EXTRACTABLE, &pkey_attr)) {
                 ret = build_attribute(CKA_IBM_PROTKEY_EXTRACTABLE,
                                       (CK_BBOOL *)&btrue, sizeof(CK_BBOOL),
+                                      &pkey_attr);
+                if (ret != CKR_OK) {
+                    TRACE_ERROR("build_attribute failed with ret=0x%lx\n", ret);
+                    goto done;
+                }
+                ret = template_update_attribute(tmpl, pkey_attr);
+                if (ret != CKR_OK) {
+                    TRACE_ERROR("update_attribute failed with ret=0x%lx\n", ret);
+                    free(pkey_attr);
+                    goto done;
+                }
+                ret = build_attribute(CKA_IBM_PROTKEY_NEVER_EXTRACTABLE,
+                                      (CK_BBOOL *)&bfalse, sizeof(CK_BBOOL),
                                       &pkey_attr);
                 if (ret != CKR_OK) {
                     TRACE_ERROR("build_attribute failed with ret=0x%lx\n", ret);
@@ -3706,7 +3719,7 @@ static CK_RV import_aes_xts_key(STDLL_TokData_t *tokdata,
          * CKA_IBM_OPAQUE attribute.
          */
         CK_BYTE zorro[64] = { 0 };
-        CK_BBOOL true = TRUE;
+        CK_BBOOL true = TRUE, false = FALSE;
         CK_ULONG value_len = 0;
         CK_BBOOL exp, cpacf_exp, exp2 = FALSE, cpacf_exp2 = FALSE;
         CK_IBM_CCA_AES_KEY_MODE_TYPE mode;
@@ -3855,9 +3868,19 @@ static CK_RV import_aes_xts_key(STDLL_TokData_t *tokdata,
                                         (CK_BYTE *)&cpacf_exp,
                                         sizeof(cpacf_exp));
             if (rc != CKR_OK) {
-                TRACE_DEVEL("build_update_attribute(CKA_EXTRACTABLE) "
+                TRACE_DEVEL("build_update_attribute(CKA_IBM_PROTKEY_EXTRACTABLE) "
                             "failed\n");
                 return rc;
+            }
+            if (cpacf_exp) {
+                rc = build_update_attribute(object->template,
+                                            CKA_IBM_PROTKEY_NEVER_EXTRACTABLE,
+                                            (CK_BYTE *)&false, sizeof(false));
+                if (rc != CKR_OK) {
+                    TRACE_DEVEL("build_update_attribute(CKA_IBM_PROTKEY_NEVER_EXTRACTABLE) "
+                                "failed\n");
+                    return rc;
+                }
             }
 #endif
         }
@@ -10304,6 +10327,9 @@ static CK_RV import_symmetric_key(STDLL_TokData_t *tokdata,
         CK_BBOOL true = TRUE;
         CK_ULONG value_len = 0;
         CK_IBM_CCA_AES_KEY_MODE_TYPE mode;
+#ifndef NO_PKEY
+        CK_BBOOL false = FALSE;
+#endif
 
         if (analyse_cca_key_token(opaque_attr->pValue, opaque_attr->ulValueLen,
                                   &token_type, &token_keybitsize, &mkvp) != TRUE) {
@@ -10379,9 +10405,19 @@ static CK_RV import_symmetric_key(STDLL_TokData_t *tokdata,
                                             (CK_BYTE *)&cpacf_exp,
                                             sizeof(cpacf_exp));
                 if (rc != CKR_OK) {
-                    TRACE_DEVEL("build_update_attribute(CKA_EXTRACTABLE) "
+                    TRACE_DEVEL("build_update_attribute(CKA_IBM_PROTKEY_EXTRACTABLE) "
                                 "failed\n");
                     return rc;
+                }
+                if (cpacf_exp) {
+                    rc = build_update_attribute(object->template,
+                                                CKA_IBM_PROTKEY_NEVER_EXTRACTABLE,
+                                                (CK_BYTE *)&false, sizeof(false));
+                    if (rc != CKR_OK) {
+                        TRACE_DEVEL("build_update_attribute(CKA_IBM_PROTKEY_NEVER_EXTRACTABLE) "
+                                    "failed\n");
+                        return rc;
+                    }
                 }
 #endif
             } else {
@@ -10634,6 +10670,9 @@ static CK_RV import_generic_secret_key(STDLL_TokData_t *tokdata,
          */
         unsigned int plbitsize;
         CK_BBOOL true = TRUE;
+#ifndef NO_PKEY
+        CK_BBOOL false = FALSE;
+#endif
 
         if (analyse_cca_key_token(opaque_attr->pValue, opaque_attr->ulValueLen,
                                   &token_type, &token_payloadbitsize, &mkvp) != TRUE) {
@@ -10667,9 +10706,19 @@ static CK_RV import_generic_secret_key(STDLL_TokData_t *tokdata,
                                     (CK_BYTE *)&cpacf_exp,
                                     sizeof(cpacf_exp));
         if (rc != CKR_OK) {
-            TRACE_DEVEL("build_update_attribute(CKA_EXTRACTABLE) "
+            TRACE_DEVEL("build_update_attribute(CKA_IBM_PROTKEY_EXTRACTABLE) "
                         "failed\n");
             return rc;
+        }
+        if (cpacf_exp) {
+            rc = build_update_attribute(object->template,
+                                        CKA_IBM_PROTKEY_NEVER_EXTRACTABLE,
+                                        (CK_BYTE *)&false, sizeof(false));
+            if (rc != CKR_OK) {
+                TRACE_DEVEL("build_update_attribute(CKA_IBM_PROTKEY_NEVER_EXTRACTABLE) "
+                            "failed\n");
+                return rc;
+            }
         }
 #endif
 
@@ -11045,7 +11094,7 @@ static CK_RV import_ec_privkey(STDLL_TokData_t *tokdata, TEMPLATE *priv_templ)
     const CK_BYTE *mkvp;
     CK_BBOOL new_mk;
 #ifndef NO_PKEY
-    CK_BBOOL cpacf_exp;
+    CK_BBOOL cpacf_exp, false = FALSE;
 #endif
     CK_BBOOL derive = FALSE;
 
@@ -11084,9 +11133,19 @@ static CK_RV import_ec_privkey(STDLL_TokData_t *tokdata, TEMPLATE *priv_templ)
                                     (CK_BYTE *)&cpacf_exp,
                                     sizeof(cpacf_exp));
         if (rc != CKR_OK) {
-            TRACE_DEVEL("build_update_attribute(CKA_EXTRACTABLE) "
+            TRACE_DEVEL("build_update_attribute(CKA_IBM_PROTKEY_EXTRACTABLE) "
                         "failed\n");
             return rc;
+        }
+        if (cpacf_exp) {
+            rc = build_update_attribute(priv_templ,
+                                        CKA_IBM_PROTKEY_NEVER_EXTRACTABLE,
+                                        (CK_BYTE *)&false, sizeof(false));
+            if (rc != CKR_OK) {
+                TRACE_DEVEL("build_update_attribute(CKA_IBM_PROTKEY_NEVER_EXTRACTABLE) "
+                            "failed\n");
+                return rc;
+            }
         }
 #endif /* NO_PKEY */
 
