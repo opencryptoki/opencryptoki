@@ -30,6 +30,7 @@ testcases/login/login_flags_test
 testcases/login/set_pin
 testcases/misc_tests/always_auth
 testcases/misc_tests/cca_export_import_test
+testcases/misc_tests/cca_ep11_export_import_test
 testcases/misc_tests/events
 testcases/misc_tests/fork
 testcases/misc_tests/multi_instance

@@ -7,7 +7,7 @@ noinst_PROGRAMS +=							\
 	testcases/misc_tests/fork testcases/misc_tests/multi_instance   \
 	testcases/misc_tests/obj_lock testcases/misc_tests/tok2tok_transport \
 	testcases/misc_tests/obj_lock testcases/misc_tests/reencrypt    \
-	testcases/misc_tests/cca_export_import_test			\
+	testcases/misc_tests/cca_ep11_export_import_test			\
 	testcases/misc_tests/events testcases/misc_tests/dual_functions \
 	testcases/misc_tests/always_auth
 
@@ -102,11 +102,11 @@ testcases_misc_tests_reencrypt_LDADD = testcases/common/libcommon.la
 testcases_misc_tests_reencrypt_SOURCES = 			\
 	testcases/misc_tests/reencrypt.c
 
-testcases_misc_tests_cca_export_import_test_CFLAGS = ${testcases_inc}
-testcases_misc_tests_cca_export_import_test_LDADD =			\
+testcases_misc_tests_cca_ep11_export_import_test_CFLAGS = ${testcases_inc}
+testcases_misc_tests_cca_ep11_export_import_test_LDADD =		\
 	testcases/common/libcommon.la
-testcases_misc_tests_cca_export_import_test_SOURCES =			\
-	testcases/misc_tests/cca_export_import_test.c
+testcases_misc_tests_cca_ep11_export_import_test_SOURCES =		\
+	testcases/misc_tests/cca_ep11_export_import_test.c
 	
 testcases_misc_tests_events_CFLAGS = ${testcases_inc}
 testcases_misc_tests_events_LDADD = testcases/common/libcommon.la
