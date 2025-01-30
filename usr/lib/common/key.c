@@ -342,7 +342,9 @@ CK_RV key_object_validate_attribute(TEMPLATE *tmpl, CK_ATTRIBUTE *attr,
             }
         }
         return CKR_OK;
-        break;
+    case CKA_IBM_PROTKEY_NEVER_EXTRACTABLE:
+        TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_READ_ONLY));
+        return CKR_ATTRIBUTE_READ_ONLY;
     case CKA_IBM_ATTRBOUND:
         if (attr->ulValueLen != sizeof(CK_BBOOL) || attr->pValue == NULL) {
             TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
