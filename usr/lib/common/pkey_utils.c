@@ -1770,6 +1770,11 @@ struct {                            \
             ret = CKR_ARGUMENTS_BAD;
             goto done;
         }
+        if (ecpoint_len != sizeof(edparam.ED25519.pub)) {
+            TRACE_ERROR("Public key has an invalid length of %ld bytes.\n", ecpoint_len);
+            ret = CKR_ATTRIBUTE_VALUE_INVALID;
+            goto done;
+        }
         fc = KDSA_EDDSA_VERIFY_ED25519;
         /*
          * The flip_endian_32 will copy the 32-byte signature parts and public
@@ -1786,6 +1791,11 @@ struct {                            \
             ret = CKR_ARGUMENTS_BAD;
             goto done;
         }
+        if (ecpoint_len != sizeof(edparam.ED448.pub) - ED448_BUF_OFFSET) {
+            TRACE_ERROR("Public key has an invalid length of %ld bytes.\n", ecpoint_len);
+            ret = CKR_ATTRIBUTE_VALUE_INVALID;
+            goto done;
+        }
         fc = KDSA_EDDSA_VERIFY_ED448;
         /*
          * Copy the 57-byte signature parts and public key into the CPACF parm
@@ -1795,7 +1805,8 @@ struct {                            \
          */
         memcpy(edparam.ED448.sig_r, sig, sig_len / 2);
         memcpy(edparam.ED448.sig_s, sig + (sig_len / 2), sig_len / 2);
-        memcpy(edparam.ED448.pub, ecpoint, sizeof(edparam.ED448.pub));
+        memcpy(edparam.ED448.pub, ecpoint,
+               MIN(ecpoint_len, sizeof(edparam.ED448.pub)));
         s390_flip_endian_64(edparam.ED448.sig_r, edparam.ED448.sig_r);
         s390_flip_endian_64(edparam.ED448.sig_s, edparam.ED448.sig_s);
         s390_flip_endian_64(edparam.ED448.pub, edparam.ED448.pub);
