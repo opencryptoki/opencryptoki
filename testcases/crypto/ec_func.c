@@ -2062,11 +2062,11 @@ CK_RV run_GenerateECCKeyPairSignVerify(void)
         if (rc == CKR_OK) {
             testcase_fail
                 ("generate_EC_KeyPair with invalid input failed at i=%lu (%s)",
-                 i, der_ec_supported[i].name);
+                 i, der_ec_notsupported[i].name);
             goto testcase_cleanup;
         }
         testcase_pass("*Generate unsupported key pair curve=%s passed.",
-                      der_ec_supported[i].name);
+                      der_ec_notsupported[i].name);
     }
 
     rc = CKR_OK;
@@ -3213,7 +3213,7 @@ int main(int argc, char **argv)
 #ifndef NO_PKEY
     if (is_ep11_token(SLOT_ID) || is_cca_token(SLOT_ID)) {
         pkey = CK_TRUE;
-        rv = run_GenerateECCKeyPairSignVerify();
+        rv += run_GenerateECCKeyPairSignVerify();
         rv += run_ImportECCKeyPairSignVerify();
         rv += run_TransferECCKeyPairSignVerify();
         rv += run_DeriveECDHKey();
