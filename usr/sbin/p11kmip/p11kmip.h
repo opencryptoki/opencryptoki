@@ -11,7 +11,7 @@
 #ifndef P11KMIP_H_
 #define P11KMIP_H_
 
-#include "pkcs11types.h"
+#include "p11tool.h"
 #include "ec_curves.h"
 #include <kmipclient/kmipclient.h>
 
@@ -23,7 +23,6 @@
 
 #define P11KMIP_PKCSLIB_ENV_NAME             "PKCSLIB"
 #define P11KMIP_CONF_FILE_ENV_NAME           "P11KMIP_CONF_FILE"
-#define PKCS11_USER_PIN_ENV_NAME             "PKCS11_USER_PIN"
 #define PKCS11_SLOT_ID_ENV_NAME              "PKCS11_SLOT_ID"
 #define KMIP_HOSTNAME_ENV_NAME               "KMIP_HOSTNAME"
 #define KMIP_CLIENT_CERT_ENV_NAME            "KMIP_CLIENT_CERT"
@@ -73,7 +72,6 @@
 #define OPT_WRAPKEY_ATTRS       272
 #define OPT_WRAPKEY_ID          273
 
-#define MAX_PRINT_LINE_LENGTH   80
 #define PRINT_INDENT_POS        45
 
 #define FIND_OBJECTS_COUNT      64
@@ -83,156 +81,12 @@
 
 #define P11KMIP_DEFAULT_AES_KEY_LENGTH 32
 
-/* CLI Struct definitions */
-
-enum p11kmip_arg_type {
-    ARG_TYPE_PLAIN = 0,         /* no argument */
-    ARG_TYPE_STRING = 1,
-    ARG_TYPE_ENUM = 2,
-    ARG_TYPE_NUMBER = 3,
-};
-
-struct p11kmip_enum_value {
-    const char *value;
-    const struct p11kmip_arg *args;
-    union {
-        const void *ptr;
-        CK_ULONG num;
-    } private;
-    char **any_value;           /* if this is not NULL then this enum value matches to
-                                   any string, and the string is set into any_value */
-};
-
-struct p11kmip_arg {
-    const char *name;
-    enum p11kmip_arg_type type;
-    bool required;
-    bool case_sensitive;
-    const struct p11kmip_enum_value *enum_values;
-    union {
-        bool *plain;
-        char **string;
-        struct p11kmip_enum_value **enum_value;
-        CK_ULONG *number;
-    } value;
-    bool (*is_set)(const struct p11kmip_arg * arg);
-    const char *description;
-};
-
-struct p11kmip_opt {
-    char short_opt;             /* 0 if no short option is used */
-    const char *long_opt;       /* NULL if no long option */
-    int long_opt_val;           /* Used only if short_opt is 0 */
-    bool required;
-    struct p11kmip_arg arg;
-    const char *description;
-};
-
-struct p11kmip_cmd {
-    const char *cmd;
-    const char *cmd_short1;
-    const char *cmd_short2;
-     CK_RV(*func) (void);
-    const struct p11kmip_opt *opts;
-    const struct p11kmip_arg *args;
-    const char *description;
-    void (*help)(void);
-    CK_FLAGS session_flags;
-};
-
-struct p11kmip_attr {
-    const char *name;
-    CK_ATTRIBUTE_TYPE type;
-    char letter;
-    bool secret;
-    bool public;
-    bool private;
-    bool settable;
-    void (*print_short)(const CK_ATTRIBUTE * val, bool applicable);
-    void (*print_long)(const char *attr, const CK_ATTRIBUTE * val,
-                       int indent, bool sensitive);
-};
-
-/* Key object struct definitions */
-struct p11kmip_keytype {
-    const char *name;
-    CK_KEY_TYPE type;
-    CK_OBJECT_CLASS class;
-    const char *ckk_name;
-    CK_MECHANISM keygen_mech;
-    bool is_asymmetric;
-    bool sign_verify;
-    bool encrypt_decrypt;
-    bool wrap_unwrap;
-    bool derive;
-     CK_RV(*keygen_prepare) (const struct p11kmip_keytype * keytype,
-                             void **private);
-    void (*keygen_cleanup)(const struct p11kmip_keytype * keytype,
-                           void *private);
-     CK_RV(*keygen_get_key_size) (const struct p11kmip_keytype * keytype,
-                                  void *private, CK_ULONG * keysize);
-     CK_RV(*keygen_add_secret_attrs) (const struct p11kmip_keytype * keytype,
-                                      CK_ATTRIBUTE ** attrs,
-                                      CK_ULONG * num_attrs, void *private);
-     CK_RV(*keygen_add_public_attrs) (const struct p11kmip_keytype * keytype,
-                                      CK_ATTRIBUTE ** attrs,
-                                      CK_ULONG * num_attrs, void *private);
-     CK_RV(*keygen_add_private_attrs) (const struct p11kmip_keytype * keytype,
-                                       CK_ATTRIBUTE ** attrs,
-                                       CK_ULONG * num_attrs, void *private);
-    CK_ATTRIBUTE_TYPE filter_attr;
-    CK_ULONG filter_value;
-    CK_ATTRIBUTE_TYPE keysize_attr;
-    CK_ULONG keysize_value;
-    bool keysize_attr_value_len;
-     CK_ULONG(*key_keysize_adjust) (const struct p11kmip_keytype * keytype,
-                                    CK_ULONG keysize);
-    const struct p11kmip_attr *secret_attrs;
-    const struct p11kmip_attr *public_attrs;
-    const struct p11kmip_attr *private_attrs;
-     CK_RV(*import_check_sym_keysize) (const struct p11kmip_keytype * keytype,
-                                       CK_ULONG keysize);
-     CK_RV(*import_sym_clear) (const struct p11kmip_keytype * keytype,
-                               CK_BYTE * data, CK_ULONG data_len,
-                               CK_ATTRIBUTE ** attrs, CK_ULONG * num_attrs);
-     CK_RV(*import_asym_pkey) (const struct p11kmip_keytype * keytype,
-                               EVP_PKEY * pkey, bool private,
-                               CK_ATTRIBUTE ** attrs, CK_ULONG * num_attrs);
-     CK_RV(*import_asym_pem_data) (const struct p11kmip_keytype * keytype,
-                                   unsigned char *data, size_t data_len,
-                                   bool private, CK_ATTRIBUTE ** attrs,
-                                   CK_ULONG * num_attrs);
-     CK_RV(*export_sym_clear) (const struct p11kmip_keytype * keytype,
-                               CK_BYTE ** data, CK_ULONG * data_len,
-                               CK_OBJECT_HANDLE key, const char *label);
-     CK_RV(*export_asym_pkey) (const struct p11kmip_keytype * keytype,
-                               EVP_PKEY ** pkey, bool private,
-                               CK_OBJECT_HANDLE key, const char *label);
-     CK_RV(*export_asym_pem_data) (const struct p11kmip_keytype * keytype,
-                                   unsigned char **data, size_t *data_len,
-                                   bool private, CK_OBJECT_HANDLE key,
-                                   const char *label);
-    const char *pem_name_private;
-    const char *pem_name_public;
-};
-
-struct p11kmip_class {
-    const char *name;
-    CK_OBJECT_CLASS class;
-};
-
-struct p11kmip_custom_attr_type {
-    const char *type;
-    void (*print_long)(const char *attr, const CK_ATTRIBUTE * val,
-                       int indent, bool sensitive);
-};
-
 #define P11KMIP_P11_UNKNOWN_ALG                   0xFFFFFFFF
 #define P11KMIP_KMIP_UNKNOWN_ALG                  0xFF
 #define P11KMIP_KMIP_TO_P11_ALG_TABLE_LENGTH      14
 #define P11KMIP_P11_TO_KMIP_ALG_TABLE_LENGTH      32
 
-const CK_KEY_TYPE P11KMIP_KMIP_TO_P11_ALG_TABLE[] = {
+static const CK_KEY_TYPE P11KMIP_KMIP_TO_P11_ALG_TABLE[] = {
     P11KMIP_P11_UNKNOWN_ALG,
     CKK_DES,
     CKK_DES3,
@@ -249,7 +103,7 @@ const CK_KEY_TYPE P11KMIP_KMIP_TO_P11_ALG_TABLE[] = {
     CKK_DH
 };
 
-const enum kmip_crypto_algo P11KMIP_P11_TO_KMIP_ALG_TABLE[] = {
+static const enum kmip_crypto_algo P11KMIP_P11_TO_KMIP_ALG_TABLE[] = {
     KMIP_CRYPTO_ALGO_RSA,
     KMIP_CRYPTO_ALGO_DSA,
     KMIP_CRYPTO_ALGO_DH,
@@ -289,7 +143,7 @@ const enum kmip_crypto_algo P11KMIP_P11_TO_KMIP_ALG_TABLE[] = {
 #define P11KMIP_KMIP_TO_P11_OBJ_TABLE_LENGTH   10
 #define P11KMIP_P11_TO_KMIP_OBJ_TABLE_LENGTH   10
 
-const CK_OBJECT_CLASS P11KMIP_KMIP_TO_P11_OBJ_TABLE[] = {
+static const CK_OBJECT_CLASS P11KMIP_KMIP_TO_P11_OBJ_TABLE[] = {
     P11KMIP_P11_UNKNOWN_OBJ,    // Undefined
     CKO_CERTIFICATE,
     CKO_SECRET_KEY,
@@ -303,7 +157,7 @@ const CK_OBJECT_CLASS P11KMIP_KMIP_TO_P11_OBJ_TABLE[] = {
     P11KMIP_P11_UNKNOWN_OBJ     // KMIP_OBJECT_TYPE_CERTIFICATE_REQUEST
 };
 
-const enum kmip_object_type P11KMIP_P11_TO_KMIP_OBJ_TABLE[] = {
+static const enum kmip_object_type P11KMIP_P11_TO_KMIP_OBJ_TABLE[] = {
     P11KMIP_KMIP_UNKNOWN_OBJ,   // CKO_DATA
     KMIP_OBJECT_TYPE_CERTIFICATE,
     KMIP_OBJECT_TYPE_PUBLIC_KEY,
@@ -320,7 +174,7 @@ const enum kmip_object_type P11KMIP_P11_TO_KMIP_OBJ_TABLE[] = {
 #define P11KMIP_P11_UNKNOWN_HASH               0xFFFFFFFF
 #define P11KMIP_KMIP_TO_P11_HASH_TABLE_LENGTH  18
 
-const CK_MECHANISM_TYPE P11KMIP_KMIP_TO_P11_HASH_TABLE[] = {
+static const CK_MECHANISM_TYPE P11KMIP_KMIP_TO_P11_HASH_TABLE[] = {
     P11KMIP_P11_UNKNOWN_HASH,   // kmip_hashing_algo enums are 1-indexed
     CKM_MD2,
     P11KMIP_P11_UNKNOWN_HASH,   //MD4
