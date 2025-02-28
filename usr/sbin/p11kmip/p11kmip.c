@@ -8,6 +8,10 @@
  * https://opensource.org/licenses/cpl1.0.php
  */
 
+#if defined(_AIX)
+    const char *__progname = "p11kmip";
+#endif
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>
@@ -54,15 +58,6 @@
 /* Global Variables                                                          */
 /*****************************************************************************/
 
-/* PKCS11 */
-static void *pkcs11_lib = NULL;
-static bool pkcs11_initialized = false;
-static CK_FUNCTION_LIST *pkcs11_funcs = NULL;
-static CK_SESSION_HANDLE pkcs11_session = CK_INVALID_HANDLE;
-static CK_INFO pkcs11_info;
-static CK_TOKEN_INFO pkcs11_tokeninfo;
-static CK_SLOT_INFO pkcs11_slotinfo;
-
 /* KMIP */
 struct kmip_connection *kmip_conn = NULL;
 struct kmip_conn_config *kmip_conf = NULL;
@@ -78,7 +73,7 @@ enum kmip_hashing_algo kmip_wrap_hash_alg;
 static struct ConfigBaseNode *p11kmip_cfg = NULL;
 
 /* Environment variables */
-static CK_SLOT_ID env_pkcs_slot = (CK_SLOT_ID) - 1;
+static CK_SLOT_ID env_pkcs_slot = (CK_SLOT_ID)-1;
 static char *env_pkcs_pin = NULL;
 static char *env_kmip_hostname = NULL;
 static char *env_kmip_client_cert = NULL;
@@ -90,7 +85,7 @@ static bool opt_version = false;
 static bool opt_verbose = false;
 static bool opt_short = false;
 static bool opt_quiet = false;
-static CK_SLOT_ID opt_slot = (CK_SLOT_ID) - 1;
+static CK_SLOT_ID opt_slot = (CK_SLOT_ID)-1;
 static char *opt_pin = NULL;
 static bool opt_force_pin_prompt = false;
 
@@ -107,7 +102,7 @@ static char *opt_wrap_id = NULL;
 static char *opt_target_label = NULL;
 static char *opt_target_attrs = NULL;
 static char *opt_target_id = NULL;
-static CK_ULONG opt_target_length = (CK_ULONG) - 1;
+static CK_ULONG opt_target_length = (CK_ULONG)-1;
 static char *opt_unwrap_label = NULL;
 
 static bool opt_gen_targkey = false;
@@ -124,33 +119,36 @@ static bool opt_force_pem_pwd_prompt = false;
 /* Config */
 
 /* KMIP Remote Function Prototypes */
-static CK_RV p11kmip_locate_remote_key(const char *label, const struct
-                                       p11kmip_keytype *keytype,
+static CK_RV p11kmip_locate_remote_key(const char *label,
+                                       CK_OBJECT_CLASS class,
+                                       CK_KEY_TYPE keytype,
                                        struct kmip_node **obj_uid);
 static CK_RV p11kmip_register_remote_public_key(
-                                        const struct p11kmip_keytype *keytype,
+                                        const struct p11tool_objtype *keytype,
                                         CK_OBJECT_HANDLE wrapping_pubkey, 
                                         const char *wrapping_key_label,
                                         struct kmip_node **key_uid);
 static CK_RV p11kmip_register_remote_wrapped_key(
-                                const struct p11kmip_keytype *wrapped_keytype,
+                                const struct p11tool_objtype *wrapped_keytype,
                                 CK_ULONG wrapped_key_length,
                                 const CK_BYTE *wrapped_key_blob, 
                                 const char *wrapped_key_label,
                                 struct kmip_node *wrapkey_uid,
                                 struct kmip_node **key_uid);
 static CK_RV p11kmip_retrieve_remote_public_key(
-                                struct p11kmip_keytype *public_keytype,
+                                const struct p11tool_objtype *public_keytype,
                                 struct kmip_node *pubkey_uid,
                                 EVP_PKEY ** pub_key);
 static CK_RV p11kmip_retrieve_remote_wrapped_key(
                                 struct kmip_node *wrapping_key_uid, 
-                                struct p11kmip_keytype *wrapped_keytype, 
+                                const struct p11tool_objtype *wrapped_keytype,
+                                CK_ULONG *wrapped_keysize,
                                 struct kmip_node *wrapped_key_uid, 
                                 unsigned long *wrapped_key_length,
                                 CK_BYTE ** wrapped_key_blob);
 static CK_RV p11kmip_generate_remote_secret_key(
-                                struct p11kmip_keytype *keytype,
+                                const struct p11tool_objtype *keytype,
+                                CK_ULONG keysize,
                                 const char *secret_key_label,
                                 struct kmip_node **secret_key_uid);
 static CK_RV p11kmip_digest_remote_key(struct kmip_node *key_uid,
@@ -161,7 +159,7 @@ static CK_RV p11kmip_digest_remote_key(struct kmip_node *key_uid,
 /* PKCS#11 Local Function Prototypes*/
 static CK_RV p11kmip_unwrap_local_secret_key(
                                 CK_OBJECT_HANDLE wrapping_key_handle,
-                                const struct p11kmip_keytype *wrapped_keytype,
+                                const struct p11tool_objtype *wrapped_keytype,
                                 unsigned long wrapped_key_length,
                                 CK_BYTE * wrapped_key_blob,
                                 char *wrapped_key_label,
@@ -174,13 +172,14 @@ static CK_RV p11kmip_wrap_local_secret_key(
                                         CK_ULONG_PTR wrapped_key_length,
                                         CK_BYTE ** wrapped_key_blob);
 static CK_RV p11kmip_create_local_public_key(
-                                const struct p11kmip_keytype *public_keytype,
+                                const struct p11tool_objtype *public_keytype,
                                 EVP_PKEY *pub_key,
                                 char *public_key_label,
                                 CK_ATTRIBUTE_PTR public_key_attrs,
                                 CK_ULONG public_key_num_attrs,
                                 CK_OBJECT_HANDLE_PTR public_key_handle);
-static CK_RV p11kmip_find_local_key(const struct p11kmip_keytype *keytype,
+static CK_RV p11kmip_find_local_key(const struct p11tool_objtype *keytype,
+                                    CK_OBJECT_CLASS class,
                                     const char *label, const char *id,
                                     CK_OBJECT_HANDLE *key);
 static CK_RV p11kmip_digest_local_key(CK_BYTE_PTR digest,
@@ -189,24 +188,16 @@ static CK_RV p11kmip_digest_local_key(CK_BYTE_PTR digest,
                                       CK_MECHANISM_PTR digestMech);
 
 /* P11 function prototypes */
-static bool opt_slot_is_set(const struct p11kmip_arg *arg);
-static bool opt_targkey_length_is_set(const struct p11kmip_arg *arg);
+static bool opt_slot_is_set(const struct p11tool_arg *arg);
+static bool opt_targkey_length_is_set(const struct p11tool_arg *arg);
 static CK_RV p11kmip_import_key(void);
 static CK_RV p11kmip_export_key(void);
 static CK_RV p11kmip_export_local_rsa_pkey(
-                                        const struct p11kmip_keytype *keytype, 
+                                        const struct p11tool_objtype *keytype,
                                         EVP_PKEY ** pkey,
                                         bool private,
                                         CK_OBJECT_HANDLE key,
                                         const char *label);
-
-static CK_RV get_key_size(const struct p11kmip_keytype *keytype,
-                          void *private, CK_ULONG * keysize);
-
-static void free_attr_array_attr(CK_ATTRIBUTE * attr);
-static void print_bool_attr_short(const CK_ATTRIBUTE * val, bool applicable);
-static void print_bool_attr_long(const char *attr, const CK_ATTRIBUTE * val,
-                                 int indent, bool sensitive);
 
 /* KMIP function prototypes */
 static int perform_kmip_request2(enum kmip_operation operation1,
@@ -236,24 +227,20 @@ static struct kmip_node *build_description_attr(const char *description);
 /*****************************************************************************/
 
 /* Key object structure declarations */
-static const struct p11kmip_keytype p11kmip_aes_keytype = {
-    .name = "AES", .type = CKK_AES, .ckk_name = "CKK_AES",
-    .class = CKO_SECRET_KEY,
+static const struct p11tool_objtype p11kmip_aes_keytype = {
+    .name = "AES", .type = CKK_AES, .ck_name = "CKK_AES",
     .keygen_mech = {.mechanism = CKM_AES_KEY_GEN,},
     .is_asymmetric = false,
-    .keygen_get_key_size = get_key_size,
     .sign_verify = true, .encrypt_decrypt = true,
     .wrap_unwrap = true, .derive = true,
     .filter_attr = CKA_KEY_TYPE, .filter_value = CKK_AES,
     .keysize_attr = CKA_VALUE_LEN,
 };
 
-static const struct p11kmip_keytype p11kmip_rsa_keytype = {
-    .name = "RSA", .type = CKK_RSA, .ckk_name = "CKK_RSA",
-    .class = CKO_PUBLIC_KEY,    /* Leave this as the default */
+static const struct p11tool_objtype p11kmip_rsa_keytype = {
+    .name = "RSA", .type = CKK_RSA, .ck_name = "CKK_RSA",
     .keygen_mech = {.mechanism = CKM_RSA_PKCS_KEY_PAIR_GEN,},
     .is_asymmetric = true,
-    .keygen_get_key_size = get_key_size,
     .sign_verify = true, .encrypt_decrypt = true,
     .wrap_unwrap = true, .derive = false,
     .filter_attr = CKA_KEY_TYPE, .filter_value = CKK_RSA,
@@ -262,7 +249,7 @@ static const struct p11kmip_keytype p11kmip_rsa_keytype = {
 };
 
 /* Commandline interface structure declarations */
-static const struct p11kmip_opt p11kmip_generic_opts[] = {
+static const struct p11tool_opt p11kmip_generic_opts[] = {
     {.short_opt = 'h', .long_opt = "help", .required = false,
      .arg = {.type = ARG_TYPE_PLAIN, .required = false,
              .value.plain = &opt_help,},
@@ -326,7 +313,7 @@ static const struct p11kmip_opt p11kmip_generic_opts[] = {
       .arg =  { .type = ARG_TYPE_STRING, .required = true,                     \
                 .value.string = &opt_kmip_client_key,                          \
                 .name = "KEY-PATH" },                                          \
-      .description = "The path to the TLS client key to use for the "          \
+      .description = "The path to the TLS client private key to use for the "  \
                      "KMIP connection (optional).", },                         \
     { .short_opt = 0, .long_opt = "pem-password", .required = false,           \
       .long_opt_val = OPT_PEM_PASSWORD,                                        \
@@ -358,15 +345,15 @@ static const struct p11kmip_opt p11kmip_generic_opts[] = {
       .description = "Perform verification of KMIP server TLS certificate, "   \
                      "but do not prompt user for trust of this server.", }     \
 
-static const struct p11kmip_arg p11kmip_import_key_args[] = {
+static const struct p11tool_arg p11kmip_import_key_args[] = {
     {.name = NULL},
 };
 
-static const struct p11kmip_arg p11kmip_export_key_args[] = {
+static const struct p11tool_arg p11kmip_export_key_args[] = {
     {.name = NULL},
 };
 
-static const struct p11kmip_opt p11kmip_import_key_opts[] = {
+static const struct p11tool_opt p11kmip_import_key_opts[] = {
     PKCS11_OPTS,
     KMIP_OPTS,
     {.short_opt = 'w', .long_opt = "wrapkey-label", .required = true,
@@ -431,7 +418,7 @@ static const struct p11kmip_opt p11kmip_import_key_opts[] = {
     {.short_opt = 0, .long_opt = NULL,},
 };
 
-static const struct p11kmip_opt p11kmip_export_key_opts[] = {
+static const struct p11tool_opt p11kmip_export_key_opts[] = {
     PKCS11_OPTS,
     KMIP_OPTS,
     {.short_opt = 'w', .long_opt = "wrapkey-label", .required = true,
@@ -479,7 +466,7 @@ static const struct p11kmip_opt p11kmip_export_key_opts[] = {
     {.short_opt = 0, .long_opt = NULL,},
 };
 
-static const struct p11kmip_cmd p11kmip_commands[] = {
+static const struct p11tool_cmd p11kmip_commands[] = {
     {.cmd = "import-key", .cmd_short1 = "import", .cmd_short2 = "imp",
      .func = p11kmip_import_key,
      .opts = p11kmip_import_key_opts, .args = p11kmip_import_key_args,
@@ -497,13 +484,7 @@ static const struct p11kmip_cmd p11kmip_commands[] = {
 
 /* PKCS#11 attribute declarations */
 
-#define DECLARE_BOOL_ATTR(attr, ch, sec, pub, priv, set)                       \
-    { .name = # attr, .type = attr, .letter = ch,                              \
-      .secret = sec, .public = pub, .private = priv,                           \
-      .settable = set, .print_short = print_bool_attr_short,                   \
-      .print_long = print_bool_attr_long, }
-
-static const struct p11kmip_attr p11kmip_bool_attrs[] = {
+static const struct p11tool_attr p11kmip_bool_attrs[] = {
     DECLARE_BOOL_ATTR(CKA_PRIVATE, 'P', true, true, true, true),
     DECLARE_BOOL_ATTR(CKA_MODIFIABLE, 'M', true, true, true, true),
     DECLARE_BOOL_ATTR(CKA_COPYABLE, 'B', true, true, true, true),
@@ -525,63 +506,63 @@ static struct kmip_conn_config kmip_default_config = {
     /** Transport method used to deliver KMIP messages */
     .transport = KMIP_TRANSPORT_PLAIN_TLS,
     /**
-	 * The KMIP server.
-	 * For Plain-TLS transport, only the hostname and optional port number.
-	 * For HTTPS transport, an URL in the form
-	 * 'https://hostname[:port]/uri'
-	 */
+     * The KMIP server.
+     * For Plain-TLS transport, only the hostname and optional port number.
+     * For HTTPS transport, an URL in the form
+     * 'https://hostname[:port]/uri'
+     */
     .server = "0.0.0.0:5696",
     /** The client key as an OpenSSL PKEY object. */
     .tls_client_key = NULL,
     /** File name of the client certificate PEM file */
     .tls_client_cert = NULL,
     /**
-	 * Optional: File name of the CA bundle PEM file, or a name of a
-	 * directory the multiple CA certificates. If this is NULL, then the
-	 * default system path for CA certificates is used
-	 */
+     * Optional: File name of the CA bundle PEM file, or a name of a
+     * directory the multiple CA certificates. If this is NULL, then the
+     * default system path for CA certificates is used
+     */
     .tls_ca = NULL,
     /**
-	 * Optional: File name of a PEM file holding a CA certificate of the
-	 * issuer
-	 */
+     * Optional: File name of a PEM file holding a CA certificate of the
+     * issuer
+     */
     .tls_issuer_cert = NULL,
     /**
-	 * Optional: File name of a PEM file containing the servers pinned
-	 * public key. Public key pinning requires that verify_peer or
-	 * verify_host (or both) is true.
-	 */
+     * Optional: File name of a PEM file containing the servers pinned
+     * public key. Public key pinning requires that verify_peer or
+     * verify_host (or both) is true.
+     */
     .tls_pinned_pubkey = NULL,
     /**
-	 * Optional: File name of a PEM file containing the server's
-	 * certificate. This can be used to allow peer verification with
-	 * self-signed server certificates
-	 */
+     * Optional: File name of a PEM file containing the server's
+     * certificate. This can be used to allow peer verification with
+     * self-signed server certificates
+     */
     .tls_server_cert = NULL,
     /** If true, the peer certificate is verified */
     .tls_verify_peer = true,
     /**
-	 * If true, that the server certificate is for the server it is known
-	 * as (i.e. the hostname in the url)
-	 */
+     * If true, that the server certificate is for the server it is known
+     * as (i.e. the hostname in the url)
+     */
     .tls_verify_host = false,
     /**
-	 * Optional: A list of ciphers for TLSv1.2 and below. This is a colon
-	 * separated list of cipher strings. The format of the string is
-	 * described in
-	 * https://www.openssl.org/docs/man1.1.1/man1/ciphers.html
-	 */
+     * Optional: A list of ciphers for TLSv1.2 and below. This is a colon
+     * separated list of cipher strings. The format of the string is
+     * described in
+     * https://www.openssl.org/docs/man1.1.1/man1/ciphers.html
+     */
     .tls_cipher_list = NULL,
     /**
-	 * Optional: A list of ciphers for TLSv1.3. This is a colon separated
-	 * list of TLSv1.3 ciphersuite names in order of preference. Valid
-	 * TLSv1.3 ciphersuite names are:
-	 * - TLS_AES_128_GCM_SHA256
-	 * - TLS_AES_256_GCM_SHA384
-	 * - TLS_CHACHA20_POLY1305_SHA256
-	 * - TLS_AES_128_CCM_SHA256
-	 * - TLS_AES_128_CCM_8_SHA256
-	 */
+     * Optional: A list of ciphers for TLSv1.3. This is a colon separated
+     * list of TLSv1.3 ciphersuite names in order of preference. Valid
+     * TLSv1.3 ciphersuite names are:
+     * - TLS_AES_128_GCM_SHA256
+     * - TLS_AES_256_GCM_SHA384
+     * - TLS_CHACHA20_POLY1305_SHA256
+     * - TLS_AES_128_CCM_SHA256
+     * - TLS_AES_128_CCM_8_SHA256
+     */
     .tls13_cipher_list = NULL
 };
 
@@ -644,7 +625,7 @@ static CK_MECHANISM_TYPE get_p11_hash_mech_from_kmip_hash_algo(
 }
 
 static enum kmip_crypto_usage_mask get_kmip_usage_mask_p11(
-                                            struct p11kmip_keytype *keytype)
+                                        const struct p11tool_objtype *keytype)
 {
     /* Gnarly bitwise chain to turn on the appropriate flags for key usage */
     const enum kmip_crypto_usage_mask usage_mask =
@@ -658,648 +639,14 @@ static enum kmip_crypto_usage_mask get_kmip_usage_mask_p11(
     return usage_mask;
 }
 
-/* Commandline interface functions */
-static const struct p11kmip_cmd *find_command(const char *cmd)
+static bool opt_slot_is_set(const struct p11tool_arg *arg)
 {
-    unsigned int i;
-
-    for (i = 0; p11kmip_commands[i].cmd != NULL; i++) {
-        if (strcasecmp(cmd, p11kmip_commands[i].cmd) == 0)
-            return &p11kmip_commands[i];
-        if (p11kmip_commands[i].cmd_short1 != NULL &&
-            strcasecmp(cmd, p11kmip_commands[i].cmd_short1) == 0)
-            return &p11kmip_commands[i];
-        if (p11kmip_commands[i].cmd_short2 != NULL &&
-            strcasecmp(cmd, p11kmip_commands[i].cmd_short2) == 0)
-            return &p11kmip_commands[i];
-    }
-
-    return NULL;
+    return (*arg->value.number != (CK_ULONG)-1);
 }
 
-
-static void count_opts(const struct p11kmip_opt *opts,
-           unsigned int *optstring_len, unsigned int *longopts_count)
+static bool opt_targkey_length_is_set(const struct p11tool_arg *arg)
 {
-    const struct p11kmip_opt *opt;
-
-    for (opt = opts; opt->short_opt != 0 || opt->long_opt != NULL; opt++) {
-        if (opt->short_opt != 0) {
-            (*optstring_len)++;
-            if (opt->arg.type != ARG_TYPE_PLAIN) {
-                (*optstring_len)++;
-                if (!opt->arg.required)
-                    (*optstring_len)++;
-            }
-        }
-
-        if (opt->long_opt != NULL)
-            (*longopts_count)++;
-    }
-}
-
-static CK_RV build_opts(const struct p11kmip_opt *opts,
-                        char *optstring, struct option *longopts)
-{
-    const struct p11kmip_opt *opt;
-    unsigned int opts_idx, long_idx;
-
-    opts_idx = strlen(optstring);
-
-    for (long_idx = 0; longopts[long_idx].name != NULL; long_idx++);
-
-    for (opt = opts; opt->short_opt != 0 || opt->long_opt != NULL; opt++) {
-        if (opt->short_opt != 0) {
-            optstring[opts_idx++] = opt->short_opt;
-            if (opt->arg.type != ARG_TYPE_PLAIN) {
-                optstring[opts_idx++] = ':';
-                if (!opt->arg.required)
-                    optstring[opts_idx++] = ':';
-            }
-        }
-
-        if (opt->long_opt != NULL) {
-            longopts[long_idx].name = opt->long_opt;
-            longopts[long_idx].has_arg = opt->arg.type != ARG_TYPE_PLAIN ?
-                (opt->arg.required ?
-                 required_argument : optional_argument) : no_argument;
-            longopts[long_idx].flag = NULL;
-            longopts[long_idx].val = opt->short_opt != 0 ?
-                opt->short_opt : opt->long_opt_val;
-            long_idx++;
-        }
-    }
-
-    return CKR_OK;
-}
-
-static CK_RV build_cmd_opts(const struct p11kmip_opt *cmd_opts,
-                            char **optstring, struct option **longopts)
-{
-    unsigned int optstring_len = 0, longopts_count = 0;
-    CK_RV rc;
-
-    count_opts(p11kmip_generic_opts, &optstring_len, &longopts_count);
-    if (cmd_opts != NULL)
-        count_opts(cmd_opts, &optstring_len, &longopts_count);
-
-    *optstring = calloc(1 + optstring_len + 1, 1);
-    *longopts = calloc(longopts_count + 1, sizeof(struct option));
-    if (*optstring == NULL || *longopts == NULL) {
-        rc = CKR_HOST_MEMORY;
-        goto error;
-    }
-
-    (*optstring)[0] = ':';      /* Let getopt return ':' on missing argument */
-
-    rc = build_opts(p11kmip_generic_opts, *optstring, *longopts);
-    if (rc != CKR_OK)
-        goto error;
-
-    if (cmd_opts != NULL) {
-        rc = build_opts(cmd_opts, *optstring, *longopts);
-        if (rc != CKR_OK)
-            goto error;
-    }
-
-    return CKR_OK;
-
-error:
-    if (*optstring != NULL)
-        free(*optstring);
-    *optstring = NULL;
-
-    if (*longopts != NULL)
-        free(*longopts);
-    *longopts = NULL;
-
-    return rc;
-}
-
-static CK_RV process_plain_argument(const struct p11kmip_arg *arg)
-{
-    *arg->value.plain = true;
-
-    return CKR_OK;
-}
-
-static CK_RV process_string_argument(const struct p11kmip_arg *arg, char *val)
-{
-    *arg->value.string = val;
-
-    return CKR_OK;
-}
-
-static CK_RV process_enum_argument(const struct p11kmip_arg *arg, char *val)
-{
-    const struct p11kmip_enum_value *enum_val, *any_val = NULL;
-
-    for (enum_val = arg->enum_values; enum_val->value != NULL; enum_val++) {
-
-        if (enum_val->any_value != NULL) {
-            any_val = enum_val;
-        } else if (arg->case_sensitive ?
-                   strcasecmp(val, enum_val->value) == 0 :
-                   strcmp(val, enum_val->value) == 0) {
-
-            *arg->value.enum_value = (struct p11kmip_enum_value *) enum_val;
-            return CKR_OK;
-        }
-    }
-
-    /* process ANY enumeration value after all others */
-    if (any_val != NULL) {
-        *any_val->any_value = val;
-        *arg->value.enum_value = (struct p11kmip_enum_value *) any_val;
-        return CKR_OK;
-    }
-
-    return CKR_ARGUMENTS_BAD;
-}
-
-static CK_RV process_number_argument(const struct p11kmip_arg *arg, char *val)
-{
-    char *endptr;
-
-    *arg->value.number = strtoul(val, &endptr, 0);
-
-    if ((errno == ERANGE && *arg->value.number == ULONG_MAX) ||
-        (errno != 0 && *arg->value.number == 0) || endptr == val) {
-        return CKR_ARGUMENTS_BAD;
-    }
-
-    return CKR_OK;
-}
-
-static CK_RV processs_argument(const struct p11kmip_arg *arg, char *val)
-{
-    switch (arg->type) {
-    case ARG_TYPE_PLAIN:
-        return process_plain_argument(arg);
-    case ARG_TYPE_STRING:
-        return process_string_argument(arg, val);
-    case ARG_TYPE_ENUM:
-        return process_enum_argument(arg, val);
-    case ARG_TYPE_NUMBER:
-        return process_number_argument(arg, val);
-    default:
-        return CKR_ARGUMENTS_BAD;
-    }
-}
-
-static bool argument_is_set(const struct p11kmip_arg *arg)
-{
-    if (arg->is_set != NULL)
-        return arg->is_set(arg);
-
-    switch (arg->type) {
-    case ARG_TYPE_PLAIN:
-        return *arg->value.plain;
-    case ARG_TYPE_STRING:
-        return *arg->value.string != NULL;
-    case ARG_TYPE_ENUM:
-        return *arg->value.enum_value != NULL;
-    case ARG_TYPE_NUMBER:
-        return *arg->value.number != 0;
-    default:
-        return false;
-    }
-}
-
-static void option_arg_error(const struct p11kmip_opt *opt, const char *arg)
-{
-    if (opt->short_opt != 0 && opt->long_opt != NULL)
-        warnx("Invalid argument '%s' for option '-%c/--%s'", arg,
-              opt->short_opt, opt->long_opt);
-    else if (opt->long_opt != NULL)
-        warnx("Invalid argument '%s' for option '--%s'", arg, opt->long_opt);
-    else
-        warnx("Invalid argument '%s' for option '-%c'", arg, opt->short_opt);
-}
-
-static void option_missing_error(const struct p11kmip_opt *opt)
-{
-    if (opt->short_opt != 0 && opt->long_opt != NULL)
-        warnx("Option '-%c/--%s' is required but not specified", 
-            opt->short_opt, opt->long_opt);
-    else if (opt->long_opt != NULL)
-        warnx("Option '--%s is required but not specified'", opt->long_opt);
-    else
-        warnx("Option '-%c' is required but not specified", opt->short_opt);
-}
-
-static CK_RV process_option(const struct p11kmip_opt *opts, int ch, char *val)
-{
-    const struct p11kmip_opt *opt;
-    CK_RV rc;
-
-    for (opt = opts; opt->short_opt != 0 || opt->long_opt != NULL; opt++) {
-        if (ch == (opt->short_opt != 0 ? opt->short_opt : opt->long_opt_val)) {
-            rc = processs_argument(&opt->arg, val);
-            if (rc != CKR_OK) {
-                option_arg_error(opt, val);
-                return rc;
-            }
-
-            return CKR_OK;
-        }
-    }
-
-    return CKR_ARGUMENTS_BAD;
-}
-
-static CK_RV process_cmd_option(const struct p11kmip_opt *cmd_opts, 
-                                int opt, char *arg)
-{
-    CK_RV rc;
-
-    rc = process_option(p11kmip_generic_opts, opt, arg);
-    if (rc == CKR_OK)
-        return CKR_OK;
-
-    if (cmd_opts != NULL) {
-        rc = process_option(cmd_opts, opt, arg);
-        if (rc == CKR_OK)
-            return CKR_OK;
-    }
-
-    return rc;
-}
-
-static CK_RV check_required_opts(const struct p11kmip_opt *opts)
-{
-    const struct p11kmip_opt *opt;
-    CK_RV rc = CKR_OK;
-
-    for (opt = opts; opt->short_opt != 0 || opt->long_opt != NULL; opt++) {
-        if (opt->required && opt->arg.required &&
-            argument_is_set(&opt->arg) == false) {
-            option_missing_error(opt);
-            rc = CKR_ARGUMENTS_BAD;
-            /* No break, report all missing options */
-        }
-    }
-
-    return rc;
-}
-
-static CK_RV check_required_cmd_opts(const struct p11kmip_opt *cmd_opts)
-{
-    CK_RV rc;
-
-    rc = check_required_opts(p11kmip_generic_opts);
-    if (rc != CKR_OK)
-        return rc;
-
-    if (cmd_opts != NULL) {
-        rc = check_required_opts(cmd_opts);
-        if (rc != CKR_OK)
-            return rc;
-    }
-
-    return CKR_OK;
-}
-
-static CK_RV parse_cmd_options(const struct p11kmip_cmd *cmd, 
-                               int argc, char *argv[])
-{
-    char *optstring = NULL;
-    struct option *longopts = NULL;
-    CK_RV rc;
-    int c;
-
-    rc = build_cmd_opts(cmd != NULL ? cmd->opts : NULL, &optstring, &longopts);
-    if (rc != CKR_OK)
-        goto done;
-
-    opterr = 0;
-    while (1) {
-        c = getopt_long(argc, argv, optstring, longopts, NULL);
-        if (c == -1)
-            break;
-
-        switch (c) {
-        case ':':
-            warnx("Option '%s' requires an argument", argv[optind - 1]);
-            rc = CKR_ARGUMENTS_BAD;
-            goto done;
-
-        case '?':              /* An invalid option has been specified */
-            if (optopt)
-                warnx("Invalid option '-%c'", optopt);
-            else
-                warnx("Invalid option '%s'", argv[optind - 1]);
-            rc = CKR_ARGUMENTS_BAD;
-            goto done;
-
-        default:
-            rc = process_cmd_option(cmd != NULL ? cmd->opts : NULL, c, optarg);
-            if (rc != CKR_OK)
-                goto done;
-            break;
-        }
-    }
-
-    if (optind < argc) {
-        warnx("Invalid argument '%s'", argv[optind]);
-        rc = CKR_ARGUMENTS_BAD;
-        goto done;
-    }
-
-done:
-    if (optstring != NULL)
-        free(optstring);
-    if (longopts != NULL)
-        free(longopts);
-
-    return rc;
-}
-
-static CK_RV check_required_args(const struct p11kmip_arg *args)
-{
-    const struct p11kmip_arg *arg;
-    CK_RV rc2, rc = CKR_OK;
-
-    for (arg = args; arg != NULL && arg->name != NULL; arg++) {
-        if (arg->required && argument_is_set(arg) == false) {
-            warnx("Argument '%s' is required but not specified", arg->name);
-            rc = CKR_ARGUMENTS_BAD;
-            /* No break, report all missing arguments */
-        }
-
-        /* Check enumeration value specific arguments (if any) */
-        if (arg->type == ARG_TYPE_ENUM && *arg->value.enum_value != NULL &&
-            (*arg->value.enum_value)->args != NULL) {
-            rc2 = check_required_args((*arg->value.enum_value)->args);
-            if (rc2 != CKR_OK)
-                rc = rc2;
-            /* No break, report all missing arguments */
-        }
-    }
-
-    return rc;
-}
-
-static CK_RV parse_arguments(const struct p11kmip_arg *args, 
-                             int *argc, char **argv[])
-{
-    const struct p11kmip_arg *arg;
-    CK_RV rc = CKR_OK;
-
-    for (arg = args; arg->name != NULL; arg++) {
-        if (*argc < 2 || strncmp((*argv)[1], "-", 1) == 0)
-            break;
-
-        rc = processs_argument(arg, (*argv)[1]);
-        if (rc != CKR_OK) {
-            if (rc == CKR_ARGUMENTS_BAD)
-                warnx("Invalid argument '%s' for '%s'", (*argv)[1], arg->name);
-            break;
-        }
-
-        (*argc)--;
-        (*argv)++;
-
-        /* Process enumeration value specific arguments (if any) */
-        if (arg->type == ARG_TYPE_ENUM && *arg->value.enum_value != NULL &&
-            (*arg->value.enum_value)->args != NULL) {
-            rc = parse_arguments((*arg->value.enum_value)->args, argc, argv);
-            if (rc != CKR_OK)
-                break;
-        }
-    }
-
-    return rc;
-}
-
-static CK_RV parse_cmd_arguments(const struct p11kmip_cmd *cmd, 
-                                 int *argc, char **argv[])
-{
-    if (cmd == NULL)
-        return CKR_OK;
-
-    return parse_arguments(cmd->args, argc, argv);
-}
-
-static void print_indented(const char *str, int indent)
-{
-    char *word, *line, *desc, *desc_ptr;
-    int word_len, pos = indent;
-
-    desc = desc_ptr = strdup(str);
-    if (desc == NULL)
-        return;
-
-    line = strsep(&desc, "\n");
-    while (line != NULL) {
-        word = strsep(&line, " ");
-        pos = indent;
-        while (word != NULL) {
-            word_len = strlen(word);
-            if (pos + word_len + 1 > MAX_PRINT_LINE_LENGTH) {
-                printf("\n%*s", indent, "");
-                pos = indent;
-            }
-            if (pos == indent)
-                printf("%s", word);
-            else
-                printf(" %s", word);
-            pos += word_len + 1;
-            word = strsep(&line, " ");
-        }
-        if (desc)
-            printf("\n%*s", indent, "");
-        line = strsep(&desc, "\n");
-    }
-
-    printf("\n");
-    free(desc_ptr);
-}
-
-static void print_options_help(const struct p11kmip_opt *opts)
-{
-    const struct p11kmip_opt *opt;
-    char tmp[200];
-    int len;
-
-    for (opt = opts; opt->short_opt != 0 || opt->long_opt != NULL; opt++) {
-        if (opt->short_opt != 0 && opt->long_opt != NULL)
-            len = snprintf(tmp, sizeof(tmp), "-%c, --%s", opt->short_opt,
-                           opt->long_opt);
-        else if (opt->short_opt == 0 && opt->long_opt != NULL)
-            len = snprintf(tmp, sizeof(tmp), "    --%s", opt->long_opt);
-        else
-            len = snprintf(tmp, sizeof(tmp), "-%c", opt->short_opt);
-
-        if (opt->arg.type != ARG_TYPE_PLAIN) {
-            if (opt->arg.required)
-                snprintf(&tmp[len], sizeof(tmp) - len, " %s", opt->arg.name);
-            else if (opt->long_opt == NULL)
-                snprintf(&tmp[len], sizeof(tmp) - len, "[%s]", opt->arg.name);
-            else
-                snprintf(&tmp[len], sizeof(tmp) - len, "[=%s]", opt->arg.name);
-        }
-
-        printf("    %-40.40s ", tmp);
-        print_indented(opt->description, PRINT_INDENT_POS);
-    }
-}
-
-static void print_arguments_help(const struct p11kmip_cmd *cmd,
-                                 const struct p11kmip_arg *args, int indent)
-{
-    const struct p11kmip_arg *arg;
-    const struct p11kmip_enum_value *val;
-    int width;
-    bool newline = false;
-
-    if (indent > 0) {
-        for (arg = args; arg->name != NULL; arg++) {
-            if (arg->required)
-                printf(" %s", arg->name);
-            else
-                printf(" [%s]", arg->name);
-        }
-        printf("\n\n");
-    }
-
-    for (arg = args; arg->name != NULL; arg++) {
-        width = 30 - indent;
-        if (width < (int) strlen(arg->name))
-            width = (int) strlen(arg->name);
-
-        printf("%*s    %-*.*s ", indent, "", width, width, arg->name);
-        print_indented(arg->description, PRINT_INDENT_POS);
-
-        newline = false;
-
-        if (arg->type != ARG_TYPE_ENUM)
-            continue;
-
-        /* Enumeration: print possible values */
-        for (val = arg->enum_values; val->value != NULL; val++) {
-            if (arg == cmd->args && argument_is_set(arg) &&
-                *arg->value.enum_value != val)
-                continue;
-
-            newline = true;
-
-            printf("%*s        %s", indent, "", val->value);
-
-            if (val->args != NULL) {
-                print_arguments_help(cmd, val->args, indent + 8);
-                newline = false;
-            } else {
-                printf("\n");
-            }
-        }
-    }
-
-    if (indent > 0 || newline)
-        printf("\n");
-}
-
-static void print_help(void)
-{
-    const struct p11kmip_cmd *cmd;
-
-    printf("\n");
-    printf("Usage: p11kmip COMMAND [OPTIONS]\n");
-    printf("\n");
-    printf("COMMANDS:\n");
-    for (cmd = p11kmip_commands; cmd->cmd != NULL; cmd++) {
-        printf("    %-40.40s ", cmd->cmd);
-        print_indented(cmd->description, PRINT_INDENT_POS);
-    }
-    printf("\n");
-    printf("COMMON OPTIONS\n");
-    print_options_help(p11kmip_generic_opts);
-    printf("\n");
-    printf("For more information use 'p11kmip COMMAND --help'.\n");
-    printf("\n");
-}
-
-static void print_command_help(const struct p11kmip_cmd *cmd)
-{
-    printf("\n");
-    printf("Usage: p11kmip %s [ARGS] [OPTIONS]\n", cmd->cmd);
-    printf("\n");
-    printf("ARGS:\n");
-    print_arguments_help(cmd, cmd->args, 0);
-    printf("OPTIONS:\n");
-    print_options_help(cmd->opts);
-    print_options_help(p11kmip_generic_opts);
-    printf("\n");
-    if (cmd->help != NULL)
-        cmd->help();
-}
-
-static void print_version(void)
-{
-    printf("p11kmip version %s\n", PACKAGE_VERSION);
-}
-
-static bool opt_slot_is_set(const struct p11kmip_arg *arg)
-{
-    return (*arg->value.number != (CK_ULONG) - 1);
-}
-
-static bool opt_targkey_length_is_set(const struct p11kmip_arg *arg)
-{
-    return (*arg->value.number != (CK_ULONG) - 1);
-}
-
-static int openssl_err_cb(const char *str, size_t len, void *u)
-{
-    UNUSED(u);
-
-    if (str[len - 1] == '\n')
-        len--;
-
-    warnx("OpenSSL error: %.*s", (int) len, str);
-    return 1;
-}
-
-static int p11kmip_pem_password_cb(char *buf, int size, 
-                                   int rwflag, void *userdata)
-{
-    const char *pem_password = opt_pem_password;
-    char *buf_pem_password = NULL;
-    char *pem_path = (char *) userdata;
-    char *msg = NULL;
-    int len;
-
-    UNUSED(rwflag);
-    UNUSED(userdata);
-
-    if (pem_password == NULL)
-        pem_password = getenv(KMIP_PEM_PASSWORD_ENV_NAME);
-
-    if (opt_force_pem_pwd_prompt || pem_password == NULL) {
-        if (asprintf(&msg, "Please enter PEM password for '%s': ",
-                     pem_path) <= 0) {
-            warnx("Failed to allocate memory for message");
-            return -1;
-        }
-        pem_password = pin_prompt(&buf_pem_password, msg);
-        free(msg);
-        if (pem_password == NULL) {
-            warnx("Failed to prompt for PEM password");
-            return -1;
-        }
-    }
-
-    len = strlen(pem_password);
-    if (len > size) {
-        warnx("PEM password is too long");
-        return -1;
-    }
-
-    strncpy(buf, pem_password, size);
-
-    pin_free(&buf_pem_password);
-
-    return len;
+    return (*arg->value.number != (CK_ULONG)-1);
 }
 
 /*****************************************************************************/
@@ -1416,6 +763,7 @@ static CK_RV build_kmip_config(void)
     bool found = false;
     char *tls_client_key_path = NULL;
     BIO *tls_client_key_bio = NULL;
+    struct p11tool_pem_password_cb_data cb_data = { 0 };
 
     rc = CKR_OK;
 
@@ -1425,7 +773,7 @@ static CK_RV build_kmip_config(void)
     /**
      * The lack of a config file, by itself, is not fatal,  
      * because all the required information can potentially 
-     * be provided through commandline arguements           
+     * be provided through commandline arguments
      */
     if (p11kmip_cfg != NULL) {
         /* Iterate the configuration node(s) */
@@ -1435,11 +783,12 @@ static CK_RV build_kmip_config(void)
                 continue;
             } else if (found) {
                 warnx("Syntax error in config file:"
-                      "'%s' specified multiple times\n",
+                      "'%s' specified multiple times",
                       P11KMIP_CONFIG_KEYWORD_KMIP);
                 rc = CKR_ARGUMENTS_BAD;
                 goto done;
             }
+            found = true;
 
             structnode = confignode_to_struct(c);
             host = confignode_find(structnode->value,
@@ -1460,12 +809,12 @@ static CK_RV build_kmip_config(void)
                                         P11KMIP_CONFIG_KEYWORD_WRAP_HASH_ALG);
 
             /**
-             *  Ensure all the fields are the right type and were specificied
+             *  Ensure all the fields are the right type and were specified
              *  with the right combinations 
              */ 
             if (host != NULL && !confignode_hastype(host, CT_STRINGVAL)) {
                 warnx("Syntax error in config file: "
-                      "Missing '%s' in attribute at line %hu\n",
+                      "Missing '%s' in attribute at line %hu",
                       P11KMIP_CONFIG_KEYWORD_HOST, c->line);
                 rc = CKR_ARGUMENTS_BAD;
                 goto done;
@@ -1473,7 +822,7 @@ static CK_RV build_kmip_config(void)
             if (tls_client_cert != NULL
                 && !confignode_hastype(tls_client_cert, CT_STRINGVAL)) {
                 warnx("Syntax error in config file:"
-                      " Missing '%s' in attribute at line %hu\n",
+                      " Missing '%s' in attribute at line %hu",
                       P11KMIP_CONFIG_KEYWORD_CLIENT_CERT, c->line);
                 rc = CKR_ARGUMENTS_BAD;
                 goto done;
@@ -1481,7 +830,7 @@ static CK_RV build_kmip_config(void)
             if (tls_client_key != NULL
                 && !confignode_hastype(tls_client_key, CT_STRINGVAL)) {
                 warnx("Syntax error in config file:"
-                      " Missing '%s' in attribute at line %hu\n",
+                      " Missing '%s' in attribute at line %hu",
                       P11KMIP_CONFIG_KEYWORD_CLIENT_KEY, c->line);
                 rc = CKR_ARGUMENTS_BAD;
                 goto done;
@@ -1489,7 +838,7 @@ static CK_RV build_kmip_config(void)
             if (wrap_key_format != NULL
                 && !confignode_hastype(wrap_key_format, CT_STRINGVAL)) {
                 warnx("Syntax error in config file:"
-                      " Missing '%s' in attribute at line %hu\n",
+                      " Missing '%s' in attribute at line %hu",
                       P11KMIP_CONFIG_KEYWORD_WRAP_KEY_FMT, c->line);
                 rc = CKR_ARGUMENTS_BAD;
                 goto done;
@@ -1497,7 +846,7 @@ static CK_RV build_kmip_config(void)
             if (wrap_key_algorithm != NULL
                 && !confignode_hastype(wrap_key_algorithm, CT_STRINGVAL)) {
                 warnx("Syntax error in config file:"
-                      " Missing '%s' in attribute at line %hu\n",
+                      " Missing '%s' in attribute at line %hu",
                       P11KMIP_CONFIG_KEYWORD_WRAP_KEY_ALG, c->line);
                 rc = CKR_ARGUMENTS_BAD;
                 goto done;
@@ -1505,7 +854,7 @@ static CK_RV build_kmip_config(void)
             if (wrap_key_size != NULL
                 && !confignode_hastype(wrap_key_size, CT_INTVAL)) {
                 warnx("Syntax error in config file:"
-                      " Missing '%s' in attribute at line %hu\n",
+                      " Missing '%s' in attribute at line %hu",
                       P11KMIP_CONFIG_KEYWORD_WRAP_KEY_SIZE, c->line);
                 rc = CKR_ARGUMENTS_BAD;
                 goto done;
@@ -1513,7 +862,7 @@ static CK_RV build_kmip_config(void)
             if (wrap_pad_method != NULL
                 && !confignode_hastype(wrap_pad_method, CT_STRINGVAL)) {
                 warnx("Syntax error in config file:"
-                      " Missing '%s' in attribute at line %hu\n",
+                      " Missing '%s' in attribute at line %hu",
                       P11KMIP_CONFIG_KEYWORD_WRAP_PAD_MTHD, c->line);
                 rc = CKR_ARGUMENTS_BAD;
                 goto done;
@@ -1521,7 +870,7 @@ static CK_RV build_kmip_config(void)
             if (wrap_hash_algo != NULL
                 && !confignode_hastype(wrap_hash_algo, CT_STRINGVAL)) {
                 warnx("Syntax error in config file:"
-                      " Missing '%s' in attribute at line %hu\n",
+                      " Missing '%s' in attribute at line %hu",
                       P11KMIP_CONFIG_KEYWORD_WRAP_HASH_ALG, c->line);
                 rc = CKR_ARGUMENTS_BAD;
                 goto done;
@@ -1555,7 +904,7 @@ static CK_RV build_kmip_config(void)
                     KMIP_KEY_FORMAT_TYPE_TRANSPARENT_RSA_PUBLIC_KEY;
             } else {
                 warnx("Syntax error in config file:"
-                      " Invalid value '%s' specified for key word '%s's\n", 
+                      " Invalid value '%s' specified for key word '%s's",
                       confignode_to_stringval(wrap_key_format)->value,
                       P11KMIP_CONFIG_KEYWORD_WRAP_KEY_FMT);
                 rc = CKR_ARGUMENTS_BAD;
@@ -1573,7 +922,7 @@ static CK_RV build_kmip_config(void)
                 kmip_wrap_key_alg = KMIP_CRYPTO_ALGO_RSA;
             } else {
                 warnx("Syntax error in config file:"
-                      " Invalid value '%s' specified for key word '%s's\n", 
+                      " Invalid value '%s' specified for key word '%s's",
                       confignode_to_stringval(wrap_key_algorithm)->value,
                       P11KMIP_CONFIG_KEYWORD_WRAP_KEY_ALG);
                 rc = CKR_ARGUMENTS_BAD;
@@ -1602,7 +951,7 @@ static CK_RV build_kmip_config(void)
                 kmip_wrap_padding_method = KMIP_PADDING_METHOD_OAEP;
             } else {
                 warnx("Syntax error in config file:"
-                      " Invalid value '%s' specified for key word '%s's\n", 
+                      " Invalid value '%s' specified for key word '%s's",
                       confignode_to_stringval(wrap_pad_method)->value,
                       P11KMIP_CONFIG_KEYWORD_WRAP_PAD_MTHD);
                 rc = CKR_ARGUMENTS_BAD;
@@ -1623,7 +972,7 @@ static CK_RV build_kmip_config(void)
                 kmip_wrap_hash_alg = KMIP_HASHING_ALGO_SHA_256;
             } else {
                 warnx("Syntax error in config file:"
-                      " Invalid value '%s' specified for key word '%s's\n", 
+                      " Invalid value '%s' specified for key word '%s's",
                       confignode_to_stringval(wrap_hash_algo)->value,
                       P11KMIP_CONFIG_KEYWORD_WRAP_HASH_ALG);
                 rc = CKR_ARGUMENTS_BAD;
@@ -1679,9 +1028,14 @@ static CK_RV build_kmip_config(void)
         return CKR_FUNCTION_FAILED;
     }
 
+    cb_data.pem_file_name = tls_client_key_path;
+    cb_data.pem_password = opt_pem_password;
+    cb_data.env_var_name = KMIP_PEM_PASSWORD_ENV_NAME;
+    cb_data.force_prompt = opt_force_pem_pwd_prompt;
+
     kmip_conf->tls_client_key =
         PEM_read_bio_PrivateKey(tls_client_key_bio, NULL,
-                                p11kmip_pem_password_cb, tls_client_key_path);
+                                p11tool_pem_password_cb, &cb_data);
 
     if (kmip_conf->tls_client_key == NULL) {
         warnx("Unable to extract TLS client key from '%s'",
@@ -1714,7 +1068,7 @@ static void free_kmip_config(void)
  * or not yet valid.
  *
  * @param cert_file         the file name of the PEM file containing the cert
- * @param self_signed       on return: true if the cetr is a self signed cert
+ * @param self_signed       on return: true if the cert is a self signed cert
  * @param valid             on return: false if the cert is expired or not yet
  *                          valid
  *
@@ -1793,25 +1147,6 @@ int p11kmip_print_certificates(const char *cert_pem)
     return rc;
 }
 
-/*
- * Prompts for yes or no. Returns true if 'y' or 'yes' was entered.
- */
-static bool prompt_for_yes(void)
-{
-    char str[20];
-
-    if (fgets(str, sizeof(str), stdin) == NULL)
-        return false;
-
-    if (str[strlen(str) - 1] == '\n')
-        str[strlen(str) - 1] = '\0';
-
-    if (strcasecmp(str, "y") == 0 || strcasecmp(str, "yes") == 0)
-        return true;
-
-    return false;
-}
-
 /**
  * @brief Builds the configuration for the KMIP connection,
  * opens the KMIP connection, and determines the version of
@@ -1888,7 +1223,8 @@ static CK_RV init_kmip(void)
         }
 
         printf("Is this the KMIP server you intend to connect to? [y/N] ");
-        if (!prompt_for_yes()) {
+        if (p11tool_prompt_user("Is this the KMIP server you intend to connect "
+                                "to? [y/N] ", "yn") != 'y') {
             warnx("Operation aborted by user");
             rv = CKR_CANCEL;
             goto done;
@@ -1929,7 +1265,6 @@ done:
 /**
  * @brief Closes and frees the KMIP connection and the
  * KMIP configuration structure
- * 
  */
 static void term_kmip(void)
 {
@@ -2288,579 +1623,11 @@ static int perform_kmip_request(enum kmip_operation operation,
 }
 
 /*****************************************************************************/
-/* PKCS Library Functions                                                    */
-/*****************************************************************************/
-
-static CK_RV load_pkcs11_lib(void)
-{
-    CK_RV rc;
-    CK_RV(*getfunclist) (CK_FUNCTION_LIST_PTR_PTR ppFunctionList);
-    const char *libname;
-
-    libname = secure_getenv(P11KMIP_PKCSLIB_ENV_NAME);
-
-    if (libname == NULL || strlen(libname) < 1)
-        libname = P11KMIP_DEFAULT_PKCS11_LIB;
-
-    pkcs11_lib = dlopen(libname, RTLD_NOW);
-    if (pkcs11_lib == NULL) {
-        warnx("Failed to load PKCS#11 library '%s': %s", libname, dlerror());
-        return CKR_FUNCTION_FAILED;
-    }
-
-    *(void **) (&getfunclist) = dlsym(pkcs11_lib, "C_GetFunctionList");
-    if (getfunclist == NULL) {
-        warnx("Failed to resolve symbol '%s' from PKCS#11 library '%s': %s",
-              "C_GetFunctionList", libname, dlerror());
-        return CKR_FUNCTION_FAILED;
-    }
-
-    rc = getfunclist(&pkcs11_funcs);
-    if (rc != CKR_OK) {
-        warnx("C_GetFunctionList() on "
-              "PKCS#11 library '%s' failed with 0x%lX: %s)\n",
-              libname, rc, p11_get_ckr(rc));
-        return CKR_FUNCTION_FAILED;
-    }
-
-    return CKR_OK;
-}
-
-static CK_RV open_pkcs11_session(CK_SLOT_ID slot, CK_FLAGS flags, 
-                                 const char *pin)
-{
-    CK_RV rc;
-
-    rc = pkcs11_funcs->C_GetInfo(&pkcs11_info);
-    if (rc != CKR_OK) {
-        warnx("Failed to getPKCS#11 info: C_GetInfo: 0x%lX: %s",
-              rc, p11_get_ckr(rc));
-        return rc;
-    }
-
-    rc = pkcs11_funcs->C_GetSlotInfo(slot, &pkcs11_slotinfo);
-    if (rc != CKR_OK) {
-        warnx("Slot %lu is not available: C_GetSlotInfo: 0x%lX: %s", slot,
-              rc, p11_get_ckr(rc));
-        return rc;
-    }
-
-    rc = pkcs11_funcs->C_GetTokenInfo(slot, &pkcs11_tokeninfo);
-    if (rc != CKR_OK) {
-        warnx("Token at slot %lu is not available: C_GetTokenInfo: 0x%lX: %s",
-              slot, rc, p11_get_ckr(rc));
-        return rc;
-    }
-
-    rc = pkcs11_funcs->C_OpenSession(slot, flags, NULL, NULL, &pkcs11_session);
-    if (rc != CKR_OK) {
-        warnx("Opening a session failed: C_OpenSession: 0x%lX: %s)", rc,
-              p11_get_ckr(rc));
-        return rc;
-    }
-
-    rc = pkcs11_funcs->C_Login(pkcs11_session, CKU_USER, (CK_CHAR *) pin,
-                               strlen(pin));
-    if (rc != CKR_OK) {
-        warnx("Login failed: C_Login: 0x%lX: %s", rc, p11_get_ckr(rc));
-        return rc;
-    }
-
-    return CKR_OK;
-}
-
-static void close_pkcs11_session(void)
-{
-    CK_RV rc;
-
-    rc = pkcs11_funcs->C_Logout(pkcs11_session);
-    if (rc != CKR_OK && rc != CKR_USER_NOT_LOGGED_IN)
-        warnx("C_Logout failed: 0x%lX: %s", rc, p11_get_ckr(rc));
-
-    rc = pkcs11_funcs->C_CloseSession(pkcs11_session);
-    if (rc != CKR_OK)
-        warnx("C_CloseSession failed: 0x%lX: %s", rc, p11_get_ckr(rc));
-
-    pkcs11_session = CK_INVALID_HANDLE;
-}
-
-static CK_RV init_pkcs11(const struct p11kmip_cmd *command)
-{
-    CK_RV rc;
-    int f;
-    struct ConfigBaseNode *c, *cfg_slot;
-    struct ConfigStructNode *structnode;
-    bool found = false;
-    char *buf_user_pin = NULL;
-    const char *pin = opt_pin;
-    CK_SLOT_ID slot = opt_slot;
-
-    if (command == NULL || command->session_flags == 0)
-        return CKR_OK;
-
-    if (pin == NULL)
-        pin = env_pkcs_pin;
-    if (opt_force_pin_prompt || pin == NULL)
-        pin = pin_prompt(&buf_user_pin, "Please enter user PIN: ");
-    if (pin == NULL)
-        return CKR_FUNCTION_FAILED;
-
-    /* If not set by option, fallback to env variable */
-    if (slot == (CK_SLOT_ID) - 1)
-        slot = env_pkcs_slot;
-    /* If not set by env variable, fallback to conf file */
-    if (slot == (CK_SLOT_ID) - 1) {
-        if (p11kmip_cfg != NULL) {
-            /* Iterate the configuration node(s) */
-            confignode_foreach(c, p11kmip_cfg, f) {
-                if (!confignode_hastype(c, CT_STRUCT) ||
-                    strcmp(c->key, P11KMIP_CONFIG_KEYWORD_PKCS11) != 0) {
-                    continue;
-                } else if (found) {
-                    warnx("Syntax error in config file:"
-                          " '%s' specified multiple times\n",
-                          P11KMIP_CONFIG_KEYWORD_PKCS11);
-                    rc = CKR_ARGUMENTS_BAD;
-                    goto done;
-                }
-
-                structnode = confignode_to_struct(c);
-                cfg_slot = confignode_find(structnode->value,
-                                           P11KMIP_CONFIG_KEYWORD_PKCS_SLOT);
-
-                if (cfg_slot != NULL
-                    && !confignode_hastype(cfg_slot, CT_INTVAL)) {
-                    warnx("Syntax error in config file:"
-                          " Missing '%s' in attribute at line %hu\n",
-                          P11KMIP_CONFIG_KEYWORD_WRAP_KEY_SIZE, c->line);
-                    rc = CKR_ARGUMENTS_BAD;
-                    goto done;
-                }
-
-                if (cfg_slot != NULL) {
-                    slot = confignode_to_intval(cfg_slot)->value;
-                }
-            }
-        }
-    }
-
-    rc = load_pkcs11_lib();
-    if (rc != CKR_OK)
-        goto done;
-
-    rc = pkcs11_funcs->C_Initialize(NULL);
-    if (rc != CKR_OK) {
-        warnx("C_Initialize failed: 0x%lX: %s", rc, p11_get_ckr(rc));
-        goto done;
-    }
-
-    pkcs11_initialized = true;
-
-    rc = open_pkcs11_session(slot, command->session_flags, pin);
-    if (rc != CKR_OK)
-        goto done;
-
-done:
-    pin_free(&buf_user_pin);
-
-    return rc;
-}
-
-static void term_pkcs11(void)
-{
-    CK_RV rc;
-
-    if (pkcs11_session != CK_INVALID_HANDLE)
-        close_pkcs11_session();
-
-    if (pkcs11_funcs != NULL && pkcs11_initialized) {
-        rc = pkcs11_funcs->C_Finalize(NULL);
-        if (rc != CKR_OK)
-            warnx("C_Finalize failed: 0x%lX: %s", rc, p11_get_ckr(rc));
-    }
-
-    if (pkcs11_lib != NULL)
-        dlclose(pkcs11_lib);
-
-    pkcs11_lib = NULL;
-    pkcs11_funcs = NULL;
-}
-
-/*****************************************************************************/
-/* PKCS#11 Key Attribute Functions                                           */
-/*****************************************************************************/
-
-static void print_bool_attr_short(const CK_ATTRIBUTE *val, bool applicable)
-{
-    if (val->ulValueLen == CK_UNAVAILABLE_INFORMATION ||
-        val->ulValueLen != sizeof(CK_BBOOL))
-        applicable = false;
-    printf("%c ", applicable ? (*(CK_BBOOL *) (val->pValue) ? '1' : '0') : '-');
-}
-
-static void print_bool_attr_long(const char *attr, const CK_ATTRIBUTE *val,
-                                 int indent, bool sensitive)
-{
-    if ((val->ulValueLen == CK_UNAVAILABLE_INFORMATION && !sensitive) ||
-        val->ulValueLen != sizeof(CK_BBOOL))
-        return;
-
-    printf("%*s%s: %s\n", indent, "", attr,
-           sensitive ? "[sensitive]" :
-           *(CK_BBOOL *) (val->pValue) ? "CK_TRUE" : "CK_FALSE");
-}
-
-static CK_RV add_attribute(CK_ATTRIBUTE_TYPE type, 
-                           const void *value,
-                           CK_ULONG value_len, 
-                           CK_ATTRIBUTE **attrs, 
-                           CK_ULONG *num_attrs)
-{
-    CK_ATTRIBUTE *tmp;
-
-    tmp = realloc(*attrs, (*num_attrs + 1) * sizeof(CK_ATTRIBUTE));
-    if (tmp == NULL) {
-        warnx("Failed to allocate memory for attribute list");
-        return CKR_HOST_MEMORY;
-    }
-
-    *attrs = tmp;
-
-    tmp[*num_attrs].type = type;
-    tmp[*num_attrs].ulValueLen = value_len;
-    tmp[*num_attrs].pValue = malloc(value_len);
-    if (tmp[*num_attrs].pValue == NULL) {
-        warnx("Failed to allocate memory attribute to add to list");
-        return CKR_HOST_MEMORY;
-    }
-    memcpy(tmp[*num_attrs].pValue, value, value_len);
-
-    (*num_attrs)++;
-
-    return CKR_OK;
-}
-
-static const struct p11kmip_attr *find_attr_by_letter(char letter)
-{
-    const struct p11kmip_attr *attr;
-
-    for (attr = p11kmip_bool_attrs; attr->name != NULL; attr++) {
-        if (attr->letter == toupper(letter))
-            return attr;
-    }
-
-    return NULL;
-}
-
-static CK_RV parse_boolean_attrs(
-                    const struct p11kmip_keytype *keytype,
-                    const char *attr_string, CK_ATTRIBUTE **attrs,
-                    CK_ULONG *num_attrs, bool check_settable,
-                    bool (*attr_aplicable)(
-                        const struct p11kmip_keytype *keytype,
-                        const struct p11kmip_attr *attr))
-{
-    const struct p11kmip_attr *attr;
-    unsigned int i = 0;
-    CK_BBOOL val;
-    CK_RV rc;
-
-    if (attr_string == NULL)
-        return CKR_OK;
-
-    for (i = 0; attr_string[i] != '\0'; i++) {
-        attr = find_attr_by_letter(attr_string[i]);
-        if (attr == NULL) {
-            warnx("Attribute '%c' is not valid", attr_string[i]);
-            return CKR_ARGUMENTS_BAD;
-        }
-
-        /* silently ignore attributes that are not settable or not applicable */
-        if ((check_settable && !attr->settable) ||
-            (attr_aplicable != NULL && keytype != NULL &&
-             !attr_aplicable(keytype, attr)))
-            continue;
-
-        val = isupper(attr_string[i]) ? CK_TRUE : CK_FALSE;
-
-        rc = add_attribute(attr->type, &val, sizeof(val), attrs, num_attrs);
-        if (rc != CKR_OK)
-            return rc;
-    }
-
-    return CKR_OK;
-}
-
-static CK_RV parse_id(const char *id_string, 
-                      CK_ATTRIBUTE **attrs, 
-                      CK_ULONG *num_attrs)
-{
-    unsigned char *buf = NULL;
-    BIGNUM *b = NULL;
-    int len;
-    CK_RV rc = CKR_OK;
-
-    len = BN_hex2bn(&b, id_string);
-    if (len < (int) strlen(id_string)) {
-        warnx("Hex string '%s' is not valid", id_string);
-        rc = CKR_ARGUMENTS_BAD;
-        goto done;
-    }
-
-    len = len / 2 + (len % 2 > 0 ? 1 : 0);
-    buf = calloc(1, len);
-    if (buf == NULL) {
-        warnx("Failed to allocate memory for CKA_ID attribute");
-        rc = CKR_HOST_MEMORY;
-        goto done;
-    }
-
-    if (BN_bn2binpad(b, buf, len) != len) {
-        warnx("Failed to prepare the value for CKA_ID attribute");
-        rc = CKR_FUNCTION_FAILED;
-        goto done;
-    }
-
-    rc = add_attribute(CKA_ID, buf, len, attrs, num_attrs);
-    if (rc != CKR_OK) {
-        warnx("Failed to add attribute CKA_ID: 0x%lX: %s", rc, p11_get_ckr(rc));
-        goto done;
-    }
-
-done:
-    if (buf != NULL)
-        free(buf);
-    if (b != NULL)
-        BN_free(b);
-
-    return rc;
-}
-
-
-static bool is_attr_array_attr(CK_ATTRIBUTE *attr)
-{
-    switch (attr->type) {
-    case CKA_WRAP_TEMPLATE:
-    case CKA_UNWRAP_TEMPLATE:
-    case CKA_DERIVE_TEMPLATE:
-        return true;
-
-    default:
-        return false;
-    }
-}
-
-static CK_RV alloc_attr_array_attr(CK_ATTRIBUTE *attr, bool *allocated)
-{
-    CK_ULONG i, num;
-    CK_ATTRIBUTE *elem;
-    CK_RV rc;
-
-    *allocated = false;
-
-    num = attr->ulValueLen / sizeof(CK_ATTRIBUTE);
-    for (i = 0, elem = attr->pValue; i < num; i++, elem++) {
-        if (elem->ulValueLen > 0 && elem->pValue == NULL) {
-            elem->pValue = calloc(elem->ulValueLen, 1);
-            if (elem->pValue == NULL) {
-                free_attr_array_attr(attr);
-                return CKR_HOST_MEMORY;
-            }
-
-            *allocated = true;
-            continue;
-        }
-
-        if (is_attr_array_attr(elem)) {
-            rc = alloc_attr_array_attr(elem, allocated);
-            if (rc != CKR_OK) {
-                free_attr_array_attr(attr);
-                return CKR_HOST_MEMORY;
-            }
-        }
-    }
-
-    return CKR_OK;
-}
-
-static void free_attr_array_attr(CK_ATTRIBUTE *attr)
-{
-    CK_ULONG i, num;
-    CK_ATTRIBUTE *elem;
-
-    num = attr->ulValueLen / sizeof(CK_ATTRIBUTE);
-    for (i = 0, elem = attr->pValue; elem != NULL && i < num; i++, elem++) {
-        if (elem->pValue != NULL) {
-            if (is_attr_array_attr(elem))
-                free_attr_array_attr(elem);
-            free(elem->pValue);
-            elem->pValue = NULL;
-        }
-    }
-}
-
-static CK_RV get_attribute(CK_OBJECT_HANDLE key, CK_ATTRIBUTE *attr)
-{
-    bool allocated;
-    CK_RV rc;
-
-    rc = pkcs11_funcs->C_GetAttributeValue(pkcs11_session, key, attr, 1);
-    if (rc != CKR_OK)
-        return rc;
-
-    if (attr->pValue == NULL && attr->ulValueLen > 0) {
-        attr->pValue = calloc(attr->ulValueLen, 1);
-        if (attr->pValue == NULL)
-            return CKR_HOST_MEMORY;
-
-        rc = pkcs11_funcs->C_GetAttributeValue(pkcs11_session, key, attr, 1);
-    }
-
-    if (is_attr_array_attr(attr) && rc == CKR_OK &&
-        attr->pValue != NULL && attr->ulValueLen > 0) {
-        do {
-            allocated = false;
-            rc = alloc_attr_array_attr(attr, &allocated);
-            if (rc != CKR_OK)
-                return rc;
-
-            if (!allocated)
-                break;
-
-            rc = pkcs11_funcs->C_GetAttributeValue(pkcs11_session, key,
-                                                   attr, 1);
-        } while (rc == CKR_OK);
-    }
-
-    return rc;
-}
-
-static CK_RV add_bignum_attr(CK_ATTRIBUTE_TYPE type, const BIGNUM *bn,
-                             CK_ATTRIBUTE **attrs, CK_ULONG *num_attrs)
-{
-    int len;
-    CK_BYTE *buff = NULL;
-    CK_RV rc;
-
-    len = BN_num_bytes(bn);
-    buff = calloc(len, 1);
-    if (buff == NULL || len == 0) {
-        warnx("Failed to allocate a buffer for a bignum");
-        if (buff != NULL)
-            free(buff);
-        return CKR_HOST_MEMORY;
-    }
-
-    if (BN_bn2bin(bn, buff) != len) {
-        warnx("Failed to get a bignum.");
-        ERR_print_errors_cb(openssl_err_cb, NULL);
-        free(buff);
-        return CKR_FUNCTION_FAILED;
-    }
-
-    rc = add_attribute(type, buff, len, attrs, num_attrs);
-    free(buff);
-
-    return rc;
-}
-
-static CK_RV get_bignum_attr(CK_OBJECT_HANDLE key, 
-                             CK_ATTRIBUTE_TYPE type, 
-                             BIGNUM **bn)
-{
-    CK_ATTRIBUTE attr;
-    CK_RV rc;
-
-    attr.type = type;
-    attr.pValue = NULL;
-    attr.ulValueLen = 0;
-
-    if (is_attr_array_attr(&attr))
-        return CKR_ATTRIBUTE_TYPE_INVALID;
-
-    rc = get_attribute(key, &attr);
-    if (rc != CKR_OK)
-        return rc;
-
-    if (attr.ulValueLen == 0 || attr.pValue == NULL)
-        return CKR_ATTRIBUTE_VALUE_INVALID;
-
-    *bn = BN_new();
-    if (*bn == NULL) {
-        rc = CKR_HOST_MEMORY;
-        goto done;
-    }
-
-    if (BN_bin2bn((unsigned char *) attr.pValue, 
-                  attr.ulValueLen, *bn) == NULL) {
-        rc = CKR_FUNCTION_FAILED;
-        BN_free(*bn);
-        *bn = NULL;
-        goto done;
-    }
-
-done:
-    free(attr.pValue);
-
-    return rc;
-}
-
-static void free_attributes(CK_ATTRIBUTE *attrs, CK_ULONG num_attrs)
-{
-    CK_ULONG i;
-
-    if (attrs == NULL)
-        return;
-
-    for (i = 0; i < num_attrs; i++) {
-        if (attrs[i].pValue != NULL)
-            free(attrs[i].pValue);
-    }
-
-    free(attrs);
-}
-
-/*****************************************************************************/
 /* PKCS#11 Key Type Functions                                                */
 /*****************************************************************************/
 
-static CK_RV get_key_size(const struct p11kmip_keytype *keytype,
-                          void *private, CK_ULONG *keysize)
-{
-    CK_OBJECT_HANDLE key_handle;
-    CK_ATTRIBUTE keysize_attr;
-    CK_RV rc = CKR_OK;
-
-    if (private == NULL) {
-        /*
-         * If we are not provided with a key handle, we have to rely on the
-         * keysize set in the keytype structure itself
-         */
-        *keysize = keytype->keysize_value;
-        return CKR_OK;
-    
-    }
-
-    key_handle = (CK_OBJECT_HANDLE)private;
-
-    keysize_attr.type = keytype->keysize_attr;
-    keysize_attr.ulValueLen = sizeof(*keysize);
-    keysize_attr.pValue = keysize;
-    
-    rc = pkcs11_funcs->C_GetAttributeValue(pkcs11_session, key_handle,
-                                           &keysize_attr, 1);
-    if (rc != CKR_OK) {
-        warnx("Attribute not found in PKCS#11 object");
-        return rc;
-    }
-
-    *keysize = (CK_ULONG)keysize_attr.pValue;
-
-    return CKR_OK;
-}
-
-static bool aes_is_attr_applicable(const struct p11kmip_keytype *keytype, 
-                                   const struct p11kmip_attr *attr)
+static bool aes_is_attr_applicable(const struct p11tool_objtype *keytype,
+                                   const struct p11tool_attr *attr)
 {
     UNUSED(keytype);
     if (attr->type == CKA_TOKEN)
@@ -2896,7 +1663,8 @@ static CK_RV p11kmip_import_key(void)
 {
     CK_RV rc;
     CK_OBJECT_HANDLE wrapping_pubkey, wrapping_privkey, unwrapped_key_handle;
-    struct p11kmip_keytype pubkey_keytype, privkey_keytype, secret_keytype;
+    const struct p11tool_objtype *pubkey_keytype, *privkey_keytype;
+    const struct p11tool_objtype *secret_keytype;
     struct kmip_node *wrap_pubkey_uid = NULL, *secret_key_uid = NULL;
     CK_BYTE *wrapped_key_blob = NULL;
     unsigned long wrapped_key_length = 0;
@@ -2906,22 +1674,20 @@ static CK_RV p11kmip_import_key(void)
     CK_BYTE_PTR local_key_digest = NULL, remote_key_digest = NULL;
     enum kmip_hashing_algo digest_alg = 0;
     struct CK_MECHANISM digest_mech = { 0 };
+    CK_ULONG secret_keysize = P11KMIP_DEFAULT_AES_KEY_LENGTH;
 
     /**
      * Until we support algorithms beyond RSA and AES, using these hard-coded
      * key types are sufficient 
      */
-    pubkey_keytype = p11kmip_rsa_keytype;
+    pubkey_keytype = &p11kmip_rsa_keytype;
 
-    privkey_keytype = p11kmip_rsa_keytype;
-    privkey_keytype.class = CKO_PRIVATE_KEY;
+    privkey_keytype = &p11kmip_rsa_keytype;
 
-    secret_keytype = p11kmip_aes_keytype;
+    secret_keytype = &p11kmip_aes_keytype;
     
     /* Validate and set secret key length */
-    if (opt_target_length == (CK_ULONG)-1) {
-        secret_keytype.keysize_value = P11KMIP_DEFAULT_AES_KEY_LENGTH;
-    } else {
+    if (opt_target_length != (CK_ULONG)-1) {
         switch (opt_target_length)
         {
             case 128:
@@ -2930,58 +1696,60 @@ static CK_RV p11kmip_import_key(void)
                 break;
             default:
                 warnx("Invalid length set for target key:"
-                      " %ld\n", opt_target_length);
+                      " %ld", opt_target_length);
                 rc = CKR_GENERAL_ERROR;
                 goto done;
         }
-        secret_keytype.keysize_value = (opt_target_length/8);
+        secret_keysize = (opt_target_length / 8);
     }
 
     /* Parse the attrs and id options up front to fail fast */
     if (opt_target_attrs != NULL) {
-        rc = parse_boolean_attrs(&secret_keytype, opt_target_attrs,
-                                 &wrapped_key_attrs, &wrapped_key_num_attrs,
-                                 false, aes_is_attr_applicable);
+        rc = p11tool_parse_boolean_attrs(secret_keytype, p11kmip_bool_attrs,
+                                         opt_target_attrs, &wrapped_key_attrs,
+                                         &wrapped_key_num_attrs, false, false,
+                                         aes_is_attr_applicable);
 
         if (rc != CKR_OK) {
-            warnx("Failed to parse boolean attributes for target key\n");
+            warnx("Failed to parse boolean attributes for target key");
             goto done;
         }
     }
 
     if (opt_target_id != NULL) {
-        rc = parse_id(opt_target_id, &wrapped_key_attrs,
-                      &wrapped_key_num_attrs);
+        rc = p11tool_parse_id(opt_target_id, &wrapped_key_attrs,
+                              &wrapped_key_num_attrs);
 
         if (rc != CKR_OK) {
-            warnx("Failed to parse ID for target key\n");
+            warnx("Failed to parse ID for target key");
             goto done;
         }
     }
 
-    rc = p11kmip_find_local_key(&pubkey_keytype, opt_wrap_label, NULL,
-                                &wrapping_pubkey);
+    rc = p11kmip_find_local_key(pubkey_keytype, CKO_PUBLIC_KEY,
+                                opt_wrap_label, NULL, &wrapping_pubkey);
 
     if (rc != CKR_OK) {
-        warnx("Failed to wrapping key with label '%s'\n", opt_wrap_label);
+        warnx("Failed to wrapping key with label '%s'", opt_wrap_label);
         goto done;
     }
 
     if (opt_unwrap_label != NULL) {
-        rc = p11kmip_find_local_key(&privkey_keytype, opt_unwrap_label, NULL,
+        rc = p11kmip_find_local_key(privkey_keytype, CKO_PRIVATE_KEY,
+                                    opt_unwrap_label, NULL,
                                     &wrapping_privkey);
 
         if (rc != CKR_OK) {
-            warnx("Failed to find unwrapping key with label '%s'\n",
+            warnx("Failed to find unwrapping key with label '%s'",
                   opt_unwrap_label);
             goto done;
         }
     } else {
-        rc = p11kmip_find_local_key(&privkey_keytype, opt_wrap_label, NULL,
-                                    &wrapping_privkey);
+        rc = p11kmip_find_local_key(privkey_keytype, CKO_PRIVATE_KEY,
+                                    opt_wrap_label, NULL, &wrapping_privkey);
 
         if (rc != CKR_OK) {
-            warnx("Failed to find unwrapping key with label '%s'\n",
+            warnx("Failed to find unwrapping key with label '%s'",
                   opt_unwrap_label);
             goto done;
         }
@@ -2992,22 +1760,23 @@ static CK_RV p11kmip_import_key(void)
         /* If we were told to send the wrapkey, send it */
         if (opt_send_wrapkey) {
             /* Next we send the public key to the server */
-            rc = p11kmip_register_remote_public_key(&pubkey_keytype,
+            rc = p11kmip_register_remote_public_key(pubkey_keytype,
                                                     wrapping_pubkey,
                                                     opt_wrap_label,
                                                     &wrap_pubkey_uid);
 
             if (rc != CKR_OK) {
-                warnx("Failed to register wrapping key '%s' on server\n",
+                warnx("Failed to register wrapping key '%s' on server",
                       opt_wrap_label);
                 goto done;
             }
         } else {
-            rc = p11kmip_locate_remote_key(opt_wrap_label, &pubkey_keytype,
+            rc = p11kmip_locate_remote_key(opt_wrap_label, CKO_PUBLIC_KEY,
+                                           pubkey_keytype->type,
                                            &wrap_pubkey_uid);
 
             if (rc != CKR_OK) {
-                warnx("Error while locating wrapping key on KMIP server\n");
+                warnx("Error while locating wrapping key on KMIP server");
                 goto done;
             }
         }
@@ -3015,7 +1784,7 @@ static CK_RV p11kmip_import_key(void)
 
     if (opt_gen_targkey) {
         /* If we were told to generate a new key, do so */
-        rc = p11kmip_generate_remote_secret_key(&secret_keytype,
+        rc = p11kmip_generate_remote_secret_key(secret_keytype, secret_keysize,
                                                 opt_target_label,
                                                 &secret_key_uid);
 
@@ -3025,41 +1794,47 @@ static CK_RV p11kmip_import_key(void)
         }
     } else {
         /* Else attempt to find the one we were given */
-        rc = p11kmip_locate_remote_key(opt_target_label, &secret_keytype,
+        rc = p11kmip_locate_remote_key(opt_target_label, CKO_SECRET_KEY,
+                                       secret_keytype->type,
                                        &secret_key_uid);
 
         if (rc != CKR_OK) {
-            warnx("Error while locating target key on KMIP server\n");
+            warnx("Error while locating target key on KMIP server");
             goto done;
         }
         /* If we didn't find it, throw an error */
         if (secret_key_uid == NULL) {
-            warnx("Did not find target key '%s' on server\n", opt_target_label);
+            warnx("Did not find target key '%s' on server", opt_target_label);
             rc = CKR_ARGUMENTS_BAD;
             goto done;
         }
     }
 
     rc = p11kmip_retrieve_remote_wrapped_key(wrap_pubkey_uid,
-                                             &secret_keytype, secret_key_uid,
+                                             secret_keytype, &secret_keysize,
+                                             secret_key_uid,
                                              &wrapped_key_length,
                                              &wrapped_key_blob);
 
     if (wrapped_key_blob == NULL) {
-        warnx("Failed to retrieve wrapped key\n");
+        warnx("Failed to retrieve wrapped key");
         rc = CKR_ARGUMENTS_BAD;
         goto done;
     }
 
     /* Lastly we unwrap and import the retrieved key */
     rc = p11kmip_unwrap_local_secret_key(wrapping_privkey,
-                                         &secret_keytype, wrapped_key_length,
+                                         secret_keytype, wrapped_key_length,
                                          wrapped_key_blob, opt_target_label,
                                          wrapped_key_attrs,
                                          wrapped_key_num_attrs,
                                          &unwrapped_key_handle);
 
     if (rc != CKR_OK) {
+        if (p11tool_is_rejected_by_policy(rc, p11tool_pkcs11_session)) {
+            warnx("Unwrap and import key is rejected by policy");
+            goto done;
+        }
         warnx("Failed to unwrap and import key");
         goto done;
     }
@@ -3137,7 +1912,7 @@ done:
         free(remote_key_digest);
     if (wrapped_key_blob != NULL)
         free(wrapped_key_blob);
-    free_attributes(wrapped_key_attrs, wrapped_key_num_attrs);
+    p11tool_free_attributes(wrapped_key_attrs, wrapped_key_num_attrs);
 
     return rc;
 }
@@ -3147,7 +1922,7 @@ static CK_RV p11kmip_export_key(void)
 {
     CK_RV rc;
     CK_OBJECT_HANDLE wrapping_pubkey, secret_key_handle;
-    struct p11kmip_keytype pubkey_keytype, secret_keytype;
+    const struct p11tool_objtype *pubkey_keytype, *secret_keytype;
     struct kmip_node *wrap_pubkey_uid = NULL, *secret_key_uid = NULL;
     CK_BYTE *wrapped_key_blob = NULL;
     unsigned long wrapped_key_length;
@@ -3163,28 +1938,29 @@ static CK_RV p11kmip_export_key(void)
      * Until we support algorithms beyond RSA and AES, using these hard-coded
      * key types are sufficient 
      */
-    pubkey_keytype = p11kmip_rsa_keytype;
+    pubkey_keytype = &p11kmip_rsa_keytype;
 
-    secret_keytype = p11kmip_aes_keytype;
+    secret_keytype = &p11kmip_aes_keytype;
 
     /* Parse the attrs and id options up front to fail fast */
     if (opt_wrap_attrs != NULL) {
-        rc = parse_boolean_attrs(&secret_keytype, opt_wrap_attrs,
-                                 &wrapping_key_attrs, &wrapping_key_num_attrs,
-                                 false, NULL);
+        rc = p11tool_parse_boolean_attrs(secret_keytype, p11kmip_bool_attrs,
+                                         opt_wrap_attrs, &wrapping_key_attrs,
+                                         &wrapping_key_num_attrs, false, false,
+                                         NULL);
 
         if (rc != CKR_OK) {
-            warnx("Failed to parse boolean attributes for wrapping key\n");
+            warnx("Failed to parse boolean attributes for wrapping key");
             goto done;
         }
     }
 
     if (opt_wrap_id != NULL) {
-        rc = parse_id(opt_wrap_id, &wrapping_key_attrs,
-                      &wrapping_key_num_attrs);
+        rc = p11tool_parse_id(opt_wrap_id, &wrapping_key_attrs,
+                              &wrapping_key_num_attrs);
 
         if (rc != CKR_OK) {
-            warnx("Failed to parse ID for wrapping key\n");
+            warnx("Failed to parse ID for wrapping key");
             goto done;
         }
     }
@@ -3193,16 +1969,16 @@ static CK_RV p11kmip_export_key(void)
      * we intend to utilize a local PKCS#11 public key for the actual 
      * wrapping.
      */
-    rc = p11kmip_locate_remote_key(opt_wrap_label, &pubkey_keytype,
-                                   &wrap_pubkey_uid);
+    rc = p11kmip_locate_remote_key(opt_wrap_label, CKO_PUBLIC_KEY,
+                                   pubkey_keytype->type, &wrap_pubkey_uid);
 
     if (rc != CKR_OK) {
-        warnx("Error while locating wrapping key on KMIP server\n");
+        warnx("Error while locating wrapping key on KMIP server");
         goto done;
     }
     /* If we didn't find it, throw an error */
     if (wrap_pubkey_uid == NULL) {
-        warnx("Did not find wrapping key '%s' on server\n", opt_wrap_label);
+        warnx("Did not find wrapping key '%s' on server", opt_wrap_label);
         rc = CKR_FUNCTION_FAILED;
         goto done;
     }
@@ -3213,22 +1989,27 @@ static CK_RV p11kmip_export_key(void)
          * go through the process of importing the key 
          * material into the PKCS#11 repository
          */
-        rc = p11kmip_retrieve_remote_public_key(&pubkey_keytype,
+        rc = p11kmip_retrieve_remote_public_key(pubkey_keytype,
                                                 wrap_pubkey_uid, &pub_key);
 
         if (rc != CKR_OK) {
-            warnx("Failed to retrieve public key from KMIP server\n");
+            warnx("Failed to retrieve public key from KMIP server");
             goto done;
         }
 
-        rc = p11kmip_create_local_public_key(&pubkey_keytype,
+        rc = p11kmip_create_local_public_key(pubkey_keytype,
                                              pub_key, opt_wrap_label,
                                              wrapping_key_attrs,
                                              wrapping_key_num_attrs,
                                              &wrapping_pubkey);
 
         if (rc != CKR_OK) {
-            warnx("Failed to create public key '%s'\n", opt_wrap_label);
+            if (p11tool_is_rejected_by_policy(rc, p11tool_pkcs11_session)) {
+                warnx("Failed to create public key '%s' due to policy",
+                      opt_wrap_label);
+                goto done;
+            }
+            warnx("Failed to create public key '%s'", opt_wrap_label);
             goto done;
         }
     } else {
@@ -3236,21 +2017,22 @@ static CK_RV p11kmip_export_key(void)
          * Else we expect it to already exist in the repository with
          * the same label as the remote key
          */
-        rc = p11kmip_find_local_key(&pubkey_keytype,
+        rc = p11kmip_find_local_key(pubkey_keytype, CKO_PUBLIC_KEY,
                                     opt_wrap_label,
                                     opt_wrap_id, &wrapping_pubkey);
 
         if (rc != CKR_OK) {
-            warnx("Failed to locate public key '%s'\n", opt_wrap_label);
+            warnx("Failed to locate public key '%s'", opt_wrap_label);
             goto done;
         }
     }
 
-    rc = p11kmip_find_local_key(&secret_keytype, opt_target_label,
-                                opt_target_id, &secret_key_handle);
+    rc = p11kmip_find_local_key(secret_keytype, CKO_SECRET_KEY,
+                                opt_target_label, opt_target_id,
+                                &secret_key_handle);
 
     if (rc != CKR_OK) {
-        warnx("Failed to find local secret key '%s'\n", opt_target_label);
+        warnx("Failed to find local secret key '%s'", opt_target_label);
         goto done;
     }
 
@@ -3259,18 +2041,22 @@ static CK_RV p11kmip_export_key(void)
                                        &wrapped_key_blob);
 
     if (rc != CKR_OK) {
-        warnx("Failed to wrap local secret key\n");
+        if (p11tool_is_rejected_by_policy(rc, p11tool_pkcs11_session)) {
+            warnx("Wrap local secret key is rejected by policy");
+            goto done;
+        }
+        warnx("Failed to wrap local secret key");
         goto done;
     }
 
-    rc = p11kmip_register_remote_wrapped_key(&secret_keytype,
+    rc = p11kmip_register_remote_wrapped_key(secret_keytype,
                                              wrapped_key_length,
                                              wrapped_key_blob,
                                              opt_target_label,
                                              wrap_pubkey_uid, &secret_key_uid);
 
     if (rc != CKR_OK) {
-        warnx("Failed to register wrapped secret key with server\n");
+        warnx("Failed to register wrapped secret key with server");
         goto done;
     }
     /* Display digests of the retrieved keys */
@@ -3348,7 +2134,7 @@ done:
         free(remote_key_digest);
     if (pub_key != NULL)
         EVP_PKEY_free(pub_key);
-    free_attributes(wrapping_key_attrs, wrapping_key_num_attrs);
+    p11tool_free_attributes(wrapping_key_attrs, wrapping_key_num_attrs);
 
     return rc;
 }
@@ -3358,7 +2144,7 @@ done:
 /***************************************************************************/
 
 static CK_RV p11kmip_export_local_rsa_pkey(
-                                        const struct p11kmip_keytype *keytype, 
+                                        const struct p11tool_objtype *keytype,
                                         EVP_PKEY **pkey, bool private, 
                                         CK_OBJECT_HANDLE key,
                                         const char *label)
@@ -3374,7 +2160,7 @@ static CK_RV p11kmip_export_local_rsa_pkey(
 #endif
     CK_RV rc;
 
-    rc = get_bignum_attr(key, CKA_MODULUS, &bn_n);
+    rc = p11tool_get_bignum_attr(key, CKA_MODULUS, &bn_n);
     if (rc == CKR_ATTRIBUTE_SENSITIVE)
         goto done;
     if (rc != CKR_OK) {
@@ -3384,7 +2170,7 @@ static CK_RV p11kmip_export_local_rsa_pkey(
         goto done;
     }
 
-    rc = get_bignum_attr(key, CKA_PUBLIC_EXPONENT, &bn_e);
+    rc = p11tool_get_bignum_attr(key, CKA_PUBLIC_EXPONENT, &bn_e);
     if (rc == CKR_ATTRIBUTE_SENSITIVE)
         goto done;
     if (rc != CKR_OK) {
@@ -3395,27 +2181,27 @@ static CK_RV p11kmip_export_local_rsa_pkey(
     }
 
     if (private) {
-        rc = get_bignum_attr(key, CKA_PRIVATE_EXPONENT, &bn_d);
+        rc = p11tool_get_bignum_attr(key, CKA_PRIVATE_EXPONENT, &bn_d);
         if (rc == CKR_ATTRIBUTE_SENSITIVE)
             goto done;
 
-        rc = get_bignum_attr(key, CKA_PRIME_1, &bn_p);
+        rc = p11tool_get_bignum_attr(key, CKA_PRIME_1, &bn_p);
         if (rc == CKR_ATTRIBUTE_SENSITIVE)
             goto done;
 
-        rc = get_bignum_attr(key, CKA_PRIME_2, &bn_q);
+        rc = p11tool_get_bignum_attr(key, CKA_PRIME_2, &bn_q);
         if (rc == CKR_ATTRIBUTE_SENSITIVE)
             goto done;
 
-        rc = get_bignum_attr(key, CKA_EXPONENT_1, &bn_dmp1);
+        rc = p11tool_get_bignum_attr(key, CKA_EXPONENT_1, &bn_dmp1);
         if (rc == CKR_ATTRIBUTE_SENSITIVE)
             goto done;
 
-        rc = get_bignum_attr(key, CKA_EXPONENT_2, &bn_dmq1);
+        rc = p11tool_get_bignum_attr(key, CKA_EXPONENT_2, &bn_dmq1);
         if (rc == CKR_ATTRIBUTE_SENSITIVE)
             goto done;
 
-        rc = get_bignum_attr(key, CKA_COEFFICIENT, &bn_iqmp);
+        rc = p11tool_get_bignum_attr(key, CKA_COEFFICIENT, &bn_iqmp);
         if (rc == CKR_ATTRIBUTE_SENSITIVE)
             goto done;
     }
@@ -3423,13 +2209,13 @@ static CK_RV p11kmip_export_local_rsa_pkey(
     rsa = RSA_new();
     if (rsa == NULL) {
         warnx("RSA_new failed.");
-        ERR_print_errors_cb(openssl_err_cb, NULL);
+        ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
         rc = CKR_FUNCTION_FAILED;
         goto done;
     }
     if (RSA_set0_key(rsa, bn_n, bn_e, bn_d) != 1) {
         warnx("RSA_set0_key failed.");
-        ERR_print_errors_cb(openssl_err_cb, NULL);
+        ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
         rc = CKR_FUNCTION_FAILED;
         goto done;
     }
@@ -3438,7 +2224,7 @@ static CK_RV p11kmip_export_local_rsa_pkey(
     if (private) {
         if (RSA_set0_factors(rsa, bn_p, bn_q) != 1) {
             warnx("RSA_set0_factors failed.");
-            ERR_print_errors_cb(openssl_err_cb, NULL);
+            ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
             rc = CKR_FUNCTION_FAILED;
             goto done;
         }
@@ -3446,7 +2232,7 @@ static CK_RV p11kmip_export_local_rsa_pkey(
 
         if (RSA_set0_crt_params(rsa, bn_dmp1, bn_dmq1, bn_iqmp) != 1) {
             warnx("RSA_set0_crt_params failed.");
-            ERR_print_errors_cb(openssl_err_cb, NULL);
+            ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
             rc = CKR_FUNCTION_FAILED;
             goto done;
         }
@@ -3456,14 +2242,14 @@ static CK_RV p11kmip_export_local_rsa_pkey(
     *pkey = EVP_PKEY_new();
     if (*pkey == NULL) {
         warnx("EVP_PKEY_new failed.");
-        ERR_print_errors_cb(openssl_err_cb, NULL);
+        ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
         rc = CKR_FUNCTION_FAILED;
         goto done;
     }
 
     if (EVP_PKEY_assign_RSA(*pkey, rsa) != 1) {
         warnx("EVP_PKEY_assign_RSA failed.");
-        ERR_print_errors_cb(openssl_err_cb, NULL);
+        ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
         rc = CKR_FUNCTION_FAILED;
         goto done;
     }
@@ -3472,7 +2258,7 @@ static CK_RV p11kmip_export_local_rsa_pkey(
     tmpl = OSSL_PARAM_BLD_new();
     if (tmpl == NULL) {
         warnx("OSSL_PARAM_BLD_new failed.");
-        ERR_print_errors_cb(openssl_err_cb, NULL);
+        ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
         rc = CKR_FUNCTION_FAILED;
         goto done;
     }
@@ -3480,7 +2266,7 @@ static CK_RV p11kmip_export_local_rsa_pkey(
     if (!OSSL_PARAM_BLD_push_BN(tmpl, OSSL_PKEY_PARAM_RSA_N, bn_n) ||
         !OSSL_PARAM_BLD_push_BN(tmpl, OSSL_PKEY_PARAM_RSA_E, bn_e)) {
         warnx("OSSL_PARAM_BLD_push_BN failed.");
-        ERR_print_errors_cb(openssl_err_cb, NULL);
+        ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
         rc = CKR_FUNCTION_FAILED;
         goto done;
     }
@@ -3496,7 +2282,7 @@ static CK_RV p11kmip_export_local_rsa_pkey(
             !OSSL_PARAM_BLD_push_BN(tmpl, OSSL_PKEY_PARAM_RSA_COEFFICIENT1,
                                     bn_iqmp)) {
             warnx("OSSL_PARAM_BLD_push_BN failed.");
-            ERR_print_errors_cb(openssl_err_cb, NULL);
+            ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
             rc = CKR_FUNCTION_FAILED;
             goto done;
         }
@@ -3505,7 +2291,7 @@ static CK_RV p11kmip_export_local_rsa_pkey(
     params = OSSL_PARAM_BLD_to_param(tmpl);
     if (params == NULL) {
         warnx("OSSL_PARAM_BLD_to_param failed.");
-        ERR_print_errors_cb(openssl_err_cb, NULL);
+        ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
         rc = CKR_FUNCTION_FAILED;
         goto done;
     }
@@ -3513,7 +2299,7 @@ static CK_RV p11kmip_export_local_rsa_pkey(
     pctx = EVP_PKEY_CTX_new_id(EVP_PKEY_RSA, NULL);
     if (pctx == NULL) {
         warnx("EVP_PKEY_CTX_new_id failed.");
-        ERR_print_errors_cb(openssl_err_cb, NULL);
+        ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
         rc = CKR_FUNCTION_FAILED;
         goto done;
     }
@@ -3523,7 +2309,7 @@ static CK_RV p11kmip_export_local_rsa_pkey(
                            private ? EVP_PKEY_KEYPAIR : EVP_PKEY_PUBLIC_KEY,
                            params)) {
         warnx("EVP_PKEY_fromdata_init/EVP_PKEY_fromdata failed.");
-        ERR_print_errors_cb(openssl_err_cb, NULL);
+        ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
         rc = CKR_FUNCTION_FAILED;
         goto done;
     }
@@ -3568,7 +2354,7 @@ done:
 
 static CK_RV p11kmip_unwrap_local_secret_key(
                                 CK_OBJECT_HANDLE wrapping_key_handle,
-                                const struct p11kmip_keytype *wrapped_keytype,
+                                const struct p11tool_objtype *wrapped_keytype,
                                 unsigned long wrapped_key_length,
                                 CK_BYTE *wrapped_key_blob,
                                 char *wrapped_key_label,
@@ -3582,33 +2368,35 @@ static CK_RV p11kmip_unwrap_local_secret_key(
     CK_RV rc;
     size_t i = 0;
 
-    CK_OBJECT_CLASS key_class = wrapped_keytype->class;
+    CK_OBJECT_CLASS key_class = wrapped_keytype->is_asymmetric ?
+                                        CKO_PRIVATE_KEY : CKO_SECRET_KEY;
     CK_KEY_TYPE key_type = wrapped_keytype->type;
     CK_ATTRIBUTE_PTR unwrapped_template = NULL;
     CK_ULONG unwrapped_templatecount = 0;
 
     /* Build the template for the default attribute */
-    rc = add_attribute(CKA_TOKEN, &ck_true, sizeof(ck_true), 
-                        &unwrapped_template, &unwrapped_templatecount);
-    rc += add_attribute(CKA_SENSITIVE, &ck_true, sizeof(ck_true),
-                        &unwrapped_template, &unwrapped_templatecount);
-    rc += add_attribute(CKA_CLASS, &key_class, sizeof(key_class),
-                        &unwrapped_template, &unwrapped_templatecount);
-    rc += add_attribute(CKA_KEY_TYPE, &key_type, sizeof(key_type),
-                        &unwrapped_template, &unwrapped_templatecount);
-    rc += add_attribute(CKA_ENCRYPT, &ck_true, sizeof(ck_true),
-                        &unwrapped_template, &unwrapped_templatecount);
-    rc += add_attribute(CKA_DECRYPT, &ck_true, sizeof(ck_true),
-                        &unwrapped_template, &unwrapped_templatecount);
-    rc += add_attribute(CKA_SIGN, &ck_true, sizeof(ck_true),
-                        &unwrapped_template, &unwrapped_templatecount);
-    rc += add_attribute(CKA_VERIFY, &ck_true, sizeof(ck_true),
-                        &unwrapped_template, &unwrapped_templatecount);
-    rc += add_attribute(CKA_IBM_PROTKEY_EXTRACTABLE, &ck_true, sizeof(ck_true),
-                        &unwrapped_template, &unwrapped_templatecount);
-    rc += add_attribute(CKA_LABEL, wrapped_key_label, 
-                        strlen((char *) wrapped_key_label),
-                        &unwrapped_template, &unwrapped_templatecount);
+    rc = p11tool_add_attribute(CKA_TOKEN, &ck_true, sizeof(ck_true),
+                                &unwrapped_template, &unwrapped_templatecount);
+    rc += p11tool_add_attribute(CKA_SENSITIVE, &ck_true, sizeof(ck_true),
+                                &unwrapped_template, &unwrapped_templatecount);
+    rc += p11tool_add_attribute(CKA_CLASS, &key_class, sizeof(key_class),
+                                &unwrapped_template, &unwrapped_templatecount);
+    rc += p11tool_add_attribute(CKA_KEY_TYPE, &key_type, sizeof(key_type),
+                                &unwrapped_template, &unwrapped_templatecount);
+    rc += p11tool_add_attribute(CKA_ENCRYPT, &ck_true, sizeof(ck_true),
+                                &unwrapped_template, &unwrapped_templatecount);
+    rc += p11tool_add_attribute(CKA_DECRYPT, &ck_true, sizeof(ck_true),
+                                &unwrapped_template, &unwrapped_templatecount);
+    rc += p11tool_add_attribute(CKA_SIGN, &ck_true, sizeof(ck_true),
+                                &unwrapped_template, &unwrapped_templatecount);
+    rc += p11tool_add_attribute(CKA_VERIFY, &ck_true, sizeof(ck_true),
+                                &unwrapped_template, &unwrapped_templatecount);
+    rc += p11tool_add_attribute(CKA_IBM_PROTKEY_EXTRACTABLE, &ck_true,
+                                sizeof(ck_true),
+                                &unwrapped_template, &unwrapped_templatecount);
+    rc += p11tool_add_attribute(CKA_LABEL, wrapped_key_label,
+                                strlen((char *) wrapped_key_label),
+                                &unwrapped_template, &unwrapped_templatecount);
 
     if (rc != CKR_OK)
         goto done;
@@ -3625,10 +2413,11 @@ static CK_RV p11kmip_unwrap_local_secret_key(
             memcpy(wrapped_key_attrs[1].pValue, wrapped_key_attrs[i].pValue, 
                 wrapped_key_attrs[i].ulValueLen);
         } else {
-            rc = add_attribute(wrapped_key_attrs[i].type, 
-                    wrapped_key_attrs[i].pValue, 
-                    wrapped_key_attrs[i].ulValueLen, &unwrapped_template,
-                    &unwrapped_templatecount);
+            rc = p11tool_add_attribute(wrapped_key_attrs[i].type,
+                                       wrapped_key_attrs[i].pValue,
+                                       wrapped_key_attrs[i].ulValueLen,
+                                       &unwrapped_template,
+                                       &unwrapped_templatecount);
             if (rc != CKR_OK)
                 goto done;
         }
@@ -3666,14 +2455,15 @@ static CK_RV p11kmip_unwrap_local_secret_key(
         return CKR_ARGUMENTS_BAD;
     }
 
-    rc = pkcs11_funcs->C_UnwrapKey(pkcs11_session, &mech,
-                                   wrapping_key_handle,
-                                   wrapped_key_blob, wrapped_key_length,
-                                   unwrapped_template, unwrapped_templatecount,
-                                   unwrapped_key_handle);
+    rc = p11tool_pkcs11_funcs->C_UnwrapKey(p11tool_pkcs11_session, &mech,
+                                           wrapping_key_handle,
+                                           wrapped_key_blob, wrapped_key_length,
+                                           unwrapped_template,
+                                           unwrapped_templatecount,
+                                           unwrapped_key_handle);
 
 done:
-    free_attributes(unwrapped_template, unwrapped_templatecount);
+    p11tool_free_attributes(unwrapped_template, unwrapped_templatecount);
 
     return rc;
 }
@@ -3720,11 +2510,17 @@ static CK_RV p11kmip_wrap_local_secret_key(CK_OBJECT_HANDLE wrapping_key_handle,
     }
 
     /* wrap key (length only) */
-    rc = pkcs11_funcs->C_WrapKey(pkcs11_session,
-                                 &mech, wrapping_key_handle, secret_key_handle,
-                                 NULL, wrapped_key_length);
+    rc = p11tool_pkcs11_funcs->C_WrapKey(p11tool_pkcs11_session,
+                                         &mech, wrapping_key_handle,
+                                         secret_key_handle,
+                                         NULL, wrapped_key_length);
 
     if (rc != CKR_OK) {
+        if (p11tool_is_rejected_by_policy(rc, p11tool_pkcs11_session)) {
+            warnx("Unable to determine length of wrapped key object due to "
+                  "policy rejection");
+            return CKR_GENERAL_ERROR;
+        }
         warnx("Unable to determine length of wrapped key object");
         return CKR_GENERAL_ERROR;
     }
@@ -3735,15 +2531,16 @@ static CK_RV p11kmip_wrap_local_secret_key(CK_OBJECT_HANDLE wrapping_key_handle,
         return CKR_HOST_MEMORY;
     }
     /* Wrap key blob */
-    rc = pkcs11_funcs->C_WrapKey(pkcs11_session,
-                                 &mech, wrapping_key_handle, secret_key_handle,
-                                 *wrapped_key_blob, wrapped_key_length);
+    rc = p11tool_pkcs11_funcs->C_WrapKey(p11tool_pkcs11_session,
+                                         &mech, wrapping_key_handle,
+                                         secret_key_handle,
+                                         *wrapped_key_blob, wrapped_key_length);
 
     return rc;
 }
 
 static CK_RV p11kmip_create_local_public_key(
-                                const struct p11kmip_keytype *public_keytype,
+                                const struct p11tool_objtype *public_keytype,
                                 EVP_PKEY *pub_key, char *public_key_label,
                                 CK_ATTRIBUTE_PTR public_key_attrs,
                                 CK_ULONG public_key_num_attrs,
@@ -3759,17 +2556,11 @@ static CK_RV p11kmip_create_local_public_key(
     BIGNUM *bn_n = NULL, *bn_e = NULL;
 #endif
 
-    CK_OBJECT_CLASS key_class = public_keytype->class;
+    CK_OBJECT_CLASS key_class = CKO_PUBLIC_KEY;
     CK_KEY_TYPE key_type = public_keytype->type;
-    CK_ULONG key_size = 0;
     CK_ULONG public_templatecount = 0;
     CK_ATTRIBUTE_PTR public_template = NULL;
 
-    rc = public_keytype->keygen_get_key_size(public_keytype, NULL, &key_size);
-    if (rc) {
-        warnx("Failed to key size of wrapped key");
-        goto done;
-    }
 #if !OPENSSL_VERSION_PREREQ(3, 0)
     rsa = EVP_PKEY_get0_RSA(pub_key);
     if (rsa == NULL) {
@@ -3793,15 +2584,15 @@ static CK_RV p11kmip_create_local_public_key(
 #endif
 
     /* Add default attributes attributes */
-    rc = add_attribute(CKA_TOKEN, &ck_true, sizeof(ck_true), 
-                        &public_template, &public_templatecount);
-    rc += add_attribute(CKA_CLASS, &key_class, sizeof(key_class),
-                        &public_template, &public_templatecount);
-    rc += add_attribute(CKA_KEY_TYPE, &key_type, sizeof(key_type),
-                        &public_template, &public_templatecount);
-    rc += add_attribute(CKA_LABEL, public_key_label, 
-                        strlen((char *) public_key_label),
-                        &public_template, &public_templatecount);
+    rc = p11tool_add_attribute(CKA_TOKEN, &ck_true, sizeof(ck_true),
+                               &public_template, &public_templatecount);
+    rc += p11tool_add_attribute(CKA_CLASS, &key_class, sizeof(key_class),
+                                &public_template, &public_templatecount);
+    rc += p11tool_add_attribute(CKA_KEY_TYPE, &key_type, sizeof(key_type),
+                                &public_template, &public_templatecount);
+    rc += p11tool_add_attribute(CKA_LABEL, public_key_label,
+                                strlen((char *) public_key_label),
+                                &public_template, &public_templatecount);
     
     if (rc != CKR_OK)
             goto done;
@@ -3816,32 +2607,33 @@ static CK_RV p11kmip_create_local_public_key(
             memcpy(public_template[0].pValue, public_key_attrs[i].pValue, 
                     public_key_attrs[i].ulValueLen);
         } else {
-            rc = add_attribute(public_key_attrs[i].type,
-                               public_key_attrs[i].pValue,
-                               public_key_attrs[i].ulValueLen,
-                               &public_template,
-                               &public_templatecount);
+            rc = p11tool_add_attribute(public_key_attrs[i].type,
+                                       public_key_attrs[i].pValue,
+                                       public_key_attrs[i].ulValueLen,
+                                       &public_template,
+                                       &public_templatecount);
             if (rc != CKR_OK)
                 goto done;
         }
     }
 
-    rc = add_bignum_attr(CKA_MODULUS, bn_n, &public_template,
-                         &public_templatecount);
+    rc = p11tool_add_bignum_attr(CKA_MODULUS, bn_n, &public_template,
+                                 &public_templatecount);
     if (rc != CKR_OK)
         goto done;
 
-    rc = add_bignum_attr(CKA_PUBLIC_EXPONENT, bn_e, &public_template,
-                         &public_templatecount);
+    rc = p11tool_add_bignum_attr(CKA_PUBLIC_EXPONENT, bn_e, &public_template,
+                                 &public_templatecount);
     if (rc != CKR_OK)
         goto done;
 
-    rc = pkcs11_funcs->C_CreateObject(pkcs11_session,
-                                      public_template, public_templatecount,
-                                      public_key_handle);
+    rc = p11tool_pkcs11_funcs->C_CreateObject(p11tool_pkcs11_session,
+                                              public_template,
+                                              public_templatecount,
+                                              public_key_handle);
 
 done:
-    free_attributes(public_template, public_templatecount);
+    p11tool_free_attributes(public_template, public_templatecount);
 
 #if OPENSSL_VERSION_PREREQ(3, 0)
     BN_free(bn_n);
@@ -3860,12 +2652,13 @@ done:
  * @param label         label of key
  * @param id            id of key
  * @param key           handle return if key is found
- * global pkcs11_funcs  used to call PKCS11 functions
+ * global p11tool_pkcs11_funcs  used to call PKCS11 functions
  * 
  * @return CK_RV 
  */
 static CK_RV p11kmip_find_local_key(
-                        const struct p11kmip_keytype *keytype,
+                        const struct p11tool_objtype *keytype,
+                        CK_OBJECT_CLASS class,
                         const char *label,
                         const char *id, CK_OBJECT_HANDLE *key)
 {
@@ -3876,41 +2669,43 @@ static CK_RV p11kmip_find_local_key(
     CK_OBJECT_HANDLE keys[FIND_OBJECTS_COUNT];
     CK_ULONG num_keys;
 
-    rc = add_attribute(CKA_TOKEN, &ck_true, sizeof(ck_true), &attrs,
-                       &num_attrs);
+    rc = p11tool_add_attribute(CKA_TOKEN, &ck_true, sizeof(ck_true), &attrs,
+                               &num_attrs);
     if (rc != CKR_OK)
         goto done;
 
     if (keytype != NULL) {
         /* Set the filter attribute, if applicable */
-        if (keytype->filter_attr != (CK_ATTRIBUTE_TYPE) - 1) {
-            rc = add_attribute(keytype->filter_attr, &keytype->filter_value,
-                               sizeof(keytype->filter_value), &attrs,
-                               &num_attrs);
+        if (keytype->filter_attr != (CK_ATTRIBUTE_TYPE)-1) {
+            rc = p11tool_add_attribute(keytype->filter_attr,
+                                       &keytype->filter_value,
+                                       sizeof(keytype->filter_value), &attrs,
+                                       &num_attrs);
             if (rc != CKR_OK)
                 goto done;
         }
         /* Set an attribute for the class to give us more granularity */
-        rc = add_attribute(CKA_CLASS, &keytype->class,
-                           sizeof(keytype->class), &attrs, &num_attrs);
+        rc = p11tool_add_attribute(CKA_CLASS, &class,
+                                   sizeof(class), &attrs, &num_attrs);
         if (rc != CKR_OK)
             goto done;
     }
 
     if (label != NULL) {
-        rc = add_attribute(CKA_LABEL, label, strlen((char *) label), &attrs,
-                           &num_attrs);
+        rc = p11tool_add_attribute(CKA_LABEL, label, strlen((char *) label),
+                                   &attrs, &num_attrs);
         if (rc != CKR_OK)
             goto done;
     }
 
     if (id != NULL) {
-        rc = parse_id((char *) id, &attrs, &num_attrs);
+        rc = p11tool_parse_id((char *) id, &attrs, &num_attrs);
         if (rc != CKR_OK)
             return rc;
     }
 
-    rc = pkcs11_funcs->C_FindObjectsInit(pkcs11_session, attrs, num_attrs);
+    rc = p11tool_pkcs11_funcs->C_FindObjectsInit(p11tool_pkcs11_session,
+                                                 attrs, num_attrs);
     if (rc != CKR_OK) {
         warnx("Failed to initialize the find operation:"
               " C_FindObjectsInit: 0x%lX: %s",
@@ -3921,15 +2716,15 @@ static CK_RV p11kmip_find_local_key(
     memset(keys, 0, sizeof(keys));
     num_keys = 0;
 
-    rc = pkcs11_funcs->C_FindObjects(pkcs11_session, keys,
-                                     FIND_OBJECTS_COUNT, &num_keys);
+    rc = p11tool_pkcs11_funcs->C_FindObjects(p11tool_pkcs11_session, keys,
+                                             FIND_OBJECTS_COUNT, &num_keys);
     if (rc != CKR_OK) {
         warnx("Failed to find objects: C_FindObjects: 0x%lX: %s",
               rc, p11_get_ckr(rc));
         goto done;
     }
 
-    rc = pkcs11_funcs->C_FindObjectsFinal(pkcs11_session);
+    rc = p11tool_pkcs11_funcs->C_FindObjectsFinal(p11tool_pkcs11_session);
     if (rc != CKR_OK) {
         warnx("Failed to finalize the find operation:"
               " C_FindObjectsFinal: 0x%lX: %s",
@@ -3940,12 +2735,12 @@ static CK_RV p11kmip_find_local_key(
 
     if (num_keys == 0) {
         rc = CKR_FUNCTION_FAILED;
-        warnx("Failed to find key matching label '%s'\n", label);
+        warnx("Failed to find key matching label '%s'", label);
 
         goto done;
     } else if (num_keys > 1) {
         rc = CKR_FUNCTION_FAILED;
-        warnx("Found multiple keys matching label '%s'\n", label);
+        warnx("Found multiple keys matching label '%s'", label);
 
         goto done;
     }
@@ -3953,7 +2748,7 @@ static CK_RV p11kmip_find_local_key(
     *key = keys[0];
 
 done:
-    free_attributes(attrs, num_attrs);
+    p11tool_free_attributes(attrs, num_attrs);
 
     return rc;
 }
@@ -3965,20 +2760,29 @@ static CK_RV p11kmip_digest_local_key(CK_BYTE_PTR digest,
 {
     CK_RV rc;
 
-    rc = pkcs11_funcs->C_DigestInit(pkcs11_session, digestMech);
+    rc = p11tool_pkcs11_funcs->C_DigestInit(p11tool_pkcs11_session, digestMech);
     if (rc != CKR_OK) {
+        if (p11tool_is_rejected_by_policy(rc, p11tool_pkcs11_session)) {
+            warnx("Initialize PKCS#11 digest is rejected by policy");
+            return rc;
+        }
         warnx("Failed to initialize PKCS#11 digest");
         return rc;
     }
 
-    rc = pkcs11_funcs->C_DigestKey(pkcs11_session, key);
+    rc = p11tool_pkcs11_funcs->C_DigestKey(p11tool_pkcs11_session, key);
     if (rc != CKR_OK) {
+        if (p11tool_is_rejected_by_policy(rc, p11tool_pkcs11_session))
+            warnx("Digest PKCS#11 key is rejected by policy");
         if (rc != CKR_KEY_INDIGESTIBLE)
             warnx("Failed to digest PKCS#11 key");
         return rc;
     }
 
-    rc = pkcs11_funcs->C_DigestFinal(pkcs11_session, digest, digestLen);
+    rc = p11tool_pkcs11_funcs->C_DigestFinal(p11tool_pkcs11_session,
+                                             digest, digestLen);
+    if (p11tool_is_rejected_by_policy(rc, p11tool_pkcs11_session))
+        warnx("Digest PKCS#11 key is rejected by policy");
 
     return rc;
 }
@@ -3987,8 +2791,9 @@ static CK_RV p11kmip_digest_local_key(CK_BYTE_PTR digest,
 /* Functions for Manipulating a Remote KMIP Server                         */
 /***************************************************************************/
 
-static CK_RV p11kmip_locate_remote_key(const char *label, const struct
-                                       p11kmip_keytype *keytype,
+static CK_RV p11kmip_locate_remote_key(const char *label,
+                                       CK_OBJECT_CLASS class,
+                                       CK_KEY_TYPE keytype,
                                        struct kmip_node **obj_uid)
 {
     struct kmip_node *req_pl = NULL, *resp_pl = NULL, *item_uid = NULL,
@@ -4006,7 +2811,7 @@ static CK_RV p11kmip_locate_remote_key(const char *label, const struct
     num_attrs = 1;
 
     /* Reconcile constants for PKCS#11 to KMIP */
-    obj_type = get_kmip_obj_class_from_p11(keytype->class);
+    obj_type = get_kmip_obj_class_from_p11(class);
 
     if (obj_type == P11KMIP_KMIP_UNKNOWN_OBJ) {
         warnx("Unknown object class");
@@ -4015,7 +2820,7 @@ static CK_RV p11kmip_locate_remote_key(const char *label, const struct
     }
     num_attrs++;
 
-    key_alg = get_kmip_alg_from_p11(keytype->type);
+    key_alg = get_kmip_alg_from_p11(keytype);
 
     if (key_alg == P11KMIP_KMIP_UNKNOWN_ALG) {
         warnx("Unknown key algorithm");
@@ -4116,7 +2921,7 @@ out:
  * @return CK_RV 
  */
 static CK_RV p11kmip_register_remote_public_key(
-                                        const struct p11kmip_keytype *keytype,
+                                        const struct p11tool_objtype *keytype,
                                         CK_OBJECT_HANDLE wrapping_pubkey,
                                         const char *wrapping_key_label,
                                         struct kmip_node **key_uid)
@@ -4326,7 +3131,7 @@ out:
 }
 
 static CK_RV p11kmip_register_remote_wrapped_key(
-                                const struct p11kmip_keytype *wrapped_keytype,
+                                const struct p11tool_objtype *wrapped_keytype,
                                 CK_ULONG wrapped_key_length,
                                 const CK_BYTE *wrapped_key_blob,
                                 const char *wrapped_key_label,
@@ -4340,7 +3145,6 @@ static CK_RV p11kmip_register_remote_wrapped_key(
     struct kmip_node *umask_attr = NULL, *cparams_attr = NULL;
     struct kmip_node *act_req = NULL, *act_resp = NULL;
     enum kmip_crypto_algo wrapped_key_algo;
-    CK_ULONG wrapped_key_size;
     char *description = NULL;
     struct utsname utsname;
     enum kmip_result_status reg_status = 0, act_status = 0;
@@ -4348,12 +3152,6 @@ static CK_RV p11kmip_register_remote_wrapped_key(
     int rc;
 
     wrapped_key_algo = get_kmip_alg_from_p11(wrapped_keytype->type);
-    rc = wrapped_keytype->keygen_get_key_size(wrapped_keytype, NULL,
-                                              &wrapped_key_size);
-    if (rc) {
-        warnx("Failed to get key size of wrapped key");
-        goto out;
-    }
 
     enc_cparams = kmip_new_cryptographic_parameters(
                     NULL, 0, kmip_wrap_padding_method,
@@ -4399,9 +3197,7 @@ static CK_RV p11kmip_register_remote_wrapped_key(
     }
 
     kblock = kmip_new_key_block(KMIP_KEY_FORMAT_TYPE_RAW, 0, 
-                                kval, wrapped_key_algo, 
-                                /* Wanted in bits */
-                                (int32_t) (wrapped_key_size * 8),
+                                kval, wrapped_key_algo, 0,
                                 wrap_data);
     if (kblock == NULL) {
         warnx("Allocate KMIP node failed");
@@ -4535,7 +3331,8 @@ out:
  */
 static CK_RV p11kmip_retrieve_remote_wrapped_key(
                                 struct kmip_node *wrapping_key_uid,
-                                struct p11kmip_keytype *wrapped_keytype, 
+                                const struct p11tool_objtype *wrapped_keytype,
+                                CK_ULONG *wrapped_keysize,
                                 struct kmip_node *wrapped_key_uid, 
                                 unsigned long *wrapped_key_length,
                                 CK_BYTE **wrapped_key_blob)
@@ -4562,7 +3359,7 @@ static CK_RV p11kmip_retrieve_remote_wrapped_key(
     enum kmip_result_reason reason = 0;
     int rc = 0;
 
-    if (wrapped_keytype->class != CKO_SECRET_KEY) {
+    if (wrapped_keytype->is_asymmetric) {
         warnx("Unsupported object class");
         rc = CKR_GENERAL_ERROR;
         goto out;
@@ -4623,7 +3420,8 @@ static CK_RV p11kmip_retrieve_remote_wrapped_key(
     }
     wrapped_key_class = get_p11_obj_class_from_kmip(otype);
 
-    if (wrapped_key_class != wrapped_keytype->class) {
+    if (wrapped_key_class != (wrapped_keytype->is_asymmetric ?
+                                    CKO_PRIVATE_KEY : CKO_SECRET_KEY)) {
         warnx("Key is not the correct object class");
         rc = CKR_GENERAL_ERROR;
         goto out;
@@ -4740,7 +3538,7 @@ static CK_RV p11kmip_retrieve_remote_wrapped_key(
      * 'bits' should contain the length of the unwrapped key
      * while the 'klen' contains the length of the wrapped blob
      */
-    wrapped_keytype->keysize_value = (CK_ULONG)(bits/8);
+    *wrapped_keysize = (CK_ULONG)(bits / 8);
     *wrapped_key_blob = malloc(klen);
     *wrapped_key_length = klen;
     memcpy(*wrapped_key_blob, kdata, klen);
@@ -4776,7 +3574,7 @@ out:
  * @return CK_RV 
  */
 static CK_RV p11kmip_retrieve_remote_public_key(
-                                struct p11kmip_keytype *public_keytype,
+                                const struct p11tool_objtype *public_keytype,
                                 struct kmip_node *pubkey_uid,
                                 EVP_PKEY **pub_key)
 {
@@ -4802,7 +3600,7 @@ static CK_RV p11kmip_retrieve_remote_public_key(
     enum kmip_result_reason reason = 0;
     int rc = 0;
 
-    if (public_keytype->class != CKO_PUBLIC_KEY) {
+    if (!public_keytype->is_asymmetric) {
         warnx("Unsupported object class");
         rc = CKR_GENERAL_ERROR;
         goto out;
@@ -4836,7 +3634,7 @@ static CK_RV p11kmip_retrieve_remote_public_key(
     }
 
     public_key_class = get_p11_obj_class_from_kmip(otype);
-    if (public_key_class != public_keytype->class) {
+    if (public_key_class != CKO_PUBLIC_KEY) {
         warnx("Invalid class");
         rc = CKR_GENERAL_ERROR;
         goto out;
@@ -4947,9 +3745,6 @@ static CK_RV p11kmip_retrieve_remote_public_key(
         goto out;
     }
 
-    // Store the length of the retrieved key
-    public_keytype->keysize_value = (CK_ULONG)(bits/8);
-
 out:
     kmip_node_free(cparams);
     kmip_node_free(wrap_id);
@@ -4974,16 +3769,16 @@ out:
 }
 
 static CK_RV p11kmip_generate_remote_secret_key(
-                                            struct p11kmip_keytype *keytype,
-                                            const char *secret_key_label,
-                                            struct kmip_node **secret_key_uid)
+                                         const struct p11tool_objtype *keytype,
+                                         CK_ULONG keysize,
+                                         const char *secret_key_label,
+                                         struct kmip_node **secret_key_uid)
 {
     struct kmip_node *act_req = NULL, *act_resp = NULL, *unique_id = NULL;
     struct kmip_node **attrs = NULL, *crea_req = NULL, *crea_resp = NULL;
     enum kmip_result_status crea_status = 0, act_status = 0;
     enum kmip_result_reason crea_reason = 0, act_reason = 0;
     unsigned int num_attrs, i, idx = 0;
-    CK_ULONG keysize = 0;
     enum kmip_crypto_algo secret_alg = P11KMIP_KMIP_UNKNOWN_ALG;
     int rc = 0;
 
@@ -5006,12 +3801,6 @@ static CK_RV p11kmip_generate_remote_secret_key(
     }
     idx++;
 
-    rc = keytype->keygen_get_key_size(keytype, NULL, &keysize);
-
-    if (rc != CKR_OK || keysize == 0) {
-        warnx("Failed to get keysize");
-        goto out;
-    }
     /* Cryptographic length wants it in bits */
     attrs[idx] = kmip_new_cryptographic_length(keysize * 8);
     if (attrs[idx] == NULL) {
@@ -5279,14 +4068,70 @@ out:
 /* Functions for Manipulating a Remote KMIP Server                         */
 /***************************************************************************/
 
+static CK_RV get_slot(CK_SLOT_ID *slot)
+{
+    int f;
+    struct ConfigBaseNode *c, *cfg_slot;
+    struct ConfigStructNode *structnode;
+    bool found = false;
+
+    *slot = opt_slot;
+
+    /* If not set by option, fallback to env variable */
+    if (*slot == (CK_SLOT_ID)-1)
+        *slot = env_pkcs_slot;
+    /* If not set by env variable, fallback to conf file */
+    if (*slot == (CK_SLOT_ID)-1) {
+        if (p11kmip_cfg != NULL) {
+            /* Iterate the configuration node(s) */
+            confignode_foreach(c, p11kmip_cfg, f) {
+                if (!confignode_hastype(c, CT_STRUCT) ||
+                    strcmp(c->key, P11KMIP_CONFIG_KEYWORD_PKCS11) != 0) {
+                    continue;
+                } else if (found) {
+                    warnx("Syntax error in config file:"
+                          " '%s' specified multiple times",
+                          P11KMIP_CONFIG_KEYWORD_PKCS11);
+                    return CKR_ARGUMENTS_BAD;
+                }
+
+                found = true;
+                structnode = confignode_to_struct(c);
+                cfg_slot = confignode_find(structnode->value,
+                                           P11KMIP_CONFIG_KEYWORD_PKCS_SLOT);
+
+                if (cfg_slot != NULL
+                    && !confignode_hastype(cfg_slot, CT_INTVAL)) {
+                    warnx("Syntax error in config file:"
+                          " Missing '%s' in attribute at line %hu",
+                          P11KMIP_CONFIG_KEYWORD_WRAP_KEY_SIZE, c->line);
+                    return CKR_ARGUMENTS_BAD;
+                }
+
+                if (cfg_slot != NULL) {
+                    *slot = confignode_to_intval(cfg_slot)->value;
+                }
+            }
+        }
+    }
+
+    if (*slot == (CK_SLOT_ID)-1) {
+        warnx("The PKCS#11 slot ID must be specified");
+        return CKR_ARGUMENTS_BAD;
+    }
+
+    return CKR_OK;
+}
+
 int main(int argc, char *argv[])
 {
-    const struct p11kmip_cmd *command = NULL;
+    const struct p11tool_cmd *command = NULL;
+    CK_SLOT_ID slot;
     CK_RV rc = CKR_OK;
 
     /* Get p11kmip command (if any) */
     if (argc >= 2 && strncmp(argv[1], "-", 1) != 0) {
-        command = find_command(argv[1]);
+        command = p11tool_find_command(p11kmip_commands, argv[1]);
         if (command == NULL) {
             warnx("Invalid command '%s'", argv[1]);
             rc = CKR_ARGUMENTS_BAD;
@@ -5298,25 +4143,27 @@ int main(int argc, char *argv[])
     }
 
     /* Get command arguments (if any) */
-    rc = parse_cmd_arguments(command, &argc, &argv);
+    rc = p11tool_parse_cmd_arguments(command, &argc, &argv);
     if (rc != CKR_OK)
         goto done;
 
     /* Get generic and command specific options (if any) */
-    rc = parse_cmd_options(command, argc, argv);
+    rc = p11tool_parse_cmd_options(command, p11kmip_generic_opts, argc, argv);
     if (rc != CKR_OK)
         goto done;
 
     if (opt_help) {
         if (command == NULL)
-            print_help();
+            p11tool_print_help("p11kmip", p11kmip_commands,
+                               p11kmip_generic_opts, PRINT_INDENT_POS);
         else
-            print_command_help(command);
+            p11tool_print_command_help("p11kmip",command,
+                                       p11kmip_generic_opts, PRINT_INDENT_POS);
         goto done;
     }
 
     if (opt_version) {
-        print_version();
+        p11tool_print_version("p11kmip");
         goto done;
     }
 
@@ -5327,11 +4174,11 @@ int main(int argc, char *argv[])
         goto done;
     }
 
-    rc = check_required_args(command->args);
+    rc = p11tool_check_required_args(command->args);
     if (rc != CKR_OK)
         goto done;
 
-    rc = check_required_cmd_opts(command->opts);
+    rc = p11tool_check_required_cmd_opts(command->opts, p11kmip_generic_opts);
     if (rc != CKR_OK)
         goto done;
 
@@ -5347,7 +4194,15 @@ int main(int argc, char *argv[])
     if (rc != CKR_OK)
         goto done;
 
-    rc = init_pkcs11(command);
+    rc = get_slot(&slot);
+    if (rc != CKR_OK)
+        goto done;
+    opt_slot = slot;
+
+    if (opt_pin == NULL)
+        opt_pin = env_pkcs_pin;
+    rc = p11tool_init_pkcs11(command, false, opt_pin, opt_force_pin_prompt,
+                             false, false, slot, NULL);
     if (rc != CKR_OK)
         goto done;
 
@@ -5361,7 +4216,7 @@ int main(int argc, char *argv[])
 
 done:
     term_kmip();
-    term_pkcs11();
+    p11tool_term_pkcs11();
 
     if (p11kmip_cfg != NULL)
         confignode_deepfree(p11kmip_cfg);

@@ -23,12 +23,6 @@
 #include <dlfcn.h>
 #include <pwd.h>
 #include <ctype.h>
-#include "platform.h"
-
-#if !defined(_AIX)
-    #include <linux/limits.h>
-#endif /* _AIX */
-
 #include <fnmatch.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -51,7 +45,6 @@
 #include "configuration.h"
 #include "mechtable.h"
 #include "defs.h"
-#include "uri.h"
 #include "pqc_defs.h"
 
 #if OPENSSL_VERSION_PREREQ(3, 0)
@@ -85,16 +78,6 @@ static void print_set_copy_cert_attr_help(void);
 static void print_remove_cert_help(void);
 static void print_extract_cert_pubkey_help(void);
 
-static void *pkcs11_lib = NULL;
-static bool pkcs11_initialized = false;
-static CK_FUNCTION_LIST *pkcs11_funcs = NULL;
-static CK_SESSION_HANDLE pkcs11_session = CK_INVALID_HANDLE;
-static CK_INFO pkcs11_info;
-static CK_TOKEN_INFO pkcs11_tokeninfo;
-static const struct p11sak_token_info *token_info = NULL;
-static CK_SLOT_INFO pkcs11_slotinfo;
-static char *uri_pin = NULL;
-
 static struct ConfigBaseNode *p11sak_cfg = NULL;
 
 static bool opt_help = false;
@@ -104,14 +87,14 @@ static char *opt_pin = NULL;
 static bool opt_force_pin_prompt = false;
 static bool opt_no_login = false;
 static bool opt_so = false;
-static struct p11sak_enum_value *opt_keytype = NULL;
-static struct p11sak_enum_value *opt_certtype = NULL;
+static struct p11tool_enum_value *opt_keytype = NULL;
+static struct p11tool_enum_value *opt_certtype = NULL;
 static CK_ULONG opt_keybits_num = 0;
-static struct p11sak_enum_value *opt_keybits = NULL;
-static struct p11sak_enum_value *opt_group = NULL;
+static struct p11tool_enum_value *opt_keybits = NULL;
+static struct p11tool_enum_value *opt_group = NULL;
 static char *opt_pem_file = NULL;
-static struct p11sak_enum_value *opt_curve = NULL;
-static struct p11sak_enum_value *opt_pqc_version = NULL;
+static struct p11tool_enum_value *opt_curve = NULL;
+static struct p11tool_enum_value *opt_pqc_version = NULL;
 static char *opt_label = NULL;
 static bool opt_force = false;
 static CK_ULONG opt_exponent = 0;
@@ -127,7 +110,7 @@ static char *opt_file = NULL;
 static char *opt_pem_password = NULL;
 static bool opt_force_pem_pwd_prompt = false;
 static bool opt_opaque = false;
-static struct p11sak_enum_value *opt_asym_kind = NULL;
+static struct p11tool_enum_value *opt_asym_kind = NULL;
 static bool opt_spki = false;
 static bool opt_der = false;
 static bool opt_cacert = false;
@@ -137,198 +120,163 @@ static char *opt_uri_pin_source = NULL;
 static bool opt_oqsprovider_pem = false;
 static bool opt_hsm_mkvp = false;
 
-static bool opt_slot_is_set(const struct p11sak_arg *arg);
-static CK_RV generic_get_key_size(const struct p11sak_objtype *keytype,
+static bool opt_slot_is_set(const struct p11tool_arg *arg);
+static CK_RV generic_get_key_size(const struct p11tool_objtype *keytype,
                                   void *private, CK_ULONG *keysize);
-static CK_RV generic_add_secret_attrs(const struct p11sak_objtype *keytype,
+static CK_RV generic_add_secret_attrs(const struct p11tool_objtype *keytype,
                                       CK_ATTRIBUTE **attrs, CK_ULONG *num_attrs,
                                       void *private);
-static CK_ULONG generic_keysize_adjust(const struct p11sak_objtype *keytype,
+static CK_ULONG generic_keysize_adjust(const struct p11tool_objtype *keytype,
                                        CK_ULONG keysize);
-static CK_RV aes_get_key_size(const struct p11sak_objtype *keytype,
+static CK_RV aes_get_key_size(const struct p11tool_objtype *keytype,
                               void *private, CK_ULONG *keysize);
-static CK_RV aes_add_secret_attrs(const struct p11sak_objtype *keytype,
+static CK_RV aes_add_secret_attrs(const struct p11tool_objtype *keytype,
                                   CK_ATTRIBUTE **attrs, CK_ULONG *num_attrs,
                                   void *private);
-static CK_ULONG aes_keysize_adjust(const struct p11sak_objtype *keytype,
+static CK_ULONG aes_keysize_adjust(const struct p11tool_objtype *keytype,
                                    CK_ULONG keysize);
-static CK_ULONG aes_xts_keysize_adjust(const struct p11sak_objtype *keytype,
+static CK_ULONG aes_xts_keysize_adjust(const struct p11tool_objtype *keytype,
                                        CK_ULONG keysize);
-static CK_ULONG rsa_keysize_adjust(const struct p11sak_objtype *keytype,
+static CK_ULONG rsa_keysize_adjust(const struct p11tool_objtype *keytype,
                                    CK_ULONG keysize);
-static CK_ULONG dh_keysize_adjust(const struct p11sak_objtype *keytype,
+static CK_ULONG dh_keysize_adjust(const struct p11tool_objtype *keytype,
                                   CK_ULONG keysize);
-static CK_ULONG dsa_keysize_adjust(const struct p11sak_objtype *keytype,
+static CK_ULONG dsa_keysize_adjust(const struct p11tool_objtype *keytype,
                                    CK_ULONG keysize);
-static CK_RV rsa_get_key_size(const struct p11sak_objtype *keytype,
+static CK_RV rsa_get_key_size(const struct p11tool_objtype *keytype,
                               void *private, CK_ULONG *keysize);
-static CK_RV rsa_add_public_attrs(const struct p11sak_objtype *keytype,
+static CK_RV rsa_add_public_attrs(const struct p11tool_objtype *keytype,
                                   CK_ATTRIBUTE **attrs, CK_ULONG *num_attrs,
                                   void *private);
-static CK_RV ec_get_key_size(const struct p11sak_objtype *keytype,
+static CK_RV ec_get_key_size(const struct p11tool_objtype *keytype,
                              void *private, CK_ULONG *keysize);
-static CK_RV ec_add_public_attrs(const struct p11sak_objtype *keytype,
+static CK_RV ec_add_public_attrs(const struct p11tool_objtype *keytype,
                                  CK_ATTRIBUTE **attrs, CK_ULONG *num_attrs,
                                  void *private);
-static CK_RV dh_prepare(const struct p11sak_objtype *keytype, void **private);
-static void dh_cleanup(const struct p11sak_objtype *keytype, void *private);
-static CK_RV dh_get_key_size(const struct p11sak_objtype *keytype,
+static CK_RV dh_prepare(const struct p11tool_objtype *keytype, void **private);
+static void dh_cleanup(const struct p11tool_objtype *keytype, void *private);
+static CK_RV dh_get_key_size(const struct p11tool_objtype *keytype,
                              void *private, CK_ULONG *keysize);
-static CK_RV dh_add_public_attrs(const struct p11sak_objtype *keytype,
+static CK_RV dh_add_public_attrs(const struct p11tool_objtype *keytype,
                                  CK_ATTRIBUTE **attrs, CK_ULONG *num_attrs,
                                  void *private);
-static CK_RV dh_add_private_attrs(const struct p11sak_objtype *keytype,
+static CK_RV dh_add_private_attrs(const struct p11tool_objtype *keytype,
                                   CK_ATTRIBUTE **attrs, CK_ULONG *num_attrs,
                                   void *private);
-static CK_RV dsa_prepare(const struct p11sak_objtype *keytype, void **private);
-static void dsa_cleanup(const struct p11sak_objtype *keytype, void *private);
-static CK_RV dsa_get_key_size(const struct p11sak_objtype *keytype,
+static CK_RV dsa_prepare(const struct p11tool_objtype *keytype, void **private);
+static void dsa_cleanup(const struct p11tool_objtype *keytype, void *private);
+static CK_RV dsa_get_key_size(const struct p11tool_objtype *keytype,
                               void *private, CK_ULONG *keysize);
-static CK_RV dsa_add_public_attrs(const struct p11sak_objtype *keytype,
+static CK_RV dsa_add_public_attrs(const struct p11tool_objtype *keytype,
                                   CK_ATTRIBUTE **attrs, CK_ULONG *num_attrs,
                                   void *private);
-static CK_RV ibm_dilithium_add_public_attrs(const struct p11sak_objtype *keytype,
-                                            CK_ATTRIBUTE **attrs,
-                                            CK_ULONG *num_attrs,
-                                            void *private);
-static CK_RV ibm_kyber_add_public_attrs(const struct p11sak_objtype *keytype,
+static CK_RV ibm_dilithium_add_public_attrs(
+                                        const struct p11tool_objtype *keytype,
+                                        CK_ATTRIBUTE **attrs,
+                                        CK_ULONG *num_attrs,
+                                        void *private);
+static CK_RV ibm_kyber_add_public_attrs(const struct p11tool_objtype *keytype,
                                         CK_ATTRIBUTE **attrs,
                                         CK_ULONG *num_attrs,
                                         void *private);
 
 static CK_RV p11sak_import_check_des_keysize(
-                                        const struct p11sak_objtype *keytype,
+                                        const struct p11tool_objtype *keytype,
                                         CK_ULONG keysize);
 static CK_RV p11sak_import_check_3des_keysize(
-                                        const struct p11sak_objtype *keytype,
+                                        const struct p11tool_objtype *keytype,
                                         CK_ULONG keysize);
 static CK_RV p11sak_import_check_generic_keysize(
-                                        const struct p11sak_objtype *keytype,
+                                        const struct p11tool_objtype *keytype,
                                         CK_ULONG keysize);
 static CK_RV p11sak_import_check_aes_keysize(
-                                        const struct p11sak_objtype *keytype,
+                                        const struct p11tool_objtype *keytype,
                                         CK_ULONG keysize);
 static CK_RV p11sak_import_check_aes_xts_keysize(
-                                        const struct p11sak_objtype *keytype,
+                                        const struct p11tool_objtype *keytype,
                                         CK_ULONG keysize);
 static CK_RV p11sak_import_sym_clear_des_3des_aes_generic(
-                                    const struct p11sak_objtype *keytype,
+                                    const struct p11tool_objtype *keytype,
                                     CK_BYTE *data, CK_ULONG data_len,
                                     CK_ATTRIBUTE **attrs, CK_ULONG *num_attrs);
-static CK_RV p11sak_import_rsa_pkey(const struct p11sak_objtype *keytype,
+static CK_RV p11sak_import_rsa_pkey(const struct p11tool_objtype *keytype,
                                     EVP_PKEY *pkey, bool private,
                                     CK_ATTRIBUTE **attrs, CK_ULONG *num_attrs);
-static CK_RV p11sak_import_cert_attrs(const struct p11sak_objtype *certtype,
+static CK_RV p11sak_import_cert_attrs(const struct p11tool_objtype *certtype,
                                       X509 *x509, CK_ATTRIBUTE **attrs,
                                       CK_ULONG *num_attrs);
-static CK_RV p11sak_import_x509_attrs(const struct p11sak_objtype *certtype,
+static CK_RV p11sak_import_x509_attrs(const struct p11tool_objtype *certtype,
                                       X509 *x509, CK_ATTRIBUTE **attrs,
                                       CK_ULONG *num_attrs);
-static CK_RV p11sak_import_dh_pkey(const struct p11sak_objtype *keytype,
+static CK_RV p11sak_import_dh_pkey(const struct p11tool_objtype *keytype,
                                     EVP_PKEY *pkey, bool private,
                                     CK_ATTRIBUTE **attrs, CK_ULONG *num_attrs);
-static CK_RV p11sak_import_dsa_pkey(const struct p11sak_objtype *keytype,
+static CK_RV p11sak_import_dsa_pkey(const struct p11tool_objtype *keytype,
                                     EVP_PKEY *pkey, bool private,
                                     CK_ATTRIBUTE **attrs, CK_ULONG *num_attrs);
-static CK_RV p11sak_import_ec_pkey(const struct p11sak_objtype *keytype,
+static CK_RV p11sak_import_ec_pkey(const struct p11tool_objtype *keytype,
                                    EVP_PKEY *pkey, bool private,
                                    CK_ATTRIBUTE **attrs, CK_ULONG *num_attrs);
 static CK_RV p11sak_import_dilithium_kyber_pem_data(
-                                        const struct p11sak_objtype *keytype,
+                                        const struct p11tool_objtype *keytype,
                                         unsigned char *data, size_t data_len,
                                         bool private,
                                         CK_ATTRIBUTE **attrs,
                                         CK_ULONG *num_attrs);
-static CK_RV p11sak_import_dilithium_pkey(const struct p11sak_objtype *keytype,
+static CK_RV p11sak_import_dilithium_pkey(const struct p11tool_objtype *keytype,
                                           EVP_PKEY *pkey, bool private,
                                           CK_ATTRIBUTE **attrs,
                                           CK_ULONG *num_attrs);
 static CK_RV p11sak_export_sym_clear_des_3des_aes_generic(
-                                    const struct p11sak_objtype *keytype,
+                                    const struct p11tool_objtype *keytype,
                                     CK_BYTE **data, CK_ULONG* data_len,
                                     CK_OBJECT_HANDLE key, const char *label);
-static CK_RV p11sak_export_rsa_pkey(const struct p11sak_objtype *keytype,
+static CK_RV p11sak_export_rsa_pkey(const struct p11tool_objtype *keytype,
                                     EVP_PKEY **pkey, bool private,
                                     CK_OBJECT_HANDLE key, const char *label);
-static CK_RV p11sak_export_dh_pkey(const struct p11sak_objtype *keytype,
+static CK_RV p11sak_export_dh_pkey(const struct p11tool_objtype *keytype,
                                    EVP_PKEY **pkey, bool private,
                                    CK_OBJECT_HANDLE key, const char *label);
-static CK_RV p11sak_export_dsa_pkey(const struct p11sak_objtype *keytype,
+static CK_RV p11sak_export_dsa_pkey(const struct p11tool_objtype *keytype,
                                     EVP_PKEY **pkey, bool private,
                                     CK_OBJECT_HANDLE key, const char *label);
-static CK_RV p11sak_export_ec_pkey(const struct p11sak_objtype *keytype,
+static CK_RV p11sak_export_ec_pkey(const struct p11tool_objtype *keytype,
                                    EVP_PKEY **pkey, bool private,
                                    CK_OBJECT_HANDLE key, const char *label);
 static CK_RV p11sak_export_dilithium_kyber_pem_data(
-                                        const struct p11sak_objtype *keytype,
+                                        const struct p11tool_objtype *keytype,
                                         CK_BYTE **data, CK_ULONG *data_len,
                                         bool private, CK_OBJECT_HANDLE key,
                                         const char *label);
-static CK_RV p11sak_export_dilithium_pkey(const struct p11sak_objtype *keytype,
+static CK_RV p11sak_export_dilithium_pkey(const struct p11tool_objtype *keytype,
                                           EVP_PKEY **pkey, bool private,
                                           CK_OBJECT_HANDLE key,
                                           const char *label);
-static CK_RV p11sak_export_x509(const struct p11sak_objtype *certtype,
+static CK_RV p11sak_export_x509(const struct p11tool_objtype *certtype,
                                 CK_BYTE **data, CK_ULONG *data_len,
                                 CK_OBJECT_HANDLE cert, const char *label);
-static CK_RV p11sak_extract_x509_pk(const struct p11sak_objtype *certtype,
+static CK_RV p11sak_extract_x509_pk(const struct p11tool_objtype *certtype,
                                     CK_ATTRIBUTE **attrs, CK_ULONG *num_attrs,
                                     CK_OBJECT_HANDLE cert, const char* label);
-static void print_bool_attr_short(const CK_ATTRIBUTE *val, bool applicable);
-static void print_bool_attr_long(const char *attr, const CK_ATTRIBUTE *val,
-                                 int indent, bool sensitive);
-static void print_utf8_attr(const char *attr, const CK_ATTRIBUTE *val,
-                            int indent, bool sensitive);
-static void print_java_midp_secdom_attr(const char *attr, const CK_ATTRIBUTE *val,
-                                        int indent, bool sensitive);
-static void print_cert_category_attr(const char *attr, const CK_ATTRIBUTE *val,
-                                     int indent, bool sensitive);
-static void print_x509_name_attr(const char *attr, const CK_ATTRIBUTE *val,
-                                 int indent, bool sensitive);
-static void print_x509_attr(const char *attr, const CK_ATTRIBUTE *val,
-                            int indent, bool sensitive);
-static void print_x509_serial_number_attr(const char *attr,
-                                          const CK_ATTRIBUTE *val,
-                                          int indent, bool sensitive);
-static void print_byte_array_attr(const char *attr, const CK_ATTRIBUTE *val,
-                                  int indent, bool sensitive);
-static void print_ulong_attr(const char *attr, const CK_ATTRIBUTE *val,
-                             int indent, bool sensitive);
-static void print_date_attr(const char *attr, const CK_ATTRIBUTE *val,
-                            int indent, bool sensitive);
-static void print_mech_attr(const char *attr, const CK_ATTRIBUTE *val,
-                            int indent, bool sensitive);
-static void print_mech_array_attr(const char *attr, const CK_ATTRIBUTE *val,
-                                  int indent, bool sensitive);
 static void print_attr_array_attr(const char *attr, const CK_ATTRIBUTE *val,
                                   int indent, bool sensitive);
-static void print_class_attr(const char *attr, const CK_ATTRIBUTE *val,
-                             int indent, bool sensitive);
 static void print_key_type_attr(const char *attr, const CK_ATTRIBUTE *val,
                                 int indent, bool sensitive);
 static void print_cert_type_attr(const char *attr, const CK_ATTRIBUTE *val,
                                  int indent, bool sensitive);
-static void print_oid_attr(const char *attr, const CK_ATTRIBUTE *val,
-                           int indent, bool sensitive);
-static void print_ibm_dilithium_keyform_attr(const char *attr,
-                                             const CK_ATTRIBUTE *val,
-                                             int indent, bool sensitive);
-static void print_ibm_kyber_keyform_attr(const char *attr,
-                                         const CK_ATTRIBUTE *val,
-                                         int indent, bool sensitive);
-static void p11sak_print_mkvp_cca_short(const struct p11sak_token_info *info,
+static void p11sak_print_mkvp_cca_short(const struct p11tool_token_info *info,
                                         const CK_BYTE *secure_key,
                                         CK_ULONG secure_key_len,
                                         const char *separator);
-static void p11sak_print_mkvp_cca_long(const struct p11sak_token_info *info,
+static void p11sak_print_mkvp_cca_long(const struct p11tool_token_info *info,
                                        const CK_BYTE *secure_key,
                                        CK_ULONG secure_key_len,
                                        int indent);
-static void p11sak_print_mkvp_ep11_short(const struct p11sak_token_info *info,
+static void p11sak_print_mkvp_ep11_short(const struct p11tool_token_info *info,
                                          const CK_BYTE *secure_key,
                                          CK_ULONG secure_key_len,
                                          const char *separator);
-static void p11sak_print_mkvp_ep11_long(const struct p11sak_token_info *info,
+static void p11sak_print_mkvp_ep11_long(const struct p11tool_token_info *info,
                                         const CK_BYTE *secure_key,
                                         CK_ULONG secure_key_len,
                                         int indent);
@@ -336,94 +284,94 @@ static void p11sak_print_mkvp_ep11_long(const struct p11sak_token_info *info,
 #define DECLARE_CERT_ATTRS                                                     \
     { .name = "CKA_LABEL", .type = CKA_LABEL,                                  \
       .secret = true, .public = true, .private = true, .settable = true,       \
-      .print_long = print_utf8_attr, },                                        \
+      .print_long = p11tool_print_utf8_attr, },                                \
     { .name = "CKA_CLASS", .type = CKA_CLASS,                                  \
       .secret = true, .public = true, .private = true, .settable = false,      \
-      .print_long = print_class_attr, },                                       \
+      .print_long = p11tool_print_class_attr, },                               \
     { .name = "CKA_CERTIFICATE_TYPE", .type = CKA_CERTIFICATE_TYPE,            \
       .secret = true, .public = true, .private = true, .settable = false,      \
       .print_long = print_cert_type_attr, },                                   \
     { .name = "CKA_CERTIFICATE_CATEGORY", .type = CKA_CERTIFICATE_CATEGORY,    \
       .secret = true, .public = true, .private = true, .settable = false,      \
-      .print_long = print_cert_category_attr, },                               \
+      .print_long = p11tool_print_cert_category_attr, },                       \
     { .name = "CKA_CHECK_VALUE", .type = CKA_CHECK_VALUE,                      \
       .secret = true, .public = true, .private = true, .settable = true,       \
-      .print_long = print_byte_array_attr, },                                  \
+      .print_long = p11tool_print_byte_array_attr, },                          \
     { .name = "CKA_START_DATE", .type = CKA_START_DATE,                        \
       .secret = true, .public = true, .private = true, .settable = true,       \
-      .print_long = print_date_attr, },                                        \
+      .print_long = p11tool_print_date_attr, },                                \
     { .name = "CKA_END_DATE", .type = CKA_END_DATE,                            \
       .secret = true, .public = true, .private = true, .settable = true,       \
-      .print_long = print_date_attr, },                                        \
+      .print_long = p11tool_print_date_attr, },                                \
     { .name = "CKA_PUBLIC_KEY_INFO", .type = CKA_PUBLIC_KEY_INFO,              \
       .secret = true, .public = true, .private = true, .settable = true,       \
-      .print_long = print_byte_array_attr, }
+      .print_long = p11tool_print_byte_array_attr, }
 
-static const struct p11sak_attr p11sak_x509_attrs[] = {
+static const struct p11tool_attr p11sak_x509_attrs[] = {
     DECLARE_CERT_ATTRS,
     { .name = "CKA_SUBJECT", .type = CKA_SUBJECT,
       .secret = true, .public = true, .private = true, .settable = true,
-      .print_long = print_x509_name_attr, },
+      .print_long = p11tool_print_x509_name_attr, },
     { .name = "CKA_ID", .type = CKA_ID,
       .secret = true, .public = true, .private = true, .settable = true,
-      .print_long = print_byte_array_attr, },
+      .print_long = p11tool_print_byte_array_attr, },
     { .name = "CKA_ISSUER", .type = CKA_ISSUER,
       .secret = true, .public = true, .private = true, .settable = true,
-      .print_long = print_x509_name_attr, },
+      .print_long = p11tool_print_x509_name_attr, },
     { .name = "CKA_SERIAL_NUMBER", .type = CKA_SERIAL_NUMBER,
       .secret = true, .public = false, .private = false, .settable = true,
-      .print_long = print_x509_serial_number_attr, },
+      .print_long = p11tool_print_x509_serial_number_attr, },
     { .name = "CKA_VALUE", .type = CKA_VALUE,
       .secret = true, .public = false, .private = false, .settable = true,
-      .print_long = print_x509_attr, },
+      .print_long = p11tool_print_x509_attr, },
     { .name = "CKA_NAME_HASH_ALGORITHM", .type = CKA_NAME_HASH_ALGORITHM,
       .secret = true, .public = false, .private = false, .settable = true,
-      .print_long = print_mech_attr, },
+      .print_long = p11tool_print_mech_attr, },
     { .name = "CKA_HASH_OF_SUBJECT_PUBLIC_KEY", .type = CKA_HASH_OF_SUBJECT_PUBLIC_KEY,
       .secret = true, .public = false, .private = false, .settable = true,
-      .print_long = print_byte_array_attr, },
+      .print_long = p11tool_print_byte_array_attr, },
     { .name = "CKA_HASH_OF_ISSUER_PUBLIC_KEY", .type = CKA_HASH_OF_ISSUER_PUBLIC_KEY,
       .secret = true, .public = false, .private = false, .settable = true,
-      .print_long = print_byte_array_attr, },
+      .print_long = p11tool_print_byte_array_attr, },
     { .name = "CKA_URL", .type = CKA_URL,
       .secret = true, .public = false, .private = false, .settable = true,
-      .print_long = print_utf8_attr, },
+      .print_long = p11tool_print_utf8_attr, },
     { .name = "CKA_JAVA_MIDP_SECURITY_DOMAIN", .type = CKA_JAVA_MIDP_SECURITY_DOMAIN,
       .secret = true, .public = false, .private = false, .settable = true,
-      .print_long = print_java_midp_secdom_attr, },
+      .print_long = p11tool_print_java_midp_secdom_attr, },
     { .name = NULL },
 };
 
 #define DECLARE_KEY_ATTRS                                                      \
     { .name = "CKA_LABEL", .type = CKA_LABEL,                                  \
       .secret = true, .public = true, .private = true, .settable = true,       \
-      .print_long = print_utf8_attr, },                                        \
+      .print_long = p11tool_print_utf8_attr, },                                \
     { .name = "CKA_CLASS", .type = CKA_CLASS,                                  \
       .secret = true, .public = true, .private = true, .settable = false,      \
-      .print_long = print_class_attr, },                                       \
+      .print_long = p11tool_print_class_attr, },                               \
     { .name = "CKA_KEY_TYPE", .type = CKA_KEY_TYPE,                            \
       .secret = true, .public = true, .private = true, .settable = false,      \
       .print_long = print_key_type_attr, },                                    \
     { .name = "CKA_ID", .type = CKA_ID,                                        \
       .secret = true, .public = true, .private = true, .settable = true,       \
-      .print_long = print_byte_array_attr, },                                  \
+      .print_long = p11tool_print_byte_array_attr, },                          \
     { .name = "CKA_START_DATE", .type = CKA_START_DATE,                        \
       .secret = true, .public = true, .private = true, .settable = true,       \
-      .print_long = print_date_attr, },                                        \
+      .print_long = p11tool_print_date_attr, },                                \
     { .name = "CKA_END_DATE", .type = CKA_END_DATE,                            \
       .secret = true, .public = true, .private = true, .settable = true,       \
-      .print_long = print_date_attr, },                                        \
+      .print_long = p11tool_print_date_attr, },                                \
     { .name = "CKA_KEY_GEN_MECHANISM", .type = CKA_KEY_GEN_MECHANISM,          \
       .secret = true, .public = true, .private = true, .settable = true,       \
-      .print_long = print_mech_attr, },                                        \
+      .print_long = p11tool_print_mech_attr, },                                \
     { .name = "CKA_ALLOWED_MECHANISMS", .type = CKA_ALLOWED_MECHANISMS,        \
       .secret = true, .public = true, .private = true, .settable = true,       \
-      .print_long = print_mech_array_attr, }
+      .print_long = p11tool_print_mech_array_attr, }
 
 #define DECLARE_SECRET_KEY_ATTRS                                               \
     { .name = "CKA_CHECK_VALUE", .type = CKA_CHECK_VALUE,                      \
       .secret = true, .public = false, .private = false, .settable = true,     \
-      .print_long = print_byte_array_attr, },                                  \
+      .print_long = p11tool_print_byte_array_attr, },                          \
     { .name = "CKA_WRAP_TEMPLATE", .type = CKA_WRAP_TEMPLATE,                  \
       .secret = true, .public = true, .private = false, .settable = true,      \
       .print_long = print_attr_array_attr, },                                  \
@@ -437,163 +385,163 @@ static const struct p11sak_attr p11sak_x509_attrs[] = {
 #define DECLARE_PUBLIC_KEY_ATTRS                                               \
     { .name = "CKA_SUBJECT", .type = CKA_SUBJECT,                              \
       .secret = true, .public = false, .private = true, .settable = true,      \
-      .print_long = print_x509_name_attr, },                                   \
+      .print_long = p11tool_print_x509_name_attr, },                           \
     { .name = "CKA_WRAP_TEMPLATE", .type = CKA_WRAP_TEMPLATE,                  \
       .secret = true, .public = true, .private = false, .settable = true,      \
       .print_long = print_attr_array_attr, },                                  \
     { .name = "CKA_PUBLIC_KEY_INFO", .type = CKA_PUBLIC_KEY_INFO,              \
       .secret = false, .public = true, .private = true, .settable = true,      \
-      .print_long = print_byte_array_attr, }
+      .print_long = p11tool_print_byte_array_attr, }
 
 #define DECLARE_PRIVATE_KEY_ATTRS                                              \
     { .name = "CKA_SUBJECT", .type = CKA_SUBJECT,                              \
       .secret = true, .public = false, .private = true, .settable = true,      \
-      .print_long = print_x509_name_attr, },                                   \
+      .print_long = p11tool_print_x509_name_attr, },                           \
     { .name = "CKA_UNWRAP_TEMPLATE", .type = CKA_UNWRAP_TEMPLATE,              \
       .secret = true, .public = false, .private = true, .settable = true,      \
       .print_long = print_attr_array_attr, },                                  \
     { .name = "CKA_PUBLIC_KEY_INFO", .type = CKA_PUBLIC_KEY_INFO,              \
       .secret = false, .public = true, .private = true, .settable = true,      \
-      .print_long = print_byte_array_attr, },                                  \
+      .print_long = p11tool_print_byte_array_attr, },                          \
     { .name = "CKA_DERIVE_TEMPLATE", .type = CKA_DERIVE_TEMPLATE,              \
       .secret = true, .public = false, .private = true, .settable = true,      \
       .print_long = print_attr_array_attr, }
 
-static const struct p11sak_attr p11sak_des_attrs[] = {
+static const struct p11tool_attr p11sak_des_attrs[] = {
     DECLARE_KEY_ATTRS,
     DECLARE_SECRET_KEY_ATTRS,
     { .name = "CKA_VALUE", .type = CKA_VALUE,
       .secret = true, .public = false, .private = false, .settable = true,
-      .print_long = print_byte_array_attr, },
+      .print_long = p11tool_print_byte_array_attr, },
     { .name = NULL },
 };
 
-static const struct p11sak_attr p11sak_3des_attrs[] = {
+static const struct p11tool_attr p11sak_3des_attrs[] = {
     DECLARE_KEY_ATTRS,
     DECLARE_SECRET_KEY_ATTRS,
     { .name = "CKA_VALUE", .type = CKA_VALUE,
       .secret = true, .public = false, .private = false, .settable = true,
-      .print_long = print_byte_array_attr, },
+      .print_long = p11tool_print_byte_array_attr, },
     { .name = NULL },
 };
 
-static const struct p11sak_attr p11sak_generic_attrs[] = {
+static const struct p11tool_attr p11sak_generic_attrs[] = {
     DECLARE_KEY_ATTRS,
     DECLARE_SECRET_KEY_ATTRS,
     { .name = "CKA_VALUE", .type = CKA_VALUE,
       .secret = true, .public = false, .private = false, .settable = true,
-      .print_long = print_byte_array_attr, },
+      .print_long = p11tool_print_byte_array_attr, },
     { .name = "CKA_VALUE_LEN", .type = CKA_VALUE_LEN,
       .secret = true, .public = false, .private = false, .settable = true,
-      .print_long = print_ulong_attr, },
+      .print_long = p11tool_print_ulong_attr, },
     { .name = NULL },
 };
 
-static const struct p11sak_attr p11sak_aes_attrs[] = {
+static const struct p11tool_attr p11sak_aes_attrs[] = {
     DECLARE_KEY_ATTRS,
     DECLARE_SECRET_KEY_ATTRS,
     { .name = "CKA_VALUE", .type = CKA_VALUE,
       .secret = true, .public = false, .private = false, .settable = true,
-      .print_long = print_byte_array_attr, },
+      .print_long = p11tool_print_byte_array_attr, },
     { .name = "CKA_VALUE_LEN", .type = CKA_VALUE_LEN,
       .secret = true, .public = false, .private = false, .settable = true,
-      .print_long = print_ulong_attr, },
+      .print_long = p11tool_print_ulong_attr, },
     { .name = NULL },
 };
 
 #define DECLARE_PUBLIC_RSA_ATTRS                                               \
     { .name = "CKA_MODULUS", .type = CKA_MODULUS,                              \
       .secret = false, .public = true, .private = true, .settable = true,      \
-      .print_long = print_byte_array_attr, },                                  \
+      .print_long = p11tool_print_byte_array_attr, },                          \
     { .name = "CKA_MODULUS_BITS", .type = CKA_MODULUS_BITS,                    \
       .secret = false, .public = true, .private = true, .settable = true,      \
-      .print_long = print_ulong_attr, },                                       \
+      .print_long = p11tool_print_ulong_attr, },                               \
     { .name = "CKA_PUBLIC_EXPONENT", .type = CKA_PUBLIC_EXPONENT,              \
       .secret = false, .public = true, .private = true, .settable = true,      \
-      .print_long = print_byte_array_attr, }
+      .print_long = p11tool_print_byte_array_attr, }
 
-static const struct p11sak_attr p11sak_public_rsa_attrs[] = {
+static const struct p11tool_attr p11sak_public_rsa_attrs[] = {
     DECLARE_KEY_ATTRS,
     DECLARE_PUBLIC_KEY_ATTRS,
     DECLARE_PUBLIC_RSA_ATTRS,
     { .name = NULL },
 };
 
-static const struct p11sak_attr p11sak_private_rsa_attrs[] = {
+static const struct p11tool_attr p11sak_private_rsa_attrs[] = {
     DECLARE_KEY_ATTRS,
     DECLARE_PRIVATE_KEY_ATTRS,
     DECLARE_PUBLIC_RSA_ATTRS,
     { .name = "CKA_PRIVATE_EXPONENT", .type = CKA_PRIVATE_EXPONENT,
       .secret = false, .public = false, .private = true, .settable = true,
-      .print_long = print_byte_array_attr, },
+      .print_long = p11tool_print_byte_array_attr, },
     { .name = "CKA_PRIME_1", .type = CKA_PRIME_1,
       .secret = false, .public = false, .private = true, .settable = true,
-      .print_long = print_byte_array_attr, },
+      .print_long = p11tool_print_byte_array_attr, },
     { .name = "CKA_PRIME_2", .type = CKA_PRIME_2,
       .secret = false, .public = false, .private = true, .settable = true,
-      .print_long = print_byte_array_attr, },
+      .print_long = p11tool_print_byte_array_attr, },
     { .name = "CKA_EXPONENT_1", .type = CKA_EXPONENT_1,
       .secret = false, .public = false, .private = true, .settable = true,
-      .print_long = print_byte_array_attr, },
+      .print_long = p11tool_print_byte_array_attr, },
     { .name = "CKA_EXPONENT_2", .type = CKA_EXPONENT_2,
       .secret = false, .public = false, .private = true, .settable = true,
-      .print_long = print_byte_array_attr, },
+      .print_long = p11tool_print_byte_array_attr, },
     { .name = "CKA_COEFFICIENT", .type = CKA_COEFFICIENT,
       .secret = false, .public = false, .private = true, .settable = true,
-      .print_long = print_byte_array_attr, },
+      .print_long = p11tool_print_byte_array_attr, },
     { .name = NULL },
 };
 
 #define DECLARE_DH_ATTRS                                                       \
     { .name = "CKA_PRIME", .type = CKA_PRIME,                                  \
       .secret = false, .public = true, .private = true, .settable = true,      \
-      .print_long = print_byte_array_attr, },                                  \
+      .print_long = p11tool_print_byte_array_attr, },                          \
     { .name = "CKA_BASE", .type = CKA_BASE,                                    \
       .secret = false, .public = true, .private = true, .settable = true,      \
-      .print_long = print_byte_array_attr, },                                  \
+      .print_long = p11tool_print_byte_array_attr, },                          \
     { .name = "CKA_VALUE", .type = CKA_VALUE,                                  \
       .secret = false, .public = true, .private = true, .settable = true,      \
-      .print_long = print_byte_array_attr, }
+      .print_long = p11tool_print_byte_array_attr, }
 
-static const struct p11sak_attr p11sak_public_dh_attrs[] = {
+static const struct p11tool_attr p11sak_public_dh_attrs[] = {
     DECLARE_KEY_ATTRS,
     DECLARE_PUBLIC_KEY_ATTRS,
     DECLARE_DH_ATTRS,
     { .name = NULL },
 };
 
-static const struct p11sak_attr p11sak_private_dh_attrs[] = {
+static const struct p11tool_attr p11sak_private_dh_attrs[] = {
     DECLARE_KEY_ATTRS,
     DECLARE_PRIVATE_KEY_ATTRS,
     DECLARE_DH_ATTRS,
     { .name = "CKA_VALUE_BITS", .type = CKA_VALUE_BITS,
       .secret = false, .public = false, .private = true, .settable = true,
-      .print_long = print_ulong_attr, },
+      .print_long = p11tool_print_ulong_attr, },
     { .name = NULL },
 };
 
 #define DECLARE_DSA_ATTRS                                                      \
     { .name = "CKA_PRIME", .type = CKA_PRIME,                                  \
       .secret = false, .public = true, .private = true, .settable = true,      \
-      .print_long = print_byte_array_attr, },                                  \
+      .print_long = p11tool_print_byte_array_attr, },                          \
     { .name = "CKA_SUBPRIME", .type = CKA_SUBPRIME,                            \
       .secret = false, .public = true, .private = true, .settable = true,      \
-      .print_long = print_byte_array_attr, },                                  \
+      .print_long = p11tool_print_byte_array_attr, },                          \
     { .name = "CKA_BASE", .type = CKA_BASE,                                    \
       .secret = false, .public = true, .private = true, .settable = true,      \
-      .print_long = print_byte_array_attr, },                                  \
+      .print_long = p11tool_print_byte_array_attr, },                          \
     { .name = "CKA_VALUE", .type = CKA_VALUE,                                  \
       .secret = false, .public = true, .private = true, .settable = true,      \
-      .print_long = print_byte_array_attr, }
+      .print_long = p11tool_print_byte_array_attr, }
 
-static const struct p11sak_attr p11sak_public_dsa_attrs[] = {
+static const struct p11tool_attr p11sak_public_dsa_attrs[] = {
     DECLARE_KEY_ATTRS,
     DECLARE_PUBLIC_KEY_ATTRS,
     DECLARE_DSA_ATTRS,
     { .name = NULL },
 };
 
-static const struct p11sak_attr p11sak_private_dsa_attrs[] = {
+static const struct p11tool_attr p11sak_private_dsa_attrs[] = {
     DECLARE_KEY_ATTRS,
     DECLARE_PRIVATE_KEY_ATTRS,
     DECLARE_DSA_ATTRS,
@@ -603,112 +551,112 @@ static const struct p11sak_attr p11sak_private_dsa_attrs[] = {
 #define DECLARE_EC_ATTRS                                                       \
     { .name = "CKA_EC_PARAMS", .type = CKA_EC_PARAMS,                          \
       .secret = false, .public = true, .private = true, .settable = true,      \
-      .print_long = print_oid_attr, }
+      .print_long = p11tool_print_oid_attr, }
 
-static const struct p11sak_attr p11sak_public_ec_attrs[] = {
+static const struct p11tool_attr p11sak_public_ec_attrs[] = {
     DECLARE_KEY_ATTRS,
     DECLARE_PUBLIC_KEY_ATTRS,
     DECLARE_EC_ATTRS,
     { .name = "CKA_EC_POINT", .type = CKA_EC_POINT,
       .secret = false, .public = true, .private = false, .settable = true,
-      .print_long = print_byte_array_attr, },
+      .print_long = p11tool_print_byte_array_attr, },
     { .name = NULL },
 };
 
-static const struct p11sak_attr p11sak_private_ec_attrs[] = {
+static const struct p11tool_attr p11sak_private_ec_attrs[] = {
     DECLARE_KEY_ATTRS,
     DECLARE_PRIVATE_KEY_ATTRS,
     DECLARE_EC_ATTRS,
     { .name = "CKA_VALUE", .type = CKA_VALUE,
       .secret = false, .public = false, .private = true, .settable = true,
-      .print_long = print_byte_array_attr, },
+      .print_long = p11tool_print_byte_array_attr, },
     { .name = NULL },
 };
 
 #define DECLARE_PUBLIC_IBM_DILITHIUM_ATTRS                                     \
     { .name = "CKA_IBM_DILITHIUM_KEYFORM", .type = CKA_IBM_DILITHIUM_KEYFORM,  \
       .secret = false, .public = true, .private = true, .settable = true,      \
-      .print_long = print_ibm_dilithium_keyform_attr, },                       \
+      .print_long = p11tool_print_ibm_dilithium_keyform_attr, },               \
     { .name = "CKA_IBM_DILITHIUM_MODE", .type = CKA_IBM_DILITHIUM_MODE,        \
       .secret = false, .public = true, .private = true, .settable = true,      \
-      .print_long = print_oid_attr, },                                         \
+      .print_long = p11tool_print_oid_attr, },                                 \
     { .name = "CKA_IBM_DILITHIUM_RHO", .type = CKA_IBM_DILITHIUM_RHO,          \
       .secret = false, .public = true, .private = true, .settable = true,      \
-      .print_long = print_byte_array_attr, },                                  \
+      .print_long = p11tool_print_byte_array_attr, },                          \
     { .name = "CKA_IBM_DILITHIUM_T1", .type = CKA_IBM_DILITHIUM_T1,            \
       .secret = false, .public = true, .private = true, .settable = true,      \
-      .print_long = print_byte_array_attr, }
+      .print_long = p11tool_print_byte_array_attr, }
 
-static const struct p11sak_attr p11sak_public_ibm_dilithium_attrs[] = {
+static const struct p11tool_attr p11sak_public_ibm_dilithium_attrs[] = {
     DECLARE_KEY_ATTRS,
     DECLARE_PUBLIC_KEY_ATTRS,
     DECLARE_PUBLIC_IBM_DILITHIUM_ATTRS,
     { .name = "CKA_VALUE", .type = CKA_VALUE,
       .secret = false, .public = true, .private = false, .settable = true,
-      .print_long = print_byte_array_attr, },
+      .print_long = p11tool_print_byte_array_attr, },
     { .name = NULL },
 };
 
-static const struct p11sak_attr p11sak_private_ibm_dilithium_attrs[] = {
+static const struct p11tool_attr p11sak_private_ibm_dilithium_attrs[] = {
     DECLARE_KEY_ATTRS,
     DECLARE_PRIVATE_KEY_ATTRS,
     DECLARE_PUBLIC_IBM_DILITHIUM_ATTRS,
     { .name = "CKA_VALUE", .type = CKA_VALUE,
       .secret = false, .public = false, .private = true, .settable = true,
-      .print_long = print_byte_array_attr, },
+      .print_long = p11tool_print_byte_array_attr, },
     { .name = "CKA_IBM_DILITHIUM_SEED", .type = CKA_IBM_DILITHIUM_SEED,
       .secret = false, .public = false, .private = true, .settable = true,
-      .print_long = print_byte_array_attr, },
+      .print_long = p11tool_print_byte_array_attr, },
     { .name = "CKA_IBM_DILITHIUM_TR", .type = CKA_IBM_DILITHIUM_TR,
       .secret = false, .public = false, .private = true, .settable = true,
-      .print_long = print_byte_array_attr, },
+      .print_long = p11tool_print_byte_array_attr, },
     { .name = "CKA_IBM_DILITHIUM_S1", .type = CKA_IBM_DILITHIUM_S1,
       .secret = false, .public = false, .private = true, .settable = true,
-      .print_long = print_byte_array_attr, },
+      .print_long = p11tool_print_byte_array_attr, },
     { .name = "CKA_IBM_DILITHIUM_S2", .type = CKA_IBM_DILITHIUM_S2,
       .secret = false, .public = false, .private = true, .settable = true,
-      .print_long = print_byte_array_attr, },
+      .print_long = p11tool_print_byte_array_attr, },
     { .name = "CKA_IBM_DILITHIUM_T0", .type = CKA_IBM_DILITHIUM_T0,
       .secret = false, .public = false, .private = true, .settable = true,
-      .print_long = print_byte_array_attr, },
+      .print_long = p11tool_print_byte_array_attr, },
     { .name = NULL },
 };
 
 #define DECLARE_PUBLIC_IBM_KYBER_ATTRS                                         \
     { .name = "CKA_IBM_KYBER_KEYFORM", .type = CKA_IBM_KYBER_KEYFORM,          \
       .secret = false, .public = true, .private = true, .settable = true,      \
-      .print_long = print_ibm_kyber_keyform_attr, },                           \
+      .print_long = p11tool_print_ibm_kyber_keyform_attr, },                   \
     { .name = "CKA_IBM_KYBER_MODE", .type = CKA_IBM_KYBER_MODE,                \
       .secret = false, .public = true, .private = true, .settable = true,      \
-      .print_long = print_oid_attr, },                                         \
+      .print_long = p11tool_print_oid_attr, },                                 \
     { .name = "CKA_IBM_KYBER_PK", .type = CKA_IBM_KYBER_PK,                    \
       .secret = false, .public = true, .private = true, .settable = true,      \
-      .print_long = print_byte_array_attr, }
+      .print_long = p11tool_print_byte_array_attr, }
 
-static const struct p11sak_attr p11sak_public_ibm_kyber_attrs[] = {
+static const struct p11tool_attr p11sak_public_ibm_kyber_attrs[] = {
     DECLARE_KEY_ATTRS,
     DECLARE_PUBLIC_KEY_ATTRS,
     DECLARE_PUBLIC_IBM_KYBER_ATTRS,
     { .name = "CKA_VALUE", .type = CKA_VALUE,
       .secret = false, .public = true, .private = false, .settable = true,
-      .print_long = print_byte_array_attr, },
+      .print_long = p11tool_print_byte_array_attr, },
     { .name = NULL },
 };
 
-static const struct p11sak_attr p11sak_private_ibm_kyber_attrs[] = {
+static const struct p11tool_attr p11sak_private_ibm_kyber_attrs[] = {
     DECLARE_KEY_ATTRS,
     DECLARE_PRIVATE_KEY_ATTRS,
     DECLARE_PUBLIC_IBM_KYBER_ATTRS,
     { .name = "CKA_VALUE", .type = CKA_VALUE,
       .secret = false, .public = false, .private = true, .settable = true,
-      .print_long = print_byte_array_attr, },
+      .print_long = p11tool_print_byte_array_attr, },
     { .name = "CKA_IBM_KYBER_SK", .type = CKA_IBM_KYBER_SK,
       .secret = false, .public = false, .private = true, .settable = true,
-      .print_long = print_byte_array_attr, },
+      .print_long = p11tool_print_byte_array_attr, },
     { .name = NULL },
 };
 
-static const struct p11sak_objtype p11sak_des_keytype = {
+static const struct p11tool_objtype p11sak_des_keytype = {
     .obj_typestr = "key", .obj_liststr = "Key",
     .name = "DES", .type = CKK_DES, .ck_name = "CKK_DES",
     .keygen_mech = { .mechanism = CKM_DES_KEY_GEN, },
@@ -723,7 +671,7 @@ static const struct p11sak_objtype p11sak_des_keytype = {
     .export_sym_clear = p11sak_export_sym_clear_des_3des_aes_generic,
 };
 
-static const struct p11sak_objtype p11sak_3des_keytype = {
+static const struct p11tool_objtype p11sak_3des_keytype = {
     .obj_typestr = "key", .obj_liststr = "Key",
     .name = "3DES",  .type = CKK_DES3, .ck_name = "CKK_DES3",
     .keygen_mech = { .mechanism = CKM_DES3_KEY_GEN, },
@@ -738,7 +686,7 @@ static const struct p11sak_objtype p11sak_3des_keytype = {
     .export_sym_clear = p11sak_export_sym_clear_des_3des_aes_generic,
 };
 
-static const struct p11sak_objtype p11sak_generic_keytype = {
+static const struct p11tool_objtype p11sak_generic_keytype = {
     .obj_typestr = "key", .obj_liststr = "Key",
     .name = "GENERIC",  .type = CKK_GENERIC_SECRET,
     .ck_name = "CKK_GENERIC_SECRET",
@@ -756,7 +704,7 @@ static const struct p11sak_objtype p11sak_generic_keytype = {
     .export_sym_clear = p11sak_export_sym_clear_des_3des_aes_generic,
 };
 
-static const struct p11sak_objtype p11sak_aes_keytype = {
+static const struct p11tool_objtype p11sak_aes_keytype = {
     .obj_typestr = "key", .obj_liststr = "Key",
     .name = "AES",  .type = CKK_AES, .ck_name = "CKK_AES",
     .keygen_mech = { .mechanism = CKM_AES_KEY_GEN, },
@@ -773,7 +721,7 @@ static const struct p11sak_objtype p11sak_aes_keytype = {
     .export_sym_clear = p11sak_export_sym_clear_des_3des_aes_generic,
 };
 
-static const struct p11sak_objtype p11sak_aes_xts_keytype = {
+static const struct p11tool_objtype p11sak_aes_xts_keytype = {
     .obj_typestr = "key", .obj_liststr = "Key",
     .name = "AES-XTS",  .type = CKK_AES_XTS, .ck_name = "CKK_AES_XTS",
     .keygen_mech = { .mechanism = CKM_AES_XTS_KEY_GEN, },
@@ -790,7 +738,7 @@ static const struct p11sak_objtype p11sak_aes_xts_keytype = {
     .export_sym_clear = p11sak_export_sym_clear_des_3des_aes_generic,
 };
 
-static const struct p11sak_objtype p11sak_rsa_keytype = {
+static const struct p11tool_objtype p11sak_rsa_keytype = {
     .obj_typestr = "key", .obj_liststr = "Key", .pkey_type = EVP_PKEY_RSA,
     .name = "RSA",  .type = CKK_RSA, .ck_name = "CKK_RSA",
     .keygen_mech = { .mechanism = CKM_RSA_PKCS_KEY_PAIR_GEN, },
@@ -808,7 +756,7 @@ static const struct p11sak_objtype p11sak_rsa_keytype = {
     .export_asym_pkey = p11sak_export_rsa_pkey,
 };
 
-static const struct p11sak_objtype p11sak_dh_keytype = {
+static const struct p11tool_objtype p11sak_dh_keytype = {
     .obj_typestr = "key", .obj_liststr = "Key", .pkey_type = EVP_PKEY_DH,
     .name = "DH", .type = CKK_DH, .ck_name = "CKK_DH",
     .keygen_mech = { .mechanism = CKM_DH_PKCS_KEY_PAIR_GEN, },
@@ -829,7 +777,7 @@ static const struct p11sak_objtype p11sak_dh_keytype = {
     .export_asym_pkey = p11sak_export_dh_pkey,
 };
 
-static const struct p11sak_objtype p11sak_dsa_keytype = {
+static const struct p11tool_objtype p11sak_dsa_keytype = {
     .obj_typestr = "key", .obj_liststr = "Key", .pkey_type = EVP_PKEY_DSA,
     .name = "DSA",  .type = CKK_DSA, .ck_name = "CKK_DSA",
     .keygen_mech = { .mechanism = CKM_DSA_KEY_PAIR_GEN, },
@@ -849,7 +797,7 @@ static const struct p11sak_objtype p11sak_dsa_keytype = {
     .export_asym_pkey = p11sak_export_dsa_pkey,
 };
 
-static const struct p11sak_objtype p11sak_ec_keytype = {
+static const struct p11tool_objtype p11sak_ec_keytype = {
     .obj_typestr = "key", .obj_liststr = "Key", .pkey_type = EVP_PKEY_EC,
     .name = "EC",  .type = CKK_EC, .ck_name = "CKK_EC",
     .keygen_mech = { .mechanism = CKM_EC_KEY_PAIR_GEN, },
@@ -866,7 +814,7 @@ static const struct p11sak_objtype p11sak_ec_keytype = {
     .export_asym_pkey = p11sak_export_ec_pkey,
 };
 
-static const struct p11sak_objtype p11sak_ibm_dilithium_keytype = {
+static const struct p11tool_objtype p11sak_ibm_dilithium_keytype = {
     .obj_typestr = "key", .obj_liststr = "Key",
     .name = "IBM-Dilithium",  .type = CKK_IBM_PQC_DILITHIUM,
     .ck_name = "CKK_IBM_PQC_DILITHIUM",
@@ -888,7 +836,7 @@ static const struct p11sak_objtype p11sak_ibm_dilithium_keytype = {
     .pem_name_public = "IBM-DILITHIUM PUBLIC KEY",
 };
 
-static const struct p11sak_objtype p11sak_ibm_kyber_keytype = {
+static const struct p11tool_objtype p11sak_ibm_kyber_keytype = {
     .obj_typestr = "key", .obj_liststr = "Key",
     .name = "IBM-Kyber",  .type = CKK_IBM_PQC_KYBER,
     .ck_name = "CKK_IBM_PQC_KYBER",
@@ -907,34 +855,34 @@ static const struct p11sak_objtype p11sak_ibm_kyber_keytype = {
     .pem_name_public = "IBM-KYBER PUBLIC KEY",
 };
 
-static const struct p11sak_objtype p11sak_secret_keytype = {
+static const struct p11tool_objtype p11sak_secret_keytype = {
     .obj_typestr = "key", .obj_liststr = "Key",
     .name = "Secret",
     .is_asymmetric = false,
     .filter_attr = CKA_CLASS, .filter_value = CKO_SECRET_KEY,
 };
 
-static const struct p11sak_objtype p11sak_public_keytype = {
+static const struct p11tool_objtype p11sak_public_keytype = {
     .obj_typestr = "key", .obj_liststr = "Key",
     .name = "Public",
     .is_asymmetric = true,
     .filter_attr = CKA_CLASS, .filter_value = CKO_PUBLIC_KEY,
 };
 
-static const struct p11sak_objtype p11sak_private_keytype = {
+static const struct p11tool_objtype p11sak_private_keytype = {
     .obj_typestr = "key", .obj_liststr = "Key",
     .name = "Private",
     .is_asymmetric = true,
     .filter_attr = CKA_CLASS, .filter_value = CKO_PRIVATE_KEY,
 };
 
-static const struct p11sak_objtype p11sak_all_keytype = {
+static const struct p11tool_objtype p11sak_all_keytype = {
     .obj_typestr = "key", .obj_liststr = "Key",
     .name = "All",
     .filter_attr = (CK_ATTRIBUTE_TYPE)-1,
 };
 
-static const struct p11sak_objtype p11sak_x509_certtype = {
+static const struct p11tool_objtype p11sak_x509_certtype = {
     .obj_typestr = "certificate", .obj_liststr = "Certificate",
     .name = "X.509", .type = CKC_X_509, .ck_name = "CKC_X_509",
     .filter_attr = CKA_CERTIFICATE_TYPE, .filter_value = CKC_X_509,
@@ -944,7 +892,7 @@ static const struct p11sak_objtype p11sak_x509_certtype = {
     .extract_x509_pubkey = p11sak_extract_x509_pk,
 };
 
-static const struct p11sak_objtype *p11sak_keytypes[] = {
+static const struct p11tool_objtype *p11sak_keytypes[] = {
     &p11sak_des_keytype,
     &p11sak_3des_keytype,
     &p11sak_generic_keytype,
@@ -959,24 +907,12 @@ static const struct p11sak_objtype *p11sak_keytypes[] = {
     NULL,
 };
 
-static const struct p11sak_objtype *p11sak_certtypes[] = {
+static const struct p11tool_objtype *p11sak_certtypes[] = {
     &p11sak_x509_certtype,
     NULL,
 };
 
-static const struct p11sak_class p11sak_classes[] = {
-    { .name = "CKO_DATA", .class = CKO_DATA, },
-    { .name = "CKO_CERTIFICATE", .class = CKO_CERTIFICATE, },
-    { .name = "CKO_PUBLIC_KEY", .class = CKO_PUBLIC_KEY, },
-    { .name = "CKO_PRIVATE_KEY", .class = CKO_PRIVATE_KEY, },
-    { .name = "CKO_SECRET_KEY", .class = CKO_SECRET_KEY, },
-    { .name = "CKO_HW_FEATURE", .class = CKO_HW_FEATURE, },
-    { .name = "CKO_DOMAIN_PARAMETERS", .class = CKO_DOMAIN_PARAMETERS, },
-    { .name = "CKO_PROFILE", .class = CKO_PROFILE, },
-    { .name = NULL, .class = 0, }
-};
-
-static const struct p11sak_opt p11sak_generic_opts[] = {
+static const struct p11tool_opt p11sak_generic_opts[] = {
     { .short_opt = 'h', .long_opt = "help", .required = false,
       .arg = { .type = ARG_TYPE_PLAIN, .required = false,
                .value.plain = &opt_help, },
@@ -1000,7 +936,7 @@ static const struct p11sak_opt p11sak_generic_opts[] = {
       .description = "The PKCS#11 user pin. If this option is not specified, " \
                      "and environment variable PKCS11_USER_PIN is not set, "   \
                      "then you will be prompted for the PIN. If the '--so' "   \
-                     "option is specified, specify the SO pin, or supply "    \
+                     "option is specified, specify the SO pin, or supply "     \
                      "the SO pin via environment variable PKCS11_SO_PIN.", },  \
     { .short_opt = 0, .long_opt = "force-pin-prompt", .required = false,       \
       .long_opt_val = OPT_FORCE_PIN_PROMPT,                                    \
@@ -1115,7 +1051,7 @@ static const struct p11sak_opt p11sak_generic_opts[] = {
     { .value = "x509", .args = NULL,                                           \
       .private = { .ptr = &p11sak_x509_certtype }, }
 
-static const struct p11sak_opt p11sak_generate_key_opts[] = {
+static const struct p11tool_opt p11sak_generate_key_opts[] = {
     PKCS11_OPTS,
     { .short_opt = 'L', .long_opt = "label", .required = true,
       .arg =  { .type = ARG_TYPE_STRING, .required = true,
@@ -1149,21 +1085,21 @@ static const struct p11sak_opt p11sak_generate_key_opts[] = {
     { .short_opt = 0, .long_opt = NULL, },
 };
 
-static const struct p11sak_arg p11sak_generate_generic_args[] = {
+static const struct p11tool_arg p11sak_generate_generic_args[] = {
     { .name = "KEYBITS", .type = ARG_TYPE_NUMBER, .required = true,
       .value.number = &opt_keybits_num,
       .description = "Size of the generic key in bits.", },
     { .name = NULL, },
 };
 
-static const struct p11sak_enum_value p11sak_aes_keybits[] = {
+static const struct p11tool_enum_value p11sak_aes_keybits[] = {
     { .value = "128", .args = NULL, .private = { .num = 128 }, },
     { .value = "192", .args = NULL, .private = { .num = 192 }, },
     { .value = "256", .args = NULL, .private = { .num = 256 }, },
     { .value = NULL, },
 };
 
-static const struct p11sak_arg p11sak_generate_aes_args[] = {
+static const struct p11tool_arg p11sak_generate_aes_args[] = {
     { .name = "KEYBITS", .type = ARG_TYPE_ENUM, .required = true,
       .enum_values = p11sak_aes_keybits,
       .value.enum_value = &opt_keybits,
@@ -1171,13 +1107,13 @@ static const struct p11sak_arg p11sak_generate_aes_args[] = {
     { .name = NULL, },
 };
 
-static const struct p11sak_enum_value p11sak_aes_xts_keybits[] = {
+static const struct p11tool_enum_value p11sak_aes_xts_keybits[] = {
     { .value = "128", .args = NULL, .private = { .num = 128 * 2 }, },
     { .value = "256", .args = NULL, .private = { .num = 256 * 2 }, },
     { .value = NULL, },
 };
 
-static const struct p11sak_arg p11sak_generate_aes_xts_args[] = {
+static const struct p11tool_arg p11sak_generate_aes_xts_args[] = {
     { .name = "KEYBITS", .type = ARG_TYPE_ENUM, .required = true,
       .enum_values = p11sak_aes_xts_keybits,
       .value.enum_value = &opt_keybits,
@@ -1185,7 +1121,7 @@ static const struct p11sak_arg p11sak_generate_aes_xts_args[] = {
     { .name = NULL, },
 };
 
-static const struct p11sak_enum_value p11sak_rsa_keybits[] = {
+static const struct p11tool_enum_value p11sak_rsa_keybits[] = {
     { .value = "512", .args = NULL, .private = { .num = 512 }, },
     { .value = "1024", .args = NULL, .private = { .num = 1024 }, },
     { .value = "2048", .args = NULL, .private = { .num = 2048 }, },
@@ -1193,7 +1129,7 @@ static const struct p11sak_enum_value p11sak_rsa_keybits[] = {
     { .value = NULL, },
 };
 
-static const struct p11sak_arg p11sak_generate_rsa_args[] = {
+static const struct p11tool_arg p11sak_generate_rsa_args[] = {
     { .name = "KEYBITS", .type = ARG_TYPE_ENUM, .required = true,
       .enum_values = p11sak_rsa_keybits,
       .value.enum_value = &opt_keybits,
@@ -1204,7 +1140,7 @@ static const struct p11sak_arg p11sak_generate_rsa_args[] = {
     { .name = NULL, },
 };
 
-static const struct p11sak_enum_value p11sak_dh_group[] = {
+static const struct p11tool_enum_value p11sak_dh_group[] = {
     { .value = "ffdhe2048", .args = NULL,
       .private = { .num = NID_ffdhe2048 }, },
     { .value = "ffdhe3072", .args = NULL,
@@ -1245,7 +1181,7 @@ static const struct p11sak_enum_value p11sak_dh_group[] = {
     { .value = NULL, },
 };
 
-static const struct p11sak_arg p11sak_generate_dh_args[] = {
+static const struct p11tool_arg p11sak_generate_dh_args[] = {
     { .name = "GROUP", .type = ARG_TYPE_ENUM, .required = true,
       .enum_values = p11sak_dh_group,
       .value.enum_value = &opt_group,
@@ -1257,7 +1193,7 @@ static const struct p11sak_arg p11sak_generate_dh_args[] = {
     { .name = NULL, },
 };
 
-static const struct p11sak_arg p11sak_generate_dsa_args[] = {
+static const struct p11tool_arg p11sak_generate_dsa_args[] = {
     { .name = "DSA-PARAM-PEM-FILE", .type = ARG_TYPE_STRING, .required = true,
       .value.string = &opt_pem_file,
       .description = "The name of a DSA parameters PEM file.", },
@@ -1297,7 +1233,7 @@ DECLARE_CURVE_INFO(curve448, 448);
 DECLARE_CURVE_INFO(ed25519, 256);
 DECLARE_CURVE_INFO(ed448, 448);
 
-static const struct p11sak_enum_value p11sak_ec_curves[] = {
+static const struct p11tool_enum_value p11sak_ec_curves[] = {
     DECLARE_CURVE_VALUE(prime256v1),
     DECLARE_CURVE_VALUE(prime192v1),
     DECLARE_CURVE_VALUE(secp224r1),
@@ -1325,7 +1261,7 @@ static const struct p11sak_enum_value p11sak_ec_curves[] = {
     { .value = NULL, },
 };
 
-static const struct p11sak_arg p11sak_generate_ec_args[] = {
+static const struct p11tool_arg p11sak_generate_ec_args[] = {
     { .name = "CURVE", .type = ARG_TYPE_ENUM, .required = true,
       .enum_values = p11sak_ec_curves,
       .value.enum_value = &opt_curve,
@@ -1333,50 +1269,28 @@ static const struct p11sak_arg p11sak_generate_ec_args[] = {
     { .name = NULL, },
 };
 
-static const struct p11sak_enum_value p11sak_ibm_dilithium_versions[] = {
-    { .value = "r2_65", .args = NULL,
-      .private = { .num = CK_IBM_DILITHIUM_KEYFORM_ROUND2_65 }, },
-    { .value = "r2_87", .args = NULL,
-      .private = { .num = CK_IBM_DILITHIUM_KEYFORM_ROUND2_87 }, },
-    { .value = "r3_44", .args = NULL,
-      .private = { .num = CK_IBM_DILITHIUM_KEYFORM_ROUND3_44 }, },
-    { .value = "r3_65", .args = NULL,
-      .private = { .num = CK_IBM_DILITHIUM_KEYFORM_ROUND3_65 }, },
-    { .value = "r3_87", .args = NULL,
-      .private = { .num = CK_IBM_DILITHIUM_KEYFORM_ROUND3_87 }, },
-    { .value = NULL, },
-};
-
-static const struct p11sak_arg p11sak_generate_ibm_dilithium_args[] = {
+static const struct p11tool_arg p11sak_generate_ibm_dilithium_args[] = {
     { .name = "VERSION", .type = ARG_TYPE_ENUM, .required = true,
-      .enum_values = p11sak_ibm_dilithium_versions,
+      .enum_values = p11tool_ibm_dilithium_versions,
       .value.enum_value = &opt_pqc_version,
       .description = "The version of the IBM Dilithium key pair:", },
     { .name = NULL, },
 };
 
-static const struct p11sak_enum_value p11sak_ibm_kyber_versions[] = {
-    { .value = "r2_768", .args = NULL,
-      .private = { .num = CK_IBM_KYBER_KEYFORM_ROUND2_768 }, },
-    { .value = "r2_1024", .args = NULL,
-      .private = { .num = CK_IBM_KYBER_KEYFORM_ROUND2_1024 }, },
-    { .value = NULL, },
-};
-
-static const struct p11sak_arg p11sak_generate_ibm_kyber_args[] = {
+static const struct p11tool_arg p11sak_generate_ibm_kyber_args[] = {
     { .name = "VERSION", .type = ARG_TYPE_ENUM, .required = true,
-      .enum_values = p11sak_ibm_kyber_versions,
+      .enum_values = p11tool_ibm_kyber_versions,
       .value.enum_value = &opt_pqc_version,
       .description = "The version of the IBM Kyber key pair:", },
     { .name = NULL, },
 };
 
-static const struct p11sak_enum_value p11sak_generate_key_keytypes[] = {
+static const struct p11tool_enum_value p11sak_generate_key_keytypes[] = {
     KEYGEN_KEYTYPES(p11sak_generate),
     { .value = NULL, },
 };
 
-static const struct p11sak_arg p11sak_generate_key_args[] = {
+static const struct p11tool_arg p11sak_generate_key_args[] = {
     { .name = "KEYTYPE", .type = ARG_TYPE_ENUM, .required = true,
       .enum_values = p11sak_generate_key_keytypes,
       .value.enum_value = &opt_keytype,
@@ -1384,7 +1298,7 @@ static const struct p11sak_arg p11sak_generate_key_args[] = {
     { .name = NULL },
 };
 
-static const struct p11sak_opt p11sak_list_key_opts[] = {
+static const struct p11tool_opt p11sak_list_key_opts[] = {
     PKCS11_OPTS,
     KEY_FILTER_OPTS,
     { .short_opt = 'l', .long_opt = "long", .required = false,
@@ -1421,7 +1335,7 @@ static const struct p11sak_opt p11sak_list_key_opts[] = {
     { .short_opt = 0, .long_opt = NULL, },
 };
 
-static const struct p11sak_opt p11sak_list_cert_opts[] = {
+static const struct p11tool_opt p11sak_list_cert_opts[] = {
     PKCS11_OPTS,
     CERT_FILTER_OPTS,
     { .short_opt = 'l', .long_opt = "long", .required = false,
@@ -1460,14 +1374,14 @@ static const struct p11sak_opt p11sak_list_cert_opts[] = {
 #define null_ibm_dilithium_args     NULL
 #define null_ibm_kyber_args         NULL
 
-static const struct p11sak_enum_value
+static const struct p11tool_enum_value
                         p11sak_list_remove_set_copy_export_key_keytypes[] = {
     KEYGEN_KEYTYPES(null),
     GROUP_KEYTYPES,
     { .value = NULL, },
 };
 
-static const struct p11sak_enum_value p11sak_private_key_keytypes[] = {
+static const struct p11tool_enum_value p11sak_private_key_keytypes[] = {
     { .value = "rsa", .args = NULL,
       .private = { .ptr = &p11sak_rsa_keytype }, },
     { .value = "dh", .args = NULL,
@@ -1487,13 +1401,13 @@ static const struct p11sak_enum_value p11sak_private_key_keytypes[] = {
     { .value = NULL, },
 };
 
-static const struct p11sak_enum_value
+static const struct p11tool_enum_value
                         p11sak_list_remove_set_copy_export_cert_certtypes[] = {
     GROUP_CERTTYPES,
     { .value = NULL, },
 };
 
-static const struct p11sak_arg p11sak_list_key_args[] = {
+static const struct p11tool_arg p11sak_list_key_args[] = {
     { .name = "KEYTYPE", .type = ARG_TYPE_ENUM, .required = false,
       .enum_values = p11sak_list_remove_set_copy_export_key_keytypes,
       .value.enum_value = &opt_keytype,
@@ -1502,7 +1416,7 @@ static const struct p11sak_arg p11sak_list_key_args[] = {
     { .name = NULL },
 };
 
-static const struct p11sak_arg p11sak_list_cert_args[] = {
+static const struct p11tool_arg p11sak_list_cert_args[] = {
     { .name = "CERTTYPE", .type = ARG_TYPE_ENUM, .required = false,
       .enum_values = p11sak_list_remove_set_copy_export_cert_certtypes,
       .value.enum_value = &opt_certtype,
@@ -1513,7 +1427,7 @@ static const struct p11sak_arg p11sak_list_cert_args[] = {
     { .name = NULL },
 };
 
-static const struct p11sak_opt p11sak_remove_key_opts[] = {
+static const struct p11tool_opt p11sak_remove_key_opts[] = {
     PKCS11_OPTS,
     KEY_FILTER_OPTS,
     { .short_opt = 'f', .long_opt = "force", .required = false,
@@ -1525,7 +1439,7 @@ static const struct p11sak_opt p11sak_remove_key_opts[] = {
     { .short_opt = 0, .long_opt = NULL, },
 };
 
-static const struct p11sak_opt p11sak_remove_cert_opts[] = {
+static const struct p11tool_opt p11sak_remove_cert_opts[] = {
     PKCS11_OPTS,
     CERT_FILTER_OPTS,
     { .short_opt = 'f', .long_opt = "force", .required = false,
@@ -1537,7 +1451,7 @@ static const struct p11sak_opt p11sak_remove_cert_opts[] = {
     { .short_opt = 0, .long_opt = NULL, },
 };
 
-static const struct p11sak_arg p11sak_remove_key_args[] = {
+static const struct p11tool_arg p11sak_remove_key_args[] = {
     { .name = "KEYTYPE", .type = ARG_TYPE_ENUM, .required = false,
       .enum_values = p11sak_list_remove_set_copy_export_key_keytypes,
       .value.enum_value = &opt_keytype,
@@ -1547,7 +1461,7 @@ static const struct p11sak_arg p11sak_remove_key_args[] = {
     { .name = NULL },
 };
 
-static const struct p11sak_arg p11sak_remove_cert_args[] = {
+static const struct p11tool_arg p11sak_remove_cert_args[] = {
     { .name = "CERTTYPE", .type = ARG_TYPE_ENUM, .required = false,
       .enum_values = p11sak_list_remove_set_copy_export_cert_certtypes,
       .value.enum_value = &opt_certtype,
@@ -1558,7 +1472,7 @@ static const struct p11sak_arg p11sak_remove_cert_args[] = {
     { .name = NULL },
 };
 
-static const struct p11sak_opt p11sak_set_key_attr_opts[] = {
+static const struct p11tool_opt p11sak_set_key_attr_opts[] = {
     PKCS11_OPTS,
     KEY_FILTER_OPTS,
     { .short_opt = 'f', .long_opt = "force", .required = false,
@@ -1586,7 +1500,7 @@ static const struct p11sak_opt p11sak_set_key_attr_opts[] = {
     { .short_opt = 0, .long_opt = NULL, },
 };
 
-static const struct p11sak_opt p11sak_set_cert_attr_opts[] = {
+static const struct p11tool_opt p11sak_set_cert_attr_opts[] = {
     PKCS11_OPTS,
     CERT_FILTER_OPTS,
     { .short_opt = 'f', .long_opt = "force", .required = false,
@@ -1614,7 +1528,7 @@ static const struct p11sak_opt p11sak_set_cert_attr_opts[] = {
     { .short_opt = 0, .long_opt = NULL, },
 };
 
-static const struct p11sak_arg p11sak_set_key_attr_args[] = {
+static const struct p11tool_arg p11sak_set_key_attr_args[] = {
     { .name = "KEYTYPE", .type = ARG_TYPE_ENUM, .required = false,
       .enum_values = p11sak_list_remove_set_copy_export_key_keytypes,
       .value.enum_value = &opt_keytype,
@@ -1624,7 +1538,7 @@ static const struct p11sak_arg p11sak_set_key_attr_args[] = {
     { .name = NULL },
 };
 
-static const struct p11sak_arg p11sak_set_cert_attr_args[] = {
+static const struct p11tool_arg p11sak_set_cert_attr_args[] = {
     { .name = "CERTTYPE", .type = ARG_TYPE_ENUM, .required = false,
       .enum_values = p11sak_list_remove_set_copy_export_cert_certtypes,
       .value.enum_value = &opt_certtype,
@@ -1635,7 +1549,7 @@ static const struct p11sak_arg p11sak_set_cert_attr_args[] = {
     { .name = NULL },
 };
 
-static const struct p11sak_opt p11sak_copy_key_opts[] = {
+static const struct p11tool_opt p11sak_copy_key_opts[] = {
     PKCS11_OPTS,
     KEY_FILTER_OPTS,
     { .short_opt = 'f', .long_opt = "force", .required = false,
@@ -1662,7 +1576,7 @@ static const struct p11sak_opt p11sak_copy_key_opts[] = {
     { .short_opt = 0, .long_opt = NULL, },
 };
 
-static const struct p11sak_opt p11sak_copy_cert_opts[] = {
+static const struct p11tool_opt p11sak_copy_cert_opts[] = {
     PKCS11_OPTS,
     CERT_FILTER_OPTS,
     { .short_opt = 'f', .long_opt = "force", .required = false,
@@ -1691,7 +1605,7 @@ static const struct p11sak_opt p11sak_copy_cert_opts[] = {
     { .short_opt = 0, .long_opt = NULL, },
 };
 
-static const struct p11sak_arg p11sak_copy_key_args[] = {
+static const struct p11tool_arg p11sak_copy_key_args[] = {
     { .name = "KEYTYPE", .type = ARG_TYPE_ENUM, .required = false,
       .enum_values = p11sak_list_remove_set_copy_export_key_keytypes,
       .value.enum_value = &opt_keytype,
@@ -1701,7 +1615,7 @@ static const struct p11sak_arg p11sak_copy_key_args[] = {
     { .name = NULL },
 };
 
-static const struct p11sak_arg p11sak_copy_cert_args[] = {
+static const struct p11tool_arg p11sak_copy_cert_args[] = {
     { .name = "CERTTYPE", .type = ARG_TYPE_ENUM, .required = false,
       .enum_values = p11sak_list_remove_set_copy_export_cert_certtypes,
       .value.enum_value = &opt_keytype,
@@ -1712,7 +1626,7 @@ static const struct p11sak_arg p11sak_copy_cert_args[] = {
     { .name = NULL },
 };
 
-static const struct p11sak_opt p11sak_import_key_opts[] = {
+static const struct p11tool_opt p11sak_import_key_opts[] = {
     PKCS11_OPTS,
     { .short_opt = 'L', .long_opt = "label", .required = true,
       .arg =  { .type = ARG_TYPE_STRING, .required = true,
@@ -1780,7 +1694,7 @@ static const struct p11sak_opt p11sak_import_key_opts[] = {
     { .short_opt = 0, .long_opt = NULL, },
 };
 
-static const struct p11sak_opt p11sak_import_cert_opts[] = {
+static const struct p11tool_opt p11sak_import_cert_opts[] = {
     PKCS11_OPTS,
     { .short_opt = 'L', .long_opt = "label", .required = true,
       .arg =  { .type = ARG_TYPE_STRING, .required = true,
@@ -1813,13 +1727,13 @@ static const struct p11sak_opt p11sak_import_cert_opts[] = {
     { .short_opt = 0, .long_opt = NULL, },
 };
 
-static const struct p11sak_enum_value p11sak_import_asym_types[] = {
+static const struct p11tool_enum_value p11sak_import_asym_types[] = {
     { .value = "public", .args = NULL, .private = { .num = false }, },
     { .value = "private", .args = NULL, .private = { .num = true }, },
     { .value = NULL, },
 };
 
-static const struct p11sak_arg p11sak_import_asym_args[] = {
+static const struct p11tool_arg p11sak_import_asym_args[] = {
     { .name = "KIND", .type = ARG_TYPE_ENUM, .required = true,
       .enum_values = p11sak_import_asym_types,
       .value.enum_value = &opt_asym_kind,
@@ -1851,7 +1765,7 @@ static const struct p11sak_arg p11sak_import_asym_args[] = {
     { .value = "ibm-kyber", .args = p11sak_import_asym_args,                   \
       .private = { .ptr = &p11sak_ibm_kyber_keytype }, }
 
-static const struct p11sak_enum_value p11sak_import_key_keytypes[] = {
+static const struct p11tool_enum_value p11sak_import_key_keytypes[] = {
     IMPORT_KEYTYPES,
     { .value = NULL, },
 };
@@ -1860,12 +1774,12 @@ static const struct p11sak_enum_value p11sak_import_key_keytypes[] = {
     { .value = "x509", .args = NULL,                                           \
       .private = { .ptr = &p11sak_x509_certtype, }, }
 
-static const struct p11sak_enum_value p11sak_import_cert_certtypes[] = {
+static const struct p11tool_enum_value p11sak_import_cert_certtypes[] = {
     IMPORT_CERTTYPES,
     { .value = NULL, },
 };
 
-static const struct p11sak_arg p11sak_import_key_args[] = {
+static const struct p11tool_arg p11sak_import_key_args[] = {
     { .name = "KEYTYPE", .type = ARG_TYPE_ENUM, .required = true,
       .enum_values = p11sak_import_key_keytypes,
       .value.enum_value = &opt_keytype,
@@ -1873,7 +1787,7 @@ static const struct p11sak_arg p11sak_import_key_args[] = {
     { .name = NULL },
 };
 
-static const struct p11sak_arg p11sak_import_cert_args[] = {
+static const struct p11tool_arg p11sak_import_cert_args[] = {
     { .name = "CERTTYPE", .type = ARG_TYPE_ENUM, .required = true,
       .enum_values = p11sak_import_cert_certtypes,
       .value.enum_value = &opt_certtype,
@@ -1881,7 +1795,7 @@ static const struct p11sak_arg p11sak_import_cert_args[] = {
     { .name = NULL },
 };
 
-static const struct p11sak_opt p11sak_export_key_opts[] = {
+static const struct p11tool_opt p11sak_export_key_opts[] = {
     PKCS11_OPTS,
     KEY_FILTER_OPTS,
     { .short_opt = 'f', .long_opt = "force", .required = false,
@@ -1967,7 +1881,7 @@ static const struct p11sak_opt p11sak_export_key_opts[] = {
     { .short_opt = 0, .long_opt = NULL, },
 };
 
-static const struct p11sak_opt p11sak_extract_pubkey_opts[] = {
+static const struct p11tool_opt p11sak_extract_pubkey_opts[] = {
     PKCS11_OPTS,
     KEY_FILTER_OPTS,
     { .short_opt = 'f', .long_opt = "force", .required = false,
@@ -1997,7 +1911,7 @@ static const struct p11sak_opt p11sak_extract_pubkey_opts[] = {
     { .short_opt = 0, .long_opt = NULL, },
 };
 
-static const struct p11sak_opt p11sak_export_cert_opts[] = {
+static const struct p11tool_opt p11sak_export_cert_opts[] = {
     PKCS11_OPTS,
     CERT_FILTER_OPTS,
     { .short_opt = 'f', .long_opt = "force", .required = false,
@@ -2058,7 +1972,7 @@ static const struct p11sak_opt p11sak_export_cert_opts[] = {
     { .short_opt = 0, .long_opt = NULL, },
 };
 
-static const struct p11sak_opt p11sak_extract_cert_pubkey_opts[] = {
+static const struct p11tool_opt p11sak_extract_cert_pubkey_opts[] = {
     PKCS11_OPTS,
     CERT_FILTER_OPTS,
     { .short_opt = 'f', .long_opt = "force", .required = false,
@@ -2088,7 +2002,7 @@ static const struct p11sak_opt p11sak_extract_cert_pubkey_opts[] = {
     { .short_opt = 0, .long_opt = NULL, },
 };
 
-static const struct p11sak_arg p11sak_export_key_args[] = {
+static const struct p11tool_arg p11sak_export_key_args[] = {
     { .name = "KEYTYPE", .type = ARG_TYPE_ENUM, .required = false,
       .enum_values = p11sak_list_remove_set_copy_export_key_keytypes,
       .value.enum_value = &opt_keytype,
@@ -2098,7 +2012,7 @@ static const struct p11sak_arg p11sak_export_key_args[] = {
     { .name = NULL },
 };
 
-static const struct p11sak_arg p11sak_extract_pubkey_args[] = {
+static const struct p11tool_arg p11sak_extract_pubkey_args[] = {
     { .name = "KEYTYPE", .type = ARG_TYPE_ENUM, .required = false,
       .enum_values = p11sak_private_key_keytypes,
       .value.enum_value = &opt_keytype,
@@ -2108,7 +2022,7 @@ static const struct p11sak_arg p11sak_extract_pubkey_args[] = {
     { .name = NULL },
 };
 
-static const struct p11sak_arg p11sak_export_cert_args[] = {
+static const struct p11tool_arg p11sak_export_cert_args[] = {
     { .name = "CERTTYPE", .type = ARG_TYPE_ENUM, .required = false,
       .enum_values = p11sak_list_remove_set_copy_export_cert_certtypes,
       .value.enum_value = &opt_certtype,
@@ -2119,7 +2033,7 @@ static const struct p11sak_arg p11sak_export_cert_args[] = {
     { .name = NULL },
 };
 
-static const struct p11sak_arg p11sak_extract_cert_pubkey_args[] = {
+static const struct p11tool_arg p11sak_extract_cert_pubkey_args[] = {
     { .name = "CERTTYPE", .type = ARG_TYPE_ENUM, .required = false,
       .enum_values = p11sak_list_remove_set_copy_export_cert_certtypes,
       .value.enum_value = &opt_certtype,
@@ -2130,7 +2044,7 @@ static const struct p11sak_arg p11sak_extract_cert_pubkey_args[] = {
     { .name = NULL },
 };
 
-static const struct p11sak_cmd p11sak_commands[] = {
+static const struct p11tool_cmd p11sak_commands[] = {
     { .cmd = "generate-key", .cmd_short1 = "gen-key", .cmd_short2 = "gen",
       .func = p11sak_generate_key,
       .opts = p11sak_generate_key_opts, .args = p11sak_generate_key_args,
@@ -2220,20 +2134,7 @@ static const struct p11sak_cmd p11sak_commands[] = {
     { .cmd = NULL, .func = NULL },
 };
 
-#define DECLARE_BOOL_ATTR(attr, ch, sec, pub, priv, set)                       \
-    { .name = # attr, .type = attr, .letter = ch,                              \
-      .secret = sec, .public = pub, .private = priv,                           \
-      .settable = set, .print_short = print_bool_attr_short,                   \
-      .print_long = print_bool_attr_long, }
-
-#define DECLARE_BOOL_ATTR_SO(attr, ch, sec, pub, priv, set, so_set_true)       \
-    { .name = # attr, .type = attr, .letter = ch,                              \
-      .secret = sec, .public = pub, .private = priv,                           \
-      .settable = set, .so_set_to_true = so_set_true,                          \
-      .print_short = print_bool_attr_short,                                    \
-      .print_long = print_bool_attr_long, }
-
-static const struct p11sak_attr p11sak_bool_attrs[] = {
+static const struct p11tool_attr p11sak_bool_attrs[] = {
     DECLARE_BOOL_ATTR(CKA_PRIVATE,           'P', true,  true,  true,  true),
     DECLARE_BOOL_ATTR(CKA_LOCAL,             'L', true,  true,  true,  false),
     DECLARE_BOOL_ATTR(CKA_MODIFIABLE,        'M', true,  true,  true,  true),
@@ -2264,7 +2165,7 @@ static const struct p11sak_attr p11sak_bool_attrs[] = {
     { .name = NULL, },
 };
 
-static const struct p11sak_attr p11sak_bool_cert_attrs[] = {
+static const struct p11tool_attr p11sak_bool_cert_attrs[] = {
     DECLARE_BOOL_ATTR(CKA_PRIVATE,           'P', true,  true,  true,  true),
     DECLARE_BOOL_ATTR(CKA_MODIFIABLE,        'M', true,  true,  true,  true),
     DECLARE_BOOL_ATTR(CKA_COPYABLE,          'B', true,  true,  true,  true),
@@ -2275,14 +2176,14 @@ static const struct p11sak_attr p11sak_bool_cert_attrs[] = {
 };
 
 static const struct p11sak_custom_attr_type custom_attr_types[] = {
-    { .type = P11SAK_CONFIG_TYPE_BOOL, .print_long = print_bool_attr_long, },
-    { .type = P11SAK_CONFIG_TYPE_ULONG, .print_long = print_ulong_attr, },
-    { .type = P11SAK_CONFIG_TYPE_BYTE, .print_long = print_byte_array_attr, },
-    { .type = P11SAK_CONFIG_TYPE_DATE, .print_long = print_date_attr, },
+    { .type = P11SAK_CONFIG_TYPE_BOOL, .print_long = p11tool_print_bool_attr_long, },
+    { .type = P11SAK_CONFIG_TYPE_ULONG, .print_long = p11tool_print_ulong_attr, },
+    { .type = P11SAK_CONFIG_TYPE_BYTE, .print_long = p11tool_print_byte_array_attr, },
+    { .type = P11SAK_CONFIG_TYPE_DATE, .print_long = p11tool_print_date_attr, },
     { .type = NULL, },
 };
 
-static const struct p11sak_token_info p11sak_known_tokens[] = {
+static const struct p11tool_token_info p11sak_known_tokens[] = {
     { .type = TOKTYPE_CCA,  .manufacturer = "IBM", .model = "CCA",
       .mkvp_size = 8,  .mktype_cell_size = 8,
       .secure_key_attr = CKA_IBM_OPAQUE,
@@ -2300,618 +2201,9 @@ static const struct p11sak_token_info p11sak_known_tokens[] = {
     static void *global_private = NULL;
 #endif
 
-
-static const struct p11sak_token_info *find_known_token(
-                                                   const CK_TOKEN_INFO *info)
-{
-    unsigned int i;
-    char manufacturer[sizeof(info->manufacturerID) + 1] = { 0 };
-    char model[sizeof(info->model) + 1]  = { 0 };
-    char *ch;
-
-    memcpy(manufacturer, info->manufacturerID, sizeof(info->manufacturerID));
-    ch = strchr(manufacturer, ' ');
-    if (ch != NULL)
-        *ch = '\0';
-
-    memcpy(model, info->model, sizeof(info->model));
-    ch = strchr(model, ' ');
-    if (ch != NULL)
-        *ch = '\0';
-
-    for (i = 0; p11sak_known_tokens[i].type != TOKTYPE_UNKNOWN; i++) {
-        if (strcmp(manufacturer, p11sak_known_tokens[i].manufacturer) == 0 &&
-            strcmp(model, p11sak_known_tokens[i].model) == 0)
-            return &p11sak_known_tokens[i];
-    }
-
-    return NULL;
-}
-
-static const struct p11sak_cmd *find_command(const char *cmd)
-{
-    unsigned int i;
-
-    for (i = 0; p11sak_commands[i].cmd != NULL; i++) {
-        if (strcasecmp(cmd, p11sak_commands[i].cmd) == 0)
-            return &p11sak_commands[i];
-        if (p11sak_commands[i].cmd_short1 != NULL &&
-            strcasecmp(cmd, p11sak_commands[i].cmd_short1) == 0)
-            return &p11sak_commands[i];
-        if (p11sak_commands[i].cmd_short2 != NULL &&
-            strcasecmp(cmd, p11sak_commands[i].cmd_short2) == 0)
-            return &p11sak_commands[i];
-    }
-
-    return NULL;
-}
-
-static void count_opts(const struct p11sak_opt *opts,
-                       unsigned int *optstring_len,
-                       unsigned int *longopts_count)
-{
-    const struct p11sak_opt *opt;
-
-    for (opt = opts; opt->short_opt != 0 || opt->long_opt != NULL; opt++) {
-        if (opt->short_opt != 0) {
-            (*optstring_len)++;
-            if (opt->arg.type != ARG_TYPE_PLAIN) {
-                (*optstring_len)++;
-                if (!opt->arg.required)
-                    (*optstring_len)++;
-            }
-        }
-
-        if (opt->long_opt != NULL)
-            (*longopts_count)++;
-    }
-}
-
-static CK_RV build_opts(const struct p11sak_opt *opts,
-                        char *optstring,
-                        struct option *longopts)
-{
-    const struct p11sak_opt *opt;
-    unsigned int opts_idx, long_idx;
-
-    opts_idx = strlen(optstring);
-
-    for (long_idx = 0; longopts[long_idx].name != NULL; long_idx++)
-        ;
-
-    for (opt = opts; opt->short_opt != 0 || opt->long_opt != NULL; opt++) {
-        if (opt->short_opt != 0) {
-            optstring[opts_idx++] = opt->short_opt;
-            if (opt->arg.type != ARG_TYPE_PLAIN) {
-                optstring[opts_idx++] = ':';
-                if (!opt->arg.required)
-                    optstring[opts_idx++] = ':';
-            }
-        }
-
-        if (opt->long_opt != NULL) {
-            longopts[long_idx].name = opt->long_opt;
-            longopts[long_idx].has_arg = opt->arg.type != ARG_TYPE_PLAIN ?
-                              (opt->arg.required ?
-                                      required_argument : optional_argument ) :
-                              no_argument;
-            longopts[long_idx].flag = NULL;
-            longopts[long_idx].val = opt->short_opt != 0 ?
-                                        opt->short_opt : opt->long_opt_val;
-            long_idx++;
-        }
-    }
-
-    return CKR_OK;
-}
-
-static CK_RV build_cmd_opts(const struct p11sak_opt *cmd_opts,
-                            char **optstring, struct option **longopts)
-{
-    unsigned int optstring_len = 0, longopts_count = 0;
-    CK_RV rc;
-
-    count_opts(p11sak_generic_opts, &optstring_len, &longopts_count);
-    if (cmd_opts != NULL)
-        count_opts(cmd_opts, &optstring_len, &longopts_count);
-
-    *optstring = calloc(1 + optstring_len + 1, 1);
-    *longopts = calloc(longopts_count + 1, sizeof(struct option));
-    if (*optstring == NULL || *longopts == NULL) {
-        rc = CKR_HOST_MEMORY;
-        goto error;
-    }
-
-    (*optstring)[0] = ':'; /* Let getopt return ':' on missing argument */
-
-    rc = build_opts(p11sak_generic_opts, *optstring, *longopts);
-    if (rc != CKR_OK)
-        goto error;
-
-    if (cmd_opts != NULL) {
-        rc = build_opts(cmd_opts, *optstring, *longopts);
-        if (rc != CKR_OK)
-            goto error;
-    }
-
-    return CKR_OK;
-
-error:
-    if (*optstring != NULL)
-        free(*optstring);
-    *optstring = NULL;
-
-    if (*longopts != NULL)
-        free(*longopts);
-    *longopts = NULL;
-
-    return rc;
-}
-
-static CK_RV process_plain_argument(const struct p11sak_arg *arg)
-{
-    *arg->value.plain = true;
-
-    return CKR_OK;
-}
-
-static CK_RV process_string_argument(const struct p11sak_arg *arg, char *val)
-{
-    *arg->value.string = val;
-
-    return CKR_OK;
-}
-
-static CK_RV process_enum_argument(const struct p11sak_arg *arg, char *val)
-{
-    const struct p11sak_enum_value *enum_val, *any_val = NULL;
-
-    for (enum_val = arg->enum_values; enum_val->value != NULL; enum_val++) {
-
-        if (enum_val->any_value != NULL) {
-            any_val = enum_val;
-        } else if (arg->case_sensitive ?
-                            strcmp(val, enum_val->value) == 0 :
-                            strcasecmp(val, enum_val->value) == 0) {
-
-            *arg->value.enum_value = (struct p11sak_enum_value *)enum_val;
-            return CKR_OK;
-        }
-    }
-
-    /* process ANY enumeration value after all others */
-    if (any_val != NULL) {
-        *any_val->any_value = val;
-        *arg->value.enum_value = (struct p11sak_enum_value *)any_val;
-        return CKR_OK;
-    }
-
-    return CKR_ARGUMENTS_BAD;
-}
-
-static CK_RV process_number_argument(const struct p11sak_arg *arg, char *val)
-{
-    char *endptr;
-
-    errno = 0;
-    *arg->value.number = strtoul(val, &endptr, 0);
-
-    if ((errno == ERANGE && *arg->value.number == ULONG_MAX) ||
-        (errno != 0 && *arg->value.number == 0) ||
-        endptr == val) {
-        return CKR_ARGUMENTS_BAD;
-    }
-
-    return CKR_OK;
-}
-
-static CK_RV processs_argument(const struct p11sak_arg *arg, char *val)
-{
-    switch (arg->type) {
-    case ARG_TYPE_PLAIN:
-        return process_plain_argument(arg);
-    case ARG_TYPE_STRING:
-        return process_string_argument(arg, val);
-    case ARG_TYPE_ENUM:
-        return process_enum_argument(arg, val);
-    case ARG_TYPE_NUMBER:
-        return process_number_argument(arg, val);
-    default:
-        return CKR_ARGUMENTS_BAD;
-    }
-}
-
-static bool argument_is_set(const struct p11sak_arg *arg)
-{
-    if (arg->is_set != NULL)
-       return arg->is_set(arg);
-
-    switch (arg->type) {
-    case ARG_TYPE_PLAIN:
-        return *arg->value.plain;
-    case ARG_TYPE_STRING:
-        return *arg->value.string != NULL;
-    case ARG_TYPE_ENUM:
-        return *arg->value.enum_value != NULL;
-    case ARG_TYPE_NUMBER:
-        return *arg->value.number != 0;
-    default:
-        return false;
-    }
-}
-
-static void option_arg_error(const struct p11sak_opt *opt, const char *arg)
-{
-    if (opt->short_opt != 0 && opt->long_opt != NULL)
-        warnx("Invalid argument '%s' for option '-%c/--%s'", arg,
-             opt->short_opt, opt->long_opt);
-    else if (opt->long_opt != NULL)
-        warnx("Invalid argument '%s' for option '--%s'", arg, opt->long_opt);
-    else
-        warnx("Invalid argument '%s' for option '-%c'", arg, opt->short_opt);
-}
-
-static void option_missing_error(const struct p11sak_opt *opt)
-{
-    if (opt->short_opt != 0 && opt->long_opt != NULL)
-        warnx("Option '-%c/--%s' is required but not specified", opt->short_opt,
-             opt->long_opt);
-    else if (opt->long_opt != NULL)
-        warnx("Option '--%s is required but not specified'", opt->long_opt);
-    else
-        warnx("Option '-%c' is required but not specified", opt->short_opt);
-}
-
-static CK_RV process_option(const struct p11sak_opt *opts, int ch, char *val)
-{
-    const struct p11sak_opt *opt;
-    CK_RV rc;
-
-    for (opt = opts; opt->short_opt != 0 || opt->long_opt != NULL; opt++) {
-        if (ch == (opt->short_opt != 0 ? opt->short_opt : opt->long_opt_val)) {
-            rc = processs_argument(&opt->arg, val);
-            if (rc != CKR_OK) {
-                option_arg_error(opt, val);
-                return rc;
-            }
-
-            return CKR_OK;
-        }
-    }
-
-    return CKR_ARGUMENTS_BAD;
-}
-
-static CK_RV process_cmd_option(const struct p11sak_opt *cmd_opts,
-                                int opt, char *arg)
-{
-    CK_RV rc;
-
-    rc = process_option(p11sak_generic_opts, opt, arg);
-    if (rc == CKR_OK)
-        return CKR_OK;
-
-    if (cmd_opts != NULL) {
-        rc = process_option(cmd_opts, opt, arg);
-        if (rc == CKR_OK)
-            return CKR_OK;
-    }
-
-    return rc;
-}
-
-static CK_RV check_required_opts(const struct p11sak_opt *opts)
-{
-    const struct p11sak_opt *opt;
-    CK_RV rc = CKR_OK;
-
-    for (opt = opts; opt->short_opt != 0 || opt->long_opt != NULL; opt++) {
-        if (opt->required && opt->arg.required &&
-            argument_is_set(&opt->arg) == false) {
-            option_missing_error(opt);
-            rc = CKR_ARGUMENTS_BAD;
-            /* No break, report all missing options */
-        }
-    }
-
-    return rc;
-}
-
-static CK_RV check_required_cmd_opts(const struct p11sak_opt *cmd_opts)
-{
-    CK_RV rc;
-
-    rc = check_required_opts(p11sak_generic_opts);
-    if (rc != CKR_OK)
-        return rc;
-
-    if (cmd_opts != NULL) {
-        rc = check_required_opts(cmd_opts);
-        if (rc != CKR_OK)
-            return rc;
-    }
-
-    return CKR_OK;
-}
-
-static CK_RV parse_cmd_options(const struct p11sak_cmd *cmd,
-                               int argc, char *argv[])
-{
-    char *optstring = NULL;
-    struct option *longopts = NULL;
-    CK_RV rc;
-    int c;
-
-    rc = build_cmd_opts(cmd != NULL ? cmd->opts : NULL, &optstring, &longopts);
-    if (rc != CKR_OK)
-        goto done;
-
-    opterr = 0;
-    while (1) {
-        c = getopt_long(argc, argv, optstring, longopts, NULL);
-        if (c == -1)
-            break;
-
-        switch (c) {
-        case ':':
-            warnx("Option '%s' requires an argument", argv[optind - 1]);
-            rc = CKR_ARGUMENTS_BAD;
-            goto done;
-
-        case '?': /* An invalid option has been specified */
-            if (optopt)
-                warnx("Invalid option '-%c'", optopt);
-            else
-                warnx("Invalid option '%s'", argv[optind - 1]);
-            rc = CKR_ARGUMENTS_BAD;
-            goto done;
-
-        default:
-            rc = process_cmd_option(cmd != NULL ? cmd->opts : NULL, c, optarg);
-            if (rc != CKR_OK)
-                goto done;
-            break;
-        }
-    }
-
-    if (optind < argc) {
-        warnx("Invalid argument '%s'", argv[optind]);
-        rc = CKR_ARGUMENTS_BAD;
-        goto done;
-    }
-
-done:
-    if (optstring != NULL)
-        free(optstring);
-    if (longopts != NULL)
-        free(longopts);
-
-    return rc;
-}
-
-static CK_RV check_required_args(const struct p11sak_arg *args)
-{
-    const struct p11sak_arg *arg;
-    CK_RV rc2, rc = CKR_OK;
-
-    for (arg = args; arg != NULL && arg->name != NULL; arg++) {
-        if (arg->required && argument_is_set(arg) == false) {
-            warnx("Argument '%s' is required but not specified", arg->name);
-            rc = CKR_ARGUMENTS_BAD;
-            /* No break, report all missing arguments */
-        }
-
-        /* Check enumeration value specific arguments (if any) */
-        if (arg->type == ARG_TYPE_ENUM && *arg->value.enum_value != NULL &&
-            (*arg->value.enum_value)->args != NULL) {
-            rc2 = check_required_args((*arg->value.enum_value)->args);
-            if (rc2 != CKR_OK)
-                rc = rc2;
-            /* No break, report all missing arguments */
-        }
-    }
-
-    return rc;
-}
-
-static CK_RV parse_arguments(const struct p11sak_arg *args,
-                             int *argc, char **argv[])
-{
-    const struct p11sak_arg *arg;
-    CK_RV rc = CKR_OK;
-
-    for (arg = args; arg->name != NULL; arg++) {
-        if (*argc < 2 || strncmp((*argv)[1], "-", 1) == 0)
-            break;
-
-        rc = processs_argument(arg, (*argv)[1]);
-        if (rc != CKR_OK) {
-            if (rc == CKR_ARGUMENTS_BAD)
-                warnx("Invalid argument '%s' for '%s'", (*argv)[1], arg->name);
-            break;
-        }
-
-        (*argc)--;
-        (*argv)++;
-
-        /* Process enumeration value specific arguments (if any) */
-        if (arg->type == ARG_TYPE_ENUM && *arg->value.enum_value != NULL &&
-            (*arg->value.enum_value)->args != NULL) {
-            rc = parse_arguments((*arg->value.enum_value)->args, argc, argv);
-            if (rc != CKR_OK)
-                break;
-        }
-    }
-
-    return rc;
-}
-
-static CK_RV parse_cmd_arguments(const struct p11sak_cmd *cmd,
-                                 int *argc, char **argv[])
-{
-    if (cmd == NULL)
-        return CKR_OK;
-
-    return parse_arguments(cmd->args, argc, argv);
-}
-
-static void print_indented(const char *str, int indent)
-{
-    char *word, *line, *desc, *desc_ptr;
-    int word_len, pos = indent;
-
-    desc = desc_ptr = strdup(str);
-    if (desc == NULL)
-        return;
-
-    line = strsep(&desc, "\n");
-    while (line != NULL) {
-        word = strsep(&line, " ");
-        pos = indent;
-        while (word != NULL) {
-            word_len = strlen(word);
-            if (pos + word_len + 1 > MAX_PRINT_LINE_LENGTH) {
-                printf("\n%*s", indent, "");
-                pos = indent;
-            }
-            if (pos == indent)
-                printf("%s", word);
-            else
-                printf(" %s", word);
-            pos += word_len + 1;
-            word = strsep(&line, " ");
-        }
-        if (desc)
-            printf("\n%*s", indent, "");
-        line =  strsep(&desc, "\n");
-    }
-
-    printf("\n");
-    free(desc_ptr);
-}
-
-static void print_options_help(const struct p11sak_opt *opts)
-{
-    const struct p11sak_opt *opt;
-    char tmp[200];
-    int len;
-
-    for (opt = opts; opt->short_opt != 0 || opt->long_opt != NULL; opt++) {
-        if (opt->short_opt != 0 && opt->long_opt != NULL)
-            len = snprintf(tmp, sizeof(tmp), "-%c, --%s", opt->short_opt,
-                           opt->long_opt);
-        else if (opt->short_opt == 0 && opt->long_opt != NULL)
-            len = snprintf(tmp, sizeof(tmp),"    --%s", opt->long_opt);
-        else
-            len = snprintf(tmp, sizeof(tmp),"-%c", opt->short_opt);
-
-        if (opt->arg.type != ARG_TYPE_PLAIN) {
-            if (opt->arg.required)
-                snprintf(&tmp[len], sizeof(tmp) - len, " %s", opt->arg.name);
-            else if (opt->long_opt == NULL)
-                snprintf(&tmp[len], sizeof(tmp) - len, "[%s]", opt->arg.name);
-            else
-                snprintf(&tmp[len], sizeof(tmp) - len, "[=%s]", opt->arg.name);
-        }
-
-        printf("    %-30.30s ", tmp);
-        print_indented(opt->description, PRINT_INDENT_POS);
-    }
-}
-
-static void print_arguments_help(const struct p11sak_cmd *cmd,
-                                 const struct p11sak_arg *args,
-                                 int indent)
-{
-    const struct p11sak_arg *arg;
-    const struct p11sak_enum_value *val;
-    int width;
-    bool newline = false;
-
-    if (indent > 0) {
-        for (arg = args; arg->name != NULL; arg++) {
-            if (arg->required)
-                printf(" %s", arg->name);
-            else
-                printf(" [%s]", arg->name);
-        }
-        printf("\n\n");
-    }
-
-    for (arg = args; arg->name != NULL; arg++) {
-        width = 30 - indent;
-        if (width < (int)strlen(arg->name))
-            width = (int)strlen(arg->name);
-
-        printf("%*s    %-*.*s ", indent, "", width, width, arg->name);
-        print_indented(arg->description, PRINT_INDENT_POS);
-
-        newline = false;
-
-        if (arg->type != ARG_TYPE_ENUM)
-            continue;
-
-        /* Enumeration: print possible values */
-        for (val = arg->enum_values; val->value != NULL; val++) {
-            if (arg == cmd->args && argument_is_set(arg) &&
-                *arg->value.enum_value != val)
-                continue;
-
-            newline = true;
-
-            printf("%*s        %s", indent, "", val->value);
-
-            if (val->args != NULL) {
-                print_arguments_help(cmd, val->args, indent + 8);
-                newline = false;
-            } else {
-                printf("\n");
-            }
-        }
-    }
-
-    if (indent > 0 || newline)
-        printf("\n");
-}
-
-static void print_help(void)
-{
-    const struct p11sak_cmd *cmd;
-
-    printf("\n");
-    printf("Usage: p11sak COMMAND [ARGS] [OPTIONS]\n");
-    printf("\n");
-    printf("COMMANDS:\n");
-    for (cmd = p11sak_commands; cmd->cmd != NULL; cmd++) {
-        printf("    %-30.30s ", cmd->cmd);
-        print_indented(cmd->description, PRINT_INDENT_POS);
-    }
-    printf("\n");
-    printf("COMMON OPTIONS\n");
-    print_options_help(p11sak_generic_opts);
-    printf("\n");
-    printf("For more information use 'p11sak COMMAND --help'.\n");
-    printf("\n");
-}
-
-static void print_command_help(const struct p11sak_cmd *cmd)
-{
-    printf("\n");
-    printf("Usage: p11sak %s [ARGS] [OPTIONS]\n", cmd->cmd);
-    printf("\n");
-    printf("ARGS:\n");
-    print_arguments_help(cmd, cmd->args, 0);
-    printf("OPTIONS:\n");
-    print_options_help(cmd->opts);
-    print_options_help(p11sak_generic_opts);
-    printf("\n");
-    if (cmd->help != NULL)
-        cmd->help();
-}
-
 static void print_import_cert_attr_help(void)
 {
-    const struct p11sak_attr *attr;
+    const struct p11tool_attr *attr;
 
     printf("ATTRIBUTES:\n");
     for (attr = p11sak_bool_cert_attrs; attr->name != NULL; attr++) {
@@ -2923,18 +2215,20 @@ static void print_import_cert_attr_help(void)
     printf("\n");
 
     printf("    ");
-    print_indented("An uppercase letter sets the corresponding attribute to "
-                   "CK_TRUE, a lower case letter to CK_FALSE.\n"
-                   "If an attribute is not set explicitly, its default value "
-                   "is used.\n"
-                   "Not all attributes may be accepted for all certificate types.\n"
-                   "Attribute CKA_TOKEN is always set to CK_TRUE.", 4);
+    p11tool_print_indented("An uppercase letter sets the corresponding "
+                           "attribute to CK_TRUE, a lower case letter to "
+                           "CK_FALSE.\n"
+                           "If an attribute is not set explicitly, its default "
+                           "value is used.\n"
+                           "Not all attributes may be accepted for all "
+                           "certificate types.\n"
+                           "Attribute CKA_TOKEN is always set to CK_TRUE.", 4);
     printf("\n");
 }
 
 static void print_generate_import_key_attr_help(void)
 {
-    const struct p11sak_attr *attr;
+    const struct p11tool_attr *attr;
 
     printf("ATTRIBUTES:\n");
     for (attr = p11sak_bool_attrs; attr->name != NULL; attr++) {
@@ -2946,18 +2240,20 @@ static void print_generate_import_key_attr_help(void)
     printf("\n");
 
     printf("    ");
-    print_indented("An uppercase letter sets the corresponding attribute to "
-                   "CK_TRUE, a lower case letter to CK_FALSE.\n"
-                   "If an attribute is not set explicitly, its default value "
-                   "is used.\n"
-                   "Not all attributes may be accepted for all key types.\n"
-                   "Attribute CKA_TOKEN is always set to CK_TRUE.", 4);
+    p11tool_print_indented("An uppercase letter sets the corresponding "
+                           "attribute to CK_TRUE, a lower case letter to "
+                           "CK_FALSE.\n"
+                           "If an attribute is not set explicitly, its default "
+                           "value is used.\n"
+                           "Not all attributes may be accepted for all key "
+                           "types.\n"
+                           "Attribute CKA_TOKEN is always set to CK_TRUE.", 4);
     printf("\n");
 }
 
 static void print_list_key_attr_help(void)
 {
-    const struct p11sak_attr *attr;
+    const struct p11tool_attr *attr;
 
     printf("ATTRIBUTES:\n");
     for (attr = p11sak_bool_attrs; attr->name != NULL; attr++)
@@ -2965,15 +2261,16 @@ static void print_list_key_attr_help(void)
     printf("\n");
 
     printf("    ");
-    print_indented("Not all attributes may be defined for all key types.\n"
-                   "Attribute CKA_TOKEN is always CK_TRUE for all keys listed.",
-                   4);
+    p11tool_print_indented("Not all attributes may be defined for all key "
+                           "types.\n"
+                           "Attribute CKA_TOKEN is always CK_TRUE for all keys "
+                           "listed.", 4);
     printf("\n");
 }
 
 static void print_list_cert_attr_help(void)
 {
-    const struct p11sak_attr *attr;
+    const struct p11tool_attr *attr;
 
     printf("ATTRIBUTES:\n");
     for (attr = p11sak_bool_cert_attrs; attr->name != NULL; attr++)
@@ -2981,15 +2278,16 @@ static void print_list_cert_attr_help(void)
     printf("\n");
 
     printf("    ");
-    print_indented("Not all attributes may be defined for all certificate types.\n"
-                   "Attribute CKA_TOKEN is always CK_TRUE for all certificates listed.",
-                   4);
+    p11tool_print_indented("Not all attributes may be defined for all "
+                           "certificate types.\n"
+                           "Attribute CKA_TOKEN is always CK_TRUE for all "
+                           "certificates listed.", 4);
     printf("\n");
 }
 
 static void print_remove_key_help(void)
 {
-    const struct p11sak_attr *attr;
+    const struct p11tool_attr *attr;
 
     printf("ATTRIBUTES:\n");
     for (attr = p11sak_bool_attrs; attr->name != NULL; attr++)
@@ -2997,14 +2295,14 @@ static void print_remove_key_help(void)
     printf("\n");
 
     printf("    ");
-    print_indented("Not all attributes may be defined for all key types.",
-                   4);
+    p11tool_print_indented("Not all attributes may be defined for all key "
+                           "types.", 4);
     printf("\n");
 }
 
 static void print_set_copy_extract_key_attr_help(void)
 {
-    const struct p11sak_attr *attr;
+    const struct p11tool_attr *attr;
 
     printf("ATTRIBUTES:\n");
     for (attr = p11sak_bool_attrs; attr->name != NULL; attr++)
@@ -3014,21 +2312,22 @@ static void print_set_copy_extract_key_attr_help(void)
     printf("\n");
 
     printf("    ");
-    print_indented("Keys can be filtered by all attributes, setting "
-                   "is possible for all except L A N Z. T can be set to TRUE "
-                   "by SO only.\n"
-                   "An uppercase letter sets the corresponding attribute to "
-                   "CK_TRUE, a lower case letter to CK_FALSE.\n"
-                   "If an attribute is not set explicitly, its value is not "
-                   "changed.\n"
-                   "Not all attributes may be allowed to be changed for all "
-                   "key types, or to all values.\n", 4);
+    p11tool_print_indented("Keys can be filtered by all attributes, setting "
+                           "is possible for all except L A N Z. T can be set "
+                           "to TRUE by SO only.\n"
+                           "An uppercase letter sets the corresponding "
+                           "attribute to CK_TRUE, a lower case letter to "
+                           "CK_FALSE.\n"
+                           "If an attribute is not set explicitly, its value "
+                           "is not changed.\n"
+                           "Not all attributes may be allowed to be changed "
+                           "for all key types, or to all values.\n", 4);
     printf("\n");
 }
 
 static void print_set_copy_cert_attr_help(void)
 {
-    const struct p11sak_attr *attr;
+    const struct p11tool_attr *attr;
 
     printf("ATTRIBUTES:\n");
     for (attr = p11sak_bool_cert_attrs; attr->name != NULL; attr++)
@@ -3039,21 +2338,22 @@ static void print_set_copy_cert_attr_help(void)
     printf("\n");
 
     printf("    ");
-    print_indented("Certificates can be filtered by all attributes, setting "
-                   "is also possible for all, but T can be set to TRUE by SO "
-                   "only.\n"
-                   "An uppercase letter sets the corresponding attribute to "
-                   "CK_TRUE, a lower case letter to CK_FALSE.\n"
-                   "If an attribute is not set explicitly, its value is not "
-                   "changed.\n"
-                   "Not all attributes may be allowed to be changed for all "
-                   "certificate types, or to all values.\n", 4);
+    p11tool_print_indented("Certificates can be filtered by all attributes, "
+                           "setting is also possible for all, but T can be set "
+                           "to TRUE by SO only.\n"
+                           "An uppercase letter sets the corresponding "
+                           "attribute to CK_TRUE, a lower case letter to "
+                           "CK_FALSE.\n"
+                           "If an attribute is not set explicitly, its value "
+                           "is not changed.\n"
+                           "Not all attributes may be allowed to be changed "
+                           "for all certificate types, or to all values.\n", 4);
     printf("\n");
 }
 
 static void print_remove_cert_help(void)
 {
-    const struct p11sak_attr *attr;
+    const struct p11tool_attr *attr;
 
     printf("ATTRIBUTES:\n");
     for (attr = p11sak_bool_cert_attrs; attr->name != NULL; attr++)
@@ -3061,14 +2361,14 @@ static void print_remove_cert_help(void)
     printf("\n");
 
     printf("    ");
-    print_indented("Not all attributes may be defined for all certificate types.",
-                   4);
+    p11tool_print_indented("Not all attributes may be defined for all "
+                           "certificate types.", 4);
     printf("\n");
 }
 
 static void print_extract_cert_pubkey_help(void)
 {
-    const struct p11sak_attr *attr;
+    const struct p11tool_attr *attr;
 
     printf("ATTRIBUTES (for filtering):\n");
     for (attr = p11sak_bool_cert_attrs; attr->name != NULL; attr++)
@@ -3077,10 +2377,11 @@ static void print_extract_cert_pubkey_help(void)
 
     printf("    ");
 
-    print_indented("When filtering certificates, use lowercase letters to "
-                   "include only certificates where the related attribute value "
-                   "is equal to CK_FALSE, use uppercase letters if the related "
-                   "attribute shall be CK_TRUE.\n", 4);
+    p11tool_print_indented("When filtering certificates, use lowercase letters "
+                           "to include only certificates where the related "
+                           "attribute value is equal to CK_FALSE, use "
+                           "uppercase letters if the related attribute shall "
+                           "be CK_TRUE.\n", 4);
 
     printf("ATTRIBUTES (for setting):\n");
     for (attr = p11sak_bool_attrs; attr->name != NULL; attr++) {
@@ -3093,122 +2394,23 @@ static void print_extract_cert_pubkey_help(void)
 
     printf("    ");
 
-    print_indented("When setting attributes for extracted public keys, use "
-                   "uppercase letters to set the corresponding attribute to "
-                   "CK_TRUE, lowercase letters to CK_FALSE.\n"
-                   "If an attribute is not set explicitly, its value is set "
-                   "to its default.\n"
-                   "Not all attributes may be allowed to be set for all "
-                   "public keys, or to all values.\n", 4);
+    p11tool_print_indented("When setting attributes for extracted public keys, "
+                           "use uppercase letters to set the corresponding "
+                           "attribute to CK_TRUE, lowercase letters to "
+                           "CK_FALSE.\n"
+                           "If an attribute is not set explicitly, its value "
+                           "is set to its default.\n"
+                           "Not all attributes may be allowed to be set for "
+                           "all public keys, or to all values.\n", 4);
     printf("\n");
 }
 
-static void print_version(void)
-{
-    printf("p11sak version %s\n", PACKAGE_VERSION);
-}
-
-static bool opt_slot_is_set(const struct p11sak_arg *arg)
+static bool opt_slot_is_set(const struct p11tool_arg *arg)
 {
     return (*arg->value.number != (CK_ULONG)-1);
 }
 
-static int openssl_err_cb(const char *str, size_t len, void *u)
-{
-    UNUSED(u);
-
-    if (str[len - 1] == '\n')
-        len--;
-
-    warnx("OpenSSL error: %.*s", (int)len, str);
-    return 1;
-}
-
-static bool is_rejected_by_policy(CK_RV ret_code, CK_SESSION_HANDLE session)
-{
-    CK_SESSION_INFO info;
-    CK_RV rc;
-
-    if (ret_code != CKR_FUNCTION_FAILED)
-        return false;
-
-    rc = pkcs11_funcs->C_GetSessionInfo(session, &info);
-    if (rc != CKR_OK) {
-        warnx("C_GetSessionInfo failed: 0x%lX: %s", rc, p11_get_ckr(rc));
-        return false;
-    }
-
-    return (info.ulDeviceError == CKR_POLICY_VIOLATION);
-}
-
-static CK_RV check_mech_supported(const struct p11sak_objtype *objtype,
-                                  CK_ULONG keysize)
-{
-    CK_MECHANISM_INFO mech_info;
-    CK_RV rc;
-
-    rc = pkcs11_funcs->C_GetMechanismInfo(opt_slot,
-                                          objtype->keygen_mech.mechanism,
-                                          &mech_info);
-    if (rc != CKR_OK) {
-        warnx("Token in slot %lu does not support mechanism %s", opt_slot,
-              p11_get_ckm(&mechtable_funcs, objtype->keygen_mech.mechanism));
-        return rc;
-    }
-
-    if ((mech_info.flags & (objtype->is_asymmetric ?
-                                CKF_GENERATE_KEY_PAIR : CKF_GENERATE)) == 0) {
-        warnx("Mechanism %s does not support to generate keys",
-              p11_get_ckm(&mechtable_funcs, objtype->keygen_mech.mechanism));
-        return CKR_MECHANISM_INVALID;
-    }
-
-    if (keysize != 0 &&
-        mech_info.ulMinKeySize != 0 && mech_info.ulMaxKeySize != 0) {
-        if (keysize < mech_info.ulMinKeySize ||
-            keysize > mech_info.ulMaxKeySize) {
-            warnx("Mechanism %s does not support to generate keys of size %lu",
-                  p11_get_ckm(&mechtable_funcs, objtype->keygen_mech.mechanism),
-                  keysize);
-            return CKR_KEY_SIZE_RANGE;
-        }
-    }
-
-    return CKR_OK;
-}
-
-static CK_RV add_attribute(CK_ATTRIBUTE_TYPE type, const void *value,
-                           CK_ULONG value_len, CK_ATTRIBUTE **attrs,
-                           CK_ULONG *num_attrs)
-{
-    CK_ATTRIBUTE *tmp;
-
-    tmp = realloc(*attrs, (*num_attrs + 1) * sizeof(CK_ATTRIBUTE));
-    if (tmp == NULL) {
-        warnx("Failed to allocate memory for attribute list");
-        return CKR_HOST_MEMORY;
-    }
-
-    *attrs = tmp;
-
-    tmp[*num_attrs].type = type;
-    tmp[*num_attrs].ulValueLen = value_len;
-    tmp[*num_attrs].pValue = NULL;
-    if (value_len != 0) {
-        tmp[*num_attrs].pValue = malloc(value_len);
-        if (tmp[*num_attrs].pValue == NULL) {
-            warnx("Failed to allocate memory attribute to add to list");
-            return CKR_HOST_MEMORY;
-        }
-        memcpy(tmp[*num_attrs].pValue, value, value_len);
-    }
-
-    (*num_attrs)++;
-
-    return CKR_OK;
-}
-
-static CK_RV generic_get_key_size(const struct p11sak_objtype *keytype,
+static CK_RV generic_get_key_size(const struct p11tool_objtype *keytype,
                                   void *private, CK_ULONG *keysize)
 {
     UNUSED(private);
@@ -3219,7 +2421,7 @@ static CK_RV generic_get_key_size(const struct p11sak_objtype *keytype,
     return CKR_OK;
 }
 
-static CK_RV generic_add_secret_attrs(const struct p11sak_objtype *keytype,
+static CK_RV generic_add_secret_attrs(const struct p11tool_objtype *keytype,
                                       CK_ATTRIBUTE **attrs, CK_ULONG *num_attrs,
                                       void *private)
 {
@@ -3228,11 +2430,11 @@ static CK_RV generic_add_secret_attrs(const struct p11sak_objtype *keytype,
     UNUSED(private);
     UNUSED(keytype);
 
-    return add_attribute(CKA_VALUE_LEN, &value_len, sizeof(value_len),
-                         attrs, num_attrs);
+    return p11tool_add_attribute(CKA_VALUE_LEN, &value_len, sizeof(value_len),
+                                 attrs, num_attrs);
 }
 
-static CK_ULONG generic_keysize_adjust(const struct p11sak_objtype *keytype,
+static CK_ULONG generic_keysize_adjust(const struct p11tool_objtype *keytype,
                                        CK_ULONG keysize)
 {
     UNUSED(keytype);
@@ -3240,7 +2442,7 @@ static CK_ULONG generic_keysize_adjust(const struct p11sak_objtype *keytype,
     return keysize * 8;
 }
 
-static CK_RV aes_get_key_size(const struct p11sak_objtype *keytype,
+static CK_RV aes_get_key_size(const struct p11tool_objtype *keytype,
                               void *private, CK_ULONG *keysize)
 {
     UNUSED(private);
@@ -3251,7 +2453,7 @@ static CK_RV aes_get_key_size(const struct p11sak_objtype *keytype,
     return CKR_OK;
 }
 
-static CK_RV aes_add_secret_attrs(const struct p11sak_objtype *keytype,
+static CK_RV aes_add_secret_attrs(const struct p11tool_objtype *keytype,
                                   CK_ATTRIBUTE **attrs, CK_ULONG *num_attrs,
                                   void *private)
 {
@@ -3260,11 +2462,11 @@ static CK_RV aes_add_secret_attrs(const struct p11sak_objtype *keytype,
     UNUSED(private);
     UNUSED(keytype);
 
-    return add_attribute(CKA_VALUE_LEN, &value_len, sizeof(value_len),
-                         attrs, num_attrs);
+    return p11tool_add_attribute(CKA_VALUE_LEN, &value_len, sizeof(value_len),
+                                 attrs, num_attrs);
 }
 
-static CK_ULONG aes_keysize_adjust(const struct p11sak_objtype *keytype,
+static CK_ULONG aes_keysize_adjust(const struct p11tool_objtype *keytype,
                                    CK_ULONG keysize)
 {
     UNUSED(keytype);
@@ -3272,7 +2474,7 @@ static CK_ULONG aes_keysize_adjust(const struct p11sak_objtype *keytype,
     return keysize * 8;
 }
 
-static CK_ULONG aes_xts_keysize_adjust(const struct p11sak_objtype *keytype,
+static CK_ULONG aes_xts_keysize_adjust(const struct p11tool_objtype *keytype,
                                        CK_ULONG keysize)
 {
     UNUSED(keytype);
@@ -3280,7 +2482,7 @@ static CK_ULONG aes_xts_keysize_adjust(const struct p11sak_objtype *keytype,
     return (keysize * 8) / 2;
 }
 
-static CK_ULONG rsa_keysize_adjust(const struct p11sak_objtype *keytype,
+static CK_ULONG rsa_keysize_adjust(const struct p11tool_objtype *keytype,
                                    CK_ULONG keysize)
 {
     UNUSED(keytype);
@@ -3288,7 +2490,7 @@ static CK_ULONG rsa_keysize_adjust(const struct p11sak_objtype *keytype,
     return keysize * 8;
 }
 
-static CK_ULONG dh_keysize_adjust(const struct p11sak_objtype *keytype,
+static CK_ULONG dh_keysize_adjust(const struct p11tool_objtype *keytype,
                                   CK_ULONG keysize)
 {
     UNUSED(keytype);
@@ -3296,7 +2498,7 @@ static CK_ULONG dh_keysize_adjust(const struct p11sak_objtype *keytype,
     return keysize * 8;
 }
 
-static CK_ULONG dsa_keysize_adjust(const struct p11sak_objtype *keytype,
+static CK_ULONG dsa_keysize_adjust(const struct p11tool_objtype *keytype,
                                    CK_ULONG keysize)
 {
     UNUSED(keytype);
@@ -3304,7 +2506,7 @@ static CK_ULONG dsa_keysize_adjust(const struct p11sak_objtype *keytype,
     return keysize * 8;
 }
 
-static CK_RV rsa_get_key_size(const struct p11sak_objtype *keytype,
+static CK_RV rsa_get_key_size(const struct p11tool_objtype *keytype,
                               void *private, CK_ULONG *keysize)
 {
     UNUSED(private);
@@ -3315,7 +2517,7 @@ static CK_RV rsa_get_key_size(const struct p11sak_objtype *keytype,
     return CKR_OK;
 }
 
-static CK_RV rsa_add_public_attrs(const struct p11sak_objtype *keytype,
+static CK_RV rsa_add_public_attrs(const struct p11tool_objtype *keytype,
                                   CK_ATTRIBUTE **attrs, CK_ULONG *num_attrs,
                                   void *private)
 {
@@ -3327,8 +2529,8 @@ static CK_RV rsa_add_public_attrs(const struct p11sak_objtype *keytype,
     UNUSED(private);
     UNUSED(keytype);
 
-    rc = add_attribute(CKA_MODULUS_BITS, &opt_keybits->private.num,
-                       sizeof(opt_keybits->private.num), attrs, num_attrs);
+    rc = p11tool_add_attribute(CKA_MODULUS_BITS, &opt_keybits->private.num,
+                               sizeof(opt_keybits->private.num), attrs, num_attrs);
     if (rc != CKR_OK)
         return rc;
 
@@ -3338,8 +2540,8 @@ static CK_RV rsa_add_public_attrs(const struct p11sak_objtype *keytype,
         for (i = 0, b = (CK_BYTE *)&val; i < sizeof(val) && *b == 0; i++, b++)
             ;
 
-        rc = add_attribute(CKA_PUBLIC_EXPONENT, b, sizeof(val) - i,
-                           attrs, num_attrs);
+        rc = p11tool_add_attribute(CKA_PUBLIC_EXPONENT, b, sizeof(val) - i,
+                                   attrs, num_attrs);
         if (rc != CKR_OK)
             return rc;
     }
@@ -3347,7 +2549,7 @@ static CK_RV rsa_add_public_attrs(const struct p11sak_objtype *keytype,
     return CKR_OK;
 }
 
-static CK_RV ec_get_key_size(const struct p11sak_objtype *keytype,
+static CK_RV ec_get_key_size(const struct p11tool_objtype *keytype,
                              void *private, CK_ULONG *keysize)
 {
     const struct curve_info *curve = opt_curve->private.ptr;
@@ -3360,7 +2562,7 @@ static CK_RV ec_get_key_size(const struct p11sak_objtype *keytype,
     return CKR_OK;
 }
 
-static CK_RV ec_add_public_attrs(const struct p11sak_objtype *keytype,
+static CK_RV ec_add_public_attrs(const struct p11tool_objtype *keytype,
                                  CK_ATTRIBUTE **attrs, CK_ULONG *num_attrs,
                                  void *private)
 {
@@ -3369,8 +2571,8 @@ static CK_RV ec_add_public_attrs(const struct p11sak_objtype *keytype,
     UNUSED(private);
     UNUSED(keytype);
 
-    return add_attribute(CKA_EC_PARAMS, curve->oid, curve->oid_len,
-                         attrs, num_attrs);
+    return p11tool_add_attribute(CKA_EC_PARAMS, curve->oid, curve->oid_len,
+                                 attrs, num_attrs);
 }
 
 static CK_RV dh_dsa_read_params_pem(const char *pem_file, bool is_dsa,
@@ -3383,7 +2585,7 @@ static CK_RV dh_dsa_read_params_pem(const char *pem_file, bool is_dsa,
     f = BIO_new_file(pem_file, "r");
     if (f == NULL) {
         warnx("Failed to open PEM file '%s'.", pem_file);
-        ERR_print_errors_cb(openssl_err_cb, NULL);
+        ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
         return CKR_ARGUMENTS_BAD;
     }
 
@@ -3392,7 +2594,7 @@ static CK_RV dh_dsa_read_params_pem(const char *pem_file, bool is_dsa,
         EVP_PKEY_base_id(param) != (is_dsa ? EVP_PKEY_DSA : EVP_PKEY_DH)) {
         warnx("Failed to read %s PEM file '%s'.", is_dsa ? "DSA" : "DH",
               pem_file);
-        ERR_print_errors_cb(openssl_err_cb, NULL);
+        ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
         rc = CKR_FUNCTION_FAILED;
         goto done;
     }
@@ -3417,27 +2619,27 @@ static CK_RV dh_group_params(int group_nid, EVP_PKEY **pkey)
     ctx = EVP_PKEY_CTX_new_id(EVP_PKEY_DH, NULL);
     if (ctx == NULL) {
         warnx("Failed to set up an EVP context for DH.");
-        ERR_print_errors_cb(openssl_err_cb, NULL);
+        ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
         return CKR_FUNCTION_FAILED;
     }
 
     if (EVP_PKEY_paramgen_init(ctx) <= 0) {
         warnx("Failed to initialize a DH paramgen context.");
-        ERR_print_errors_cb(openssl_err_cb, NULL);
+        ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
         rc = CKR_FUNCTION_FAILED;
         goto done;
     }
 
     if (EVP_PKEY_CTX_set_dh_nid(ctx, group_nid) <= 0) {
         warnx("Failed to set group for DH paramgen context.");
-        ERR_print_errors_cb(openssl_err_cb, NULL);
+        ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
         rc = CKR_FUNCTION_FAILED;
         goto done;
     }
 
     if (EVP_PKEY_paramgen(ctx, &param) <= 0) {
         warnx("Failed to generate the DH params.");
-        ERR_print_errors_cb(openssl_err_cb, NULL);
+        ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
         rc = CKR_FUNCTION_FAILED;
         goto done;
     }
@@ -3449,35 +2651,6 @@ done:
     if (param != NULL)
         EVP_PKEY_free(param);
     EVP_PKEY_CTX_free(ctx);
-
-    return rc;
-}
-
-static CK_RV add_bignum_attr(CK_ATTRIBUTE_TYPE type, const BIGNUM* bn,
-                             CK_ATTRIBUTE **attrs, CK_ULONG *num_attrs)
-{
-    int len;
-    CK_BYTE *buff = NULL;
-    CK_RV rc;
-
-    len = BN_num_bytes(bn);
-    buff = calloc(len, 1);
-    if (buff == NULL || len == 0) {
-        warnx("Failed to allocate a buffer for a bignum");
-        if (buff != NULL)
-            free(buff);
-        return CKR_HOST_MEMORY;
-    }
-
-    if (BN_bn2bin(bn, buff) != len) {
-        warnx("Failed to get a bignum.");
-        ERR_print_errors_cb(openssl_err_cb, NULL);
-        free(buff);
-        return CKR_FUNCTION_FAILED;
-    }
-
-    rc = add_attribute(type, buff, len, attrs, num_attrs);
-    free(buff);
 
     return rc;
 }
@@ -3500,7 +2673,7 @@ static CK_RV dh_dsa_add_public_attrs(CK_ATTRIBUTE **attrs, CK_ULONG *num_attrs,
          !EVP_PKEY_get_bn_param(pkey, OSSL_PKEY_PARAM_FFC_Q, &bn_q)) ||
         !EVP_PKEY_get_bn_param(pkey, OSSL_PKEY_PARAM_FFC_G, &bn_g)) {
         warnx("Failed to get the %s params.", is_dsa ? "DSA" : "DH");
-        ERR_print_errors_cb(openssl_err_cb, NULL);
+        ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
         rc = CKR_FUNCTION_FAILED;
         goto done;
      }
@@ -3509,7 +2682,7 @@ static CK_RV dh_dsa_add_public_attrs(CK_ATTRIBUTE **attrs, CK_ULONG *num_attrs,
         dsa = EVP_PKEY_get0_DSA(pkey);
         if (dsa == NULL) {
             warnx("Failed to get the DSA params.");
-            ERR_print_errors_cb(openssl_err_cb, NULL);
+            ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
             rc = CKR_FUNCTION_FAILED;
             goto done;
         }
@@ -3517,7 +2690,7 @@ static CK_RV dh_dsa_add_public_attrs(CK_ATTRIBUTE **attrs, CK_ULONG *num_attrs,
         DSA_get0_pqg(dsa, &bn_p, &bn_q, &bn_g);
         if (bn_p == NULL || (dsa && bn_q == NULL) || bn_g == NULL) {
             warnx("Failed to get the DSA params.");
-            ERR_print_errors_cb(openssl_err_cb, NULL);
+            ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
             rc = CKR_FUNCTION_FAILED;
             goto done;
         }
@@ -3525,7 +2698,7 @@ static CK_RV dh_dsa_add_public_attrs(CK_ATTRIBUTE **attrs, CK_ULONG *num_attrs,
         dh = EVP_PKEY_get0_DH(pkey);
         if (dh == NULL) {
             warnx("Failed to get the DH params.");
-            ERR_print_errors_cb(openssl_err_cb, NULL);
+            ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
             rc = CKR_FUNCTION_FAILED;
             goto done;
         }
@@ -3533,24 +2706,24 @@ static CK_RV dh_dsa_add_public_attrs(CK_ATTRIBUTE **attrs, CK_ULONG *num_attrs,
         DH_get0_pqg(dh, &bn_p, NULL, &bn_g);
         if (bn_p == NULL || bn_g == NULL) {
             warnx("Failed to get the DH params.");
-            ERR_print_errors_cb(openssl_err_cb, NULL);
+            ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
             rc = CKR_FUNCTION_FAILED;
             goto done;
         }
     }
 #endif
 
-    rc = add_bignum_attr(CKA_PRIME, bn_p, attrs, num_attrs);
+    rc = p11tool_add_bignum_attr(CKA_PRIME, bn_p, attrs, num_attrs);
     if (rc != CKR_OK)
        goto done;
 
     if (is_dsa) {
-        rc = add_bignum_attr(CKA_SUBPRIME, bn_q, attrs, num_attrs);
+        rc = p11tool_add_bignum_attr(CKA_SUBPRIME, bn_q, attrs, num_attrs);
         if (rc != CKR_OK)
            goto done;
     }
 
-    rc = add_bignum_attr(CKA_BASE, bn_g, attrs, num_attrs);
+    rc = p11tool_add_bignum_attr(CKA_BASE, bn_g, attrs, num_attrs);
     if (rc != CKR_OK)
        goto done;
 
@@ -3567,7 +2740,7 @@ done:
     return rc;
 }
 
-static CK_RV dh_prepare(const struct p11sak_objtype *keytype, void **private)
+static CK_RV dh_prepare(const struct p11tool_objtype *keytype, void **private)
 {
     CK_RV rc;
     EVP_PKEY *pkey = NULL;
@@ -3587,7 +2760,7 @@ static CK_RV dh_prepare(const struct p11sak_objtype *keytype, void **private)
     return CKR_OK;
 }
 
-static void dh_cleanup(const struct p11sak_objtype *keytype, void *private)
+static void dh_cleanup(const struct p11tool_objtype *keytype, void *private)
 {
     EVP_PKEY *pkey = private;
 
@@ -3596,7 +2769,7 @@ static void dh_cleanup(const struct p11sak_objtype *keytype, void *private)
     EVP_PKEY_free(pkey);
 }
 
-static CK_RV dh_get_key_size(const struct p11sak_objtype *keytype,
+static CK_RV dh_get_key_size(const struct p11tool_objtype *keytype,
                              void *private, CK_ULONG *keysize)
 {
     EVP_PKEY *pkey = private;
@@ -3613,7 +2786,7 @@ static CK_RV dh_get_key_size(const struct p11sak_objtype *keytype,
 #if OPENSSL_VERSION_PREREQ(3, 0)
     if (!EVP_PKEY_get_bn_param(pkey, OSSL_PKEY_PARAM_FFC_P, &bn_p)) {
         warnx("Failed to get the DH params.");
-        ERR_print_errors_cb(openssl_err_cb, NULL);
+        ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
         rc = CKR_FUNCTION_FAILED;
         goto done;
      }
@@ -3621,7 +2794,7 @@ static CK_RV dh_get_key_size(const struct p11sak_objtype *keytype,
     dh = EVP_PKEY_get0_DH(pkey);
     if (dh == NULL) {
         warnx("Failed to get the DH params.");
-        ERR_print_errors_cb(openssl_err_cb, NULL);
+        ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
         rc = CKR_FUNCTION_FAILED;
         goto done;
     }
@@ -3629,7 +2802,7 @@ static CK_RV dh_get_key_size(const struct p11sak_objtype *keytype,
     DH_get0_pqg(dh, &bn_p, NULL, NULL);
     if (bn_p == NULL) {
         warnx("Failed to get the DH params.");
-        ERR_print_errors_cb(openssl_err_cb, NULL);
+        ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
         rc = CKR_FUNCTION_FAILED;
         goto done;
     }
@@ -3646,7 +2819,7 @@ done:
     return rc;
 }
 
-static CK_RV dh_add_public_attrs(const struct p11sak_objtype *keytype,
+static CK_RV dh_add_public_attrs(const struct p11tool_objtype *keytype,
                                  CK_ATTRIBUTE **attrs, CK_ULONG *num_attrs,
                                  void *private)
 {
@@ -3657,7 +2830,7 @@ static CK_RV dh_add_public_attrs(const struct p11sak_objtype *keytype,
     return dh_dsa_add_public_attrs(attrs, num_attrs, pkey, false);
 }
 
-static CK_RV dh_add_private_attrs(const struct p11sak_objtype *keytype,
+static CK_RV dh_add_private_attrs(const struct p11tool_objtype *keytype,
                                   CK_ATTRIBUTE **attrs, CK_ULONG *num_attrs,
                                   void *private)
 {
@@ -3667,11 +2840,11 @@ static CK_RV dh_add_private_attrs(const struct p11sak_objtype *keytype,
     if (opt_keybits_num == 0)
         return CKR_OK;
 
-    return add_attribute(CKA_VALUE_BITS, &opt_keybits_num,
-                         sizeof(opt_keybits_num), attrs, num_attrs);
+    return p11tool_add_attribute(CKA_VALUE_BITS, &opt_keybits_num,
+                                 sizeof(opt_keybits_num), attrs, num_attrs);
 }
 
-static CK_RV dsa_prepare(const struct p11sak_objtype *keytype, void **private)
+static CK_RV dsa_prepare(const struct p11tool_objtype *keytype, void **private)
 {
     CK_RV rc;
     EVP_PKEY *pkey = NULL;
@@ -3687,7 +2860,7 @@ static CK_RV dsa_prepare(const struct p11sak_objtype *keytype, void **private)
     return CKR_OK;
 }
 
-static void dsa_cleanup(const struct p11sak_objtype *keytype, void *private)
+static void dsa_cleanup(const struct p11tool_objtype *keytype, void *private)
 {
     EVP_PKEY *pkey = private;
 
@@ -3696,7 +2869,7 @@ static void dsa_cleanup(const struct p11sak_objtype *keytype, void *private)
     EVP_PKEY_free(pkey);
 }
 
-static CK_RV dsa_get_key_size(const struct p11sak_objtype *keytype,
+static CK_RV dsa_get_key_size(const struct p11tool_objtype *keytype,
                               void *private, CK_ULONG *keysize)
 {
     EVP_PKEY *pkey = private;
@@ -3713,7 +2886,7 @@ static CK_RV dsa_get_key_size(const struct p11sak_objtype *keytype,
 #if OPENSSL_VERSION_PREREQ(3, 0)
     if (!EVP_PKEY_get_bn_param(pkey, OSSL_PKEY_PARAM_FFC_P, &bn_p)) {
         warnx("Failed to get the DSA params.");
-        ERR_print_errors_cb(openssl_err_cb, NULL);
+        ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
         rc = CKR_FUNCTION_FAILED;
         goto done;
      }
@@ -3721,7 +2894,7 @@ static CK_RV dsa_get_key_size(const struct p11sak_objtype *keytype,
     dsa = EVP_PKEY_get0_DSA(pkey);
     if (dsa == NULL) {
         warnx("Failed to get the DSA params.");
-        ERR_print_errors_cb(openssl_err_cb, NULL);
+        ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
         rc = CKR_FUNCTION_FAILED;
         goto done;
     }
@@ -3729,7 +2902,7 @@ static CK_RV dsa_get_key_size(const struct p11sak_objtype *keytype,
     DSA_get0_pqg(dsa, &bn_p, NULL, NULL);
     if (bn_p == NULL) {
         warnx("Failed to get the DSA params.");
-        ERR_print_errors_cb(openssl_err_cb, NULL);
+        ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
         rc = CKR_FUNCTION_FAILED;
         goto done;
     }
@@ -3746,7 +2919,7 @@ done:
     return rc;
 }
 
-static CK_RV dsa_add_public_attrs(const struct p11sak_objtype *keytype,
+static CK_RV dsa_add_public_attrs(const struct p11tool_objtype *keytype,
                                   CK_ATTRIBUTE **attrs, CK_ULONG *num_attrs,
                                   void *private)
 {
@@ -3757,21 +2930,8 @@ static CK_RV dsa_add_public_attrs(const struct p11sak_objtype *keytype,
     return dh_dsa_add_public_attrs(attrs, num_attrs, pkey, true);
 }
 
-static CK_RV ibm_dilithium_add_public_attrs(const struct p11sak_objtype *keytype,
-                                            CK_ATTRIBUTE **attrs,
-                                            CK_ULONG *num_attrs,
-                                            void *private)
-{
-    UNUSED(private);
-    UNUSED(keytype);
-
-    return add_attribute(CKA_IBM_DILITHIUM_KEYFORM,
-                         &opt_pqc_version->private.num,
-                         sizeof(opt_pqc_version->private.num),
-                         attrs, num_attrs);
-}
-
-static CK_RV ibm_kyber_add_public_attrs(const struct p11sak_objtype *keytype,
+static CK_RV ibm_dilithium_add_public_attrs(
+                                        const struct p11tool_objtype *keytype,
                                         CK_ATTRIBUTE **attrs,
                                         CK_ULONG *num_attrs,
                                         void *private)
@@ -3779,10 +2939,24 @@ static CK_RV ibm_kyber_add_public_attrs(const struct p11sak_objtype *keytype,
     UNUSED(private);
     UNUSED(keytype);
 
-    return add_attribute(CKA_IBM_KYBER_KEYFORM,
-                         &opt_pqc_version->private.num,
-                         sizeof(opt_pqc_version->private.num),
-                         attrs, num_attrs);
+    return p11tool_add_attribute(CKA_IBM_DILITHIUM_KEYFORM,
+                                 &opt_pqc_version->private.num,
+                                 sizeof(opt_pqc_version->private.num),
+                                 attrs, num_attrs);
+}
+
+static CK_RV ibm_kyber_add_public_attrs(const struct p11tool_objtype *keytype,
+                                        CK_ATTRIBUTE **attrs,
+                                        CK_ULONG *num_attrs,
+                                        void *private)
+{
+    UNUSED(private);
+    UNUSED(keytype);
+
+    return p11tool_add_attribute(CKA_IBM_KYBER_KEYFORM,
+                                 &opt_pqc_version->private.num,
+                                 sizeof(opt_pqc_version->private.num),
+                                 attrs, num_attrs);
 }
 
 static CK_RV parse_key_pair_label(const char *label, char **pub_label,
@@ -3890,411 +3064,9 @@ static CK_RV parse_key_pair_attrs(const char *attrs, char **pub_attrs,
     return CKR_OK;
 }
 
-static const struct p11sak_attr *find_attr_by_letter(char letter)
+static const struct p11tool_objtype *find_keytype(CK_KEY_TYPE ktype)
 {
-    const struct p11sak_attr *attr;
-
-    for (attr = p11sak_bool_attrs; attr->name != NULL; attr++) {
-        if (attr->letter == toupper(letter))
-            return attr;
-    }
-
-    return NULL;
-}
-
-static bool attr_applicable_for_certtype(const struct p11sak_objtype *certtype,
-                                         const struct p11sak_attr *attr)
-{
-    UNUSED(certtype);
-
-    switch (attr->type) {
-    case CKA_PRIVATE:
-    case CKA_MODIFIABLE:
-    case CKA_COPYABLE:
-    case CKA_DESTROYABLE:
-    case CKA_TRUSTED:
-        return true;
-    default:
-        break;
-    }
-
-    return false;
-}
-
-static bool attr_applicable_for_keytype(const struct p11sak_objtype *keytype,
-                                        const struct p11sak_attr *attr)
-{
-    switch (attr->type) {
-    case CKA_SIGN:
-    case CKA_SIGN_RECOVER:
-    case CKA_VERIFY:
-    case CKA_VERIFY_RECOVER:
-        return keytype->sign_verify;
-
-    case CKA_ENCRYPT:
-    case CKA_DECRYPT:
-        return keytype->encrypt_decrypt;
-
-    case CKA_WRAP:
-    case CKA_WRAP_WITH_TRUSTED:
-    case CKA_UNWRAP:
-        return keytype->wrap_unwrap;
-
-    case CKA_DERIVE:
-        return keytype->derive;
-
-    default:
-        return true;
-    }
-}
-
-static bool cert_attr_applicable(const struct p11sak_objtype *certtype,
-                                 const struct p11sak_attr *attr)
-{
-    return attr_applicable_for_certtype(certtype, attr);
-}
-
-static bool secret_attr_applicable(const struct p11sak_objtype *objtype,
-                                   const struct p11sak_attr *attr)
-{
-    return attr->secret && attr_applicable_for_keytype(objtype, attr);
-}
-
-static bool public_attr_applicable(const struct p11sak_objtype *objtype,
-                                   const struct p11sak_attr *attr)
-{
-    return attr->public && attr_applicable_for_keytype(objtype, attr);
-}
-
-static bool private_attr_applicable(const struct p11sak_objtype *objtype,
-                                    const struct p11sak_attr *attr)
-{
-    return attr->private && attr_applicable_for_keytype(objtype, attr);
-}
-
-static CK_RV parse_boolean_attrs(const struct p11sak_objtype *objtype,
-                                 const char *attr_string, CK_ATTRIBUTE **attrs,
-                                 CK_ULONG *num_attrs, bool check_settable,
-                                 bool (*attr_applicable)(
-                                         const struct p11sak_objtype *objtype,
-                                         const struct p11sak_attr *attr))
-{
-    const struct p11sak_attr *attr;
-    unsigned int i = 0;
-    CK_BBOOL val;
-    CK_RV rc;
-
-    if (attr_string == NULL)
-        return CKR_OK;
-
-    for (i = 0; attr_string[i] != '\0'; i++) {
-        attr = find_attr_by_letter(attr_string[i]);
-        if (attr == NULL) {
-            warnx("Attribute '%c' is not valid", attr_string[i]);
-            return CKR_ARGUMENTS_BAD;
-        }
-
-        /* silently ignore attributes that are not settable or not applicable */
-        if ((check_settable && !attr->settable) ||
-            (attr_applicable != NULL && objtype != NULL &&
-             !attr_applicable(objtype, attr)))
-            continue;
-
-        val = isupper(attr_string[i]) ? CK_TRUE : CK_FALSE;
-
-        if (check_settable && attr->so_set_to_true &&
-            val == CK_TRUE && !opt_so) {
-            warnx("Attribute %s ('%c') can only be set to TRUE by SO",
-                  attr->name, attr->letter);
-            return CKR_ARGUMENTS_BAD;
-        }
-
-        rc = add_attribute(attr->type, &val, sizeof(val), attrs, num_attrs);
-        if (rc != CKR_OK)
-            return rc;
-    }
-
-    return CKR_OK;
-}
-
-static CK_RV parse_id(const char *id_string, CK_ATTRIBUTE **attrs,
-                      CK_ULONG *num_attrs)
-{
-    unsigned char *buf = NULL;
-    BIGNUM *b = NULL;
-    int len;
-    CK_RV rc = CKR_OK;
-
-    len = BN_hex2bn(&b, id_string);
-    if (len < (int)strlen(id_string) || len == 0 || b == NULL) {
-        warnx("Hex string '%s' is not valid", id_string);
-        rc = CKR_ARGUMENTS_BAD;
-        goto done;
-    }
-
-    len = len / 2 + (len % 2 > 0 ? 1 : 0);
-    buf = calloc(1, len);
-    if (buf == NULL) {
-        warnx("Failed to allocate memory for CKA_ID attribute");
-        rc = CKR_HOST_MEMORY;
-        goto done;
-    }
-
-    if (BN_bn2binpad(b, buf, len) != len) {
-        warnx("Failed to prepare the value for CKA_ID attribute");
-        rc = CKR_FUNCTION_FAILED;
-        goto done;
-    }
-
-    rc = add_attribute(CKA_ID, buf, len, attrs, num_attrs);
-    if (rc != CKR_OK) {
-        warnx("Failed to add attribute CKA_ID: 0x%lX: %s", rc, p11_get_ckr(rc));
-        goto done;
-    }
-
-done:
-    if (buf != NULL)
-        free(buf);
-    if (b != NULL)
-        BN_free(b);
-
-    return rc;
-}
-
-static CK_RV add_attributes(const struct p11sak_objtype *objtype,
-                            CK_ATTRIBUTE **attrs, CK_ULONG *num_attrs,
-                            const char *label, const char *attr_string,
-                            const char *id, bool is_sensitive,
-                            CK_RV (*add_attrs)(
-                                    const struct p11sak_objtype *objtype,
-                                    CK_ATTRIBUTE **attrs, CK_ULONG *num_attrs,
-                                    void *private),
-                            void *private,
-                            bool (*attr_applicable)(
-                                    const struct p11sak_objtype *objtype,
-                                    const struct p11sak_attr *attr))
-{
-    const CK_BBOOL ck_true = TRUE;
-    bool found;
-    CK_ULONG i;
-    CK_RV rc;
-
-    rc = add_attribute(CKA_LABEL, label, strlen(label), attrs, num_attrs);
-    if (rc != CKR_OK) {
-        warnx("Failed to add %s key attribute CKA_LABEL: 0x%lX: %s",
-              objtype->name, rc, p11_get_ckr(rc));
-        return rc;
-    }
-
-    rc = add_attribute(CKA_TOKEN, &ck_true, sizeof(ck_true), attrs, num_attrs);
-    if (rc != CKR_OK) {
-        warnx("Failed to add %s key attribute CKA_TOKEN: 0x%lX: %s",
-              objtype->name, rc, p11_get_ckr(rc));
-        return rc;
-    }
-
-    rc = parse_boolean_attrs(objtype, attr_string, attrs, num_attrs,
-                             true, attr_applicable);
-    if (rc != CKR_OK)
-        return rc;
-
-    if (id != NULL) {
-        rc = parse_id(id, attrs, num_attrs);
-        if (rc != CKR_OK)
-            return rc;
-    }
-
-    if (add_attrs != NULL) {
-        rc = add_attrs(objtype, attrs, num_attrs, private);
-        if (rc != CKR_OK) {
-            warnx("Failed to add %s key attributes: 0x%lX: %s",
-                  objtype->name, rc, p11_get_ckr(rc));
-            return rc;
-        }
-    }
-
-    if (is_sensitive) {
-        /* Add CKA_SENSITIVE=TRUE if its not already in attribute list */
-        for (i = 0, found = false; i < *num_attrs && !found; i++) {
-            if ((*attrs)[i].type == CKA_SENSITIVE)
-                found = true;
-        }
-
-        if (!found) {
-            rc = add_attribute(CKA_SENSITIVE, &ck_true, sizeof(ck_true),
-                               attrs, num_attrs);
-            if (rc != CKR_OK) {
-                warnx("Failed to add %s key attribute CKA_SENSITIVE: 0x%lX: %s",
-                      objtype->name, rc, p11_get_ckr(rc));
-                return rc;
-            }
-        }
-    }
-
-    return CKR_OK;
-}
-
-static void free_attributes(CK_ATTRIBUTE *attrs, CK_ULONG num_attrs)
-{
-    CK_ULONG i;
-
-    if (attrs == NULL)
-        return;
-
-    for (i = 0; i < num_attrs; i++) {
-        if (attrs[i].pValue != NULL) {
-            OPENSSL_cleanse(attrs[i].pValue, attrs[i].ulValueLen);
-            free(attrs[i].pValue);
-        }
-    }
-
-    free(attrs);
-}
-
-static bool is_attr_array_attr(CK_ATTRIBUTE *attr)
-{
-    switch (attr->type) {
-    case CKA_WRAP_TEMPLATE:
-    case CKA_UNWRAP_TEMPLATE:
-    case CKA_DERIVE_TEMPLATE:
-        return true;
-
-    default:
-        return false;
-    }
-}
-
-static void free_attr_array_attr(CK_ATTRIBUTE *attr)
-{
-    CK_ULONG i, num;
-    CK_ATTRIBUTE *elem;
-
-    num = attr->ulValueLen / sizeof(CK_ATTRIBUTE);
-    for (i = 0, elem = attr->pValue; elem != NULL && i < num; i++, elem++) {
-        if (elem->pValue != NULL) {
-            if (is_attr_array_attr(elem))
-                free_attr_array_attr(elem);
-            free(elem->pValue);
-            elem->pValue = NULL;
-        }
-    }
-}
-
-static CK_RV alloc_attr_array_attr(CK_ATTRIBUTE *attr, bool *allocated)
-{
-    CK_ULONG i, num;
-    CK_ATTRIBUTE *elem;
-    CK_RV rc;
-
-    *allocated = false;
-
-    num = attr->ulValueLen / sizeof(CK_ATTRIBUTE);
-    for (i = 0, elem = attr->pValue; i < num; i++, elem++) {
-        if (elem->ulValueLen > 0 && elem->pValue == NULL) {
-            elem->pValue = calloc(elem->ulValueLen, 1);
-            if (elem->pValue == NULL) {
-                free_attr_array_attr(attr);
-                return CKR_HOST_MEMORY;
-            }
-
-            *allocated = true;
-            continue;
-        }
-
-        if (is_attr_array_attr(elem)) {
-            rc = alloc_attr_array_attr(elem, allocated);
-            if (rc != CKR_OK) {
-                free_attr_array_attr(attr);
-                return CKR_HOST_MEMORY;
-            }
-        }
-    }
-
-    return CKR_OK;
-}
-
-static CK_RV get_attribute(CK_OBJECT_HANDLE key, CK_ATTRIBUTE *attr)
-{
-    bool allocated;
-    CK_RV rc;
-
-    rc = pkcs11_funcs->C_GetAttributeValue(pkcs11_session, key, attr, 1);
-    if (rc != CKR_OK)
-        return rc;
-
-    if (attr->pValue == NULL && attr->ulValueLen > 0) {
-        attr->pValue = calloc(attr->ulValueLen, 1);
-        if (attr->pValue == NULL)
-            return CKR_HOST_MEMORY;
-
-        rc = pkcs11_funcs->C_GetAttributeValue(pkcs11_session, key, attr, 1);
-    }
-
-    if (is_attr_array_attr(attr) && rc == CKR_OK &&
-        attr->pValue != NULL && attr->ulValueLen > 0) {
-        do {
-            allocated = false;
-            rc = alloc_attr_array_attr(attr, &allocated);
-            if (rc != CKR_OK)
-                return rc;
-
-            if (!allocated)
-                break;
-
-            rc = pkcs11_funcs->C_GetAttributeValue(pkcs11_session, key,
-                                                   attr, 1);
-        } while (rc == CKR_OK);
-    }
-
-    return rc;
-}
-
-static CK_RV get_bignum_attr(CK_OBJECT_HANDLE key, CK_ATTRIBUTE_TYPE type,
-                             BIGNUM **bn)
-{
-    CK_ATTRIBUTE attr;
-    CK_RV rc;
-
-    attr.type = type;
-    attr.pValue = NULL;
-    attr.ulValueLen = 0;
-
-    if (is_attr_array_attr(&attr))
-        return CKR_ATTRIBUTE_TYPE_INVALID;
-
-    rc = get_attribute(key, &attr);
-    if (rc != CKR_OK)
-        return rc;
-
-    if (attr.ulValueLen == 0 || attr.pValue == NULL)
-        return CKR_ATTRIBUTE_VALUE_INVALID;
-
-    /* Caller may supply an already allocated BIGNUM, allocate if NULL. */
-    if (*bn == NULL) {
-        *bn = BN_new();
-        if (*bn == NULL) {
-            rc = CKR_HOST_MEMORY;
-            goto done;
-        }
-    }
-
-    if (BN_bin2bn((unsigned char *)attr.pValue, attr.ulValueLen, *bn) == NULL) {
-        rc = CKR_FUNCTION_FAILED;
-        BN_free(*bn);
-        *bn = NULL;
-        goto done;
-    }
-
-done:
-    OPENSSL_cleanse(attr.pValue, attr.ulValueLen);
-    free(attr.pValue);
-
-    return rc;
-}
-
-static const struct p11sak_objtype *find_keytype(CK_KEY_TYPE ktype)
-{
-    const struct p11sak_objtype **kt;
+    const struct p11tool_objtype **kt;
 
     for (kt = p11sak_keytypes; *kt != NULL; kt++) {
         if ((*kt)->type == ktype)
@@ -4304,9 +3076,9 @@ static const struct p11sak_objtype *find_keytype(CK_KEY_TYPE ktype)
     return NULL;
 }
 
-static const struct p11sak_objtype *find_keytype_by_pkey(int pkey_type)
+static const struct p11tool_objtype *find_keytype_by_pkey(int pkey_type)
 {
-    const struct p11sak_objtype **kt;
+    const struct p11tool_objtype **kt;
 
     if (pkey_type == NID_undef)
         return NULL;
@@ -4339,21 +3111,21 @@ static const struct pqc_oid *pqc_oid_from_pkey(EVP_PKEY *pkey,
     nid = OBJ_ln2nid(alg_name);
     if (nid == NID_undef) {
         warnx("OBJ_ln2nid failed for '%s'", alg_name);
-        ERR_print_errors_cb(openssl_err_cb, NULL);
+        ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
         return NULL;
     }
 
     obj = OBJ_nid2obj(nid);
     if (obj == NULL) {
         warnx("OBJ_nid2obj failed for NID %d ('%s')", nid, alg_name);
-        ERR_print_errors_cb(openssl_err_cb, NULL);
+        ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
         return NULL;
     }
 
     val_len = i2d_ASN1_OBJECT(obj, &val);
     if (val_len <= 0) {
         warnx("i2d_ASN1_OBJECT failed for algorithm '%s'", alg_name);
-        ERR_print_errors_cb(openssl_err_cb, NULL);
+        ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
         goto done;
     }
 
@@ -4369,9 +3141,9 @@ done:
 }
 #endif
 
-static const struct p11sak_objtype *find_certtype(CK_KEY_TYPE ktype)
+static const struct p11tool_objtype *find_certtype(CK_KEY_TYPE ktype)
 {
-    const struct p11sak_objtype **kt;
+    const struct p11tool_objtype **kt;
 
     for (kt = p11sak_certtypes; *kt != NULL; kt++) {
         if ((*kt)->type == ktype)
@@ -4381,286 +3153,26 @@ static const struct p11sak_objtype *find_certtype(CK_KEY_TYPE ktype)
     return NULL;
 }
 
-static CK_RV get_common_name_value(CK_OBJECT_HANDLE obj, char *label,
-                                   char **common_name_value)
-{
-    CK_ATTRIBUTE attr = { CKA_VALUE, NULL, 0 };
-    X509 *x509 = NULL;
-    const CK_BYTE *tmp_ptr;
-    char *subj = NULL, *cn_tmp, *cn_tmp2 = NULL;
-    CK_RV rc;
-
-    rc = get_attribute(obj, &attr);
-    if (rc != CKR_OK) {
-        warnx("Failed to retrieve attribute CKA_VALUE from object "
-              "\"%s\": 0x%lX: %s", label, rc, p11_get_ckr(rc));
-        return rc;
-    }
-
-    if (attr.ulValueLen == 0 || attr.ulValueLen == CK_UNAVAILABLE_INFORMATION) {
-        *common_name_value = strdup("[not available]");
-        if (*common_name_value == NULL) {
-            warnx("Failed to allocate memory for common_name_value "
-                  "for object \"%s\"", label);
-            return CKR_HOST_MEMORY;
-        }
-        return CKR_OK;
-    }
-
-    tmp_ptr = attr.pValue;
-    x509 = d2i_X509(NULL, &tmp_ptr, attr.ulValueLen);
-    if (x509 == NULL) {
-        *common_name_value = strdup("[not available]");
-        if (*common_name_value == NULL) {
-            warnx("Failed to allocate memory for common_name_value "
-                  "for object \"%s\"", label);
-            rc = CKR_HOST_MEMORY;
-        } else {
-            rc = CKR_OK;
-        }
-        goto done;
-    }
-
-    subj = X509_NAME_oneline(X509_get_subject_name(x509), NULL, 0);
-    if (subj == NULL) {
-        *common_name_value = strdup("[not available]");
-        if (*common_name_value == NULL) {
-            warnx("Failed to allocate memory for common_name_value "
-                  "for object \"%s\"", label);
-            rc = CKR_HOST_MEMORY;
-        } else {
-            rc = CKR_OK;
-        }
-        goto done;
-    }
-
-    *common_name_value = strdup(subj);
-    if (*common_name_value == NULL) {
-        warnx("Failed to allocate memory for common_name attribute"
-              "for object \"%s\"", label);
-        rc = CKR_HOST_MEMORY;
-        goto done;
-    }
-
-    cn_tmp = strstr(subj, "/CN=");
-    if (cn_tmp != NULL) {
-        cn_tmp2 = *common_name_value;
-        *common_name_value = strdup(cn_tmp + 4);
-        if (*common_name_value == NULL) {
-            warnx("Failed to allocate memory for common_name attribute"
-                  "for object \"%s\"", label);
-            rc = CKR_HOST_MEMORY;
-            goto done;
-        }
-    }
-
-    rc = CKR_OK;
-
-done:
-    free(attr.pValue);
-    if (subj != NULL)
-        OPENSSL_free(subj);
-    if (x509 != NULL)
-        X509_free(x509);
-    if (cn_tmp2 != NULL)
-        free(cn_tmp2);
-
-    return rc;
-}
-
-static CK_RV get_keysize_value(CK_OBJECT_HANDLE obj, char *label,
-                              const struct p11sak_objtype *objtype_val,
-                              CK_ULONG *keysize_val)
-{
-    CK_ATTRIBUTE keysize_attr;
-    CK_RV rc;
-
-    if (objtype_val->keysize_attr == (CK_ATTRIBUTE_TYPE)-1) {
-        *keysize_val = 0;
-        return CKR_OK;
-    }
-
-    keysize_attr.type = objtype_val->keysize_attr;
-    if (!objtype_val->keysize_attr_value_len) {
-        keysize_attr.ulValueLen = sizeof(*keysize_val);
-        keysize_attr.pValue = keysize_val;
-    } else {
-        /* Query attribute length only */
-        keysize_attr.ulValueLen = 0;
-        keysize_attr.pValue = NULL;
-    }
-
-    rc = pkcs11_funcs->C_GetAttributeValue(pkcs11_session, obj,
-                                           &keysize_attr, 1);
-    if (rc != CKR_OK) {
-        warnx("Attribute %s is not available in object \"%s\"",
-              p11_get_cka(keysize_attr.type), label);
-        return rc;
-    }
-
-    if (objtype_val->keysize_attr_value_len)
-        *keysize_val = keysize_attr.ulValueLen;
-
-    if (objtype_val->key_keysize_adjust != NULL)
-        *keysize_val = objtype_val->key_keysize_adjust(objtype_val,
-                                                       *keysize_val);
-
-    return CKR_OK;
-}
-
-static CK_RV get_typestr_value(CK_OBJECT_CLASS class_val, CK_ULONG keysize_val,
-                               const struct p11sak_objtype *objtype_val,
-                               char *label, char **typestr)
-{
-    int rv;
-
-    switch (class_val) {
-    case CKO_SECRET_KEY:
-        if (keysize_val != 0)
-            rv = asprintf(typestr, "%s %lu", objtype_val->name, keysize_val);
-        else
-            rv = asprintf(typestr, "%s", objtype_val->name);
-        break;
-    case CKO_PUBLIC_KEY:
-        if (keysize_val != 0)
-            rv = asprintf(typestr, "public %s %lu", objtype_val->name, keysize_val);
-        else
-            rv = asprintf(typestr, "public %s", objtype_val->name);
-        break;
-    case CKO_PRIVATE_KEY:
-        if (keysize_val != 0)
-            rv = asprintf(typestr, "private %s %lu", objtype_val->name, keysize_val);
-        else
-            rv = asprintf(typestr, "private %s", objtype_val->name);
-        break;
-    case CKO_CERTIFICATE:
-        rv = asprintf(typestr, "%s", objtype_val->name);
-        break;
-    default:
-        warnx("%s object \"%s\" has an unsupported %s class: %lu",
-              objtype_val->obj_liststr, label,
-              objtype_val->obj_typestr, class_val);
-        return CKR_KEY_TYPE_INCONSISTENT;
-    }
-
-    if (*typestr == NULL || rv < 0) {
-        warnx("Failed to allocate type string buffer");
-        return CKR_HOST_MEMORY;
-    }
-
-    return CKR_OK;
-}
-
-static CK_RV get_class_and_type_values(CK_OBJECT_HANDLE obj, char *label,
-                                       CK_OBJECT_CLASS *class_val,
-                                       CK_ULONG *otype_val)
-{
-    CK_RV rc;
-    CK_KEY_TYPE ktype_val = 0;
-    CK_CERTIFICATE_TYPE ctype_val = 0;
-    CK_ATTRIBUTE attrs[] = {
-        { CKA_CLASS, class_val, sizeof(class_val) },
-        { CKA_KEY_TYPE, &ktype_val, sizeof(ktype_val) },
-        { CKA_CERTIFICATE_TYPE, &ctype_val, sizeof(ctype_val) },
-    };
-    const CK_ULONG num_attrs = sizeof(attrs) / sizeof(CK_ATTRIBUTE);
-
-    rc = pkcs11_funcs->C_GetAttributeValue(pkcs11_session, obj,
-                                           attrs, num_attrs);
-    if (rc != CKR_OK && rc != CKR_ATTRIBUTE_TYPE_INVALID &&
-        rc != CKR_ATTRIBUTE_SENSITIVE) {
-        warnx("Failed to get attributes: C_GetAttributeValue: 0x%lX: %s",
-              rc, p11_get_ckr(rc));
-        return rc;
-    }
-
-    /* Class attribute must be available in any case. Others
-       depend on object type: key or certificate */
-    if (attrs[0].ulValueLen == CK_UNAVAILABLE_INFORMATION) {
-        warnx("Class attribute %s is not available in object \"%s\"",
-              p11_get_cka(attrs[0].type), label);
-        return CKR_TEMPLATE_INCOMPLETE;
-    }
-
-    if (attrs[1].ulValueLen != CK_UNAVAILABLE_INFORMATION)
-        *otype_val = ktype_val;
-    else if (attrs[2].ulValueLen != CK_UNAVAILABLE_INFORMATION)
-        *otype_val = ctype_val;
-    else {
-        warnx("At least one of CKA_KEY_TYPE or CKA_CERTIFICATE_TYPE must "
-              "be available in object \"%s\"", label);
-        return CKR_TEMPLATE_INCOMPLETE;
-    }
-
-    return CKR_OK;
-}
-
-static CK_RV get_label_value(CK_OBJECT_HANDLE obj, char** label_value)
-{
-    CK_ATTRIBUTE attr = { CKA_LABEL, NULL, 0 };
-    CK_RV rv;
-
-    if (label_value == NULL)
-        return CKR_ARGUMENTS_BAD;
-
-    rv = pkcs11_funcs->C_GetAttributeValue(pkcs11_session, obj, &attr, 1);
-    if (rv != CKR_OK && rv != CKR_ATTRIBUTE_TYPE_INVALID &&
-        rv != CKR_ATTRIBUTE_SENSITIVE) {
-        warnx("Failed to get CKA_LABEL attribute (length only): "
-              "C_GetAttributeValue: 0x%lX: %s", rv, p11_get_ckr(rv));
-        return rv;
-    }
-
-    if (attr.ulValueLen == 0 ||
-        attr.ulValueLen == CK_UNAVAILABLE_INFORMATION) {
-        attr.pValue = strdup("");
-        if (attr.pValue == NULL) {
-            warnx("Failed to allocate memory for label attribute");
-            return CKR_HOST_MEMORY;
-        } else {
-            goto done;
-        }
-    }
-
-    attr.pValue = calloc(attr.ulValueLen + 1, 1);
-    if (attr.pValue == NULL) {
-        warnx("Failed to allocate memory for label attribute");
-        return CKR_HOST_MEMORY;
-    }
-
-    rv = pkcs11_funcs->C_GetAttributeValue(pkcs11_session, obj, &attr, 1);
-    if (rv != CKR_OK) {
-        warnx("Failed to get CKA_LABEL attribute: C_GetAttributeValue: 0x%lX: %s",
-              rv, p11_get_ckr(rv));
-        free(attr.pValue);
-        return rv;
-    }
-
-done:
-    *label_value = attr.pValue;
-
-    return CKR_OK;
-}
-
 static CK_RV get_obj_infos(CK_OBJECT_HANDLE obj, CK_OBJECT_CLASS *class,
                            CK_ULONG *otype, CK_ULONG *keysize,
                            char** label, char** typestr,
-                           const struct p11sak_objtype **objtype,
+                           const struct p11tool_objtype **objtype,
                            char **common_name)
 {
     CK_RV rc;
     CK_OBJECT_CLASS class_val = 0;
     CK_ULONG otype_val = 0;
-    const struct p11sak_objtype *objtype_val;
+    const struct p11tool_objtype *objtype_val;
     CK_ULONG keysize_val = 0;
     char *label_val = NULL;
     char *common_name_val = NULL;
 
-    rc = get_label_value(obj, &label_val);
+    rc = p11tool_get_label_value(obj, &label_val);
     if (rc != CKR_OK)
         return rc;
 
-    rc = get_class_and_type_values(obj, label_val, &class_val, &otype_val);
+    rc = p11tool_get_class_and_type_values(obj, label_val, &class_val,
+                                           &otype_val);
     if (rc != CKR_OK) {
         free(label_val);
         return rc;
@@ -4678,7 +3190,8 @@ static CK_RV get_obj_infos(CK_OBJECT_HANDLE obj, CK_OBJECT_CLASS *class,
             return CKR_KEY_TYPE_INCONSISTENT;
         }
         if (keysize != NULL) {
-            rc = get_keysize_value(obj, label_val, objtype_val, &keysize_val);
+            rc = p11tool_get_keysize_value(obj, label_val, objtype_val,
+                                           &keysize_val);
             if (rc != CKR_OK) {
                 free(label_val);
                 return rc;
@@ -4695,7 +3208,8 @@ static CK_RV get_obj_infos(CK_OBJECT_HANDLE obj, CK_OBJECT_CLASS *class,
             return CKR_KEY_TYPE_INCONSISTENT;
         }
         if (common_name != NULL) {
-            rc = get_common_name_value(obj, label_val, &common_name_val);
+            rc = p11tool_get_common_name_value(obj, label_val,
+                                               &common_name_val);
             if (rc != CKR_OK) {
                 free(label_val);
                 free(common_name_val);
@@ -4723,8 +3237,8 @@ static CK_RV get_obj_infos(CK_OBJECT_HANDLE obj, CK_OBJECT_CLASS *class,
         *objtype = objtype_val;
 
     if (typestr != NULL) {
-        rc = get_typestr_value(class_val, keysize_val, objtype_val,
-                               label_val, typestr);
+        rc = p11tool_get_typestr_value(class_val, keysize_val, objtype_val,
+                                       label_val, typestr);
         if (rc != CKR_OK) {
             free(label_val);
             return rc;
@@ -4764,48 +3278,18 @@ static int iterate_compare_aix(const void *a, const void *b)
 }
 #endif
 
-static CK_BBOOL objclass_expected(CK_OBJECT_HANDLE obj, enum p11sak_objclass objclass)
-{
-    CK_OBJECT_CLASS class_val = 0;
-    CK_ATTRIBUTE attr = { CKA_CLASS, &class_val, sizeof(class_val) };
-    CK_RV rv;
-
-    rv = get_attribute(obj, &attr);
-    if (rv != CKR_OK) {
-        warnx("Failed to get CKA_CLASS attribute: get_attribute: 0x%lX: %s",
-              rv, p11_get_ckr(rv));
-        return rv;
-    }
-
-    switch (objclass) {
-    case OBJCLASS_KEY:
-        if (class_val == CKO_SECRET_KEY || class_val == CKO_PUBLIC_KEY ||
-            class_val == CKO_PRIVATE_KEY)
-            return CK_TRUE;
-        break;
-    case OBJCLASS_CERTIFICATE:
-        if (class_val == CKO_CERTIFICATE)
-            return CK_TRUE;
-        break;
-    default:
-        break;
-    }
-
-    return CK_FALSE;
-}
-
-static CK_RV iterate_objects(const struct p11sak_objtype *objtype,
+static CK_RV iterate_objects(const struct p11tool_objtype *objtype,
                              const char *label_filter,
                              const char *id_filter,
                              const char *attr_filter,
-                             enum p11sak_objclass objclass,
+                             enum p11tool_objclass objclass,
                              CK_RV (*compare_obj)(CK_OBJECT_HANDLE obj1,
                                                   CK_OBJECT_HANDLE obj2,
                                                   int *result,
                                                   void *private),
                              CK_RV (*handle_obj)(CK_OBJECT_HANDLE obj,
                                                  CK_OBJECT_CLASS class,
-                                                 const struct p11sak_objtype *objtype,
+                                                 const struct p11tool_objtype *objtype,
                                                  CK_ULONG keysize,
                                                  const char *typestr,
                                                  const char* label,
@@ -4826,19 +3310,21 @@ static CK_RV iterate_objects(const struct p11sak_objtype *objtype,
     char *label = NULL;
     char *typestr = NULL;
     char *common_name = NULL;
-    const struct p11sak_objtype *type;
+    const struct p11tool_objtype *type;
     CK_OBJECT_HANDLE *matched_objs = NULL, *tmp;
     CK_ULONG num_matched_objs = 0;
     CK_ULONG alloc_matched_objs = 0;
     struct p11sak_iterate_compare_data data;
 
-    rc = add_attribute(CKA_TOKEN, &ck_true, sizeof(ck_true), &attrs, &num_attrs);
+    rc = p11tool_add_attribute(CKA_TOKEN, &ck_true, sizeof(ck_true),
+                               &attrs, &num_attrs);
     if (rc != CKR_OK)
         goto done;
 
     if (objtype != NULL && objtype->filter_attr != (CK_ATTRIBUTE_TYPE)-1) {
-        rc = add_attribute(objtype->filter_attr, &objtype->filter_value,
-                           sizeof(objtype->filter_value), &attrs, &num_attrs);
+        rc = p11tool_add_attribute(objtype->filter_attr, &objtype->filter_value,
+                                   sizeof(objtype->filter_value),
+                                   &attrs, &num_attrs);
         if (rc != CKR_OK)
             goto done;
     }
@@ -4847,27 +3333,30 @@ static CK_RV iterate_objects(const struct p11sak_objtype *objtype,
         manual_filtering = (strpbrk(label_filter, "*?\\") != NULL);
         if (!manual_filtering) {
             /* add label filter only if no escapes are used */
-            rc = add_attribute(CKA_LABEL, label_filter, strlen(label_filter),
-                               &attrs, &num_attrs);
+            rc = p11tool_add_attribute(CKA_LABEL, label_filter,
+                                       strlen(label_filter),
+                                       &attrs, &num_attrs);
             if (rc != CKR_OK)
                 goto done;
         }
     }
 
     if (id_filter != NULL) {
-        rc = parse_id(id_filter, &attrs, &num_attrs);
+        rc = p11tool_parse_id(id_filter, &attrs, &num_attrs);
         if (rc != CKR_OK)
             goto done;
     }
 
     if (attr_filter != NULL) {
-        rc = parse_boolean_attrs(NULL, opt_attr, &attrs, &num_attrs,
-                                 false, NULL);
+        rc = p11tool_parse_boolean_attrs(NULL, p11sak_bool_attrs, opt_attr,
+                                         &attrs, &num_attrs, false, opt_so,
+                                         NULL);
         if (rc != CKR_OK)
             goto done;
     }
 
-    rc = pkcs11_funcs->C_FindObjectsInit(pkcs11_session, attrs, num_attrs);
+    rc = p11tool_pkcs11_funcs->C_FindObjectsInit(p11tool_pkcs11_session, attrs,
+                                                 num_attrs);
     if (rc != CKR_OK) {
         warnx("Failed to initialize the find operation: C_FindObjectsInit: 0x%lX: %s",
               rc, p11_get_ckr(rc));
@@ -4878,8 +3367,8 @@ static CK_RV iterate_objects(const struct p11sak_objtype *objtype,
         memset(objs, 0, sizeof(objs));
         num_objs = 0;
 
-        rc = pkcs11_funcs->C_FindObjects(pkcs11_session, objs,
-                                         FIND_OBJECTS_COUNT, &num_objs);
+        rc = p11tool_pkcs11_funcs->C_FindObjects(p11tool_pkcs11_session, objs,
+                                                 FIND_OBJECTS_COUNT, &num_objs);
         if (rc != CKR_OK) {
             warnx("Failed to find objects: C_FindObjects: 0x%lX: %s",
                   rc, p11_get_ckr(rc));
@@ -4890,11 +3379,11 @@ static CK_RV iterate_objects(const struct p11sak_objtype *objtype,
             break;
 
         for (i = 0; i < num_objs; i++) {
-            if (!objclass_expected(objs[i], objclass))
+            if (!p11tool_objclass_expected(objs[i], objclass))
                 continue;
 
             if (manual_filtering) {
-                rc = get_label_value(objs[i], &label);
+                rc = p11tool_get_label_value(objs[i], &label);
                 if (rc != CKR_OK)
                     break;
 
@@ -4926,7 +3415,7 @@ next:
     }
 
 done_find:
-    rc2 = pkcs11_funcs->C_FindObjectsFinal(pkcs11_session);
+    rc2 = p11tool_pkcs11_funcs->C_FindObjectsFinal(p11tool_pkcs11_session);
     if (rc2 != CKR_OK) {
         warnx("Failed to finalize the find operation: C_FindObjectsFinal: 0x%lX: %s",
               rc2, p11_get_ckr(rc2));
@@ -4978,7 +3467,7 @@ done_find:
     }
 
 done:
-    free_attributes(attrs, num_attrs);
+    p11tool_free_attributes(attrs, num_attrs);
 
     if (label != NULL)
         free(label);
@@ -4994,7 +3483,7 @@ done:
 
 static CK_RV p11sak_generate_key(void)
 {
-    const struct p11sak_objtype *keytype;
+    const struct p11tool_objtype *keytype;
     void *private = NULL;
     CK_RV rc = CKR_OK;
     CK_ULONG keysize = 0;
@@ -5031,7 +3520,8 @@ static CK_RV p11sak_generate_key(void)
         }
     }
 
-    rc = check_mech_supported(keytype, keysize);
+    rc = p11tool_check_keygen_mech_supported(opt_slot, keytype->keygen_mech.mechanism,
+                                      keytype->is_asymmetric, keysize);
     if (rc != CKR_OK)
         goto done;
 
@@ -5044,41 +3534,44 @@ static CK_RV p11sak_generate_key(void)
         if (rc != CKR_OK)
             goto done;
 
-        rc = add_attributes(keytype, &public_attrs, &num_public_attrs,
-                            pub_label, pub_attrs, opt_id, false,
-                            keytype->keygen_add_public_attrs, private,
-                            public_attr_applicable);
+        rc = p11tool_add_attributes(keytype, p11sak_bool_attrs,
+                                    &public_attrs, &num_public_attrs,
+                                    pub_label, pub_attrs, opt_id, false, opt_so,
+                                    keytype->keygen_add_public_attrs, private,
+                                    p11tool_public_attr_applicable);
         if (rc != CKR_OK)
             goto done;
 
-        rc = add_attributes(keytype, &private_attrs, &num_private_attrs,
-                            priv_label, priv_attrs, opt_id, true,
-                            keytype->keygen_add_private_attrs, private,
-                            private_attr_applicable);
+        rc = p11tool_add_attributes(keytype, p11sak_bool_attrs,
+                                    &private_attrs, &num_private_attrs,
+                                    priv_label, priv_attrs, opt_id, true, opt_so,
+                                    keytype->keygen_add_private_attrs, private,
+                                    p11tool_private_attr_applicable);
         if (rc != CKR_OK)
             goto done;
     } else {
-        rc = add_attributes(keytype, &secret_attrs, &num_secret_attrs,
-                            opt_label, opt_attr, opt_id, true,
-                            keytype->keygen_add_secret_attrs, private,
-                            secret_attr_applicable);
+        rc = p11tool_add_attributes(keytype, p11sak_bool_attrs,
+                                    &secret_attrs, &num_secret_attrs,
+                                    opt_label, opt_attr, opt_id, true, opt_so,
+                                    keytype->keygen_add_secret_attrs, private,
+                                    p11tool_secret_attr_applicable);
         if (rc != CKR_OK)
             goto done;
     }
 
     if (keytype->is_asymmetric)
-        rc = pkcs11_funcs->C_GenerateKeyPair(pkcs11_session,
-                                             (CK_MECHANISM *)&keytype->keygen_mech,
-                                             public_attrs, num_public_attrs,
-                                             private_attrs, num_private_attrs,
-                                             &pub_key, &priv_key);
+        rc = p11tool_pkcs11_funcs->C_GenerateKeyPair(p11tool_pkcs11_session,
+                                          (CK_MECHANISM *)&keytype->keygen_mech,
+                                          public_attrs, num_public_attrs,
+                                          private_attrs, num_private_attrs,
+                                          &pub_key, &priv_key);
      else
-         rc = pkcs11_funcs->C_GenerateKey(pkcs11_session,
+         rc = p11tool_pkcs11_funcs->C_GenerateKey(p11tool_pkcs11_session,
                                           (CK_MECHANISM *)&keytype->keygen_mech,
                                           secret_attrs, num_secret_attrs,
                                           &secret_key);
     if (rc != CKR_OK) {
-        if (is_rejected_by_policy(rc, pkcs11_session)) {
+        if (p11tool_is_rejected_by_policy(rc, p11tool_pkcs11_session)) {
             if (keysize == 0)
                 warnx("Key generation of a %s key is rejected by policy",
                       keytype->name);
@@ -5116,459 +3609,17 @@ done:
     if (priv_attrs != NULL)
         free(priv_attrs);
 
-    free_attributes(secret_attrs, num_secret_attrs);
-    free_attributes(public_attrs, num_public_attrs);
-    free_attributes(private_attrs, num_private_attrs);
+    p11tool_free_attributes(secret_attrs, num_secret_attrs);
+    p11tool_free_attributes(public_attrs, num_public_attrs);
+    p11tool_free_attributes(private_attrs, num_private_attrs);
 
     return rc;
-}
-
-static void print_bool_attr_short(const CK_ATTRIBUTE *val, bool applicable)
-{
-    if (val->ulValueLen == CK_UNAVAILABLE_INFORMATION ||
-        val->ulValueLen != sizeof(CK_BBOOL))
-        applicable = false;
-    printf("%c ", applicable ? (*(CK_BBOOL *)(val->pValue) ? '1' : '0') : '-');
-}
-
-static void print_bool_attr_long(const char *attr, const CK_ATTRIBUTE *val,
-                                 int indent, bool sensitive)
-{
-    if ((val->ulValueLen == CK_UNAVAILABLE_INFORMATION && !sensitive)||
-        val->ulValueLen != sizeof(CK_BBOOL))
-        return;
-
-    printf("%*s%s: %s\n", indent, "", attr,
-           sensitive ? "[sensitive]" :
-                   *(CK_BBOOL *)(val->pValue) ? "CK_TRUE" : "CK_FALSE");
-}
-
-static void print_utf8_attr(const char *attr, const CK_ATTRIBUTE *val,
-                            int indent, bool sensitive)
-{
-    if (val->ulValueLen == CK_UNAVAILABLE_INFORMATION && !sensitive)
-        return;
-
-    if (sensitive) {
-        printf("%*s%s: [sensitive]\n", indent, "", attr);
-    } else if (val->ulValueLen == 0) {
-        printf("%*s%s: [no value]\n", indent, "", attr);
-    } else {
-        printf("%*s%s: \"%.*s\"\n", indent, "", attr, (int)val->ulValueLen,
-               (char *)val->pValue);
-    }
-}
-
-static void print_java_midp_secdom_attr(const char *attr, const CK_ATTRIBUTE *val,
-                                        int indent, bool sensitive)
-{
-    CK_JAVA_MIDP_SECURITY_DOMAIN secdom;
-
-    if (sensitive) {
-        printf("%*s%s: [sensitive]\n", indent, "", attr);
-        return;
-    } else if (val->ulValueLen == 0) {
-        printf("%*s%s: [no value]\n", indent, "", attr);
-        return;
-    } else if (val->ulValueLen != sizeof(CK_JAVA_MIDP_SECURITY_DOMAIN)) {
-        return;
-    }
-
-    secdom = *(CK_JAVA_MIDP_SECURITY_DOMAIN *)(val->pValue);
-
-    switch (secdom) {
-    case CK_SECURITY_DOMAIN_UNSPECIFIED:
-        printf("%*s%s: %s\n", indent, "", attr, "CK_SECURITY_DOMAIN_UNSPECIFIED");
-        break;
-    case CK_SECURITY_DOMAIN_MANUFACTURER:
-        printf("%*s%s: %s\n", indent, "", attr, "CK_SECURITY_DOMAIN_MANUFACTURER");
-        break;
-    case CK_SECURITY_DOMAIN_OPERATOR:
-        printf("%*s%s: %s\n", indent, "", attr, "CK_SECURITY_DOMAIN_OPERATOR");
-        break;
-    case CK_SECURITY_DOMAIN_THIRD_PARTY:
-        printf("%*s%s: %s\n", indent, "", attr, "CK_SECURITY_DOMAIN_THIRD_PARTY");
-        break;
-    default:
-        printf("%*s%s: 0x%lX\n", indent, "", attr,
-               *(CK_JAVA_MIDP_SECURITY_DOMAIN *)(val->pValue));
-        break;
-    }
-}
-
-static void print_cert_category_attr(const char *attr, const CK_ATTRIBUTE *val,
-                                     int indent, bool sensitive)
-{
-    CK_CERTIFICATE_CATEGORY category;
-
-    if (sensitive) {
-        printf("%*s%s: [sensitive]\n", indent, "", attr);
-        return;
-    } else if (val->ulValueLen == 0) {
-        printf("%*s%s: [no value]\n", indent, "", attr);
-        return;
-    } else if (val->ulValueLen != sizeof(CK_CERTIFICATE_CATEGORY)) {
-        return;
-    }
-
-    category = *(CK_CERTIFICATE_CATEGORY *)(val->pValue);
-
-    switch (category) {
-    case CK_CERTIFICATE_CATEGORY_UNSPECIFIED:
-        printf("%*s%s: %s\n", indent, "", attr, "CK_CERTIFICATE_CATEGORY_UNSPECIFIED");
-        break;
-    case CK_CERTIFICATE_CATEGORY_TOKEN_USER:
-        printf("%*s%s: %s\n", indent, "", attr, "CK_CERTIFICATE_CATEGORY_TOKEN_USER");
-        break;
-    case CK_CERTIFICATE_CATEGORY_AUTHORITY:
-        printf("%*s%s: %s\n", indent, "", attr, "CK_CERTIFICATE_CATEGORY_AUTHORITY");
-        break;
-    case CK_CERTIFICATE_CATEGORY_OTHER_ENTITY:
-        printf("%*s%s: %s\n", indent, "", attr, "CK_CERTIFICATE_CATEGORY_OTHER_ENTITY");
-        break;
-    default:
-        printf("%*s%s: 0x%lX\n", indent, "", attr,
-               *(CK_CERTIFICATE_CATEGORY *)(val->pValue));
-        break;
-    }
-}
-
-static void print_dump(CK_BYTE *p, CK_ULONG len, int indent)
-{
-    CK_ULONG i;
-
-    for (i = 0; i < len; i++) {
-        if (i % 16 == 0)
-            printf("\n%*s%02X ", indent, "", p[i]);
-        else
-            printf("%02X ", p[i]);
-    }
-    printf("\n");
-}
-
-static void print_byte_array_attr(const char *attr, const CK_ATTRIBUTE *val,
-                                  int indent, bool sensitive)
-{
-    if (val->ulValueLen == CK_UNAVAILABLE_INFORMATION && !sensitive)
-        return;
-
-    if (sensitive) {
-        printf("%*s%s: [sensitive]\n", indent, "", attr);
-    } else if (val->ulValueLen == 0) {
-        printf("%*s%s: [no value]\n", indent, "", attr);
-    } else {
-        printf("%*s%s: len=%lu value:", indent, "", attr,
-               val->ulValueLen);
-        print_dump((CK_BYTE *)val->pValue, val->ulValueLen, indent + 4);
-    }
-}
-
-static void print_x509_name_attr(const char *attr, const CK_ATTRIBUTE *val,
-                                 int indent, bool sensitive)
-{
-    X509_NAME *name = NULL;
-    const unsigned char *tmp_ptr;
-
-    if (sensitive) {
-        printf("%*s%s: [sensitive]\n", indent, "", attr);
-        return;
-    } else if (val->ulValueLen == 0) {
-        printf("%*s%s: [no value]\n", indent, "", attr);
-        return;
-    }
-
-    tmp_ptr = (const unsigned char *)val->pValue;
-    name = d2i_X509_NAME(NULL, &tmp_ptr, val->ulValueLen);
-    if (name != NULL) {
-        char *oneline = X509_NAME_oneline(name, NULL, 0);
-        if (oneline != NULL) {
-            printf("%*s%s: %s\n", indent, "", attr, oneline);
-            OPENSSL_free(oneline);
-        }
-        printf("%*s len=%lu value:", indent + 3, "", val->ulValueLen);
-        print_dump((CK_BYTE *)val->pValue, val->ulValueLen, indent + 4);
-    } else {
-        print_byte_array_attr(attr, val, indent, false);
-    }
-
-    if (name != NULL)
-        X509_NAME_free(name);
-}
-
-static void print_x509_attr(const char *attr, const CK_ATTRIBUTE *val,
-                            int indent, bool sensitive)
-{
-    X509 *x509 = NULL;
-    const unsigned char *tmp_ptr;
-    char buf[256];
-    BIO *bio;
-
-    if (sensitive) {
-        printf("%*s%s: [sensitive]\n", indent, "", attr);
-        return;
-    } else if (val->ulValueLen == 0) {
-        printf("%*s%s: [no value]\n", indent, "", attr);
-        return;
-    }
-
-    bio = BIO_new(BIO_s_mem());
-    tmp_ptr = (const unsigned char *)val->pValue;
-    x509 = d2i_X509(NULL, &tmp_ptr, val->ulValueLen);
-    if (x509 != NULL) {
-        printf("%*s%s: \n", indent, "", attr);
-        if (bio != NULL) {
-            X509_print(bio, x509);
-            while (BIO_gets(bio, buf, sizeof(buf)))
-                printf("%*s%s", indent + 4, "", buf);
-            printf("%*s len=%lu value:", indent + 3, "", val->ulValueLen);
-        }
-        print_dump((CK_BYTE *)val->pValue, val->ulValueLen, indent + 4);
-    } else {
-        print_byte_array_attr(attr, val, indent, false);
-    }
-
-    if (bio != NULL)
-        BIO_free(bio);
-    if (x509 != NULL)
-        X509_free(x509);
-}
-
-static void print_x509_serial_number_attr(const char *attr,
-                                          const CK_ATTRIBUTE *val,
-                                          int indent, bool sensitive)
-{
-    ASN1_INTEGER *serialno = NULL;
-    const unsigned char *tmp_ptr;
-    BIGNUM *bn_serialno = NULL;
-    CK_BYTE *serial_buf = NULL;
-    CK_ULONG serial_len;
-
-    if (sensitive) {
-        printf("%*s%s: [sensitive]\n", indent, "", attr);
-        return;
-    } else if (val->ulValueLen == 0) {
-        printf("%*s%s: [no value]\n", indent, "", attr);
-        return;
-    }
-
-    tmp_ptr = (const unsigned char *)val->pValue;
-    serialno = d2i_ASN1_INTEGER(NULL, &tmp_ptr, val->ulValueLen);
-    if (serialno != NULL &&
-        (bn_serialno = ASN1_INTEGER_to_BN(serialno, NULL)) != NULL) {
-        serial_len = BN_num_bytes(bn_serialno);
-        serial_buf = OPENSSL_malloc(serial_len);
-        if (serial_buf != NULL &&
-            BN_bn2bin(bn_serialno, serial_buf) == (int)serial_len) {
-            printf("%*s%s: len=%lu value:", indent, "", attr,
-                   serial_len);
-            print_dump(serial_buf, serial_len, indent + 4);
-        } else {
-            print_byte_array_attr(attr, val, indent, false);
-        }
-    } else {
-        print_byte_array_attr(attr, val, indent, false);
-    }
-
-    if (bn_serialno != NULL)
-        BN_free(bn_serialno);
-    if (serial_buf != NULL)
-        OPENSSL_free(serial_buf);
-    if (serialno != NULL)
-        ASN1_INTEGER_free(serialno);
-}
-
-static void print_ulong_attr(const char *attr, const CK_ATTRIBUTE *val,
-                             int indent, bool sensitive)
-{
-    if ((val->ulValueLen == CK_UNAVAILABLE_INFORMATION && !sensitive) ||
-        val->ulValueLen != sizeof(CK_ULONG))
-        return;
-
-    if (sensitive)
-        printf("%*s%s: [sensitive]\n", indent, "", attr);
-    else
-        printf("%*s%s: %lu (0x%lX)\n", indent, "", attr,
-               *(CK_ULONG *)(val->pValue), *(CK_ULONG *)(val->pValue));
-}
-
-static void print_date_attr(const char *attr, const CK_ATTRIBUTE *val,
-                            int indent, bool sensitive)
-{
-    if ((val->ulValueLen == CK_UNAVAILABLE_INFORMATION && !sensitive) ||
-        val->ulValueLen != sizeof(CK_DATE))
-        return;
-
-    if (sensitive)
-        printf("%*s%s: [sensitive]\n", indent, "", attr);
-    else
-        printf("%*s%s: %.4s-%.2s-%.2s\n", indent, "", attr,
-               ((CK_DATE *)(val->pValue))->year,
-               ((CK_DATE *)(val->pValue))->month,
-               ((CK_DATE *)(val->pValue))->day);
-}
-
-static void print_mech_attr(const char *attr, const CK_ATTRIBUTE *val,
-                            int indent, bool sensitive)
-{
-    if ((val->ulValueLen == CK_UNAVAILABLE_INFORMATION && !sensitive) ||
-        val->ulValueLen != sizeof(CK_MECHANISM_TYPE))
-        return;
-
-    if (sensitive)
-        printf("%*s%s: [sensitive]\n", indent, "", attr);
-    else if (*(CK_MECHANISM_TYPE *)(val->pValue) == CK_UNAVAILABLE_INFORMATION)
-        printf("%*s%s: [information unavailable]\n", indent, "", attr);
-    else
-        printf("%*s%s: %s (0x%lX)\n", indent, "", attr,
-               p11_get_ckm(&mechtable_funcs,
-                           *(CK_MECHANISM_TYPE *)(val->pValue)),
-               *(CK_MECHANISM_TYPE *)(val->pValue));
-}
-
-static void print_mech_array_attr(const char *attr, const CK_ATTRIBUTE *val,
-                                  int indent, bool sensitive)
-{
-    unsigned int i, num;
-
-    if ((val->ulValueLen == CK_UNAVAILABLE_INFORMATION && !sensitive) ||
-        (val->ulValueLen % sizeof(CK_MECHANISM_TYPE)) != 0)
-        return;
-
-    if (sensitive) {
-        printf("%*s%s: [sensitive]\n", indent, "", attr);
-    } else {
-        num = val->ulValueLen / sizeof(CK_MECHANISM_TYPE);
-        if (num == 0 && val->type == CKA_ALLOWED_MECHANISMS) {
-            printf("%*s%s: [no restriction]\n", indent, "", attr);
-            return;
-        }
-
-        printf("%*s%s: %u mechanisms\n", indent, "", attr, num);
-        for (i = 0; i < num; i++) {
-            printf("%*s- %s (0x%lX)\n", indent + 4, "",
-                   p11_get_ckm(&mechtable_funcs,
-                               ((CK_MECHANISM_TYPE *)(val->pValue))[i]),
-                   ((CK_MECHANISM_TYPE *)(val->pValue))[i]);
-        }
-    }
-}
-
-static void print_oid(const CK_BYTE *oid, CK_ULONG oid_len, bool long_name)
-{
-    ASN1_OBJECT *obj = NULL;
-    char buf[250];
-    int nid;
-
-    if (d2i_ASN1_OBJECT(&obj, &oid, oid_len) == NULL) {
-        printf("[invalid object ID]");
-        return;
-    }
-
-    nid = OBJ_obj2nid(obj);
-
-    if (OBJ_obj2txt(buf, sizeof(buf), obj, 1) <= 0) {
-        printf("[error]");
-        ASN1_OBJECT_free(obj);
-        return;
-    }
-
-    printf("oid=%s", buf);
-    if (long_name && nid != NID_undef)
-        printf(" (%s)", OBJ_nid2ln(nid));
-
-    ASN1_OBJECT_free(obj);
-}
-
-static void print_ibm_dilithium_keyform_attr(const char *attr,
-                                             const CK_ATTRIBUTE *val,
-                                             int indent, bool sensitive)
-{
-    const struct p11sak_enum_value *eval;
-    const char *name = "[unknown]";
-
-    if ((val->ulValueLen == CK_UNAVAILABLE_INFORMATION ||
-         val->ulValueLen != sizeof (CK_ULONG)) &&
-        !sensitive)
-        return;
-
-    if (sensitive) {
-        printf("%*s%s: [sensitive]\n", indent, "", attr);
-    } else if (val->ulValueLen == 0) {
-        printf("%*s%s: [no value]\n", indent, "", attr);
-    } else {
-        for (eval = p11sak_ibm_dilithium_versions; eval->value != NULL; eval++) {
-            if (eval->private.num == *(CK_ULONG *)(val->pValue)) {
-                name = eval->value;
-                break;
-            }
-        }
-        printf("%*s%s: %s (0x%lX)\n", indent, "", attr, name,
-               *(CK_ULONG *)(val->pValue));
-    }
-}
-
-static void print_ibm_kyber_keyform_attr(const char *attr,
-                                         const CK_ATTRIBUTE *val,
-                                         int indent, bool sensitive)
-{
-    const struct p11sak_enum_value *eval;
-    const char *name = "[unknown]";
-
-    if ((val->ulValueLen == CK_UNAVAILABLE_INFORMATION ||
-         val->ulValueLen != sizeof (CK_ULONG)) &&
-        !sensitive)
-        return;
-
-    if (sensitive) {
-        printf("%*s%s: [sensitive]\n", indent, "", attr);
-    } else if (val->ulValueLen == 0) {
-        printf("%*s%s: [no value]\n", indent, "", attr);
-    } else {
-        for (eval = p11sak_ibm_kyber_versions; eval->value != NULL; eval++) {
-            if (eval->private.num == *(CK_ULONG *)(val->pValue)) {
-                name = eval->value;
-                break;
-            }
-        }
-        printf("%*s%s: %s (0x%lX)\n", indent, "", attr, name,
-               *(CK_ULONG *)(val->pValue));
-    }
-}
-
-static void print_class_attr(const char *attr, const CK_ATTRIBUTE *val,
-                             int indent, bool sensitive)
-{
-    const struct p11sak_class *cls;
-    const char *name = NULL;
-
-    if ((val->ulValueLen == CK_UNAVAILABLE_INFORMATION && !sensitive) ||
-        val->ulValueLen != sizeof(CK_OBJECT_CLASS))
-        return;
-
-    if (sensitive) {
-        printf("%*s%s: [sensitive]\n", indent, "", attr);
-        return;
-    }
-
-    for (cls = p11sak_classes; cls->name  != NULL; cls++) {
-        if (*(CK_OBJECT_CLASS *)(val->pValue) == cls->class) {
-            name = cls->name;
-            break;
-        }
-    }
-
-    if (name != NULL)
-        printf("%*s%s: %s (0x%lX)\n", indent, "", attr, name,
-               *(CK_OBJECT_CLASS *)(val->pValue));
-    else
-        printf("%*s%s: 0x%lX\n", indent, "", attr,
-               *(CK_OBJECT_CLASS *)(val->pValue));
 }
 
 static void print_key_type_attr(const char *attr, const CK_ATTRIBUTE *val,
                                 int indent, bool sensitive)
 {
-    const struct p11sak_objtype *ktype;
+    const struct p11tool_objtype *ktype;
     const char *name = NULL;
 
     if ((val->ulValueLen == CK_UNAVAILABLE_INFORMATION && !sensitive) ||
@@ -5595,7 +3646,7 @@ static void print_key_type_attr(const char *attr, const CK_ATTRIBUTE *val,
 static void print_cert_type_attr(const char *attr, const CK_ATTRIBUTE *val,
                                  int indent, bool sensitive)
 {
-    const struct p11sak_objtype *ctype;
+    const struct p11tool_objtype *ctype;
     const char *name = NULL;
 
     if ((val->ulValueLen == CK_UNAVAILABLE_INFORMATION && !sensitive) ||
@@ -5619,28 +3670,10 @@ static void print_cert_type_attr(const char *attr, const CK_ATTRIBUTE *val,
                *(CK_CERTIFICATE_TYPE *)(val->pValue));
 }
 
-static void print_oid_attr(const char *attr, const CK_ATTRIBUTE *val,
-                           int indent, bool sensitive)
+static const struct p11tool_attr *find_attribute(CK_ATTRIBUTE_TYPE type)
 {
-    if (val->ulValueLen == CK_UNAVAILABLE_INFORMATION && !sensitive)
-        return;
-
-    if (sensitive) {
-        printf("%*s%s: [sensitive]\n", indent, "", attr);
-    } else if (val->ulValueLen == 0) {
-        printf("%*s%s: [no value]\n", indent, "", attr);
-    } else {
-        printf("%*s%s: ", indent, "", attr);
-        print_oid(val->pValue, val->ulValueLen, true);
-        printf(" len=%lu value:", val->ulValueLen);
-        print_dump((CK_BYTE *)val->pValue,val->ulValueLen, indent + 4);
-    }
-}
-
-static const struct p11sak_attr *find_attribute(CK_ATTRIBUTE_TYPE type)
-{
-    const struct p11sak_attr *attr;
-    const struct p11sak_objtype **keytype;
+    const struct p11tool_attr *attr;
+    const struct p11tool_objtype **keytype;
 
     for (attr = p11sak_bool_attrs; attr->name != NULL; attr++) {
         if (attr->type == type)
@@ -5681,7 +3714,7 @@ static const struct p11sak_attr *find_attribute(CK_ATTRIBUTE_TYPE type)
 static void print_attr_array_attr(const char *attr, const CK_ATTRIBUTE *val,
                                   int indent, bool sensitive)
 {
-    const struct p11sak_attr *a;
+    const struct p11tool_attr *a;
     unsigned int i, num;
 
     if (val->ulValueLen == CK_UNAVAILABLE_INFORMATION ||
@@ -5708,7 +3741,7 @@ static void print_attr_array_attr(const char *attr, const CK_ATTRIBUTE *val,
 }
 
 static void print_custom_attrs(CK_OBJECT_HANDLE key,
-                               const struct p11sak_attr *standard_attrs,
+                               const struct p11tool_attr *standard_attrs,
                                int indent)
 {
     CK_RV rc;
@@ -5716,7 +3749,7 @@ static void print_custom_attrs(CK_OBJECT_HANDLE key,
     struct ConfigBaseNode *c, *name, *id, *type;
     struct ConfigStructNode *structnode;
     const struct p11sak_custom_attr_type *atype;
-    const struct p11sak_attr *attr;
+    const struct p11tool_attr *attr;
     CK_ATTRIBUTE val;
     bool skip;
 
@@ -5774,24 +3807,24 @@ static void print_custom_attrs(CK_OBJECT_HANDLE key,
         val.type = confignode_to_intval(id)->value;
         val.ulValueLen = 0;
         val.pValue = NULL;
-        rc = get_attribute(key, &val);
+        rc = p11tool_get_attribute(key, &val);
         if (rc != CKR_OK && rc != CKR_ATTRIBUTE_SENSITIVE)
             continue;
 
         atype->print_long(confignode_to_bareval(name)->value,
                           &val, indent, rc == CKR_ATTRIBUTE_SENSITIVE);
 
-        if (is_attr_array_attr(&val))
-            free_attr_array_attr(&val);
+        if (p11tool_is_attr_array_attr(&val))
+            p11tool_free_attr_array_attr(&val);
         if (val.pValue != NULL)
             free(val.pValue);
     }
 }
 
 static void print_obj_attrs(CK_OBJECT_HANDLE key, CK_OBJECT_CLASS class,
-                            const struct p11sak_objtype *objtype, int indent)
+                            const struct p11tool_objtype *objtype, int indent)
 {
-    const struct p11sak_attr *attrs, *attr;
+    const struct p11tool_attr *attrs, *attr;
     CK_ATTRIBUTE val;
     CK_RV rc;
 
@@ -5818,15 +3851,15 @@ static void print_obj_attrs(CK_OBJECT_HANDLE key, CK_OBJECT_CLASS class,
         val.ulValueLen = 0;
         val.pValue = NULL;
 
-        rc = get_attribute(key, &val);
+        rc = p11tool_get_attribute(key, &val);
         if (rc != CKR_OK && rc != CKR_ATTRIBUTE_SENSITIVE)
             continue;
 
         attr->print_long(attr->name, &val, indent,
                          rc == CKR_ATTRIBUTE_SENSITIVE);
 
-        if (is_attr_array_attr(&val))
-            free_attr_array_attr(&val);
+        if (p11tool_is_attr_array_attr(&val))
+            p11tool_free_attr_array_attr(&val);
         if (val.pValue != NULL)
             free(val.pValue);
     }
@@ -5835,18 +3868,18 @@ static void print_obj_attrs(CK_OBJECT_HANDLE key, CK_OBJECT_CLASS class,
 }
 
 static CK_RV print_boolean_attrs(CK_OBJECT_HANDLE obj, CK_OBJECT_CLASS class,
-                                 const struct p11sak_objtype *objtype,
+                                 const struct p11tool_objtype *objtype,
                                  const char *typestr, const char* label,
                                  struct p11sak_list_data *data)
 {
-    const struct p11sak_attr *attr;
+    const struct p11tool_attr *attr;
     bool applicable;
     CK_ULONG i;
     CK_RV rc;
 
-    rc = pkcs11_funcs->C_GetAttributeValue(pkcs11_session, obj,
-                                           data->bool_attrs,
-                                           data->num_bool_attrs);
+    rc = p11tool_pkcs11_funcs->C_GetAttributeValue(p11tool_pkcs11_session, obj,
+                                                   data->bool_attrs,
+                                                   data->num_bool_attrs);
     if (rc != CKR_OK && rc != CKR_ATTRIBUTE_TYPE_INVALID) {
         warnx("Failed to get boolean attributes for %s %s \"%s\": 0x%lX: %s",
               typestr, objtype->obj_typestr, label, rc, p11_get_ckr(rc));
@@ -5856,16 +3889,16 @@ static CK_RV print_boolean_attrs(CK_OBJECT_HANDLE obj, CK_OBJECT_CLASS class,
     for (attr = data->attrs, i = 0; attr->name != NULL; attr++, i++) {
         switch (class) {
         case CKO_SECRET_KEY:
-            applicable = secret_attr_applicable(objtype, attr);
+            applicable = p11tool_secret_attr_applicable(objtype, attr);
             break;
         case CKO_PUBLIC_KEY:
-            applicable = public_attr_applicable(objtype, attr);
+            applicable = p11tool_public_attr_applicable(objtype, attr);
             break;
         case CKO_PRIVATE_KEY:
-            applicable = private_attr_applicable(objtype, attr);
+            applicable = p11tool_private_attr_applicable(objtype, attr);
             break;
         case CKO_CERTIFICATE:
-            applicable = cert_attr_applicable(objtype, attr);
+            applicable = p11tool_cert_attr_applicable(objtype, attr);
             break;
         default:
            applicable = false;
@@ -5888,50 +3921,7 @@ static CK_RV print_boolean_attrs(CK_OBJECT_HANDLE obj, CK_OBJECT_CLASS class,
     return CKR_OK;
 }
 
-static CK_RV prepare_uri(CK_OBJECT_HANDLE key, CK_OBJECT_CLASS *class,
-                         const struct p11sak_objtype *objtype,
-                         const char *typestr, const char* label,
-                         struct p11_uri **uri)
-{
-    struct p11_uri *u;
-    CK_RV rc;
-
-    u = p11_uri_new();
-    if (u == NULL) {
-        warnx("Failed to allocate URI for %s %s \"%s\"", typestr, objtype->obj_typestr, label);
-        return CKR_HOST_MEMORY;
-    }
-
-    if (opt_detailed_uri) {
-        /* include library and slot information only in detailed URIs */
-        u->info = &pkcs11_info;
-        u->slot_id = opt_slot;
-        u->slot_info = &pkcs11_slotinfo;
-    }
-    u->token_info = &pkcs11_tokeninfo;
-
-    u->obj_class[0].ulValueLen = sizeof(*class);
-    u->obj_class[0].pValue = class;
-
-    u->obj_label[0].ulValueLen = label != NULL ? strlen(label) : 0;
-    u->obj_label[0].pValue = (char *)label;
-
-    rc = get_attribute(key, &u->obj_id[0]);
-    if (rc != CKR_OK) {
-        warnx("Failed to get CKA_ID for %s %s \"%s\": 0x%lX: %s",
-              typestr, objtype->obj_typestr, label, rc, p11_get_ckr(rc));
-        if (u->obj_id[0].pValue != NULL)
-            free(u->obj_id[0].pValue);
-        p11_uri_free(u);
-        return rc;
-    }
-
-    *uri = u;
-
-    return CKR_OK;
-}
-
-static const CK_BYTE *p11sak_get_cca_wkvp(const struct p11sak_token_info *info,
+static const CK_BYTE *p11sak_get_cca_wkvp(const struct p11tool_token_info *info,
                                           const CK_BYTE *secure_key,
                                           CK_ULONG secure_key_len,
                                           const char **mktype)
@@ -6007,7 +3997,7 @@ static const CK_BYTE *p11sak_get_cca_wkvp(const struct p11sak_token_info *info,
     return &secure_key[mkvp_offset];
 }
 
-static void p11sak_print_mkvp_cca_short(const struct p11sak_token_info *info,
+static void p11sak_print_mkvp_cca_short(const struct p11tool_token_info *info,
                                         const CK_BYTE *secure_key,
                                         CK_ULONG secure_key_len,
                                         const char *separator)
@@ -6032,7 +4022,7 @@ static void p11sak_print_mkvp_cca_short(const struct p11sak_token_info *info,
                                     info->mktype_cell_size), mktype);
 }
 
-static void p11sak_print_mkvp_cca_long(const struct p11sak_token_info *info,
+static void p11sak_print_mkvp_cca_long(const struct p11tool_token_info *info,
                                        const CK_BYTE *secure_key,
                                        CK_ULONG secure_key_len,
                                        int indent)
@@ -6051,7 +4041,7 @@ static void p11sak_print_mkvp_cca_long(const struct p11sak_token_info *info,
     printf(" (%s)\n", mktype);
 }
 
-static const CK_BYTE *p11sak_get_ep11_wkvp(const struct p11sak_token_info *info,
+static const CK_BYTE *p11sak_get_ep11_wkvp(const struct p11tool_token_info *info,
                                            const CK_BYTE *secure_key,
                                            CK_ULONG secure_key_len)
 {
@@ -6102,7 +4092,7 @@ static const CK_BYTE *p11sak_get_ep11_wkvp(const struct p11sak_token_info *info,
     return &secure_key[EP11_WKVP_OFFSET];
 }
 
-static void p11sak_print_mkvp_ep11_short(const struct p11sak_token_info *info,
+static void p11sak_print_mkvp_ep11_short(const struct p11tool_token_info *info,
                                          const CK_BYTE *secure_key,
                                          CK_ULONG secure_key_len,
                                          const char *separator)
@@ -6126,7 +4116,7 @@ static void p11sak_print_mkvp_ep11_short(const struct p11sak_token_info *info,
                                     info->mktype_cell_size), "EP11-WK");
 }
 
-static void p11sak_print_mkvp_ep11_long(const struct p11sak_token_info *info,
+static void p11sak_print_mkvp_ep11_long(const struct p11tool_token_info *info,
                                         const CK_BYTE *secure_key,
                                         CK_ULONG secure_key_len,
                                         int indent)
@@ -6145,7 +4135,7 @@ static void p11sak_print_mkvp_ep11_long(const struct p11sak_token_info *info,
 }
 
 static CK_RV handle_obj_list(CK_OBJECT_HANDLE key, CK_OBJECT_CLASS class,
-                             const struct p11sak_objtype *objtype,
+                             const struct p11tool_objtype *objtype,
                              CK_ULONG keysize, const char *typestr,
                              const char* label, const char *common_name,
                              void *private)
@@ -6157,19 +4147,19 @@ static CK_RV handle_obj_list(CK_OBJECT_HANDLE key, CK_OBJECT_CLASS class,
 
     UNUSED(keysize);
 
-    rc = pkcs11_funcs->C_GetAttributeValue(pkcs11_session, key,
-                                           data->bool_attrs,
-                                           data->num_bool_attrs);
+    rc = p11tool_pkcs11_funcs->C_GetAttributeValue(p11tool_pkcs11_session, key,
+                                                   data->bool_attrs,
+                                                   data->num_bool_attrs);
     if (rc != CKR_OK && rc != CKR_ATTRIBUTE_TYPE_INVALID) {
         warnx("Failed to get boolean attributes for %s %s \"%s\": 0x%lX: %s",
               typestr, objtype->obj_typestr, label, rc, p11_get_ckr(rc));
         return rc;
     }
 
-    if (opt_hsm_mkvp && token_info != NULL) {
+    if (opt_hsm_mkvp &&  p11tool_token_info != NULL) {
         /* Get secure key attr, ignore if key does not have that attribute */
-        secure_key_attr.type = token_info->secure_key_attr;
-        rc = get_attribute(key, &secure_key_attr);
+        secure_key_attr.type =  p11tool_token_info->secure_key_attr;
+        rc = p11tool_get_attribute(key, &secure_key_attr);
         if (rc != CKR_OK && rc != CKR_ATTRIBUTE_TYPE_INVALID) {
             warnx("Failed to retrieve attribute %s from object "
                   "\"%s\": 0x%lX: %s",
@@ -6180,16 +4170,17 @@ static CK_RV handle_obj_list(CK_OBJECT_HANDLE key, CK_OBJECT_CLASS class,
     }
 
     if (opt_long) {
-        rc = prepare_uri(key, &class, objtype, typestr, label, &uri);
+        rc = p11tool_prepare_uri(key, &class, objtype, typestr, label,
+                                 opt_detailed_uri, opt_slot, &uri);
         if (rc != CKR_OK)
             goto done;
 
         printf("Label: \"%s\"\n", label);
         printf("    URI: %s\n", p11_uri_format(uri));
         printf("    %s: %s\n", objtype->obj_liststr, typestr);
-        if (opt_hsm_mkvp && token_info != NULL &&
+        if (opt_hsm_mkvp &&  p11tool_token_info != NULL &&
             secure_key_attr.pValue != NULL && secure_key_attr.ulValueLen > 0) {
-            token_info->print_mkvp_long(token_info,
+             p11tool_token_info->print_mkvp_long(p11tool_token_info,
                                         secure_key_attr.pValue,
                                         secure_key_attr.ulValueLen,
                                         4);
@@ -6200,17 +4191,17 @@ static CK_RV handle_obj_list(CK_OBJECT_HANDLE key, CK_OBJECT_CLASS class,
         printf("| ");
     }
 
-    if (!opt_long && opt_hsm_mkvp && token_info != NULL) {
+    if (!opt_long && opt_hsm_mkvp && p11tool_token_info != NULL) {
         if (secure_key_attr.pValue != NULL && secure_key_attr.ulValueLen > 0)
-            token_info->print_mkvp_short(token_info,
+            p11tool_token_info->print_mkvp_short(p11tool_token_info,
                                          secure_key_attr.pValue,
                                          secure_key_attr.ulValueLen,
                                          " | ");
         else
             printf("%-*s | %-*s", MAX(LIST_MKVP_MIN_CELL_SIZE,
-                                      token_info->mkvp_size * 2),
+                    p11tool_token_info->mkvp_size * 2),
                    "-", MAX(LIST_MKTYPE_MIN_CELL_SIZE,
-                            token_info->mktype_cell_size), "-");
+                           p11tool_token_info->mktype_cell_size), "-");
         printf(" ");
     } else {
         rc = print_boolean_attrs(key, class, objtype, typestr, label, data);
@@ -6428,8 +4419,8 @@ done:
 
 static CK_RV p11sak_list_key(void)
 {
-    const struct p11sak_objtype *keytype = NULL;
-    const struct p11sak_attr *attr;
+    const struct p11tool_objtype *keytype = NULL;
+    const struct p11tool_attr *attr;
     struct p11sak_list_data data = { 0 };
     unsigned int i;
     CK_BYTE *attr_data = NULL;
@@ -6438,7 +4429,7 @@ static CK_RV p11sak_list_key(void)
     if (opt_keytype != NULL)
         keytype = opt_keytype->private.ptr;
 
-    if (opt_hsm_mkvp && token_info == NULL) {
+    if (opt_hsm_mkvp && p11tool_token_info == NULL) {
         warnx("Option '-m'/'--hsm-mkvp' can only be used with secure key "
               "tokens");
         rc = CKR_ARGUMENTS_BAD;
@@ -6471,18 +4462,18 @@ static CK_RV p11sak_list_key(void)
 
     if (opt_hsm_mkvp && !opt_long) {
         printf("| MASTER KEY VERIFICATION PATTERN ");
-        for(i = LIST_MKVP_MIN_CELL_SIZE; i < token_info->mkvp_size; i++)
+        for(i = LIST_MKVP_MIN_CELL_SIZE; i < p11tool_token_info->mkvp_size; i++)
             printf(" ");
         printf(" | %-*s ", MAX(LIST_MKTYPE_MIN_CELL_SIZE,
-                               token_info->mktype_cell_size), "MK TYPE");
+                p11tool_token_info->mktype_cell_size), "MK TYPE");
         printf("| %*s | LABEL\n", LIST_KEYTYPE_CELL_SIZE, "KEY TYPE");
         printf("|-");
-        for(i = 0; i < MAX(LIST_MKVP_MIN_CELL_SIZE, token_info->mkvp_size * 2);
+        for(i = 0; i < MAX(LIST_MKVP_MIN_CELL_SIZE, p11tool_token_info->mkvp_size * 2);
                                                                     i++)
             printf("-");
         printf("-+-");
         for (i = 0; i < MAX(LIST_MKTYPE_MIN_CELL_SIZE,
-                            token_info->mktype_cell_size); i++)
+                p11tool_token_info->mktype_cell_size); i++)
             printf("-");
         printf("-+-");
         for (i = 0; i < LIST_KEYTYPE_CELL_SIZE; i++)
@@ -6526,8 +4517,8 @@ done:
 
 static CK_RV p11sak_list_cert(void)
 {
-    const struct p11sak_objtype *certtype = NULL;
-    const struct p11sak_attr *attr;
+    const struct p11tool_objtype *certtype = NULL;
+    const struct p11tool_attr *attr;
     struct p11sak_list_data data = { 0 };
     unsigned int i;
     CK_BYTE *attr_data = NULL;
@@ -6596,36 +4587,8 @@ done:
     return rc;
 }
 
-static char prompt_user(const char *message, char* allowed_chars)
-{
-    int len;
-    size_t linelen = 0;
-    char *line = NULL;
-    char ch = '\0';
-
-    printf("%s", message);
-
-    while (1) {
-        len = getline(&line, &linelen, stdin);
-        if (len == -1)
-            break;
-
-        if (strlen(line) == 2 && strpbrk(line, allowed_chars) != 0) {
-            ch = line[0];
-            break;
-        }
-
-        warnx("Improper reply, try again");
-    }
-
-    if (line != NULL)
-        free(line);
-
-    return ch;
-}
-
 static CK_RV handle_obj_remove(CK_OBJECT_HANDLE key, CK_OBJECT_CLASS class,
-                               const struct p11sak_objtype *keytype,
+                               const struct p11tool_objtype *keytype,
                                CK_ULONG keysize, const char *typestr,
                                const char* label, const char *common_name,
                                void *private)
@@ -6651,7 +4614,7 @@ static CK_RV handle_obj_remove(CK_OBJECT_HANDLE key, CK_OBJECT_CLASS class,
             warnx("Failed to allocate memory for a message");
             return CKR_HOST_MEMORY;
         }
-        ch = prompt_user(msg, "ynac");
+        ch = p11tool_prompt_user(msg, "ynac");
         free(msg);
 
         switch (ch) {
@@ -6671,7 +4634,7 @@ static CK_RV handle_obj_remove(CK_OBJECT_HANDLE key, CK_OBJECT_CLASS class,
         }
     }
 
-    rc = pkcs11_funcs->C_DestroyObject(pkcs11_session, key);
+    rc = p11tool_pkcs11_funcs->C_DestroyObject(p11tool_pkcs11_session, key);
     if (rc != CKR_OK) {
         warnx("Failed to remove %s %s object \"%s\": C_DestroyObject: 0x%lX: %s",
                typestr, keytype->obj_typestr, label, rc, p11_get_ckr(rc));
@@ -6687,7 +4650,7 @@ static CK_RV handle_obj_remove(CK_OBJECT_HANDLE key, CK_OBJECT_CLASS class,
 
 static CK_RV p11sak_remove_key(void)
 {
-    const struct p11sak_objtype *keytype = NULL;
+    const struct p11tool_objtype *keytype = NULL;
     struct p11sak_remove_data data = { 0 };
     CK_RV rc;
 
@@ -6716,7 +4679,7 @@ static CK_RV p11sak_remove_key(void)
 
 static CK_RV p11sak_remove_cert(void)
 {
-    const struct p11sak_objtype *certtype = NULL;
+    const struct p11tool_objtype *certtype = NULL;
     struct p11sak_remove_data data = { 0 };
     CK_RV rc;
 
@@ -6744,7 +4707,7 @@ static CK_RV p11sak_remove_cert(void)
 }
 
 static CK_RV handle_obj_set_attr(CK_OBJECT_HANDLE obj, CK_OBJECT_CLASS class,
-                                 const struct p11sak_objtype *objtype,
+                                 const struct p11tool_objtype *objtype,
                                  CK_ULONG keysize, const char *typestr,
                                  const char* label, const char *common_name,
                                  void *private)
@@ -6755,8 +4718,8 @@ static CK_RV handle_obj_set_attr(CK_OBJECT_HANDLE obj, CK_OBJECT_CLASS class,
     char *msg = NULL;
     char ch;
     CK_RV rc;
-    bool (*attr_applicable)(const struct p11sak_objtype *objtype,
-                            const struct p11sak_attr *attr);
+    bool (*attr_applicable)(const struct p11tool_objtype *objtype,
+                            const struct p11tool_attr *attr);
 
     UNUSED(keysize);
     UNUSED(common_name);
@@ -6773,7 +4736,7 @@ static CK_RV handle_obj_set_attr(CK_OBJECT_HANDLE obj, CK_OBJECT_CLASS class,
             warnx("Failed to allocate memory for a message");
             return CKR_HOST_MEMORY;
         }
-        ch = prompt_user(msg, "ynac");
+        ch = p11tool_prompt_user(msg, "ynac");
         free(msg);
 
         switch (ch) {
@@ -6795,16 +4758,16 @@ static CK_RV handle_obj_set_attr(CK_OBJECT_HANDLE obj, CK_OBJECT_CLASS class,
 
     switch (class) {
     case CKO_SECRET_KEY:
-        attr_applicable = secret_attr_applicable;
+        attr_applicable = p11tool_secret_attr_applicable;
         break;
     case CKO_PUBLIC_KEY:
-        attr_applicable = public_attr_applicable;
+        attr_applicable = p11tool_public_attr_applicable;
         break;
     case CKO_PRIVATE_KEY:
-        attr_applicable = private_attr_applicable;
+        attr_applicable = p11tool_private_attr_applicable;
         break;
     case CKO_CERTIFICATE:
-        attr_applicable = cert_attr_applicable;
+        attr_applicable = p11tool_cert_attr_applicable;
         break;
     default:
         warnx("Object \"%s\" has an unsupported object class: %lu",
@@ -6814,8 +4777,9 @@ static CK_RV handle_obj_set_attr(CK_OBJECT_HANDLE obj, CK_OBJECT_CLASS class,
     }
 
     if (opt_new_attr != NULL) {
-        rc = parse_boolean_attrs(objtype, opt_new_attr, &attrs, &num_attrs,
-                                 true, attr_applicable);
+        rc = p11tool_parse_boolean_attrs(objtype, p11sak_bool_attrs,
+                                         opt_new_attr, &attrs, &num_attrs,
+                                         true, opt_so, attr_applicable);
         if (rc != CKR_OK) {
             data->num_failed++;
             goto done;
@@ -6830,8 +4794,9 @@ static CK_RV handle_obj_set_attr(CK_OBJECT_HANDLE obj, CK_OBJECT_CLASS class,
     }
 
     if (opt_new_label != NULL) {
-        rc = add_attribute(CKA_LABEL, opt_new_label, strlen(opt_new_label),
-                           &attrs, &num_attrs);
+        rc = p11tool_add_attribute(CKA_LABEL, opt_new_label,
+                                   strlen(opt_new_label),
+                                   &attrs, &num_attrs);
         if (rc != CKR_OK) {
             warnx("Failed to add %s %s attribute CKA_LABEL: 0x%lX: %s",
                   objtype->name, objtype->obj_typestr, rc, p11_get_ckr(rc));
@@ -6840,13 +4805,13 @@ static CK_RV handle_obj_set_attr(CK_OBJECT_HANDLE obj, CK_OBJECT_CLASS class,
     }
 
     if (opt_new_id != NULL) {
-        rc = parse_id(opt_new_id, &attrs, &num_attrs);
+        rc = p11tool_parse_id(opt_new_id, &attrs, &num_attrs);
         if (rc != CKR_OK)
             goto done;
     }
 
-    rc = pkcs11_funcs->C_SetAttributeValue(pkcs11_session, obj,
-                                           attrs, num_attrs);
+    rc = p11tool_pkcs11_funcs->C_SetAttributeValue(p11tool_pkcs11_session, obj,
+                                                   attrs, num_attrs);
     if (rc != CKR_OK) {
         warnx("Failed to change %s %s object \"%s\": C_SetAttributeValue: 0x%lX: %s",
               typestr, objtype->obj_typestr, label, rc, p11_get_ckr(rc));
@@ -6860,13 +4825,13 @@ static CK_RV handle_obj_set_attr(CK_OBJECT_HANDLE obj, CK_OBJECT_CLASS class,
     data->num_set++;
 
 done:
-    free_attributes(attrs, num_attrs);
+    p11tool_free_attributes(attrs, num_attrs);
     return rc;
 }
 
 static CK_RV p11sak_set_key_attr(void)
 {
-    const struct p11sak_objtype *keytype = NULL;
+    const struct p11tool_objtype *keytype = NULL;
     struct p11sak_set_attr_data data = { 0 };
     CK_RV rc;
 
@@ -6901,7 +4866,7 @@ static CK_RV p11sak_set_key_attr(void)
 
 static CK_RV p11sak_set_cert_attr(void)
 {
-    const struct p11sak_objtype *certtype = NULL;
+    const struct p11tool_objtype *certtype = NULL;
     struct p11sak_set_attr_data data = { 0 };
     CK_RV rc;
 
@@ -6935,7 +4900,7 @@ static CK_RV p11sak_set_cert_attr(void)
 }
 
 static CK_RV handle_obj_copy(CK_OBJECT_HANDLE key, CK_OBJECT_CLASS class,
-                             const struct p11sak_objtype *objtype,
+                             const struct p11tool_objtype *objtype,
                              CK_ULONG keysize, const char *typestr,
                              const char* label, const char *common_name,
                              void *private)
@@ -6947,8 +4912,8 @@ static CK_RV handle_obj_copy(CK_OBJECT_HANDLE key, CK_OBJECT_CLASS class,
     char *msg = NULL;
     char ch;
     CK_RV rc;
-    bool (*attr_applicable)(const struct p11sak_objtype *objtype,
-                            const struct p11sak_attr *attr);
+    bool (*attr_applicable)(const struct p11tool_objtype *objtype,
+                            const struct p11tool_attr *attr);
 
     UNUSED(keysize);
     UNUSED(common_name);
@@ -6965,7 +4930,7 @@ static CK_RV handle_obj_copy(CK_OBJECT_HANDLE key, CK_OBJECT_CLASS class,
             warnx("Failed to allocate memory for a message");
             return CKR_HOST_MEMORY;
         }
-        ch = prompt_user(msg, "ynac");
+        ch = p11tool_prompt_user(msg, "ynac");
         free(msg);
 
         switch (ch) {
@@ -6987,16 +4952,16 @@ static CK_RV handle_obj_copy(CK_OBJECT_HANDLE key, CK_OBJECT_CLASS class,
 
     switch (class) {
     case CKO_SECRET_KEY:
-        attr_applicable = secret_attr_applicable;
+        attr_applicable = p11tool_secret_attr_applicable;
         break;
     case CKO_PUBLIC_KEY:
-        attr_applicable = public_attr_applicable;
+        attr_applicable = p11tool_public_attr_applicable;
         break;
     case CKO_PRIVATE_KEY:
-        attr_applicable = private_attr_applicable;
+        attr_applicable = p11tool_private_attr_applicable;
         break;
     case CKO_CERTIFICATE:
-        attr_applicable = cert_attr_applicable;
+        attr_applicable = p11tool_cert_attr_applicable;
         break;
     default:
         warnx("Object \"%s\" has an unsupported object class: %lu",
@@ -7006,8 +4971,9 @@ static CK_RV handle_obj_copy(CK_OBJECT_HANDLE key, CK_OBJECT_CLASS class,
     }
 
     if (opt_new_attr != NULL) {
-        rc = parse_boolean_attrs(objtype, opt_new_attr, &attrs, &num_attrs,
-                                 true, attr_applicable);
+        rc = p11tool_parse_boolean_attrs(objtype, p11sak_bool_attrs,
+                                         opt_new_attr, &attrs, &num_attrs,
+                                         true, opt_so, attr_applicable);
         if (rc != CKR_OK) {
             data->num_failed++;
             goto done;
@@ -7015,8 +4981,9 @@ static CK_RV handle_obj_copy(CK_OBJECT_HANDLE key, CK_OBJECT_CLASS class,
     }
 
     if (opt_new_label != NULL) {
-        rc = add_attribute(CKA_LABEL, opt_new_label, strlen(opt_new_label),
-                           &attrs, &num_attrs);
+        rc = p11tool_add_attribute(CKA_LABEL, opt_new_label,
+                                   strlen(opt_new_label),
+                                   &attrs, &num_attrs);
         if (rc != CKR_OK) {
             warnx("Failed to add %s %s attribute CKA_LABEL: 0x%lX: %s",
                   objtype->name, objtype->obj_typestr, rc, p11_get_ckr(rc));
@@ -7026,15 +4993,15 @@ static CK_RV handle_obj_copy(CK_OBJECT_HANDLE key, CK_OBJECT_CLASS class,
     }
 
     if (opt_new_id != NULL) {
-        rc = parse_id(opt_new_id, &attrs, &num_attrs);
+        rc = p11tool_parse_id(opt_new_id, &attrs, &num_attrs);
         if (rc != CKR_OK) {
             data->num_failed++;
             goto done;
         }
     }
 
-    rc = pkcs11_funcs->C_CopyObject(pkcs11_session, key, attrs, num_attrs,
-                                    &new_key);
+    rc = p11tool_pkcs11_funcs->C_CopyObject(p11tool_pkcs11_session, key, attrs,
+                                            num_attrs, &new_key);
     if (rc != CKR_OK) {
         warnx("Failed to copy %s key object \"%s\": C_CopyObject: 0x%lX: %s",
               typestr, label, rc, p11_get_ckr(rc));
@@ -7047,14 +5014,14 @@ static CK_RV handle_obj_copy(CK_OBJECT_HANDLE key, CK_OBJECT_CLASS class,
     data->num_copied++;
 
 done:
-    free_attributes(attrs, num_attrs);
+    p11tool_free_attributes(attrs, num_attrs);
     return rc;
 }
 
 
 static CK_RV p11sak_copy_key(void)
 {
-    const struct p11sak_objtype *keytype = NULL;
+    const struct p11tool_objtype *keytype = NULL;
     struct p11sak_copy_data data = { 0 };
     CK_RV rc;
 
@@ -7083,7 +5050,7 @@ static CK_RV p11sak_copy_key(void)
 
 static CK_RV p11sak_copy_cert(void)
 {
-    const struct p11sak_objtype *certtype = NULL;
+    const struct p11tool_objtype *certtype = NULL;
     struct p11sak_copy_data data = { 0 };
     CK_RV rc;
 
@@ -7111,7 +5078,7 @@ static CK_RV p11sak_copy_cert(void)
 }
 
 static CK_RV p11sak_import_check_des_keysize(
-                                          const struct p11sak_objtype *keytype,
+                                          const struct p11tool_objtype *keytype,
                                           CK_ULONG keysize)
 {
     if (keysize != 8) {
@@ -7123,7 +5090,7 @@ static CK_RV p11sak_import_check_des_keysize(
 }
 
 static CK_RV p11sak_import_check_3des_keysize(
-                                        const struct p11sak_objtype *keytype,
+                                        const struct p11tool_objtype *keytype,
                                         CK_ULONG keysize)
 {
     if (keysize != 24) {
@@ -7135,7 +5102,7 @@ static CK_RV p11sak_import_check_3des_keysize(
 }
 
 static CK_RV p11sak_import_check_generic_keysize(
-                                        const struct p11sak_objtype *keytype,
+                                        const struct p11tool_objtype *keytype,
                                         CK_ULONG keysize)
 {
     if (keysize == 0) {
@@ -7148,7 +5115,7 @@ static CK_RV p11sak_import_check_generic_keysize(
 }
 
 static CK_RV p11sak_import_check_aes_keysize(
-                                        const struct p11sak_objtype *keytype,
+                                        const struct p11tool_objtype *keytype,
                                         CK_ULONG keysize)
 {
     if (keysize != 16 && keysize != 24 && keysize != 32) {
@@ -7161,7 +5128,7 @@ static CK_RV p11sak_import_check_aes_keysize(
 }
 
 static CK_RV p11sak_import_check_aes_xts_keysize(
-                                        const struct p11sak_objtype *keytype,
+                                        const struct p11tool_objtype *keytype,
                                         CK_ULONG keysize)
 {
     if (keysize != 32 && keysize != 64) {
@@ -7174,39 +5141,19 @@ static CK_RV p11sak_import_check_aes_xts_keysize(
 }
 
 static CK_RV p11sak_import_sym_clear_des_3des_aes_generic(
-                                    const struct p11sak_objtype *keytype,
+                                    const struct p11tool_objtype *keytype,
                                     CK_BYTE *data, CK_ULONG data_len,
                                     CK_ATTRIBUTE **attrs, CK_ULONG *num_attrs)
 {
     UNUSED(keytype);
 
-    return add_attribute(CKA_VALUE, data, data_len, attrs, num_attrs);
-}
-
-static CK_RV ASN1_TIME2date(const ASN1_TIME *asn1time, CK_DATE *date)
-{
-    struct tm time;
-    char tmp[40];
-
-    if (!ASN1_TIME_to_tm(asn1time, &time)) {
-        warnx("ASN1_TIME_to_tm failed to convert the certificate's date");
-        ERR_print_errors_cb(openssl_err_cb, NULL);
-        return CKR_FUNCTION_FAILED;
-    }
-
-    snprintf(tmp, sizeof(tmp), "%04d%02d%02d",
-             time.tm_year + 1900, time.tm_mon + 1, time.tm_mday);
-    memcpy(date->year, tmp, 4);
-    memcpy(date->month, tmp + 4, 2);
-    memcpy(date->day, tmp + 4 + 2, 2);
-
-    return CKR_OK;
+    return p11tool_add_attribute(CKA_VALUE, data, data_len, attrs, num_attrs);
 }
 
 /*
  * Imports the common attrs applicable for CKO_CERTIFICATE
  */
-static CK_RV p11sak_import_cert_attrs(const struct p11sak_objtype *certtype,
+static CK_RV p11sak_import_cert_attrs(const struct p11tool_objtype *certtype,
                                       X509 *x509, CK_ATTRIBUTE **attrs,
                                       CK_ULONG *num_attrs)
 {
@@ -7225,13 +5172,13 @@ static CK_RV p11sak_import_cert_attrs(const struct p11sak_objtype *certtype,
 
     /* CKA_START_DATE: CK_DATE struct of certificate start date */
     not_before = X509_get0_notBefore(x509);
-    rc = ASN1_TIME2date(not_before, &start_date);
+    rc = p11tool_ASN1_TIME2date(not_before, &start_date);
     if (rc != CKR_OK)
         goto done;
 
     /* CKA_END_DATE: CK_DATE struct of certificate end date */
     not_after = X509_get0_notAfter(x509);
-    rc = ASN1_TIME2date(not_after, &end_date);
+    rc = p11tool_ASN1_TIME2date(not_after, &end_date);
     if (rc != CKR_OK)
         goto done;
 
@@ -7239,14 +5186,14 @@ static CK_RV p11sak_import_cert_attrs(const struct p11sak_objtype *certtype,
     pkey = X509_get_pubkey(x509);
     if (pkey == NULL) {
         warnx("509_get_pubkey failed to get the EVP_PKEY from X509");
-        ERR_print_errors_cb(openssl_err_cb, NULL);
+        ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
         rc = CKR_FUNCTION_FAILED;
         goto done;
     }
     spki_len = i2d_PUBKEY(pkey, &spki);
     if (spki_len <= 0) {
         warnx("openssl i2d_PUBKEY failed to create spki from EVP_PKEY");
-        ERR_print_errors_cb(openssl_err_cb, NULL);
+        ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
         rc = CKR_FUNCTION_FAILED;
         goto done;
     }
@@ -7255,7 +5202,7 @@ static CK_RV p11sak_import_cert_attrs(const struct p11sak_objtype *certtype,
     value_len = i2d_X509(x509, &value_buf);
     if (value_len <= 0) {
         warnx("i2d_X509 failed to convert the x509 into a buffer for cert's CKA_VALUE");
-        ERR_print_errors_cb(openssl_err_cb, NULL);
+        ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
         rc = CKR_HOST_MEMORY;
         goto done;
     }
@@ -7264,7 +5211,7 @@ static CK_RV p11sak_import_cert_attrs(const struct p11sak_objtype *certtype,
     ctx = EVP_MD_CTX_new();
     if (ctx == NULL) {
         warnx("Error creating MD_CTX for CKA_CHECK_VALUE");
-        ERR_print_errors_cb(openssl_err_cb, NULL);
+        ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
         rc = CKR_FUNCTION_FAILED;
         goto done;
     }
@@ -7272,17 +5219,22 @@ static CK_RV p11sak_import_cert_attrs(const struct p11sak_objtype *certtype,
         !EVP_DigestUpdate(ctx, value_buf, value_len) ||
         !EVP_DigestFinal(ctx, check_buf, &digest_len)) {
         warnx("Error creating sha1 hash for CKA_CHECK_VALUE");
-        ERR_print_errors_cb(openssl_err_cb, NULL);
+        ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
         rc = CKR_FUNCTION_FAILED;
         goto done;
     }
 
     /* Add attributes */
-    rc = add_attribute(CKA_CERTIFICATE_TYPE, &certtype->type, sizeof(certtype->type), attrs, num_attrs);
-    rc += add_attribute(CKA_START_DATE, &start_date, sizeof(CK_DATE), attrs, num_attrs);
-    rc += add_attribute(CKA_END_DATE, &end_date, sizeof(CK_DATE), attrs, num_attrs);
-    rc += add_attribute(CKA_PUBLIC_KEY_INFO, spki, spki_len, attrs, num_attrs);
-    rc += add_attribute(CKA_CHECK_VALUE, check_buf, 3, attrs, num_attrs);
+    rc = p11tool_add_attribute(CKA_CERTIFICATE_TYPE, &certtype->type,
+                               sizeof(certtype->type), attrs, num_attrs);
+    rc += p11tool_add_attribute(CKA_START_DATE, &start_date, sizeof(CK_DATE),
+                                attrs, num_attrs);
+    rc += p11tool_add_attribute(CKA_END_DATE, &end_date, sizeof(CK_DATE),
+                                attrs, num_attrs);
+    rc += p11tool_add_attribute(CKA_PUBLIC_KEY_INFO, spki, spki_len,
+                                attrs, num_attrs);
+    rc += p11tool_add_attribute(CKA_CHECK_VALUE, check_buf, 3,
+                                attrs, num_attrs);
     if (rc != CKR_OK) {
         warnx("Failed to add attributes for imported certificate.");
         rc = CKR_FUNCTION_FAILED;
@@ -7307,7 +5259,7 @@ done:
 /*
  * Imports attributes for X.509 public key certificates
  */
-static CK_RV p11sak_import_x509_attrs(const struct p11sak_objtype *certtype,
+static CK_RV p11sak_import_x509_attrs(const struct p11tool_objtype *certtype,
                                       X509 *x509, CK_ATTRIBUTE **attrs,
                                       CK_ULONG *num_attrs)
 {
@@ -7333,7 +5285,7 @@ static CK_RV p11sak_import_x509_attrs(const struct p11sak_objtype *certtype,
     name = X509_get_subject_name(x509);
     if (!X509_NAME_get0_der(name, &subj_name, &subj_name_len)) {
         warnx("OpenSSL X509_NAME_get0_der failed to return the certificate's subj name");
-        ERR_print_errors_cb(openssl_err_cb, NULL);
+        ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
         rc = CKR_FUNCTION_FAILED;
         goto done;
     }
@@ -7342,7 +5294,7 @@ static CK_RV p11sak_import_x509_attrs(const struct p11sak_objtype *certtype,
     name = X509_get_issuer_name(x509);
     if (!X509_NAME_get0_der(name, &issuer_name, &issuer_name_len)) {
         warnx("OpenSSL X509_NAME_get0_der failed to return the certificate's issuer name");
-        ERR_print_errors_cb(openssl_err_cb, NULL);
+        ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
         rc = CKR_FUNCTION_FAILED;
         goto done;
     }
@@ -7352,7 +5304,7 @@ static CK_RV p11sak_import_x509_attrs(const struct p11sak_objtype *certtype,
     serial_len = i2d_ASN1_INTEGER(serialno, &serial_buf);
     if (serial_len <= 0 || serial_buf == NULL) {
         warnx("i2d_ASN1_INTEGER failed for the certificate's serial no");
-        ERR_print_errors_cb(openssl_err_cb, NULL);
+        ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
         rc = CKR_HOST_MEMORY;
         goto done;
     }
@@ -7361,7 +5313,7 @@ static CK_RV p11sak_import_x509_attrs(const struct p11sak_objtype *certtype,
     value_len = i2d_X509(x509, &value_buf);
     if (value_len <= 0) {
         warnx("OPENSSL_malloc failed to convert the x509 into a buffer for the certificate's CKA_VALUE");
-        ERR_print_errors_cb(openssl_err_cb, NULL);
+        ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
         rc = CKR_HOST_MEMORY;
         goto done;
     }
@@ -7370,14 +5322,14 @@ static CK_RV p11sak_import_x509_attrs(const struct p11sak_objtype *certtype,
     pkey = X509_get_pubkey(x509);
     if (pkey == NULL) {
         warnx("X509_get_pubkey failed to get the EVP_PKEY from X509");
-        ERR_print_errors_cb(openssl_err_cb, NULL);
+        ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
         rc = CKR_FUNCTION_FAILED;
         goto done;
     }
     spki_len = i2d_PUBKEY(pkey, &spki);
     if (spki_len <= 0) {
         warnx("OpenSSL i2d_PUBKEY failed to create spki from EVP_PKEY");
-        ERR_print_errors_cb(openssl_err_cb, NULL);
+        ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
         rc = CKR_FUNCTION_FAILED;
         goto done;
     }
@@ -7394,19 +5346,25 @@ static CK_RV p11sak_import_x509_attrs(const struct p11sak_objtype *certtype,
         !EVP_DigestUpdate(ctx, spki, spki_len) ||
         !EVP_DigestFinal(ctx, spki_hash, &hash_len)) {
         warnx("Error creating sha256 hash for CKA_HASH_OF_SUBJECT_PUBLIC_KEY");
-        ERR_print_errors_cb(openssl_err_cb, NULL);
+        ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
         rc = CKR_FUNCTION_FAILED;
         goto done;
     }
     spki_hash_len = hash_len;
 
     /* Add attributes */
-    rc = add_attribute(CKA_SUBJECT, subj_name, subj_name_len, attrs, num_attrs);
-    rc += add_attribute(CKA_ISSUER, issuer_name, issuer_name_len, attrs, num_attrs);
-    rc += add_attribute(CKA_SERIAL_NUMBER, serial_buf, serial_len, attrs, num_attrs);
-    rc += add_attribute(CKA_VALUE, value_buf, value_len, attrs, num_attrs);
-    rc += add_attribute(CKA_NAME_HASH_ALGORITHM, &name_hash_algo, sizeof(CK_MECHANISM_TYPE), attrs, num_attrs);
-    rc += add_attribute(CKA_HASH_OF_SUBJECT_PUBLIC_KEY, spki_hash, spki_hash_len, attrs, num_attrs);
+    rc = p11tool_add_attribute(CKA_SUBJECT, subj_name, subj_name_len,
+                               attrs, num_attrs);
+    rc += p11tool_add_attribute(CKA_ISSUER, issuer_name, issuer_name_len,
+                                attrs, num_attrs);
+    rc += p11tool_add_attribute(CKA_SERIAL_NUMBER, serial_buf, serial_len,
+                                attrs, num_attrs);
+    rc += p11tool_add_attribute(CKA_VALUE, value_buf, value_len,
+                                attrs, num_attrs);
+    rc += p11tool_add_attribute(CKA_NAME_HASH_ALGORITHM, &name_hash_algo,
+                                sizeof(CK_MECHANISM_TYPE), attrs, num_attrs);
+    rc += p11tool_add_attribute(CKA_HASH_OF_SUBJECT_PUBLIC_KEY, spki_hash,
+                                spki_hash_len, attrs, num_attrs);
     if (rc != CKR_OK) {
         warnx("Failed to add attributes for imported certificate.");
         rc = CKR_FUNCTION_FAILED;
@@ -7430,11 +5388,11 @@ done:
     return rc;
 }
 
-static CK_RV p11sak_extract_x509_pk(const struct p11sak_objtype *certtype,
+static CK_RV p11sak_extract_x509_pk(const struct p11tool_objtype *certtype,
                                     CK_ATTRIBUTE **attrs, CK_ULONG *num_attrs,
                                     CK_OBJECT_HANDLE cert, const char *label)
 {
-    const struct p11sak_objtype *keytype;
+    const struct p11tool_objtype *keytype;
     CK_ATTRIBUTE attr = { CKA_VALUE, NULL, 0 };
     CK_ATTRIBUTE id_attr = { CKA_ID, NULL, 0 };
     const CK_BYTE *tmp_ptr;
@@ -7452,7 +5410,7 @@ static CK_RV p11sak_extract_x509_pk(const struct p11sak_objtype *certtype,
     const struct pqc_oid *oid;
 #endif
 
-    rc = get_attribute(cert, &attr);
+    rc = p11tool_get_attribute(cert, &attr);
     if (rc != CKR_OK) {
         warnx("Failed to retrieve attribute CKA_VALUE from %s certificate "
               "object \"%s\": 0x%lX: %s", certtype->name, label, rc,
@@ -7464,7 +5422,7 @@ static CK_RV p11sak_extract_x509_pk(const struct p11sak_objtype *certtype,
     x509 = d2i_X509(NULL, &tmp_ptr, attr.ulValueLen);
     if (x509 == NULL) {
         warnx("OpenSSL d2i_X509 failed to get X509 from CKA_VALUE.");
-        ERR_print_errors_cb(openssl_err_cb, NULL);
+        ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
         rc = CKR_FUNCTION_FAILED;
         goto done;
     }
@@ -7472,7 +5430,7 @@ static CK_RV p11sak_extract_x509_pk(const struct p11sak_objtype *certtype,
     pkey = X509_get_pubkey(x509);
     if (pkey == NULL) {
         warnx("OpenSSL X509_get_pubkey failed to get certificate's public key.");
-        ERR_print_errors_cb(openssl_err_cb, NULL);
+        ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
         rc = CKR_FUNCTION_FAILED;
         goto done;
     }
@@ -7480,7 +5438,7 @@ static CK_RV p11sak_extract_x509_pk(const struct p11sak_objtype *certtype,
     name = X509_get_subject_name(x509);
     if (!X509_NAME_get0_der(name, &subj_name, &subj_name_len)) {
         warnx("OpenSSL X509_NAME_get0_der failed to return the certificate's subj name");
-        ERR_print_errors_cb(openssl_err_cb, NULL);
+        ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
         rc = CKR_FUNCTION_FAILED;
         goto done;
     }
@@ -7501,7 +5459,7 @@ static CK_RV p11sak_extract_x509_pk(const struct p11sak_objtype *certtype,
     if (keytype == NULL || keytype->import_asym_pkey == NULL) {
         warnx("Key type %s cannot be extracted from a certificate.",
               OBJ_nid2ln(pkey_type));
-        ERR_print_errors_cb(openssl_err_cb, NULL);
+        ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
         rc = CKR_FUNCTION_NOT_SUPPORTED;
         goto done;
     }
@@ -7521,7 +5479,8 @@ static CK_RV p11sak_extract_x509_pk(const struct p11sak_objtype *certtype,
             rc = CKR_HOST_MEMORY;
             goto done;
         }
-        rc = add_attribute(CKA_LABEL, pubkey_label, strlen(pubkey_label), attrs, num_attrs);
+        rc = p11tool_add_attribute(CKA_LABEL, pubkey_label,
+                                   strlen(pubkey_label), attrs, num_attrs);
         if (rc != CKR_OK) {
             warnx("Failed to add attributes for extracted certificate's public key.");
             goto done;
@@ -7530,9 +5489,10 @@ static CK_RV p11sak_extract_x509_pk(const struct p11sak_objtype *certtype,
 
     /* If no new ID is specified, try to use ID from certificate */
     if (opt_new_id == NULL) {
-        rc = get_attribute(cert, &id_attr);
+        rc = p11tool_get_attribute(cert, &id_attr);
         if (rc == CKR_OK && id_attr.ulValueLen > 0) {
-            rc = add_attribute(CKA_ID, id_attr.pValue, id_attr.ulValueLen, attrs, num_attrs);
+            rc = p11tool_add_attribute(CKA_ID, id_attr.pValue,
+                                       id_attr.ulValueLen, attrs, num_attrs);
             if (rc != CKR_OK) {
                 warnx("Failed to add attributes for extracted certificate's public key.");
                 goto done;
@@ -7540,10 +5500,14 @@ static CK_RV p11sak_extract_x509_pk(const struct p11sak_objtype *certtype,
         }
     }
 
-    rc = add_attribute(CKA_CLASS, &key_class, sizeof(CK_OBJECT_CLASS), attrs, num_attrs);
-    rc += add_attribute(CKA_KEY_TYPE, &keytype->type, sizeof(CK_KEY_TYPE), attrs, num_attrs);
-    rc += add_attribute(CKA_TOKEN, &btrue, sizeof(CK_BBOOL), attrs, num_attrs);
-    rc += add_attribute(CKA_SUBJECT, subj_name, subj_name_len, attrs, num_attrs);
+    rc = p11tool_add_attribute(CKA_CLASS, &key_class, sizeof(CK_OBJECT_CLASS),
+                               attrs, num_attrs);
+    rc += p11tool_add_attribute(CKA_KEY_TYPE, &keytype->type,
+                                sizeof(CK_KEY_TYPE), attrs, num_attrs);
+    rc += p11tool_add_attribute(CKA_TOKEN, &btrue, sizeof(CK_BBOOL),
+                                attrs, num_attrs);
+    rc += p11tool_add_attribute(CKA_SUBJECT, subj_name, subj_name_len,
+                                attrs, num_attrs);
     if (rc != CKR_OK) {
         warnx("Failed to add attributes for extracted certificate's public key.");
         rc = CKR_FUNCTION_FAILED;
@@ -7567,7 +5531,7 @@ done:
     return rc;
 }
 
-static CK_RV p11sak_import_rsa_pkey(const struct p11sak_objtype *keytype,
+static CK_RV p11sak_import_rsa_pkey(const struct p11tool_objtype *keytype,
                                     EVP_PKEY *pkey, bool private,
                                     CK_ATTRIBUTE **attrs, CK_ULONG *num_attrs)
 {
@@ -7619,7 +5583,7 @@ static CK_RV p11sak_import_rsa_pkey(const struct p11sak_objtype *keytype,
           !EVP_PKEY_get_bn_param(pkey, OSSL_PKEY_PARAM_RSA_COEFFICIENT1,
                                  &bn_iqmp)))) {
         warnx("Failed to get the %s params.", keytype->name);
-        ERR_print_errors_cb(openssl_err_cb, NULL);
+        ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
         rc = CKR_FUNCTION_FAILED;
         goto done;
      }
@@ -7627,7 +5591,7 @@ static CK_RV p11sak_import_rsa_pkey(const struct p11sak_objtype *keytype,
     rsa = EVP_PKEY_get0_RSA(pkey);
     if (rsa == NULL) {
         warnx("Failed to get the %s params.", keytype->name);
-        ERR_print_errors_cb(openssl_err_cb, NULL);
+        ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
         rc = CKR_FUNCTION_FAILED;
         goto done;
     }
@@ -7640,42 +5604,44 @@ static CK_RV p11sak_import_rsa_pkey(const struct p11sak_objtype *keytype,
         (private && (bn_d == NULL || bn_p == NULL || bn_q == NULL ||
                      bn_dmp1 == NULL || bn_dmq1 == NULL || bn_iqmp == NULL))) {
         warnx("Failed to get the %s params.", keytype->name);
-        ERR_print_errors_cb(openssl_err_cb, NULL);
+        ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
         rc = CKR_FUNCTION_FAILED;
         goto done;
     }
 #endif
 
-    rc = add_bignum_attr(CKA_MODULUS, bn_n, attrs, num_attrs);
+    rc = p11tool_add_bignum_attr(CKA_MODULUS, bn_n, attrs, num_attrs);
     if (rc != CKR_OK)
        goto done;
 
-    rc = add_bignum_attr(CKA_PUBLIC_EXPONENT, bn_e, attrs, num_attrs);
+    rc = p11tool_add_bignum_attr(CKA_PUBLIC_EXPONENT, bn_e, attrs, num_attrs);
     if (rc != CKR_OK)
        goto done;
 
     if (private) {
-        rc = add_bignum_attr(CKA_PRIVATE_EXPONENT, bn_d, attrs, num_attrs);
+        rc = p11tool_add_bignum_attr(CKA_PRIVATE_EXPONENT, bn_d,
+                                     attrs, num_attrs);
         if (rc != CKR_OK)
            goto done;
 
-        rc = add_bignum_attr(CKA_PRIME_1, bn_p, attrs, num_attrs);
+        rc = p11tool_add_bignum_attr(CKA_PRIME_1, bn_p, attrs, num_attrs);
         if (rc != CKR_OK)
            goto done;
 
-        rc = add_bignum_attr(CKA_PRIME_2, bn_q, attrs, num_attrs);
+        rc = p11tool_add_bignum_attr(CKA_PRIME_2, bn_q, attrs, num_attrs);
         if (rc != CKR_OK)
            goto done;
 
-        rc = add_bignum_attr(CKA_EXPONENT_1, bn_dmp1, attrs, num_attrs);
+        rc = p11tool_add_bignum_attr(CKA_EXPONENT_1, bn_dmp1, attrs, num_attrs);
         if (rc != CKR_OK)
            goto done;
 
-        rc = add_bignum_attr(CKA_EXPONENT_2, bn_dmq1, attrs, num_attrs);
+        rc = p11tool_add_bignum_attr(CKA_EXPONENT_2, bn_dmq1, attrs, num_attrs);
         if (rc != CKR_OK)
            goto done;
 
-        rc = add_bignum_attr(CKA_COEFFICIENT, bn_iqmp, attrs, num_attrs);
+        rc = p11tool_add_bignum_attr(CKA_COEFFICIENT, bn_iqmp,
+                                     attrs, num_attrs);
         if (rc != CKR_OK)
            goto done;
     }
@@ -7703,7 +5669,7 @@ done:
     return rc;
 }
 
-static CK_RV p11sak_import_dh_pkey(const struct p11sak_objtype *keytype,
+static CK_RV p11sak_import_dh_pkey(const struct p11tool_objtype *keytype,
                                    EVP_PKEY *pkey, bool private,
                                    CK_ATTRIBUTE **attrs, CK_ULONG *num_attrs)
 {
@@ -7738,7 +5704,7 @@ static CK_RV p11sak_import_dh_pkey(const struct p11sak_objtype *keytype,
         (private &&
          !EVP_PKEY_get_bn_param(pkey, OSSL_PKEY_PARAM_PRIV_KEY, &bn_priv))) {
         warnx("Failed to get the %s params.", keytype->name);
-        ERR_print_errors_cb(openssl_err_cb, NULL);
+        ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
         rc = CKR_FUNCTION_FAILED;
         goto done;
      }
@@ -7746,7 +5712,7 @@ static CK_RV p11sak_import_dh_pkey(const struct p11sak_objtype *keytype,
     dh = EVP_PKEY_get0_DH(pkey);
     if (dh == NULL) {
         warnx("Failed to get the %s params.", keytype->name);
-        ERR_print_errors_cb(openssl_err_cb, NULL);
+        ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
         rc = CKR_FUNCTION_FAILED;
         goto done;
     }
@@ -7755,22 +5721,22 @@ static CK_RV p11sak_import_dh_pkey(const struct p11sak_objtype *keytype,
     if (bn_p == NULL || bn_g == NULL ||
         (!private && bn_pub == NULL) || (private && bn_priv == NULL)) {
         warnx("Failed to get the %s params.", keytype->name);
-        ERR_print_errors_cb(openssl_err_cb, NULL);
+        ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
         rc = CKR_FUNCTION_FAILED;
         goto done;
     }
 #endif
 
-    rc = add_bignum_attr(CKA_PRIME, bn_p, attrs, num_attrs);
+    rc = p11tool_add_bignum_attr(CKA_PRIME, bn_p, attrs, num_attrs);
     if (rc != CKR_OK)
        goto done;
 
-    rc = add_bignum_attr(CKA_BASE, bn_g, attrs, num_attrs);
+    rc = p11tool_add_bignum_attr(CKA_BASE, bn_g, attrs, num_attrs);
     if (rc != CKR_OK)
        goto done;
 
-    rc = add_bignum_attr(CKA_VALUE, private ? bn_priv : bn_pub,
-                         attrs, num_attrs);
+    rc = p11tool_add_bignum_attr(CKA_VALUE, private ? bn_priv : bn_pub,
+                                 attrs, num_attrs);
     if (rc != CKR_OK)
        goto done;
 
@@ -7789,7 +5755,7 @@ done:
     return rc;
 }
 
-static CK_RV p11sak_import_dsa_pkey(const struct p11sak_objtype *keytype,
+static CK_RV p11sak_import_dsa_pkey(const struct p11tool_objtype *keytype,
                                     EVP_PKEY *pkey, bool private,
                                     CK_ATTRIBUTE **attrs, CK_ULONG *num_attrs)
 {
@@ -7827,7 +5793,7 @@ static CK_RV p11sak_import_dsa_pkey(const struct p11sak_objtype *keytype,
         (private &&
          !EVP_PKEY_get_bn_param(pkey, OSSL_PKEY_PARAM_PRIV_KEY, &bn_priv))) {
         warnx("Failed to get the %s params.", keytype->name);
-        ERR_print_errors_cb(openssl_err_cb, NULL);
+        ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
         rc = CKR_FUNCTION_FAILED;
         goto done;
      }
@@ -7835,7 +5801,7 @@ static CK_RV p11sak_import_dsa_pkey(const struct p11sak_objtype *keytype,
     dsa = EVP_PKEY_get0_DSA(pkey);
     if (dsa == NULL) {
         warnx("Failed to get the %s params.", keytype->name);
-        ERR_print_errors_cb(openssl_err_cb, NULL);
+        ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
         rc = CKR_FUNCTION_FAILED;
         goto done;
     }
@@ -7844,26 +5810,26 @@ static CK_RV p11sak_import_dsa_pkey(const struct p11sak_objtype *keytype,
     if (bn_p == NULL || bn_q == NULL || bn_g == NULL ||
         (!private && bn_pub == NULL) || (private && bn_priv == NULL)) {
         warnx("Failed to get the %s params.", keytype->name);
-        ERR_print_errors_cb(openssl_err_cb, NULL);
+        ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
         rc = CKR_FUNCTION_FAILED;
         goto done;
     }
 #endif
 
-    rc = add_bignum_attr(CKA_PRIME, bn_p, attrs, num_attrs);
+    rc = p11tool_add_bignum_attr(CKA_PRIME, bn_p, attrs, num_attrs);
     if (rc != CKR_OK)
        goto done;
 
-    rc = add_bignum_attr(CKA_SUBPRIME, bn_q, attrs, num_attrs);
+    rc = p11tool_add_bignum_attr(CKA_SUBPRIME, bn_q, attrs, num_attrs);
     if (rc != CKR_OK)
        goto done;
 
-    rc = add_bignum_attr(CKA_BASE, bn_g, attrs, num_attrs);
+    rc = p11tool_add_bignum_attr(CKA_BASE, bn_g, attrs, num_attrs);
     if (rc != CKR_OK)
        goto done;
 
-    rc = add_bignum_attr(CKA_VALUE, private ? bn_priv : bn_pub,
-                         attrs, num_attrs);
+    rc = p11tool_add_bignum_attr(CKA_VALUE, private ? bn_priv : bn_pub,
+                                 attrs, num_attrs);
     if (rc != CKR_OK)
        goto done;
 
@@ -7885,7 +5851,7 @@ done:
 }
 
 #if OPENSSL_VERSION_PREREQ(3, 0)
-static CK_RV p11sak_import_ecx_pkey(const struct p11sak_objtype *keytype,
+static CK_RV p11sak_import_ecx_pkey(const struct p11tool_objtype *keytype,
                                     int pkey_type, EVP_PKEY *pkey, bool private,
                                     CK_ATTRIBUTE **attrs, CK_ULONG *num_attrs)
 {
@@ -7908,7 +5874,7 @@ static CK_RV p11sak_import_ecx_pkey(const struct p11sak_objtype *keytype,
          !EVP_PKEY_get_octet_string_param(pkey, OSSL_PKEY_PARAM_PRIV_KEY,
                                           priv, sizeof(priv), &priv_len))) {
         warnx("Failed to get the %s params.", keytype->name);
-        ERR_print_errors_cb(openssl_err_cb, NULL);
+        ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
         rc = CKR_FUNCTION_FAILED;
         goto done;
     }
@@ -7916,7 +5882,7 @@ static CK_RV p11sak_import_ecx_pkey(const struct p11sak_objtype *keytype,
     obj = OBJ_nid2obj(pkey_type);
     if (obj == NULL) {
         warnx("OBJ_nid2obj failed for curve nid %d.", pkey_type);
-        ERR_print_errors_cb(openssl_err_cb, NULL);
+        ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
         rc = CKR_FUNCTION_FAILED;
         goto done;
     }
@@ -7924,18 +5890,18 @@ static CK_RV p11sak_import_ecx_pkey(const struct p11sak_objtype *keytype,
     ec_params_len = i2d_ASN1_OBJECT(obj, &ec_params);
     if (ec_params_len <= 0 || ec_params == NULL) {
         warnx("i2d_ASN1_OBJECT failed for curve nid %d.", pkey_type);
-        ERR_print_errors_cb(openssl_err_cb, NULL);
+        ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
         rc = CKR_FUNCTION_FAILED;
         goto done;
     }
 
-    rc = add_attribute(CKA_EC_PARAMS, ec_params, ec_params_len,
-                       attrs, num_attrs);
+    rc = p11tool_add_attribute(CKA_EC_PARAMS, ec_params, ec_params_len,
+                               attrs, num_attrs);
     if (rc != CKR_OK)
        goto done;
 
     if (private) {
-        rc = add_attribute(CKA_VALUE, priv, priv_len, attrs, num_attrs);
+        rc = p11tool_add_attribute(CKA_VALUE, priv, priv_len, attrs, num_attrs);
         if (rc != CKR_OK)
            goto done;
     } else {
@@ -7957,7 +5923,8 @@ static CK_RV p11sak_import_ecx_pkey(const struct p11sak_objtype *keytype,
             goto done;
         }
 
-        rc = add_attribute(CKA_EC_POINT, point_ptr, point_len, attrs, num_attrs);
+        rc = p11tool_add_attribute(CKA_EC_POINT, point_ptr, point_len,
+                                   attrs, num_attrs);
         if (rc != CKR_OK)
            goto done;
     }
@@ -7972,7 +5939,7 @@ done:
 }
 #endif
 
-static CK_RV p11sak_import_ec_pkey(const struct p11sak_objtype *keytype,
+static CK_RV p11sak_import_ec_pkey(const struct p11tool_objtype *keytype,
                                    EVP_PKEY *pkey, bool private,
                                    CK_ATTRIBUTE **attrs, CK_ULONG *num_attrs)
 {
@@ -8038,7 +6005,7 @@ static CK_RV p11sak_import_ec_pkey(const struct p11sak_objtype *keytype,
         (private &&
          !EVP_PKEY_get_bn_param(pkey, OSSL_PKEY_PARAM_PRIV_KEY, &bn_priv))) {
         warnx("Failed to get the %s params.", keytype->name);
-        ERR_print_errors_cb(openssl_err_cb, NULL);
+        ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
         rc = CKR_FUNCTION_FAILED;
         goto done;
     }
@@ -8046,7 +6013,7 @@ static CK_RV p11sak_import_ec_pkey(const struct p11sak_objtype *keytype,
     ec_group = EC_GROUP_new_from_params(params, NULL, NULL);
     if (ec_group == NULL) {
         warnx("EC_GROUP_new_from_params failed for curve '%s'.", group);
-        ERR_print_errors_cb(openssl_err_cb, NULL);
+        ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
         rc = CKR_FUNCTION_FAILED;
         goto done;
     }
@@ -8054,7 +6021,7 @@ static CK_RV p11sak_import_ec_pkey(const struct p11sak_objtype *keytype,
     ec = EVP_PKEY_get0_EC_KEY(pkey);
     if (ec == NULL) {
         warnx("Failed to get the %s params.", keytype->name);
-        ERR_print_errors_cb(openssl_err_cb, NULL);
+        ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
         rc = CKR_FUNCTION_FAILED;
         goto done;
     }
@@ -8067,7 +6034,7 @@ static CK_RV p11sak_import_ec_pkey(const struct p11sak_objtype *keytype,
         (!private && ec_point == NULL) ||
         (private && bn_priv == NULL)) {
         warnx("Failed to get the %s params.", keytype->name);
-        ERR_print_errors_cb(openssl_err_cb, NULL);
+        ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
         rc = CKR_FUNCTION_FAILED;
         goto done;
     }
@@ -8078,7 +6045,7 @@ static CK_RV p11sak_import_ec_pkey(const struct p11sak_objtype *keytype,
                                        NULL, 0, NULL);
         if (point_len == 0) {
             warnx("EC_POINT_point2oct failed.");
-            ERR_print_errors_cb(openssl_err_cb, NULL);
+            ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
             rc = CKR_FUNCTION_FAILED;
             goto done;
         }
@@ -8095,7 +6062,7 @@ static CK_RV p11sak_import_ec_pkey(const struct p11sak_objtype *keytype,
                                POINT_CONVERSION_UNCOMPRESSED,
                                point + 3, point_len, NULL) != point_len) {
             warnx("EC_POINT_point2oct failed.");
-            ERR_print_errors_cb(openssl_err_cb, NULL);
+            ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
             rc = CKR_FUNCTION_FAILED;
             goto done;
         }
@@ -8106,7 +6073,7 @@ static CK_RV p11sak_import_ec_pkey(const struct p11sak_objtype *keytype,
     if (obj == NULL) {
         warnx("OBJ_nid2obj failed for curve nid %d.",
               EC_GROUP_get_curve_name(ec_group));
-        ERR_print_errors_cb(openssl_err_cb, NULL);
+        ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
         rc = CKR_FUNCTION_FAILED;
         goto done;
     }
@@ -8115,18 +6082,18 @@ static CK_RV p11sak_import_ec_pkey(const struct p11sak_objtype *keytype,
     if (ec_params_len <= 0 || ec_params == NULL) {
         warnx("i2d_ASN1_OBJECT failed for curve nid %d.",
               EC_GROUP_get_curve_name(ec_group));
-        ERR_print_errors_cb(openssl_err_cb, NULL);
+        ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
         rc = CKR_FUNCTION_FAILED;
         goto done;
     }
 
-    rc = add_attribute(CKA_EC_PARAMS, ec_params, ec_params_len,
-                       attrs, num_attrs);
+    rc = p11tool_add_attribute(CKA_EC_PARAMS, ec_params, ec_params_len,
+                               attrs, num_attrs);
     if (rc != CKR_OK)
        goto done;
 
     if (private) {
-        rc = add_bignum_attr(CKA_VALUE, bn_priv, attrs, num_attrs);
+        rc = p11tool_add_bignum_attr(CKA_VALUE, bn_priv, attrs, num_attrs);
         if (rc != CKR_OK)
            goto done;
     } else {
@@ -8148,7 +6115,8 @@ static CK_RV p11sak_import_ec_pkey(const struct p11sak_objtype *keytype,
             goto done;
         }
 
-        rc = add_attribute(CKA_EC_POINT, point_ptr, point_len, attrs, num_attrs);
+        rc = p11tool_add_attribute(CKA_EC_POINT, point_ptr, point_len,
+                                   attrs, num_attrs);
         if (rc != CKR_OK)
            goto done;
     }
@@ -8172,7 +6140,7 @@ done:
 }
 
 static CK_RV p11sak_import_dilithium_kyber_pem_data(
-                                        const struct p11sak_objtype *keytype,
+                                        const struct p11tool_objtype *keytype,
                                         unsigned char *data, size_t data_len,
                                         bool private,
                                         CK_ATTRIBUTE **attrs,
@@ -8181,38 +6149,10 @@ static CK_RV p11sak_import_dilithium_kyber_pem_data(
     UNUSED(keytype);
     UNUSED(private);
 
-    return add_attribute(CKA_VALUE, data, data_len, attrs, num_attrs);
+    return p11tool_add_attribute(CKA_VALUE, data, data_len, attrs, num_attrs);
 }
 
-#if OPENSSL_VERSION_PREREQ(3, 0)
-static CK_RV get_octet_string_param_from_pkey(EVP_PKEY *pkey, const char *param,
-                                              CK_BYTE **key, size_t *key_len)
-{
-    if (EVP_PKEY_get_octet_string_param(pkey, param, NULL, 0, key_len) != 1 ||
-        *key_len == OSSL_PARAM_UNMODIFIED) {
-        warnx("EVP_PKEY_get_octet_string_param failed for '%s'\n", param);
-        ERR_print_errors_cb(openssl_err_cb, NULL);
-        return CKR_FUNCTION_FAILED;
-    }
-
-    *key = calloc(1, *key_len);
-    if (*key == NULL) {
-        warnx("Failed to allocate buffer for '%s'\n", param);
-        return CKR_HOST_MEMORY;
-    }
-
-    if (EVP_PKEY_get_octet_string_param(pkey, param,
-                                        *key, *key_len, key_len) != 1) {
-        warnx("EVP_PKEY_get_octet_string_param failed for '%s'\n", param);
-        ERR_print_errors_cb(openssl_err_cb, NULL);
-        return CKR_FUNCTION_FAILED;
-    }
-
-    return CKR_OK;
-}
-#endif
-
-static CK_RV p11sak_import_dilithium_pkey(const struct p11sak_objtype *keytype,
+static CK_RV p11sak_import_dilithium_pkey(const struct p11tool_objtype *keytype,
                                           EVP_PKEY *pkey, bool private,
                                           CK_ATTRIBUTE **attrs,
                                           CK_ULONG *num_attrs)
@@ -8231,15 +6171,16 @@ static CK_RV p11sak_import_dilithium_pkey(const struct p11sak_objtype *keytype,
         return CKR_FUNCTION_FAILED;
 
     /* Add keyform and attribute */
-    rc = add_attribute(CKA_IBM_DILITHIUM_KEYFORM,
-                       &oid->keyform, sizeof(oid->keyform),
-                       attrs, num_attrs);
+    rc = p11tool_add_attribute(CKA_IBM_DILITHIUM_KEYFORM,
+                               &oid->keyform, sizeof(oid->keyform),
+                               attrs, num_attrs);
     if (rc != CKR_OK)
        goto out;
 
     if (private) {
-        rc = get_octet_string_param_from_pkey(pkey, OSSL_PKEY_PARAM_PRIV_KEY,
-                                              &priv_key, &priv_len);
+        rc = p11tool_get_octet_string_param_from_pkey(pkey,
+                                                      OSSL_PKEY_PARAM_PRIV_KEY,
+                                                      &priv_key, &priv_len);
         if (rc != CKR_OK)
             goto out;
 
@@ -8255,50 +6196,57 @@ static CK_RV p11sak_import_dilithium_pkey(const struct p11sak_objtype *keytype,
         }
 
         ofs = 0;
-        rc = add_attribute(CKA_IBM_DILITHIUM_RHO,
-                           priv_key + ofs, oid->len_info.dilithium.rho_len,
-                           attrs, num_attrs);
+        rc = p11tool_add_attribute(CKA_IBM_DILITHIUM_RHO,
+                                   priv_key + ofs,
+                                   oid->len_info.dilithium.rho_len,
+                                   attrs, num_attrs);
         if (rc != CKR_OK)
            goto out;
 
         ofs += oid->len_info.dilithium.rho_len;
-        rc = add_attribute(CKA_IBM_DILITHIUM_SEED,
-                           priv_key + ofs, oid->len_info.dilithium.seed_len,
-                           attrs, num_attrs);
+        rc = p11tool_add_attribute(CKA_IBM_DILITHIUM_SEED,
+                                   priv_key + ofs,
+                                   oid->len_info.dilithium.seed_len,
+                                   attrs, num_attrs);
         if (rc != CKR_OK)
            goto out;
 
         ofs += oid->len_info.dilithium.seed_len;
-        rc = add_attribute(CKA_IBM_DILITHIUM_TR,
-                           priv_key + ofs, oid->len_info.dilithium.tr_len,
-                           attrs, num_attrs);
+        rc = p11tool_add_attribute(CKA_IBM_DILITHIUM_TR,
+                                   priv_key + ofs,
+                                   oid->len_info.dilithium.tr_len,
+                                   attrs, num_attrs);
         if (rc != CKR_OK)
            goto out;
 
         ofs += oid->len_info.dilithium.tr_len;
-        rc = add_attribute(CKA_IBM_DILITHIUM_S1,
-                           priv_key + ofs, oid->len_info.dilithium.s1_len,
-                           attrs, num_attrs);
+        rc = p11tool_add_attribute(CKA_IBM_DILITHIUM_S1,
+                                   priv_key + ofs,
+                                   oid->len_info.dilithium.s1_len,
+                                   attrs, num_attrs);
         if (rc != CKR_OK)
            goto out;
 
         ofs += oid->len_info.dilithium.s1_len;
-        rc = add_attribute(CKA_IBM_DILITHIUM_S2,
-                           priv_key + ofs, oid->len_info.dilithium.s2_len,
-                           attrs, num_attrs);
+        rc = p11tool_add_attribute(CKA_IBM_DILITHIUM_S2,
+                                   priv_key + ofs,
+                                   oid->len_info.dilithium.s2_len,
+                                   attrs, num_attrs);
         if (rc != CKR_OK)
            goto out;
 
         ofs += oid->len_info.dilithium.s2_len;
-        rc = add_attribute(CKA_IBM_DILITHIUM_T0,
-                           priv_key + ofs, oid->len_info.dilithium.t0_len,
-                           attrs, num_attrs);
+        rc = p11tool_add_attribute(CKA_IBM_DILITHIUM_T0,
+                                   priv_key + ofs,
+                                   oid->len_info.dilithium.t0_len,
+                                   attrs, num_attrs);
         if (rc != CKR_OK)
            goto out;
     }
 
-    rc = get_octet_string_param_from_pkey(pkey, OSSL_PKEY_PARAM_PUB_KEY,
-                                          &pub_key, &pub_len);
+    rc = p11tool_get_octet_string_param_from_pkey(pkey,
+                                                  OSSL_PKEY_PARAM_PUB_KEY,
+                                                  &pub_key, &pub_len);
     if (rc != CKR_OK)
         goto out;
 
@@ -8310,16 +6258,16 @@ static CK_RV p11sak_import_dilithium_pkey(const struct p11sak_objtype *keytype,
     }
 
     ofs = 0;
-    rc = add_attribute(CKA_IBM_DILITHIUM_RHO,
-                       pub_key + ofs, oid->len_info.dilithium.rho_len,
-                       attrs, num_attrs);
+    rc = p11tool_add_attribute(CKA_IBM_DILITHIUM_RHO,
+                               pub_key + ofs, oid->len_info.dilithium.rho_len,
+                               attrs, num_attrs);
     if (rc != CKR_OK)
        goto out;
 
     ofs += oid->len_info.dilithium.rho_len;
-    rc = add_attribute(CKA_IBM_DILITHIUM_T1,
-                       pub_key + ofs, oid->len_info.dilithium.t1_len,
-                       attrs, num_attrs);
+    rc = p11tool_add_attribute(CKA_IBM_DILITHIUM_T1,
+                               pub_key + ofs, oid->len_info.dilithium.t1_len,
+                               attrs, num_attrs);
     if (rc != CKR_OK)
        goto out;
 
@@ -8345,62 +6293,27 @@ out:
 #endif
 }
 
-static int p11sak_pem_password_cb(char *buf, int size, int rwflag,
-                                  void *userdata)
-{
-    const char *pem_password = opt_pem_password;
-    char *buf_pem_password = NULL;
-    char *msg = NULL;
-    int len;
-
-    UNUSED(rwflag);
-    UNUSED(userdata);
-
-    if (pem_password == NULL)
-        pem_password = getenv(PKCS11_PEM_PASSWORD_ENV_NAME);
-
-    if (opt_force_pem_pwd_prompt || pem_password == NULL) {
-        if (asprintf(&msg, "Please enter PEM password for '%s': ",
-                     opt_file) <= 0) {
-            warnx("Failed to allocate memory for message");
-            return -1;
-        }
-        pem_password = pin_prompt(&buf_pem_password, msg);
-        free(msg);
-        if (pem_password == NULL) {
-            warnx("Failed to prompt for PEM password");
-            return -1;
-        }
-    }
-
-    len = strlen(pem_password);
-    if (len > size) {
-        warnx("PEM password is too long");
-        return -1;
-    }
-
-    strncpy(buf, pem_password, size);
-
-    pin_free(&buf_pem_password);
-
-    return len;
-}
-
 static CK_RV p11sak_x509_from_pem_file(X509 **x509)
 {
+    struct p11tool_pem_password_cb_data cb_data = { 0 };
     BIO *bio = NULL;
     X509 *x = NULL;
     CK_RV rc;
 
+    cb_data.pem_file_name = opt_file;
+    cb_data.pem_password = opt_pem_password;
+    cb_data.env_var_name = PKCS11_PEM_PASSWORD_ENV_NAME;
+    cb_data.force_prompt = opt_force_pem_pwd_prompt;
+
     bio = BIO_new_file(opt_file, "r");
     if (bio == NULL) {
         warnx("Failed to open file '%s'", opt_file);
-        ERR_print_errors_cb(openssl_err_cb, NULL);
+        ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
         rc = CKR_ARGUMENTS_BAD;
         goto done;
     }
 
-    x = PEM_read_bio_X509(bio, NULL, p11sak_pem_password_cb, NULL);
+    x = PEM_read_bio_X509(bio, NULL, p11tool_pem_password_cb, &cb_data);
     if (x == NULL) {
         rc = CKR_FUNCTION_FAILED;
         goto done;
@@ -8455,7 +6368,7 @@ static CK_RV p11sak_x509_from_der_file(X509 **x509)
     x = d2i_X509(NULL, &tmp_value, value_len);
     if (x == NULL) {
         warnx("d2i_X509 failed to decode contents from file '%s'", opt_file);
-        ERR_print_errors_cb(openssl_err_cb, NULL);
+        ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
         rc = CKR_FUNCTION_FAILED;
         goto done;
     }
@@ -8472,7 +6385,7 @@ done:
     return rc;
 }
 
-static CK_RV p11sak_import_opaque_key(const struct p11sak_objtype *keytype,
+static CK_RV p11sak_import_opaque_key(const struct p11tool_objtype *keytype,
                                       CK_ATTRIBUTE **attrs, CK_ULONG *num_attrs)
 {
     CK_BYTE *value;
@@ -8508,7 +6421,8 @@ static CK_RV p11sak_import_opaque_key(const struct p11sak_objtype *keytype,
         goto done;
     }
 
-    rc = add_attribute(CKA_IBM_OPAQUE, value, value_len, attrs, num_attrs);
+    rc = p11tool_add_attribute(CKA_IBM_OPAQUE, value, value_len,
+                               attrs, num_attrs);
     if (rc != CKR_OK)
         goto done;
 
@@ -8523,9 +6437,10 @@ done:
     return rc;
 }
 
-static CK_RV p11sak_import_asym_key(const struct p11sak_objtype *keytype,
+static CK_RV p11sak_import_asym_key(const struct p11tool_objtype *keytype,
                                     CK_ATTRIBUTE **attrs, CK_ULONG *num_attrs)
 {
+    struct p11tool_pem_password_cb_data cb_data = { 0 };
     EVP_PKEY *pkey = NULL;
     CK_RV rc = CKR_OK;
     unsigned char *data = NULL;
@@ -8534,10 +6449,15 @@ static CK_RV p11sak_import_asym_key(const struct p11sak_objtype *keytype,
     BIO *bio;
     int ret;
 
+    cb_data.pem_file_name = opt_file;
+    cb_data.pem_password = opt_pem_password;
+    cb_data.env_var_name = PKCS11_PEM_PASSWORD_ENV_NAME;
+    cb_data.force_prompt = opt_force_pem_pwd_prompt;
+
     bio = BIO_new_file(opt_file, "r");
     if (bio == NULL) {
         warnx("Failed to open PEM file '%s'.", opt_file);
-        ERR_print_errors_cb(openssl_err_cb, NULL);
+        ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
         return CKR_FUNCTION_FAILED;
     }
 
@@ -8545,16 +6465,17 @@ static CK_RV p11sak_import_asym_key(const struct p11sak_objtype *keytype,
         (!keytype->supports_oqsprovider_pem ||
          (opt_oqsprovider_pem && keytype->supports_oqsprovider_pem))) {
         if (opt_asym_kind->private.num)
-            pkey = PEM_read_bio_PrivateKey(bio, NULL, p11sak_pem_password_cb,
-                                           NULL);
+            pkey = PEM_read_bio_PrivateKey(bio, NULL, p11tool_pem_password_cb,
+                                           &cb_data);
         else
-            pkey = PEM_read_bio_PUBKEY(bio, NULL, p11sak_pem_password_cb, NULL);
+            pkey = PEM_read_bio_PUBKEY(bio, NULL, p11tool_pem_password_cb,
+                                       &cb_data);
 
         if (pkey == NULL) {
             warnx("Failed to read PEM file '%s'.%s", opt_file,
                   opt_oqsprovider_pem ?
                           " Is the 'oqsprovider' configured?" : "");
-            ERR_print_errors_cb(openssl_err_cb, NULL);
+            ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
             rc = CKR_FUNCTION_FAILED;
             goto done;
         }
@@ -8569,10 +6490,10 @@ static CK_RV p11sak_import_asym_key(const struct p11sak_objtype *keytype,
                                  opt_asym_kind->private.num ?
                                      keytype->pem_name_private :
                                      keytype->pem_name_public,
-                                 bio, p11sak_pem_password_cb, NULL);
+                                 bio, p11tool_pem_password_cb, &cb_data);
         if (ret != 1) {
             warnx("Failed to read PEM file '%s'.", opt_file);
-            ERR_print_errors_cb(openssl_err_cb, NULL);
+            ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
             rc = CKR_FUNCTION_FAILED;
             goto done;
         }
@@ -8601,7 +6522,7 @@ done:
     return rc;
 }
 
-static CK_RV p11sak_import_sym_key(const struct p11sak_objtype *keytype,
+static CK_RV p11sak_import_sym_key(const struct p11tool_objtype *keytype,
                                    CK_ATTRIBUTE **attrs, CK_ULONG *num_attrs)
 {
     CK_BYTE data[MAX_SYM_CLEAR_KEY_SIZE];
@@ -8657,7 +6578,7 @@ static CK_RV p11sak_import_sym_key(const struct p11sak_objtype *keytype,
 
 static CK_RV p11sak_import_key(void)
 {
-    const struct p11sak_objtype *keytype;
+    const struct p11tool_objtype *keytype;
     CK_ATTRIBUTE *attrs = NULL;
     CK_ULONG num_attrs = 0;
     CK_OBJECT_CLASS class;
@@ -8678,25 +6599,27 @@ static CK_RV p11sak_import_key(void)
     class = keytype->is_asymmetric ?
             (opt_asym_kind->private.num ? CKO_PRIVATE_KEY : CKO_PUBLIC_KEY) :
             CKO_SECRET_KEY;
-    rc = add_attribute(CKA_CLASS, &class, sizeof(class), &attrs, &num_attrs);
+    rc = p11tool_add_attribute(CKA_CLASS, &class, sizeof(class),
+                               &attrs, &num_attrs);
     if (rc != CKR_OK)
         goto done;
 
-    rc = add_attribute(CKA_KEY_TYPE, &keytype->type, sizeof(keytype->type),
-                       &attrs, &num_attrs);
+    rc = p11tool_add_attribute(CKA_KEY_TYPE, &keytype->type,
+                               sizeof(keytype->type), &attrs, &num_attrs);
     if (rc != CKR_OK)
         goto done;
 
-    rc = add_attributes(keytype, &attrs, &num_attrs,
-                        opt_label, opt_attr, opt_id,
-                        !keytype->is_asymmetric ||
-                        (keytype->is_asymmetric && opt_asym_kind->private.num),
-                        NULL, NULL,
-                        keytype->is_asymmetric ?
-                                (opt_asym_kind->private.num ?
-                                        private_attr_applicable :
-                                        public_attr_applicable) :
-                                secret_attr_applicable);
+    rc = p11tool_add_attributes(keytype, p11sak_bool_attrs, &attrs, &num_attrs,
+                                opt_label, opt_attr, opt_id,
+                                !keytype->is_asymmetric ||
+                                (keytype->is_asymmetric &&
+                                                    opt_asym_kind->private.num),
+                                opt_so, NULL, NULL,
+                                keytype->is_asymmetric ?
+                                        (opt_asym_kind->private.num ?
+                                              p11tool_private_attr_applicable :
+                                              p11tool_public_attr_applicable) :
+                                p11tool_secret_attr_applicable);
     if (rc != CKR_OK)
         goto done;
 
@@ -8709,9 +6632,10 @@ static CK_RV p11sak_import_key(void)
     if (rc != CKR_OK)
         goto done;
 
-    rc = pkcs11_funcs->C_CreateObject(pkcs11_session, attrs, num_attrs, &key);
+    rc = p11tool_pkcs11_funcs->C_CreateObject(p11tool_pkcs11_session, attrs,
+                                              num_attrs, &key);
     if (rc != CKR_OK) {
-       if (is_rejected_by_policy(rc, pkcs11_session))
+       if (p11tool_is_rejected_by_policy(rc, p11tool_pkcs11_session))
            warnx("Key import of a %s key is rejected by policy", keytype->name);
        else
            warnx("Key import of a %s key failed: 0x%lX: %s", keytype->name,
@@ -8723,7 +6647,7 @@ static CK_RV p11sak_import_key(void)
            keytype->name, opt_label);
 
 done:
-    free_attributes(attrs, num_attrs);
+    p11tool_free_attributes(attrs, num_attrs);
 
     return rc;
 }
@@ -8733,7 +6657,8 @@ static bool has_ibm_opaque_attr(CK_OBJECT_HANDLE key)
     CK_RV rc;
     CK_ATTRIBUTE attr = { CKA_IBM_OPAQUE, NULL, 0 };
 
-    rc = pkcs11_funcs->C_GetAttributeValue(pkcs11_session, key, &attr, 1);
+    rc = p11tool_pkcs11_funcs->C_GetAttributeValue(p11tool_pkcs11_session, key,
+                                                   &attr, 1);
     if (rc == CKR_ATTRIBUTE_SENSITIVE)
         return true;
     if (rc != CKR_OK)
@@ -8743,14 +6668,14 @@ static bool has_ibm_opaque_attr(CK_OBJECT_HANDLE key)
 }
 
 static CK_RV p11sak_export_sym_clear_des_3des_aes_generic(
-                                    const struct p11sak_objtype *keytype,
+                                    const struct p11tool_objtype *keytype,
                                     CK_BYTE **data, CK_ULONG* data_len,
                                     CK_OBJECT_HANDLE key, const char *label)
 {
     CK_ATTRIBUTE attr = { CKA_VALUE, NULL, 0 };
     CK_RV rc;
 
-    rc = get_attribute(key, &attr);
+    rc = p11tool_get_attribute(key, &attr);
     if (rc == CKR_ATTRIBUTE_SENSITIVE)
         return rc;
     if (rc != CKR_OK) {
@@ -8766,7 +6691,7 @@ static CK_RV p11sak_export_sym_clear_des_3des_aes_generic(
     return CKR_OK;
 }
 
-static CK_RV p11sak_export_rsa_pkey(const struct p11sak_objtype *keytype,
+static CK_RV p11sak_export_rsa_pkey(const struct p11tool_objtype *keytype,
                                     EVP_PKEY **pkey, bool private,
                                     CK_OBJECT_HANDLE key, const char *label)
 {
@@ -8781,7 +6706,7 @@ static CK_RV p11sak_export_rsa_pkey(const struct p11sak_objtype *keytype,
 #endif
     CK_RV rc;
 
-    rc = get_bignum_attr(key, CKA_MODULUS, &bn_n);
+    rc = p11tool_get_bignum_attr(key, CKA_MODULUS, &bn_n);
     if (rc == CKR_ATTRIBUTE_SENSITIVE)
         goto done;
     if (rc != CKR_OK) {
@@ -8791,7 +6716,7 @@ static CK_RV p11sak_export_rsa_pkey(const struct p11sak_objtype *keytype,
         goto done;
     }
 
-    rc = get_bignum_attr(key, CKA_PUBLIC_EXPONENT, &bn_e);
+    rc = p11tool_get_bignum_attr(key, CKA_PUBLIC_EXPONENT, &bn_e);
     if (rc == CKR_ATTRIBUTE_SENSITIVE)
         goto done;
     if (rc != CKR_OK) {
@@ -8815,27 +6740,27 @@ static CK_RV p11sak_export_rsa_pkey(const struct p11sak_objtype *keytype,
             goto done;
         }
 
-        rc = get_bignum_attr(key, CKA_PRIVATE_EXPONENT, &bn_d);
+        rc = p11tool_get_bignum_attr(key, CKA_PRIVATE_EXPONENT, &bn_d);
         if (rc == CKR_ATTRIBUTE_SENSITIVE)
             goto done;
 
-        rc = get_bignum_attr(key, CKA_PRIME_1, &bn_p);
+        rc = p11tool_get_bignum_attr(key, CKA_PRIME_1, &bn_p);
         if (rc == CKR_ATTRIBUTE_SENSITIVE)
             goto done;
 
-        rc = get_bignum_attr(key, CKA_PRIME_2, &bn_q);
+        rc = p11tool_get_bignum_attr(key, CKA_PRIME_2, &bn_q);
         if (rc == CKR_ATTRIBUTE_SENSITIVE)
             goto done;
 
-        rc = get_bignum_attr(key, CKA_EXPONENT_1, &bn_dmp1);
+        rc = p11tool_get_bignum_attr(key, CKA_EXPONENT_1, &bn_dmp1);
         if (rc == CKR_ATTRIBUTE_SENSITIVE)
             goto done;
 
-        rc = get_bignum_attr(key, CKA_EXPONENT_2, &bn_dmq1);
+        rc = p11tool_get_bignum_attr(key, CKA_EXPONENT_2, &bn_dmq1);
         if (rc == CKR_ATTRIBUTE_SENSITIVE)
             goto done;
 
-        rc = get_bignum_attr(key, CKA_COEFFICIENT, &bn_iqmp);
+        rc = p11tool_get_bignum_attr(key, CKA_COEFFICIENT, &bn_iqmp);
         if (rc == CKR_ATTRIBUTE_SENSITIVE)
             goto done;
     }
@@ -8844,13 +6769,13 @@ static CK_RV p11sak_export_rsa_pkey(const struct p11sak_objtype *keytype,
     rsa = RSA_new();
     if (rsa == NULL) {
         warnx("RSA_new failed.");
-        ERR_print_errors_cb(openssl_err_cb, NULL);
+        ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
         rc = CKR_FUNCTION_FAILED;
         goto done;
     }
     if (RSA_set0_key(rsa, bn_n, bn_e, bn_d) != 1) {
         warnx("RSA_set0_key failed.");
-        ERR_print_errors_cb(openssl_err_cb, NULL);
+        ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
         rc = CKR_FUNCTION_FAILED;
         goto done;
     }
@@ -8859,7 +6784,7 @@ static CK_RV p11sak_export_rsa_pkey(const struct p11sak_objtype *keytype,
     if (private) {
         if (RSA_set0_factors(rsa, bn_p, bn_q) != 1) {
             warnx("RSA_set0_factors failed.");
-            ERR_print_errors_cb(openssl_err_cb, NULL);
+            ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
             rc = CKR_FUNCTION_FAILED;
             goto done;
         }
@@ -8867,7 +6792,7 @@ static CK_RV p11sak_export_rsa_pkey(const struct p11sak_objtype *keytype,
 
         if (RSA_set0_crt_params(rsa, bn_dmp1, bn_dmq1, bn_iqmp) != 1) {
             warnx("RSA_set0_crt_params failed.");
-            ERR_print_errors_cb(openssl_err_cb, NULL);
+            ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
             rc = CKR_FUNCTION_FAILED;
             goto done;
         }
@@ -8877,14 +6802,14 @@ static CK_RV p11sak_export_rsa_pkey(const struct p11sak_objtype *keytype,
     *pkey = EVP_PKEY_new();
     if (*pkey == NULL) {
         warnx("EVP_PKEY_new failed.");
-        ERR_print_errors_cb(openssl_err_cb, NULL);
+        ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
         rc = CKR_FUNCTION_FAILED;
         goto done;
     }
 
     if (EVP_PKEY_assign_RSA(*pkey, rsa) != 1) {
         warnx("EVP_PKEY_assign_RSA failed.");
-        ERR_print_errors_cb(openssl_err_cb, NULL);
+        ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
         rc = CKR_FUNCTION_FAILED;
         goto done;
     }
@@ -8893,7 +6818,7 @@ static CK_RV p11sak_export_rsa_pkey(const struct p11sak_objtype *keytype,
     tmpl = OSSL_PARAM_BLD_new();
     if (tmpl == NULL) {
         warnx("OSSL_PARAM_BLD_new failed.");
-        ERR_print_errors_cb(openssl_err_cb, NULL);
+        ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
         rc = CKR_FUNCTION_FAILED;
         goto done;
     }
@@ -8901,7 +6826,7 @@ static CK_RV p11sak_export_rsa_pkey(const struct p11sak_objtype *keytype,
     if (!OSSL_PARAM_BLD_push_BN(tmpl, OSSL_PKEY_PARAM_RSA_N, bn_n) ||
         !OSSL_PARAM_BLD_push_BN(tmpl, OSSL_PKEY_PARAM_RSA_E, bn_e)) {
         warnx("OSSL_PARAM_BLD_push_BN failed.");
-        ERR_print_errors_cb(openssl_err_cb, NULL);
+        ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
         rc = CKR_FUNCTION_FAILED;
         goto done;
     }
@@ -8917,7 +6842,7 @@ static CK_RV p11sak_export_rsa_pkey(const struct p11sak_objtype *keytype,
             !OSSL_PARAM_BLD_push_BN(tmpl, OSSL_PKEY_PARAM_RSA_COEFFICIENT1,
                                                                    bn_iqmp)) {
             warnx("OSSL_PARAM_BLD_push_BN failed.");
-            ERR_print_errors_cb(openssl_err_cb, NULL);
+            ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
             rc = CKR_FUNCTION_FAILED;
             goto done;
         }
@@ -8926,7 +6851,7 @@ static CK_RV p11sak_export_rsa_pkey(const struct p11sak_objtype *keytype,
     params = OSSL_PARAM_BLD_to_param(tmpl);
     if (params == NULL) {
         warnx("OSSL_PARAM_BLD_to_param failed.");
-        ERR_print_errors_cb(openssl_err_cb, NULL);
+        ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
         rc = CKR_FUNCTION_FAILED;
         goto done;
     }
@@ -8934,7 +6859,7 @@ static CK_RV p11sak_export_rsa_pkey(const struct p11sak_objtype *keytype,
     pctx = EVP_PKEY_CTX_new_id(EVP_PKEY_RSA, NULL);
     if (pctx == NULL) {
         warnx("EVP_PKEY_CTX_new_id failed.");
-        ERR_print_errors_cb(openssl_err_cb, NULL);
+        ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
         rc = CKR_FUNCTION_FAILED;
         goto done;
     }
@@ -8944,7 +6869,7 @@ static CK_RV p11sak_export_rsa_pkey(const struct p11sak_objtype *keytype,
                            private ? EVP_PKEY_KEYPAIR : EVP_PKEY_PUBLIC_KEY,
                            params)) {
         warnx("EVP_PKEY_fromdata_init/EVP_PKEY_fromdata failed.");
-        ERR_print_errors_cb(openssl_err_cb, NULL);
+        ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
         rc = CKR_FUNCTION_FAILED;
         goto done;
     }
@@ -8986,7 +6911,7 @@ done:
     return rc;
 }
 
-static CK_RV p11sak_export_dh_pkey(const struct p11sak_objtype *keytype,
+static CK_RV p11sak_export_dh_pkey(const struct p11tool_objtype *keytype,
                                    EVP_PKEY **pkey, bool private,
                                    CK_OBJECT_HANDLE key, const char *label)
 {
@@ -9000,7 +6925,7 @@ static CK_RV p11sak_export_dh_pkey(const struct p11sak_objtype *keytype,
 #endif
     CK_RV rc;
 
-    rc = get_bignum_attr(key, CKA_PRIME, &bn_p);
+    rc = p11tool_get_bignum_attr(key, CKA_PRIME, &bn_p);
     if (rc == CKR_ATTRIBUTE_SENSITIVE)
         goto done;
     if (rc != CKR_OK) {
@@ -9010,7 +6935,7 @@ static CK_RV p11sak_export_dh_pkey(const struct p11sak_objtype *keytype,
         goto done;
     }
 
-    rc = get_bignum_attr(key, CKA_BASE, &bn_g);
+    rc = p11tool_get_bignum_attr(key, CKA_BASE, &bn_g);
     if (rc == CKR_ATTRIBUTE_SENSITIVE)
         goto done;
     if (rc != CKR_OK) {
@@ -9029,7 +6954,7 @@ static CK_RV p11sak_export_dh_pkey(const struct p11sak_objtype *keytype,
         }
     }
 
-    rc = get_bignum_attr(key, CKA_VALUE, private ? &bn_priv : &bn_pub);
+    rc = p11tool_get_bignum_attr(key, CKA_VALUE, private ? &bn_priv : &bn_pub);
     if (rc == CKR_ATTRIBUTE_SENSITIVE)
         goto done;
     if (rc != CKR_OK) {
@@ -9043,14 +6968,14 @@ static CK_RV p11sak_export_dh_pkey(const struct p11sak_objtype *keytype,
     dh = DH_new();
     if (dh == NULL) {
         warnx("DH_new failed.");
-        ERR_print_errors_cb(openssl_err_cb, NULL);
+        ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
         rc = CKR_FUNCTION_FAILED;
         goto done;
     }
 
     if (DH_set0_pqg(dh, bn_p, NULL, bn_g) != 1) {
         warnx("DH_set0_pqg failed.");
-        ERR_print_errors_cb(openssl_err_cb, NULL);
+        ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
         rc = CKR_FUNCTION_FAILED;
         goto done;
     }
@@ -9058,7 +6983,7 @@ static CK_RV p11sak_export_dh_pkey(const struct p11sak_objtype *keytype,
 
     if (DH_set0_key(dh, bn_pub, bn_priv) != 1) {
         warnx("DH_set0_key failed.");
-        ERR_print_errors_cb(openssl_err_cb, NULL);
+        ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
         rc = CKR_FUNCTION_FAILED;
         goto done;
     }
@@ -9067,14 +6992,14 @@ static CK_RV p11sak_export_dh_pkey(const struct p11sak_objtype *keytype,
     *pkey = EVP_PKEY_new();
     if (*pkey == NULL) {
         warnx("EVP_PKEY_new failed.");
-        ERR_print_errors_cb(openssl_err_cb, NULL);
+        ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
         rc = CKR_FUNCTION_FAILED;
         goto done;
     }
 
     if (EVP_PKEY_assign_DH(*pkey, dh) != 1) {
         warnx("EVP_PKEY_assign_DH failed.");
-        ERR_print_errors_cb(openssl_err_cb, NULL);
+        ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
         rc = CKR_FUNCTION_FAILED;
         goto done;
     }
@@ -9083,7 +7008,7 @@ static CK_RV p11sak_export_dh_pkey(const struct p11sak_objtype *keytype,
     tmpl = OSSL_PARAM_BLD_new();
     if (tmpl == NULL) {
         warnx("OSSL_PARAM_BLD_new failed.");
-        ERR_print_errors_cb(openssl_err_cb, NULL);
+        ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
         rc = CKR_FUNCTION_FAILED;
         goto done;
     }
@@ -9095,7 +7020,7 @@ static CK_RV p11sak_export_dh_pkey(const struct p11sak_objtype *keytype,
          (private &&
           !OSSL_PARAM_BLD_push_BN(tmpl, OSSL_PKEY_PARAM_PRIV_KEY, bn_priv))) {
         warnx("OSSL_PARAM_BLD_push_BN failed.");
-        ERR_print_errors_cb(openssl_err_cb, NULL);
+        ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
         rc = CKR_FUNCTION_FAILED;
         goto done;
     }
@@ -9103,7 +7028,7 @@ static CK_RV p11sak_export_dh_pkey(const struct p11sak_objtype *keytype,
     params = OSSL_PARAM_BLD_to_param(tmpl);
     if (params == NULL) {
         warnx("OSSL_PARAM_BLD_to_param failed.");
-        ERR_print_errors_cb(openssl_err_cb, NULL);
+        ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
         rc = CKR_FUNCTION_FAILED;
         goto done;
     }
@@ -9111,7 +7036,7 @@ static CK_RV p11sak_export_dh_pkey(const struct p11sak_objtype *keytype,
     pctx = EVP_PKEY_CTX_new_id(EVP_PKEY_DH, NULL);
     if (pctx == NULL) {
         warnx("EVP_PKEY_CTX_new_id failed.");
-        ERR_print_errors_cb(openssl_err_cb, NULL);
+        ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
         rc = CKR_FUNCTION_FAILED;
         goto done;
     }
@@ -9121,7 +7046,7 @@ static CK_RV p11sak_export_dh_pkey(const struct p11sak_objtype *keytype,
                            private ? EVP_PKEY_KEYPAIR : EVP_PKEY_PUBLIC_KEY,
                            params)) {
         warnx("EVP_PKEY_fromdata_init/EVP_PKEY_fromdata failed.");
-        ERR_print_errors_cb(openssl_err_cb, NULL);
+        ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
         rc = CKR_FUNCTION_FAILED;
         goto done;
     }
@@ -9155,7 +7080,7 @@ done:
     return rc;
 }
 
-static CK_RV p11sak_export_dsa_pkey(const struct p11sak_objtype *keytype,
+static CK_RV p11sak_export_dsa_pkey(const struct p11tool_objtype *keytype,
                                     EVP_PKEY **pkey, bool private,
                                     CK_OBJECT_HANDLE key, const char *label)
 {
@@ -9170,7 +7095,7 @@ static CK_RV p11sak_export_dsa_pkey(const struct p11sak_objtype *keytype,
 #endif
     CK_RV rc;
 
-    rc = get_bignum_attr(key, CKA_PRIME, &bn_p);
+    rc = p11tool_get_bignum_attr(key, CKA_PRIME, &bn_p);
     if (rc == CKR_ATTRIBUTE_SENSITIVE)
         goto done;
     if (rc != CKR_OK) {
@@ -9180,7 +7105,7 @@ static CK_RV p11sak_export_dsa_pkey(const struct p11sak_objtype *keytype,
         goto done;
     }
 
-    rc = get_bignum_attr(key, CKA_SUBPRIME, &bn_q);
+    rc = p11tool_get_bignum_attr(key, CKA_SUBPRIME, &bn_q);
     if (rc == CKR_ATTRIBUTE_SENSITIVE)
         goto done;
     if (rc != CKR_OK) {
@@ -9191,7 +7116,7 @@ static CK_RV p11sak_export_dsa_pkey(const struct p11sak_objtype *keytype,
     }
 
 
-    rc = get_bignum_attr(key, CKA_BASE, &bn_g);
+    rc = p11tool_get_bignum_attr(key, CKA_BASE, &bn_g);
     if (rc == CKR_ATTRIBUTE_SENSITIVE)
         goto done;
     if (rc != CKR_OK) {
@@ -9210,7 +7135,7 @@ static CK_RV p11sak_export_dsa_pkey(const struct p11sak_objtype *keytype,
         }
     }
 
-    rc = get_bignum_attr(key, CKA_VALUE, private ? &bn_priv : &bn_pub);
+    rc = p11tool_get_bignum_attr(key, CKA_VALUE, private ? &bn_priv : &bn_pub);
     if (rc == CKR_ATTRIBUTE_SENSITIVE)
         goto done;
     if (rc != CKR_OK) {
@@ -9224,14 +7149,14 @@ static CK_RV p11sak_export_dsa_pkey(const struct p11sak_objtype *keytype,
     dsa = DSA_new();
     if (dsa == NULL) {
         warnx("DSA_new failed.");
-        ERR_print_errors_cb(openssl_err_cb, NULL);
+        ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
         rc = CKR_FUNCTION_FAILED;
         goto done;
     }
 
     if (DSA_set0_pqg(dsa, bn_p, bn_q, bn_g) != 1) {
         warnx("DSA_set0_pqg failed.");
-        ERR_print_errors_cb(openssl_err_cb, NULL);
+        ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
         rc = CKR_FUNCTION_FAILED;
         goto done;
     }
@@ -9239,7 +7164,7 @@ static CK_RV p11sak_export_dsa_pkey(const struct p11sak_objtype *keytype,
 
     if (DSA_set0_key(dsa, bn_pub, bn_priv) != 1) {
         warnx("DSA_set0_key failed.");
-        ERR_print_errors_cb(openssl_err_cb, NULL);
+        ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
         rc = CKR_FUNCTION_FAILED;
         goto done;
     }
@@ -9248,14 +7173,14 @@ static CK_RV p11sak_export_dsa_pkey(const struct p11sak_objtype *keytype,
     *pkey = EVP_PKEY_new();
     if (*pkey == NULL) {
         warnx("EVP_PKEY_new failed.");
-        ERR_print_errors_cb(openssl_err_cb, NULL);
+        ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
         rc = CKR_FUNCTION_FAILED;
         goto done;
     }
 
     if (EVP_PKEY_assign_DSA(*pkey, dsa) != 1) {
         warnx("EVP_PKEY_assign_DSA failed.");
-        ERR_print_errors_cb(openssl_err_cb, NULL);
+        ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
         rc = CKR_FUNCTION_FAILED;
         goto done;
     }
@@ -9264,7 +7189,7 @@ static CK_RV p11sak_export_dsa_pkey(const struct p11sak_objtype *keytype,
     tmpl = OSSL_PARAM_BLD_new();
     if (tmpl == NULL) {
         warnx("OSSL_PARAM_BLD_new failed.");
-        ERR_print_errors_cb(openssl_err_cb, NULL);
+        ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
         rc = CKR_FUNCTION_FAILED;
         goto done;
     }
@@ -9277,7 +7202,7 @@ static CK_RV p11sak_export_dsa_pkey(const struct p11sak_objtype *keytype,
          (private &&
           !OSSL_PARAM_BLD_push_BN(tmpl, OSSL_PKEY_PARAM_PRIV_KEY, bn_priv))) {
         warnx("OSSL_PARAM_BLD_push_BN failed.");
-        ERR_print_errors_cb(openssl_err_cb, NULL);
+        ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
         rc = CKR_FUNCTION_FAILED;
         goto done;
     }
@@ -9285,7 +7210,7 @@ static CK_RV p11sak_export_dsa_pkey(const struct p11sak_objtype *keytype,
     params = OSSL_PARAM_BLD_to_param(tmpl);
     if (params == NULL) {
         warnx("OSSL_PARAM_BLD_to_param failed.");
-        ERR_print_errors_cb(openssl_err_cb, NULL);
+        ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
         rc = CKR_FUNCTION_FAILED;
         goto done;
     }
@@ -9293,7 +7218,7 @@ static CK_RV p11sak_export_dsa_pkey(const struct p11sak_objtype *keytype,
     pctx = EVP_PKEY_CTX_new_id(EVP_PKEY_DSA, NULL);
     if (pctx == NULL) {
         warnx("EVP_PKEY_CTX_new_id failed.");
-        ERR_print_errors_cb(openssl_err_cb, NULL);
+        ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
         rc = CKR_FUNCTION_FAILED;
         goto done;
     }
@@ -9303,7 +7228,7 @@ static CK_RV p11sak_export_dsa_pkey(const struct p11sak_objtype *keytype,
                            private ? EVP_PKEY_KEYPAIR : EVP_PKEY_PUBLIC_KEY,
                            params)) {
         warnx("EVP_PKEY_fromdata_init/EVP_PKEY_fromdata failed.");
-        ERR_print_errors_cb(openssl_err_cb, NULL);
+        ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
         rc = CKR_FUNCTION_FAILED;
         goto done;
     }
@@ -9352,7 +7277,7 @@ static CK_RV x509_to_pem(X509 *cert, CK_BYTE **data, CK_ULONG *data_len)
         return CKR_HOST_MEMORY;
 
     if (!PEM_write_bio_X509(bio, cert)) {
-        ERR_print_errors_cb(openssl_err_cb, NULL);
+        ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
         rc = CKR_FUNCTION_FAILED;
         goto done;
     }
@@ -9367,7 +7292,7 @@ static CK_RV x509_to_pem(X509 *cert, CK_BYTE **data, CK_ULONG *data_len)
     }
 
     if (BIO_read(bio, pem, bio_len) != bio_len) {
-        ERR_print_errors_cb(openssl_err_cb, NULL);
+        ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
         rc = CKR_FUNCTION_FAILED;
         goto done;
     }
@@ -9384,7 +7309,7 @@ done:
     return rc;
 }
 
-static CK_RV p11sak_export_x509(const struct p11sak_objtype *certtype,
+static CK_RV p11sak_export_x509(const struct p11tool_objtype *certtype,
                                 CK_BYTE **data, CK_ULONG *data_len,
                                 CK_OBJECT_HANDLE cert,
                                 const char *label)
@@ -9394,7 +7319,7 @@ static CK_RV p11sak_export_x509(const struct p11sak_objtype *certtype,
     X509* x509;
     CK_RV rc;
 
-    rc = get_attribute(cert, &attr);
+    rc = p11tool_get_attribute(cert, &attr);
     if (rc != CKR_OK) {
         warnx("Failed to retrieve attribute CKA_VALUE from %s certificate "
               "object \"%s\": 0x%lX: %s", certtype->name, label, rc,
@@ -9411,7 +7336,7 @@ static CK_RV p11sak_export_x509(const struct p11sak_objtype *certtype,
         if (x509 == NULL) {
             warnx("Failed to convert CKA_VALUE from %s certificate "
                   "object \"%s\" to X509 object.", certtype->name, label);
-            ERR_print_errors_cb(openssl_err_cb, NULL);
+            ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
             rc = CKR_FUNCTION_FAILED;
             if (attr.pValue != NULL)
                 free(attr.pValue);
@@ -9437,7 +7362,7 @@ done:
 }
 
 #if OPENSSL_VERSION_PREREQ(3, 0)
-static CK_RV p11sak_export_ecx_pkey(const struct p11sak_objtype *keytype,
+static CK_RV p11sak_export_ecx_pkey(const struct p11tool_objtype *keytype,
                                     int type, EVP_PKEY **pkey, bool private,
                                     CK_OBJECT_HANDLE key, const char *label)
 {
@@ -9451,7 +7376,7 @@ static CK_RV p11sak_export_ecx_pkey(const struct p11sak_objtype *keytype,
     CK_RV rc;
 
     if (private) {
-        rc = get_attribute(key, &value_attr);
+        rc = p11tool_get_attribute(key, &value_attr);
         if (rc == CKR_ATTRIBUTE_SENSITIVE)
             goto done;
         if (rc != CKR_OK) {
@@ -9461,7 +7386,7 @@ static CK_RV p11sak_export_ecx_pkey(const struct p11sak_objtype *keytype,
             goto done;
         }
     } else {
-        rc = get_attribute(key, &ecpoint_attr);
+        rc = p11tool_get_attribute(key, &ecpoint_attr);
         if (rc == CKR_ATTRIBUTE_SENSITIVE)
             goto done;
         if (rc != CKR_OK) {
@@ -9486,7 +7411,7 @@ static CK_RV p11sak_export_ecx_pkey(const struct p11sak_objtype *keytype,
     tmpl = OSSL_PARAM_BLD_new();
     if (tmpl == NULL) {
         warnx("OSSL_PARAM_BLD_new failed.");
-        ERR_print_errors_cb(openssl_err_cb, NULL);
+        ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
         rc = CKR_FUNCTION_FAILED;
         goto done;
     }
@@ -9496,7 +7421,7 @@ static CK_RV p11sak_export_ecx_pkey(const struct p11sak_objtype *keytype,
                                               value_attr.pValue,
                                               value_attr.ulValueLen)) {
             warnx("OSSL_PARAM_BLD_push_octet_string failed.");
-            ERR_print_errors_cb(openssl_err_cb, NULL);
+            ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
             rc = CKR_FUNCTION_FAILED;
             goto done;
         }
@@ -9504,7 +7429,7 @@ static CK_RV p11sak_export_ecx_pkey(const struct p11sak_objtype *keytype,
         if (!OSSL_PARAM_BLD_push_octet_string(tmpl, OSSL_PKEY_PARAM_PUB_KEY,
                                               ecpoint, ecpoint_len)) {
             warnx("OSSL_PARAM_BLD_push_octet_string failed.");
-            ERR_print_errors_cb(openssl_err_cb, NULL);
+            ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
             rc = CKR_FUNCTION_FAILED;
             goto done;
         }
@@ -9513,7 +7438,7 @@ static CK_RV p11sak_export_ecx_pkey(const struct p11sak_objtype *keytype,
     params = OSSL_PARAM_BLD_to_param(tmpl);
     if (params == NULL) {
         warnx("OSSL_PARAM_BLD_to_param failed.");
-        ERR_print_errors_cb(openssl_err_cb, NULL);
+        ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
         rc = CKR_FUNCTION_FAILED;
         goto done;
     }
@@ -9521,7 +7446,7 @@ static CK_RV p11sak_export_ecx_pkey(const struct p11sak_objtype *keytype,
     pctx = EVP_PKEY_CTX_new_id(type, NULL);
     if (pctx == NULL) {
         warnx("EVP_PKEY_CTX_new_id failed for type %d.", type);
-        ERR_print_errors_cb(openssl_err_cb, NULL);
+        ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
         rc = CKR_FUNCTION_FAILED;
         goto done;
     }
@@ -9532,7 +7457,7 @@ static CK_RV p11sak_export_ecx_pkey(const struct p11sak_objtype *keytype,
                            params)) {
         warnx("EVP_PKEY_fromdata_init/EVP_PKEY_fromdata for type %d failed.",
               type);
-        ERR_print_errors_cb(openssl_err_cb, NULL);
+        ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
         rc = CKR_FUNCTION_FAILED;
         goto done;
     }
@@ -9559,7 +7484,7 @@ done:
 }
 #endif
 
-static CK_RV p11sak_export_ec_pkey(const struct p11sak_objtype *keytype,
+static CK_RV p11sak_export_ec_pkey(const struct p11tool_objtype *keytype,
                                    EVP_PKEY **pkey, bool private,
                                    CK_OBJECT_HANDLE key, const char *label)
 {
@@ -9582,7 +7507,7 @@ static CK_RV p11sak_export_ec_pkey(const struct p11sak_objtype *keytype,
     int nid;
     CK_RV rc;
 
-    rc = get_attribute(key, &ecparams_attr);
+    rc = p11tool_get_attribute(key, &ecparams_attr);
     if (rc == CKR_ATTRIBUTE_SENSITIVE)
         goto done;
     if (rc != CKR_OK) {
@@ -9628,7 +7553,7 @@ static CK_RV p11sak_export_ec_pkey(const struct p11sak_objtype *keytype,
             goto done;
         }
 
-        rc = get_bignum_attr(key, CKA_VALUE, &bn_priv);
+        rc = p11tool_get_bignum_attr(key, CKA_VALUE, &bn_priv);
         if (rc == CKR_ATTRIBUTE_SENSITIVE)
             goto done;
         if (rc != CKR_OK) {
@@ -9638,7 +7563,7 @@ static CK_RV p11sak_export_ec_pkey(const struct p11sak_objtype *keytype,
             goto done;
         }
     } else {
-        rc = get_attribute(key, &ecpoint_attr);
+        rc = p11tool_get_attribute(key, &ecpoint_attr);
         if (rc == CKR_ATTRIBUTE_SENSITIVE)
             goto done;
         if (rc != CKR_OK) {
@@ -9664,7 +7589,7 @@ static CK_RV p11sak_export_ec_pkey(const struct p11sak_objtype *keytype,
     ec = EC_KEY_new_by_curve_name(nid);
     if (ec == NULL) {
         warnx("EC_KEY_new_by_curve_name failed.");
-        ERR_print_errors_cb(openssl_err_cb, NULL);
+        ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
         rc = CKR_FUNCTION_FAILED;
         goto done;
     }
@@ -9672,7 +7597,7 @@ static CK_RV p11sak_export_ec_pkey(const struct p11sak_objtype *keytype,
     if (private) {
         if (EC_KEY_set_private_key(ec, bn_priv) != 1) {
             warnx("EC_KEY_set_private_key failed.");
-            ERR_print_errors_cb(openssl_err_cb, NULL);
+            ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
             rc = CKR_FUNCTION_FAILED;
             goto done;
         }
@@ -9681,7 +7606,7 @@ static CK_RV p11sak_export_ec_pkey(const struct p11sak_objtype *keytype,
         point = EC_POINT_new(EC_KEY_get0_group(ec));
         if (point == NULL) {
             warnx("EC_POINT_new failed.");
-            ERR_print_errors_cb(openssl_err_cb, NULL);
+            ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
             rc = CKR_FUNCTION_FAILED;
             goto done;
         }
@@ -9689,21 +7614,21 @@ static CK_RV p11sak_export_ec_pkey(const struct p11sak_objtype *keytype,
         if (!EC_POINT_mul(EC_KEY_get0_group(ec), point,
                           EC_KEY_get0_private_key(ec), NULL, NULL, NULL)) {
             warnx("EC_POINT_mul failed.");
-            ERR_print_errors_cb(openssl_err_cb, NULL);
+            ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
             rc = CKR_FUNCTION_FAILED;
             goto done;
         }
 
         if (!EC_KEY_set_public_key(ec, point)) {
             warnx("EC_KEY_set_public_key failed.");
-            ERR_print_errors_cb(openssl_err_cb, NULL);
+            ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
             rc = CKR_FUNCTION_FAILED;
             goto done;
         }
     } else {
         if (!EC_KEY_oct2key(ec, ecpoint, ecpoint_len, NULL)) {
             warnx("EC_KEY_oct2key failed.");
-            ERR_print_errors_cb(openssl_err_cb, NULL);
+            ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
             rc = CKR_FUNCTION_FAILED;
             goto done;
         }
@@ -9712,14 +7637,14 @@ static CK_RV p11sak_export_ec_pkey(const struct p11sak_objtype *keytype,
     *pkey = EVP_PKEY_new();
     if (*pkey == NULL) {
         warnx("EVP_PKEY_new failed.");
-        ERR_print_errors_cb(openssl_err_cb, NULL);
+        ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
         rc = CKR_FUNCTION_FAILED;
         goto done;
     }
 
     if (EVP_PKEY_assign_EC_KEY(*pkey, ec) != 1) {
         warnx("EVP_PKEY_assign_EC failed.");
-        ERR_print_errors_cb(openssl_err_cb, NULL);
+        ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
         rc = CKR_FUNCTION_FAILED;
         goto done;
     }
@@ -9728,7 +7653,7 @@ static CK_RV p11sak_export_ec_pkey(const struct p11sak_objtype *keytype,
     tmpl = OSSL_PARAM_BLD_new();
     if (tmpl == NULL) {
         warnx("OSSL_PARAM_BLD_new failed.");
-        ERR_print_errors_cb(openssl_err_cb, NULL);
+        ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
         rc = CKR_FUNCTION_FAILED;
         goto done;
     }
@@ -9736,7 +7661,7 @@ static CK_RV p11sak_export_ec_pkey(const struct p11sak_objtype *keytype,
     if (!OSSL_PARAM_BLD_push_utf8_string(tmpl, OSSL_PKEY_PARAM_GROUP_NAME,
                                          OBJ_nid2sn(nid), 0)) {
         warnx("OSSL_PARAM_BLD_push_BN failed.");
-        ERR_print_errors_cb(openssl_err_cb, NULL);
+        ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
         rc = CKR_FUNCTION_FAILED;
         goto done;
     }
@@ -9745,7 +7670,7 @@ static CK_RV p11sak_export_ec_pkey(const struct p11sak_objtype *keytype,
         group = EC_GROUP_new_by_curve_name(nid);
         if (group == NULL) {
             warnx("EC_GROUP_new_by_curve_name failed.");
-            ERR_print_errors_cb(openssl_err_cb, NULL);
+            ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
             rc = CKR_FUNCTION_FAILED;
             goto done;
         }
@@ -9753,14 +7678,14 @@ static CK_RV p11sak_export_ec_pkey(const struct p11sak_objtype *keytype,
         point = EC_POINT_new(group);
         if (point == NULL) {
             warnx("EC_POINT_new failed.");
-            ERR_print_errors_cb(openssl_err_cb, NULL);
+            ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
             rc = CKR_FUNCTION_FAILED;
             goto done;
         }
 
         if (!EC_POINT_mul(group, point, bn_priv, NULL, NULL, NULL)) {
             warnx("EC_POINT_mul failed.");
-            ERR_print_errors_cb(openssl_err_cb, NULL);
+            ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
             rc = CKR_FUNCTION_FAILED;
             goto done;
         }
@@ -9770,7 +7695,7 @@ static CK_RV p11sak_export_ec_pkey(const struct p11sak_objtype *keytype,
                                     &ecpoint, NULL);
         if (ecpoint_len == 0) {
             warnx("EC_POINT_point2buf failed.");
-            ERR_print_errors_cb(openssl_err_cb, NULL);
+            ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
             rc = CKR_FUNCTION_FAILED;
             goto done;
         }
@@ -9779,7 +7704,7 @@ static CK_RV p11sak_export_ec_pkey(const struct p11sak_objtype *keytype,
                                               ecpoint, ecpoint_len) ||
             !OSSL_PARAM_BLD_push_BN(tmpl, OSSL_PKEY_PARAM_PRIV_KEY, bn_priv)) {
             warnx("OSSL_PARAM_BLD_push_BN failed.");
-            ERR_print_errors_cb(openssl_err_cb, NULL);
+            ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
             rc = CKR_FUNCTION_FAILED;
             goto done;
         }
@@ -9787,7 +7712,7 @@ static CK_RV p11sak_export_ec_pkey(const struct p11sak_objtype *keytype,
         if (!OSSL_PARAM_BLD_push_octet_string(tmpl, OSSL_PKEY_PARAM_PUB_KEY,
                                               ecpoint, ecpoint_len)) {
             warnx("OSSL_PARAM_BLD_push_BN failed.");
-            ERR_print_errors_cb(openssl_err_cb, NULL);
+            ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
             rc = CKR_FUNCTION_FAILED;
             goto done;
         }
@@ -9796,7 +7721,7 @@ static CK_RV p11sak_export_ec_pkey(const struct p11sak_objtype *keytype,
     params = OSSL_PARAM_BLD_to_param(tmpl);
     if (params == NULL) {
         warnx("OSSL_PARAM_BLD_to_param failed.");
-        ERR_print_errors_cb(openssl_err_cb, NULL);
+        ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
         rc = CKR_FUNCTION_FAILED;
         goto done;
     }
@@ -9804,7 +7729,7 @@ static CK_RV p11sak_export_ec_pkey(const struct p11sak_objtype *keytype,
     pctx = EVP_PKEY_CTX_new_id(EVP_PKEY_EC, NULL);
     if (pctx == NULL) {
         warnx("EVP_PKEY_CTX_new_id failed.");
-        ERR_print_errors_cb(openssl_err_cb, NULL);
+        ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
         rc = CKR_FUNCTION_FAILED;
         goto done;
     }
@@ -9814,7 +7739,7 @@ static CK_RV p11sak_export_ec_pkey(const struct p11sak_objtype *keytype,
                            private ? EVP_PKEY_KEYPAIR : EVP_PKEY_PUBLIC_KEY,
                            params)) {
         warnx("EVP_PKEY_fromdata_init/EVP_PKEY_fromdata failed.");
-        ERR_print_errors_cb(openssl_err_cb, NULL);
+        ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
         rc = CKR_FUNCTION_FAILED;
         goto done;
     }
@@ -9853,7 +7778,7 @@ done:
 }
 
 static CK_RV p11sak_export_dilithium_kyber_pem_data(
-                                        const struct p11sak_objtype *keytype,
+                                        const struct p11tool_objtype *keytype,
                                         CK_BYTE **data, CK_ULONG *data_len,
                                         bool private, CK_OBJECT_HANDLE key,
                                         const char *label)
@@ -9863,7 +7788,7 @@ static CK_RV p11sak_export_dilithium_kyber_pem_data(
 
     UNUSED(private);
 
-    rc = get_attribute(key, &attr);
+    rc = p11tool_get_attribute(key, &attr);
     if (rc == CKR_ATTRIBUTE_SENSITIVE) {
         warnx("%s key object \"%s\" is sensitive and can not be exported.",
               keytype->name, label);
@@ -9902,7 +7827,7 @@ static const char *get_openssl_pqc_oid_name(const struct pqc_oid *oid)
 }
 #endif
 
-static CK_RV p11sak_export_dilithium_pkey(const struct p11sak_objtype *keytype,
+static CK_RV p11sak_export_dilithium_pkey(const struct p11tool_objtype *keytype,
                                           EVP_PKEY **pkey, bool private,
                                           CK_OBJECT_HANDLE key,
                                           const char *label)
@@ -9932,7 +7857,7 @@ static CK_RV p11sak_export_dilithium_pkey(const struct p11sak_objtype *keytype,
     CK_BYTE *priv_key = NULL, *pub_key = NULL;
     CK_RV rc;
 
-    rc = get_attribute(key, &keyform_attr);
+    rc = p11tool_get_attribute(key, &keyform_attr);
     if (rc != CKR_OK) {
         warnx("Failed to retrieve attribute CKA_IBM_DILITHIUM_KEYFORM from %s "
               "key object \"%s\": 0x%lX: %s", keytype->name, label, rc,
@@ -9951,7 +7876,7 @@ static CK_RV p11sak_export_dilithium_pkey(const struct p11sak_objtype *keytype,
     if (alg_name == NULL) {
         warnx("%s keyform '%lu' is not supported by OpenSSL. "
               "Is the 'oqsprovider' configured?", keytype->name, keyform);
-        ERR_print_errors_cb(openssl_err_cb, NULL);
+        ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
         return CKR_FUNCTION_FAILED;
     }
 
@@ -9989,8 +7914,8 @@ static CK_RV p11sak_export_dilithium_pkey(const struct p11sak_objtype *keytype,
         priv_attrs[5].pValue = priv_key + ofs;
         priv_attrs[5].ulValueLen = oid->len_info.dilithium.t0_len;
 
-        rc = pkcs11_funcs->C_GetAttributeValue(pkcs11_session, key,
-                                               priv_attrs, 6);
+        rc = p11tool_pkcs11_funcs->C_GetAttributeValue(p11tool_pkcs11_session,
+                                                       key, priv_attrs, 6);
         if (rc == CKR_ATTRIBUTE_SENSITIVE)
             goto out;
         if (rc != CKR_OK) {
@@ -10031,8 +7956,8 @@ static CK_RV p11sak_export_dilithium_pkey(const struct p11sak_objtype *keytype,
     pub_attrs[1].pValue = pub_key + ofs;
     pub_attrs[1].ulValueLen = oid->len_info.dilithium.t1_len;
 
-    rc = pkcs11_funcs->C_GetAttributeValue(pkcs11_session, key,
-                                           pub_attrs, 2);
+    rc = p11tool_pkcs11_funcs->C_GetAttributeValue(p11tool_pkcs11_session, key,
+                                                   pub_attrs, 2);
     if (rc == CKR_ATTRIBUTE_SENSITIVE)
         goto out;
     if (rc != CKR_OK) {
@@ -10054,7 +7979,7 @@ static CK_RV p11sak_export_dilithium_pkey(const struct p11sak_objtype *keytype,
     bld = OSSL_PARAM_BLD_new();
     if (bld == NULL) {
         warnx("OSSL_PARAM_BLD_new failed.");
-        ERR_print_errors_cb(openssl_err_cb, NULL);
+        ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
         rc = CKR_HOST_MEMORY;
         goto out;
     }
@@ -10063,7 +7988,7 @@ static CK_RV p11sak_export_dilithium_pkey(const struct p11sak_objtype *keytype,
         if (OSSL_PARAM_BLD_push_octet_string(bld, OSSL_PKEY_PARAM_PRIV_KEY,
                                              priv_key, priv_len) != 1) {
             warnx("OSSL_PARAM_BLD_push_octet_string failed.");
-            ERR_print_errors_cb(openssl_err_cb, NULL);
+            ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
             rc = CKR_FUNCTION_FAILED;
             goto out;
         }
@@ -10072,7 +7997,7 @@ static CK_RV p11sak_export_dilithium_pkey(const struct p11sak_objtype *keytype,
     if (OSSL_PARAM_BLD_push_octet_string(bld, OSSL_PKEY_PARAM_PUB_KEY,
                                          pub_key, pub_len) != 1) {
         warnx("OSSL_PARAM_BLD_push_octet_string failed.");
-        ERR_print_errors_cb(openssl_err_cb, NULL);
+        ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
         rc = CKR_FUNCTION_FAILED;
         goto out;
     }
@@ -10080,7 +8005,7 @@ static CK_RV p11sak_export_dilithium_pkey(const struct p11sak_objtype *keytype,
     params = OSSL_PARAM_BLD_to_param(bld);
     if (params == NULL) {
         warnx("OSSL_PARAM_BLD_to_param failed.");
-        ERR_print_errors_cb(openssl_err_cb, NULL);
+        ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
         rc = CKR_FUNCTION_FAILED;
         goto out;
     }
@@ -10089,14 +8014,14 @@ static CK_RV p11sak_export_dilithium_pkey(const struct p11sak_objtype *keytype,
     if (pctx == NULL) {
         warnx("EVP_PKEY_CTX_new_from_name failed for '%s'. "
               "Is the 'oqsprovider' configured?", alg_name);
-        ERR_print_errors_cb(openssl_err_cb, NULL);
+        ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
         return CKR_FUNCTION_FAILED;
     }
 
 
     if (EVP_PKEY_fromdata_init(pctx) != 1) {
         warnx("EVP_PKEY_fromdata_init failed for '%s'.", alg_name);
-        ERR_print_errors_cb(openssl_err_cb, NULL);
+        ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
         rc = CKR_FUNCTION_FAILED;
         goto out;
     }
@@ -10105,7 +8030,7 @@ static CK_RV p11sak_export_dilithium_pkey(const struct p11sak_objtype *keytype,
                                                 EVP_PKEY_PUBLIC_KEY,
                           params) != 1) {
         warnx("EVP_PKEY_fromdata failed for '%s'.", alg_name);
-        ERR_print_errors_cb(openssl_err_cb, NULL);
+        ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
         rc = CKR_FUNCTION_FAILED;
         goto out;
     }
@@ -10138,7 +8063,7 @@ out:
 #endif
 }
 
-static CK_RV p11sak_export_spki(const struct p11sak_objtype *keytype,
+static CK_RV p11sak_export_spki(const struct p11tool_objtype *keytype,
                                 CK_OBJECT_HANDLE key,
                                 const char *typestr, const char* label,
                                 BIO* bio)
@@ -10149,7 +8074,7 @@ static CK_RV p11sak_export_spki(const struct p11sak_objtype *keytype,
 
     UNUSED(keytype);
 
-    rc = get_attribute(key, &attr);
+    rc = p11tool_get_attribute(key, &attr);
     if (rc == CKR_ATTRIBUTE_SENSITIVE)
         return rc;
     if (rc != CKR_OK) {
@@ -10163,7 +8088,7 @@ static CK_RV p11sak_export_spki(const struct p11sak_objtype *keytype,
     if (ret <= 0) {
         warnx("Failed to write SPKI of %s key object \"%s\" to PEM file '%s'.",
               typestr, label, opt_file);
-        ERR_print_errors_cb(openssl_err_cb, NULL);
+        ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
         rc = CKR_FUNCTION_FAILED;
         goto done;
     }
@@ -10174,7 +8099,7 @@ done:
     return rc;
 }
 
-static CK_RV p11sak_export_opaque_key(const struct p11sak_objtype *keytype,
+static CK_RV p11sak_export_opaque_key(const struct p11tool_objtype *keytype,
                                       CK_OBJECT_HANDLE key,
                                       const char *typestr, const char* label,
                                       BIO* bio)
@@ -10184,7 +8109,7 @@ static CK_RV p11sak_export_opaque_key(const struct p11sak_objtype *keytype,
 
     UNUSED(keytype);
 
-    rc = get_attribute(key, &attr);
+    rc = p11tool_get_attribute(key, &attr);
     if (rc == CKR_ATTRIBUTE_SENSITIVE)
         return rc;
     if (rc != CKR_OK) {
@@ -10195,7 +8120,7 @@ static CK_RV p11sak_export_opaque_key(const struct p11sak_objtype *keytype,
 
     if (BIO_write(bio, attr.pValue, attr.ulValueLen) != (int)attr.ulValueLen) {
         warnx("Failed to write to file '%s'.", opt_file);
-        ERR_print_errors_cb(openssl_err_cb, NULL);
+        ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
         rc = CKR_FUNCTION_FAILED;
         goto done;
     }
@@ -10232,7 +8157,7 @@ static CK_ULONG ber_encode_len(CK_ULONG data_len, CK_BYTE *out)
     return ret;
 }
 
-static CK_RV p11sak_export_uri_pem(const struct p11sak_objtype *keytype,
+static CK_RV p11sak_export_uri_pem(const struct p11tool_objtype *keytype,
                                    CK_OBJECT_HANDLE key, CK_OBJECT_CLASS class,
                                    const char *typestr, const char *msgtype,
                                    const char* label, BIO* bio)
@@ -10244,12 +8169,13 @@ static CK_RV p11sak_export_uri_pem(const struct p11sak_objtype *keytype,
     CK_RV rc;
     int ret;
 
-    rc = prepare_uri(key, &class, keytype, typestr, label, &uri);
+    rc = p11tool_prepare_uri(key, &class, keytype, typestr, label,
+                             opt_detailed_uri, opt_slot, &uri);
     if (rc != CKR_OK)
         goto done;
 
     if (opt_uri_pin_value)
-        uri->pin_value = uri_pin;
+        uri->pin_value = p11tool_pin;
     else if (opt_uri_pin_source != NULL)
         uri->pin_source = opt_uri_pin_source;
 
@@ -10283,7 +8209,7 @@ static CK_RV p11sak_export_uri_pem(const struct p11sak_objtype *keytype,
     if (ret <= 0) {
         warnx("Failed to write %s %s object \"%s\" to URI-PEM file '%s'.",
               typestr, msgtype, label, opt_file);
-        ERR_print_errors_cb(openssl_err_cb, NULL);
+        ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
         rc = CKR_FUNCTION_FAILED;
         goto done;
     }
@@ -10303,7 +8229,7 @@ done:
     return rc;
 }
 
-static CK_RV p11sak_export_asym_key(const struct p11sak_objtype *keytype,
+static CK_RV p11sak_export_asym_key(const struct p11tool_objtype *keytype,
                                     CK_OBJECT_HANDLE key, bool private,
                                     const char *typestr, const char* label,
                                     BIO* bio)
@@ -10343,7 +8269,7 @@ static CK_RV p11sak_export_asym_key(const struct p11sak_objtype *keytype,
         if (ret != 1) {
             warnx("Failed to write %s key object \"%s\" to PEM file '%s'.",
                   typestr, label, opt_file);
-            ERR_print_errors_cb(openssl_err_cb, NULL);
+            ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
             rc = CKR_FUNCTION_FAILED;
             goto done;
         }
@@ -10361,7 +8287,7 @@ static CK_RV p11sak_export_asym_key(const struct p11sak_objtype *keytype,
         if (ret <= 0) {
             warnx("Failed to write %s key object \"%s\" to PEM file '%s'.",
                   typestr, label, opt_file);
-            ERR_print_errors_cb(openssl_err_cb, NULL);
+            ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
             rc = CKR_FUNCTION_FAILED;
             goto done;
         }
@@ -10383,7 +8309,7 @@ done:
     return rc;
 }
 
-static CK_RV p11sak_export_sym_key(const struct p11sak_objtype *keytype,
+static CK_RV p11sak_export_sym_key(const struct p11tool_objtype *keytype,
                                    CK_OBJECT_HANDLE key,
                                    const char *typestr, const char* label,
                                    BIO* bio)
@@ -10412,7 +8338,7 @@ static CK_RV p11sak_export_sym_key(const struct p11sak_objtype *keytype,
 
     if (BIO_write(bio, data, data_len) != (int)data_len) {
         warnx("Failed to write to file '%s'.", opt_file);
-        ERR_print_errors_cb(openssl_err_cb, NULL);
+        ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
         rc = CKR_FUNCTION_FAILED;
         goto done;
     }
@@ -10426,7 +8352,7 @@ done:
     return rc;
 }
 
-static CK_RV p11sak_key_extract_pubkey(const struct p11sak_objtype *keytype,
+static CK_RV p11sak_key_extract_pubkey(const struct p11tool_objtype *keytype,
                                        CK_OBJECT_HANDLE key,
                                        const char *typestr, const char* label)
 {
@@ -10443,8 +8369,10 @@ static CK_RV p11sak_key_extract_pubkey(const struct p11sak_objtype *keytype,
     CK_RV rc;
 
     if (opt_new_attr != NULL) {
-        rc = parse_boolean_attrs(keytype, opt_new_attr, &attrs, &num_attrs,
-                                 true, public_attr_applicable);
+        rc = p11tool_parse_boolean_attrs(keytype, p11sak_bool_attrs,
+                                         opt_new_attr, &attrs, &num_attrs,
+                                         true, opt_so,
+                                         p11tool_public_attr_applicable);
         if (rc != CKR_OK)
             goto done;
 
@@ -10456,8 +8384,8 @@ static CK_RV p11sak_key_extract_pubkey(const struct p11sak_objtype *keytype,
     }
 
     if (opt_new_label != NULL) {
-        rc = add_attribute(CKA_LABEL, opt_new_label, strlen(opt_new_label),
-                           &attrs, &num_attrs);
+        rc = p11tool_add_attribute(CKA_LABEL, opt_new_label,
+                                   strlen(opt_new_label), &attrs, &num_attrs);
         if (rc != CKR_OK) {
             warnx("Failed to add %s key attribute CKA_LABEL: 0x%lX: %s",
                   keytype->name, rc, p11_get_ckr(rc));
@@ -10466,12 +8394,12 @@ static CK_RV p11sak_key_extract_pubkey(const struct p11sak_objtype *keytype,
     }
 
     if (opt_new_id != NULL) {
-        rc = parse_id(opt_new_id, &attrs, &num_attrs);
+        rc = p11tool_parse_id(opt_new_id, &attrs, &num_attrs);
         if (rc != CKR_OK)
             goto done;
     }
 
-    rc = get_attribute(key, &spki);
+    rc = p11tool_get_attribute(key, &spki);
     if (rc != CKR_OK) {
         warnx("Failed to retrieve attribute CKA_PUBLIC_KEY_INFO from %s key "
               "object \"%s\": 0x%lX: %s", typestr, label, rc, p11_get_ckr(rc));
@@ -10488,7 +8416,7 @@ static CK_RV p11sak_key_extract_pubkey(const struct p11sak_objtype *keytype,
         pkey = d2i_PUBKEY(NULL, &p, spki.ulValueLen);
         if (pkey == NULL) {
             warnx("OpenSSL d2i_PUBKEY failed to get PKEY from SPKI.");
-            ERR_print_errors_cb(openssl_err_cb, NULL);
+            ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
             rc = CKR_FUNCTION_FAILED;
             goto done;
         }
@@ -10510,8 +8438,8 @@ static CK_RV p11sak_key_extract_pubkey(const struct p11sak_objtype *keytype,
             rc = CKR_HOST_MEMORY;
             goto done;
         }
-        rc = add_attribute(CKA_LABEL, pubkey_label, strlen(pubkey_label),
-                           &attrs, &num_attrs);
+        rc = p11tool_add_attribute(CKA_LABEL, pubkey_label,
+                                   strlen(pubkey_label), &attrs, &num_attrs);
         if (rc != CKR_OK) {
             warnx("Failed to add attributes for extracted key's public key.");
             goto done;
@@ -10520,10 +8448,10 @@ static CK_RV p11sak_key_extract_pubkey(const struct p11sak_objtype *keytype,
 
     /* If no new ID is specified, try to use ID from certificate */
     if (opt_new_id == NULL) {
-        rc = get_attribute(key, &id_attr);
+        rc = p11tool_get_attribute(key, &id_attr);
         if (rc == CKR_OK && id_attr.ulValueLen > 0) {
-            rc = add_attribute(CKA_ID, id_attr.pValue, id_attr.ulValueLen,
-                               &attrs, &num_attrs);
+            rc = p11tool_add_attribute(CKA_ID, id_attr.pValue,
+                                       id_attr.ulValueLen, &attrs, &num_attrs);
             if (rc != CKR_OK) {
                 warnx("Failed to add attributes for extracted key's public key.");
                 goto done;
@@ -10531,21 +8459,24 @@ static CK_RV p11sak_key_extract_pubkey(const struct p11sak_objtype *keytype,
         }
     }
 
-    rc = add_attribute(CKA_CLASS, &key_class, sizeof(CK_OBJECT_CLASS),
-                        &attrs, &num_attrs);
-    rc += add_attribute(CKA_KEY_TYPE, &keytype->type, sizeof(CK_KEY_TYPE),
-                        &attrs, &num_attrs);
-    rc += add_attribute(CKA_TOKEN, &btrue, sizeof(CK_BBOOL),
-                        &attrs, &num_attrs);
+    rc = p11tool_add_attribute(CKA_CLASS, &key_class,
+                               sizeof(CK_OBJECT_CLASS),
+                               &attrs, &num_attrs);
+    rc += p11tool_add_attribute(CKA_KEY_TYPE, &keytype->type,
+                                sizeof(CK_KEY_TYPE),
+                                &attrs, &num_attrs);
+    rc += p11tool_add_attribute(CKA_TOKEN, &btrue, sizeof(CK_BBOOL),
+                                &attrs, &num_attrs);
     if (rc != CKR_OK) {
         warnx("Failed to add attributes for extracted key's public key.");
         rc = CKR_FUNCTION_FAILED;
         goto done;
     }
 
-    rc = pkcs11_funcs->C_CreateObject(pkcs11_session, attrs, num_attrs, &pubkey);
+    rc = p11tool_pkcs11_funcs->C_CreateObject(p11tool_pkcs11_session, attrs,
+                                              num_attrs, &pubkey);
     if (rc != CKR_OK) {
-       if (is_rejected_by_policy(rc, pkcs11_session))
+       if (p11tool_is_rejected_by_policy(rc, p11tool_pkcs11_session))
            warnx("Public key extraction of a %s key is rejected by policy",
                  keytype->name);
        else
@@ -10555,7 +8486,7 @@ static CK_RV p11sak_key_extract_pubkey(const struct p11sak_objtype *keytype,
     }
 
 done:
-    free_attributes(attrs, num_attrs);
+    p11tool_free_attributes(attrs, num_attrs);
     if (spki.pValue != NULL)
         free(spki.pValue);
     if (id_attr.pValue != NULL)
@@ -10568,7 +8499,7 @@ done:
     return rc;
 }
 
-static CK_RV p11sak_cert_extract_pubkey(const struct p11sak_objtype *certtype,
+static CK_RV p11sak_cert_extract_pubkey(const struct p11tool_objtype *certtype,
                                         CK_OBJECT_HANDLE cert,
                                         const char *typestr, const char* label)
 {
@@ -10580,8 +8511,10 @@ static CK_RV p11sak_cert_extract_pubkey(const struct p11sak_objtype *certtype,
     UNUSED(typestr);
 
     if (opt_new_attr != NULL) {
-        rc = parse_boolean_attrs(certtype, opt_new_attr, &attrs, &num_attrs,
-                                 true, public_attr_applicable);
+        rc = p11tool_parse_boolean_attrs(certtype, p11sak_bool_attrs,
+                                         opt_new_attr, &attrs, &num_attrs,
+                                         true, opt_so,
+                                         p11tool_public_attr_applicable);
         if (rc != CKR_OK)
             goto done;
 
@@ -10593,8 +8526,9 @@ static CK_RV p11sak_cert_extract_pubkey(const struct p11sak_objtype *certtype,
     }
 
     if (opt_new_label != NULL) {
-        rc = add_attribute(CKA_LABEL, opt_new_label, strlen(opt_new_label),
-                           &attrs, &num_attrs);
+        rc = p11tool_add_attribute(CKA_LABEL, opt_new_label,
+                                   strlen(opt_new_label),
+                                   &attrs, &num_attrs);
         if (rc != CKR_OK) {
             warnx("Failed to add %s key attribute CKA_LABEL: 0x%lX: %s",
                     certtype->name, rc, p11_get_ckr(rc));
@@ -10603,36 +8537,39 @@ static CK_RV p11sak_cert_extract_pubkey(const struct p11sak_objtype *certtype,
     }
 
     if (opt_new_id != NULL) {
-        rc = parse_id(opt_new_id, &attrs, &num_attrs);
+        rc = p11tool_parse_id(opt_new_id, &attrs, &num_attrs);
         if (rc != CKR_OK)
             goto done;
     }
 
-    rc = certtype->extract_x509_pubkey(certtype, &attrs, &num_attrs, cert, label);
+    rc = certtype->extract_x509_pubkey(certtype, &attrs, &num_attrs, cert,
+                                       label);
     if (rc != CKR_OK) {
         warnx("Failed to extract public key from certificate object: 0x%lx: %s",
               rc, p11_get_ckr(rc));
         goto done;
     }
 
-    rc = pkcs11_funcs->C_CreateObject(pkcs11_session, attrs, num_attrs, &pubkey);
+    rc = p11tool_pkcs11_funcs->C_CreateObject(p11tool_pkcs11_session, attrs,
+                                              num_attrs, &pubkey);
     if (rc != CKR_OK) {
-       if (is_rejected_by_policy(rc, pkcs11_session))
-           warnx("Public key extraction of a %s certificate is rejected by policy", certtype->name);
+       if (p11tool_is_rejected_by_policy(rc, p11tool_pkcs11_session))
+           warnx("Public key extraction of a %s certificate is rejected by "
+                 "policy", certtype->name);
        else
-           warnx("Public key extraction of a %s certificate failed: 0x%lX: %s", certtype->name,
-                 rc, p11_get_ckr(rc));
+           warnx("Public key extraction of a %s certificate failed: 0x%lX: %s",
+                 certtype->name, rc, p11_get_ckr(rc));
        goto done;
     }
 
 done:
-    free_attributes(attrs, num_attrs);
+    p11tool_free_attributes(attrs, num_attrs);
 
     return rc;
 }
 
 static CK_RV handle_key_export(CK_OBJECT_HANDLE key, CK_OBJECT_CLASS class,
-                               const struct p11sak_objtype *keytype,
+                               const struct p11tool_objtype *keytype,
                                CK_ULONG keysize, const char *typestr,
                                const char* label, const char *common_name,
                                void *private)
@@ -10659,7 +8596,7 @@ static CK_RV handle_key_export(CK_OBJECT_HANDLE key, CK_OBJECT_CLASS class,
             warnx("Failed to allocate memory for a message");
             return CKR_HOST_MEMORY;
         }
-        ch = prompt_user(msg, "ynac");
+        ch = p11tool_prompt_user(msg, "ynac");
         free(msg);
 
         switch (ch) {
@@ -10715,8 +8652,8 @@ static CK_RV handle_key_export(CK_OBJECT_HANDLE key, CK_OBJECT_CLASS class,
         }
     }
     if (overwrite && !opt_force) {
-        ch = prompt_user("Overwrite the previously exported key(s) [y/n]? ",
-                         "yn");
+        ch = p11tool_prompt_user("Overwrite the previously exported "
+                                 "key(s) [y/n]? ", "yn");
         switch (ch) {
         case 'n':
             data->num_skipped++;
@@ -10730,7 +8667,7 @@ static CK_RV handle_key_export(CK_OBJECT_HANDLE key, CK_OBJECT_CLASS class,
                        overwrite || data->num_exported == 0 ? "w" : "a");
     if (bio == NULL) {
         warnx("Failed to open PEM file '%s'.", opt_file);
-        ERR_print_errors_cb(openssl_err_cb, NULL);
+        ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
         data->num_failed++;
         return CKR_ARGUMENTS_BAD;
     }
@@ -10773,7 +8710,7 @@ done:
 
 static CK_RV handle_key_pubkey_extract(CK_OBJECT_HANDLE cert,
                                        CK_OBJECT_CLASS class,
-                                       const struct p11sak_objtype *keytype,
+                                       const struct p11tool_objtype *keytype,
                                        CK_ULONG keysize, const char *typestr,
                                        const char* label,
                                        const char *common_name,
@@ -10802,7 +8739,7 @@ static CK_RV handle_key_pubkey_extract(CK_OBJECT_HANDLE cert,
             warnx("Failed to allocate memory for a message");
             return CKR_HOST_MEMORY;
         }
-        ch = prompt_user(msg, "ynac");
+        ch = p11tool_prompt_user(msg, "ynac");
         free(msg);
 
         switch (ch) {
@@ -10843,7 +8780,7 @@ done:
 }
 
 static CK_RV handle_cert_export(CK_OBJECT_HANDLE cert, CK_OBJECT_CLASS class,
-                                const struct p11sak_objtype *certtype,
+                                const struct p11tool_objtype *certtype,
                                 CK_ULONG keysize, const char *typestr,
                                 const char* label, const char *common_name,
                                 void *private)
@@ -10873,7 +8810,7 @@ static CK_RV handle_cert_export(CK_OBJECT_HANDLE cert, CK_OBJECT_CLASS class,
             warnx("Failed to allocate memory for a message");
             return CKR_HOST_MEMORY;
         }
-        ch = prompt_user(msg, "ynac");
+        ch = p11tool_prompt_user(msg, "ynac");
         free(msg);
 
         switch (ch) {
@@ -10900,8 +8837,8 @@ static CK_RV handle_cert_export(CK_OBJECT_HANDLE cert, CK_OBJECT_CLASS class,
     }
 
     if (overwrite && !opt_force) {
-        ch = prompt_user("Overwrite the previously exported certificate(s) [y/n]? ",
-                         "yn");
+        ch = p11tool_prompt_user("Overwrite the previously exported "
+                                 "certificate(s) [y/n]? ", "yn");
         switch (ch) {
         case 'n':
             data->num_skipped++;
@@ -10915,7 +8852,7 @@ static CK_RV handle_cert_export(CK_OBJECT_HANDLE cert, CK_OBJECT_CLASS class,
                        overwrite || data->num_exported == 0 ? "w" : "a");
     if (bio == NULL) {
         warnx("Failed to open output file '%s'.", opt_file);
-        ERR_print_errors_cb(openssl_err_cb, NULL);
+        ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
         data->num_failed++;
         return CKR_ARGUMENTS_BAD;
     }
@@ -10944,7 +8881,7 @@ static CK_RV handle_cert_export(CK_OBJECT_HANDLE cert, CK_OBJECT_CLASS class,
 
     if (BIO_write(bio, cert_data, data_len) != (int)data_len) {
         warnx("Failed to write to file '%s'.", opt_file);
-        ERR_print_errors_cb(openssl_err_cb, NULL);
+        ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
         data->num_failed++;
         rc = CKR_OK;
         goto done;
@@ -10968,7 +8905,7 @@ done:
 
 static CK_RV handle_cert_pubkey_extract(CK_OBJECT_HANDLE cert,
                                         CK_OBJECT_CLASS class,
-                                        const struct p11sak_objtype *certtype,
+                                        const struct p11tool_objtype *certtype,
                                         CK_ULONG keysize, const char *typestr,
                                         const char* label,
                                         const char *common_name,
@@ -10995,7 +8932,7 @@ static CK_RV handle_cert_pubkey_extract(CK_OBJECT_HANDLE cert,
             warnx("Failed to allocate memory for a message");
             return CKR_HOST_MEMORY;
         }
-        ch = prompt_user(msg, "ynac");
+        ch = p11tool_prompt_user(msg, "ynac");
         free(msg);
 
         switch (ch) {
@@ -11076,7 +9013,7 @@ out:
 
 static CK_RV p11sak_export_key(void)
 {
-    const struct p11sak_objtype *keytype = NULL;
+    const struct p11tool_objtype *keytype = NULL;
     struct p11sak_export_data data = { 0 };
     CK_RV rc;
 
@@ -11137,9 +9074,9 @@ static CK_RV p11sak_export_key(void)
         return rc;
     }
 
-    if (opt_uri_pem && opt_uri_pin_source != NULL && uri_pin != NULL &&
+    if (opt_uri_pem && opt_uri_pin_source != NULL && p11tool_pin != NULL &&
         data.num_exported > 0) {
-        rc = p11sak_create_uri_pin_source(opt_uri_pin_source, uri_pin);
+        rc = p11sak_create_uri_pin_source(opt_uri_pin_source, p11tool_pin);
         return rc;
     }
 
@@ -11154,7 +9091,7 @@ static CK_RV p11sak_export_key(void)
 
 static CK_RV p11sak_extract_key_pubkey(void)
 {
-    const struct p11sak_objtype *keytype = NULL;
+    const struct p11tool_objtype *keytype = NULL;
     struct p11sak_export_data data = { 0 };
     CK_RV rc;
 
@@ -11184,7 +9121,7 @@ static CK_RV p11sak_extract_key_pubkey(void)
 
 static CK_RV p11sak_export_cert(void)
 {
-    const struct p11sak_objtype *certtype = NULL;
+    const struct p11tool_objtype *certtype = NULL;
     struct p11sak_export_data data = { 0 };
     CK_RV rc;
 
@@ -11237,9 +9174,9 @@ static CK_RV p11sak_export_cert(void)
         return rc;
     }
 
-    if (opt_uri_pem && opt_uri_pin_source != NULL && uri_pin != NULL &&
+    if (opt_uri_pem && opt_uri_pin_source != NULL && p11tool_pin != NULL &&
         data.num_exported > 0) {
-        rc = p11sak_create_uri_pin_source(opt_uri_pin_source, uri_pin);
+        rc = p11sak_create_uri_pin_source(opt_uri_pin_source, p11tool_pin);
         return rc;
     }
 
@@ -11254,7 +9191,7 @@ static CK_RV p11sak_export_cert(void)
 
 static CK_RV p11sak_import_cert(void)
 {
-    const struct p11sak_objtype *certtype;
+    const struct p11tool_objtype *certtype;
     CK_ATTRIBUTE *attrs = NULL;
     CK_ULONG num_attrs = 0;
     CK_OBJECT_CLASS class;
@@ -11282,14 +9219,14 @@ static CK_RV p11sak_import_cert(void)
     }
 
     class = CKO_CERTIFICATE;
-    rc = add_attribute(CKA_CLASS, &class, sizeof(class), &attrs, &num_attrs);
+    rc = p11tool_add_attribute(CKA_CLASS, &class, sizeof(class),
+                               &attrs, &num_attrs);
     if (rc != CKR_OK)
         goto done;
 
-    rc = add_attributes(certtype, &attrs, &num_attrs,
-                        opt_label, opt_attr, opt_id,
-                        FALSE, NULL, NULL,
-                        cert_attr_applicable);
+    rc = p11tool_add_attributes(certtype, p11sak_bool_attrs, &attrs, &num_attrs,
+                                opt_label, opt_attr, opt_id, FALSE, opt_so,
+                                NULL, NULL, p11tool_cert_attr_applicable);
     if (rc != CKR_OK)
         goto done;
 
@@ -11300,8 +9237,9 @@ static CK_RV p11sak_import_cert(void)
     if (opt_cacert ||
         (X509_get_extension_flags(x509) & EXFLAG_CA) != 0) {
         cert_category = CK_CERTIFICATE_CATEGORY_AUTHORITY;
-        rc = add_attribute(CKA_CERTIFICATE_CATEGORY, &cert_category,
-                           sizeof(CK_CERTIFICATE_CATEGORY), &attrs, &num_attrs);
+        rc = p11tool_add_attribute(CKA_CERTIFICATE_CATEGORY, &cert_category,
+                                   sizeof(CK_CERTIFICATE_CATEGORY),
+                                   &attrs, &num_attrs);
         if (rc != CKR_OK) {
             warnx("Failed to add %s attribute CKA_CERTIFICATE_CATEGORY: 0x%lX: %s",
                   certtype->name, rc, p11_get_ckr(rc));
@@ -11321,13 +9259,15 @@ static CK_RV p11sak_import_cert(void)
             goto done;
     }
 
-    rc = pkcs11_funcs->C_CreateObject(pkcs11_session, attrs, num_attrs, &cert);
+    rc = p11tool_pkcs11_funcs->C_CreateObject(p11tool_pkcs11_session, attrs,
+                                              num_attrs, &cert);
     if (rc != CKR_OK) {
-       if (is_rejected_by_policy(rc, pkcs11_session))
-           warnx("Certificate import of a %s certificate is rejected by policy", certtype->name);
+       if (p11tool_is_rejected_by_policy(rc, p11tool_pkcs11_session))
+           warnx("Certificate import of a %s certificate is rejected by policy",
+                 certtype->name);
        else
-           warnx("Certificate import of a %s certificate failed: 0x%lX: %s", certtype->name,
-                 rc, p11_get_ckr(rc));
+           warnx("Certificate import of a %s certificate failed: 0x%lX: %s",
+                 certtype->name, rc, p11_get_ckr(rc));
        goto done;
     }
 
@@ -11335,7 +9275,7 @@ static CK_RV p11sak_import_cert(void)
            certtype->name, opt_label);
 
 done:
-    free_attributes(attrs, num_attrs);
+    p11tool_free_attributes(attrs, num_attrs);
     X509_free(x509);
 
     return rc;
@@ -11343,7 +9283,7 @@ done:
 
 static CK_RV p11sak_extract_cert_pubkey(void)
 {
-    const struct p11sak_objtype *certtype = NULL;
+    const struct p11tool_objtype *certtype = NULL;
     struct p11sak_export_data data = { 0 };
     CK_RV rc;
 
@@ -11368,201 +9308,6 @@ static CK_RV p11sak_extract_cert_pubkey(void)
         printf("%lu certificate object(s) failed to export the public key.\n", data.num_failed);
 
     return data.num_failed == 0 ? CKR_OK : CKR_FUNCTION_FAILED;
-}
-
-static CK_RV load_pkcs11_lib(void)
-{
-    CK_RV rc;
-    CK_RV (*getfunclist)(CK_FUNCTION_LIST_PTR_PTR ppFunctionList);
-    const char *libname;
-
-    libname = secure_getenv(P11SAK_PKCSLIB_ENV_NAME);
-    if (libname == NULL || strlen(libname) < 1)
-        libname = P11SAK_DEFAULT_PKCS11_LIB;
-
-    pkcs11_lib = dlopen(libname, DYNLIB_LDFLAGS);
-    if (pkcs11_lib == NULL) {
-        warnx("Failed to load PKCS#11 library '%s': %s", libname, dlerror());
-        return CKR_FUNCTION_FAILED;
-    }
-
-    *(void**) (&getfunclist) = dlsym(pkcs11_lib, "C_GetFunctionList");
-    if (getfunclist == NULL) {
-        warnx("Failed to resolve symbol '%s' from PKCS#11 library '%s': %s",
-              "C_GetFunctionList", libname, dlerror());
-        return CKR_FUNCTION_FAILED;
-    }
-
-    rc = getfunclist(&pkcs11_funcs);
-    if (rc != CKR_OK) {
-        warnx("C_GetFunctionList() on PKCS#11 library '%s' failed with 0x%lX: %s)\n",
-              libname, rc, p11_get_ckr(rc));
-        return CKR_FUNCTION_FAILED;
-    }
-
-    if (pkcs11_funcs == NULL) {
-        warnx("C_GetFunctionList() on PKCS#11 library '%s' failed\n", libname);
-        return CKR_FUNCTION_FAILED;
-    }
-
-    return CKR_OK;
-}
-
-static CK_RV open_pkcs11_session(CK_SLOT_ID slot, CK_FLAGS flags,
-                                 const char *pin, CK_USER_TYPE user_type)
-{
-    CK_RV rc;
-
-    rc = pkcs11_funcs->C_GetInfo(&pkcs11_info);
-    if (rc != CKR_OK) {
-        warnx("Failed to getPKCS#11 info: C_GetInfo: 0x%lX: %s",
-              rc, p11_get_ckr(rc));
-        return rc;
-    }
-
-    rc = pkcs11_funcs->C_GetSlotInfo(slot, &pkcs11_slotinfo);
-    if (rc != CKR_OK) {
-        warnx("Slot %lu is not available: C_GetSlotInfo: 0x%lX: %s", slot,
-              rc, p11_get_ckr(rc));
-        return rc;
-    }
-
-    rc = pkcs11_funcs->C_GetTokenInfo(slot, &pkcs11_tokeninfo);
-    if (rc != CKR_OK) {
-        warnx("Token at slot %lu is not available: C_GetTokenInfo: 0x%lX: %s",
-              slot, rc, p11_get_ckr(rc));
-        return rc;
-    }
-
-    token_info = find_known_token(&pkcs11_tokeninfo);
-
-    rc = pkcs11_funcs->C_OpenSession(slot, flags, NULL, NULL, &pkcs11_session);
-    if (rc != CKR_OK) {
-        warnx("Opening a session failed: C_OpenSession: 0x%lX: %s)", rc,
-              p11_get_ckr(rc));
-        return rc;
-    }
-
-    if (pin != NULL) {
-        rc = pkcs11_funcs->C_Login(pkcs11_session, user_type, (CK_CHAR *)pin,
-                                   strlen(pin));
-        if (rc != CKR_OK) {
-            warnx("Login failed: C_Login: 0x%lX: %s", rc, p11_get_ckr(rc));
-            return rc;
-        }
-    }
-
-    return CKR_OK;
-}
-
-static void close_pkcs11_session(void)
-{
-    CK_RV rc;
-
-    rc = pkcs11_funcs->C_Logout(pkcs11_session);
-    if (rc != CKR_OK && rc != CKR_USER_NOT_LOGGED_IN)
-        warnx("C_Logout failed: 0x%lX: %s", rc, p11_get_ckr(rc));
-
-    rc = pkcs11_funcs->C_CloseSession(pkcs11_session);
-    if (rc != CKR_OK)
-        warnx("C_CloseSession failed: 0x%lX: %s", rc, p11_get_ckr(rc));
-
-    pkcs11_session = CK_INVALID_HANDLE;
-}
-
-static CK_RV init_pkcs11(const struct p11sak_cmd *command)
-{
-    CK_RV rc;
-    char *buf_user_pin = NULL;
-    const char *pin = opt_pin;
-
-    if (command == NULL || command->session_flags == 0)
-        return CKR_OK;
-
-    if (opt_no_login) {
-        if (opt_pin != NULL) {
-            warnx("Option '-p'/'--pin' is not allowed with '-N'/'--no-login'");
-            return CKR_ARGUMENTS_BAD;
-        }
-        if (opt_force_pin_prompt) {
-            warnx("Option '--force-pin-prompt' is not allowed with "
-                  "'-N'/'--no-login'");
-            return CKR_ARGUMENTS_BAD;
-        }
-        if (opt_so) {
-            warnx("Option '--so' is not allowed with '-N'/'--no-login'");
-            return CKR_ARGUMENTS_BAD;
-        }
-        pin = NULL;
-    } else {
-        if (pin == NULL)
-            pin = getenv(opt_so ? PKCS11_SO_PIN_ENV_NAME :
-                                            PKCS11_USER_PIN_ENV_NAME);
-        if (opt_force_pin_prompt || pin == NULL)
-            pin = pin_prompt(&buf_user_pin, opt_so ? "Please enter SO PIN: " :
-                                                     "Please enter user PIN: ");
-        if (pin == NULL)
-            return CKR_FUNCTION_FAILED;
-    }
-
-    if (!opt_so && !opt_no_login && opt_uri_pem &&
-        (opt_uri_pin_value || opt_uri_pin_source != NULL)) {
-        uri_pin = strdup(pin);
-        if (uri_pin == NULL) {
-            rc = CKR_HOST_MEMORY;
-            goto done;
-        }
-    }
-
-    rc = load_pkcs11_lib();
-    if (rc != CKR_OK)
-        goto done;
-
-    rc = pkcs11_funcs->C_Initialize(NULL);
-    if (rc != CKR_OK) {
-        warnx("C_Initialize failed: 0x%lX: %s", rc, p11_get_ckr(rc));
-        goto done;
-    }
-
-    pkcs11_initialized = true;
-
-    rc = open_pkcs11_session(opt_slot, command->session_flags |
-                                                (opt_so ? CKF_RW_SESSION : 0),
-                             pin, opt_so ? CKU_SO : CKU_USER);
-    if (rc != CKR_OK)
-        goto done;
-
-done:
-    pin_free(&buf_user_pin);
-
-    return rc;
-}
-
-static void term_pkcs11(void)
-{
-    CK_RV rc;
-
-    if (pkcs11_session != CK_INVALID_HANDLE)
-        close_pkcs11_session();
-
-    if (pkcs11_funcs != NULL && pkcs11_initialized) {
-        rc = pkcs11_funcs->C_Finalize(NULL);
-        if (rc != CKR_OK)
-            warnx("C_Finalize failed: 0x%lX: %s", rc, p11_get_ckr(rc));
-    }
-
-#ifndef WITH_SANITIZER
-    if (pkcs11_lib != NULL)
-        dlclose(pkcs11_lib);
-#endif
-
-    pkcs11_lib = NULL;
-    pkcs11_funcs = NULL;
-
-    if (uri_pin != NULL) {
-        OPENSSL_cleanse(uri_pin,  strlen(uri_pin));
-        free(uri_pin);
-    }
 }
 
 static void parse_config_file_error_hook(int line, int col, const char *msg)
@@ -11619,12 +9364,12 @@ static CK_RV parse_config_file(void)
 
 int main(int argc, char *argv[])
 {
-    const struct p11sak_cmd *command = NULL;
+    const struct p11tool_cmd *command = NULL;
     CK_RV rc = CKR_OK;
 
     /* Get p11sak command (if any) */
     if (argc >= 2 && strncmp(argv[1], "-", 1) != 0) {
-        command = find_command(argv[1]);
+        command = p11tool_find_command(p11sak_commands, argv[1]);
         if (command == NULL) {
             warnx("Invalid command '%s'", argv[1]);
             rc = CKR_ARGUMENTS_BAD;
@@ -11636,25 +9381,27 @@ int main(int argc, char *argv[])
     }
 
     /* Get command arguments (if any) */
-    rc = parse_cmd_arguments(command, &argc, &argv);
+    rc = p11tool_parse_cmd_arguments(command, &argc, &argv);
     if (rc != CKR_OK)
         goto done;
 
     /* Get generic and command specific options (if any) */
-    rc = parse_cmd_options(command, argc, argv);
+    rc = p11tool_parse_cmd_options(command, p11sak_generic_opts, argc, argv);
     if (rc != CKR_OK)
         goto done;
 
     if (opt_help) {
         if (command == NULL)
-            print_help();
+            p11tool_print_help("p11sak", p11sak_commands, p11sak_generic_opts,
+                               PRINT_INDENT_POS);
         else
-            print_command_help(command);
+            p11tool_print_command_help("p11sak", command, p11sak_generic_opts,
+                                       PRINT_INDENT_POS);
         goto done;
     }
 
     if (opt_version) {
-        print_version();
+        p11tool_print_version("p11sak");
         goto done;
     }
 
@@ -11665,15 +9412,19 @@ int main(int argc, char *argv[])
         goto done;
     }
 
-    rc = check_required_args(command->args);
+    rc = p11tool_check_required_args(command->args);
     if (rc != CKR_OK)
         goto done;
 
-    rc = check_required_cmd_opts(command->opts);
+    rc = p11tool_check_required_cmd_opts(command->opts, p11sak_generic_opts);
     if (rc != CKR_OK)
         goto done;
 
-    rc = init_pkcs11(command);
+    rc = p11tool_init_pkcs11(command, opt_no_login, opt_pin,
+                             opt_force_pin_prompt, opt_so,
+                             opt_uri_pem && (opt_uri_pin_value ||
+                                             opt_uri_pin_source != NULL),
+                             opt_slot, p11sak_known_tokens);
     if (rc != CKR_OK)
         goto done;
 
@@ -11690,7 +9441,7 @@ int main(int argc, char *argv[])
     }
 
 done:
-    term_pkcs11();
+    p11tool_term_pkcs11();
 
     if (p11sak_cfg != NULL)
         confignode_deepfree(p11sak_cfg);

@@ -68,7 +68,7 @@ value must be the path of the KMIP client certificate, enclosed in quotes.
 
 The
 .B tls_client_key
-value must be the path of the KMIP client key, enclosed in quotes.
+value must be the path of the KMIP client private key, enclosed in quotes.
 
 The
 .B wrap_key_format
