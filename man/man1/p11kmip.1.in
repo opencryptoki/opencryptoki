@@ -403,10 +403,10 @@ When none are set, an error occurs.
 .
 .TP 8
 .BR \-\-kmip\-client\-key\~\fIKEY\-\PATH\fP
-A path to the TLS client key to use for the KMIP connection.
+A path to the TLS client private key to use for the KMIP connection.
 .PP
 .RS 8
-Alternatively, the client key path may be specified using the
+Alternatively, the client private key path may be specified using the
 .B KMIP_CLIENT_KEY
 environment variable or the \fBp11kmip.conf\fP configuration
 file. See \fBp11kmip.conf\fP(5) for more more details about using the configuration file.
@@ -482,8 +482,8 @@ Suppress messages.
 Print shortened results.
 
 Example:
-SECRET_KEY_LABEL:FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
-SECRET_KEY_UUID:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+    SECRET_KEY_LABEL:FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+    SECRET_KEY_UUID:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
 .PP
 .
 .
