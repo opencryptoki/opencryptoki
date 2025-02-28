@@ -28,6 +28,7 @@ testcases/login/init_tok
 testcases/login/login
 testcases/login/login_flags_test
 testcases/login/set_pin
+testcases/misc_tests/always_auth
 testcases/misc_tests/cca_export_import_test
 testcases/misc_tests/events
 testcases/misc_tests/fork
