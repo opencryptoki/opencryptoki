@@ -77,7 +77,7 @@ echo "** Setting SLOT=30 to the Softtoken unless otherwise set - 'p11kmip_test.s
 
 PKCS11_SLOT_ID=${PKCS11_SLOT_ID:-30}
 
-echo "** Using Slot $PKCS11_SLOT_ID with PKCS11_USER_PIN $PKCS11_USER_PIN and PKCSLIB $PKCSLIB - 'p11sak_test.sh'"
+echo "** Using Slot $PKCS11_SLOT_ID with PKCS11_USER_PIN $PKCS11_USER_PIN and PKCSLIB $PKCSLIB - 'p11kmip_test.sh'"
 
 # Prepare KMIP variables
 echo "** Setting KMIP_REST_URL=https://\${KMIP_IP}:19443 unless otherwise set - 'p11kmip_test.sh'"
@@ -339,19 +339,19 @@ key_import_tests() {
 
 	# Build a standard configuration
 	[[ -f $P11KMIP_CONF_FILE ]] && rm $P11KMIP_CONF_FILE
-    echo "kmip {                                              " >> $P11KMIP_CONF_FILE
-    echo "    host = \"${KMIP_HOSTNAME}\"                     " >> $P11KMIP_CONF_FILE
-    echo "    tls_client_cert = \"${KMIP_CLIENT_CERT}\"       " >> $P11KMIP_CONF_FILE
-    echo "    tls_client_key = \"${KMIP_CLIENT_KEY}\"         " >> $P11KMIP_CONF_FILE
-    echo "                                                    " >> $P11KMIP_CONF_FILE
-    echo "    wrap_key_format = \"PKCS1\"                     " >> $P11KMIP_CONF_FILE
-    echo "    wrap_key_algorithm = \"RSA\"                    " >> $P11KMIP_CONF_FILE
-    echo "    wrap_key_size = 2048                            " >> $P11KMIP_CONF_FILE
-    echo "    wrap_padding_method = \"PKCS1.5\"               " >> $P11KMIP_CONF_FILE
-    echo "}                                                   " >> $P11KMIP_CONF_FILE
-    echo "pkcs11 {                                            " >> $P11KMIP_CONF_FILE
-    echo "    slot_number = ${PKCS11_SLOT_ID}                 " >> $P11KMIP_CONF_FILE
-    echo "}                                                   " >> $P11KMIP_CONF_FILE
+	echo "kmip {                                              " >> $P11KMIP_CONF_FILE
+	echo "    host = \"${KMIP_HOSTNAME}\"                     " >> $P11KMIP_CONF_FILE
+	echo "    tls_client_cert = \"${KMIP_CLIENT_CERT}\"       " >> $P11KMIP_CONF_FILE
+	echo "    tls_client_key = \"${KMIP_CLIENT_KEY}\"         " >> $P11KMIP_CONF_FILE
+	echo "                                                    " >> $P11KMIP_CONF_FILE
+	echo "    wrap_key_format = \"PKCS1\"                     " >> $P11KMIP_CONF_FILE
+	echo "    wrap_key_algorithm = \"RSA\"                    " >> $P11KMIP_CONF_FILE
+	echo "    wrap_key_size = 2048                            " >> $P11KMIP_CONF_FILE
+	echo "    wrap_padding_method = \"PKCS1.5\"               " >> $P11KMIP_CONF_FILE
+	echo "}                                                   " >> $P11KMIP_CONF_FILE
+	echo "pkcs11 {                                            " >> $P11KMIP_CONF_FILE
+	echo "    slot = ${PKCS11_SLOT_ID}                        " >> $P11KMIP_CONF_FILE
+	echo "}                                                   " >> $P11KMIP_CONF_FILE
 
 	echo "*** Running test using configuration options"
 	TEST_BASE="$P11KMIP_TMP/p11kmip_import_key_conf_test"
@@ -373,13 +373,15 @@ key_import_tests() {
 	RC=$?
 	echo "rc = $RC"
 	echo "stdout:"
-	cat $P11KMIP_TMP/p11kmip_import_key_conf_test_stdout
+	cat ${TEST_BASE}_stdout
 
 	if [[ $RC -ne 0 ]] ; then
 		echo "stderr:"
-		cat $P11KMIP_TMP/p11kmip_import_key_conf_test_stderr
+		cat "${TEST_BASE}_stderr"
+		echo "* TESTCASE p11kmip_test import-key-conf FAIL Failed to import keys using config file"
 		return
 	fi
+	echo "* TESTCASE p11kmip_test import-key-conf PASS Sucessfully imported keys using config file"
 
 	# Store the UID of the KMIP public and secret key just created
 	KMIP_GEND_TARGKEY_UID=$(cat $P11KMIP_TMP/p11kmip_import_key_conf_test_stdout | grep -A 2 "Secret Key" | tail -n 1 | cut -d . -f 9)
@@ -408,8 +410,10 @@ key_import_tests() {
 	if [[ $RC -ne 0 ]] ; then
 		echo "stderr:"
 		cat "${TEST_BASE}_stderr"
+		echo "* TESTCASE p11kmip_test import-key-conf-128 FAIL Failed to import AES-128 keys using config file"
 		return
 	fi
+	echo "* TESTCASE p11kmip_test import-key-conf-128 PASS Sucessfully imported AES-128 keys using config file"
 
 	# Store the UID of the KMIP public and secret key just created
 	KMIP_GEND_TARGKEY2_UID=$(cat "${TEST_BASE}_stdout" | grep -A 2 "Secret Key" | tail -n 1 | cut -d . -f 9)
@@ -437,8 +441,10 @@ key_import_tests() {
 	if [[ $RC -ne 0 ]] ; then
 		echo "stderr:"
 		cat "${TEST_BASE}_stderr"
+		echo "* TESTCASE p11kmip_test import-key-conf-192 FAIL Failed to import AES-192 keys using config file"
 		return
 	fi
+	echo "* TESTCASE p11kmip_test import-key-conf-196 PASS Sucessfully imported AES-196 keys using config file"
 
 	# Store the UID of the KMIP public and secret key just created
 	KMIP_GEND_TARGKEY3_UID=$(cat "${TEST_BASE}_stdout" | grep -A 2 "Secret Key" | tail -n 1 | cut -d . -f 9)
@@ -449,20 +455,20 @@ key_import_tests() {
 
 	# Fill the configuration file with bogus values
 	[[ -f $P11KMIP_CONF_FILE ]] && rm $P11KMIP_CONF_FILE
-    echo "kmip {                                           " >> $P11KMIP_CONF_FILE
-    echo "    host = \"255.255.255.255:0\"                 " >> $P11KMIP_CONF_FILE
-    echo "    tls_client_cert = \"/dev/null\"              " >> $P11KMIP_CONF_FILE
-    echo "    tls_client_key = \"/dev/null\"               " >> $P11KMIP_CONF_FILE
-    echo "                                                 " >> $P11KMIP_CONF_FILE
-    echo "    wrap_key_format = \"PKCS1\"                  " >> $P11KMIP_CONF_FILE
-    echo "    wrap_key_algorithm = \"RSA\"                 " >> $P11KMIP_CONF_FILE
-    echo "    wrap_key_size = 2048                         " >> $P11KMIP_CONF_FILE
-    echo "    wrap_padding_method = \"PKCS1.5\"            " >> $P11KMIP_CONF_FILE
-    echo "    wrap_hashing_algorithm = \"SHA-1\"           " >> $P11KMIP_CONF_FILE
-    echo "}                                                " >> $P11KMIP_CONF_FILE
-    echo "pkcs11 {                                         " >> $P11KMIP_CONF_FILE
-    echo "    slot_number = 0                              " >> $P11KMIP_CONF_FILE
-    echo "}                                                " >> $P11KMIP_CONF_FILE
+	echo "kmip {                                           " >> $P11KMIP_CONF_FILE
+	echo "    host = \"255.255.255.255:0\"                 " >> $P11KMIP_CONF_FILE
+	echo "    tls_client_cert = \"/dev/null\"              " >> $P11KMIP_CONF_FILE
+	echo "    tls_client_key = \"/dev/null\"               " >> $P11KMIP_CONF_FILE
+	echo "                                                 " >> $P11KMIP_CONF_FILE
+	echo "    wrap_key_format = \"PKCS1\"                  " >> $P11KMIP_CONF_FILE
+	echo "    wrap_key_algorithm = \"RSA\"                 " >> $P11KMIP_CONF_FILE
+	echo "    wrap_key_size = 2048                         " >> $P11KMIP_CONF_FILE
+	echo "    wrap_padding_method = \"PKCS1.5\"            " >> $P11KMIP_CONF_FILE
+	echo "    wrap_hashing_algorithm = \"SHA-1\"           " >> $P11KMIP_CONF_FILE
+	echo "}                                                " >> $P11KMIP_CONF_FILE
+	echo "pkcs11 {                                         " >> $P11KMIP_CONF_FILE
+	echo "    slot = 0                                     " >> $P11KMIP_CONF_FILE
+	echo "}                                                " >> $P11KMIP_CONF_FILE
 
 	echo "*** Running test using environment variables"
 	TEST_BASE="$P11KMIP_TMP/p11kmip_import_key_env_test"
@@ -483,13 +489,15 @@ key_import_tests() {
 	RC=$?
 	echo "rc = $RC"
 	echo "stdout:"
-	cat $P11KMIP_TMP/p11kmip_import_key_env_test_stdout
+	cat "${TEST_BASE}_stdout"
 
 	if [[ $RC -ne 0 ]] ; then
 		echo "stderr:"
-		cat $P11KMIP_TMP/p11kmip_import_key_env_test_stderr
+		cat "${TEST_BASE}_stderr"
+		echo "* TESTCASE p11kmip_test import-key-env FAIL Failed to import keys using env var"
 		return
 	fi
+	echo "* TESTCASE p11kmip_test import-key-env PASS Sucessfully imported keys using env var"
 
 	################################################################
 	# Using only commandline options                               #
@@ -514,13 +522,15 @@ key_import_tests() {
 	RC=$?
 	echo "rc = $RC"
 	echo "stdout:"
-	cat $P11KMIP_TMP/p11kmip_import_key_opt_test_stdout
+	cat "${TEST_BASE}_stdout"
 
 	if [[ $RC -ne 0 ]] ; then
 		echo "stderr:"
-		cat $P11KMIP_TMP/p11kmip_import_key_opt_test_stderr
+		cat "${TEST_BASE}_stderr"
+		echo "* TESTCASE p11kmip_test import-key-arg FAIL FAiled to import keys using command line arguments"
 		return
 	fi
+	echo "* TESTCASE p11kmip_test import-key-arg PASS Sucessfully imported keys using command line arguments"
 }
 
 key_export_tests() {
@@ -530,20 +540,20 @@ key_export_tests() {
 
 	# Build a standard configuration
 	[[ -f $P11KMIP_CONF_FILE ]] && rm $P11KMIP_CONF_FILE
-    echo "kmip {                                              " >> $P11KMIP_CONF_FILE
-    echo "    host = \"${KMIP_HOSTNAME}\"                     " >> $P11KMIP_CONF_FILE
-    echo "    tls_client_cert = \"${KMIP_CLIENT_CERT}\"       " >> $P11KMIP_CONF_FILE
-    echo "    tls_client_key = \"${KMIP_CLIENT_KEY}\"         " >> $P11KMIP_CONF_FILE
-    echo "                                                    " >> $P11KMIP_CONF_FILE
-    echo "    wrap_key_format = \"PKCS1\"                     " >> $P11KMIP_CONF_FILE
-    echo "    wrap_key_algorithm = \"RSA\"                    " >> $P11KMIP_CONF_FILE
-    echo "    wrap_key_size = 2048                            " >> $P11KMIP_CONF_FILE
-    echo "    wrap_padding_method = \"PKCS1.5\"               " >> $P11KMIP_CONF_FILE
-    echo "    wrap_hashing_algorithm = \"SHA-1\"              " >> $P11KMIP_CONF_FILE
-    echo "}                                                   " >> $P11KMIP_CONF_FILE
-    echo "pkcs11 {                                            " >> $P11KMIP_CONF_FILE
-    echo "    slot_number = ${PKCS11_SLOT_ID}                 " >> $P11KMIP_CONF_FILE
-    echo "}                                                   " >> $P11KMIP_CONF_FILE
+	echo "kmip {                                              " >> $P11KMIP_CONF_FILE
+	echo "    host = \"${KMIP_HOSTNAME}\"                     " >> $P11KMIP_CONF_FILE
+	echo "    tls_client_cert = \"${KMIP_CLIENT_CERT}\"       " >> $P11KMIP_CONF_FILE
+	echo "    tls_client_key = \"${KMIP_CLIENT_KEY}\"         " >> $P11KMIP_CONF_FILE
+	echo "                                                    " >> $P11KMIP_CONF_FILE
+	echo "    wrap_key_format = \"PKCS1\"                     " >> $P11KMIP_CONF_FILE
+	echo "    wrap_key_algorithm = \"RSA\"                    " >> $P11KMIP_CONF_FILE
+	echo "    wrap_key_size = 2048                            " >> $P11KMIP_CONF_FILE
+	echo "    wrap_padding_method = \"PKCS1.5\"               " >> $P11KMIP_CONF_FILE
+	echo "    wrap_hashing_algorithm = \"SHA-1\"              " >> $P11KMIP_CONF_FILE
+	echo "}                                                   " >> $P11KMIP_CONF_FILE
+	echo "pkcs11 {                                            " >> $P11KMIP_CONF_FILE
+	echo "    slot = ${PKCS11_SLOT_ID}                        " >> $P11KMIP_CONF_FILE
+	echo "}                                                   " >> $P11KMIP_CONF_FILE
 
 	echo "*** Running test using configuration options"
 	TEST_BASE="$P11KMIP_TMP/p11kmip_export_key_conf_test"
@@ -562,13 +572,15 @@ key_export_tests() {
 	RC=$?
 	echo "rc = $RC"
 	echo "stdout:"
-	cat $P11KMIP_TMP/p11kmip_export_key_conf_test_stdout
+	cat "${TEST_BASE}_stdout"
 
 	if [[ $RC -ne 0 ]] ; then
 		echo "stderr:"
-		cat $P11KMIP_TMP/p11kmip_export_key_conf_test_stderr
+		cat "${TEST_BASE}_stderr"
+		echo "* TESTCASE p11kmip_test export-key-conf FAIL Failed to export keys using config file"
 		return
 	fi
+	echo "* TESTCASE p11kmip_test export-key-conf PASS Sucessfully exported keys using config file"
 
 	# Store the UID of the PKCS#11 public key just retrieved
 	KMIP_RETR_WRAPKEY_UID=$(cat $P11KMIP_TMP/p11kmip_export_key_conf_test_stdout | grep -A 2 "Public Key" | tail -n 1 | cut -d . -f 9)
@@ -592,8 +604,10 @@ key_export_tests() {
 	if [[ $RC -ne 0 ]] ; then
 		echo "stderr:"
 		cat "${TEST_BASE}_stderr"
+		echo "* TESTCASE p11kmip_test export-key-conf-128 FAIL FAiled to export AES-128 keys using config file"
 		return
 	fi
+	echo "* TESTCASE p11kmip_test export-key-conf-128 PASS Sucessfully exported AES-128 keys using config file"
 
 	echo "*** Running test using configuration options with 192-bit key"
 	TEST_BASE="$P11KMIP_TMP/p11kmip_export_key_conf_test_192"
@@ -614,29 +628,31 @@ key_export_tests() {
 	if [[ $RC -ne 0 ]] ; then
 		echo "stderr:"
 		cat "${TEST_BASE}_stderr"
+		echo "* TESTCASE p11kmip_test export-key-conf-192 FAIL FAiled to export AES-192 keys using config file"
 		return
 	fi
+	echo "* TESTCASE p11kmip_test export-key-conf-192 PASS Sucessfully exported AES-192 keys using config file"
 
-    ################################################################
+	################################################################
 	# Using environment variables                                  #
 	################################################################
 
 	# Fill the configuration file with bogus values
 	[[ -f $P11KMIP_CONF_FILE ]] && rm $P11KMIP_CONF_FILE
-    echo "kmip {                                           " >> $P11KMIP_CONF_FILE
-    echo "    host = \"255.255.255.255:0\"                 " >> $P11KMIP_CONF_FILE
-    echo "    tls_client_cert = \"/dev/null\"              " >> $P11KMIP_CONF_FILE
-    echo "    tls_client_key = \"/dev/null\"               " >> $P11KMIP_CONF_FILE
-    echo "                                                 " >> $P11KMIP_CONF_FILE
-    echo "    wrap_key_format = \"PKCS1\"                  " >> $P11KMIP_CONF_FILE
-    echo "    wrap_key_algorithm = \"RSA\"                 " >> $P11KMIP_CONF_FILE
-    echo "    wrap_key_size = 2048                         " >> $P11KMIP_CONF_FILE
-    echo "    wrap_padding_method = \"PKCS1.5\"            " >> $P11KMIP_CONF_FILE
-    echo "    wrap_hashing_algorithm = \"SHA-1\"           " >> $P11KMIP_CONF_FILE
-    echo "}                                                " >> $P11KMIP_CONF_FILE
-    echo "pkcs11 {                                         " >> $P11KMIP_CONF_FILE
-    echo "    slot_number = 0                              " >> $P11KMIP_CONF_FILE
-    echo "}                                                " >> $P11KMIP_CONF_FILE
+	echo "kmip {                                           " >> $P11KMIP_CONF_FILE
+	echo "    host = \"255.255.255.255:0\"                 " >> $P11KMIP_CONF_FILE
+	echo "    tls_client_cert = \"/dev/null\"              " >> $P11KMIP_CONF_FILE
+	echo "    tls_client_key = \"/dev/null\"               " >> $P11KMIP_CONF_FILE
+	echo "                                                 " >> $P11KMIP_CONF_FILE
+	echo "    wrap_key_format = \"PKCS1\"                  " >> $P11KMIP_CONF_FILE
+	echo "    wrap_key_algorithm = \"RSA\"                 " >> $P11KMIP_CONF_FILE
+	echo "    wrap_key_size = 2048                         " >> $P11KMIP_CONF_FILE
+	echo "    wrap_padding_method = \"PKCS1.5\"            " >> $P11KMIP_CONF_FILE
+	echo "    wrap_hashing_algorithm = \"SHA-1\"           " >> $P11KMIP_CONF_FILE
+	echo "}                                                " >> $P11KMIP_CONF_FILE
+	echo "pkcs11 {                                         " >> $P11KMIP_CONF_FILE
+	echo "    slot = 0                                     " >> $P11KMIP_CONF_FILE
+	echo "}                                                " >> $P11KMIP_CONF_FILE
 
 	echo "*** Running test using environment variables"
 	TEST_BASE="$P11KMIP_TMP/p11kmip_export_key_env_test"
@@ -657,13 +673,15 @@ key_export_tests() {
 	RC=$?
 	echo "rc = $RC"
 	echo "stdout:"
-	cat $P11KMIP_TMP/p11kmip_export_key_env_test_stdout
+	cat "${TEST_BASE}_stdout"
 
 	if [[ $RC -ne 0 ]] ; then
 		echo "stderr:"
-		cat $P11KMIP_TMP/p11kmip_export_key_env_test_stderr
+		cat "${TEST_BASE}_stderr"
+		echo "* TESTCASE p11kmip_test export-key-env FAIL Failed to export keys using env vars"
 		return
 	fi
+	echo "* TESTCASE p11kmip_test export-key-env PASS Sucessfully exported keys using env vars"
 
 	################################################################
 	# Using only commandline options                               #
@@ -687,13 +705,15 @@ key_export_tests() {
 	RC=$?
 	echo "rc = $RC"
 	echo "stdout:"
-	cat $P11KMIP_TMP/p11kmip_export_key_opt_test_stdout
+	cat "${TEST_BASE}_stdout"
 
 	if [[ $RC -ne 0 ]] ; then
 		echo "stderr:"
-		cat $P11KMIP_TMP/p11kmip_export_key_opt_test_stderr
+		cat "${TEST_BASE}_stderr"
+		echo "* TESTCASE p11kmip_test export-key-arg FAIL Failed to export keys using comand line arguments"
 		return
 	fi
+	echo "* TESTCASE p11kmip_test export-key-arg PASS Sucessfully exported keys using comand line arguments"
 }
 
 echo "** Generating test certificates - 'p11kmip_test.sh'"
@@ -705,25 +725,28 @@ echo "** Setting up KMIP client on KMIP server - 'p11kmip_test.sh'"
 setup_kmip_client
 
 if [[ $RC -ne 0 ]] ; then
-	echo "Failed setting up KMIP client"
+	echo "* TESTCASE p11kmip_test setup-client FAIL Failed to setup KMIP client on KMIP server"
 	exit $RC
 fi
+echo "* TESTCASE p11kmip_test setup-client PASS Sucessfully setup up KMIP client on KMIP server"
 
 echo "** Setting up remote and local test keys - 'p11kmip_test.sh'"
 
 setup_kmip_keys
 
 if [[ $RC_PKMIP_GENERATE -ne 0 ]]; then
-	echo "Failed setting up KMIP keys"
+	echo "* TESTCASE p11kmip_test setup-kmip-keys FAIL Failed to setup up KMIP remote and local keys"
 	exit $RC_PKMIP_GENERATE
 fi
+echo "* TESTCASE p11kmip_test setup-kmip-keys PASS Sucessfully setup up KMIP remote and local keys"
 
 setup_pkcs11_keys
 
 if [[ $RC_P11SAK_IMPORT -ne 0 ]]; then
-	echo "Failed setting up PKCS#11 keys"
+	echo "* TESTCASE p11kmip_test setup-pkcs11-keys FAIL Failed to setup up PKCS#11 keys"
 	exit $RC_PKMIP_GENERATE
 fi
+echo "* TESTCASE p11kmip_test setup-pkcs11-keys PASS Sucessfully setup up PKCS#11 keys"
 
 echo "** Running key import tests - 'p11kmip_test.sh'"
 
@@ -738,8 +761,9 @@ echo "** Cleaning up remote and local test keys - 'p11kmip_test.sh'"
 cleanup_pkcs11_keys
 
 if [[ $RC_P11SAK_REMOVE -ne 0 ]]; then
-	echo "Failed setting up PKCS#11 keys"
+	echo "* TESTCASE p11kmip_test remove-keys FAIL Failed to remove PKCS#11 keys"
 	exit $RC_P11SAK_REMOVE
 fi
+echo "* TESTCASE p11kmip_test remove-keys PASS Sucessfully removed PKCS#11 keys"
 
 exit $RC
