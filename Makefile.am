@@ -293,6 +293,13 @@ ci-installcheck: ci-prepare installcheck
 	&& export PKCS11_SO_PIN=$(PKCS11_SO_PIN)			\
 	&& SBINDIR=@sbindir@ ./misc_tests/p11sak_test.sh   | tee log-p11sak.txt		\
 	&& SBINDIR=@sbindir@ ./misc_tests/pkcsconf_test.sh | tee log-pkcsconf.txt
+	if [[ -n "${KMIP_IP}" ]] && [[ -n "${KMIP_REST_USER}" ]] && [[ -n "${KMIP_REST_PASSWORD}" ]]; then \
+		cd ${srcdir}/testcases							\
+		&& export PKCSLIB=$(PKCSLIB)						\
+		&& export PKCS11_USER_PIN=$(PKCS11_USER_PIN)				\
+		&& export PKCS11_SO_PIN=$(PKCS11_SO_PIN)				\
+		&& SBINDIR=@sbindir@ ./misc_tests/p11kmip_test.sh | tee log-p11kmip.txt;\
+	fi
 	@sbindir@/pkcsstats --all
 	$(KILLALL) -HUP pkcsslotd
 	rm ${srcdir}/testcases/test_combined_extract.slots -f
