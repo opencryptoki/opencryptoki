@@ -563,6 +563,13 @@ if test "x$enable_testcases" = "xyes"; then
 		AC_MSG_ERROR([*** testcases requires 'expect' interpreter, which wasn't found])
 		enable_testcases=no
 	fi
+	
+	AC_CHECK_PROG([HAVE_OPENSSL], [openssl], [yes], [no])
+
+	if test "x$HAVE_OPENSSL" = "xno"; then
+		AC_MSG_ERROR([*** testcases requires 'openssl' command line tool, which wasn't found])
+		enable_testcases=no
+	fi
 fi
 AM_CONDITIONAL([ENABLE_TESTCASES], [test "x$enable_testcases" = "xyes"])
 
