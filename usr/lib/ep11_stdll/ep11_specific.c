@@ -15334,6 +15334,59 @@ retry:
     return CKR_OK;
 }
 
+/**
+ * This function is called when the attributes of a key object are changed, or
+ * if the object is copied by means of C_CopyObject. In case attributes
+ * CKA_TOKEN and/or CKA_PRIVATE are changed (only allowed during C_CopyObject),
+ * special checking is required in regards of session bound keys.
+ * In case strict session mode, VHSM mode or FIPS session mode is active,
+ * the changed attributes may cause the key object to be expected to be bound
+ * to a different EP11 session as it currently is. Check if the key object
+ * is bound to the expected session, and fail if not.
+ */
+CK_RV ep11tok_set_attrs_check_session(STDLL_TokData_t *tokdata,
+                                      SESSION *session, OBJECT* obj,
+                                      TEMPLATE *new_tmpl)
+{
+    ep11_session_t *ep11_session = (ep11_session_t *)session->private_data;
+    unsigned char *cur_ep11_pin_blob = NULL;
+    CK_ULONG cur_ep11_pin_blob_len = 0;
+    unsigned char *new_ep11_pin_blob = NULL;
+    CK_ULONG new_ep11_pin_blob_len = 0;
+    CK_BBOOL cur_token, cur_private, new_token, new_private;
+    CK_RV rc;
+
+    cur_token = !object_is_session_object(obj);
+    cur_private = object_is_private(obj);
+
+    new_token = cur_token;
+    rc = template_attribute_get_bool(new_tmpl, CKA_TOKEN, &new_token);
+    if (rc != CKR_OK && rc != CKR_TEMPLATE_INCOMPLETE)
+        return rc;
+
+    new_private = cur_private;
+    rc = template_attribute_get_bool(new_tmpl, CKA_PRIVATE, &new_private);
+    if (rc != CKR_OK && rc != CKR_TEMPLATE_INCOMPLETE)
+        return rc;
+
+    if (cur_token == new_token && cur_private == new_private)
+        return CKR_OK;
+
+    /* CKA_TOKEN and/or CKA_PRIVATE is changed, check the session */
+    ep11_get_pin_blob(tokdata, ep11_session, !cur_token, cur_private,
+                      &cur_ep11_pin_blob, &cur_ep11_pin_blob_len);
+    ep11_get_pin_blob(tokdata, ep11_session, !new_token, new_private,
+                      &new_ep11_pin_blob, &new_ep11_pin_blob_len);
+
+    if (new_ep11_pin_blob != cur_ep11_pin_blob) {
+        TRACE_ERROR("Attribute change would cause the key to be bound to a "
+                    "different session. Change is rejected\n");
+        return CKR_ATTRIBUTE_VALUE_INVALID;
+    }
+
+    return CKR_OK;
+}
+
 CK_RV token_specific_set_attribute_values(STDLL_TokData_t *tokdata,
                                           SESSION *session,
                                           OBJECT *obj,
@@ -15392,6 +15445,12 @@ CK_RV token_specific_set_attribute_values(STDLL_TokData_t *tokdata,
                         rc);
             return rc;
         }
+    }
+
+    rc = ep11tok_set_attrs_check_session(tokdata, session, obj, new_tmpl);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s ep11tok_set_attrs_check_session rc=0x%lx\n", __func__, rc);
+        return rc;
     }
 
 #ifndef NO_PKEY
