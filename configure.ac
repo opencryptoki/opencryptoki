@@ -558,16 +558,26 @@ dnl ---
 dnl --- enable_testcases
 if test "x$enable_testcases" = "xyes"; then
 	AC_CHECK_PROG([HAVE_EXPECT], [expect], [yes], [no])
-
 	if test "x$HAVE_EXPECT" = "xno"; then
-		AC_MSG_ERROR([*** testcases requires 'expect' interpreter, which wasn't found])
+		AC_MSG_ERROR([*** testcases require 'expect' interpreter, which wasn't found])
 		enable_testcases=no
 	fi
-	
-	AC_CHECK_PROG([HAVE_OPENSSL], [openssl], [yes], [no])
 
+	AC_CHECK_PROG([HAVE_OPENSSL], [openssl], [yes], [no])
 	if test "x$HAVE_OPENSSL" = "xno"; then
-		AC_MSG_ERROR([*** testcases requires 'openssl' command line tool, which wasn't found])
+		AC_MSG_ERROR([*** testcases require 'openssl' command line tool, which wasn't found])
+		enable_testcases=no
+	fi
+
+	AC_CHECK_PROG([HAVE_CURL], [curl], [yes], [no])
+	if test "x$HAVE_CURL" = "xno"; then
+		AC_MSG_ERROR([*** testcases require 'curl' command line tool, which wasn't found])
+		enable_testcases=no
+	fi
+
+	AC_CHECK_PROG([HAVE_JQ], [jq], [yes], [no])
+	if test "x$HAVE_JQ" = "xno"; then
+		AC_MSG_ERROR([*** testcases require 'jq' command line tool, which wasn't found])
 		enable_testcases=no
 	fi
 fi
