@@ -5,7 +5,7 @@ language: c
 
 before_install:
     - if [[ "$TRAVIS_DIST" != "focal" ]]; then sudo apt-get -qq update; fi
-    - sudo apt-get install -y expect libldap2-dev wget libudev-dev autoconf-archive libcap-dev pv
+    - sudo apt-get install -y expect libldap2-dev wget libudev-dev autoconf-archive libcap-dev pv curl jq
     - if [[ "$TRAVIS_CPU_ARCH" != "amd64" ]]; then sudo apt-get install -y trousers libtspi-dev; fi
     - if [[ "$TRAVIS_CPU_ARCH" = "s390x" && "$TRAVIS_DIST" != "focal" ]]; then sudo apt-get install -y libica4 libica-dev; fi
     - if [[ "$TRAVIS_CPU_ARCH" = "s390x" && "$TRAVIS_DIST" = "focal" ]]; then sudo apt-get install -y libica3 libica-dev; fi
