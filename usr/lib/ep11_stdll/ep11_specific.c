@@ -4911,15 +4911,15 @@ import_DH_key_end:
 }
 
 /*
- * makes blobs for private imported IBM PQC keys and
- * SPKIs for public imported IBM PQC keys.
+ * makes blobs for private imported PQC keys and
+ * SPKIs for public imported PQC keys.
  * Similar to rawkey_2_blob, but keys must follow a standard BER encoding.
  */
-static CK_RV import_IBM_pqc_key(STDLL_TokData_t *tokdata, SESSION *sess,
-                                OBJECT *pqc_key_obj, CK_KEY_TYPE keytype,
-                                CK_BYTE *blob, CK_BYTE *blobreenc,
-                                size_t *blob_size,
-                                CK_BYTE *spki, size_t *spki_size)
+static CK_RV import_pqc_key(STDLL_TokData_t *tokdata, SESSION *sess,
+                            OBJECT *pqc_key_obj, CK_KEY_TYPE keytype,
+                            CK_BYTE *blob, CK_BYTE *blobreenc,
+                            size_t *blob_size,
+                            CK_BYTE *spki, size_t *spki_size)
 {
     ep11_private_data_t *ep11_data = tokdata->private_data;
     CK_RV rc;
@@ -4953,6 +4953,14 @@ static CK_RV import_IBM_pqc_key(STDLL_TokData_t *tokdata, SESSION *sess,
         key_type_str = "Kyber";
         pqc_mech = CKM_IBM_KYBER;
         break;
+    case CKK_IBM_ML_DSA:
+        key_type_str = "ML-DSA";
+        pqc_mech = CKM_IBM_ML_DSA;
+        break;
+    case CKK_IBM_ML_KEM:
+        key_type_str = "ML-KEM";
+        pqc_mech = CKM_IBM_ML_KEM;
+        break;
     default:
         TRACE_ERROR("Invalid key type provided for %s\n ", __func__);
         return CKR_KEY_TYPE_INCONSISTENT;
@@ -4978,9 +4986,9 @@ static CK_RV import_IBM_pqc_key(STDLL_TokData_t *tokdata, SESSION *sess,
         goto done;
 
     if (class != CKO_PRIVATE_KEY) {
-        /* Make an SPKI for the public IBM PQC key */
+        /* Make an SPKI for the public PQC key */
 
-        /* A public IBM PQC key must either have a CKA_VALUE containing
+        /* A public PQC key must either have a CKA_VALUE containing
          * the SPKI, or must have a keyform/mode value and the individual
          * attributes
          */
@@ -4988,7 +4996,7 @@ static CK_RV import_IBM_pqc_key(STDLL_TokData_t *tokdata, SESSION *sess,
                                     CKA_VALUE, &value_attr) &&
             value_attr->ulValueLen > 0 && value_attr ->pValue != NULL) {
             /* CKA_VALUE with SPKI */
-            data = value_attr ->pValue;
+            data = value_attr->pValue;
             data_len = value_attr->ulValueLen;
             data_alloced = FALSE;
 
@@ -5062,17 +5070,17 @@ static CK_RV import_IBM_pqc_key(STDLL_TokData_t *tokdata, SESSION *sess,
 
     } else {
 
-        /* imported private IBM PQC key goes here */
+        /* imported private PQC key goes here */
 
-        /* A public IBM PQC key must either have a CKA_VALUE containing
+        /* A public PQC key must either have a CKA_VALUE containing
          * the PKCS#8 encoded private key, or must have a keyform/mode value
          * and the individual attributes
          */
         if (template_attribute_find(pqc_key_obj->template,
                                     CKA_VALUE, &value_attr) &&
             value_attr->ulValueLen > 0 && value_attr ->pValue != NULL) {
-            /* CKA_VALUE with SPKI */
-            data = value_attr ->pValue;
+            /* CKA_VALUE with PKCS#8 */
+            data = value_attr->pValue;
             data_len = value_attr->ulValueLen;
             data_alloced = FALSE;
 
@@ -5178,18 +5186,40 @@ static CK_RV import_IBM_pqc_key(STDLL_TokData_t *tokdata, SESSION *sess,
                        __func__, rc, *blob_size);
         }
 
+        switch (keytype) {
+        case CKK_IBM_ML_DSA:
+        case CKK_IBM_ML_KEM:
+            /*
+             * ML-DSA/ML-KEM private key does not contain the public key,
+             * get pub key attrs from SPKI
+             */
+            rc = pqc_priv_unwrap_get_data(pqc_key_obj->template, keytype,
+                                          spki, *spki_size, FALSE);
+            if (rc != CKR_OK) {
+                TRACE_ERROR("Failed to decode public key from SPKI.\n");
+                goto done;
+            }
+            break;
+        }
+
         cleanse_attribute(pqc_key_obj->template, CKA_VALUE);
 
         switch (keytype) {
         case CKK_IBM_PQC_DILITHIUM:
-            cleanse_attribute(pqc_key_obj->template, CKA_IBM_DILITHIUM_SEED);
-            cleanse_attribute(pqc_key_obj->template, CKA_IBM_DILITHIUM_TR);
-            cleanse_attribute(pqc_key_obj->template, CKA_IBM_DILITHIUM_S1);
-            cleanse_attribute(pqc_key_obj->template, CKA_IBM_DILITHIUM_S2);
-            cleanse_attribute(pqc_key_obj->template, CKA_IBM_DILITHIUM_T0);
+        case CKK_IBM_ML_DSA:
+            cleanse_attribute(pqc_key_obj->template, CKA_IBM_ML_DSA_SEED);
+            cleanse_attribute(pqc_key_obj->template, CKA_IBM_ML_DSA_TR);
+            cleanse_attribute(pqc_key_obj->template, CKA_IBM_ML_DSA_S1);
+            cleanse_attribute(pqc_key_obj->template, CKA_IBM_ML_DSA_S2);
+            cleanse_attribute(pqc_key_obj->template, CKA_IBM_ML_DSA_T0);
+            cleanse_attribute(pqc_key_obj->template,
+                              CKA_IBM_ML_DSA_PRIVATE_SEED);
             break;
         case CKK_IBM_PQC_KYBER:
-            cleanse_attribute(pqc_key_obj->template, CKA_IBM_KYBER_SK);
+        case CKK_IBM_ML_KEM:
+            cleanse_attribute(pqc_key_obj->template, CKA_IBM_ML_KEM_SK);
+            cleanse_attribute(pqc_key_obj->template,
+                              CKA_IBM_ML_KEM_PRIVATE_SEED);
             break;
         }
     }
@@ -5236,6 +5266,8 @@ static CK_RV import_blob_private_public(STDLL_TokData_t *tokdata, SESSION *sess,
         break;
     case CKK_IBM_PQC_DILITHIUM:
     case CKK_IBM_PQC_KYBER:
+    case CKK_IBM_ML_DSA:
+    case CKK_IBM_ML_KEM:
         rc = pqc_priv_unwrap_get_data(obj->template, keytype, spki, spki_len,
                                       is_public);
         break;
@@ -6009,14 +6041,16 @@ CK_RV token_specific_object_add(STDLL_TokData_t * tokdata, SESSION * sess,
         break;
     case CKK_IBM_PQC_DILITHIUM:
     case CKK_IBM_PQC_KYBER:
-        rc = import_IBM_pqc_key(tokdata, sess, obj, keytype, blob, blobreenc,
-                                &blobsize, spki, &spkisize);
+    case CKK_IBM_ML_DSA:
+    case CKK_IBM_ML_KEM:
+        rc = import_pqc_key(tokdata, sess, obj, keytype, blob, blobreenc,
+                            &blobsize, spki, &spkisize);
         if (rc != CKR_OK) {
-            TRACE_ERROR("%s import IBM PQC key kytype=0x%lx rc=0x%lx blobsize=0x%zx\n",
+            TRACE_ERROR("%s import PQC key kytype=0x%lx rc=0x%lx blobsize=0x%zx\n",
                         __func__, keytype, rc, blobsize);
             return rc;
         }
-        TRACE_INFO("%s import IBM PQC key kytype=0x%lx rc=0x%lx blobsize=0x%zx\n",
+        TRACE_INFO("%s import PQC key kytype=0x%lx rc=0x%lx blobsize=0x%zx\n",
                    __func__, keytype, rc, blobsize);
         break;
     case CKK_DES2:
