@@ -7598,28 +7598,28 @@ CK_RV token_specific_aes_xts(STDLL_TokData_t *tokdata, SESSION *session,
 }
 #endif /* NO_PKEY */
 
-struct EP11_KYBER_MECH {
+struct EP11_KEM_MECH {
     CK_MECHANISM mech;
     struct XCP_KYBER_KEM_PARAMS params;
 };
 
-static CK_RV ep11tok_kyber_mech_pre_process(STDLL_TokData_t *tokdata,
-                                            CK_MECHANISM *mech,
-                                            struct EP11_KYBER_MECH *mech_ep11,
-                                            OBJECT **secret_key_obj,
-                                            CK_BBOOL use_reenc_blob)
+static CK_RV ep11tok_ml_kem_mech_pre_process(STDLL_TokData_t *tokdata,
+                                             CK_MECHANISM *mech,
+                                             struct EP11_KEM_MECH *mech_ep11,
+                                             OBJECT **secret_key_obj,
+                                             CK_BBOOL use_reenc_blob)
 {
-    CK_IBM_KYBER_PARAMS *kyber_params;
+    CK_IBM_ML_KEM_PARAMS *ml_kem_params;
     CK_RV rc;
 
-    kyber_params = mech->pParameter;
-    if (mech->ulParameterLen != sizeof(CK_IBM_KYBER_PARAMS)) {
+    ml_kem_params = mech->pParameter;
+    if (mech->ulParameterLen != sizeof(CK_IBM_ML_KEM_PARAMS)) {
         TRACE_ERROR("Mechanism parameter length not as expected\n");
         return CKR_MECHANISM_PARAM_INVALID;
     }
 
-    if (kyber_params->ulVersion != CK_IBM_KYBER_KEM_VERSION) {
-        TRACE_ERROR("Unsupported version in Kyber mechanism param\n");
+    if (ml_kem_params->ulVersion != CK_IBM_ML_KEM_VERSION) {
+        TRACE_ERROR("Unsupported version in ML-KEM mechanism param\n");
         return CKR_MECHANISM_PARAM_INVALID;
     }
 
@@ -7629,16 +7629,16 @@ static CK_RV ep11tok_kyber_mech_pre_process(STDLL_TokData_t *tokdata,
 
     memset(&mech_ep11->params, 0, sizeof(mech_ep11->params));
     mech_ep11->params.version = XCP_KYBER_KEM_VERSION;
-    mech_ep11->params.mode = kyber_params->mode;
-    mech_ep11->params.kdf = kyber_params->kdf;
-    mech_ep11->params.prepend = kyber_params->bPrepend;
-    mech_ep11->params.pSharedData = kyber_params->pSharedData;
-    mech_ep11->params.ulSharedDataLen = kyber_params->ulSharedDataLen;
+    mech_ep11->params.mode = ml_kem_params->mode;
+    mech_ep11->params.kdf = ml_kem_params->kdf;
+    mech_ep11->params.prepend = ml_kem_params->bPrepend;
+    mech_ep11->params.pSharedData = ml_kem_params->pSharedData;
+    mech_ep11->params.ulSharedDataLen = ml_kem_params->ulSharedDataLen;
 
-    switch (kyber_params->mode) {
-    case CK_IBM_KYBER_KEM_ENCAPSULATE:
-        if (kyber_params->ulCipherLen > 0 && kyber_params->pCipher == NULL) {
-            TRACE_ERROR("Unsupported cipher buffer in Kyber mechnism param "
+    switch (ml_kem_params->mode) {
+    case CK_IBM_ML_KEM_ENCAPSULATE:
+        if (ml_kem_params->ulCipherLen > 0 && ml_kem_params->pCipher == NULL) {
+            TRACE_ERROR("Unsupported cipher buffer in ML-KEM mechnism param "
                         "cannot be NULL\n");
             return CKR_MECHANISM_PARAM_INVALID;
         }
@@ -7649,28 +7649,28 @@ static CK_RV ep11tok_kyber_mech_pre_process(STDLL_TokData_t *tokdata,
         break;
 
     case CK_IBM_KEM_DECAPSULATE:
-        mech_ep11->params.pCipher = kyber_params->pCipher;
-        mech_ep11->params.ulCipherLen = kyber_params->ulCipherLen;
+        mech_ep11->params.pCipher = ml_kem_params->pCipher;
+        mech_ep11->params.ulCipherLen = ml_kem_params->ulCipherLen;
         break;
 
     default:
-        TRACE_ERROR("Unsupported mode in Kyber mechanism param\n");
+        TRACE_ERROR("Unsupported mode in ML-KEM mechanism param\n");
         return CKR_MECHANISM_PARAM_INVALID;
     }
 
-    if (kyber_params->hSecret != CK_INVALID_HANDLE) {
+    if (ml_kem_params->hSecret != CK_INVALID_HANDLE) {
         if (*secret_key_obj != NULL) {
             object_put(tokdata, *secret_key_obj, TRUE);
             *secret_key_obj = NULL;
         }
 
-        rc = h_opaque_2_blob(tokdata, kyber_params->hSecret,
+        rc = h_opaque_2_blob(tokdata, ml_kem_params->hSecret,
                              &mech_ep11->params.pBlob,
                              &mech_ep11->params.ulBlobLen,
                              secret_key_obj, READ_LOCK);
         if (rc != CKR_OK) {
             TRACE_ERROR("h_opaque_2_blob failed hSecret=0x%lx\n",
-                        kyber_params->hSecret);
+                        ml_kem_params->hSecret);
             return rc;
         }
 
@@ -7680,7 +7680,7 @@ static CK_RV ep11tok_kyber_mech_pre_process(STDLL_TokData_t *tokdata,
                                          &mech_ep11->params.ulBlobLen);
             if (rc != CKR_OK && rc != CKR_TEMPLATE_INCOMPLETE) {
                 TRACE_ERROR("obj_opaque_2_reenc_blob failed hSecret=0x%lx\n",
-                            kyber_params->hSecret);
+                            ml_kem_params->hSecret);
                 return rc;
             }
         }
@@ -7689,22 +7689,22 @@ static CK_RV ep11tok_kyber_mech_pre_process(STDLL_TokData_t *tokdata,
     return CKR_OK;
 }
 
-static CK_RV ep11tok_kyber_mech_post_process(STDLL_TokData_t *tokdata,
-                                             CK_MECHANISM *mech,
-                                             CK_BYTE *csum, CK_ULONG cslen)
+static CK_RV ep11tok_ml_kem_mech_post_process(STDLL_TokData_t *tokdata,
+                                              CK_MECHANISM *mech,
+                                              CK_BYTE *csum, CK_ULONG cslen)
 {
-    CK_IBM_KYBER_PARAMS *kyber_params;
+    CK_IBM_ML_KEM_PARAMS *ml_kem_params;
     CK_ULONG cipher_len;
 
     UNUSED(tokdata);
 
-    kyber_params = mech->pParameter;
-    if (mech->ulParameterLen != sizeof(CK_IBM_KYBER_PARAMS)) {
+    ml_kem_params = mech->pParameter;
+    if (mech->ulParameterLen != sizeof(CK_IBM_ML_KEM_PARAMS)) {
         TRACE_ERROR("Mechanism parameter length not as expected\n");
         return CKR_MECHANISM_PARAM_INVALID;
     }
 
-    if (kyber_params->mode != CK_IBM_KYBER_KEM_ENCAPSULATE)
+    if (ml_kem_params->mode != CK_IBM_ML_KEM_ENCAPSULATE)
         return CKR_OK;
 
     /*
@@ -7720,16 +7720,16 @@ static CK_RV ep11tok_kyber_mech_post_process(STDLL_TokData_t *tokdata,
 
     cipher_len = cslen - (EP11_CSUMSIZE + 4);
 
-    if (kyber_params->ulCipherLen < cipher_len) {
-        TRACE_ERROR("%s Cipher buffer in kyber mechanism param too small, required: %lu\n",
+    if (ml_kem_params->ulCipherLen < cipher_len) {
+        TRACE_ERROR("%s Cipher buffer in ML-KEM mechanism param too small, required: %lu\n",
                     __func__, cipher_len);
-        kyber_params->ulCipherLen = cipher_len;
+        ml_kem_params->ulCipherLen = cipher_len;
         OPENSSL_cleanse(&csum[EP11_CSUMSIZE + 4], cipher_len);
         return CKR_BUFFER_TOO_SMALL;
     }
 
-    memcpy(kyber_params->pCipher, &csum[EP11_CSUMSIZE + 4], cipher_len);
-    kyber_params->ulCipherLen = cipher_len;
+    memcpy(ml_kem_params->pCipher, &csum[EP11_CSUMSIZE + 4], cipher_len);
+    ml_kem_params->ulCipherLen = cipher_len;
 
     OPENSSL_cleanse(&csum[EP11_CSUMSIZE + 4], cipher_len);
     return CKR_OK;
@@ -8342,11 +8342,11 @@ CK_RV ep11tok_derive_key(STDLL_TokData_t *tokdata, SESSION *session,
     ep11_target_info_t* target_info;
     CK_ULONG used_firmware_API_version;
     CK_MECHANISM_PTR mech_orig = mech;
-    struct EP11_KYBER_MECH mech_ep11;
+    struct EP11_KEM_MECH mech_ep11;
     struct EP11_BLS12_MECH mech_bls = { 0 };
     void *pAggrElements = NULL;
     struct objstrength objstrength;
-    OBJECT *kyber_secret_obj = NULL;
+    OBJECT *kem_secret_obj = NULL;
     CK_KEY_TYPE keytype;
     CK_BYTE *useblob = NULL;
     size_t useblobsize = 0;
@@ -8692,9 +8692,10 @@ do_retry:
         break;
 
     case CKM_IBM_KYBER:
-        rc = ep11tok_kyber_mech_pre_process(tokdata, mech_orig, &mech_ep11,
-                                            &kyber_secret_obj,
-                                            retry_mech_param_blob != 0);
+    case CKM_IBM_ML_KEM:
+        rc = ep11tok_ml_kem_mech_pre_process(tokdata, mech_orig, &mech_ep11,
+                                             &kem_secret_obj,
+                                             retry_mech_param_blob != 0);
         if (rc != CKR_OK)
             goto error;
         mech = &mech_ep11.mech;
@@ -8794,7 +8795,8 @@ do_retry:
         break;
 
     case CKM_IBM_KYBER:
-        rc = ep11tok_kyber_mech_post_process(tokdata, mech_orig, csum, cslen);
+    case CKM_IBM_ML_KEM:
+        rc = ep11tok_ml_kem_mech_post_process(tokdata, mech_orig, csum, cslen);
         if (rc != CKR_OK)
             goto error;
         break;
@@ -8876,8 +8878,8 @@ out:
 
     object_put(tokdata, base_key_obj, TRUE);
     base_key_obj = NULL;
-    object_put(tokdata, kyber_secret_obj, TRUE);
-    kyber_secret_obj = NULL;
+    object_put(tokdata, kem_secret_obj, TRUE);
+    kem_secret_obj = NULL;
 
     return rc;
 }
