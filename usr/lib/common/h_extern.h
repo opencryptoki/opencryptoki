@@ -914,6 +914,9 @@ CK_RV pqc_unpack_pub_key(CK_BYTE *pub, CK_ULONG pub_len,
                          const struct pqc_oid *oid,
                          CK_MECHANISM_TYPE mech, TEMPLATE *templ);
 
+CK_RV ibm_ml_dsa_dup_param(CK_VOID_PTR src, CK_VOID_PTR dst, CK_ULONG len);
+CK_RV ibm_ml_dsa_free_param(CK_VOID_PTR p, CK_ULONG len);
+
 CK_RV digest_from_kdf(CK_EC_KDF_TYPE kdf, CK_MECHANISM_TYPE *mech);
 CK_RV get_digest_from_mech(CK_MECHANISM_TYPE mech, CK_MECHANISM_TYPE *digest);
 

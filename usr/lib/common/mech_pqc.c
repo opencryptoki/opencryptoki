@@ -610,3 +610,50 @@ CK_RV pqc_unpack_pub_key(CK_BYTE *pub, CK_ULONG pub_len,
         return CKR_MECHANISM_INVALID;
     }
 }
+
+CK_RV ibm_ml_dsa_dup_param(CK_VOID_PTR src, CK_VOID_PTR dst, CK_ULONG len)
+{
+    CK_IBM_SIGN_ADDITIONAL_CONTEXT *param_src = src;
+    CK_IBM_SIGN_ADDITIONAL_CONTEXT *param_dst = dst;
+
+    if (param_src == NULL || len == 0)
+        return CKR_OK;
+
+    if (len != sizeof(CK_IBM_SIGN_ADDITIONAL_CONTEXT))
+        return CKR_MECHANISM_PARAM_INVALID;
+
+    if(param_src->pContext == NULL || param_src->ulContextLen == 0)
+        return CKR_OK;
+
+    if (param_dst == NULL)
+        return CKR_ARGUMENTS_BAD;
+
+    param_dst->pContext = malloc(param_src->ulContextLen);
+    if (param_dst->pContext == NULL) {
+        TRACE_ERROR("%s Memory allocation failed\n", __func__);
+        return CKR_HOST_MEMORY;
+    }
+
+    memcpy(param_dst->pContext, param_src->pContext, param_src->ulContextLen);
+    param_dst->ulContextLen = param_src->ulContextLen;
+
+    return CKR_OK;
+}
+
+CK_RV ibm_ml_dsa_free_param(CK_VOID_PTR p, CK_ULONG len)
+{
+    CK_IBM_SIGN_ADDITIONAL_CONTEXT *param = p;
+
+    if (param == NULL || len == 0)
+        return CKR_OK;
+
+    if (len != sizeof(CK_IBM_SIGN_ADDITIONAL_CONTEXT))
+        return CKR_MECHANISM_PARAM_INVALID;
+
+    if (param->pContext != NULL)
+        free(param->pContext);
+
+    memset(param, 0, sizeof(*param));
+
+    return CKR_OK;
+}

@@ -901,6 +901,21 @@ CK_RV sign_mgr_init(STDLL_TokData_t *tokdata,
             goto done;
         }
         memcpy(ptr, mech->pParameter, mech->ulParameterLen);
+
+        /* Deep copy mechanism parameter, if required */
+        switch (mech->mechanism)
+        {
+        case CKM_IBM_ML_DSA:
+            rc = ibm_ml_dsa_dup_param(mech->pParameter, ptr,
+                                      mech->ulParameterLen);
+            if (rc != CKR_OK) {
+                TRACE_ERROR("ibm_ml_dsa_dup_param failed\n");
+                free(ptr);
+            }
+            break;
+        default:
+            break;
+        }
     }
 
     ctx->key = key;
@@ -952,6 +967,10 @@ CK_RV sign_mgr_cleanup(STDLL_TokData_t *tokdata, SESSION *sess,
         {
         case CKM_IBM_EC_AGGREGATE:
             ec_agg_free_param((CK_IBM_ECDSA_OTHER_BLS_PARAMS *)ctx->mech.pParameter);
+            break;
+        case CKM_IBM_ML_DSA:
+            ibm_ml_dsa_free_param(ctx->mech.pParameter,
+                                  ctx->mech.ulParameterLen);
             break;
         default:
             break;
