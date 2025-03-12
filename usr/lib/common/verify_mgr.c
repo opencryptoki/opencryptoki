@@ -881,6 +881,21 @@ CK_RV verify_mgr_init(STDLL_TokData_t *tokdata,
             goto done;
         }
         memcpy(ptr, mech->pParameter, mech->ulParameterLen);
+
+        /* Deep copy mechanism parameter, if required */
+        switch (mech->mechanism)
+        {
+        case CKM_IBM_ML_DSA:
+            rc = ibm_ml_dsa_dup_param(mech->pParameter, ptr,
+                                      mech->ulParameterLen);
+            if (rc != CKR_OK) {
+                TRACE_ERROR("ibm_ml_dsa_dup_param failed\n");
+                free(ptr);
+            }
+            break;
+        default:
+            break;
+        }
     }
 
     ctx->key = key;
@@ -916,8 +931,6 @@ CK_RV verify_mgr_cleanup(STDLL_TokData_t *tokdata, SESSION *sess,
         return CKR_FUNCTION_FAILED;
     }
     ctx->key = 0;
-    ctx->mech.ulParameterLen = 0;
-    ctx->mech.mechanism = 0;
     ctx->multi_init = FALSE;
     ctx->multi = FALSE;
     ctx->active = FALSE;
@@ -928,9 +941,22 @@ CK_RV verify_mgr_cleanup(STDLL_TokData_t *tokdata, SESSION *sess,
     ctx->count_statistics = FALSE;
 
     if (ctx->mech.pParameter) {
+        /* Deep free mechanism parameter, if required */
+        switch (ctx->mech.mechanism)
+        {
+        case CKM_IBM_ML_DSA:
+            ibm_ml_dsa_free_param(ctx->mech.pParameter,
+                                  ctx->mech.ulParameterLen);
+            break;
+        default:
+            break;
+        }
+
         free(ctx->mech.pParameter);
         ctx->mech.pParameter = NULL;
     }
+    ctx->mech.ulParameterLen = 0;
+    ctx->mech.mechanism = 0;
 
     if (ctx->context) {
         if (ctx->context_free_func != NULL)

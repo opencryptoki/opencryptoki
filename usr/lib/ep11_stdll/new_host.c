@@ -3210,6 +3210,23 @@ CK_RV SC_SignInit(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
                 memcpy(sess->sign_ctx.mech.pParameter, pMechanism->pParameter,
                        pMechanism->ulParameterLen);
                 sess->sign_ctx.mech.ulParameterLen = pMechanism->ulParameterLen;
+
+                /* Deep copy mechanism parameter, if required */
+                switch (pMechanism->mechanism)
+                {
+                case CKM_IBM_ML_DSA:
+                    rc = ibm_ml_dsa_dup_param(pMechanism->pParameter,
+                                              sess->sign_ctx.mech.pParameter,
+                                              pMechanism->ulParameterLen);
+                    if (rc != CKR_OK) {
+                        TRACE_ERROR("ibm_ml_dsa_dup_param failed\n");
+                        sign_mgr_cleanup(tokdata, sess, &sess->sign_ctx);
+                        goto done;
+                    }
+                    break;
+                default:
+                    break;
+                }
             } else {
                 TRACE_ERROR("%s Memory allocation failed\n", __func__);
                 rc = CKR_HOST_MEMORY;
@@ -3656,6 +3673,23 @@ CK_RV SC_VerifyInit(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
                 memcpy(sess->verify_ctx.mech.pParameter, pMechanism->pParameter,
                        pMechanism->ulParameterLen);
                 sess->verify_ctx.mech.ulParameterLen = pMechanism->ulParameterLen;
+
+                /* Deep copy mechanism parameter, if required */
+                switch (pMechanism->mechanism)
+                {
+                case CKM_IBM_ML_DSA:
+                    rc = ibm_ml_dsa_dup_param(pMechanism->pParameter,
+                                              sess->verify_ctx.mech.pParameter,
+                                              pMechanism->ulParameterLen);
+                    if (rc != CKR_OK) {
+                        TRACE_ERROR("ibm_ml_dsa_dup_param failed\n");
+                        verify_mgr_cleanup(tokdata, sess, &sess->verify_ctx);
+                        goto done;
+                    }
+                    break;
+                default:
+                    break;
+                }
             } else {
                 TRACE_ERROR("%s Memory allocation failed\n", __func__);
                 rc = CKR_HOST_MEMORY;
