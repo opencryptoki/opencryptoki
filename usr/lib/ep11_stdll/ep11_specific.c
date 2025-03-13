@@ -13572,15 +13572,22 @@ CK_RV ep11tok_unwrap_key(STDLL_TokData_t * tokdata, SESSION * session,
             break;
         case CKK_IBM_PQC_DILITHIUM:
         case CKK_IBM_PQC_KYBER:
+        case CKK_IBM_ML_DSA:
+        case CKK_IBM_ML_KEM:
             rc = pqc_priv_unwrap_get_data(key_obj->template,
                                           *(CK_KEY_TYPE *)keytype_attr->pValue,
                                           csum, cslen, FALSE);
             break;
+        default:
+            TRACE_ERROR("%s unsupported key type=0x%lx\n",
+                                    __func__, rc);
+            rc = CKR_KEY_TYPE_INCONSISTENT;
+            goto error;
         }
 
         if (rc != 0) {
             TRACE_ERROR("%s xxx_priv_unwrap_get_data rc=0x%lx\n",
-                        __func__, rc);
+                        __func__, *(CK_KEY_TYPE *) keytype_attr->pValue);
             goto error;
         }
 
