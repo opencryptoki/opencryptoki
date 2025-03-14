@@ -100,45 +100,37 @@ generate_certificates() {
 
 setup_kmip_client() {
   RETRY_COUNT=0
-  LOGIN_DONE=0
   UPLOAD_CERT_DONE=0
   CREATE_CLIENT_DONE=0
   ASSIGN_CERT_DONE=0
 
   while true; do
 		if [[ $RETRY_COUNT -gt 100 ]] ; then
+			RC=1
 			echo "error: Too many login retries"
 			break
 		fi
 		RETRY_COUNT=$((RETRY_COUNT+1))
 
-		if [[ $LOGIN_DONE -eq 0 ]] ; then
-			# Get a login authorization ID from SKLM
-			curl --fail-with-body --location --request POST "$KMIP_REST_URL/SKLM/rest/v1/ckms/login" \
-				--header "Content-Type: application/json" \
-				--data "{\"userid\":\"$KMIP_REST_USER\", \"password\":\"$KMIP_REST_PASSWORD\"}" \
-				--insecure --silent --show-error >$P11KMIP_TMP/curl_get_login_authid_stdout 2>$P11KMIP_TMP/curl_get_login_authid_stderr
-			RC=$?
-			echo "rc:" $RC
-			if [[ $RC -ne 0 ]] ; then
-				cat $P11KMIP_TMP/curl_get_login_authid_stdout
-				cat $P11KMIP_TMP/curl_get_login_authid_stderr
-				break
-			fi
-
-			# Parse the response data and extract the authorization id token
-			# Expected to return: {"UserAuthId":"xxxxxx"}
-			AUTHID=`jq .UserAuthId $P11KMIP_TMP/curl_get_login_authid_stdout -r`
-			echo "AuthID:" $AUTHID
-			if [[ $LOGIN_DONE -eq 0 ]]; then
-				echo "succeeded: curl_get_login_authid"
-			fi
-			if [[ $RC -ne 0 ]] ; then
-				break
-				cat $P11KMIP_TMP/curl_get_login_authid_stderr
-			fi
-			LOGIN_DONE=1
+		# Get a login authorization ID from SKLM
+		curl --fail-with-body --location --request POST "$KMIP_REST_URL/SKLM/rest/v1/ckms/login" \
+			--header "Content-Type: application/json" \
+			--data "{\"userid\":\"$KMIP_REST_USER\", \"password\":\"$KMIP_REST_PASSWORD\"}" \
+			--insecure --silent --show-error >$P11KMIP_TMP/curl_get_login_authid_stdout 2>$P11KMIP_TMP/curl_get_login_authid_stderr
+		RC=$?
+		echo "rc:" $RC
+		if [[ $RC -ne 0 ]] ; then
+			RC=1
+			cat $P11KMIP_TMP/curl_get_login_authid_stdout
+			cat $P11KMIP_TMP/curl_get_login_authid_stderr
+			break
 		fi
+
+		# Parse the response data and extract the authorization id token
+		# Expected to return: {"UserAuthId":"xxxxxx"}
+		AUTHID=`jq .UserAuthId $P11KMIP_TMP/curl_get_login_authid_stdout -r`
+		echo "AuthID:" $AUTHID
+		echo "succeeded: curl_get_login_authid"
 
 		# Upload the client certificate to SKLM
 		if [[ $UPLOAD_CERT_DONE -eq 0 ]] ; then
@@ -157,15 +149,16 @@ setup_kmip_client() {
 				continue
 			fi
 			if [[ "$MSG" == "CTGKM3466E Cannot upload the file $(basename $KMIP_CLIENT_CERT) because a file with the same name already exists on the server." ]]; then
+				RC=1
 				echo "info: Client certificate already uploaded to server"
-				UPLOAD_CERT_DONE=1
-				continue
+				break
 			fi
 			if [[ "$MSG" != "CTGKM3465I File $(basename $KMIP_CLIENT_CERT) is uploaded." ]]; then
 				RC=1
 				echo "error: Status not as expected"
 				cat $P11KMIP_TMP/curl_upload_cert_stdout
 				cat $P11KMIP_TMP/curl_upload_cert_stderr
+				break
 			fi
 			UPLOAD_CERT_DONE=1
 			echo "succeeded: curl_upload_cert"
@@ -194,6 +187,7 @@ setup_kmip_client() {
 				echo "error: Message not as expected"
 				cat $P11KMIP_TMP/curl_create_client_stdout
 				cat $P11KMIP_TMP/curl_create_client_stderr
+				break
 			fi
 			CREATE_CLIENT_DONE=1
 			echo "succeeded: curl_create_client"
@@ -220,6 +214,7 @@ setup_kmip_client() {
 				echo "error: Message not as expected"
 				cat $P11KMIP_TMP/curl_assign_cert_stdout
 				cat $P11KMIP_TMP/curl_assign_cert_stderr
+				break
 			fi
 			ASSIGN_CERT_DONE=1
 			echo "succeeded: curl_assign_cert"
