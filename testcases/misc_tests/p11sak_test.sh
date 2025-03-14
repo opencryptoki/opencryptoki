@@ -54,6 +54,12 @@ P11SAK_IBM_DILITHIUM_POST=p11sak-ibm-dilithium-post.out
 P11SAK_IBM_KYBER_PRE=p11sak-ibm-kyber-pre.out
 P11SAK_IBM_KYBER_LONG=p11sak-ibm-kyber-long.out
 P11SAK_IBM_KYBER_POST=p11sak-ibm-kyber-post.out
+P11SAK_IBM_ML_DSA_PRE=p11sak-ibm-ml-dsa-pre.out
+P11SAK_IBM_ML_DSA_LONG=p11sak-ibm-ml-dsa-long.out
+P11SAK_IBM_ML_DSA_POST=p11sak-ibm-ml-dsa-post.out
+P11SAK_IBM_ML_KEM_PRE=p11sak-ibm-ml-kem-pre.out
+P11SAK_IBM_ML_KEM_LONG=p11sak-ibm-ml-kem-long.out
+P11SAK_IBM_ML_KEM_POST=p11sak-ibm-ml-kem-post.out
 P11SAK_ALL_PINOPT=p11sak-all-pinopt
 P11SAK_ALL_PINENV=p11sak-all-pinenv
 P11SAK_ALL_PINCON=p11sak-all-pincon
@@ -65,6 +71,12 @@ P11SAK_X509_POST=p11sak-x509-post.out
 
 
 echo "** Setting SLOT=30 to the Softtoken unless otherwise set - 'p11sak_test.sh'"
+
+# Validate required environment variables
+if [[ -z "${PKCS11_USER_PIN}" ]]; then
+	echo "Please set the PKCS11_USER_PIN environment variable"
+	exit 1
+fi
 
 # setting SLOT=30 to the Softtoken
 
@@ -177,6 +189,20 @@ if [[ -n $( ${PKCSCONF} -m -c $SLOT | grep CKM_IBM_KYBER) ]]; then
 else
 	echo "Skip generating ibm-kyber keys, slot does not support CKM_IBM_KYBER"
 fi
+# ibm-ml-dsa
+if [[ -n $( ${PKCSCONF} -m -c $SLOT | grep CKM_IBM_ML_DSA) ]]; then
+	${P11SAK} generate-key ibm-ml-dsa 65 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-ibm-ml-dsa"
+	RC_P11SAK_GENERATE=$((RC_P11SAK_GENERATE + $?))
+else
+	echo "Skip generating ibm-ml-dsa keys, slot does not support CKM_IBM_ML_DSA"
+fi
+# ibm-ml-kem
+if [[ -n $( ${PKCSCONF} -m -c $SLOT | grep CKM_IBM_ML_KEM) ]]; then
+	${P11SAK} generate-key ibm-ml-kem 1024 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-ibm-ml-kem"
+	RC_P11SAK_GENERATE=$((RC_P11SAK_GENERATE + $?))
+else
+	echo "Skip generating ibm-ml-kem keys, slot does not support CKM_IBM_ML_KEM"
+fi
 
 
 echo "** Now list keys and redirect output to pre-files - 'p11sak_test.sh'"
@@ -205,6 +231,10 @@ ${P11SAK} list-key ibm-dilithium --slot $SLOT --pin $PKCS11_USER_PIN --label "p1
 RC_P11SAK_LIST=$((RC_P11SAK_LIST + $?))
 ${P11SAK} list-key ibm-kyber --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-ibm-kyber*" &> $P11SAK_IBM_KYBER_PRE
 RC_P11SAK_LIST=$((RC_P11SAK_LIST + $?))
+${P11SAK} list-key ibm-ml-dsa --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-ibm-ml-dsa*" &> $P11SAK_IBM_ML_DSA_PRE
+RC_P11SAK_LIST=$((RC_P11SAK_LIST + $?))
+${P11SAK} list-key ibm-ml-kem --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-ibm-ml-kem*" &> $P11SAK_IBM_ML_KEM_PRE
+RC_P11SAK_LIST=$((RC_P11SAK_LIST + $?))
 
 RC_P11SAK_LIST_LONG=0
 ${P11SAK} list-key des --slot $SLOT --pin $PKCS11_USER_PIN --long --label "p11sak-des" &> $P11SAK_DES_LONG
@@ -228,6 +258,10 @@ RC_P11SAK_LIST_LONG=$((RC_P11SAK_LIST_LONG + $?))
 ${P11SAK} list-key ibm-dilithium --slot $SLOT --pin $PKCS11_USER_PIN --long --label "p11sak-ibm-dilithium*" &> $P11SAK_IBM_DILITHIUM_LONG
 RC_P11SAK_LIST_LONG=$((RC_P11SAK_LIST_LONG + $?))
 ${P11SAK} list-key ibm-kyber --slot $SLOT --pin $PKCS11_USER_PIN --long --label "p11sak-ibm-kyber*" &> $P11SAK_IBM_KYBER_LONG
+RC_P11SAK_LIST_LONG=$((RC_P11SAK_LIST_LONG + $?))
+${P11SAK} list-key ibm-ml-dsa --slot $SLOT --pin $PKCS11_USER_PIN --long --label "p11sak-ibm-ml-dsa*" &> $P11SAK_IBM_ML_DSA_LONG
+RC_P11SAK_LIST_LONG=$((RC_P11SAK_LIST_LONG + $?))
+${P11SAK} list-key ibm-ml-kem --slot $SLOT --pin $PKCS11_USER_PIN --long --label "p11sak-ibm-ml-kem*" &> $P11SAK_IBM_ML_KEM_LONG
 RC_P11SAK_LIST_LONG=$((RC_P11SAK_LIST_LONG + $?))
 
 
@@ -277,6 +311,10 @@ RC_P11SAK_KEY_EXTRACT=$((RC_P11SAK_KEY_EXTRACT + $?))
 ${P11SAK} extract-pubkey private --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-ibm-dilithium*" --new-label "p11sak-pubkey-extracted" --force
 RC_P11SAK_KEY_EXTRACT=$((RC_P11SAK_KEY_EXTRACT + $?))
 ${P11SAK} extract-pubkey private --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-ibm-kyber*" --new-label "p11sak-pubkey-extracted" --force
+RC_P11SAK_KEY_EXTRACT=$((RC_P11SAK_KEY_EXTRACT + $?))
+${P11SAK} extract-pubkey private --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-ibm-ml-dsa*" --new-label "p11sak-pubkey-extracted" --force
+RC_P11SAK_KEY_EXTRACT=$((RC_P11SAK_KEY_EXTRACT + $?))
+${P11SAK} extract-pubkey private --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-ibm-ml-kem*" --new-label "p11sak-pubkey-extracted" --force
 RC_P11SAK_KEY_EXTRACT=$((RC_P11SAK_KEY_EXTRACT + $?))
 
 
@@ -341,7 +379,7 @@ if [[ -n $( ${PKCSCONF} -m -c $SLOT | grep CKM_IBM_DILITHIUM) ]]; then
 		${P11SAK} import-key ibm-dilithium public --slot $SLOT --pin $PKCS11_USER_PIN --label "import-ibm-dilithium-public" --file $DIR/ibm-dilithium-r3-65-key.pem --attr sX
 		RC_P11SAK_IMPORT=$((RC_P11SAK_IMPORT + $?))
 	fi
-	if [[ -n $(openssl list -providers | grep oqsprovider) ]]; then
+	if [[ -n $(openssl list -providers | grep oqsprovider) && -n $(openssl list -key-managers | grep "dilithium3 @ oqsprovider") ]]; then
 		openssl genpkey -algorithm dilithium3 -out oqs-dil3-priv-key.pem
 		RC_P11SAK_IMPORT=$((RC_P11SAK_IMPORT + $?))
 		openssl pkey -in oqs-dil3-priv-key.pem -pubout -out oqs-dil3-pub-key.pem
@@ -351,7 +389,7 @@ if [[ -n $( ${PKCSCONF} -m -c $SLOT | grep CKM_IBM_DILITHIUM) ]]; then
 		${P11SAK} import-key ibm-dilithium public --slot $SLOT --pin $PKCS11_USER_PIN --label "import-oqs-dilithium-public" --file oqs-dil3-pub-key.pem --oqsprovider-pem --attr sX
 		RC_P11SAK_IMPORT=$((RC_P11SAK_IMPORT + $?))
 	else
-		echo "Skip importing oqs-dilithium keys, the oqsprovider is not available"
+		echo "Skip importing oqs-dilithium keys, the oqsprovider is not available or does not support dilithium3"
 	fi
 else
 	echo "Skip importing ibm-dilithium keys, slot does not support CKM_IBM_DILITHIUM"
@@ -366,6 +404,40 @@ else
 	echo "Skip importing ibm-kyber keys, slot does not support CKM_IBM_KYBER"
 fi
 
+# ibm-ml-dsa
+if [[ -n $( ${PKCSCONF} -m -c $SLOT | grep CKM_IBM_ML_DSA) ]]; then
+	if [[ -n $(openssl list -key-managers | grep -i "MLDSA65") ]]; then
+		openssl genpkey -algorithm mldsa65 -out mldsa65-priv-key.pem
+		RC_P11SAK_IMPORT=$((RC_P11SAK_IMPORT + $?))
+		openssl pkey -in mldsa65-priv-key.pem -pubout -out mldsa65-pub-key.pem
+		RC_P11SAK_IMPORT=$((RC_P11SAK_IMPORT + $?))
+		${P11SAK} import-key ibm-ml-dsa private --slot $SLOT --pin $PKCS11_USER_PIN --label "import-ml-dsa-private" --file mldsa65-priv-key.pem --attr sX
+		RC_P11SAK_IMPORT=$((RC_P11SAK_IMPORT + $?))
+		${P11SAK} import-key ibm-ml-dsa public --slot $SLOT --pin $PKCS11_USER_PIN --label "import-ml-dsa-public" --file mldsa65-pub-key.pem --attr sX
+		RC_P11SAK_IMPORT=$((RC_P11SAK_IMPORT + $?))
+	else
+		echo "Skip importing ml-dsa keys, neither OpenSSL 3.5, nor the oqsprovider is available or does not support mldsa65"
+	fi
+else
+	echo "Skip importing ibm-ml-dsa keys, slot does not support CKM_IBM_ML_DSA"
+fi
+# ibm-ml-kem
+if [[ -n $( ${PKCSCONF} -m -c $SLOT | grep CKM_IBM_ML_KEM) ]]; then
+	if [[ -n $(openssl list -key-managers | grep -i "MLKEM1024") ]]; then
+		openssl genpkey -algorithm mlkem1024 -out mlkem1024-priv-key.pem
+		RC_P11SAK_IMPORT=$((RC_P11SAK_IMPORT + $?))
+		openssl pkey -in mlkem1024-priv-key.pem -pubout -out mlkem1024-pub-key.pem
+		RC_P11SAK_IMPORT=$((RC_P11SAK_IMPORT + $?))
+		${P11SAK} import-key ibm-ml-kem private --slot $SLOT --pin $PKCS11_USER_PIN --label "import-ml-kem-private" --file mlkem1024-priv-key.pem --attr sX
+		RC_P11SAK_IMPORT=$((RC_P11SAK_IMPORT + $?))
+		${P11SAK} import-key ibm-ml-kem public --slot $SLOT --pin $PKCS11_USER_PIN --label "import-ml-kem-public" --file mlkem1024-pub-key.pem --attr sX
+		RC_P11SAK_IMPORT=$((RC_P11SAK_IMPORT + $?))
+	else
+		echo "Skip importing ml-kem keys, neither OpenSSL 3.5, nor the oqsprovider is available or does not support mlkem1024"
+	fi
+else
+	echo "Skip importing ibm-kyber keys, slot does not support CKM_IBM_ML_KEM"
+fi
 
 echo "** Now exporting keys - 'p11sak_test.sh'"
 
@@ -473,22 +545,22 @@ if [[ -n $( ${PKCSCONF} -m -c $SLOT | grep CKM_IBM_DILITHIUM) ]]; then
 		RC_P11SAK_EXPORT=$((RC_P11SAK_EXPORT + $?))
 		${P11SAK} export-key ibm-dilithium --slot $SLOT --pin $PKCS11_USER_PIN --label "import-ibm-dilithium-private" --file export-ibm-dilithium-key.opaque --force --opaque
 		RC_P11SAK_EXPORT=$((RC_P11SAK_EXPORT + $?))
-		if [[ -n $(openssl list -providers | grep oqsprovider) ]]; then
+		if [[ -n $(openssl list -providers | grep oqsprovider) && -n $(openssl list -key-managers | grep "dilithium3 @ oqsprovider") ]]; then
 			${P11SAK} export-key ibm-dilithium --slot $SLOT --pin $PKCS11_USER_PIN --label "import-oqs-dilithium-public" --file export-oqs-dilithium-key.pem --oqsprovider-pem --force
 			RC_P11SAK_EXPORT=$((RC_P11SAK_EXPORT + $?))
 			${P11SAK} export-key ibm-dilithium --slot $SLOT --pin $PKCS11_USER_PIN --label "import-oqs-dilithium-private" --file export-oqs-dilithium-key.opaque --force --opaque
 			RC_P11SAK_EXPORT=$((RC_P11SAK_EXPORT + $?))
 		else
-			echo "Skip importing oqs-dilithium keys, the oqsprovider is not available"
+			echo "Skip exporting oqs-dilithium keys, the oqsprovider is not available or does not support dilithium3"
 		fi
 	else
 		${P11SAK} export-key ibm-dilithium --slot $SLOT --pin $PKCS11_USER_PIN --label "import-ibm-dilithium-*" --file export-ibm-dilithium-key.pem --force
 		RC_P11SAK_EXPORT=$((RC_P11SAK_EXPORT + $?))
-		if [[ -n $(openssl list -providers | grep oqsprovider) ]]; then
+		if [[ -n $(openssl list -providers | grep oqsprovider) && -n $(openssl list -key-managers | grep "dilithium3 @ oqsprovider") ]]; then
 			${P11SAK} export-key ibm-dilithium --slot $SLOT --pin $PKCS11_USER_PIN --label "import-oqs-dilithium-*" --file export-oqs-dilithium-key.pem --oqsprovider-pem --force
 			RC_P11SAK_EXPORT=$((RC_P11SAK_EXPORT + $?))
 		else
-			echo "Skip importing oqs-dilithium keys, the oqsprovider is not available"
+			echo "Skip exporting oqs-dilithium keys, the oqsprovider is not available or does not support dilithium3"
 		fi
 	fi
 else
@@ -507,6 +579,42 @@ if [[ -n $( ${PKCSCONF} -m -c $SLOT | grep CKM_IBM_KYBER) ]]; then
 	fi
 else
 	echo "Skip exporting ibm-kyber keys, slot does not support CKM_IBM_KYBER"
+fi
+# ibm-ml-dsa
+if [[ -n $( ${PKCSCONF} -m -c $SLOT | grep CKM_IBM_ML_DSA) ]]; then
+	if [[ -n $(openssl list -key-managers | grep -i "MLDSA65") ]]; then
+		if [[ -n $( ${PKCSCONF} -t -c $SLOT | grep "Model: EP11") || -n $( ${PKCSCONF} -t -c $SLOT | grep "Model: CCA") ]]; then
+			${P11SAK} export-key ibm-ml-dsa --slot $SLOT --pin $PKCS11_USER_PIN --label "import-ml-dsa-public" --file export-ml-dsa-key.pem --force
+			RC_P11SAK_EXPORT=$((RC_P11SAK_EXPORT + $?))
+			${P11SAK} export-key ibm-ml-dsa --slot $SLOT --pin $PKCS11_USER_PIN --label "import-ml-dsa-private" --file export-ml-dsa-key.opaque --force --opaque
+			RC_P11SAK_EXPORT=$((RC_P11SAK_EXPORT + $?))
+		else
+			${P11SAK} export-key ibm-ml-dsa --slot $SLOT --pin $PKCS11_USER_PIN --label "import-ml-dsa-*" --file export-ml-dsa-key.pem --force
+			RC_P11SAK_EXPORT=$((RC_P11SAK_EXPORT + $?))
+		fi
+	else
+		echo "Skip exporting ml-dsa keys, neither OpeNSSL 3.5, nor the oqsprovider is available or does not support mldsa65"
+	fi
+else
+	echo "Skip exporting ibm-ml-dsa keys, slot does not support CKM_IBM_ML_DSA"
+fi
+# ibm-ml-kem
+if [[ -n $( ${PKCSCONF} -m -c $SLOT | grep CKM_IBM_ML_KEM) ]]; then
+	if [[ -n $(openssl list -key-managers | grep -i "MLKEM1024") ]]; then
+		if [[ -n $( ${PKCSCONF} -t -c $SLOT | grep "Model: EP11") || -n $( ${PKCSCONF} -t -c $SLOT | grep "Model: CCA") ]]; then
+			${P11SAK} export-key ibm-ml-kem --slot $SLOT --pin $PKCS11_USER_PIN --label "import-ml-kem-public" --file export-ml-kem-key.pem --force
+			RC_P11SAK_EXPORT=$((RC_P11SAK_EXPORT + $?))
+			${P11SAK} export-key ibm-ml-kem --slot $SLOT --pin $PKCS11_USER_PIN --label "import-ml-kem-private" --file export-ml-kem-key.opaque --force --opaque
+			RC_P11SAK_EXPORT=$((RC_P11SAK_EXPORT + $?))
+		else
+			${P11SAK} export-key ibm-ml-kem --slot $SLOT --pin $PKCS11_USER_PIN --label "import-ml-kem-*" --file export-mlkem-key.pem --force
+			RC_P11SAK_EXPORT=$((RC_P11SAK_EXPORT + $?))
+		fi
+	else
+		echo "Skip exporting ml-kem keys, neither OpenSSL 3.5, nor the oqsprovider is available or does not support mlkem1024"
+	fi
+else
+	echo "Skip exporting ibm-ml-kem keys, slot does not support CKM_IBM_ML_KEM"
 fi
 # export to URI-PEM
 p11sak export-key aes --slot $SLOT --pin $PKCS11_USER_PIN --label "import-aes" --file export-uri-pem1.pem --force --uri-pem
@@ -632,6 +740,17 @@ ${P11SAK} remove-key ibm-kyber --slot $SLOT --pin $PKCS11_USER_PIN --label "p11s
 RC_P11SAK_REMOVE=$((RC_P11SAK_REMOVE + $?))
 ${P11SAK} remove-key ibm-kyber --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-ibm-kyber:prv" -f
 RC_P11SAK_REMOVE=$((RC_P11SAK_REMOVE + $?))
+# remove ibm-ml-dsa keys
+${P11SAK} remove-key ibm-ml-dsa --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-ibm-ml-dsa:pub" -f
+RC_P11SAK_REMOVE=$((RC_P11SAK_REMOVE + $?))
+${P11SAK} remove-key ibm-ml-dsa --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-ibm-ml-dsa:prv" -f
+RC_P11SAK_REMOVE=$((RC_P11SAK_REMOVE + $?))
+# remove ibm-ml-kem keys
+${P11SAK} remove-key ibm-ml-kem --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-ibm-ml-kem:pub" -f
+RC_P11SAK_REMOVE=$((RC_P11SAK_REMOVE + $?))
+${P11SAK} remove-key ibm-ml-kem --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-ibm-ml-kem:prv" -f
+RC_P11SAK_REMOVE=$((RC_P11SAK_REMOVE + $?))
+# remove imported and extracted keys
 ${P11SAK} remove-key --slot $SLOT --pin $PKCS11_USER_PIN --label "import*" -f
 RC_P11SAK_REMOVE=$((RC_P11SAK_REMOVE + $?))
 ${P11SAK} remove-key --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-pubkey-extracted" -f
@@ -665,6 +784,10 @@ RC_P11SAK_LIST_POST=$((RC_P11SAK_LIST_POST + $?))
 ${P11SAK} list-key ibm-dilithium --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-ibm-dilithium*" &> $P11SAK_IBM_DILITHIUM_POST
 RC_P11SAK_LIST_POST=$((RC_P11SAK_LIST_POST + $?))
 ${P11SAK} list-key ibm-kyber --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-ibm-kyber*" &> $P11SAK_IBM_KYBER_POST
+RC_P11SAK_LIST_POST=$((RC_P11SAK_LIST_POST + $?))
+${P11SAK} list-key ibm-ml-dsa --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-ibm-ml-dsa*" &> $P11SAK_IBM_ML_DSA_POST
+RC_P11SAK_LIST_POST=$((RC_P11SAK_LIST_POST + $?))
+${P11SAK} list-key ibm-ml-kem --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-ibm-ml-kem*" &> $P11SAK_IBM_ML_KEM_POST
 RC_P11SAK_LIST_POST=$((RC_P11SAK_LIST_POST + $?))
 
 
@@ -1489,6 +1612,63 @@ else
 	echo "* TESTCASE list-key ibm-kyber SKIP Listed random ibm-kyber keys CK_BYTE attribute"
 fi
 
+if [[ -n $( ${PKCSCONF} -m -c $SLOT | grep CKM_IBM_ML_DSA) ]]; then
+	# CK_BBOOL
+	if [[ $(grep -c "CKA_MODIFIABLE: CK_TRUE" $P11SAK_IBM_ML_DSA_LONG) == "2" ]]; then
+		echo "* TESTCASE list-key ibm-ml-dsa PASS Listed random ibm-ml-dsa keys CK_BBOOL attribute"
+	else
+		echo "* TESTCASE list-key ibm-ml-dsa FAIL Failed to list ibm-ml-dsa keys CK_BBOOL attribute"
+		status=1
+	fi
+	# CK_ULONG
+	if [[ $(grep -c "CKA_IBM_PARAMETER_SET:" $P11SAK_IBM_ML_DSA_LONG) == "2" ]]; then
+		echo "* TESTCASE list-key ibm-ml-dsa PASS Listed random ibm-ml-dsa keys CK_ULONG attribute"
+	else
+		echo "* TESTCASE list-key ibm-ml-dsa FAIL Failed to list ibm-ml-dsa keys CK_ULONG attribute"
+		status=1
+	fi
+	# CK_BYTE
+	if [[ $(grep -c "CKA_VALUE:" $P11SAK_IBM_ML_DSA_LONG) == "2" ]]; then
+		echo "* TESTCASE list-key ibm-ml-dsa PASS Listed random ibm-ml-dsa keys CK_BYTE attribute"
+	else
+		echo "* TESTCASE list-key ibm-ml-dsa FAIL Failed to list ibm-ml-dsa keys CK_BYTE attribute"
+		status=1
+	fi
+else
+	echo "* TESTCASE list-key ibm-ml-dsa SKIP Listed random ibm-ml-dsa keys CK_BBOOL attribute"
+	echo "* TESTCASE list-key ibm-ml-dsa SKIP Listed random ibm-ml-dsa keys CK_ULONG attribute"
+	echo "* TESTCASE list-key ibm-ml-dsa SKIP Listed random ibm-ml-dsa keys CK_BYTE attribute"
+fi
+
+
+if [[ -n $( ${PKCSCONF} -m -c $SLOT | grep CKM_IBM_ML_KEM) ]]; then
+	# CK_BBOOL
+	if [[ $(grep -c "CKA_MODIFIABLE: CK_TRUE" $P11SAK_IBM_ML_KEM_LONG) == "2" ]]; then
+		echo "* TESTCASE list-key ibm-ml-kem PASS Listed random ibm-ml-kem keys CK_BBOOL attribute"
+	else
+		echo "* TESTCASE list-key ibm-ml-kem FAIL Failed to list ibm-ml-kem keys CK_BBOOL attribute"
+		status=1
+	fi
+	# CK_ULONG
+	if [[ $(grep -c "CKA_IBM_PARAMETER_SET:" $P11SAK_IBM_ML_KEM_LONG) == "2" ]]; then
+		echo "* TESTCASE list-key ibm-ml-kem PASS Listed random ibm-ml-kem keys CK_ULONG attribute"
+	else
+		echo "* TESTCASE list-key ibm-ml-kem FAIL Failed to list ibm-ml-kem keys CK_ULONG attribute"
+		status=1
+	fi
+	# CK_BYTE
+	if [[ $(grep -c "CKA_VALUE:" $P11SAK_IBM_ML_KEM_LONG) == "2" ]]; then
+		echo "* TESTCASE list-key ibm-ml-kem PASS Listed random ibm-ml-kem keys CK_BYTE attribute"
+	else
+		echo "* TESTCASE list-key ibm-ml-kem FAIL Failed to list ibm-ml-kem keys CK_BYTE attribute"
+		status=1
+	fi
+else
+	echo "* TESTCASE list-key ibm-ml-kem SKIP Listed random ibm-ml-kem keys CK_BBOOL attribute"
+	echo "* TESTCASE list-key ibm-ml-kem SKIP Listed random ibm-ml-kem keys CK_ULONG attribute"
+	echo "* TESTCASE list-key ibm-ml-kem SKIP Listed random ibm-ml-kem keys CK_BYTE attribute"
+fi
+
 
 echo "** Import the sample x.509 certificates - 'p11sak_test.sh'"
 RC_P11SAK_X509_IMPORT=0
@@ -1524,7 +1704,7 @@ if [[ -n $( ${PKCSCONF} -m -c $SLOT | grep CKM_DSA) ]]; then
 else
 	echo "Skip importing x.509 certs with DSA key, slot does not support CKM_DSA"
 fi
-if [[ -n $( ${PKCSCONF} -m -c $SLOT | grep CKM_IBM_DILITHIUM) && -n $(openssl list -providers | grep oqsprovider) ]]; then
+if [[ -n $( ${PKCSCONF} -m -c $SLOT | grep CKM_IBM_DILITHIUM) && -n $(openssl list -providers | grep oqsprovider) && -n $(openssl list -key-managers | grep "dilithium3 @ oqsprovider") ]]; then
 	openssl req -x509 -new -newkey dilithium3 -keyout dilithium3_CA.key -out dilithium3_CA.crt -nodes -subj "/CN=test CA" -days 365 2>/dev/null
 	RC_P11SAK_X509_IMPORT=$((RC_P11SAK_X509_IMPORT + $?))
 	openssl genpkey -algorithm dilithium3 -out dilithium3_srv.key
@@ -1536,9 +1716,22 @@ if [[ -n $( ${PKCSCONF} -m -c $SLOT | grep CKM_IBM_DILITHIUM) && -n $(openssl li
 	${P11SAK} import-cert x509 --slot $SLOT --pin $PKCS11_USER_PIN --id ABC --label "p11sak-x509-dilithium3" --file dilithium3_srv.crt
 	RC_P11SAK_X509_IMPORT=$((RC_P11SAK_X509_IMPORT + $?))
 else
-	echo "Skip importing x.509 certs with IBM Dilithum key, slot does not support CKM_IBM_DILITHIUM or oqsprovider not available"
+	echo "Skip importing x.509 certs with IBM Dilithum key, slot does not support CKM_IBM_DILITHIUM or oqsprovider not available or does not support dilithium3"
 fi
-
+if [[ -n $( ${PKCSCONF} -m -c $SLOT | grep CKM_IBM_ML_DSA) && -n $(openssl list -key-managers | grep -i "MLDSA65") ]]; then
+	openssl req -x509 -new -newkey mldsa65 -keyout mldsa65_CA.key -out mldsa65_CA.crt -nodes -subj "/CN=test CA" -days 365 2>/dev/null
+	RC_P11SAK_X509_IMPORT=$((RC_P11SAK_X509_IMPORT + $?))
+	openssl genpkey -algorithm mldsa65 -out mldsa65_srv.key
+	RC_P11SAK_X509_IMPORT=$((RC_P11SAK_X509_IMPORT + $?))
+	openssl req -new -newkey mldsa65 -keyout mldsa65_srv.key -out mldsa65_srv.csr -nodes -subj "/CN=test server" 2>/dev/null
+	RC_P11SAK_X509_IMPORT=$((RC_P11SAK_X509_IMPORT + $?))
+	openssl x509 -req -in mldsa65_srv.csr -out mldsa65_srv.crt -CA mldsa65_CA.crt -CAkey mldsa65_CA.key -CAcreateserial -days 365 2>/dev/null
+	RC_P11SAK_X509_IMPORT=$((RC_P11SAK_X509_IMPORT + $?))
+	${P11SAK} import-cert x509 --slot $SLOT --pin $PKCS11_USER_PIN --id ABC --label "p11sak-x509-mldsa65" --file mldsa65_srv.crt
+	RC_P11SAK_X509_IMPORT=$((RC_P11SAK_X509_IMPORT + $?))
+else
+	echo "Skip importing x.509 certs with IBM ML-DSA key, slot does not support CKM_IBM_ML_DSA or neither OpenSSL 3.5, nor oqsprovider not available or does not support mldsa65"
+fi
 
 echo "** Now exporting x.509 certificates - 'p11sak_test.sh'"
 RC_P11SAK_X509_EXPORT=0
@@ -1575,11 +1768,17 @@ if [[ -n $( ${PKCSCONF} -m -c $SLOT | grep CKM_DSA) ]]; then
 else
 	echo "Skip exporting x.509 certs with DSA key, slot does not support CKM_DSA"
 fi
-if [[ -n $( ${PKCSCONF} -m -c $SLOT | grep CKM_IBM_DILITHIUM) && -n $(openssl list -providers | grep oqsprovider) ]]; then
+if [[ -n $( ${PKCSCONF} -m -c $SLOT | grep CKM_IBM_DILITHIUM) && -n $(openssl list -providers | grep oqsprovider) && -n $(openssl list -key-managers | grep "dilithium3 @ oqsprovider") ]]; then
 	${P11SAK} export-cert x509 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-x509-dilithium3" --file p11sak_dil3cert_exported.pem --force
 	RC_P11SAK_X509_EXPORT=$((RC_P11SAK_X509_EXPORT + $?))
 else
-	echo "Skip exporting x.509 certs with IBM Dilithum key, slot does not support CKM_IBM_DILITHIUM or oqsprovider not available"
+	echo "Skip exporting x.509 certs with IBM Dilithum key, slot does not support CKM_IBM_DILITHIUM or the oqsprovider not available or does not support dilithium3"
+fi
+if [[ -n $( ${PKCSCONF} -m -c $SLOT | grep CKM_IBM_ML_DSA) && -n $(openssl list -key-managers | grep -i "MLDSA65") ]]; then
+	${P11SAK} export-cert x509 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-x509-mldsa65" --file p11sak_mldsa65cert_exported.pem --force
+	RC_P11SAK_X509_EXPORT=$((RC_P11SAK_X509_EXPORT + $?))
+else
+	echo "Skip exporting x.509 certs with IBM ML-DSA key, slot does not support CKM_IBM_ML_DSA or neither OpenSSL 3.5, nor the oqsprovider not available or does not support mldsa65"
 fi
 # export to URI-PEM
 p11sak export-cert x509 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-x509-rsa2048crt" --file export-uri-pem4.pem --force --uri-pem
@@ -1634,11 +1833,17 @@ if [[ -n $( ${PKCSCONF} -m -c $SLOT | grep CKM_DSA) ]]; then
 else
 	echo "Skip extracting pubkeys from x.509 certs with DSA key, slot does not support CKM_DSA"
 fi
-if [[ -n $( ${PKCSCONF} -m -c $SLOT | grep CKM_IBM_DILITHIUM) && -n $(openssl list -providers | grep oqsprovider) ]]; then
+if [[ -n $( ${PKCSCONF} -m -c $SLOT | grep CKM_IBM_DILITHIUM) && -n $(openssl list -providers | grep oqsprovider) && -n $(openssl list -key-managers | grep "dilithium3 @ oqsprovider") ]]; then
 ${P11SAK} extract-cert-pubkey x509 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-x509-dilithium3" --force
 	RC_P11SAK_X509_EXTRACT=$((RC_P11SAK_X509_EXTRACT + $?))
 else
-	echo "Skip extracting pubkeys from x.509 certs with IBM Dilithum key, slot does not support CKM_IBM_DILITHIUM or oqsprovider not available"
+	echo "Skip extracting pubkeys from x.509 certs with IBM Dilithum key, slot does not support CKM_IBM_DILITHIUM or oqsprovider not available or does not support dilithium3"
+fi
+if [[ -n $( ${PKCSCONF} -m -c $SLOT | grep CKM_IBM_ML_DSA) && -n $(openssl list -key-managers | grep -i "MLDSA65") ]]; then
+${P11SAK} extract-cert-pubkey x509 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-x509-mldsa65" --force
+	RC_P11SAK_X509_EXTRACT=$((RC_P11SAK_X509_EXTRACT + $?))
+else
+	echo "Skip extracting pubkeys from x.509 certs with IBM ML-DSA key, slot does not support CKM_IBM_ML_DSA or neither OpenSSL 3.5, not the oqsprovider not available or does not support mldsa65"
 fi
 
 
@@ -2234,6 +2439,12 @@ rm -f $P11SAK_IBM_DILITHIUM_POST
 rm -f $P11SAK_IBM_KYBER_PRE
 rm -f $P11SAK_IBM_KYBER_LONG
 rm -f $P11SAK_IBM_KYBER_POST
+rm -f $P11SAK_IBM_ML_DSA_PRE
+rm -f $P11SAK_IBM_ML_DSA_LONG
+rm -f $P11SAK_IBM_ML_DSA_POST
+rm -f $P11SAK_IBM_ML_KEM_PRE
+rm -f $P11SAK_IBM_ML_KEM_LONG
+rm -f $P11SAK_IBM_ML_KEM_POST
 rm -f $P11SAK_X509_PRE
 rm -f $P11SAK_X509_LONG
 rm -f $P11SAK_X509_POST
@@ -2247,8 +2458,12 @@ rm -f export-*.pem
 rm -f export-*.opaque
 rm -f pin*.txt
 rm -f oqs-*.pem
+rm -f mldsa65-*.pem
+rm -f mlkem1024-*.pem
 rm -f dilithium3_CA.*
 rm -f dilithium3_srv.*
+rm -f mldsa65_CA.*
+rm -f mldsa65_srv.*
 rm -f wrapped-key.pem
 
 echo "** Now remove temporary openssl files from x509 tests - "p11sak_test.sh""
