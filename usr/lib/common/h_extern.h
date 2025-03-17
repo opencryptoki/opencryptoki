@@ -3404,6 +3404,8 @@ CK_RV calc_rsa_crt_from_me(CK_ATTRIBUTE *modulus, CK_ATTRIBUTE *pub_exp,
 
 #if OPENSSL_VERSION_PREREQ(3, 0)
 const char *openssl_get_pqc_oid_name(const struct pqc_oid *oid);
+CK_RV openssl_get_key_from_pkey(EVP_PKEY *pkey, const char *param,
+                                CK_BYTE **key, size_t *key_len, CK_BBOOL check);
 CK_RV openssl_specific_pqc_generate_keypair(STDLL_TokData_t *tokdata,
                                             const struct pqc_oid *oid,
                                             CK_MECHANISM *mech,

@@ -312,6 +312,8 @@ static const MECH_LIST_ELEMENT soft_mech_list[] = {
 #if OPENSSL_VERSION_PREREQ(3, 0)
     {CKM_IBM_DILITHIUM, {256, 256, CKF_GENERATE_KEY_PAIR |
                                    CKF_SIGN | CKF_VERIFY}},
+    {CKM_IBM_ML_DSA_KEY_PAIR_GEN, {1312, 2592, CKF_GENERATE_KEY_PAIR}},
+    {CKM_IBM_ML_DSA, {1312, 2592, CKF_SIGN | CKF_VERIFY}},
 #endif
 };
 
@@ -321,6 +323,8 @@ static const CK_ULONG soft_mech_list_len =
 struct soft_private_data {
 #if OPENSSL_VERSION_PREREQ(3, 0)
     OSSL_PROVIDER *oqs_provider;
+    CK_BBOOL supports_dilithium;
+    CK_BBOOL supports_ml_dsa;
 #else
     void *dummy;
 #endif
@@ -360,27 +364,24 @@ CK_RV token_specific_init(STDLL_TokData_t *tokdata, CK_SLOT_ID SlotNumber,
      * Try to load the 'oqsprovider'. This optional provider must be installed
      * and configured separately, it does not come with OpenSSL 3.x by default.
      * If loading the 'oqsprovider' fails, this is not an error, it just means
-     * that the soft token does not support any quantum safe mechanisms.
-     * Also check if the 'oqsprovider' does support the Dilithium R3_44 variant.
-     * If not don't consider it loaded, because it can't support any of the
-     * Dilithium variants supported by the Soft token.
+     * that the soft token may not support any quantum safe mechanisms, if not
+     * also OpenSSL >= 3.5 is use, which has built-in support for ML-DSA.
      */
     soft_private->oqs_provider = OSSL_PROVIDER_load(NULL, "oqsprovider");
     if (soft_private->oqs_provider == NULL) {
         TRACE_DEVEL("OSSL_PROVIDER_load for 'oqsprovider' failed, no quantum "
                     "safe mechanisms are supported.\n");
         ERR_pop_to_mark();
-    } else {
-        oid = find_pqc_by_keyform(dilithium_oids,
-                                  CK_IBM_DILITHIUM_KEYFORM_ROUND3_44);
-        if (oid == NULL || openssl_get_pqc_oid_name(oid) == NULL) {
-            OSSL_PROVIDER_unload(soft_private->oqs_provider);
-            soft_private->oqs_provider = NULL;
-            TRACE_DEVEL("The 'oqsprovider' does not support Dilithium R3_44, "
-                        "no quantum safe mechanisms are supported.\n");
-            ERR_pop_to_mark();
-        }
-    }
+    };
+
+    oid = find_pqc_by_keyform(dilithium_oids,
+                              CK_IBM_DILITHIUM_KEYFORM_ROUND3_44);
+    if (oid != NULL && openssl_get_pqc_oid_name(oid)!= NULL)
+        soft_private->supports_dilithium = CK_TRUE;
+
+    oid = find_pqc_by_keyform(ml_dsa_oids, CKP_IBM_ML_DSA_44);
+    if (oid != NULL && openssl_get_pqc_oid_name(oid)!= NULL)
+        soft_private->supports_ml_dsa = CK_TRUE;
 #endif
 
     tokdata->private_data = soft_private;
@@ -432,7 +433,10 @@ static CK_BBOOL token_specific_filter_mechanism(STDLL_TokData_t *tokdata,
     switch(mechanism) {
 #if OPENSSL_VERSION_PREREQ(3, 0)
     case CKM_IBM_DILITHIUM:
-        return soft_private->oqs_provider != NULL ? CK_TRUE : CK_FALSE;
+        return soft_private->supports_dilithium;
+    case CKM_IBM_ML_DSA_KEY_PAIR_GEN:
+    case CKM_IBM_ML_DSA:
+        return soft_private->supports_ml_dsa;
 #endif
     default:
         return CK_TRUE;
@@ -1509,20 +1513,34 @@ CK_RV token_specific_ecdh_pkcs_derive(STDLL_TokData_t *tokdata,
 #endif
 
 #if OPENSSL_VERSION_PREREQ(3, 0)
-CK_RV import_ibm_dilithium_key(STDLL_TokData_t *tokdata, OBJECT *obj)
+static CK_RV import_ibm_ml_dsa_key(STDLL_TokData_t *tokdata, OBJECT *obj,
+                                   CK_KEY_TYPE keytype)
 {
-    struct soft_private_data *soft_private = tokdata->private_data;
     const struct pqc_oid *oid = NULL;
+    const char *alg_name;
     CK_ATTRIBUTE *attr = NULL;
     CK_OBJECT_CLASS class;
     CK_BYTE *data = NULL;
     CK_ULONG data_len;
+    CK_MECHANISM_TYPE mech;
+    EVP_PKEY *pkey = NULL;
+    size_t pub_len = 0;
+    CK_BYTE *pub_key = NULL;
     CK_RV rc;
 
-    if (soft_private->oqs_provider == NULL) {
-        TRACE_ERROR("The oqsprovider is not loaded\n");
-        return CKR_MECHANISM_INVALID;
+    switch (keytype) {
+    case CKK_IBM_DILITHIUM:
+        mech = CKM_IBM_DILITHIUM;
+        break;
+    case CKK_IBM_ML_DSA:
+        mech = CKM_IBM_ML_DSA;
+        break;
+    default:
+        return CKR_KEY_TYPE_INCONSISTENT;
     }
+
+    if (!token_specific_filter_mechanism(tokdata, mech, NULL))
+        return CKR_MECHANISM_INVALID;
 
     rc = template_attribute_get_ulong(obj->template, CKA_CLASS, &class);
     if (rc != CKR_OK)
@@ -1530,14 +1548,16 @@ CK_RV import_ibm_dilithium_key(STDLL_TokData_t *tokdata, OBJECT *obj)
 
     /* A clear IBM Dilithium key must either have a CKA_VALUE containing
      * the SPKI or PKCS#8 encoded private key, or must have a keyform/mode
-     * value and the individual attributes
+     * value and the individual attributes.
+     * A clear ML-DSA key must have a CKA_VALUE containing the SPKI or PKCS#8
+     * encoded private key. Individual key attributes are not used.
      */
     if (template_attribute_find(obj->template, CKA_VALUE, &attr) == TRUE &&
         attr->ulValueLen > 0 && attr->pValue != NULL) {
         switch (class) {
         case CKO_PRIVATE_KEY:
             /* Private key in PKCS#8 form is present in CKA_VALUE */
-            rc = pqc_priv_unwrap(obj->template, CKK_IBM_PQC_DILITHIUM,
+            rc = pqc_priv_unwrap(obj->template, keytype, 
                                  attr->pValue, attr->ulValueLen, FALSE);
             if (rc != CKR_OK) {
                 TRACE_ERROR("Failed to decode private key from "
@@ -1547,7 +1567,7 @@ CK_RV import_ibm_dilithium_key(STDLL_TokData_t *tokdata, OBJECT *obj)
             break;
         case CKO_PUBLIC_KEY:
             /* Public key in SPKI form is present in CKA_VALUE */
-            rc = pqc_priv_unwrap_get_data(obj->template, CKK_IBM_PQC_DILITHIUM,
+            rc = pqc_priv_unwrap_get_data(obj->template, keytype,
                                           attr->pValue, attr->ulValueLen,
                                           FALSE);
             if (rc != CKR_OK) {
@@ -1560,10 +1580,10 @@ CK_RV import_ibm_dilithium_key(STDLL_TokData_t *tokdata, OBJECT *obj)
             return CKR_TEMPLATE_INCONSISTENT;
         }
     } else {
-        /* Add CKA_VALUE withPKCS#8 or SPKI */
+        /* Add CKA_VALUE with PKCS#8 or SPKI */
         switch (class) {
          case CKO_PRIVATE_KEY:
-             rc = pqc_priv_wrap_get_data(obj->template, CKK_IBM_PQC_DILITHIUM,
+             rc = pqc_priv_wrap_get_data(obj->template, keytype,
                                          FALSE, &data, &data_len);
              if (rc != CKR_OK) {
                  TRACE_ERROR("Failed to encode private key.\n");
@@ -1571,7 +1591,7 @@ CK_RV import_ibm_dilithium_key(STDLL_TokData_t *tokdata, OBJECT *obj)
              }
              break;
          case CKO_PUBLIC_KEY:
-             rc = pqc_publ_get_spki(obj->template, CKK_IBM_PQC_DILITHIUM,
+             rc = pqc_publ_get_spki(obj->template, keytype,
                                     FALSE, &data, &data_len);
              if (rc != CKR_OK) {
                  TRACE_ERROR("Failed to encode public key.\n");
@@ -1597,18 +1617,40 @@ CK_RV import_ibm_dilithium_key(STDLL_TokData_t *tokdata, OBJECT *obj)
         }
     }
 
-    oid = pqc_get_keyform_mode(obj->template, CKM_IBM_DILITHIUM);
+    oid = pqc_get_keyform_mode(obj->template, mech);
     if (oid == NULL) {
-        TRACE_ERROR("%s Failed to determine dilithium OID\n", __func__);
+        TRACE_ERROR("%s Failed to determine IBM ML-DSA OID\n", __func__);
         return CKR_TEMPLATE_INCOMPLETE;
     }
 
-    if (openssl_get_pqc_oid_name(oid) == NULL) {
-        TRACE_ERROR("Dilithium key form is not supported by oqsprovider\n");
+    alg_name = openssl_get_pqc_oid_name(oid);
+    if (alg_name == NULL) {
+        TRACE_ERROR("IBM ML-DSA key form is not supported by oqsprovider or "
+                    "OpenSSL\n");
         return CKR_KEY_SIZE_RANGE;
     }
 
-    rc = pqc_add_keyform_mode(obj->template, oid, CKM_IBM_DILITHIUM);
+    if (class == CKO_PRIVATE_KEY && keytype == CKK_IBM_ML_DSA) {
+        /* Try tp add public key attributes if ML-DSA private key */
+        rc = openssl_make_pqc_key_from_template(obj->template, oid, mech,
+                                                TRUE, alg_name, &pkey);
+        if (rc != CKR_OK)
+            return rc;
+
+        rc = openssl_get_key_from_pkey(pkey, OSSL_PKEY_PARAM_PUB_KEY,
+                                       &pub_key, &pub_len, FALSE);
+        EVP_PKEY_free(pkey);
+        if (rc == CKR_OK) {
+            rc = pqc_unpack_pub_key(pub_key, pub_len, oid, mech, obj->template);
+            free(pub_key);
+            if (rc != CKR_OK) {
+                TRACE_ERROR("pqc_unpack_pub_key failed for pub key\n");
+                return rc;
+            }
+        }
+    }
+
+    rc = pqc_add_keyform_mode(obj->template, oid, mech);
     if (rc != CKR_OK) {
         TRACE_ERROR("pqc_add_keyform_mode failed\n");
         return rc;
@@ -1664,7 +1706,8 @@ CK_RV token_specific_object_add(STDLL_TokData_t * tokdata, SESSION * sess,
 
 #if OPENSSL_VERSION_PREREQ(3, 0)
     case CKK_IBM_DILITHIUM:
-        return import_ibm_dilithium_key(tokdata, obj);
+    case CKK_IBM_ML_DSA:
+        return import_ibm_ml_dsa_key(tokdata, obj, keytype);
 #endif
 
     default:
@@ -1680,9 +1723,9 @@ CK_RV token_specific_set_attrs_for_new_object(STDLL_TokData_t *tokdata,
     EVP_PKEY *pkey = NULL;
     CK_RV rc;
 #if OPENSSL_VERSION_PREREQ(3, 0)
-    struct soft_private_data *soft_private = tokdata->private_data;
     const struct pqc_oid *oid = NULL;
     const char *alg_name;
+    CK_MECHANISM_TYPE mech;
 #else
 
     UNUSED(tokdata);
@@ -1733,12 +1776,20 @@ CK_RV token_specific_set_attrs_for_new_object(STDLL_TokData_t *tokdata,
 
 #if OPENSSL_VERSION_PREREQ(3, 0)
     case CKK_IBM_DILITHIUM:
-        if (soft_private->oqs_provider == NULL) {
-            TRACE_ERROR("The oqsprovider is not loaded\n");
-            return CKR_MECHANISM_INVALID;
+    case CKK_IBM_ML_DSA:
+        switch (keytype) {
+        case CKK_IBM_DILITHIUM:
+            mech = CKM_IBM_DILITHIUM;
+            break;
+        case CKK_IBM_ML_DSA:
+            mech = CKM_IBM_ML_DSA;
+            break;
         }
 
-        oid = pqc_get_keyform_mode(tmpl, CKM_IBM_DILITHIUM);
+        if (!token_specific_filter_mechanism(tokdata, mech, NULL))
+            return CKR_MECHANISM_INVALID;
+
+        oid = pqc_get_keyform_mode(tmpl, mech);
         if (oid == NULL) {
             TRACE_ERROR("%s Failed to determine dilithium OID\n", __func__);
             return CKR_TEMPLATE_INCOMPLETE;
@@ -1751,8 +1802,7 @@ CK_RV token_specific_set_attrs_for_new_object(STDLL_TokData_t *tokdata,
         }
 
         /* Check if the oqsprovider or OpenSSL supports the variant */
-        rc = openssl_make_pqc_key_from_template(tmpl, oid, 
-                                                CKM_IBM_DILITHIUM,
+        rc = openssl_make_pqc_key_from_template(tmpl, oid, mech,
                                                 class == CKO_PRIVATE_KEY,
                                                 alg_name, &pkey);
         if (pkey != NULL)
@@ -1774,7 +1824,7 @@ CK_RV token_specific_ibm_ml_dsa_generate_keypair(STDLL_TokData_t *tokdata,
                                                  TEMPLATE *publ_tmpl,
                                                  TEMPLATE *priv_tmpl)
 {
-    if (!token_specific_filter_mechanism(tokdata, mech->mechanism))
+    if (!token_specific_filter_mechanism(tokdata, mech->mechanism, NULL))
         return CKR_MECHANISM_INVALID;
 
     return openssl_specific_pqc_generate_keypair(tokdata, oid, mech,
@@ -1792,7 +1842,7 @@ CK_RV token_specific_ibm_ml_dsa_sign(STDLL_TokData_t *tokdata,
                                      CK_ULONG *signature_len,
                                      OBJECT *key_obj)
 {
-    if (!token_specific_filter_mechanism(tokdata, mech->mechanism))
+    if (!token_specific_filter_mechanism(tokdata, mech->mechanism, NULL))
         return CKR_MECHANISM_INVALID;
 
     return openssl_specific_pqc_sign(tokdata, sess, length_only, oid,
@@ -1811,7 +1861,7 @@ CK_RV token_specific_ibm_ml_dsa_verify(STDLL_TokData_t *tokdata,
                                        CK_ULONG signature_len,
                                        OBJECT *key_obj)
 {
-    if (!token_specific_filter_mechanism(tokdata, mech->mechanism))
+    if (!token_specific_filter_mechanism(tokdata, mech->mechanism, NULL))
         return CKR_MECHANISM_INVALID;
 
     return openssl_specific_pqc_verify(tokdata, sess, oid, mech,

@@ -35,6 +35,13 @@
 #if OPENSSL_VERSION_PREREQ(3, 0)
 #include <openssl/core_names.h>
 #include <openssl/param_build.h>
+
+#ifndef OSSL_PKEY_PARAM_ML_DSA_SEED
+    #define OSSL_PKEY_PARAM_ML_DSA_SEED "seed"
+#endif
+#ifndef OSSL_PKEY_PARAM_ML_KEM_SEED
+    #define OSSL_PKEY_PARAM_ML_KEM_SEED "seed"
+#endif
 #endif
 
 void openssl_free_ex_data(OBJECT *obj, void *ex_data, size_t ex_data_len)
@@ -5853,9 +5860,29 @@ const char *openssl_get_pqc_oid_name(const struct pqc_oid *oid)
     return alg_name;
 }
 
-static CK_RV get_key_from_pkey(EVP_PKEY *pkey, const char *param,
-                               CK_BYTE **key, size_t *key_len)
+CK_RV openssl_get_key_from_pkey(EVP_PKEY *pkey, const char *param,
+                                CK_BYTE **key, size_t *key_len, CK_BBOOL check)
 {
+    const OSSL_PARAM *params;
+    CK_BBOOL found = FALSE;
+    int i;
+
+    if (check) {
+        params = EVP_PKEY_gettable_params(pkey);
+        for (i = 0; params != NULL && params[i].key != NULL; i++) {
+            if (strcmp(params[i].key, param) == 0) {
+                found = TRUE;
+                break;
+            }
+        }
+
+        if (!found) {
+            *key = NULL;
+            *key_len = 0;
+            return CKR_OK;
+        }
+    }
+
     if (EVP_PKEY_get_octet_string_param(pkey, param, NULL, 0, key_len) != 1 ||
         *key_len == OSSL_PARAM_UNMODIFIED) {
         TRACE_ERROR("EVP_PKEY_get_octet_string_param failed for '%s'\n", param);
@@ -5890,9 +5917,13 @@ CK_RV openssl_specific_pqc_generate_keypair(STDLL_TokData_t *tokdata,
     CK_ULONG spki_len = 0, pkcs8_len = 0;
     size_t priv_len = 0, pub_len = 0;
     CK_BYTE *priv_key = NULL, *pub_key = NULL;
+    size_t seed_len = 0;
+    CK_BYTE *priv_seed = NULL;
     CK_KEY_TYPE keytype;
     CK_OBJECT_CLASS class;
     CK_RV rc = CKR_OK;
+    CK_ATTRIBUTE_TYPE seed_attr = (CK_ATTRIBUTE_TYPE)-1;
+    const char *seed_param = NULL;
 
     UNUSED(tokdata);
 
@@ -5933,15 +5964,15 @@ CK_RV openssl_specific_pqc_generate_keypair(STDLL_TokData_t *tokdata,
     }
 
     /* Get private and public key */
-    rc = get_key_from_pkey(pkey, OSSL_PKEY_PARAM_PRIV_KEY,
-                           &priv_key, &priv_len);
+    rc = openssl_get_key_from_pkey(pkey, OSSL_PKEY_PARAM_PRIV_KEY,
+                                   &priv_key, &priv_len, FALSE);
     if (rc != CKR_OK) {
         TRACE_ERROR("get_key_from_pkey failed for priv key\n");
         goto out;
     }
 
-    rc = get_key_from_pkey(pkey, OSSL_PKEY_PARAM_PUB_KEY,
-                           &pub_key, &pub_len);
+    rc = openssl_get_key_from_pkey(pkey, OSSL_PKEY_PARAM_PUB_KEY,
+                                   &pub_key, &pub_len, FALSE);
     if (rc != CKR_OK) {
         TRACE_ERROR("get_key_from_pkey failed for pub key\n");
         goto out;
@@ -5960,6 +5991,36 @@ CK_RV openssl_specific_pqc_generate_keypair(STDLL_TokData_t *tokdata,
     if (rc != CKR_OK) {
         TRACE_ERROR("pqc_unpack_pub_key failed for pub key\n");
         goto out;
+    }
+
+    switch (keytype) {
+    case CKK_IBM_ML_DSA:
+        seed_attr = CKA_IBM_ML_DSA_PRIVATE_SEED;
+        seed_param = OSSL_PKEY_PARAM_ML_DSA_SEED;
+        break;
+    default:
+        seed_attr = (CK_ATTRIBUTE_TYPE)-1;
+        seed_param = NULL;
+        break;
+    }
+
+    /* Get and add private seed, if available */
+    if (seed_attr != (CK_ATTRIBUTE_TYPE)-1 && seed_param != NULL) {
+        rc = openssl_get_key_from_pkey(pkey, seed_param, &priv_seed, &seed_len, TRUE);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("get_key_from_pkey failed for priv key seed\n");
+            goto out;
+        }
+
+        if (priv_seed != NULL) {
+            rc = template_build_update_attribute(priv_tmpl, seed_attr,
+                                                 priv_seed, seed_len);
+            if (rc != CKR_OK) {
+                TRACE_ERROR("template_build_update_attribute for "
+                            "attr 0x%lx failed rc=0x%lx\n", seed_attr, rc);
+                goto out;
+            }
+        }
     }
 
     /* Also add public key components to private template */
@@ -6021,6 +6082,10 @@ out:
         OPENSSL_cleanse(priv_key, priv_len);
         free(priv_key);
     }
+    if (priv_seed != NULL) {
+        OPENSSL_cleanse(priv_seed, seed_len);
+        free(priv_seed);
+    }
     if (pub_key != NULL)
         free(pub_key);
     if (spki != NULL)
@@ -6031,6 +6096,21 @@ out:
     }
 
     return rc;
+}
+
+static CK_BBOOL check_settable_fromdata_params(EVP_PKEY_CTX *ctx,
+                                               const char *name)
+{
+    const OSSL_PARAM *settable, *p;
+
+    settable = EVP_PKEY_fromdata_settable(ctx, EVP_PKEY_KEYPAIR);
+
+    for (p = settable; p != NULL && p->key != NULL; p++) {
+        if (strcmp(p->key, name) == 0)
+            return TRUE;
+    }
+
+    return CK_FALSE;
 }
 
 CK_RV openssl_make_pqc_key_from_template(TEMPLATE *tmpl,
@@ -6045,7 +6125,21 @@ CK_RV openssl_make_pqc_key_from_template(TEMPLATE *tmpl,
     EVP_PKEY_CTX *pctx = NULL;
     OSSL_PARAM_BLD *bld = NULL;
     OSSL_PARAM *params = NULL;
+    CK_ATTRIBUTE_TYPE seed_attr = (CK_ATTRIBUTE_TYPE)-1;
+    const char *seed_param = NULL;
+    CK_ATTRIBUTE *attr = NULL;
     CK_RV rc;
+
+    switch (mech) {
+    case CKM_IBM_ML_DSA:
+        seed_attr = CKA_IBM_ML_DSA_PRIVATE_SEED;
+        seed_param = OSSL_PKEY_PARAM_ML_DSA_SEED;
+        break;
+    default:
+        seed_attr = (CK_ATTRIBUTE_TYPE)-1;
+        seed_param = NULL;
+        break;
+    }
 
     if (private_key) {
         rc = pqc_pack_priv_key(tmpl, oid, mech, NULL, &priv_len);
@@ -6063,8 +6157,13 @@ CK_RV openssl_make_pqc_key_from_template(TEMPLATE *tmpl,
 
         rc = pqc_pack_priv_key(tmpl, oid, mech, priv_key, &priv_len);
         if (rc != CKR_OK) {
-            TRACE_ERROR("pqc_pack_priv_key failed\n");
-            goto out;
+            if (rc == CKR_ATTRIBUTE_VALUE_INVALID) {
+                free(priv_key);
+                priv_key = NULL; /* Indicate no priv key */
+            } else {
+                TRACE_ERROR("pqc_pack_priv_key failed\n");
+                goto out;
+            }
         }
     }
 
@@ -6083,7 +6182,21 @@ CK_RV openssl_make_pqc_key_from_template(TEMPLATE *tmpl,
 
     rc = pqc_pack_pub_key(tmpl, oid, mech, pub_key, &pub_len);
     if (rc != CKR_OK) {
-        TRACE_ERROR("pqc_pack_pub_key failed\n");
+        if (rc == CKR_ATTRIBUTE_VALUE_INVALID) {
+            free(pub_key);
+            pub_key = NULL; /* Indicate no pub key */
+        } else {
+            TRACE_ERROR("pqc_pack_pub_key failed\n");
+            goto out;
+        }
+    }
+
+    pctx = EVP_PKEY_CTX_new_from_name(NULL, alg_name,
+                                      mech != CKM_IBM_DILITHIUM ?
+                                               "?provider=default" : NULL);
+    if (pctx == NULL) {
+        TRACE_ERROR("EVP_PKEY_CTX_new_from_name failed for '%s'\n", alg_name);
+        rc = CKR_FUNCTION_FAILED;
         goto out;
     }
 
@@ -6095,15 +6208,37 @@ CK_RV openssl_make_pqc_key_from_template(TEMPLATE *tmpl,
     }
 
     if (private_key) {
-        if (OSSL_PARAM_BLD_push_octet_string(bld, OSSL_PKEY_PARAM_PRIV_KEY,
+        if (priv_key != NULL &&
+            OSSL_PARAM_BLD_push_octet_string(bld, OSSL_PKEY_PARAM_PRIV_KEY,
                                              priv_key, priv_len) != 1) {
             TRACE_ERROR("OSSL_PARAM_BLD_push_octet_string failed\n");
             rc = CKR_FUNCTION_FAILED;
             goto out;
         }
+
+        /* Use private seed, if available */
+        if (seed_attr != (CK_ATTRIBUTE_TYPE)-1 && seed_param != NULL &&
+            template_attribute_find(tmpl, seed_attr, &attr) == TRUE &&
+            attr->ulValueLen != 0 && attr->pValue != NULL &&
+            check_settable_fromdata_params(pctx, seed_param)) {
+
+            if (OSSL_PARAM_BLD_push_octet_string(bld, seed_param,
+                                                 attr->pValue,
+                                                 attr->ulValueLen) != 1) {
+                TRACE_ERROR("OSSL_PARAM_BLD_push_octet_string failed\n");
+                rc = CKR_FUNCTION_FAILED;
+                goto out;
+            }
+        } else if (priv_key == NULL) {
+            TRACE_ERROR("No private key available, and private-seed is not "
+                        "supported by OpenSSL/OQS-provider\n");
+            rc = CKR_KEY_SIZE_RANGE;
+            goto out;
+        }
     }
 
-    if (OSSL_PARAM_BLD_push_octet_string(bld, OSSL_PKEY_PARAM_PUB_KEY,
+    if (pub_key != NULL &&
+        OSSL_PARAM_BLD_push_octet_string(bld, OSSL_PKEY_PARAM_PUB_KEY,
                                          pub_key, pub_len) != 1) {
         TRACE_ERROR("OSSL_PARAM_BLD_push_octet_string failed\n");
         rc = CKR_FUNCTION_FAILED;
@@ -6113,15 +6248,6 @@ CK_RV openssl_make_pqc_key_from_template(TEMPLATE *tmpl,
     params = OSSL_PARAM_BLD_to_param(bld);
     if (params == NULL) {
         TRACE_ERROR("OSSL_PARAM_BLD_to_param failed\n");
-        rc = CKR_FUNCTION_FAILED;
-        goto out;
-    }
-
-    pctx = EVP_PKEY_CTX_new_from_name(NULL, alg_name,
-                                      mech != CKM_IBM_DILITHIUM ?
-                                               "?provider=default" : NULL);
-    if (pctx == NULL) {
-        TRACE_ERROR("EVP_PKEY_CTX_new_from_name failed for '%s'\n", alg_name);
         rc = CKR_FUNCTION_FAILED;
         goto out;
     }
@@ -6140,6 +6266,8 @@ CK_RV openssl_make_pqc_key_from_template(TEMPLATE *tmpl,
         goto out;
     }
 
+    rc = CKR_OK;
+
 out:
     if (priv_key != NULL) {
         OPENSSL_cleanse(priv_key, priv_len);
@@ -6157,6 +6285,98 @@ out:
     return rc;
 }
 
+#if defined(OSSL_SIGNATURE_PARAM_DETERMINISTIC) || defined(OSSL_SIGNATURE_PARAM_CONTEXT_STRING)
+static CK_BBOOL check_settable_ctx_params(EVP_PKEY_CTX *ctx, const char *name)
+{
+    const OSSL_PARAM *settable, *p;
+
+    settable = EVP_PKEY_CTX_settable_params(ctx);
+
+    for (p = settable; p != NULL && p->key != NULL; p++) {
+        if (strcmp(p->key, name) == 0)
+            return TRUE;
+    }
+
+    return CK_FALSE;
+}
+#endif
+
+static CK_RV openssl_specific_ibm_ml_dsa_set_params(
+                                         EVP_PKEY_CTX *ctx,
+                                         CK_IBM_SIGN_ADDITIONAL_CONTEXT *param)
+{
+    OSSL_PARAM params[2];
+    int deterministic = 0;
+
+#ifndef OSSL_SIGNATURE_PARAM_DETERMINISTIC
+#ifndef OSSL_SIGNATURE_PARAM_CONTEXT_STRING
+    UNUSED(ctx);
+    UNUSED(params);
+#endif
+#endif
+
+    switch (param->hedgeVariant) {
+    case CKH_IBM_HEDGE_PREFERRED:
+    case CKH_IBM_HEDGE_REQUIRED:
+        deterministic = 0;
+        break;
+    case CKH_IBM_DETERMINISTIC_REQUIRED:
+        deterministic = 1;
+        break;
+    }
+
+    if (deterministic) {
+#ifdef OSSL_SIGNATURE_PARAM_DETERMINISTIC
+        if (!check_settable_ctx_params(ctx,
+                                       OSSL_SIGNATURE_PARAM_DETERMINISTIC)) {
+            TRACE_ERROR("OpenSSL does not support deterministic ML-DSA "
+                        "signatures\n");
+            return CKR_MECHANISM_PARAM_INVALID;
+        }
+
+        params[0] = OSSL_PARAM_construct_int(OSSL_SIGNATURE_PARAM_DETERMINISTIC,
+                                             &deterministic);
+        params[1] = OSSL_PARAM_construct_end();
+
+        if (EVP_PKEY_CTX_set_params(ctx, params) != 1) {
+            TRACE_ERROR("EVP_PKEY_CTX_set_params (deterministic) failed\n");
+            return CKR_MECHANISM_PARAM_INVALID;
+        }
+#else
+        TRACE_ERROR("OpenSSL does not support deterministic ML-DSA "
+                    "signatures\n");
+        return CKR_MECHANISM_PARAM_INVALID;
+#endif
+    }
+
+
+    if (param->pContext != NULL && param->ulContextLen != 0) {
+#ifdef OSSL_SIGNATURE_PARAM_CONTEXT_STRING
+        if (!check_settable_ctx_params(ctx,
+                                       OSSL_SIGNATURE_PARAM_CONTEXT_STRING)) {
+            TRACE_ERROR("OpenSSL does not support ML-DSA with context\n");
+            return CKR_MECHANISM_PARAM_INVALID;
+        }
+
+        params[0] = OSSL_PARAM_construct_octet_string(
+                                    OSSL_SIGNATURE_PARAM_CONTEXT_STRING,
+                                    param->pContext,
+                                    param->ulContextLen);
+        params[1] = OSSL_PARAM_construct_end();
+
+        if (EVP_PKEY_CTX_set_params(ctx, params) != 1) {
+            TRACE_ERROR("EVP_PKEY_CTX_set_params (context) failed\n");
+            return CKR_MECHANISM_PARAM_INVALID;
+        }
+#else
+        TRACE_ERROR("OpenSSL does not support ML-DSA with context\n");
+        return CKR_MECHANISM_PARAM_INVALID;
+#endif
+    }
+
+    return CKR_OK;
+}
+
 CK_RV openssl_specific_pqc_sign(STDLL_TokData_t *tokdata,
                                 SESSION *sess,
                                 CK_BBOOL length_only,
@@ -6169,6 +6389,9 @@ CK_RV openssl_specific_pqc_sign(STDLL_TokData_t *tokdata,
                                 OBJECT *key_obj)
 {
     struct openssl_ex_data *ex_data = NULL;
+#ifdef EVP_PKEY_OP_SIGNMSG
+    EVP_SIGNATURE *alg = NULL;
+#endif
     EVP_PKEY *pkey = NULL;
     CK_RV rc = CKR_OK;
     EVP_PKEY_CTX *ctx = NULL;
@@ -6214,10 +6437,44 @@ CK_RV openssl_specific_pqc_sign(STDLL_TokData_t *tokdata,
         goto out;
     }
 
+    ERR_set_mark();
     if (EVP_PKEY_sign_init(ctx) <= 0) {
+#ifdef EVP_PKEY_OP_SIGNMSG
+        /* OpenSSL 3.5 supports ML-DSA sign only with the sign-message API */
+        ERR_pop_to_mark();
+
+        alg = EVP_SIGNATURE_fetch(NULL, alg_name, NULL);
+        if (alg == NULL) {
+            TRACE_ERROR("EVP_SIGNATURE_fetch failed for %s\n", alg_name);
+            rc = CKR_FUNCTION_FAILED;
+            goto out;
+        }
+
+        if (EVP_PKEY_sign_message_init(ctx, alg, NULL) <= 0) {
+            TRACE_ERROR("EVP_PKEY_sign_message_init and EVP_PKEY_sign_init "
+                        "have both failed\n");
+            rc = CKR_FUNCTION_FAILED;
+            goto out;
+        }
+#else
         TRACE_ERROR("EVP_PKEY_sign_init failed\n");
         rc = CKR_FUNCTION_FAILED;
         goto out;
+#endif
+    }
+
+    switch (mech->mechanism) {
+    case CKM_IBM_ML_DSA:
+        if (mech->pParameter == NULL ||
+            mech->ulParameterLen != sizeof(CK_IBM_SIGN_ADDITIONAL_CONTEXT))
+            break;
+
+        rc = openssl_specific_ibm_ml_dsa_set_params(ctx, mech->pParameter);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("openssl_specific_ibm_ml_dsa_set_params failed\n");
+            goto out;
+        }
+        break;
     }
 
     if (length_only) {
@@ -6245,6 +6502,10 @@ out:
         EVP_PKEY_free(pkey);
     if (ctx != NULL)
         EVP_PKEY_CTX_free(ctx);
+#ifdef EVP_PKEY_OP_SIGNMSG
+    if (alg != NULL)
+        EVP_SIGNATURE_free(alg);
+#endif
     object_ex_data_unlock(key_obj);
 
     return rc;
@@ -6261,6 +6522,9 @@ CK_RV openssl_specific_pqc_verify(STDLL_TokData_t *tokdata,
                                   OBJECT *key_obj)
 {
     struct openssl_ex_data *ex_data = NULL;
+#ifdef EVP_PKEY_OP_VERIFYMSG
+    EVP_SIGNATURE *alg = NULL;
+#endif
     EVP_PKEY *pkey = NULL;
     CK_RV rc = CKR_OK;
     EVP_PKEY_CTX *ctx = NULL;
@@ -6306,10 +6570,44 @@ CK_RV openssl_specific_pqc_verify(STDLL_TokData_t *tokdata,
         goto out;
     }
 
+    ERR_set_mark();
     if (EVP_PKEY_verify_init(ctx) <= 0) {
+#ifdef EVP_PKEY_OP_VERIFYMSG
+        /* OpenSSL 3.5 supports ML-DSA verify only with the verify-message API */
+        ERR_pop_to_mark();
+
+        alg = EVP_SIGNATURE_fetch(NULL, alg_name, NULL);
+        if (alg == NULL) {
+            TRACE_ERROR("EVP_SIGNATURE_fetch failed for %s\n", alg_name);
+            rc = CKR_FUNCTION_FAILED;
+            goto out;
+        }
+
+        if (EVP_PKEY_verify_message_init(ctx, alg, NULL) <= 0) {
+            TRACE_ERROR("EVP_PKEY_verify_message_init and EVP_PKEY_verify_init "
+                        "have both failed\n");
+            rc = CKR_FUNCTION_FAILED;
+            goto out;
+        }
+#else
         TRACE_ERROR("EVP_PKEY_verify_init failed\n");
         rc = CKR_FUNCTION_FAILED;
         goto out;
+#endif
+    }
+
+    switch (mech->mechanism) {
+    case CKM_IBM_ML_DSA:
+        if (mech->pParameter == NULL ||
+            mech->ulParameterLen != sizeof(CK_IBM_SIGN_ADDITIONAL_CONTEXT))
+            break;
+
+        rc = openssl_specific_ibm_ml_dsa_set_params(ctx, mech->pParameter);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("openssl_specific_ibm_ml_dsa_set_params failed\n");
+            goto out;
+        }
+        break;
     }
 
     siglen = signature_len;
@@ -6332,6 +6630,10 @@ out:
         EVP_PKEY_free(pkey);
     if (ctx != NULL)
         EVP_PKEY_CTX_free(ctx);
+#ifdef EVP_PKEY_OP_VERIFYMSG
+    if (alg != NULL)
+        EVP_SIGNATURE_free(alg);
+#endif
     object_ex_data_unlock(key_obj);
 
     return rc;
