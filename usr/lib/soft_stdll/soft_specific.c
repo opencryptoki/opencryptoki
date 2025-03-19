@@ -314,6 +314,8 @@ static const MECH_LIST_ELEMENT soft_mech_list[] = {
                                    CKF_SIGN | CKF_VERIFY}},
     {CKM_IBM_ML_DSA_KEY_PAIR_GEN, {1312, 2592, CKF_GENERATE_KEY_PAIR}},
     {CKM_IBM_ML_DSA, {1312, 2592, CKF_SIGN | CKF_VERIFY}},
+    {CKM_IBM_ML_KEM_KEY_PAIR_GEN, {800, 1568, CKF_GENERATE_KEY_PAIR}},
+    {CKM_IBM_ML_KEM, {800, 1568, CKF_DERIVE}},
 #endif
 };
 
@@ -325,6 +327,7 @@ struct soft_private_data {
     OSSL_PROVIDER *oqs_provider;
     CK_BBOOL supports_dilithium;
     CK_BBOOL supports_ml_dsa;
+    CK_BBOOL supports_ml_kem;
 #else
     void *dummy;
 #endif
@@ -382,6 +385,10 @@ CK_RV token_specific_init(STDLL_TokData_t *tokdata, CK_SLOT_ID SlotNumber,
     oid = find_pqc_by_keyform(ml_dsa_oids, CKP_IBM_ML_DSA_44);
     if (oid != NULL && openssl_get_pqc_oid_name(oid)!= NULL)
         soft_private->supports_ml_dsa = CK_TRUE;
+
+    oid = find_pqc_by_keyform(ml_dsa_oids, CKP_IBM_ML_KEM_512);
+    if (oid != NULL && openssl_get_pqc_oid_name(oid)!= NULL)
+        soft_private->supports_ml_kem = CK_TRUE;
 #endif
 
     tokdata->private_data = soft_private;
@@ -437,6 +444,9 @@ static CK_BBOOL token_specific_filter_mechanism(STDLL_TokData_t *tokdata,
     case CKM_IBM_ML_DSA_KEY_PAIR_GEN:
     case CKM_IBM_ML_DSA:
         return soft_private->supports_ml_dsa;
+    case CKM_IBM_ML_KEM_KEY_PAIR_GEN:
+    case CKM_IBM_ML_KEM:
+        return soft_private->supports_ml_kem;
 #endif
     default:
         return CK_TRUE;
@@ -1513,8 +1523,8 @@ CK_RV token_specific_ecdh_pkcs_derive(STDLL_TokData_t *tokdata,
 #endif
 
 #if OPENSSL_VERSION_PREREQ(3, 0)
-static CK_RV import_ibm_ml_dsa_key(STDLL_TokData_t *tokdata, OBJECT *obj,
-                                   CK_KEY_TYPE keytype)
+static CK_RV import_pqc_key(STDLL_TokData_t *tokdata, OBJECT *obj,
+                            CK_KEY_TYPE keytype)
 {
     const struct pqc_oid *oid = NULL;
     const char *alg_name;
@@ -1535,6 +1545,9 @@ static CK_RV import_ibm_ml_dsa_key(STDLL_TokData_t *tokdata, OBJECT *obj,
     case CKK_IBM_ML_DSA:
         mech = CKM_IBM_ML_DSA;
         break;
+    case CKK_IBM_ML_KEM:
+        mech = CKM_IBM_ML_KEM;
+        break;
     default:
         return CKR_KEY_TYPE_INCONSISTENT;
     }
@@ -1549,8 +1562,8 @@ static CK_RV import_ibm_ml_dsa_key(STDLL_TokData_t *tokdata, OBJECT *obj,
     /* A clear IBM Dilithium key must either have a CKA_VALUE containing
      * the SPKI or PKCS#8 encoded private key, or must have a keyform/mode
      * value and the individual attributes.
-     * A clear ML-DSA key must have a CKA_VALUE containing the SPKI or PKCS#8
-     * encoded private key. Individual key attributes are not used.
+     * A clear ML-DSA or ML-KEM key must have a CKA_VALUE containing the SPKI
+     * or PKCS#8 encoded private key. Individual key attributes are not used.
      */
     if (template_attribute_find(obj->template, CKA_VALUE, &attr) == TRUE &&
         attr->ulValueLen > 0 && attr->pValue != NULL) {
@@ -1619,18 +1632,19 @@ static CK_RV import_ibm_ml_dsa_key(STDLL_TokData_t *tokdata, OBJECT *obj,
 
     oid = pqc_get_keyform_mode(obj->template, mech);
     if (oid == NULL) {
-        TRACE_ERROR("%s Failed to determine IBM ML-DSA OID\n", __func__);
+        TRACE_ERROR("%s Failed to determine PQC OID\n", __func__);
         return CKR_TEMPLATE_INCOMPLETE;
     }
 
     alg_name = openssl_get_pqc_oid_name(oid);
     if (alg_name == NULL) {
-        TRACE_ERROR("IBM ML-DSA key form is not supported by oqsprovider or "
+        TRACE_ERROR("PQC key form is not supported by oqsprovider or "
                     "OpenSSL\n");
         return CKR_KEY_SIZE_RANGE;
     }
 
-    if (class == CKO_PRIVATE_KEY && keytype == CKK_IBM_ML_DSA) {
+    if (class == CKO_PRIVATE_KEY &&
+        (keytype == CKK_IBM_ML_DSA || keytype == CKK_IBM_ML_KEM)) {
         /* Try tp add public key attributes if ML-DSA private key */
         rc = openssl_make_pqc_key_from_template(obj->template, oid, mech,
                                                 TRUE, alg_name, &pkey);
@@ -1707,7 +1721,8 @@ CK_RV token_specific_object_add(STDLL_TokData_t * tokdata, SESSION * sess,
 #if OPENSSL_VERSION_PREREQ(3, 0)
     case CKK_IBM_DILITHIUM:
     case CKK_IBM_ML_DSA:
-        return import_ibm_ml_dsa_key(tokdata, obj, keytype);
+    case CKK_IBM_ML_KEM:
+        return import_pqc_key(tokdata, obj, keytype);
 #endif
 
     default:
@@ -1777,12 +1792,16 @@ CK_RV token_specific_set_attrs_for_new_object(STDLL_TokData_t *tokdata,
 #if OPENSSL_VERSION_PREREQ(3, 0)
     case CKK_IBM_DILITHIUM:
     case CKK_IBM_ML_DSA:
+    case CKK_IBM_ML_KEM:
         switch (keytype) {
         case CKK_IBM_DILITHIUM:
             mech = CKM_IBM_DILITHIUM;
             break;
         case CKK_IBM_ML_DSA:
             mech = CKM_IBM_ML_DSA;
+            break;
+        case CKK_IBM_ML_KEM:
+            mech = CKM_IBM_ML_KEM;
             break;
         }
 
@@ -1868,6 +1887,39 @@ CK_RV token_specific_ibm_ml_dsa_verify(STDLL_TokData_t *tokdata,
                                        in_data, in_data_len,
                                        signature, signature_len,
                                        key_obj);
+}
+
+CK_RV token_specific_ibm_ml_kem_generate_keypair(STDLL_TokData_t *tokdata,
+                                                 CK_MECHANISM *mech,
+                                                 const struct pqc_oid *oid,
+                                                 TEMPLATE *publ_tmpl,
+                                                 TEMPLATE *priv_tmpl)
+{
+    if (!token_specific_filter_mechanism(tokdata, mech->mechanism, NULL))
+        return CKR_MECHANISM_INVALID;
+
+    return openssl_specific_pqc_generate_keypair(tokdata, oid, mech,
+                                                 publ_tmpl, priv_tmpl);
+}
+
+CK_RV token_specific_ibm_ml_kem_derive(STDLL_TokData_t *tokdata, SESSION *sess,
+                                       const struct pqc_oid *oid,
+                                       CK_MECHANISM *mech,
+                                       OBJECT *base_object,
+                                       CK_OBJECT_CLASS base_key_class,
+                                       CK_KEY_TYPE base_key_type,
+                                       OBJECT *derived_object,
+                                       CK_KEY_TYPE derived_key_type,
+                                       CK_ULONG derived_keylen)
+{
+    if (!token_specific_filter_mechanism(tokdata, mech->mechanism, NULL))
+        return CKR_MECHANISM_INVALID;
+
+    return openssl_specific_pqc_kem_derive(tokdata, sess, oid, mech,
+                                           base_object, base_key_class,
+                                           base_key_type,
+                                           derived_object, derived_key_type,
+                                           derived_keylen);
 }
 
 #endif
