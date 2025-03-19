@@ -618,6 +618,20 @@ CK_RV key_mgr_generate_key_pair(STDLL_TokData_t *tokdata,
         }
         subclass = CKK_IBM_ML_DSA;
         break;
+    case CKM_IBM_KYBER:
+        if (subclass != 0 && subclass != CKK_IBM_PQC_KYBER) {
+            TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCONSISTENT));
+            return CKR_TEMPLATE_INCONSISTENT;
+        }
+        subclass = CKK_IBM_KYBER;
+        break;
+    case CKM_IBM_ML_KEM_KEY_PAIR_GEN:
+        if (subclass != 0 && subclass != CKK_IBM_ML_KEM) {
+            TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCONSISTENT));
+            return CKR_TEMPLATE_INCONSISTENT;
+        }
+        subclass = CKK_IBM_ML_KEM;
+        break;
     default:
         TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
         return CKR_MECHANISM_INVALID;
@@ -672,6 +686,11 @@ CK_RV key_mgr_generate_key_pair(STDLL_TokData_t *tokdata,
     case CKM_IBM_DILITHIUM:
     case CKM_IBM_ML_DSA_KEY_PAIR_GEN:
         rc = ckm_ibm_ml_dsa_key_pair_gen(tokdata, mech, publ_key_obj->template,
+                                         priv_key_obj->template);
+        break;
+    case CKM_IBM_KYBER:
+    case CKM_IBM_ML_KEM_KEY_PAIR_GEN:
+        rc = ckm_ibm_ml_kem_key_pair_gen(tokdata, mech, publ_key_obj->template,
                                          priv_key_obj->template);
         break;
     default:
@@ -1861,6 +1880,16 @@ CK_RV key_mgr_derive_key(STDLL_TokData_t *tokdata,
         }
         rc = ckm_shake_derive(tokdata, sess, mech, base_key_obj, new_attrs,
                               new_attr_count, derived_key);
+        break;
+    case CKM_IBM_KYBER:
+    case CKM_IBM_ML_KEM:
+        if (!derived_key) {
+            TRACE_ERROR("%s received bad argument(s)\n", __func__);
+            rc = CKR_FUNCTION_FAILED;
+            break;
+        }
+        rc = ibm_ml_kem_derive(tokdata, sess, mech, base_key_obj, new_attrs,
+                               new_attr_count, derived_key);
         break;
     default:
         TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));

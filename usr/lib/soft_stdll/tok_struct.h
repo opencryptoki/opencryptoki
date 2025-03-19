@@ -166,10 +166,14 @@ token_spec_t token_specific = {
     &token_specific_ibm_ml_dsa_generate_keypair,
     &token_specific_ibm_ml_dsa_sign,
     &token_specific_ibm_ml_dsa_verify,
+    NULL,                       // ibm_ml_kem_generate_keypair
+    NULL,                       // ibm_ml_kem_derive
 #else
     NULL,                       // ibm_ml_dsa_generate_keypair
     NULL,                       // ibm_ml_dsa_sign
     NULL,                       // ibm_ml_dsa_verify
+    NULL,                       // ibm_ml_kem_generate_keypair
+    NULL,                       // ibm_ml_kem_derive
 #endif
     &token_specific_get_mechanism_list,
     &token_specific_get_mechanism_info,
