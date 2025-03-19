@@ -898,6 +898,14 @@ CK_RV ibm_ml_dsa_verify(STDLL_TokData_t *tokdata, SESSION *sess,
                         CK_BYTE *in_data, CK_ULONG in_data_len,
                         CK_BYTE *signature, CK_ULONG sig_len);
 
+CK_RV ckm_ibm_ml_kem_key_pair_gen(STDLL_TokData_t *tokdata, CK_MECHANISM *mech,
+                                  TEMPLATE *publ_tmpl, TEMPLATE *priv_tmpl);
+
+CK_RV ibm_ml_kem_derive(STDLL_TokData_t *tokdata, SESSION *sess,
+                        CK_MECHANISM *mech, OBJECT *base_key_obj,
+                        CK_ATTRIBUTE *pTemplate, CK_ULONG ulCount,
+                        CK_OBJECT_HANDLE *derived_key_handle);
+
 CK_RV pqc_pack_priv_key(TEMPLATE *templ, const struct pqc_oid *oid,
                         CK_MECHANISM_TYPE mech,
                         CK_BYTE *priv, CK_ULONG *priv_len);
@@ -3426,6 +3434,15 @@ CK_RV openssl_specific_pqc_verify(STDLL_TokData_t *tokdata,
                                   CK_BYTE *signature,
                                   CK_ULONG signature_len,
                                   OBJECT *key_obj);
+CK_RV openssl_specific_pqc_kem_derive(STDLL_TokData_t *tokdata, SESSION *sess,
+                                      const struct pqc_oid *oid,
+                                      CK_MECHANISM *mech,
+                                      OBJECT *base_object,
+                                      CK_OBJECT_CLASS base_key_class,
+                                      CK_KEY_TYPE base_key_type,
+                                      OBJECT *derived_object,
+                                      CK_KEY_TYPE derived_key_type,
+                                      CK_ULONG derived_keylen);
 #endif
 
 #include "tok_spec_struct.h"

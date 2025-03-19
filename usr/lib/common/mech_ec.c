@@ -910,7 +910,7 @@ CK_RV ecdh_get_derived_key_size(CK_ULONG prime_len, CK_BYTE *curve_oid,
      */
     if (*key_len == 0) {
         /* Determine digest length */
-        if (kdf != CKD_NULL) {
+        if (kdf != CKD_NULL && kdf != CKD_IBM_HYBRID_NULL) {
             rc = digest_from_kdf(kdf, &digest_mech);
             if (rc != CKR_OK) {
                 TRACE_ERROR("Cannot determine mech from kdf.\n");
@@ -950,7 +950,8 @@ CK_RV ecdh_get_derived_key_size(CK_ULONG prime_len, CK_BYTE *curve_oid,
     }
 
     /* If no KDF used, max possible key length is the prime_len */
-    if (kdf == CKD_NULL && *key_len > prime_len) {
+    if ((kdf == CKD_NULL || kdf == CKD_IBM_HYBRID_NULL) &&
+        *key_len > prime_len) {
         TRACE_ERROR("Can only provide %ld key bytes without a KDF, "
                     "but %ld bytes requested.\n", prime_len, *key_len);
         return CKR_ARGUMENTS_BAD;
@@ -1003,7 +1004,7 @@ CK_RV ecdh_pkcs_derive(STDLL_TokData_t *tokdata, SESSION *sess,
     }
 
     /* Optional shared data can only be provided together with a KDF */
-    if (pParms->kdf == CKD_NULL
+    if ((pParms->kdf == CKD_NULL || pParms->kdf == CKD_IBM_HYBRID_NULL)
         && (pParms->pSharedData != NULL || pParms->ulSharedDataLen != 0)) {
         TRACE_ERROR("No KDF specified, but shared data ptr is not NULL.\n");
         return CKR_MECHANISM_PARAM_INVALID;
@@ -1055,7 +1056,7 @@ CK_RV ecdh_pkcs_derive(STDLL_TokData_t *tokdata, SESSION *sess,
     }
 
     /* Determine digest length */
-    if (pParms->kdf != CKD_NULL) {
+    if (pParms->kdf != CKD_NULL && pParms->kdf != CKD_IBM_HYBRID_NULL) {
         rc = digest_from_kdf(pParms->kdf, &digest_mech);
         if (rc != CKR_OK) {
             TRACE_ERROR("Cannot determine mech from kdf.\n");
