@@ -351,45 +351,16 @@ static CK_RV check_expected_mkvp(STDLL_TokData_t *tokdata, CK_BYTE *blob,
                                  size_t blobsize, CK_BBOOL *new_wk)
 {
     ep11_private_data_t *ep11_data = tokdata->private_data;
-    CK_ULONG data_len = 0, spki_len = 0, wkid_len = 0;
-    CK_BYTE *data, *wkid;
+    CK_BYTE *wkid;
     CK_RV rc;
 
     if (new_wk != NULL)
         *new_wk = FALSE;
 
-    /*
-     * Check if MACed SPKI or key blob. From the EP11 structure document:
-     *    Session identifiers are guaranteed not to have 0x30 as their first
-     *    byte. This allows a single-byte check to differentiate between blobs
-     *    starting with session identifiers, and MACed SPKIs, which may be
-     *    used as blobs under other conditions.
-     * Key blobs start with the session identifier (32 bytes).
-     * SPKIs start with a DER encoded SPKI, which itself starts with a SEQUENCE
-     * denoted by 0x30 followed by the DER encoded length of the SPKI.
-     */
-    if (blobsize > 5 && blob[0] == 0x30 &&
-        ber_decode_SEQUENCE(blob, &data, &data_len, &spki_len) == CKR_OK) {
-        /* It is a SPKI, WKID follows as OCTET STRING right after SPKI data */
-        if (blobsize < spki_len + 2 + XCP_WKID_BYTES) {
-            TRACE_ERROR("MACed SPKI is too small\n");
-            return CKR_FUNCTION_FAILED;
-        }
-
-        rc = ber_decode_OCTET_STRING(blob + spki_len, &wkid, &wkid_len,
-                                     &data_len);
-        if (rc != CKR_OK || wkid_len != XCP_WKID_BYTES) {
-            TRACE_ERROR("Invalid MACed SPKI encoding\n");
-            return CKR_FUNCTION_FAILED;
-        }
-    } else {
-        /* It is a key blob, WKID starts at EP11_BLOB_WKID_OFFSET */
-        if (blobsize < EP11_BLOB_WKID_OFFSET + XCP_WKID_BYTES) {
-            TRACE_ERROR("EP11 key blob is too small\n");
-            return CKR_FUNCTION_FAILED;
-        }
-
-        wkid = blob + EP11_BLOB_WKID_OFFSET;
+    rc = ep11tok_extract_blob_info(blob, blobsize, NULL, &wkid, NULL, NULL);
+    if (rc != CKR_OK || wkid == NULL) {
+        TRACE_ERROR("ep11tok_extract_blob_info failed\n");
+        return CKR_FUNCTION_FAILED;
     }
 
     if (memcmp(wkid, ep11_data->expected_wkvp, XCP_WKID_BYTES) != 0) {
@@ -1509,6 +1480,258 @@ done:
 }
 #endif /* NO_PKEY */
 
+CK_RV ep11tok_extract_blob_info(CK_BYTE *blob, CK_ULONG blob_len,
+                                CK_BBOOL *is_spki, CK_BYTE **wkid,
+                                CK_BYTE** session_id, XCP_Attr_t **bool_attrs)
+{
+    CK_BYTE *data;
+    CK_ULONG data_len, field_len, ofs, i;
+    blob_attr_header_t *hdr;
+
+    /* From EP11 structure document section 7.4.1 SPKI with MAC */
+    const struct {
+        const char* field;
+        CK_ULONG min_len;
+        CK_BYTE **ptr;
+    } fields[] = {
+        { "WKID", XCP_WKID_BYTES, wkid },
+        { "SessionID", XCP_WK_BYTES, session_id },
+        { "Salt", XCP_SPKISALT_BYTES, NULL },
+        { "Mode", XCP_BLOBCLRMODE_BYTES, NULL },
+        { "Attrs", sizeof(blob_attr_header_t) + XCP_BLOBCLRATTR_BYTES,
+                                                            (CK_BYTE **)&hdr },
+        { NULL, 0, NULL },
+    };
+
+    /*
+     * Check if MACed SPKI or key/state blob. From the EP11 structure document:
+     *    Session identifiers are guaranteed not to have 0x30 as their first
+     *    byte. This allows a single-byte check to differentiate between blobs
+     *    starting with session identifiers, and MACed SPKIs, which may be
+     *    used as blobs under other conditions.
+     * Key blobs start with the session identifier (32 bytes).
+     * SPKIs start with a DER encoded SPKI, which itself starts with a SEQUENCE
+     * denoted by 0x30 followed by the DER encoded length of the SPKI.
+     */
+    if (blob_len > 5 && blob[0] == 0x30 &&
+        ber_decode_SEQUENCE(blob, &data, &data_len, &field_len) == CKR_OK) {
+        /* It is a SPKI, fields follow as OCTET STRINGs right after SPKI data */
+        if (blob_len < field_len) {
+            TRACE_ERROR("MACed SPKI is too small\n");
+            return CKR_FUNCTION_FAILED;
+        }
+
+        if (is_spki != NULL)
+            *is_spki = TRUE;
+
+        if (blob_len == field_len) {
+            TRACE_DEVEL("Raw-SPKI (non-MACed), no info to return\n");
+            if (wkid != NULL)
+                *wkid = NULL;
+            if (session_id != NULL)
+                *session_id = NULL;
+            if (bool_attrs != NULL)
+                *bool_attrs = NULL;
+
+            return CKR_OK;
+        }
+
+        ofs = field_len;
+
+        for (i = 0; fields[i].field != NULL; i++) {
+            if (ofs + 2 + fields[i].min_len > blob_len) {
+                TRACE_ERROR("MACed SPKI is too small to contain field %s\n",
+                            fields[i].field);
+                return CKR_FUNCTION_FAILED;
+            }
+
+            if (ber_decode_OCTET_STRING(blob + ofs, &data, &data_len,
+                                        &field_len) != CKR_OK) {
+                TRACE_ERROR("Failed to decode MACed SPKI field %s\n",
+                            fields[i].field);
+                return CKR_FUNCTION_FAILED;
+            }
+
+            if (data_len < fields[i].min_len || ofs + field_len > blob_len) {
+                TRACE_ERROR("MACed SPKI field %s is too small\n",
+                            fields[i].field);
+                return CKR_FUNCTION_FAILED;
+            }
+
+            if (fields[i].ptr != NULL)
+                *fields[i].ptr = data;
+
+            ofs += field_len;
+        }
+
+        if (hdr->version != EP11_BLOB_ATTR_HDR_VERSION) {
+            TRACE_ERROR("MACed SPKI attributes heder is invalid\n");
+            return CKR_FUNCTION_FAILED;
+        }
+
+        if (bool_attrs != NULL)
+            *bool_attrs = (XCP_Attr_t*)&data[sizeof(blob_attr_header_t) + 4];
+    } else {
+        /* It is a key blob */
+        if (blob_len < EP11_BLOB_VERSION_OFFSET + sizeof(uint16_t) ||
+            *(uint16_t *)&blob[EP11_BLOB_VERSION_OFFSET] != EP11_BLOB_VERSION) {
+            TRACE_ERROR("Key blob is too small or is invalid\n");
+            return CKR_FUNCTION_FAILED;
+        }
+
+        if (is_spki != NULL)
+            *is_spki = FALSE;
+        if (wkid != NULL)
+            *wkid = &blob[EP11_BLOB_WKID_OFFSET];
+        if (session_id != NULL)
+            *session_id = blob;
+        if (bool_attrs != NULL)
+            *bool_attrs = (XCP_Attr_t *)&blob[EP11_BLOB_BOOL_ATTR_OFFSET];
+    }
+
+    return CKR_OK;
+}
+
+static const struct {
+    XCP_Attr_t ep11_attr;
+    CK_ATTRIBUTE_TYPE pkcs11_attr;
+    CK_BBOOL can_set_to_false; /* allow to restrict key usage */
+    CK_BBOOL can_set_to_true; /* allow to lift key usage */
+} ep11_pkcs11_attr_map[] = {
+    { XCP_BLOB_EXTRACTABLE, CKA_EXTRACTABLE, TRUE, FALSE },
+    { XCP_BLOB_NEVER_EXTRACTABLE, CKA_NEVER_EXTRACTABLE, FALSE, FALSE },
+    { XCP_BLOB_MODIFIABLE, CKA_MODIFIABLE, TRUE, FALSE },
+    { XCP_BLOB_NEVER_MODIFIABLE, CKA_IBM_NEVER_MODIFIABLE, FALSE, FALSE },
+    { XCP_BLOB_RESTRICTABLE, CKA_IBM_RESTRICTABLE, FALSE, FALSE },
+    { XCP_BLOB_ATTRBOUND, CKA_IBM_ATTRBOUND, FALSE, FALSE },
+    { XCP_BLOB_USE_AS_DATA, CKA_IBM_USE_AS_DATA, TRUE, TRUE },
+    { XCP_BLOB_SIGN, CKA_SIGN, TRUE, TRUE },
+    { XCP_BLOB_DECRYPT, CKA_DECRYPT, TRUE, TRUE },
+    { XCP_BLOB_ENCRYPT, CKA_ENCRYPT, TRUE, TRUE },
+    { XCP_BLOB_DERIVE, CKA_DERIVE, TRUE, TRUE },
+    { XCP_BLOB_UNWRAP, CKA_UNWRAP, TRUE, TRUE },
+    { XCP_BLOB_WRAP, CKA_WRAP, TRUE, TRUE },
+    { XCP_BLOB_VERIFY, CKA_VERIFY, TRUE, TRUE },
+    { XCP_BLOB_TRUSTED, CKA_TRUSTED, TRUE, FALSE },
+    { XCP_BLOB_WRAP_W_TRUSTED, CKA_WRAP_WITH_TRUSTED , TRUE, TRUE},
+    { XCP_BLOB_PROTKEY_EXTRACTABLE, CKA_IBM_PROTKEY_EXTRACTABLE, TRUE, FALSE },
+    { XCP_BLOB_PROTKEY_NEVER_EXTRACTABLE, CKA_IBM_PROTKEY_NEVER_EXTRACTABLE,
+                                                                FALSE, FALSE },
+    { 0, 0, 0, 0 },
+};
+
+static CK_RV ep11tok_check_blob_import_attrs(STDLL_TokData_t *tokdata,
+                                             CK_OBJECT_CLASS class,
+                                             TEMPLATE *tmpl,
+                                             CK_BYTE *blob, CK_ULONG blob_len)
+{
+    CK_ULONG keytype, i;
+    XCP_Attr_t *bool_attrs = NULL, *bool_attrs2 = NULL;
+    CK_ATTRIBUTE *attr;
+    CK_BBOOL is_spki, blob_val, user_val;
+    CK_RV rc;
+
+    UNUSED(tokdata);
+
+    rc = template_attribute_get_ulong(tmpl, CKA_KEY_TYPE, &keytype);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("CKA_KEY_TYPE not found\n");
+        return CKR_TEMPLATE_INCOMPLETE;
+    }
+
+    rc = ep11tok_extract_blob_info(blob, keytype == CKK_AES_XTS ?
+                                                    blob_len / 2 : blob_len,
+                                   &is_spki, NULL, NULL, &bool_attrs);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("ep11tok_extract_blob_info failed\n");
+        return CKR_ATTRIBUTE_VALUE_INVALID;
+    }
+
+    if (keytype == CKK_AES_XTS) {
+        rc = ep11tok_extract_blob_info(blob + blob_len / 2, blob_len / 2,
+                                       NULL, NULL, NULL, &bool_attrs2);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("ep11tok_extract_blob_info failed\n");
+            return CKR_ATTRIBUTE_VALUE_INVALID;
+        }
+
+        if (*bool_attrs != *bool_attrs2) {
+            TRACE_ERROR("AES-XTS keys are inconsistent\n");
+            return CKR_ATTRIBUTE_VALUE_INVALID;
+        }
+    }
+
+    if (is_spki) {
+        /* It's a (MACed) SPKI blob */
+        if (class != CKO_PUBLIC_KEY) {
+            TRACE_ERROR("SPKI-blob is only allowed for public keys\n");
+            return CKR_TEMPLATE_INCONSISTENT;
+        }
+
+        if (bool_attrs == NULL) {
+            TRACE_DEVEL("Raw-SPKI (non-MACed), no attributes to check\n");
+            return CKR_OK;
+        }
+
+        TRACE_DEVEL("MACed-SPKI boolean attrs: 0x%08x\n", *bool_attrs);
+    } else {
+        /* It's a key blob */
+        if (class != CKO_PRIVATE_KEY && class != CKO_SECRET_KEY) {
+            TRACE_ERROR("Key-blob is only allowed for private or secret keys\n");
+            return CKR_TEMPLATE_INCONSISTENT;
+        }
+
+        TRACE_DEVEL("Key-Blob boolean attrs: 0x%08x\n", *bool_attrs);
+    }
+
+    for (i = 0; ep11_pkcs11_attr_map[i].ep11_attr != 0; i++) {
+        blob_val = (*bool_attrs & ep11_pkcs11_attr_map[i].ep11_attr) != 0 ?
+                                                    CK_TRUE : CK_FALSE;
+
+        if (template_attribute_find(tmpl, ep11_pkcs11_attr_map[i].pkcs11_attr,
+                                    &attr) &&
+            attr->ulValueLen == sizeof(CK_BBOOL) && attr->pValue != NULL) {
+            user_val = *((CK_BBOOL *)attr->pValue);
+            if (blob_val != user_val) {
+                /* User supplied attribute is different than in blob */
+                if ((*bool_attrs & XCP_BLOB_MODIFIABLE) == 0) {
+                    TRACE_ERROR("Attribute %s=%s in template can not be "
+                                "applied to the blob because the blob has "
+                                "CKA_MODIFIABLE=FALSE\n",
+                               p11_get_cka(ep11_pkcs11_attr_map[i].pkcs11_attr),
+                               user_val ? "TRUE" : "FALSE");
+                    return CKR_ATTRIBUTE_VALUE_INVALID;
+                }
+                if ((user_val == FALSE &&
+                                    ep11_pkcs11_attr_map[i].can_set_to_false) ||
+                    (user_val == TRUE &&
+                                    ep11_pkcs11_attr_map[i].can_set_to_true)) {
+                    /* Update of attr is allowed */
+                    blob_val = user_val;
+                } else {
+                    TRACE_ERROR("Attribute %s=%s in template conflicts with "
+                               "blob attribute setting %s\n",
+                               p11_get_cka(ep11_pkcs11_attr_map[i].pkcs11_attr),
+                               user_val ? "TRUE" : "FALSE",
+                               blob_val ? "TRUE" : "FALSE");
+                    return CKR_ATTRIBUTE_VALUE_INVALID;
+                }
+            }
+        }
+
+        rc = template_build_update_attribute(tmpl,
+                                             ep11_pkcs11_attr_map[i].pkcs11_attr,
+                                             &blob_val, sizeof(blob_val));
+        if (rc != CKR_OK) {
+            TRACE_ERROR("template_build_update_attribute failed for %s\n",
+                        p11_get_cka(ep11_pkcs11_attr_map[i].pkcs11_attr));
+            return rc;
+        }
+    }
+
+    return CKR_OK;
+}
+
 /**
  * This function is called whenever a new object is created. It sets
  * attribute CKA_IBM_PROTKEY_EXTRACTABLE according to the PKEY_MODE token
@@ -1524,7 +1747,7 @@ CK_RV token_specific_set_attrs_for_new_object(STDLL_TokData_t *tokdata,
                                               CK_ULONG mode, TEMPLATE *tmpl)
 {
     ep11_private_data_t *ep11_data = tokdata->private_data;
-    CK_ATTRIBUTE *sensitive_attr = NULL;
+    CK_ATTRIBUTE *sensitive_attr = NULL, *opaque = NULL;
     CK_BBOOL sensitive, extractable, pkey_extractable, btrue = CK_TRUE;
 #ifndef NO_PKEY
     CK_ATTRIBUTE *ecp_attr = NULL;
@@ -1537,6 +1760,20 @@ CK_RV token_specific_set_attrs_for_new_object(STDLL_TokData_t *tokdata,
     if (class != CKO_SECRET_KEY && class != CKO_PRIVATE_KEY &&
         class != CKO_PUBLIC_KEY)
         return CKR_OK;
+
+    if (mode == MODE_CREATE &&
+        template_attribute_find(tmpl, CKA_IBM_OPAQUE, &opaque) == TRUE &&
+        opaque->ulValueLen > 0 && opaque->pValue != NULL) {
+        /* Check for conflicting attrs in to-be-imported blob and template */
+        ret = ep11tok_check_blob_import_attrs(tokdata, class, tmpl,
+                                              (CK_BYTE*)opaque->pValue,
+                                              opaque->ulValueLen);
+        if (ret != CKR_OK) {
+            TRACE_ERROR("ep11tok_check_blob_import_attrs failed ret=0x%lx\n",
+                        ret);
+            goto done;
+        }
+    }
 
     if (class == CKO_PRIVATE_KEY ||
         (class == CKO_SECRET_KEY && ep11_data->cka_sensitive_default_true)) {
@@ -3220,9 +3457,7 @@ static CK_RV check_add_spki_attr(STDLL_TokData_t *tokdata,
     case CKA_WRAP:
     case CKA_TRUSTED:
     case CKA_IBM_RESTRICTABLE:
-    case CKA_IBM_NEVER_MODIFIABLE:
     case CKA_IBM_ATTRBOUND:
-    case CKA_IBM_USE_AS_DATA:
         if (attr->ulValueLen > 0 && attr->pValue == NULL) {
             return CKR_ATTRIBUTE_VALUE_INVALID;
         }
@@ -3384,6 +3619,54 @@ static int get_curve_type_from_template(TEMPLATE *tmpl)
     }
 
     return curve_type;
+}
+
+static int get_curve_type_from_spki(CK_BYTE *spki, CK_ULONG spki_len)
+{
+    CK_BYTE *algid = NULL;
+    CK_ULONG algid_len;
+    CK_BYTE *algid_ECBase = NULL;
+    CK_BYTE *param = NULL;
+    CK_ULONG param_len;
+    CK_BYTE *pubkey = NULL;
+    CK_ULONG pubkey_len;
+    CK_ULONG field_len, len, i;
+    CK_RV rc;
+
+    UNUSED(spki_len);
+
+    rc = ber_decode_SPKI(spki, &algid, &algid_len, &param, &param_len,
+                         &pubkey, &pubkey_len);
+    if (rc != CKR_OK) {
+       TRACE_DEVEL("ber_decode_SPKI failed\n");
+       return -1;
+    }
+
+    /*
+     * Check if we're dealing with an EC key.
+     * Extract base alg-id of DER encoded EC byte string
+     * and compare against the decoded alg-id from the inner sequence
+     */
+    rc = ber_decode_SEQUENCE((CK_BYTE *)der_AlgIdECBase, &algid_ECBase, &len,
+                             &field_len);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("ber_decode_SEQUENCE failed\n");
+        return -1;
+    }
+
+    if (memcmp(algid, algid_ECBase, len) != 0) {
+         /* Not an EC SPKI, ignore */
+        return -1;
+    }
+
+    for (i = 0; i < NUMEC; i++) {
+        if (der_ec_supported[i].data_size ==  param_len &&
+            memcmp(param, der_ec_supported[i].data, param_len) == 0) {
+            return der_ec_supported[i].curve_type;
+        }
+    }
+
+    return -1;
 }
 
 /* import a AES-XTS key, that is, make a blob for a AES XTS key
@@ -4771,6 +5054,552 @@ done:
     return rc;
 }
 
+static CK_RV import_blob_private_public(STDLL_TokData_t *tokdata, SESSION *sess,
+                                        OBJECT *obj, CK_KEY_TYPE keytype,
+                                        CK_BYTE *spki, CK_ULONG spki_len,
+                                        CK_BBOOL is_public)
+{
+    CK_ULONG data_len, raw_spki_len;
+    CK_BYTE *data;
+    CK_RV rc;
+
+    UNUSED(tokdata);
+    UNUSED(sess);
+
+    /* Decode SPKI and add the respective public key attributes */
+    switch (keytype) {
+    case CKK_EC:
+        rc = ecdsa_priv_unwrap_get_data(obj->template, spki, spki_len,
+                                        is_public);
+        break;
+    case CKK_RSA:
+        rc = rsa_priv_unwrap_get_data(obj->template, spki, spki_len, is_public);
+        break;
+    case CKK_DSA:
+        rc = dsa_priv_unwrap_get_data(obj->template, spki, spki_len, is_public);
+        break;
+    case CKK_DH:
+        rc = dh_priv_unwrap_get_data(obj->template, spki, spki_len, is_public);
+        break;
+    case CKK_IBM_PQC_DILITHIUM:
+        rc = ibm_dilithium_priv_unwrap_get_data(obj->template, spki, spki_len,
+                                                is_public);
+        break;
+    case CKK_IBM_PQC_KYBER:
+        rc = ibm_kyber_priv_unwrap_get_data(obj->template, spki, spki_len,
+                                            is_public);
+        break;
+    default:
+        TRACE_ERROR("%s Key type 0x%lx not supported\n", __func__, keytype);
+        return CKR_FUNCTION_FAILED;
+    }
+
+    if (rc != 0) {
+        TRACE_ERROR("%s xxx_priv_unwrap_get_data rc=0x%lx\n",
+                    __func__, rc);
+        return rc;
+    }
+
+    /* SPKI is a MACed SPKI, get length of SPKI part only */
+    rc = ber_decode_SEQUENCE(spki, &data, &data_len, &raw_spki_len);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s ber_decode_SEQUENCE failed rc=0x%lx\n",
+                    __func__, rc);
+        return rc;
+    }
+
+    /* Add SPKI as CKA_PUBLIC_KEY_INFO */
+    rc = template_build_update_attribute(obj->template, CKA_PUBLIC_KEY_INFO,
+                                         spki, raw_spki_len);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s template_build_update_attribute failed with rc=0x%lx\n",
+                    __func__, rc);
+        return rc;
+    }
+
+    return CKR_OK;
+}
+
+static CK_RV import_blob_secret(STDLL_TokData_t *tokdata, SESSION *sess,
+                                OBJECT *obj, CK_KEY_TYPE keytype,
+                                CK_ULONG value_len)
+{
+    CK_BYTE *zero;
+    CK_RV rc;
+
+    UNUSED(tokdata);
+    UNUSED(sess);
+
+    switch (keytype) {
+    case CKK_AES:
+    case CKK_AES_XTS:
+    case CKK_GENERIC_SECRET:
+        rc = template_build_update_attribute(obj->template, CKA_VALUE_LEN,
+                                             (CK_BYTE *)&value_len,
+                                             sizeof(value_len));
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s template_build_update_attribute failed with "
+                        "rc=0x%lx\n", __func__, rc);
+            return rc;
+        }
+
+        /* Add all zero CKA_VALUE (needed by object_mgr_add) */
+        zero = calloc(1, value_len);
+        if (zero == NULL) {
+            TRACE_ERROR("%s Failed to allocate dummy buffer of %lu bytes\n",
+                        __func__, value_len);
+            return CKR_HOST_MEMORY;
+        }
+
+        rc = template_build_update_attribute(obj->template, CKA_VALUE,
+                                             zero, value_len);
+        free(zero);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s template_build_update_attribute failed with "
+                        "rc=0x%lx\n", __func__, rc);
+            return rc;
+        }
+        break;
+    }
+
+    return CKR_OK;
+}
+
+static CK_RV import_blob_update_attrs(STDLL_TokData_t *tokdata, SESSION *sess,
+                                      OBJECT *obj, XCP_Attr_t *bool_attrs,
+                                      CK_OBJECT_CLASS class,
+                                      CK_KEY_TYPE keytype)
+{
+    CK_ATTRIBUTE *attr;
+    CK_ULONG i;
+    CK_BBOOL blob_val, user_val;
+    TEMPLATE *tmpl;
+    CK_RV rc = CKR_OK;
+
+    tmpl = calloc(1, sizeof(TEMPLATE));
+    if (tmpl == NULL) {
+        TRACE_ERROR("%s allocate template failed\n", __func__);
+        return CKR_HOST_MEMORY;
+    }
+
+    for (i = 0; ep11_pkcs11_attr_map[i].ep11_attr != 0; i++) {
+        blob_val = (*bool_attrs & ep11_pkcs11_attr_map[i].ep11_attr) != 0 ?
+                                                    CK_TRUE : CK_FALSE;
+
+        if (template_attribute_find(obj->template,
+                                    ep11_pkcs11_attr_map[i].pkcs11_attr,
+                                    &attr) &&
+            attr->ulValueLen == sizeof(CK_BBOOL) && attr->pValue != NULL) {
+            user_val = *((CK_BBOOL *)attr->pValue);
+            if (blob_val != user_val &&
+                ((user_val == FALSE &&
+                                 ep11_pkcs11_attr_map[i].can_set_to_false) ||
+                 (user_val == TRUE &&
+                                 ep11_pkcs11_attr_map[i].can_set_to_true))) {
+                /* Attribute was updated, add it */
+                rc = template_build_update_attribute(tmpl, attr->type,
+                                                     (CK_BYTE *)attr->pValue,
+                                                     attr->ulValueLen);
+                if (rc != CKR_OK) {
+                    TRACE_ERROR("%s template_build_update_attribute failed "
+                                "rc=0x%lx\n", __func__, rc);
+                    goto out;
+                }
+            }
+        }
+    }
+
+    if (tmpl->attribute_list != NULL) {
+        if ((*bool_attrs & XCP_BLOB_MODIFIABLE) == 0) {
+            TRACE_ERROR("%s The blob has CKA_MODIFIABLE=FALSE, attributes can not "
+                        "be modified\n", __func__);
+            rc = CKR_ATTRIBUTE_VALUE_INVALID;
+            goto out;
+        }
+
+        /* Check if the attributes are allowed to be modified that way */
+        rc = template_validate_attributes(tokdata, tmpl, class, keytype,
+                                          MODE_MODIFY);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s template_validate_attributes failed rc=0x%lx\n",
+                        __func__, rc);
+            goto out;
+        }
+
+        rc = token_specific_set_attribute_values(tokdata, sess, obj, tmpl);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s token_specific_set_attribute_values failed "
+                       "rc=0x%lx\n", __func__, rc);
+            goto out;
+        }
+
+        rc = template_merge(obj->template, &tmpl);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s template_merge failed rc=0x%lx\n",
+                        __func__, rc);
+            goto out;
+        }
+    }
+
+out:
+    if (tmpl != NULL)
+        template_free(tmpl);
+
+    return rc;
+}
+
+static CK_RV import_blob(STDLL_TokData_t *tokdata, SESSION *sess, OBJECT *obj,
+                         CK_OBJECT_CLASS class, CK_KEY_TYPE keytype,
+                         CK_BYTE *blob, CK_ULONG blob_len)
+{
+    ep11_private_data_t *ep11_data = tokdata->private_data;
+    ep11_session_t *ep11_session = (ep11_session_t *)sess->private_data;
+    CK_BYTE *ep11_pin_blob = NULL;
+    CK_ULONG ep11_pin_blob_len = 0;
+    CK_BBOOL is_new_mk, is_new_mk2, is_spki;
+    XCP_Attr_t *bool_attrs = NULL;
+    CK_BYTE *session_id = NULL, *session_id2 = NULL, *exp_session = NULL;
+    const CK_BYTE zero_session[XCP_WK_BYTES] = { 0 };
+    CK_BYTE maced_spki[MAX_BLOBSIZE];
+    CK_BYTE blob_reenc[MAX_BLOBSIZE];
+    CK_ULONG maced_spki_len = sizeof(maced_spki);
+    ep11_target_info_t* target_info;
+    int curve_type;
+    CK_BYTE *useblob, *blob2;
+    size_t useblob_len, blob1_len, blob2_len;
+    CK_KEY_TYPE blob_type, blob_type2;
+    CK_ULONG value_len, value_len2, stdcomp, stdcomp2;
+    CK_BYTE buf[MAX_BLOBSIZE];
+    CK_ATTRIBUTE get_attr[] = {
+        { CKA_KEY_TYPE, &blob_type, sizeof(blob_type) }, /* must be first */
+        { CKA_VALUE_LEN, &value_len, sizeof(value_len) },
+        { CKA_IBM_STD_COMPLIANCE1, &stdcomp, sizeof(stdcomp) },
+        { CKA_PUBLIC_KEY_INFO, &buf, sizeof(buf) } /* SPKI must be last */
+    };
+    CK_ULONG get_attr_num = sizeof(get_attr) / sizeof(CK_ATTRIBUTE);
+    CK_ATTRIBUTE get_attr2[] = {
+        { CKA_KEY_TYPE, &blob_type2, sizeof(blob_type2) },
+        { CKA_VALUE_LEN, &value_len2, sizeof(value_len2) },
+        { CKA_IBM_STD_COMPLIANCE1, &stdcomp2, sizeof(stdcomp2) },
+    };
+    CK_ULONG get_attr2_num = sizeof(get_attr2) / sizeof(CK_ATTRIBUTE);
+    CK_RV rc;
+
+    rc = ep11tok_extract_blob_info(blob, keytype == CKK_AES_XTS ?
+                                                blob_len / 2 : blob_len,
+                                   &is_spki, NULL, &session_id, &bool_attrs);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("ep11tok_extract_blob_info failed\n");
+        return CKR_ATTRIBUTE_VALUE_INVALID;
+    }
+
+    if (keytype == CKK_AES_XTS) {
+        rc = ep11tok_extract_blob_info(blob + blob_len / 2, blob_len / 2,
+                                       NULL, NULL, &session_id2, NULL);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("ep11tok_extract_blob_info failed\n");
+            return CKR_ATTRIBUTE_VALUE_INVALID;
+        }
+
+#ifndef NO_PKEY
+        rc = ep11tok_pkey_check_aes_xts(tokdata, obj, CKM_AES_XTS);
+#else
+        rc = CKR_FUNCTION_NOT_SUPPORTED;
+#endif
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s EP11 AES XTS is not supported: rc=0x%lx\n",
+                        __func__, rc);
+            return rc;
+        }
+    }
+
+    if (is_spki && class != CKO_PUBLIC_KEY) {
+        TRACE_ERROR("Key blob is an SPKI but import is not for a public key\n");
+        return CKR_ATTRIBUTE_VALUE_INVALID;
+    }
+    if (!is_spki && class == CKO_PUBLIC_KEY) {
+        TRACE_ERROR("Public key import requres a SPKI.\n");
+        return CKR_ATTRIBUTE_VALUE_INVALID;
+    }
+
+    if (is_spki && session_id == NULL) {
+        /* Raw (un-MACed) SPKI: MAC it */
+        curve_type = get_curve_type_from_spki(blob, blob_len);
+
+        rc = make_maced_spki(tokdata, sess, obj, NULL, 0, blob, blob_len,
+                             maced_spki, blob_reenc, &maced_spki_len,
+                             curve_type);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("make_maced_spki failed\n");
+            return rc;
+        }
+
+        rc = template_build_update_attribute(obj->template, CKA_IBM_OPAQUE,
+                                             maced_spki, maced_spki_len);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("template_build_update_attribute failed for "
+                        "CKA_IBM_OPAQUE\n");
+            return rc;
+        }
+
+        blob = maced_spki;
+        blob_len = maced_spki_len;
+    }
+
+    /* Check if session bound and if so for valid session */
+    if (memcmp(session_id, zero_session, XCP_WK_BYTES) == 0)
+        session_id = NULL;
+    if (keytype == CKK_AES_XTS &&
+        memcmp(session_id2, zero_session, XCP_WK_BYTES) == 0)
+        session_id2 = NULL;
+
+    if (keytype == CKK_AES_XTS) {
+        /*
+         * AES-XTS key pair: either both are not session bound,
+         * or both are bound to the same session.
+         */
+        if ((session_id == NULL && session_id2 != NULL) ||
+            (session_id != NULL && session_id2 == NULL)) {
+            TRACE_ERROR("AES-XTS key blob is inconsistent\n");
+            return CKR_ATTRIBUTE_VALUE_INVALID;
+        }
+
+        if (session_id != NULL && session_id2 != NULL &&
+            memcmp(session_id, session_id2, XCP_WK_BYTES) != 0) {
+            TRACE_ERROR("AES-XTS key blob is inconsistent\n");
+            return CKR_ATTRIBUTE_VALUE_INVALID;
+        }
+    }
+
+    ep11_get_pin_blob(tokdata, ep11_session,
+                      object_is_session_object(obj),
+                      object_is_private(obj),
+                      &ep11_pin_blob, &ep11_pin_blob_len);
+
+    if (ep11_pin_blob == NULL) {
+        /*
+         * In a secure execution guest keys might be bound to the ultravisor
+         * session. Get the UV session ID (if any) from the wrap blob.
+         */
+        rc = ep11tok_extract_blob_info(ep11_data->raw2key_wrap_blob,
+                                       ep11_data->raw2key_wrap_blob_l,
+                                       NULL, NULL,
+                                       &exp_session, NULL);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("extract_blob_info failed for wrap blob\n");
+            return rc;
+        }
+
+        if (memcmp(exp_session, zero_session, XCP_WK_BYTES) == 0)
+            exp_session = NULL;
+    } else {
+        exp_session = ep11_pin_blob;
+    }
+
+    if (exp_session == NULL && session_id != NULL) {
+        TRACE_ERROR("Key blob must not be session bound\n");
+        return CKR_ATTRIBUTE_VALUE_INVALID;
+    }
+    if (exp_session != NULL && session_id == NULL) {
+        TRACE_ERROR("Key blob must be session bound, but it is not\n");
+        return CKR_ATTRIBUTE_VALUE_INVALID;
+    }
+    if (exp_session != NULL && session_id != NULL &&
+        memcmp(exp_session, session_id, XCP_WK_BYTES) != 0) {
+        TRACE_ERROR("Key blob is bound to an unexpected session\n");
+        return CKR_ATTRIBUTE_VALUE_INVALID;
+    }
+
+    /* Check for valid master key */
+    if (check_expected_mkvp(tokdata, blob, keytype == CKK_AES_XTS ?
+                                                    blob_len / 2 : blob_len,
+                            &is_new_mk) != CKR_OK) {
+        TRACE_ERROR("Key blob has an invalid WKVP\n");
+        return CKR_ATTRIBUTE_VALUE_INVALID;
+    }
+
+    if (keytype == CKK_AES_XTS) {
+        if (check_expected_mkvp(tokdata, blob + blob_len / 2, blob_len / 2,
+                                &is_new_mk2) != CKR_OK) {
+            TRACE_ERROR("Key blob has an invalid WKVP\n");
+            return CKR_ATTRIBUTE_VALUE_INVALID;
+        }
+
+        if (is_new_mk != is_new_mk2) {
+            TRACE_ERROR("AES-XTS key blob is inconsistent\n");
+            return CKR_ATTRIBUTE_VALUE_INVALID;
+        }
+    }
+
+    if (ep11_data->mk_change_active) {
+        if (is_new_mk) {
+            /* Blob has new WK already: supply it in reencblob as well */
+            TRACE_DEVEL("%s Key blob has new WK\n", __func__);
+            memcpy(blob_reenc, blob, blob_len);
+        } else {
+            target_info = get_target_info(tokdata);
+            if (target_info == NULL)
+                return CKR_FUNCTION_FAILED;
+
+            /* Key has old WK, re-encipher it */
+            TRACE_DEVEL("%s Key blob has old WK, reencipher it\n", __func__);
+            rc = ep11tok_reencipher_blob(tokdata, sess, &target_info,
+                                         blob, keytype == CKK_AES_XTS ?
+                                                     blob_len / 2 : blob_len,
+                                         blob_reenc);
+
+            if (rc == CKR_OK && keytype == CKK_AES_XTS) {
+                rc = ep11tok_reencipher_blob(tokdata, sess, &target_info,
+                                             blob + blob_len / 2,blob_len / 2,
+                                             blob_reenc + blob_len / 2);
+            }
+
+            put_target_info(tokdata, target_info);
+
+            if (rc != CKR_OK) {
+                put_target_info(tokdata, target_info);
+                TRACE_ERROR("%s new WK has just been activated, can not "
+                            "reencipher key blob\n", __func__);
+                return CKR_ATTRIBUTE_VALUE_INVALID;
+            }
+        }
+
+        rc = template_build_update_attribute(obj->template,
+                                             CKA_IBM_OPAQUE_REENC,
+                                             blob_reenc, blob_len);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("template_build_update_attribute failed for "
+                        "CKA_IBM_OPAQUE_REENC\n");
+            return rc;
+        }
+    }
+
+    if (class == CKO_PUBLIC_KEY)
+        get_attr_num = 1; /* get only key type for public key */
+    if (class == CKO_SECRET_KEY)
+        get_attr_num--; /* don't get SPKI for secret key */
+
+    /* Get Key type and SPKI for private keys */
+    blob1_len = keytype == CKK_AES_XTS ? blob_len / 2 : blob_len;
+    RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
+    RETRY_REENC_BLOB_START(tokdata, target_info, obj, blob, blob1_len,
+                           useblob, useblob_len, rc)
+        rc = dll_m_GetAttributeValue(useblob, useblob_len, get_attr,
+                                     get_attr_num, target_info->target);
+    RETRY_REENC_BLOB_END(tokdata, target_info, useblob, useblob_len, rc)
+    RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, sess)
+
+    if (rc == CKR_OK && keytype == CKK_AES_XTS) {
+        blob2 = blob + blob_len / 2;
+        blob2_len = blob_len / 2;
+        RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
+        RETRY_REENC_BLOB_START(tokdata, target_info, obj, blob2, blob2_len,
+                               useblob, useblob_len, rc)
+            rc = dll_m_GetAttributeValue(useblob, useblob_len, get_attr2,
+                                         get_attr2_num, target_info->target);
+        RETRY_REENC_BLOB_END(tokdata, target_info, useblob, useblob_len, rc)
+        RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, sess)
+    }
+
+    if (rc != CKR_OK) {
+        rc = ep11_error_to_pkcs11_error(rc, NULL);
+        TRACE_ERROR("%s m_GetAttributeValue failed rc=0x%lx\n", __func__, rc);
+
+        if (class == CKO_PRIVATE_KEY && rc != CKR_SESSION_CLOSED) {
+            /* This is most likely due to a missing EP11 firmware fix */
+            TRACE_DEVEL("%s possibly caused by missing EP11 firmware fix?\n",
+                        __func__);
+            return CKR_PUBLIC_KEY_INVALID; /* Indicate this situation */
+        }
+        return rc;
+    }
+
+    if (keytype != CKK_AES_XTS && blob_type != keytype) {
+        TRACE_ERROR("%s Key blob is not of the expected type: 0x%lx expectd "
+                    "0x%lx\n", __func__, blob_type, keytype);
+        return CKR_KEY_TYPE_INCONSISTENT;
+    }
+
+    if (keytype == CKK_AES_XTS) {
+        if ((blob_type != blob_type2 || value_len != value_len2 ||
+             stdcomp != stdcomp2)) {
+            TRACE_ERROR("AES-XTS key blob is inconsistent\n");
+            return CKR_ATTRIBUTE_VALUE_INVALID;
+        }
+
+        value_len *= 2;
+
+        if (blob_type != CKK_AES) {
+             TRACE_ERROR("%s Key blob is not of the expected type: 0x%lx "
+                         "expectd 0x%x\n", __func__, blob_type, CKK_AES);
+             return CKR_KEY_TYPE_INCONSISTENT;
+         }
+    }
+
+    switch (class) {
+    case CKO_PUBLIC_KEY:
+        rc = import_blob_private_public(tokdata, sess, obj, keytype,
+                                        blob, blob_len, TRUE);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s import_blob_public failed rc=0x%lx\n",
+                        __func__, rc);
+            return rc;
+        }
+        break;
+
+    case CKO_PRIVATE_KEY:
+        rc = import_blob_private_public(tokdata, sess, obj, keytype,
+                                        get_attr[get_attr_num - 1].pValue,
+                                        get_attr[get_attr_num - 1].ulValueLen,
+                                        FALSE);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s import_blob_public failed rc=0x%lx\n",
+                        __func__, rc);
+            return rc;
+        }
+        break;
+
+    case CKO_SECRET_KEY:
+        rc = import_blob_secret(tokdata, sess, obj, keytype, value_len);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s import_blob_secret failed rc=0x%lx\n",
+                        __func__, rc);
+            return rc;
+        }
+        break;
+    }
+
+    rc = template_build_update_attribute(obj->template, CKA_IBM_STD_COMPLIANCE1,
+                                         (CK_BYTE *)&stdcomp, sizeof(stdcomp));
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s template_build_update_attribute failed rc=0x%lx\n",
+                    __func__, rc);
+        return rc;
+    }
+
+    if (class != CKO_PUBLIC_KEY) {
+        /* Set CKA_ALWAYS_SENSITIVE and CKA_NEVER_EXTRACTABLE */
+        rc = key_mgr_apply_always_sensitive_never_extractable_attrs(tokdata,
+                                                                    obj);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s key_mgr_apply_always_sensitive_never_extractable_attrs "
+                        "failed with rc=0x%lx\n", __func__, rc);
+            return rc;
+        }
+    }
+
+    /* check if bool attrs are changed during import, and apply if so */
+    rc = import_blob_update_attrs(tokdata, sess, obj, bool_attrs,
+                                  class, keytype);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s import_blob_update_attrs failed with rc=0x%lx\n",
+                    __func__, rc);
+        return rc;
+    }
+
+    return CKR_OK;
+}
+
 CK_RV token_specific_object_add(STDLL_TokData_t * tokdata, SESSION * sess,
                                 OBJECT * obj)
 {
@@ -4832,6 +5661,19 @@ CK_RV token_specific_object_add(STDLL_TokData_t * tokdata, SESSION * sess,
 
     memset(blob, 0, sizeof(blob));
     memset(blobreenc, 0, sizeof(blobreenc));
+
+    /* Check for key blob import */
+    if (template_attribute_find(obj->template, CKA_IBM_OPAQUE, &attr) &&
+        attr->ulValueLen > 0 && attr->pValue != NULL) {
+        rc = import_blob(tokdata, sess, obj, class, keytype,
+                         (CK_BYTE *)attr->pValue, attr->ulValueLen);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s import_blob rc=0x%lx\n", __func__, rc);
+            return rc;
+        }
+
+        return CKR_OK;
+    }
 
     /* only these keys can be imported */
     switch (keytype) {

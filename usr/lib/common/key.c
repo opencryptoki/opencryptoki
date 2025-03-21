@@ -3439,6 +3439,16 @@ CK_RV dsa_publ_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     CK_ATTRIBUTE *attr = NULL;
     CK_RV rc;
 
+    if (mode == MODE_CREATE &&
+        token_specific.secure_key_token == TRUE &&
+        template_attribute_get_non_empty(tmpl, CKA_IBM_OPAQUE, &attr) == CKR_OK) {
+        /*
+         * Import of an already existing secure key. Only
+         * do the base checks for public key templates.
+         */
+        return publ_key_check_required_attributes(tmpl, mode);
+    }
+
     rc = template_attribute_get_non_empty(tmpl, CKA_PRIME, &attr);
     if (rc != CKR_OK) {
         if (mode == MODE_CREATE) {
@@ -3677,6 +3687,16 @@ CK_RV dsa_priv_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode)
 {
     CK_ATTRIBUTE *attr = NULL;
     CK_RV rc;
+
+    if (mode == MODE_CREATE &&
+        token_specific.secure_key_token == TRUE &&
+        template_attribute_get_non_empty(tmpl, CKA_IBM_OPAQUE, &attr) == CKR_OK) {
+        /*
+         * Import of an already existing secure key. Only
+         * do the base checks for private key templates.
+         */
+        return priv_key_check_required_attributes(tmpl, mode);
+    }
 
     rc = template_attribute_get_non_empty(tmpl, CKA_PRIME, &attr);
     if (rc != CKR_OK) {
@@ -4591,6 +4611,15 @@ CK_RV dh_publ_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     CK_ATTRIBUTE *attr = NULL;
     CK_RV rc;
 
+    if (mode == MODE_CREATE &&
+        token_specific.secure_key_token == TRUE &&
+        template_attribute_get_non_empty(tmpl, CKA_IBM_OPAQUE, &attr) == CKR_OK) {
+        /*
+         * Import of an already existing secure key. Only
+         * do the base checks for public key templates.
+         */
+        return publ_key_check_required_attributes(tmpl, mode);
+    }
 
     rc = template_attribute_get_non_empty(tmpl, CKA_PRIME, &attr);
     if (rc != CKR_OK) {
@@ -4774,6 +4803,16 @@ CK_RV dh_priv_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     CK_ATTRIBUTE *attr = NULL;
     CK_ULONG val;
     CK_RV rc;
+
+    if (mode == MODE_CREATE &&
+        token_specific.secure_key_token == TRUE &&
+        template_attribute_get_non_empty(tmpl, CKA_IBM_OPAQUE, &attr) == CKR_OK) {
+        /*
+         * Import of an already existing secure key. Only
+         * do the base checks for private key templates.
+         */
+        return priv_key_check_required_attributes(tmpl, mode);
+    }
 
     rc = template_attribute_get_non_empty(tmpl, CKA_PRIME, &attr);
     if (rc != CKR_OK) {
@@ -5904,6 +5943,16 @@ CK_RV generic_secret_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     CK_ULONG val;
     CK_RV rc;
 
+    if (mode == MODE_CREATE &&
+        token_specific.secure_key_token == TRUE &&
+        template_attribute_get_non_empty(tmpl, CKA_IBM_OPAQUE, &attr) == CKR_OK) {
+        /*
+         * Import of an already existing secure key. Only
+         * do the base checks for des key templates.
+         */
+        return secret_key_check_required_attributes(tmpl, mode);
+    }
+
     rc = template_attribute_get_non_empty(tmpl, CKA_VALUE, &attr);
     if (rc != CKR_OK) {
         if (mode == MODE_CREATE) {
@@ -6727,6 +6776,16 @@ CK_RV des2_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode)
 {
     CK_ATTRIBUTE *attr = NULL;
     CK_RV rc;
+
+    if (mode == MODE_CREATE &&
+        token_specific.secure_key_token == TRUE &&
+        template_attribute_get_non_empty(tmpl, CKA_IBM_OPAQUE, &attr) == CKR_OK) {
+        /*
+         * Import of an already existing secure key. Only
+         * do the base checks for des key templates.
+         */
+        return secret_key_check_required_attributes(tmpl, mode);
+    }
 
     rc = template_attribute_get_non_empty(tmpl, CKA_VALUE, &attr);
     if (rc != CKR_OK) {

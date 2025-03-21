@@ -7,7 +7,7 @@
  * be found in the file LICENSE file or at
  * https://opensource.org/licenses/cpl1.0.php
  *
- * import/export test for the CCA token
+ * import/export test for the CCA and EP11 token
  * by Harald Freudenberger <freude@de.ibm.com>
  */
 
@@ -20,15 +20,16 @@
 #include "platform.h"
 #include "pkcs11types.h"
 #include "ec_curves.h"
+#include "mechtable.h"
 
 #include "regress.h"
 #include "common.c"
 
 /** Create an AES key handle with given value **/
-CK_RV create_cca_AESKey(CK_SESSION_HANDLE session, CK_BBOOL extractable,
-                        unsigned char key[], unsigned char key_len,
-                        CK_KEY_TYPE keyType, CK_IBM_CCA_AES_KEY_MODE_TYPE mode,
-                        CK_OBJECT_HANDLE * h_key)
+CK_RV create_cca_ep11_AESKey(CK_SESSION_HANDLE session, CK_BBOOL extractable,
+                             unsigned char key[], unsigned char key_len,
+                             CK_KEY_TYPE keyType, CK_IBM_CCA_AES_KEY_MODE_TYPE mode,
+                             CK_OBJECT_HANDLE * h_key, int is_cca)
 {
     CK_RV rc;
     CK_BBOOL true = TRUE;
@@ -46,6 +47,9 @@ CK_RV create_cca_AESKey(CK_SESSION_HANDLE session, CK_BBOOL extractable,
         {CKA_IBM_CCA_AES_KEY_MODE, &mode, sizeof(mode)},
     };
     CK_ULONG keyTemplate_len = sizeof(keyTemplate) / sizeof(CK_ATTRIBUTE);
+
+    if (!is_cca)
+        keyTemplate_len--;
 
     if (combined_extract)
         pkeyextractable = CK_TRUE;
@@ -126,10 +130,10 @@ static CK_RV export_ibm_opaque(CK_SESSION_HANDLE session, CK_OBJECT_HANDLE handl
     return CKR_OK;
 }
 
-static CK_RV import_cca_des_key(CK_SESSION_HANDLE session,
-                                const char *label,
-                                CK_BYTE *ccatoken, CK_ULONG tokenlen,
-                                CK_OBJECT_HANDLE *handle)
+static CK_RV import_des_key(CK_SESSION_HANDLE session,
+                            const char *label,
+                            CK_BYTE *blob, CK_ULONG bloblen,
+                            CK_OBJECT_HANDLE *handle)
 {
     CK_RV rc;
     CK_OBJECT_CLASS keyClass = CKO_SECRET_KEY;
@@ -142,7 +146,7 @@ static CK_RV import_cca_des_key(CK_SESSION_HANDLE session,
         {CKA_LABEL, (char *) label, strlen(label) + 1},
         {CKA_ENCRYPT, &true, sizeof(true)},
         {CKA_TOKEN, &false, sizeof(false)},
-        {CKA_IBM_OPAQUE, ccatoken, tokenlen}
+        {CKA_IBM_OPAQUE, blob, bloblen}
     };
     CK_ULONG nattr = sizeof(template) / sizeof(CK_ATTRIBUTE);
 
@@ -154,10 +158,10 @@ static CK_RV import_cca_des_key(CK_SESSION_HANDLE session,
     return rc;
 }
 
-static CK_RV import_cca_des3_key(CK_SESSION_HANDLE session,
-                                 const char *label,
-                                 CK_BYTE *ccatoken, CK_ULONG tokenlen,
-                                 CK_OBJECT_HANDLE *handle)
+static CK_RV import_des3_key(CK_SESSION_HANDLE session,
+                             const char *label,
+                             CK_BYTE *blob, CK_ULONG bloblen,
+                             CK_OBJECT_HANDLE *handle)
 {
     CK_RV rc;
     CK_OBJECT_CLASS keyClass = CKO_SECRET_KEY;
@@ -170,7 +174,7 @@ static CK_RV import_cca_des3_key(CK_SESSION_HANDLE session,
         {CKA_LABEL, (char *) label, strlen(label) + 1},
         {CKA_ENCRYPT, &true, sizeof(true)},
         {CKA_TOKEN, &false, sizeof(false)},
-        {CKA_IBM_OPAQUE, ccatoken, tokenlen}
+        {CKA_IBM_OPAQUE, blob, bloblen}
     };
     CK_ULONG nattr = sizeof(template) / sizeof(CK_ATTRIBUTE);
 
@@ -182,12 +186,13 @@ static CK_RV import_cca_des3_key(CK_SESSION_HANDLE session,
     return rc;
 }
 
-static CK_RV import_cca_aes_key(CK_SESSION_HANDLE session,
-                                const char *label,
-                                CK_BYTE *ccatoken, CK_ULONG tokenlen,
-                                CK_OBJECT_HANDLE *handle,
-                                CK_KEY_TYPE keyType,
-                                CK_IBM_CCA_AES_KEY_MODE_TYPE exp_mode)
+static CK_RV import_aes_key(CK_SESSION_HANDLE session,
+                            const char *label,
+                            CK_BYTE *blob, CK_ULONG bloblen,
+                            CK_OBJECT_HANDLE *handle,
+                            CK_KEY_TYPE keyType,
+                            CK_IBM_CCA_AES_KEY_MODE_TYPE exp_mode,
+                            int is_cca)
 {
     CK_RV rc;
     CK_OBJECT_CLASS keyClass = CKO_SECRET_KEY;
@@ -199,8 +204,7 @@ static CK_RV import_cca_aes_key(CK_SESSION_HANDLE session,
         {CKA_LABEL, (char *) label, strlen(label) + 1},
         {CKA_ENCRYPT, &true, sizeof(true)},
         {CKA_TOKEN, &false, sizeof(false)},
-        {CKA_IBM_OPAQUE, ccatoken, tokenlen},
-        {CKA_IBM_PROTKEY_EXTRACTABLE, &true, sizeof(true)}
+        {CKA_IBM_OPAQUE, blob, bloblen},
     };
     CK_ULONG nattr = sizeof(template) / sizeof(CK_ATTRIBUTE);
     CK_IBM_CCA_AES_KEY_MODE_TYPE mode;
@@ -212,28 +216,31 @@ static CK_RV import_cca_aes_key(CK_SESSION_HANDLE session,
         goto out;
     }
 
-    rc = funcs->C_GetAttributeValue(session, *handle, &a_mode, 1);
-    if (rc != CKR_OK) {
-        testcase_error("C_GetAttributeValue() rc=%s", p11_get_ckr(rc));
-        goto out;
-    }
+    if (is_cca) {
+        rc = funcs->C_GetAttributeValue(session, *handle, &a_mode, 1);
+        if (rc != CKR_OK) {
+            testcase_error("C_GetAttributeValue() rc=%s", p11_get_ckr(rc));
+            goto out;
+        }
 
-    if (mode != exp_mode) {
-        testcase_error("CCA key mode not as expected (%lu != %lu)",
-                       mode, exp_mode);
-        rc = CKR_ATTRIBUTE_VALUE_INVALID;
-        goto out;
+        if (mode != exp_mode) {
+            testcase_error("CCA key mode not as expected (%lu != %lu)",
+                           mode, exp_mode);
+            rc = CKR_ATTRIBUTE_VALUE_INVALID;
+            goto out;
+        }
     }
 
 out:
     return rc;
 }
 
-static CK_RV import_cca_gen_sec_key(CK_SESSION_HANDLE session,
-                                    const char *label,
-                                    CK_BYTE *ccatoken, CK_ULONG tokenlen,
-                                    unsigned int keybitsize,
-                                    CK_OBJECT_HANDLE *handle)
+static CK_RV import_gen_sec_key(CK_SESSION_HANDLE session,
+                                const char *label,
+                                CK_BYTE *blob, CK_ULONG bloblen,
+                                unsigned int keybitsize,
+                                CK_OBJECT_HANDLE *handle,
+                                int is_cca)
 {
     CK_RV rc;
     CK_OBJECT_CLASS keyClass = CKO_SECRET_KEY;
@@ -248,31 +255,35 @@ static CK_RV import_cca_gen_sec_key(CK_SESSION_HANDLE session,
         {CKA_SIGN, &true, sizeof(true)},
         {CKA_VERIFY, &true, sizeof(true)},
         {CKA_TOKEN, &false, sizeof(false)},
+        {CKA_IBM_OPAQUE, blob, bloblen},
         {CKA_VALUE, value, sizeof(value)},
-        {CKA_IBM_OPAQUE, ccatoken, tokenlen}
     };
     CK_ULONG nattr = sizeof(template) / sizeof(CK_ATTRIBUTE);
     unsigned pl, calc_pl;
 
     memset(value, 0, sizeof(value));
 
-    // cca only supports hmac key in range 80...2048
+    // CCA/EP11 only supports hmac key in range 80...2048
     if (keybitsize < 80 || keybitsize > 2048) {
         testcase_error("invalid keybitsize %u", keybitsize);
         return CKR_ATTRIBUTE_VALUE_INVALID;
     }
 
-    // calculate expected payloadbitsize based on keybitsize
-    calc_pl = (((keybitsize + 32) + 63) & (~63)) + 320;
-    // pull payloadbitsize from the cca hmac token
-    pl = be16toh(*((uint16_t *)(ccatoken + 38)));
-    if (calc_pl != pl) {
-        testcase_error("mismatch keybitsize %u - expected pl bitsize %u / cca pl bitsize %u",
-                       keybitsize, calc_pl, pl);
-        return CKR_ATTRIBUTE_VALUE_INVALID;
-    }
+    if (is_cca) {
+        // calculate expected payloadbitsize based on keybitsize
+        calc_pl = (((keybitsize + 32) + 63) & (~63)) + 320;
+        // pull payloadbitsize from the cca hmac blob
+        pl = be16toh(*((uint16_t *)(blob + 38)));
+        if (calc_pl != pl) {
+            testcase_error("mismatch keybitsize %u - expected pl bitsize %u / cca pl bitsize %u",
+                           keybitsize, calc_pl, pl);
+            return CKR_ATTRIBUTE_VALUE_INVALID;
+        }
 
-    template[6].ulValueLen = (keybitsize + 7) / 8;
+        template[7].ulValueLen = (keybitsize + 7) / 8;
+    } else {
+        nattr--;
+    }
 
     rc = funcs->C_CreateObject(session, template, nattr, handle);
     if (rc != CKR_OK) {
@@ -284,27 +295,27 @@ static CK_RV import_cca_gen_sec_key(CK_SESSION_HANDLE session,
 
 static CK_RV import_rsa_priv_key(CK_SESSION_HANDLE session,
                                  const char *label,
-                                 CK_BYTE *ccatoken, CK_ULONG tokenlen,
+                                 CK_BYTE *blob, CK_ULONG bloblen,
                                  CK_OBJECT_HANDLE *handle)
 {
     CK_RV rc;
     CK_OBJECT_CLASS keyClass = CKO_PRIVATE_KEY;
     CK_KEY_TYPE keyType = CKK_RSA;
     CK_BBOOL true = TRUE;
-    CK_BBOOL false = FALSE;
     CK_ATTRIBUTE template[] = {
         {CKA_CLASS, &keyClass, sizeof(keyClass)},
         {CKA_KEY_TYPE, &keyType, sizeof(keyType)},
         {CKA_LABEL, (char *) label, strlen(label) + 1},
         {CKA_SIGN, &true, sizeof(true)},
         {CKA_DECRYPT, &true, sizeof(true)},
-        {CKA_TOKEN, &false, sizeof(false)},
-        {CKA_IBM_OPAQUE, ccatoken, tokenlen}
+        {CKA_TOKEN, &true, sizeof(true)},
+        {CKA_PRIVATE, &true, sizeof(true)},
+        {CKA_IBM_OPAQUE, blob, bloblen}
     };
     CK_ULONG nattr = sizeof(template) / sizeof(CK_ATTRIBUTE);
 
     rc = funcs->C_CreateObject(session, template, nattr, handle);
-    if (rc != CKR_OK) {
+    if (rc != CKR_OK && rc != CKR_PUBLIC_KEY_INVALID) {
         testcase_error("C_CreateObject() rc=%s", p11_get_ckr(rc));
     }
 
@@ -313,7 +324,7 @@ static CK_RV import_rsa_priv_key(CK_SESSION_HANDLE session,
 
 static CK_RV import_rsa_publ_key(CK_SESSION_HANDLE session,
                                  const char *label,
-                                 CK_BYTE *ccatoken, CK_ULONG tokenlen,
+                                 CK_BYTE *blob, CK_ULONG bloblen,
                                  CK_OBJECT_HANDLE *handle)
 {
     CK_RV rc;
@@ -328,7 +339,8 @@ static CK_RV import_rsa_publ_key(CK_SESSION_HANDLE session,
         {CKA_VERIFY, &true, sizeof(true)},
         {CKA_ENCRYPT, &true, sizeof(true)},
         {CKA_TOKEN, &false, sizeof(false)},
-        {CKA_IBM_OPAQUE, ccatoken, tokenlen}
+        {CKA_PRIVATE, &false, sizeof(false)},
+        {CKA_IBM_OPAQUE, blob, bloblen}
     };
     CK_ULONG nattr = sizeof(template) / sizeof(CK_ATTRIBUTE);
 
@@ -342,27 +354,26 @@ static CK_RV import_rsa_publ_key(CK_SESSION_HANDLE session,
 
 static CK_RV import_ecc_priv_key(CK_SESSION_HANDLE session,
                                  const char *label,
-                                 CK_BYTE *ccatoken, CK_ULONG tokenlen,
+                                 CK_BYTE *blob, CK_ULONG bloblen,
                                  CK_OBJECT_HANDLE *handle)
 {
     CK_RV rc;
     CK_OBJECT_CLASS keyClass = CKO_PRIVATE_KEY;
     CK_KEY_TYPE keyType = CKK_EC;
     CK_BBOOL true = TRUE;
-    CK_BBOOL false = FALSE;
     CK_ATTRIBUTE template[] = {
         {CKA_CLASS, &keyClass, sizeof(keyClass)},
         {CKA_KEY_TYPE, &keyType, sizeof(keyType)},
         {CKA_LABEL, (char *) label, strlen(label) + 1},
         {CKA_SIGN, &true, sizeof(true)},
-        {CKA_DERIVE, &true, sizeof(true)},
-        {CKA_TOKEN, &false, sizeof(false)},
-        {CKA_IBM_OPAQUE, ccatoken, tokenlen}
+        {CKA_TOKEN, &true, sizeof(true)},
+        {CKA_PRIVATE, &true, sizeof(true)},
+        {CKA_IBM_OPAQUE, blob, bloblen}
     };
     CK_ULONG nattr = sizeof(template) / sizeof(CK_ATTRIBUTE);
 
     rc = funcs->C_CreateObject(session, template, nattr, handle);
-    if (rc != CKR_OK) {
+    if (rc != CKR_OK && rc != CKR_PUBLIC_KEY_INVALID) {
         testcase_error("C_CreateObject() rc=%s", p11_get_ckr(rc));
     }
 
@@ -371,7 +382,7 @@ static CK_RV import_ecc_priv_key(CK_SESSION_HANDLE session,
 
 static CK_RV import_ecc_publ_key(CK_SESSION_HANDLE session,
                                  const char *label,
-                                 CK_BYTE *ccatoken, CK_ULONG tokenlen,
+                                 CK_BYTE *blob, CK_ULONG bloblen,
                                  CK_OBJECT_HANDLE *handle)
 {
     CK_RV rc;
@@ -385,7 +396,8 @@ static CK_RV import_ecc_publ_key(CK_SESSION_HANDLE session,
         {CKA_LABEL, (char *) label, strlen(label) + 1},
         {CKA_VERIFY, &true, sizeof(true)},
         {CKA_TOKEN, &false, sizeof(false)},
-        {CKA_IBM_OPAQUE, ccatoken, tokenlen}
+        {CKA_PRIVATE, &false, sizeof(false)},
+        {CKA_IBM_OPAQUE, blob, bloblen}
     };
     CK_ULONG nattr = sizeof(template) / sizeof(CK_ATTRIBUTE);
 
@@ -399,26 +411,26 @@ static CK_RV import_ecc_publ_key(CK_SESSION_HANDLE session,
 
 static CK_RV import_ibm_dilithium_priv_key(CK_SESSION_HANDLE session,
                                            const char *label,
-                                           CK_BYTE *ccatoken, CK_ULONG tokenlen,
+                                           CK_BYTE *blob, CK_ULONG bloblen,
                                            CK_OBJECT_HANDLE *handle)
 {
     CK_RV rc;
     CK_OBJECT_CLASS keyClass = CKO_PRIVATE_KEY;
     CK_KEY_TYPE keyType = CKK_IBM_DILITHIUM;
     CK_BBOOL true = TRUE;
-    CK_BBOOL false = FALSE;
     CK_ATTRIBUTE template[] = {
         {CKA_CLASS, &keyClass, sizeof(keyClass)},
         {CKA_KEY_TYPE, &keyType, sizeof(keyType)},
         {CKA_LABEL, (char *) label, strlen(label) + 1},
         {CKA_SIGN, &true, sizeof(true)},
-        {CKA_TOKEN, &false, sizeof(false)},
-        {CKA_IBM_OPAQUE, ccatoken, tokenlen}
+        {CKA_TOKEN, &true, sizeof(true)},
+        {CKA_PRIVATE, &true, sizeof(true)},
+        {CKA_IBM_OPAQUE, blob, bloblen}
     };
     CK_ULONG nattr = sizeof(template) / sizeof(CK_ATTRIBUTE);
 
     rc = funcs->C_CreateObject(session, template, nattr, handle);
-    if (rc != CKR_OK) {
+    if (rc != CKR_OK && rc != CKR_PUBLIC_KEY_INVALID) {
         testcase_error("C_CreateObject() rc=%s", p11_get_ckr(rc));
     }
 
@@ -427,7 +439,7 @@ static CK_RV import_ibm_dilithium_priv_key(CK_SESSION_HANDLE session,
 
 static CK_RV import_ibm_dilithium_publ_key(CK_SESSION_HANDLE session,
                                            const char *label,
-                                           CK_BYTE *ccatoken, CK_ULONG tokenlen,
+                                           CK_BYTE *blob, CK_ULONG bloblen,
                                            CK_OBJECT_HANDLE *handle)
 {
     CK_RV rc;
@@ -441,7 +453,8 @@ static CK_RV import_ibm_dilithium_publ_key(CK_SESSION_HANDLE session,
         {CKA_LABEL, (char *) label, strlen(label) + 1},
         {CKA_VERIFY, &true, sizeof(true)},
         {CKA_TOKEN, &false, sizeof(false)},
-        {CKA_IBM_OPAQUE, ccatoken, tokenlen}
+        {CKA_PRIVATE, &false, sizeof(false)},
+        {CKA_IBM_OPAQUE, blob, bloblen}
     };
     CK_ULONG nattr = sizeof(template) / sizeof(CK_ATTRIBUTE);
 
@@ -453,9 +466,9 @@ static CK_RV import_ibm_dilithium_publ_key(CK_SESSION_HANDLE session,
     return rc;
 }
 
-static CK_RV cca_des_data_export_import_tests(void)
+static CK_RV des_export_import_tests(void)
 {
-    const char *tstr = "CCA export/import test with DES data key";
+    const char *tstr = "CCA/EP11 export/import test with DES key";
     CK_RV rc = CKR_OK;
     CK_FLAGS flags;
     CK_SESSION_HANDLE session;
@@ -473,8 +486,12 @@ static CK_RV cca_des_data_export_import_tests(void)
 
     testcase_begin("%s", tstr);
 
-    if (!is_cca_token(SLOT_ID)) {
-        testcase_skip("%s: this slot is not a CCA token", tstr);
+    if (!is_cca_token(SLOT_ID) && !is_ep11_token(SLOT_ID)) {
+        testcase_skip("%s: this slot is not a CCA or EP11 token", tstr);
+        goto out;
+    }
+    if (!mech_supported(SLOT_ID, CKM_DES_KEY_GEN)) {
+        testcase_skip("this slot does not support CKM_DES_KEY_GEN");
         goto out;
     }
 
@@ -514,7 +531,7 @@ static CK_RV cca_des_data_export_import_tests(void)
 
     testcase_new_assertion();
 
-    // export this key's cca token
+    // export this key's CCA/EP11 blob
 
     rc = export_ibm_opaque(session, hkey, &opaquekey, &opaquekeylen);
     if (rc != CKR_OK) {
@@ -522,12 +539,12 @@ static CK_RV cca_des_data_export_import_tests(void)
         goto testcase_cleanup;
     }
 
-    // re-import this cca token as a new key object
+    // re-import this CCA/EP11 blob as a new key object
 
     snprintf(label, sizeof(label), "re-imported_des_key");
-    rc = import_cca_des_key(session, label, opaquekey, opaquekeylen, &hikey);
+    rc = import_des_key(session, label, opaquekey, opaquekeylen, &hikey);
     if (rc != CKR_OK) {
-        testcase_fail("import_cca_des_key rc=%s", p11_get_ckr(rc));
+        testcase_fail("import_des_key rc=%s", p11_get_ckr(rc));
         goto testcase_cleanup;
     }
 
@@ -559,19 +576,19 @@ static CK_RV cca_des_data_export_import_tests(void)
     testcase_pass("%s: ok", tstr);
 
 testcase_cleanup:
-    testcase_close_session();
-    free(opaquekey);
     if (hkey != CK_INVALID_HANDLE)
         funcs->C_DestroyObject(session, hkey);
     if (hikey != CK_INVALID_HANDLE)
         funcs->C_DestroyObject(session, hikey);
+    testcase_close_session();
+    free(opaquekey);
 out:
     return rc;
 }
 
-static CK_RV cca_des3_data_export_import_tests(void)
+static CK_RV des3_export_import_tests(void)
 {
-    const char *tstr = "CCA export/import test with DES3 data key";
+    const char *tstr = "CCA/EP11 export/import test with DES3 data key";
     CK_RV rc = CKR_OK;
     CK_FLAGS flags;
     CK_SESSION_HANDLE session;
@@ -591,8 +608,12 @@ static CK_RV cca_des3_data_export_import_tests(void)
 
     testcase_begin("%s", tstr);
 
-    if (!is_cca_token(SLOT_ID)) {
-        testcase_skip("%s: this slot is not a CCA token", tstr);
+    if (!is_cca_token(SLOT_ID) && !is_ep11_token(SLOT_ID)) {
+        testcase_skip("%s: this slot is not a CCA or EP11 token", tstr);
+        goto out;
+    }
+    if (!mech_supported(SLOT_ID, CKM_DES3_KEY_GEN)) {
+        testcase_skip("this slot does not support CKM_DES3_KEY_GEN");
         goto out;
     }
 
@@ -632,7 +653,7 @@ static CK_RV cca_des3_data_export_import_tests(void)
 
     testcase_new_assertion();
 
-    // export this key's cca token
+    // export this key's CCA/EP11 blob
 
     rc = export_ibm_opaque(session, hkey, &opaquekey, &opaquekeylen);
     if (rc != CKR_OK) {
@@ -640,12 +661,12 @@ static CK_RV cca_des3_data_export_import_tests(void)
         goto testcase_cleanup;
     }
 
-    // re-import this cca token as a new key object
+    // re-import this CCA/EP11 blob as a new key object
 
     snprintf(label, sizeof(label), "re-imported_des3_key");
-    rc = import_cca_des3_key(session, label, opaquekey, opaquekeylen, &hikey);
+    rc = import_des3_key(session, label, opaquekey, opaquekeylen, &hikey);
     if (rc != CKR_OK) {
-        testcase_fail("import_cca_des3_key rc=%s", p11_get_ckr(rc));
+        testcase_fail("import_des3_key rc=%s", p11_get_ckr(rc));
         goto testcase_cleanup;
     }
 
@@ -677,17 +698,17 @@ static CK_RV cca_des3_data_export_import_tests(void)
     testcase_pass("%s: ok", tstr);
 
 testcase_cleanup:
-    testcase_close_session();
-    free(opaquekey);
     if (hkey != CK_INVALID_HANDLE)
         funcs->C_DestroyObject(session, hkey);
     if (hikey != CK_INVALID_HANDLE)
         funcs->C_DestroyObject(session, hikey);
+    testcase_close_session();
+    free(opaquekey);
 out:
     return rc;
 }
 
-static CK_RV cca_aes_export_import_tests(CK_IBM_CCA_AES_KEY_MODE_TYPE mode)
+static CK_RV aes_export_import_tests(CK_IBM_CCA_AES_KEY_MODE_TYPE mode)
 {
     CK_RV rc = CKR_OK;
     CK_FLAGS flags;
@@ -708,31 +729,42 @@ static CK_RV cca_aes_export_import_tests(CK_IBM_CCA_AES_KEY_MODE_TYPE mode)
     CK_ULONG opaquekeylen;
     unsigned int keylen;
     char label[80];
+    int is_cca = is_cca_token(SLOT_ID);
 
-    if (!is_cca_token(SLOT_ID)) {
-        testcase_skip("this slot is not a CCA token");
+    if (!is_cca && !is_ep11_token(SLOT_ID)) {
+        testcase_skip("this slot is not a CCA or EP11 token");
         goto out;
     }
+    if (!mech_supported(SLOT_ID, CKM_AES_KEY_GEN)) {
+        testcase_skip("this slot does not support CKM_AES_KEY_GEN");
+        goto out;
+    }
+
+    if (!is_cca && mode != CK_IBM_CCA_AES_DATA_KEY)
+        goto out;
 
     testcase_rw_session();
     testcase_user_login();
 
     for (keylen = 16; keylen <= 32; keylen += 8) {
 
-        testcase_begin("CCA export/import test with AES-%u %s key", 8 * keylen,
-                       mode == CK_IBM_CCA_AES_DATA_KEY ? "DATA" : "CIPHER");
+        testcase_begin("CCA/EP11 export/import test with AES-%u %s key",
+                       8 * keylen,
+                       is_cca ?
+                          (mode == CK_IBM_CCA_AES_DATA_KEY ? "DATA" : "CIPHER") :
+                          "EP11");
 
         // create ock aes key
 
-        rc = create_cca_AESKey(session, CK_TRUE, key, keylen, CKK_AES, mode,
-                               &hkey);
+        rc = create_cca_ep11_AESKey(session, CK_TRUE, key, keylen, CKK_AES, mode,
+                                    &hkey, is_cca);
         if (rc != CKR_OK) {
-        if (rc == CKR_POLICY_VIOLATION) {
-            testcase_skip("AES key generation is not allowed by policy");
-            continue;
-        }
+            if (rc == CKR_POLICY_VIOLATION) {
+                testcase_skip("AES key generation is not allowed by policy");
+                continue;
+            }
 
-            testcase_error("create_cca_AESKey() rc=%s", p11_get_ckr(rc));
+            testcase_error("create_cca_ep11_AESKey() rc=%s", p11_get_ckr(rc));
             goto error;
         }
 
@@ -756,7 +788,7 @@ static CK_RV cca_aes_export_import_tests(CK_IBM_CCA_AES_KEY_MODE_TYPE mode)
 
         testcase_new_assertion();
 
-        // export this key's cca token
+        // export this key's CCA/EP11 blob
 
         rc = export_ibm_opaque(session, hkey, &opaquekey, &opaquekeylen);
         if (rc != CKR_OK) {
@@ -764,13 +796,13 @@ static CK_RV cca_aes_export_import_tests(CK_IBM_CCA_AES_KEY_MODE_TYPE mode)
             goto error;
         }
 
-        // re-import this cca token as a new key object
+        // re-import this CCA/EP11 blob as a new key object
 
         snprintf(label, sizeof(label), "re-imported_aes%u_key", 8 * keylen);
-        rc = import_cca_aes_key(session, label, opaquekey, opaquekeylen, &hikey,
-                                CKK_AES, mode);
+        rc = import_aes_key(session, label, opaquekey, opaquekeylen, &hikey,
+                            CKK_AES, mode, is_cca);
         if (rc != CKR_OK) {
-            testcase_fail("import_cca_aes_key rc=%s", p11_get_ckr(rc));
+            testcase_fail("import_aes_key rc=%s", p11_get_ckr(rc));
             goto error;
         }
 
@@ -799,47 +831,53 @@ static CK_RV cca_aes_export_import_tests(CK_IBM_CCA_AES_KEY_MODE_TYPE mode)
             goto error;
         }
 
-        /* Set extractable to FALSE on original key */
-        rc = extract_restrict(session, hkey);
-        if (rc != CKR_OK) {
-            testcase_fail("extract_restrict rc=%s", p11_get_ckr(rc));
-            goto error;
+
+        if (is_cca) {
+            /* Set extractable to FALSE on original key */
+            rc = extract_restrict(session, hkey);
+            if (rc != CKR_OK) {
+                testcase_fail("extract_restrict rc=%s", p11_get_ckr(rc));
+                goto error;
+            }
+
+            /* Convert to CIPHER key */
+            rc = convert_to_cipher_key(session, hkey);
+            if (rc != CKR_OK) {
+                testcase_fail("convert_to_cipher_key rc=%s", p11_get_ckr(rc));
+                goto error;
+            }
+
+            /* encrypt some data with this converted key */
+
+            rc = funcs->C_EncryptInit(session, &mech, hkey);
+            if (rc != CKR_OK) {
+                testcase_error("C_EncryptInit rc=%s", p11_get_ckr(rc));
+                goto error;
+            }
+            ilen = len = sizeof(data);
+            rc = funcs->C_Encrypt(session, data, ilen, encdata3, &len);
+            if (rc != CKR_OK) {
+                testcase_error("C_Encrypt rc=%s", p11_get_ckr(rc));
+                goto error;
+            }
+            if (ilen != len) {
+                testcase_fail("plain and encrypted data len does not match");
+                goto error;
+            }
+
+            /* and check the encrypted data to be equal */
+
+            if (memcmp(encdata1, encdata3, len) != 0) {
+                testcase_fail("encrypted data from original and converted key is NOT the same");
+                goto error;
+            }
         }
 
-        /* Convert to CIPHER key */
-        rc = convert_to_cipher_key(session, hkey);
-        if (rc != CKR_OK) {
-            testcase_fail("extract_restrict rc=%s", p11_get_ckr(rc));
-            goto error;
-        }
-
-        /* encrypt some data with this converted key */
-
-        rc = funcs->C_EncryptInit(session, &mech, hkey);
-        if (rc != CKR_OK) {
-            testcase_error("C_EncryptInit rc=%s", p11_get_ckr(rc));
-            goto error;
-        }
-        ilen = len = sizeof(data);
-        rc = funcs->C_Encrypt(session, data, ilen, encdata3, &len);
-        if (rc != CKR_OK) {
-            testcase_error("C_Encrypt rc=%s", p11_get_ckr(rc));
-            goto error;
-        }
-        if (ilen != len) {
-            testcase_fail("plain and encrypted data len does not match");
-            goto error;
-        }
-
-        /* and check the encrypted data to be equal */
-
-        if (memcmp(encdata1, encdata3, len) != 0) {
-            testcase_fail("encrypted data from original and converted key is NOT the same");
-            goto error;
-        }
-
-        testcase_pass("CCA export/import test with AES-%u %s key: ok", 8 * keylen,
-                      mode == CK_IBM_CCA_AES_DATA_KEY ? "DATA" : "CIPHER");
+        testcase_pass("CCA/EP11 export/import test with AES-%u %s key: ok",
+                      8 * keylen,
+                      is_cca ?
+                           (mode == CK_IBM_CCA_AES_DATA_KEY ? "DATA" : "CIPHER") :
+                           "EP11");
 
 error:
         free(opaquekey);
@@ -860,7 +898,7 @@ out:
     return rc;
 }
 
-static CK_RV cca_aes_xts_export_import_tests(CK_IBM_CCA_AES_KEY_MODE_TYPE mode)
+static CK_RV aes_xts_export_import_tests(CK_IBM_CCA_AES_KEY_MODE_TYPE mode)
 {
     CK_RV rc = CKR_OK;
     CK_FLAGS flags;
@@ -885,16 +923,19 @@ static CK_RV cca_aes_xts_export_import_tests(CK_IBM_CCA_AES_KEY_MODE_TYPE mode)
     CK_ULONG opaquekeylen;
     unsigned int keylen;
     char label[80];
+    int is_cca = is_cca_token(SLOT_ID);
 
-    if (!is_cca_token(SLOT_ID)) {
-        testcase_skip("this slot is not a CCA token");
+    if (!is_cca && !is_ep11_token(SLOT_ID)) {
+        testcase_skip("this slot is not a CCA or EP11 token");
         goto out;
     }
-
     if (!mech_supported(SLOT_ID, CKM_AES_XTS_KEY_GEN)) {
        testcase_skip("this slot does not support AES-XTS");
         goto out;
     }
+
+    if (!is_cca && mode != CK_IBM_CCA_AES_DATA_KEY)
+        goto out;
 
     testcase_rw_session();
     testcase_user_login();
@@ -903,19 +944,21 @@ static CK_RV cca_aes_xts_export_import_tests(CK_IBM_CCA_AES_KEY_MODE_TYPE mode)
 
         testcase_begin("CCA export/import test with AES-XTS-%u %s key",
                        8 * keylen / 2,
-                       mode == CK_IBM_CCA_AES_DATA_KEY ? "DATA" : "CIPHER");
+                       is_cca ?
+                            (mode == CK_IBM_CCA_AES_DATA_KEY ? "DATA" : "CIPHER") :
+                            "EP11");
 
         // create ock aes key
 
-        rc = create_cca_AESKey(session, CK_FALSE, key, keylen, CKK_AES_XTS,
-                               mode, &hkey);
+        rc = create_cca_ep11_AESKey(session, CK_FALSE, key, keylen, CKK_AES_XTS,
+                                    mode, &hkey, is_cca);
         if (rc != CKR_OK) {
         if (rc == CKR_POLICY_VIOLATION) {
             testcase_skip("AES-XTS key generation is not allowed by policy");
             continue;
         }
 
-            testcase_error("create_cca_AESKey() rc=%s", p11_get_ckr(rc));
+            testcase_error("create_cca_ep11_AESKey() rc=%s", p11_get_ckr(rc));
             goto error;
         }
 
@@ -939,7 +982,7 @@ static CK_RV cca_aes_xts_export_import_tests(CK_IBM_CCA_AES_KEY_MODE_TYPE mode)
 
         testcase_new_assertion();
 
-        // export this key's cca token
+        // export this key's CCA/EP11 blob
 
         rc = export_ibm_opaque(session, hkey, &opaquekey, &opaquekeylen);
         if (rc != CKR_OK) {
@@ -947,14 +990,14 @@ static CK_RV cca_aes_xts_export_import_tests(CK_IBM_CCA_AES_KEY_MODE_TYPE mode)
             goto error;
         }
 
-        // re-import this cca token as a new key object
+        // re-import this CCA/EP11 blob as a new key object
 
         snprintf(label, sizeof(label), "re-imported_aes-xts-%u_key",
                  8 * keylen / 8);
-        rc = import_cca_aes_key(session, label, opaquekey, opaquekeylen, &hikey,
-                                CKK_AES_XTS, mode);
+        rc = import_aes_key(session, label, opaquekey, opaquekeylen, &hikey,
+                            CKK_AES_XTS, mode, is_cca);
         if (rc != CKR_OK) {
-            testcase_fail("import_cca_aes_key rc=%s", p11_get_ckr(rc));
+            testcase_fail("import_aes_key rc=%s", p11_get_ckr(rc));
             goto error;
         }
 
@@ -983,48 +1026,52 @@ static CK_RV cca_aes_xts_export_import_tests(CK_IBM_CCA_AES_KEY_MODE_TYPE mode)
             goto error;
         }
 
-        /* Set extractable to FALSE on original key */
-        rc = extract_restrict(session, hkey);
-        if (rc != CKR_OK) {
-            testcase_fail("extract_restrict rc=%s", p11_get_ckr(rc));
-            goto error;
+        if (is_cca) {
+            /* Set extractable to FALSE on original key */
+            rc = extract_restrict(session, hkey);
+            if (rc != CKR_OK) {
+                testcase_fail("extract_restrict rc=%s", p11_get_ckr(rc));
+                goto error;
+            }
+
+            /* Convert to CIPHER key */
+            rc = convert_to_cipher_key(session, hkey);
+            if (rc != CKR_OK) {
+                testcase_fail("extract_restrict rc=%s", p11_get_ckr(rc));
+                goto error;
+            }
+
+            /* encrypt some data with this converted key */
+
+            rc = funcs->C_EncryptInit(session, &mech, hkey);
+            if (rc != CKR_OK) {
+                testcase_error("C_EncryptInit rc=%s", p11_get_ckr(rc));
+                goto error;
+            }
+            ilen = len = sizeof(data);
+            rc = funcs->C_Encrypt(session, data, ilen, encdata3, &len);
+            if (rc != CKR_OK) {
+                testcase_error("C_Encrypt rc=%s", p11_get_ckr(rc));
+                goto error;
+            }
+            if (ilen != len) {
+                testcase_fail("plain and encrypted data len does not match");
+                goto error;
+            }
+
+            /* and check the encrypted data to be equal */
+
+            if (memcmp(encdata1, encdata3, len) != 0) {
+                testcase_fail("encrypted data from original and converted key is NOT the same");
+                goto error;
+            }
         }
 
-        /* Convert to CIPHER key */
-        rc = convert_to_cipher_key(session, hkey);
-        if (rc != CKR_OK) {
-            testcase_fail("extract_restrict rc=%s", p11_get_ckr(rc));
-            goto error;
-        }
-
-        /* encrypt some data with this converted key */
-
-        rc = funcs->C_EncryptInit(session, &mech, hkey);
-        if (rc != CKR_OK) {
-            testcase_error("C_EncryptInit rc=%s", p11_get_ckr(rc));
-            goto error;
-        }
-        ilen = len = sizeof(data);
-        rc = funcs->C_Encrypt(session, data, ilen, encdata3, &len);
-        if (rc != CKR_OK) {
-            testcase_error("C_Encrypt rc=%s", p11_get_ckr(rc));
-            goto error;
-        }
-        if (ilen != len) {
-            testcase_fail("plain and encrypted data len does not match");
-            goto error;
-        }
-
-        /* and check the encrypted data to be equal */
-
-        if (memcmp(encdata1, encdata3, len) != 0) {
-            testcase_fail("encrypted data from original and converted key is NOT the same");
-            goto error;
-        }
-
-        testcase_pass("CCA export/import test with AES-XTS-%u %s key: ok",
+        testcase_pass("CCA/EP11 export/import test with AES-XTS-%u %s key: ok",
                       8 * keylen / 2,
-                      mode == CK_IBM_CCA_AES_DATA_KEY ? "DATA" : "CIPHER");
+                      is_cca ?
+                          (mode == CK_IBM_CCA_AES_DATA_KEY ? "DATA" : "CIPHER") :
+                          "EP11");
 
 error:
         free(opaquekey);
@@ -1045,7 +1092,7 @@ out:
     return rc;
 }
 
-static CK_RV cca_hmac_data_export_import_tests(void)
+static CK_RV generic_secret_export_import_tests(void)
 {
     CK_RV rc = CKR_OK;
     CK_FLAGS flags;
@@ -1060,13 +1107,13 @@ static CK_RV cca_hmac_data_export_import_tests(void)
     CK_ULONG mac1len, mac2len, opaquekeylen;
     unsigned int i, keybits[] = { 80, 160, 320, 640, 1024, 2048, 0 };
     char label[80];
+    int is_cca = is_cca_token(SLOT_ID);
 
-    if (!is_cca_token(SLOT_ID)) {
-        testcase_skip("this slot is not a CCA token");
+    if (!is_cca && !is_ep11_token(SLOT_ID)) {
+        testcase_skip("this slot is not a CCA or EP11 token");
         goto out;
     }
-
-    if (!mech_supported(SLOT_ID, mech.mechanism)) {
+    if (!mech_supported(SLOT_ID, CKM_SHA_1_HMAC)) {
         testcase_skip("this slot does not support CKM_SHA_1_HMAC");
         goto out;
     }
@@ -1076,7 +1123,8 @@ static CK_RV cca_hmac_data_export_import_tests(void)
 
     for (i = 0; keybits[i]; i++) {
 
-        testcase_begin("CCA export/import test with generic secret key %u", keybits[i]);
+        testcase_begin("CCA/EP11 export/import test with generic secret key %u",
+                       keybits[i]);
 
         // create hmac key
 
@@ -1107,7 +1155,7 @@ static CK_RV cca_hmac_data_export_import_tests(void)
 
         testcase_new_assertion();
 
-        // export this key's cca token
+        // export this key's CCA/EP11 blob
 
         rc = export_ibm_opaque(session, hkey, &opaquekey, &opaquekeylen);
         if (rc != CKR_OK) {
@@ -1115,26 +1163,23 @@ static CK_RV cca_hmac_data_export_import_tests(void)
             goto error;
         }
 
-        /* Set extractable to FALSE */
-        rc = extract_restrict(session, hkey);
-        if (rc != CKR_OK) {
-            testcase_fail("extract_restrict rc=%s", p11_get_ckr(rc));
-            goto error;
+        if (is_cca) {
+            /* Set extractable to FALSE */
+            rc = extract_restrict(session, hkey);
+            if (rc != CKR_OK) {
+                testcase_fail("extract_restrict rc=%s", p11_get_ckr(rc));
+                goto error;
+            }
         }
 
-#if 0
-        printf("cca hmac key token (%lu bytes):\n", opaquekeylen);
-        print_hex(opaquekey, opaquekeylen);
-#endif
-
-        // re-import this cca token as a new key object
+        // re-import this CCA/EP11 blob as a new key object
 
         snprintf(label, sizeof(label), "re-imported_hmac%u_key", keybits[i]);
-        rc = import_cca_gen_sec_key(session, label,
-                                    opaquekey, opaquekeylen, keybits[i],
-                                    &hikey);
+        rc = import_gen_sec_key(session, label,
+                                opaquekey, opaquekeylen, keybits[i],
+                                &hikey, is_cca);
         if (rc != CKR_OK) {
-            testcase_fail("import_cca_gen_sec_key rc=%s", p11_get_ckr(rc));
+            testcase_fail("import_gen_sec_key rc=%s", p11_get_ckr(rc));
             goto error;
         }
 
@@ -1164,7 +1209,7 @@ static CK_RV cca_hmac_data_export_import_tests(void)
             goto error;
         }
 
-        testcase_pass("CCA export/import test with generic secret key %u: ok", keybits[i]);
+        testcase_pass("CCA/EP11 export/import test with generic secret key %u: ok", keybits[i]);
 
 error:
         free(opaquekey);
@@ -1185,7 +1230,7 @@ out:
     return rc;
 }
 
-static CK_RV cca_rsa_export_import_tests(void)
+static CK_RV rsa_export_import_tests(void)
 {
     CK_RV rc = CKR_OK;
     CK_FLAGS flags;
@@ -1203,8 +1248,8 @@ static CK_RV cca_rsa_export_import_tests(void)
     CK_ULONG priv_opaquekeylen, publ_opaquekeylen;
     char label[80];
 
-    if (!is_cca_token(SLOT_ID)) {
-        testcase_skip("this slot is not a CCA token");
+    if (!is_cca_token(SLOT_ID) && !is_ep11_token(SLOT_ID)) {
+        testcase_skip("this slot is not a CCA or EP11 token");
         goto out;
     }
     if (!mech_supported(SLOT_ID, CKM_RSA_PKCS_KEY_PAIR_GEN)) {
@@ -1221,7 +1266,7 @@ static CK_RV cca_rsa_export_import_tests(void)
 
     for (keybitlen = 512; keybitlen <= 4096; keybitlen = 2 * keybitlen) {
 
-        testcase_begin("CCA export/import test with RSA %u key", keybitlen);
+        testcase_begin("CCA/EP11 export/import test with RSA %u key", keybitlen);
 
 
         // create ock rsa keypair
@@ -1230,10 +1275,14 @@ static CK_RV cca_rsa_export_import_tests(void)
                                        exp, sizeof(exp),
                                        &publ_key, &priv_key);
         if (rc != CKR_OK) {
-        if (rc == CKR_POLICY_VIOLATION) {
-            testcase_skip("RSA key generation is not allowed by policy");
-            goto error;
-        }
+            if (rc == CKR_KEY_SIZE_RANGE) {
+                testcase_skip("RSA key generation with key size %u is not supported", keybitlen);
+                goto error;
+            }
+            if (rc == CKR_POLICY_VIOLATION) {
+                testcase_skip("RSA key generation is not allowed by policy");
+                goto error;
+            }
 
             testcase_error("generate_RSA_PKCS_KeyPair() rc=%s", p11_get_ckr(rc));
             goto error;
@@ -1274,47 +1323,43 @@ static CK_RV cca_rsa_export_import_tests(void)
             goto error;
         }
 
-        // export original private key's cca token
-
-        rc = export_ibm_opaque(session, priv_key, &priv_opaquekey, &priv_opaquekeylen);
-        if (rc != CKR_OK) {
-            testcase_fail("export_ibm_opaque on private key failed rc=%s", p11_get_ckr(rc));
-            goto error;
-        }
-#if 0
-        printf("priv_opaquekey (%lu bytes):\n", priv_opaquekeylen);
-        print_hex(priv_opaquekey, priv_opaquekeylen);
-#endif
-
-        // re-import this cca private rsa key token as new private rsa key
-
-        snprintf(label, sizeof(label), "re-imported_rsa%u_private_key", keybitlen);
-        rc = import_rsa_priv_key(session, label, priv_opaquekey, priv_opaquekeylen, &imp_priv_key);
-        if (rc != CKR_OK) {
-            testcase_fail("import_rsa_priv_key on exported cca rsa key token failed rc=%s",
-                          p11_get_ckr(rc));
-            goto error;
-        }
-
-        // export original public key's cca token
+        // export original public key's CCA/EP11 blob
 
         rc = export_ibm_opaque(session, publ_key, &publ_opaquekey, &publ_opaquekeylen);
         if (rc != CKR_OK) {
             testcase_fail("export_ibm_opaque on public key failed rc=%s", p11_get_ckr(rc));
             goto error;
         }
-#if 0
-        printf("publ_opaquekey (%lu bytes):\n", publ_opaquekeylen);
-        print_hex(publ_opaquekey, publ_opaquekeylen);
-#endif
 
-        // re-import this cca public rsa key token as new public rsa key
+        // re-import this CCA/EP11 public rsa key blob as new public rsa key
 
         snprintf(label, sizeof(label), "re-imported_rsa%u_public_key", keybitlen);
         rc = import_rsa_publ_key(session, label, publ_opaquekey, publ_opaquekeylen, &imp_publ_key);
         if (rc != CKR_OK) {
-            testcase_fail("import_rsa_publ_key on exported cca rsa key token failed rc=%s",
+            testcase_fail("import_rsa_publ_key on exported CCA/EP11 rsa key blob failed rc=%s",
                           p11_get_ckr(rc));
+            goto error;
+        }
+
+        // export original private key's CCA/EP11 blob
+
+        rc = export_ibm_opaque(session, priv_key, &priv_opaquekey, &priv_opaquekeylen);
+        if (rc != CKR_OK) {
+            testcase_fail("export_ibm_opaque on private key failed rc=%s", p11_get_ckr(rc));
+            goto error;
+        }
+
+        // re-import this CCA/EP11 private rsa key blob as new private rsa key
+
+        snprintf(label, sizeof(label), "re-imported_rsa%u_private_key", keybitlen);
+        rc = import_rsa_priv_key(session, label, priv_opaquekey, priv_opaquekeylen, &imp_priv_key);
+        if (rc != CKR_OK) {
+            if (rc == CKR_PUBLIC_KEY_INVALID && is_ep11_token(SLOT_ID)) {
+                testcase_skip("import_rsa_priv_key on exported CCA/EP11 rsa key blob failed due to missing EP11 FW fix");
+            } else {
+                testcase_fail("import_rsa_priv_key on exported CCA/EP11 rsa key blob failed rc=%s",
+                              p11_get_ckr(rc));
+            }
             goto error;
         }
 
@@ -1389,7 +1434,7 @@ static CK_RV cca_rsa_export_import_tests(void)
             goto error;
         }
 
-        testcase_pass("CCA export/import test with RSA %u key: ok", keybitlen);
+        testcase_pass("CCA/EP11 export/import test with RSA %u key: ok", keybitlen);
 
 error:
         free(priv_opaquekey);
@@ -1441,8 +1486,6 @@ static CK_BYTE prime256v1[] = OCK_PRIME256V1;
 static CK_BYTE secp384r1[] = OCK_SECP384R1;
 static CK_BYTE secp521r1[] = OCK_SECP521R1;
 static CK_BYTE secp256k1[] = OCK_SECP256K1;
-static CK_BYTE curve25519[] = OCK_CURVE25519;
-static CK_BYTE curve448[] = OCK_CURVE448;
 static CK_BYTE ed25519[] = OCK_ED25519;
 static CK_BYTE ed448[] = OCK_ED448;
 
@@ -1471,14 +1514,12 @@ static struct {
     {secp384r1, sizeof(secp384r1), "secp384r1"},
     {secp521r1, sizeof(secp521r1), "secp521r1"},
     {secp256k1, sizeof(secp256k1), "secp256k1"},
-    {curve25519, sizeof(curve25519), "curve25519"},
-    {curve448, sizeof(curve448), "curve448"},
     {ed25519, sizeof(ed25519), "ed25519"},
     {ed448, sizeof(ed448), "ed448"},
     {0, 0, 0}
 };
 
-static CK_RV cca_ecc_export_import_tests(void)
+static CK_RV ecc_export_import_tests(void)
 {
     CK_RV rc = CKR_OK;
     CK_FLAGS flags;
@@ -1499,17 +1540,14 @@ static CK_RV cca_ecc_export_import_tests(void)
     CK_ULONG tmpl_derive_len = sizeof(tmpl_derive) / sizeof(CK_ATTRIBUTE);
     char label[80];
     int i;
+    int is_cca = is_cca_token(SLOT_ID);
 
-    if (!is_cca_token(SLOT_ID)) {
-        testcase_skip("this slot is not a CCA token");
+    if (!is_cca && !is_ep11_token(SLOT_ID)) {
+        testcase_skip("this slot is not a CCA or EP11 token");
         goto out;
     }
     if (!mech_supported(SLOT_ID, CKM_EC_KEY_PAIR_GEN)) {
         testcase_skip("this slot does not support CKM_EC_KEY_PAIR_GEN");
-        goto out;
-    }
-    if (!mech_supported(SLOT_ID, mech.mechanism)) {
-        testcase_skip("this slot does not support CKM_ECDSA");
         goto out;
     }
 
@@ -1518,24 +1556,35 @@ static CK_RV cca_ecc_export_import_tests(void)
 
     for (i = 0; ec_curves[i].curve; i++) {
 
-        testcase_begin("CCA export/import test with public/private ECC curve %s keys",
+        testcase_begin("CCA/EP11 export/import test with public/private ECC curve %s keys",
                        ec_curves[i].name);
 
-        // create ock ecc keypair. Last parm CK_FALSE makes the key eligible for
-    // protected key support, i.e. depending on the PKEY_MODE token option
-    // the sign may be performed via CPACF.
+        if (strcmp(ec_curves[i].name, "ed25519") == 0)
+            mech.mechanism = CKM_IBM_ED25519_SHA512;
+        else if (strcmp(ec_curves[i].name, "ed448") == 0)
+            mech.mechanism = CKM_IBM_ED448_SHA3;
+        else
+            mech.mechanism = CKM_ECDSA;
+
+        if (!mech_supported(SLOT_ID, mech.mechanism)) {
+            testcase_skip("this slot does not support %s",
+                          p11_get_ckm(&mechtable_funcs, mech.mechanism));
+            goto error;
+        }
+
         rc = generate_EC_KeyPair(session,
                                  ec_curves[i].curve, ec_curves[i].size,
                                  &publ_key, &priv_key, CK_FALSE);
         if (rc == CKR_CURVE_NOT_SUPPORTED) {
-            testcase_skip("ECC curve %s not supported yet by CCA token", ec_curves[i].name);
+            testcase_skip("ECC curve %s not supported yet by CCA/EP11 token",
+                          ec_curves[i].name);
             goto error;
         }
         if (rc != CKR_OK) {
-        if (rc == CKR_POLICY_VIOLATION) {
-            testcase_skip("ECC key generation is not allowed by policy");
-            goto error;
-        }
+            if (rc == CKR_POLICY_VIOLATION) {
+                testcase_skip("ECC key generation is not allowed by policy");
+                goto error;
+            }
 
             testcase_error("generate_EC_KeyPair() rc=%s", p11_get_ckr(rc));
             goto error;
@@ -1576,47 +1625,43 @@ static CK_RV cca_ecc_export_import_tests(void)
             goto error;
         }
 
-        // export original private key's cca token
-
-        rc = export_ibm_opaque(session, priv_key, &priv_opaquekey, &priv_opaquekeylen);
-        if (rc != CKR_OK) {
-            testcase_fail("export_ibm_opaque on private key failed rc=%s", p11_get_ckr(rc));
-            goto error;
-        }
-#if 0
-        printf("priv_opaquekey (%lu bytes):\n", priv_opaquekeylen);
-        print_hex(priv_opaquekey, priv_opaquekeylen);
-#endif
-
-        // re-import this cca private ecc key token as new private ecc key
-
-        snprintf(label, sizeof(label), "re-imported_ecc_%s_private_key", ec_curves[i].name);
-        rc = import_ecc_priv_key(session, label, priv_opaquekey, priv_opaquekeylen, &imp_priv_key);
-        if (rc != CKR_OK) {
-            testcase_fail("import_ecc_priv_key on exported cca ecc key token failed rc=%s",
-                          p11_get_ckr(rc));
-            goto error;
-        }
-
-        // export original public key's cca token
+        // export original public key's CCA/EP11 blob
 
         rc = export_ibm_opaque(session, publ_key, &publ_opaquekey, &publ_opaquekeylen);
         if (rc != CKR_OK) {
             testcase_fail("export_ibm_opaque on public key failed rc=%s", p11_get_ckr(rc));
             goto error;
         }
-#if 0
-        printf("publ_opaquekey (%lu bytes):\n", publ_opaquekeylen);
-        print_hex(publ_opaquekey, publ_opaquekeylen);
-#endif
 
-        // re-import this cca public ecc key token as new public ecc key
+        // re-import this CCA/EP11 public ecc key blob as new public ecc key
 
         snprintf(label, sizeof(label), "re-imported_ecc_%s_public_key", ec_curves[i].name);
         rc = import_ecc_publ_key(session, label, publ_opaquekey, publ_opaquekeylen, &imp_publ_key);
         if (rc != CKR_OK) {
-            testcase_fail("import_ecc_publ_key on exported cca ecc key token failed rc=%s",
+            testcase_fail("import_ecc_publ_key on exported CCA/EP11 ecc key blob failed rc=%s",
                           p11_get_ckr(rc));
+            goto error;
+        }
+
+        // export original private key's CCA/EP11 blob
+
+        rc = export_ibm_opaque(session, priv_key, &priv_opaquekey, &priv_opaquekeylen);
+        if (rc != CKR_OK) {
+            testcase_fail("export_ibm_opaque on private key failed rc=%s", p11_get_ckr(rc));
+            goto error;
+        }
+
+        // re-import this CCA/EP11 private ecc key blob as new private ecc key
+
+        snprintf(label, sizeof(label), "re-imported_ecc_%s_private_key", ec_curves[i].name);
+        rc = import_ecc_priv_key(session, label, priv_opaquekey, priv_opaquekeylen, &imp_priv_key);
+        if (rc != CKR_OK) {
+            if (rc == CKR_PUBLIC_KEY_INVALID && is_ep11_token(SLOT_ID)) {
+                testcase_skip("import_ecc_priv_key on exported CCA/EP11 ecc key blob failed due to missing EP11 FW fix");
+            } else {
+                testcase_fail("import_ecc_priv_key on exported CCA/EP11 ecc key blob failed rc=%s",
+                              p11_get_ckr(rc));
+            }
             goto error;
         }
 
@@ -1692,16 +1737,18 @@ static CK_RV cca_ecc_export_import_tests(void)
             goto error;
         }
 
-        /* Try to change CKA_DERIVE to TRUE of private key */
-        rc = funcs->C_SetAttributeValue(session, priv_key,
-                                        tmpl_derive, tmpl_derive_len);
-        if (rc != CKR_OK) {
-            testcase_error("C_SetAttributeValue() with CKA_DERIVE=TRUE failed, rc=%s",
-                           p11_get_ckr(rc));
-            goto error;
+        if (is_cca) {
+            /* Try to change CKA_DERIVE to TRUE of private key */
+            rc = funcs->C_SetAttributeValue(session, priv_key,
+                                            tmpl_derive, tmpl_derive_len);
+            if (rc != CKR_OK) {
+                testcase_error("C_SetAttributeValue() with CKA_DERIVE=TRUE failed, rc=%s",
+                               p11_get_ckr(rc));
+                goto error;
+            }
         }
 
-        testcase_pass("CCA export/import test with public/private ECC curve %s keys: ok",
+        testcase_pass("CCA/EP11 export/import test with public/private ECC curve %s keys: ok",
                       ec_curves[i].name);
 
 error:
@@ -1746,7 +1793,7 @@ static struct {
     {0, NULL}
 };
 
-static CK_RV cca_ibm_dilithium_export_import_tests(void)
+static CK_RV ibm_dilithium_export_import_tests(void)
 {
     CK_RV rc = CKR_OK;
     CK_FLAGS flags;
@@ -1755,6 +1802,8 @@ static CK_RV cca_ibm_dilithium_export_import_tests(void)
     CK_ULONG user_pin_len;
     CK_BBOOL attr_sign = TRUE;
     CK_BBOOL attr_verify = TRUE;
+    CK_BBOOL true = CK_TRUE;
+    CK_BBOOL false = CK_FALSE;
     CK_OBJECT_HANDLE publ_key = CK_INVALID_HANDLE, priv_key = CK_INVALID_HANDLE;
     CK_OBJECT_HANDLE imp_priv_key = CK_INVALID_HANDLE, imp_publ_key = CK_INVALID_HANDLE;
     CK_BYTE msg[32], sig[5000];
@@ -1765,12 +1814,12 @@ static CK_RV cca_ibm_dilithium_export_import_tests(void)
     char label[80];
     int i;
 
-    if (!is_cca_token(SLOT_ID)) {
-        testcase_skip("this slot is not a CCA token");
+    if (!is_cca_token(SLOT_ID) && !is_ep11_token(SLOT_ID)) {
+        testcase_skip("this slot is not a CCA or EP11 token");
         goto out;
     }
     if (!mech_supported(SLOT_ID, CKM_IBM_DILITHIUM)) {
-        testcase_skip("this slot does not support CKM_EC_KEY_PAIR_GEN");
+        testcase_skip("this slot does not support CKM_IBM_DILITHIUM");
         goto out;
     }
 
@@ -1782,16 +1831,20 @@ static CK_RV cca_ibm_dilithium_export_import_tests(void)
             {CKA_SIGN, &attr_sign, sizeof(CK_BBOOL)},
             {CKA_IBM_DILITHIUM_KEYFORM,
              (CK_BYTE *)&dilithium_variants[i].keyform, sizeof(CK_ULONG)},
+             {CKA_TOKEN, &true, sizeof(true)},
+             {CKA_PRIVATE, &true, sizeof(true)},
         };
         CK_ATTRIBUTE dilithium_attr_public[] = {
             {CKA_VERIFY, &attr_verify, sizeof(CK_BBOOL)},
             {CKA_IBM_DILITHIUM_KEYFORM,
              (CK_BYTE *)&dilithium_variants[i].keyform, sizeof(CK_ULONG)},
+             {CKA_TOKEN, &false, sizeof(false)},
+             {CKA_PRIVATE, &false, sizeof(false)},
         };
         CK_ULONG num_dilithium_attrs =
                 sizeof(dilithium_attr_public) / sizeof(CK_ATTRIBUTE);
 
-        testcase_begin("CCA export/import test with public/private IBM Dilithium %s keys",
+        testcase_begin("CCA/EP11 export/import test with public/private IBM Dilithium %s keys",
                        dilithium_variants[i].name);
 
         /* Generate Dilithium key pair */
@@ -1851,33 +1904,7 @@ static CK_RV cca_ibm_dilithium_export_import_tests(void)
             goto error;
         }
 
-        // export original private key's cca token
-
-        rc = export_ibm_opaque(session, priv_key, &priv_opaquekey,
-                               &priv_opaquekeylen);
-        if (rc != CKR_OK) {
-            testcase_fail("export_ibm_opaque on private key failed rc=%s",
-                          p11_get_ckr(rc));
-            goto error;
-        }
-#if 0
-        printf("priv_opaquekey (%lu bytes):\n", priv_opaquekeylen);
-        print_hex(priv_opaquekey, priv_opaquekeylen);
-#endif
-
-        // re-import this cca private Dilithium key token as new private ecc key
-
-        snprintf(label, sizeof(label), "re-imported_dilithium_%s_private_key",
-                 dilithium_variants[i].name);
-        rc = import_ibm_dilithium_priv_key(session, label, priv_opaquekey,
-                                           priv_opaquekeylen, &imp_priv_key);
-        if (rc != CKR_OK) {
-            testcase_fail("import_ibm_dilithium_priv_key on exported cca Dilithium key token failed rc=%s",
-                          p11_get_ckr(rc));
-            goto error;
-        }
-
-        // export original public key's cca token
+        // export original public key's CCA/EP11 blob
 
         rc = export_ibm_opaque(session, publ_key, &publ_opaquekey,
                                &publ_opaquekeylen);
@@ -1886,20 +1913,42 @@ static CK_RV cca_ibm_dilithium_export_import_tests(void)
                            p11_get_ckr(rc));
             goto error;
         }
-#if 0
-        printf("publ_opaquekey (%lu bytes):\n", publ_opaquekeylen);
-        print_hex(publ_opaquekey, publ_opaquekeylen);
-#endif
 
-        // re-import this cca public Dilithium key token as new public ecc key
+        // re-import this CCA/EP11 public Dilithium key blob as new public ecc key
 
         snprintf(label, sizeof(label), "re-imported_dilithium_%s_public_key",
                  dilithium_variants[i].name);
         rc = import_ibm_dilithium_publ_key(session, label, publ_opaquekey,
                                            publ_opaquekeylen, &imp_publ_key);
         if (rc != CKR_OK) {
-            testcase_fail("import_ibm_dilithium_publ_key on exported cca Dilithium key token failed rc=%s",
+            testcase_fail("import_ibm_dilithium_publ_key on exported CCA/EP11 Dilithium key blob failed rc=%s",
                           p11_get_ckr(rc));
+            goto error;
+        }
+
+        // export original private key's CCA/EP11 blob
+
+        rc = export_ibm_opaque(session, priv_key, &priv_opaquekey,
+                               &priv_opaquekeylen);
+        if (rc != CKR_OK) {
+            testcase_fail("export_ibm_opaque on private key failed rc=%s",
+                          p11_get_ckr(rc));
+            goto error;
+        }
+
+        // re-import this CCA/EP11 private Dilithium key blob as new private ecc key
+
+        snprintf(label, sizeof(label), "re-imported_dilithium_%s_private_key",
+                 dilithium_variants[i].name);
+        rc = import_ibm_dilithium_priv_key(session, label, priv_opaquekey,
+                                           priv_opaquekeylen, &imp_priv_key);
+        if (rc != CKR_OK) {
+            if (rc == CKR_PUBLIC_KEY_INVALID && is_ep11_token(SLOT_ID)) {
+                testcase_skip("import_ibm_dilithium_priv_key on exported CCA/EP11 Dilithium key blob failed due to missing EP11 FW fix");
+            } else {
+                testcase_fail("import_ibm_dilithium_priv_key on exported CCA/EP11 Dilithium key blob failed rc=%s",
+                              p11_get_ckr(rc));
+            }
             goto error;
         }
 
@@ -1977,7 +2026,7 @@ static CK_RV cca_ibm_dilithium_export_import_tests(void)
             goto error;
         }
 
-        testcase_pass("CCA export/import test with public/private IBM Dilithium %s keys",
+        testcase_pass("CCA/EP11 export/import test with public/private IBM Dilithium %s keys",
                       dilithium_variants[i].name);
 
 error:
@@ -2010,49 +2059,49 @@ out:
     return rc;
 }
 
-static CK_RV cca_export_import_tests(void)
+static CK_RV cca_ep11_export_import_tests(void)
 {
     CK_RV rc = CKR_OK, rv = CKR_OK;
 
-    testsuite_begin("CCA export/import tests");
+    testsuite_begin("CCA/EP11 export/import tests");
 
-    rc = cca_des_data_export_import_tests();
+    rc = des_export_import_tests();
     if (rc != CKR_OK && rv == CKR_OK)
         rv = rc;
 
-    rc = cca_des3_data_export_import_tests();
+    rc = des3_export_import_tests();
     if (rc != CKR_OK && rv == CKR_OK)
         rv = rc;
 
-    rc = cca_aes_export_import_tests(CK_IBM_CCA_AES_DATA_KEY);
+    rc = aes_export_import_tests(CK_IBM_CCA_AES_DATA_KEY);
     if (rc != CKR_OK && rv == CKR_OK)
         rv = rc;
 
-    rc = cca_aes_xts_export_import_tests(CK_IBM_CCA_AES_DATA_KEY);
+    rc = aes_xts_export_import_tests(CK_IBM_CCA_AES_DATA_KEY);
     if (rc != CKR_OK && rv == CKR_OK)
         rv = rc;
 
-    rc = cca_aes_export_import_tests(CK_IBM_CCA_AES_CIPHER_KEY);
+    rc = aes_export_import_tests(CK_IBM_CCA_AES_CIPHER_KEY);
     if (rc != CKR_OK && rv == CKR_OK)
         rv = rc;
 
-    rc = cca_aes_xts_export_import_tests(CK_IBM_CCA_AES_CIPHER_KEY);
+    rc = aes_xts_export_import_tests(CK_IBM_CCA_AES_CIPHER_KEY);
     if (rc != CKR_OK && rv == CKR_OK)
         rv = rc;
 
-    rc = cca_hmac_data_export_import_tests();
+    rc = generic_secret_export_import_tests();
     if (rc != CKR_OK && rv == CKR_OK)
         rv = rc;
 
-    rc = cca_rsa_export_import_tests();
+    rc = rsa_export_import_tests();
     if (rc != CKR_OK && rv == CKR_OK)
         rv = rc;
 
-    rc = cca_ecc_export_import_tests();
+    rc = ecc_export_import_tests();
     if (rc != CKR_OK && rv == CKR_OK)
         rv = rc;
 
-    rc = cca_ibm_dilithium_export_import_tests();
+    rc = ibm_dilithium_export_import_tests();
     if (rc != CKR_OK && rv == CKR_OK)
         rv = rc;
 
@@ -2098,7 +2147,7 @@ int main(int argc, char **argv)
     }
 
     testcase_setup();
-    rv = cca_export_import_tests();
+    rv = cca_ep11_export_import_tests();
     testcase_print_result();
 
     funcs->C_Finalize(NULL);
