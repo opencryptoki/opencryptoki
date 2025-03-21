@@ -267,7 +267,7 @@ ci-prepare:
 	${srcdir}/testcases/ciconfig.sh "$(sysconfdir)/opencryptoki" "$(sysconfdir)/opencryptoki" "$(sysconfdir)/opencryptoki" "${srcdir}/testcases/test_combined_extract.slots"
 	@sbindir@/pkcsslotd
 	@sbindir@/pkcsstats --reset-all
-	for slot in `awk '/^slot (.*)/ { print $$2; }' $(sysconfdir)/opencryptoki/opencryptoki.conf`; do @sbindir@/pkcsconf -c $$slot -t | grep "Flags:" | grep -q TOKEN_INITIALIZED || PKCS11_USER_PIN=$(PKCS11_USER_PIN) PKCS11_SO_PIN=$(PKCS11_SO_PIN) PKCSLIB=$(PKCSLIB) ${srcdir}/testcases/init_token.sh $$slot; done
+	for slot in `awk '/^slot (.*)/ { print $$2; }' $(sysconfdir)/opencryptoki/opencryptoki.conf`; do @sbindir@/pkcsconf -c $$slot -t | grep "Flags:" | grep -q TOKEN_INITIALIZED || PKCS11_USER_PIN=$(PKCS11_USER_PIN) PKCS11_SO_PIN=$(PKCS11_SO_PIN) PKCSLIB=$(PKCSLIB) ${srcdir}/testcases/init_token.sh $$slot || exit; done
 #	cd ${srcdir}/testcases && PKCS11_USER_PIN=$(PKCS11_USER_PIN) PKCS11_VHSM_PIN=$(PKCS11_VHSM_PIN) PKCSLIB=$(PKCSLIB) ./init_vhsm.exp 42
 #	echo "VHSM_MODE" >> "$(sysconfdir)/opencryptoki/ep11tok42.conf"
 

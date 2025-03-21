@@ -8,13 +8,16 @@
 # in the file LICENSE file or at https://opensource.org/licenses/cpl1.0.php
 #
 
+set timeout 30
 spawn @sbindir@/pkcsconf -c [lindex $argv 0] -I
 expect {
     "Enter the SO PIN: " { sleep .1; send "87654321\r"; }
+    timeout { send_user "Timeout when sending SO PIN during initialization\n"; exit 1 }
     default { send_user "Error sending SO PIN during initialization\n"; exit 1 }
 }
 expect {
     "label: " { sleep .1; send "ibmtest\r"; }
+    timeout { send_user "Timeout when sending label during initialization\n"; exit 1 }
     default { send_user "Error sending label during initialization\n"; exit 1 }
 }
 expect {
@@ -26,14 +29,17 @@ expect {
 spawn @sbindir@/pkcsconf -c [lindex $argv 0] -P
 expect {
     "Enter the SO PIN: " { sleep .1; send "87654321\r"; }
+    timeout { send_user "Timeout when sending SO PIN during SO PIN setting\n"; exit 1 }
     default { send_user "Error sending SO PIN during SO PIN setting\n"; exit 1 }
 }
 expect {
     "Enter the new SO PIN: " { sleep .1; send $env(PKCS11_SO_PIN); send "\r"; }
+    timeout { send_user "Timeout when sending new SO PIN during SO PIN setting\n"; exit 1 }
     default { send_user "Error sending new SO PIN during SO PIN setting\n"; exit 1 }
 }
 expect {
     "Re-enter the new SO PIN: " { sleep .1; send $env(PKCS11_SO_PIN); send "\r"; }
+    timeout { send_user "Timeout when resending new SO PIN during SO PIN setting\n"; exit 1 }
     default { send_user "Error resending new SO PIN during SO PIN setting\n"; exit 1 }
 }
 expect {
@@ -45,14 +51,17 @@ expect {
 spawn @sbindir@/pkcsconf -c [lindex $argv 0] -u
 expect {
     "Enter the SO PIN: " { sleep .1; send $env(PKCS11_SO_PIN); send "\r"; }
+    timeout { send_user "Timeout when sending SO PIN during user PIN initialization\n"; exit 1 }
     default { send_user "Error sending SO PIN during user PIN initialization\n"; exit 1 }
 }
 expect {
     "Enter the new user PIN: " { sleep .1; send "12345678\r"; }
+    timeout { send_user "Timeout when sending new user PIN during user PIN initialization\n"; exit 1 }
     default { send_user "Error sending new user PIN during user PIN initialization\n"; exit 1 }
 }
 expect {
     "Re-enter the new user PIN: " { sleep .1; send "12345678\r"; }
+    timeout { send_user "Timeout when resending new user during user PIN initialization\n"; exit 1 }
     default { send_user "Error resending new user during user PIN initialization\n"; exit 1 }
 }
 expect {
@@ -64,14 +73,17 @@ expect {
 spawn @sbindir@/pkcsconf -c [lindex $argv 0] -p
 expect {
     "Enter user PIN: " { sleep .1; send "12345678\r"; }
+    timeout { send_user "Timeout when sending user PIN during user PIN setting\n"; exit 1 }
     default { send_user "Error sending user PIN during user PIN setting\n"; exit 1 }
 }
 expect {
     "Enter the new user PIN: " { sleep .1; send $env(PKCS11_USER_PIN); send "\r"; }
+    timeout { send_user "Timeout when sending new user PIN during user PIN setting\n"; exit 1 }
     default { send_user "Error sending new user PIN during user PIN setting\n"; exit 1 }
 }
 expect {
     "Re-enter the new user PIN: " { sleep .1; send $env(PKCS11_USER_PIN); send "\r"; }
+    timeout { send_user "Timeout when resending new user PIN during user PIN setting\n"; exit 1 }
     default { send_user "Error resending new user PIN during user PIN setting\n"; exit 1 }
 }
 expect {
