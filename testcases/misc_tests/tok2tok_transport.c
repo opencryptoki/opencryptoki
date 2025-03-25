@@ -78,6 +78,16 @@ CK_ECDH_AES_KEY_WRAP_PARAMS ecdh_aeskw_aes_256__params = {
         .pSharedData = (CK_BYTE *)"abc",
 };
 
+CK_BYTE gcm_aad[8] = { 0x00,0x01,0x02,0x03,0x04,0x05,0x06,0x07 };
+
+CK_GCM_PARAMS aes_gcm_param = {
+       .pIv = aes_iv,
+       .ulIvLen = sizeof(aes_iv),
+       .pAAD = gcm_aad,
+       .ulAADLen = sizeof(gcm_aad),
+       .ulTagBits = 32,
+};
+
 CK_BYTE prime256v1[] = OCK_PRIME256V1;
 
 struct wrapping_mech_info {
@@ -204,6 +214,24 @@ struct wrapping_mech_info wrapping_tests[] = {
     {
         .name = "Wrap/Unwrap with AES 256 CBC PAD",
         .wrapping_mech = { CKM_AES_CBC_PAD, aes_iv, sizeof(aes_iv) },
+        .wrapping_key_gen_mech = { CKM_AES_KEY_GEN, 0, 0 },
+        .sym_keylen = 32,
+    },
+    {
+        .name = "Wrap/Unwrap with AES 128 GCM",
+        .wrapping_mech = { CKM_AES_GCM, &aes_gcm_param, sizeof(aes_gcm_param) },
+        .wrapping_key_gen_mech = { CKM_AES_KEY_GEN, 0, 0 },
+        .sym_keylen = 16,
+    },
+    {
+        .name = "Wrap/Unwrap with AES 192 GCM",
+        .wrapping_mech = { CKM_AES_GCM, &aes_gcm_param, sizeof(aes_gcm_param) },
+        .wrapping_key_gen_mech = { CKM_AES_KEY_GEN, 0, 0 },
+        .sym_keylen = 24,
+    },
+    {
+        .name = "Wrap/Unwrap with AES 256 GCM",
+        .wrapping_mech = { CKM_AES_GCM, &aes_gcm_param, sizeof(aes_gcm_param) },
         .wrapping_key_gen_mech = { CKM_AES_KEY_GEN, 0, 0 },
         .sym_keylen = 32,
     },
