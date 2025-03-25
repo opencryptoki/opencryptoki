@@ -280,39 +280,139 @@ cleanup_pkcs11_keys() {
 }
 
 setup_kmip_keys() {
-	curl --fail-with-body --location --request POST "$KMIP_REST_URL/SKLM/rest/v1/objects/keypair" \
-		--header "accept: application/json" --header "Content-Type: application/json" \
-		--data "{\"clientName\":\"$KMIP_CLIENT_NAME\", \"prefixName\":\"tst\", \"numberOfObjects\": \"1\", \"publicKeyCryptoUsageMask\":\"Wrap_Unwrap\", \"privateKeyCryptoUsageMask\":\"Wrap_Unwrap\"}" \
-		--header "Authorization:SKLMAuth userAuthId=$AUTHID" \
-		--insecure --silent --show-error >$P11KMIP_TMP/curl_generate_asym_keys_stdout 2>$P11KMIP_TMP/curl_generate_asym_keys_stderr
-	RC_PKMIP_GENERATE=$((RC_KMIP_GENERATE + $?))
+  RETRY_COUNT=0
+  GET_LOGIN_TOKEN_DONE=1
+  GEN_ASYM_KEY_DONE=0
+  GEN_SYM_KEY_DONE=0
+  GET_PUB_KEY_DONE=0
 
-	KMIP_PUBLIC_KEY_ID=`jq .publicKeyId $P11KMIP_TMP/curl_generate_asym_keys_stdout -r`
-	KMIP_PRIVATE_KEY_ID=`jq .privateKeyId $P11KMIP_TMP/curl_generate_asym_keys_stdout -r`
+  while true; do
+		if [[ $RETRY_COUNT -gt 100 ]] ; then
+			RC_PKMIP_GENERATE=1
+			echo "error: Too many login retries"
+			break
+		fi
+		RETRY_COUNT=$((RETRY_COUNT+1))
 
-	curl --fail-with-body --location --request POST "$KMIP_REST_URL/SKLM/rest/v1/objects/symmetrickey" \
-		--header "accept: application/json" --header "Content-Type: application/json" \
-		--data "{\"clientName\":\"$KMIP_CLIENT_NAME\", \"prefixName\":\"tst\", \"numberOfObjects\": \"1\", \"cryptoUsageMask\":\"Encrypt_Decrypt\"}" \
-		--header "Authorization:SKLMAuth userAuthId=$AUTHID" \
-		--insecure --silent --show-error >$P11KMIP_TMP/curl_generate_sym_key_stdout 2>$P11KMIP_TMP/curl_generate_sym_key_stderr
-	RC_PKMIP_GENERATE=$((RC_KMIP_GENERATE + $?))
+		if [[ $GET_LOGIN_TOKEN_DONE -eq 0 ]] ; then
+			# Get a login authorization ID from SKLM
+			curl --fail-with-body --location --request POST "$KMIP_REST_URL/SKLM/rest/v1/ckms/login" \
+				--header "Content-Type: application/json" \
+				--data "{\"userid\":\"$KMIP_REST_USER\", \"password\":\"$KMIP_REST_PASSWORD\"}" \
+				--insecure --silent --show-error >$P11KMIP_TMP/curl_get_login_authid_stdout 2>$P11KMIP_TMP/curl_get_login_authid_stderr
+			RC=$?
+			echo "rc:" $RC
+			if [[ $RC -ne 0 ]] ; then
+				RC_PKMIP_GENERATE=1
+				cat $P11KMIP_TMP/curl_get_login_authid_stdout
+				cat $P11KMIP_TMP/curl_get_login_authid_stderr
+				break
+			fi
 
-	KMIP_SECKEY_ID=`jq .id $P11KMIP_TMP/curl_generate_sym_key_stdout -r`
+			# Parse the response data and extract the authorization id token
+			# Expected to return: {"UserAuthId":"xxxxxx"}
+			AUTHID=`jq .UserAuthId $P11KMIP_TMP/curl_get_login_authid_stdout -r`
+			echo "AuthID:" $AUTHID
+			echo "succeeded: curl_get_login_authid"
 
-	curl --fail-with-body --location --request GET "$KMIP_REST_URL/SKLM/rest/v1/objects/$KMIP_PUBLIC_KEY_ID" \
-		--header "accept: application/json" --header "Content-Type: application/json" \
-		--header "Authorization:SKLMAuth userAuthId=$AUTHID" \
-		--insecure --silent --show-error >$P11KMIP_TMP/curl_get_pubkey_stdout 2>$P11KMIP_TMP/curl_get_pubkey_stderr
-	RC_PKMIP_GENERATE=$((RC_KMIP_GENERATE + $?))
+			GET_LOGIN_TOKEN_DONE=1
+		fi
 
-	KMIP_PUBLIC_KEY_LABEL=`jq .managedObject.alias $P11KMIP_TMP/curl_get_pubkey_stdout -r`
-	KMIP_PUBLIC_KEY_LABEL=${KMIP_PUBLIC_KEY_LABEL:1:21}
+		if [[ $GEN_ASYM_KEY_DONE -eq 0 ]] ; then
+			curl --fail-with-body --location --request POST "$KMIP_REST_URL/SKLM/rest/v1/objects/keypair" \
+				--header "accept: application/json" --header "Content-Type: application/json" \
+				--data "{\"clientName\":\"$KMIP_CLIENT_NAME\", \"prefixName\":\"tst\", \"numberOfObjects\": \"1\", \"publicKeyCryptoUsageMask\":\"Wrap_Unwrap\", \"privateKeyCryptoUsageMask\":\"Wrap_Unwrap\"}" \
+				--header "Authorization:SKLMAuth userAuthId=$AUTHID" \
+				--insecure --silent --show-error >$P11KMIP_TMP/curl_generate_asym_keys_stdout 2>$P11KMIP_TMP/curl_generate_asym_keys_stderr
+			RC=$?
+			echo "rc:" $RC
 
-	echo "*** kmip keys after creation"
-	echo "**** kmip pubkey id: ${KMIP_PUBLIC_KEY_ID}"
-	echo "**** kmip privkey id: ${KMIP_PRIVATE_KEY_ID}"
-	echo "**** kmip pubkey label: ${KMIP_PUBLIC_KEY_LABEL}"
+			RSN=`jq .code $P11KMIP_TMP/curl_generate_asym_keys_stdout -r`
+			if [[ "$RSN" == "CTGKM6004E" ]]; then
+				echo "warning: Login token expired, re-login and retry"
+				GET_LOGIN_TOKEN_DONE=0
+				continue
+			fi
 
+			if [[ $RC -ne 0 ]] ; then
+				RC_PKMIP_GENERATE=1
+				cat $P11KMIP_TMP/curl_generate_asym_keys_stdout
+				cat $P11KMIP_TMP/curl_generate_asym_keys_stderr
+				break
+			fi
+
+			KMIP_PUBLIC_KEY_ID=`jq .publicKeyId $P11KMIP_TMP/curl_generate_asym_keys_stdout -r`
+			KMIP_PRIVATE_KEY_ID=`jq .privateKeyId $P11KMIP_TMP/curl_generate_asym_keys_stdout -r`
+
+			echo "succeeded: curl_generate_asym_keys"
+			GEN_ASYM_KEY_DONE=1
+		fi
+
+		if [[ $GEN_SYM_KEY_DONE -eq 0 ]] ; then
+			curl --fail-with-body --location --request POST "$KMIP_REST_URL/SKLM/rest/v1/objects/symmetrickey" \
+				--header "accept: application/json" --header "Content-Type: application/json" \
+				--data "{\"clientName\":\"$KMIP_CLIENT_NAME\", \"prefixName\":\"tst\", \"numberOfObjects\": \"1\", \"cryptoUsageMask\":\"Encrypt_Decrypt\"}" \
+				--header "Authorization:SKLMAuth userAuthId=$AUTHID" \
+				--insecure --silent --show-error >$P11KMIP_TMP/curl_generate_sym_key_stdout 2>$P11KMIP_TMP/curl_generate_sym_key_stderr
+			RC=$?
+			echo "rc:" $RC
+
+			RSN=`jq .code $P11KMIP_TMP/curl_generate_sym_key_stdout -r`
+			if [[ "$RSN" == "CTGKM6004E" ]]; then
+				echo "warning: Login token expired, re-login and retry"
+				GET_LOGIN_TOKEN_DONE=0
+				continue
+			fi
+
+			if [[ $RC -ne 0 ]] ; then
+				RC_PKMIP_GENERATE=1
+				cat $P11KMIP_TMP/curl_generate_sym_key_stdout
+				cat $P11KMIP_TMP/curl_generate_sym_key_stderr
+				break
+			fi
+
+			KMIP_SECKEY_ID=`jq .id $P11KMIP_TMP/curl_generate_sym_key_stdout -r`
+
+			echo "succeeded: curl_generate_sym_keys"
+			GEN_SYM_KEY_DONE=1
+		fi
+
+		if [[ $GET_PUB_KEY_DONE -eq 0 ]] ; then
+			curl --fail-with-body --location --request GET "$KMIP_REST_URL/SKLM/rest/v1/objects/$KMIP_PUBLIC_KEY_ID" \
+				--header "accept: application/json" --header "Content-Type: application/json" \
+				--header "Authorization:SKLMAuth userAuthId=$AUTHID" \
+				--insecure --silent --show-error >$P11KMIP_TMP/curl_get_pubkey_stdout 2>$P11KMIP_TMP/curl_get_pubkey_stderr
+			RC=$?
+			echo "rc:" $RC
+
+			RSN=`jq .code $P11KMIP_TMP/curl_get_pubkey_stdout -r`
+			if [[ "$RSN" == "CTGKM6004E" ]]; then
+				echo "warning: Login token expired, re-login and retry"
+				GET_LOGIN_TOKEN_DONE=0
+				continue
+			fi
+
+			if [[ $RC -ne 0 ]] ; then
+				RC_PKMIP_GENERATE=1
+				cat $P11KMIP_TMP/curl_get_pubkey_stdout
+				cat $P11KMIP_TMP/curl_get_pubkey_stderr
+				break
+			fi
+
+			KMIP_PUBLIC_KEY_LABEL=`jq .managedObject.alias $P11KMIP_TMP/curl_get_pubkey_stdout -r`
+			KMIP_PUBLIC_KEY_LABEL=${KMIP_PUBLIC_KEY_LABEL:1:21}
+
+			echo "succeeded: curl_get_pubkey_stdout"
+			GET_PUB_KEY_DONE=1
+		fi
+
+		echo "*** kmip keys after creation"
+		echo "**** kmip pubkey id: ${KMIP_PUBLIC_KEY_ID}"
+		echo "**** kmip privkey id: ${KMIP_PRIVATE_KEY_ID}"
+		echo "**** kmip pubkey label: ${KMIP_PUBLIC_KEY_LABEL}"
+
+		break
+	 done
 }
 
 compare_digests() {
