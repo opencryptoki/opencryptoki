@@ -931,6 +931,7 @@ CK_RV key_mgr_wrap_key(STDLL_TokData_t *tokdata,
     case CKM_AES_CFB64:
     case CKM_AES_CFB128:
     case CKM_AES_XTS:
+    case CKM_AES_GCM:
     case CKM_AES_KEY_WRAP:
     case CKM_AES_KEY_WRAP_PAD:
     case CKM_AES_KEY_WRAP_KWP:
@@ -1135,6 +1136,7 @@ CK_RV key_mgr_wrap_key(STDLL_TokData_t *tokdata,
     case CKM_RSA_PKCS:
     case CKM_RSA_X_509:
     case CKM_AES_XTS:
+    case CKM_AES_GCM:
         break;
     default:
         TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
@@ -1319,6 +1321,7 @@ CK_RV key_mgr_unwrap_key(STDLL_TokData_t *tokdata,
     case CKM_DES3_CBC_PAD:
     case CKM_AES_CBC_PAD:
     case CKM_AES_XTS:
+    case CKM_AES_GCM:
     case CKM_AES_KEY_WRAP:
     case CKM_AES_KEY_WRAP_PAD:
     case CKM_AES_KEY_WRAP_KWP:
@@ -1367,6 +1370,7 @@ CK_RV key_mgr_unwrap_key(STDLL_TokData_t *tokdata,
         case CKM_AES_CFB64:
         case CKM_AES_CFB128:
         case CKM_AES_XTS:
+        case CKM_AES_GCM:
         case CKM_AES_KEY_WRAP:
             if (keytype != CKK_AES && keytype != CKK_AES_XTS &&
                 keytype != CKK_GENERIC_SECRET) {
