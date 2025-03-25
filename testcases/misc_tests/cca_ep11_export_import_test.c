@@ -345,7 +345,7 @@ static CK_RV import_rsa_publ_key(CK_SESSION_HANDLE session,
     CK_ULONG nattr = sizeof(template) / sizeof(CK_ATTRIBUTE);
 
     rc = funcs->C_CreateObject(session, template, nattr, handle);
-    if (rc != CKR_OK) {
+    if (rc != CKR_OK && rc != CKR_PUBLIC_KEY_INVALID) {
         testcase_error("C_CreateObject() rc=%s", p11_get_ckr(rc));
     }
 
@@ -402,7 +402,7 @@ static CK_RV import_ecc_publ_key(CK_SESSION_HANDLE session,
     CK_ULONG nattr = sizeof(template) / sizeof(CK_ATTRIBUTE);
 
     rc = funcs->C_CreateObject(session, template, nattr, handle);
-    if (rc != CKR_OK) {
+    if (rc != CKR_OK && rc != CKR_PUBLIC_KEY_INVALID) {
         testcase_error("C_CreateObject() rc=%s", p11_get_ckr(rc));
     }
 
@@ -459,7 +459,7 @@ static CK_RV import_ibm_dilithium_publ_key(CK_SESSION_HANDLE session,
     CK_ULONG nattr = sizeof(template) / sizeof(CK_ATTRIBUTE);
 
     rc = funcs->C_CreateObject(session, template, nattr, handle);
-    if (rc != CKR_OK) {
+    if (rc != CKR_OK && rc != CKR_PUBLIC_KEY_INVALID) {
         testcase_error("C_CreateObject() rc=%s", p11_get_ckr(rc));
     }
 
@@ -1336,8 +1336,12 @@ static CK_RV rsa_export_import_tests(void)
         snprintf(label, sizeof(label), "re-imported_rsa%u_public_key", keybitlen);
         rc = import_rsa_publ_key(session, label, publ_opaquekey, publ_opaquekeylen, &imp_publ_key);
         if (rc != CKR_OK) {
-            testcase_fail("import_rsa_publ_key on exported CCA/EP11 rsa key blob failed rc=%s",
-                          p11_get_ckr(rc));
+            if (rc == CKR_PUBLIC_KEY_INVALID && is_ep11_token(SLOT_ID)) {
+                testcase_skip("import_rsa_publ_key on exported CCA/EP11 rsa key blob failed due to missing EP11 FW fix");
+            } else {
+                testcase_fail("import_rsa_publ_key on exported CCA/EP11 rsa key blob failed rc=%s",
+                              p11_get_ckr(rc));
+            }
             goto error;
         }
 
@@ -1638,8 +1642,12 @@ static CK_RV ecc_export_import_tests(void)
         snprintf(label, sizeof(label), "re-imported_ecc_%s_public_key", ec_curves[i].name);
         rc = import_ecc_publ_key(session, label, publ_opaquekey, publ_opaquekeylen, &imp_publ_key);
         if (rc != CKR_OK) {
-            testcase_fail("import_ecc_publ_key on exported CCA/EP11 ecc key blob failed rc=%s",
-                          p11_get_ckr(rc));
+            if (rc == CKR_PUBLIC_KEY_INVALID && is_ep11_token(SLOT_ID)) {
+                testcase_skip("import_ecc_publ_key on exported CCA/EP11 ecc key blob failed due to missing EP11 FW fix");
+            } else {
+                testcase_fail("import_ecc_publ_key on exported CCA/EP11 ecc key blob failed rc=%s",
+                              p11_get_ckr(rc));
+            }
             goto error;
         }
 
@@ -1921,8 +1929,12 @@ static CK_RV ibm_dilithium_export_import_tests(void)
         rc = import_ibm_dilithium_publ_key(session, label, publ_opaquekey,
                                            publ_opaquekeylen, &imp_publ_key);
         if (rc != CKR_OK) {
-            testcase_fail("import_ibm_dilithium_publ_key on exported CCA/EP11 Dilithium key blob failed rc=%s",
-                          p11_get_ckr(rc));
+            if (rc == CKR_PUBLIC_KEY_INVALID && is_ep11_token(SLOT_ID)) {
+                testcase_skip("import_ibm_dilithium_publ_key on exported CCA/EP11 Dilithium key blob failed due to missing EP11 FW fix");
+            } else {
+                testcase_fail("import_ibm_dilithium_publ_key on exported CCA/EP11 Dilithium key blob failed rc=%s",
+                              p11_get_ckr(rc));
+            }
             goto error;
         }
 
