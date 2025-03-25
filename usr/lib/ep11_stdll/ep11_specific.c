@@ -5267,7 +5267,8 @@ static CK_RV import_blob(STDLL_TokData_t *tokdata, SESSION *sess, OBJECT *obj,
     int curve_type;
     CK_BYTE *useblob, *blob2;
     size_t useblob_len, blob1_len, blob2_len;
-    CK_KEY_TYPE blob_type, blob_type2;
+    CK_KEY_TYPE blob_type = CK_UNAVAILABLE_INFORMATION;
+    CK_KEY_TYPE blob_type2 = CK_UNAVAILABLE_INFORMATION;
     CK_ULONG value_len, value_len2, stdcomp, stdcomp2;
     CK_BYTE buf[MAX_BLOBSIZE];
     CK_ATTRIBUTE get_attr[] = {
@@ -5517,6 +5518,10 @@ static CK_RV import_blob(STDLL_TokData_t *tokdata, SESSION *sess, OBJECT *obj,
     if (keytype != CKK_AES_XTS && blob_type != keytype) {
         TRACE_ERROR("%s Key blob is not of the expected type: 0x%lx expectd "
                     "0x%lx\n", __func__, blob_type, keytype);
+
+        if (blob_type == 0x80ffffff || blob_type == CK_UNAVAILABLE_INFORMATION)
+            return CKR_PUBLIC_KEY_INVALID; /* Old firmware indication */
+
         return CKR_KEY_TYPE_INCONSISTENT;
     }
 
@@ -5524,6 +5529,11 @@ static CK_RV import_blob(STDLL_TokData_t *tokdata, SESSION *sess, OBJECT *obj,
         if ((blob_type != blob_type2 || value_len != value_len2 ||
              stdcomp != stdcomp2)) {
             TRACE_ERROR("AES-XTS key blob is inconsistent\n");
+
+            if (blob_type2 == 0x80ffffff ||
+                blob_type2 == CK_UNAVAILABLE_INFORMATION)
+                return CKR_PUBLIC_KEY_INVALID; /* Old firmware indication */
+
             return CKR_ATTRIBUTE_VALUE_INVALID;
         }
 
