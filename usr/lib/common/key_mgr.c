@@ -993,7 +993,7 @@ CK_RV key_mgr_wrap_key(STDLL_TokData_t *tokdata,
 
     switch (keytype) {
     case CKK_DES:
-        rc = des_wrap_get_data(key_obj->template, length_only, &data,
+        rc = des_wrap_get_data(key_obj->template, FALSE, &data,
                                &data_len);
         if (rc != CKR_OK) {
             TRACE_DEVEL("des_wrap_get_data failed.\n");
@@ -1001,7 +1001,7 @@ CK_RV key_mgr_wrap_key(STDLL_TokData_t *tokdata,
         }
         break;
     case CKK_DES3:
-        rc = des3_wrap_get_data(key_obj->template, length_only, &data,
+        rc = des3_wrap_get_data(key_obj->template, FALSE, &data,
                                 &data_len);
         if (rc != CKR_OK) {
             TRACE_DEVEL("des3_wrap_get_data failed.\n");
@@ -1009,7 +1009,7 @@ CK_RV key_mgr_wrap_key(STDLL_TokData_t *tokdata,
         }
         break;
     case CKK_RSA:
-        rc = rsa_priv_wrap_get_data(key_obj->template, length_only, &data,
+        rc = rsa_priv_wrap_get_data(key_obj->template, FALSE, &data,
                                     &data_len);
         if (rc != CKR_OK) {
             TRACE_DEVEL("rsa_priv_wrap_get_data failed.\n");
@@ -1018,7 +1018,7 @@ CK_RV key_mgr_wrap_key(STDLL_TokData_t *tokdata,
         break;
 #if !(NODSA)
     case CKK_DSA:
-        rc = dsa_priv_wrap_get_data(key_obj->template, length_only, &data,
+        rc = dsa_priv_wrap_get_data(key_obj->template, FALSE, &data,
                                     &data_len);
         if (rc != CKR_OK) {
             TRACE_DEVEL("dsa_priv_wrap_get_data failed.\n");
@@ -1028,7 +1028,7 @@ CK_RV key_mgr_wrap_key(STDLL_TokData_t *tokdata,
 #endif
 #if !(NODH)
     case CKK_DH:
-        rc = dh_priv_wrap_get_data(key_obj->template, length_only, &data,
+        rc = dh_priv_wrap_get_data(key_obj->template, FALSE, &data,
                                    &data_len);
         if (rc != CKR_OK) {
             TRACE_DEVEL("dh_priv_wrap_get_data failed.\n");
@@ -1037,7 +1037,7 @@ CK_RV key_mgr_wrap_key(STDLL_TokData_t *tokdata,
         break;
 #endif
     case CKK_GENERIC_SECRET:
-        rc = generic_secret_wrap_get_data(key_obj->template, length_only,
+        rc = generic_secret_wrap_get_data(key_obj->template, FALSE,
                                           &data, &data_len);
         if (rc != CKR_OK) {
             TRACE_DEVEL("generic_secret_wrap_get_data failed.\n");
@@ -1046,7 +1046,7 @@ CK_RV key_mgr_wrap_key(STDLL_TokData_t *tokdata,
         break;
     case CKK_AES:
     case CKK_AES_XTS:
-        rc = aes_wrap_get_data(key_obj->template, length_only, &data,
+        rc = aes_wrap_get_data(key_obj->template, FALSE, &data,
                                &data_len);
         if (rc != CKR_OK) {
             TRACE_DEVEL("aes_wrap_get_data failed.\n");
@@ -1054,7 +1054,7 @@ CK_RV key_mgr_wrap_key(STDLL_TokData_t *tokdata,
         }
         break;
     case CKK_EC:
-        rc = ecdsa_priv_wrap_get_data(key_obj->template, length_only, &data,
+        rc = ecdsa_priv_wrap_get_data(key_obj->template, FALSE, &data,
                                       &data_len);
         if (rc != CKR_OK) {
             TRACE_DEVEL("ecdsa_priv_wrap_get_data failed.\n");
@@ -1062,7 +1062,7 @@ CK_RV key_mgr_wrap_key(STDLL_TokData_t *tokdata,
         }
         break;
     case CKK_IBM_PQC_DILITHIUM:
-        rc = ibm_dilithium_priv_wrap_get_data(key_obj->template, length_only,
+        rc = ibm_dilithium_priv_wrap_get_data(key_obj->template, FALSE,
                                               &data, &data_len);
         if (rc != CKR_OK) {
             TRACE_DEVEL("ibm_dilithium_priv_wrap_get_data failed.\n");
@@ -1070,7 +1070,7 @@ CK_RV key_mgr_wrap_key(STDLL_TokData_t *tokdata,
         }
         break;
     case CKK_IBM_PQC_KYBER:
-        rc = ibm_kyber_priv_wrap_get_data(key_obj->template, length_only,
+        rc = ibm_kyber_priv_wrap_get_data(key_obj->template, FALSE,
                                           &data, &data_len);
         if (rc != CKR_OK) {
             TRACE_DEVEL("ibm_kyber_priv_wrap_get_data failed.\n");
@@ -1090,7 +1090,7 @@ CK_RV key_mgr_wrap_key(STDLL_TokData_t *tokdata,
     case CKM_DES_CBC:
     case CKM_DES3_ECB:
     case CKM_DES3_CBC:
-        rc = ckm_des_wrap_format(tokdata, length_only, &data, &data_len);
+        rc = ckm_des_wrap_format(tokdata, FALSE, &data, &data_len);
         if (rc != CKR_OK) {
             TRACE_DEVEL("ckm_des_wrap_format failed.\n");
             if (data) {
@@ -1108,7 +1108,7 @@ CK_RV key_mgr_wrap_key(STDLL_TokData_t *tokdata,
     case CKM_AES_CFB64:
     case CKM_AES_CFB128:
     case CKM_AES_KEY_WRAP:
-        rc = ckm_aes_wrap_format(tokdata, length_only,
+        rc = ckm_aes_wrap_format(tokdata, FALSE,
                                  mech->mechanism == CKM_AES_KEY_WRAP ?
                                      AES_KEY_WRAP_BLOCK_SIZE : AES_BLOCK_SIZE,
                                  &data, &data_len);
@@ -1174,8 +1174,8 @@ CK_RV key_mgr_wrap_key(STDLL_TokData_t *tokdata,
         }
         goto done;
     }
-    // do the encryption and clean up.  at this point, 'value' may or may not
-    // be NULL depending on 'length_only'
+    // do the encryption and clean up.  at this point, 'wrapped_key' may or may
+    // not be NULL depending on 'length_only'
     //
     rc = encr_mgr_encrypt(tokdata, sess, length_only,
                           ctx, data, data_len, wrapped_key, wrapped_key_len);
