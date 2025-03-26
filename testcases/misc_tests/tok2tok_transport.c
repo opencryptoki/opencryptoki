@@ -700,8 +700,8 @@ CK_RV do_wrap_key_test(struct wrapped_mech_info *tsuite,
     CK_OBJECT_HANDLE priv_key = CK_INVALID_HANDLE;
     CK_OBJECT_HANDLE sym_key = CK_INVALID_HANDLE;
     CK_OBJECT_HANDLE unwrapped_key = CK_INVALID_HANDLE;
-    CK_BYTE wrapped_key[8192];
-    CK_ULONG wrapped_key_size = sizeof(wrapped_key);
+    CK_BYTE *wrapped_key = NULL;
+    CK_ULONG wrapped_key_size = 0;
     CK_OBJECT_CLASS key_class;
     CK_KEY_TYPE key_type;
     CK_ULONG key_len, unwrapped_keylen;
@@ -924,6 +924,7 @@ CK_RV do_wrap_key_test(struct wrapped_mech_info *tsuite,
         goto testcase_cleanup;
 
     /* Wrap the key on slot 1 */
+do_wrap:
     rc = funcs->C_WrapKey(session1, wrap_mech,
                           sym_wrap_key1 != CK_INVALID_HANDLE ?
                                         sym_wrap_key1 : publ_wrap_key1,
@@ -983,6 +984,16 @@ CK_RV do_wrap_key_test(struct wrapped_mech_info *tsuite,
                        (unsigned int)wrap_mech->mechanism,
                        slot_id1, p11_get_ckr(rc));
         goto testcase_cleanup;
+    }
+
+    if (wrapped_key == NULL) {
+        wrapped_key = malloc(wrapped_key_size);
+        if (wrapped_key == NULL) {
+            testcase_error("Failed to allocate a buffer of size %lu.",
+                           wrapped_key_size);
+            goto testcase_cleanup;
+        }
+        goto do_wrap;
     }
 
     /* Get class and key type from original key */
@@ -1131,6 +1142,8 @@ testcase_cleanup:
         if (loc_rc != CKR_OK)
             testcase_error("C_DestroyObject(), rc=%s.", p11_get_ckr(loc_rc));
     }
+    if (wrapped_key != NULL)
+        free(wrapped_key);
 
     if (s != NULL)
         free(s);
