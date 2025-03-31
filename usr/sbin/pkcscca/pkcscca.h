@@ -37,6 +37,8 @@
 #define HMAC_NAME   "HMAC"
 #define RSA_NAME    "RSA"
 #define IBM_DILITHIUM_NAME "IBM Dilithium"
+#define IBM_ML_DSA_NAME "IBM ML-DSA"
+#define IBM_ML_KEM_NAME "IBM ML-KEM"
 #define BAD_NAME    "Unknown"
 
 #define MK_AES      1
@@ -115,6 +117,8 @@ struct key_count {
     int hmac;
     int rsa;
     int ibm_dilithium;
+    int ibm_ml_dsa;
+    int ibm_ml_kem;
 };
 
 struct secaeskeytoken {
