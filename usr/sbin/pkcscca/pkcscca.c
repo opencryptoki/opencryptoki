@@ -129,6 +129,10 @@ static struct algo ecc = {(CK_BYTE *)"RTCMK   ECC     ", (CK_BYTE *)"ECC", 2 };
 static struct algo rsa = {(CK_BYTE *)"RTCMK   ", (CK_BYTE *)"RSA", 1 };
 static struct algo ibm_dilithium = {(CK_BYTE *)"RTCMK   QSA     ",
                                                 (CK_BYTE *)"IBM Dilithium", 2 };
+static struct algo ibm_ml_dsa = {(CK_BYTE *)"RTCMK   QSA     ",
+                                                (CK_BYTE *)"IBM ML_DSA", 2 };
+static struct algo ibm_ml_kem = {(CK_BYTE *)"RTCMK   QSA     ",
+                                                (CK_BYTE *)"IBM ML-KEM", 2 };
 
 int cca_decrypt(unsigned char *in_data, unsigned long in_data_len,
                 unsigned char *out_data, unsigned long *out_data_len,
@@ -737,6 +741,8 @@ int add_key(CK_OBJECT_HANDLE handle, CK_ATTRIBUTE *attrs, struct key **keys)
     case CKK_GENERIC_SECRET:
     case CKK_RSA:
     case CKK_IBM_PQC_DILITHIUM:
+    case CKK_IBM_ML_DSA:
+    case CKK_IBM_ML_KEM:
         break;
     default:
         free(new_key);
@@ -797,6 +803,12 @@ int add_key(CK_OBJECT_HANDLE handle, CK_ATTRIBUTE *attrs, struct key **keys)
             break;
         case CKK_IBM_PQC_DILITHIUM:
             type_name = IBM_DILITHIUM_NAME;
+            break;
+        case CKK_IBM_ML_DSA:
+            type_name = IBM_ML_DSA_NAME;
+            break;
+        case CKK_IBM_ML_KEM:
+            type_name = IBM_ML_KEM_NAME;
             break;
         default:
             type_name = BAD_NAME;
@@ -1233,6 +1245,22 @@ int cca_migrate(struct key *keys, struct key_count *count,
             else
                 count->ibm_dilithium++;
             break;
+        case CKK_IBM_ML_DSA:
+            rc = cca_migrate_asymmetric(key, &migrated_data, ibm_ml_dsa,
+                                        masterkey);
+            if (rc)
+                count_failed->ibm_ml_dsa++;
+            else
+                count->ibm_ml_dsa++;
+            break;
+        case CKK_IBM_ML_KEM:
+            rc = cca_migrate_asymmetric(key, &migrated_data, ibm_ml_kem,
+                                        masterkey);
+            if (rc)
+                count_failed->ibm_ml_kem++;
+            else
+                count->ibm_ml_kem++;
+            break;
         default:
             rc = 1;
             break;
@@ -1283,7 +1311,8 @@ done:
 void key_migration_results(struct key_count migrated, struct key_count failed)
 {
     if (migrated.aes || migrated.des || migrated.des2 || migrated.des3 ||
-        migrated.ecc || migrated.hmac || migrated.rsa || migrated.ibm_dilithium)
+        migrated.ecc || migrated.hmac || migrated.rsa ||
+        migrated.ibm_dilithium || migrated.ibm_ml_dsa || migrated.ibm_ml_kem)
         printf("Successfully migrated: ");
     if (migrated.aes)
         printf("AES: %d. ", migrated.aes);
@@ -1301,9 +1330,14 @@ void key_migration_results(struct key_count migrated, struct key_count failed)
         printf("RSA: %d. ", migrated.rsa);
     if (migrated.ibm_dilithium)
         printf("IBM Dilithium: %d. ", migrated.ibm_dilithium);
+    if (migrated.ibm_ml_dsa)
+        printf("IBM ML-DSA: %d. ", migrated.ibm_ml_dsa);
+    if (migrated.ibm_ml_kem)
+        printf("IBM ML-KEM: %d. ", migrated.ibm_ml_kem);
 
     if (failed.aes || failed.des || failed.des2 || failed.des3 ||
-        failed.ecc || failed.hmac || failed.rsa || failed.ibm_dilithium)
+        failed.ecc || failed.hmac || failed.rsa ||
+        failed.ibm_dilithium || failed.ibm_ml_dsa || failed.ibm_ml_kem)
         printf("\nFailed to migrate: ");
     if (failed.aes)
         printf("AES: %d. ", failed.aes);
@@ -1321,6 +1355,10 @@ void key_migration_results(struct key_count migrated, struct key_count failed)
         printf("RSA: %d. ", failed.rsa);
     if (failed.ibm_dilithium)
         printf("IBM Dilithium: %d. ", failed.ibm_dilithium);
+    if (failed.ibm_ml_dsa)
+        printf("IBM ML-DSA: %d. ", failed.ibm_ml_dsa);
+    if (failed.ibm_ml_kem)
+        printf("IBM ML-KEM: %d. ", failed.ibm_ml_kem);
 
     printf("\n");
 }
@@ -1331,8 +1369,8 @@ int migrate_wrapped_keys(CK_SLOT_ID slot_id, const char *userpin, int masterkey)
     CK_KEY_TYPE key_type = 0;
     CK_SESSION_HANDLE sess;
     CK_RV rv;
-    struct key_count count = { 0, 0, 0, 0, 0, 0, 0, 0 };
-    struct key_count count_failed = { 0, 0, 0, 0, 0, 0, 0, 0 };
+    struct key_count count = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+    struct key_count count_failed = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
     int exit_code = 0, rc;
 
     funcs = p11_init();
@@ -1400,6 +1438,22 @@ int migrate_wrapped_keys(CK_SLOT_ID slot_id, const char *userpin, int masterkey)
         if (v_level)
             printf("Search for IBM Dilithium keys\n");
         key_type = CKK_IBM_PQC_DILITHIUM;
+        rc = migrate_keytype(funcs, sess, &key_type, &count, &count_failed,
+                             masterkey);
+        if (rc) {
+            goto done;
+        }
+        if (v_level)
+            printf("Search for IBM ML-DSA keys\n");
+        key_type = CKK_IBM_ML_DSA;
+        rc = migrate_keytype(funcs, sess, &key_type, &count, &count_failed,
+                             masterkey);
+        if (rc) {
+            goto done;
+        }
+        if (v_level)
+            printf("Search for IBM ML-KEM keys\n");
+        key_type = CKK_IBM_ML_KEM;
         rc = migrate_keytype(funcs, sess, &key_type, &count, &count_failed,
                              masterkey);
         if (rc) {
