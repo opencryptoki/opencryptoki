@@ -409,14 +409,14 @@ static CK_RV import_ecc_publ_key(CK_SESSION_HANDLE session,
     return rc;
 }
 
-static CK_RV import_ibm_dilithium_priv_key(CK_SESSION_HANDLE session,
-                                           const char *label,
-                                           CK_BYTE *blob, CK_ULONG bloblen,
-                                           CK_OBJECT_HANDLE *handle)
+static CK_RV import_ibm_ml_dsa_priv_key(CK_SESSION_HANDLE session,
+                                        CK_KEY_TYPE keyType,
+                                        const char *label,
+                                        CK_BYTE *blob, CK_ULONG bloblen,
+                                        CK_OBJECT_HANDLE *handle)
 {
     CK_RV rc;
     CK_OBJECT_CLASS keyClass = CKO_PRIVATE_KEY;
-    CK_KEY_TYPE keyType = CKK_IBM_DILITHIUM;
     CK_BBOOL true = TRUE;
     CK_ATTRIBUTE template[] = {
         {CKA_CLASS, &keyClass, sizeof(keyClass)},
@@ -437,14 +437,14 @@ static CK_RV import_ibm_dilithium_priv_key(CK_SESSION_HANDLE session,
     return rc;
 }
 
-static CK_RV import_ibm_dilithium_publ_key(CK_SESSION_HANDLE session,
-                                           const char *label,
-                                           CK_BYTE *blob, CK_ULONG bloblen,
-                                           CK_OBJECT_HANDLE *handle)
+static CK_RV import_ibm_ml_dsa_publ_key(CK_SESSION_HANDLE session,
+                                        CK_KEY_TYPE keyType,
+                                        const char *label,
+                                        CK_BYTE *blob, CK_ULONG bloblen,
+                                        CK_OBJECT_HANDLE *handle)
 {
     CK_RV rc;
     CK_OBJECT_CLASS keyClass = CKO_PUBLIC_KEY;
-    CK_KEY_TYPE keyType = CKK_IBM_DILITHIUM;
     CK_BBOOL true = TRUE;
     CK_BBOOL false = FALSE;
     CK_ATTRIBUTE template[] = {
@@ -452,6 +452,63 @@ static CK_RV import_ibm_dilithium_publ_key(CK_SESSION_HANDLE session,
         {CKA_KEY_TYPE, &keyType, sizeof(keyType)},
         {CKA_LABEL, (char *) label, strlen(label) + 1},
         {CKA_VERIFY, &true, sizeof(true)},
+        {CKA_TOKEN, &false, sizeof(false)},
+        {CKA_PRIVATE, &false, sizeof(false)},
+        {CKA_IBM_OPAQUE, blob, bloblen}
+    };
+    CK_ULONG nattr = sizeof(template) / sizeof(CK_ATTRIBUTE);
+
+    rc = funcs->C_CreateObject(session, template, nattr, handle);
+    if (rc != CKR_OK && rc != CKR_PUBLIC_KEY_INVALID) {
+        testcase_error("C_CreateObject() rc=%s", p11_get_ckr(rc));
+    }
+
+    return rc;
+}
+
+static CK_RV import_ibm_ml_kem_priv_key(CK_SESSION_HANDLE session,
+                                        CK_KEY_TYPE keyType,
+                                        const char *label,
+                                        CK_BYTE *blob, CK_ULONG bloblen,
+                                        CK_OBJECT_HANDLE *handle)
+{
+    CK_RV rc;
+    CK_OBJECT_CLASS keyClass = CKO_PRIVATE_KEY;
+    CK_BBOOL true = TRUE;
+    CK_ATTRIBUTE template[] = {
+        {CKA_CLASS, &keyClass, sizeof(keyClass)},
+        {CKA_KEY_TYPE, &keyType, sizeof(keyType)},
+        {CKA_LABEL, (char *) label, strlen(label) + 1},
+        {CKA_DERIVE, &true, sizeof(true)},
+        {CKA_TOKEN, &true, sizeof(true)},
+        {CKA_PRIVATE, &true, sizeof(true)},
+        {CKA_IBM_OPAQUE, blob, bloblen}
+    };
+    CK_ULONG nattr = sizeof(template) / sizeof(CK_ATTRIBUTE);
+
+    rc = funcs->C_CreateObject(session, template, nattr, handle);
+    if (rc != CKR_OK && rc != CKR_PUBLIC_KEY_INVALID) {
+        testcase_error("C_CreateObject() rc=%s", p11_get_ckr(rc));
+    }
+
+    return rc;
+}
+
+static CK_RV import_ibm_ml_kem_publ_key(CK_SESSION_HANDLE session,
+                                        CK_KEY_TYPE keyType,
+                                        const char *label,
+                                        CK_BYTE *blob, CK_ULONG bloblen,
+                                        CK_OBJECT_HANDLE *handle)
+{
+    CK_RV rc;
+    CK_OBJECT_CLASS keyClass = CKO_PUBLIC_KEY;
+    CK_BBOOL true = TRUE;
+    CK_BBOOL false = FALSE;
+    CK_ATTRIBUTE template[] = {
+        {CKA_CLASS, &keyClass, sizeof(keyClass)},
+        {CKA_KEY_TYPE, &keyType, sizeof(keyType)},
+        {CKA_LABEL, (char *) label, strlen(label) + 1},
+        {CKA_DERIVE, &true, sizeof(true)},
         {CKA_TOKEN, &false, sizeof(false)},
         {CKA_PRIVATE, &false, sizeof(false)},
         {CKA_IBM_OPAQUE, blob, bloblen}
@@ -1965,13 +2022,14 @@ static CK_RV ibm_dilithium_export_import_tests(void)
 
         snprintf(label, sizeof(label), "re-imported_dilithium_%s_public_key",
                  dilithium_variants[i].name);
-        rc = import_ibm_dilithium_publ_key(session, label, publ_opaquekey,
-                                           publ_opaquekeylen, &imp_publ_key);
+        rc = import_ibm_ml_dsa_publ_key(session, CKK_IBM_PQC_DILITHIUM,
+                                        label, publ_opaquekey,
+                                        publ_opaquekeylen, &imp_publ_key);
         if (rc != CKR_OK) {
             if (rc == CKR_PUBLIC_KEY_INVALID && is_ep11_token(SLOT_ID)) {
-                testcase_skip("import_ibm_dilithium_publ_key on exported CCA/EP11 Dilithium key blob failed due to missing EP11 FW fix");
+                testcase_skip("import_ibm_ml_dsa_publ_key on exported CCA/EP11 Dilithium key blob failed due to missing EP11 FW fix");
             } else {
-                testcase_fail("import_ibm_dilithium_publ_key on exported CCA/EP11 Dilithium key blob failed rc=%s",
+                testcase_fail("import_ibm_ml_dsa_publ_key on exported CCA/EP11 Dilithium key blob failed rc=%s",
                               p11_get_ckr(rc));
             }
             goto error;
@@ -1991,13 +2049,14 @@ static CK_RV ibm_dilithium_export_import_tests(void)
 
         snprintf(label, sizeof(label), "re-imported_dilithium_%s_private_key",
                  dilithium_variants[i].name);
-        rc = import_ibm_dilithium_priv_key(session, label, priv_opaquekey,
-                                           priv_opaquekeylen, &imp_priv_key);
+        rc = import_ibm_ml_dsa_priv_key(session, CKK_IBM_PQC_DILITHIUM,
+                                        label, priv_opaquekey,
+                                        priv_opaquekeylen, &imp_priv_key);
         if (rc != CKR_OK) {
             if (rc == CKR_PUBLIC_KEY_INVALID && is_ep11_token(SLOT_ID)) {
-                testcase_skip("import_ibm_dilithium_priv_key on exported CCA/EP11 Dilithium key blob failed due to missing EP11 FW fix");
+                testcase_skip("import_ibm_ml_dsa_priv_key on exported CCA/EP11 Dilithium key blob failed due to missing EP11 FW fix");
             } else {
-                testcase_fail("import_ibm_dilithium_priv_key on exported CCA/EP11 Dilithium key blob failed rc=%s",
+                testcase_fail("import_ibm_ml_dsa_priv_key on exported CCA/EP11 Dilithium key blob failed rc=%s",
                               p11_get_ckr(rc));
             }
             goto error;
@@ -2110,6 +2169,590 @@ out:
     return rc;
 }
 
+static struct {
+    CK_ULONG parameter_set;
+    const char *name;
+} ml_dsa_variants[] = {
+    {CKP_IBM_ML_DSA_44, "ML-DSA (4,4)"},
+    {CKP_IBM_ML_DSA_65, "ML-DSA (6,5)"},
+    {CKP_IBM_ML_DSA_87, "ML-DSA (8,7)"},
+    {0, NULL}
+};
+
+static CK_RV ibm_ml_dsa_export_import_tests(void)
+{
+    CK_RV rc = CKR_OK;
+    CK_FLAGS flags;
+    CK_SESSION_HANDLE session;
+    CK_BYTE user_pin[PKCS11_MAX_PIN_LEN];
+    CK_ULONG user_pin_len;
+    CK_BBOOL attr_sign = TRUE;
+    CK_BBOOL attr_verify = TRUE;
+    CK_BBOOL true = CK_TRUE;
+    CK_BBOOL false = CK_FALSE;
+    CK_OBJECT_HANDLE publ_key = CK_INVALID_HANDLE, priv_key = CK_INVALID_HANDLE;
+    CK_OBJECT_HANDLE imp_priv_key = CK_INVALID_HANDLE, imp_publ_key = CK_INVALID_HANDLE;
+    CK_BYTE msg[32], sig[5000];
+    CK_ULONG msglen, siglen;
+    CK_MECHANISM mech = { CKM_IBM_ML_DSA, 0, 0};
+    CK_MECHANISM keygen_mech = { CKM_IBM_ML_DSA_KEY_PAIR_GEN, 0, 0};
+    CK_BYTE *priv_opaquekey = NULL, *publ_opaquekey = NULL;
+    CK_ULONG priv_opaquekeylen, publ_opaquekeylen;
+    char label[80];
+    int i;
+
+    if (!is_cca_token(SLOT_ID) && !is_ep11_token(SLOT_ID)) {
+        testcase_skip("this slot is not a CCA or EP11 token");
+        goto out;
+    }
+    if (!mech_supported(SLOT_ID, CKM_IBM_ML_DSA_KEY_PAIR_GEN)) {
+        testcase_skip("this slot does not support CKM_IBM_ML_DSA_KEY_PAIR_GEN");
+        goto out;
+    }
+    if (!mech_supported(SLOT_ID, CKM_IBM_ML_DSA)) {
+        testcase_skip("this slot does not support CKM_IBM_ML_DSA");
+        goto out;
+    }
+
+    testcase_rw_session();
+    testcase_user_login();
+
+    for (i = 0; ml_dsa_variants[i].parameter_set != 0; i++) {
+        CK_ATTRIBUTE ibm_ml_dsa_attr_private[] = {
+            {CKA_SIGN, &attr_sign, sizeof(CK_BBOOL)},
+            {CKA_IBM_PARAMETER_SET,
+             (CK_BYTE *)&ml_dsa_variants[i].parameter_set, sizeof(CK_ULONG)},
+             {CKA_TOKEN, &true, sizeof(true)},
+             {CKA_PRIVATE, &true, sizeof(true)},
+        };
+        CK_ATTRIBUTE ibm_ml_dsa_attr_public[] = {
+            {CKA_VERIFY, &attr_verify, sizeof(CK_BBOOL)},
+            {CKA_IBM_PARAMETER_SET,
+             (CK_BYTE *)&ml_dsa_variants[i].parameter_set, sizeof(CK_ULONG)},
+             {CKA_TOKEN, &false, sizeof(false)},
+             {CKA_PRIVATE, &false, sizeof(false)},
+        };
+        CK_ULONG num_ibm_ml_dsa_attrs =
+                sizeof(ibm_ml_dsa_attr_public) / sizeof(CK_ATTRIBUTE);
+
+        testcase_begin("CCA/EP11 export/import test with public/private IBM ML-DSA %s keys",
+                       ml_dsa_variants[i].name);
+
+        /* Generate IBM-ML-DSA key pair */
+        rc = funcs->C_GenerateKeyPair(session, &keygen_mech,
+                       ibm_ml_dsa_attr_public, num_ibm_ml_dsa_attrs,
+                       ibm_ml_dsa_attr_private, num_ibm_ml_dsa_attrs,
+                       &publ_key, &priv_key);
+        if (rc != CKR_OK) {
+            if (rc == CKR_KEY_SIZE_RANGE) {
+                testcase_skip("IBM ML-DSA variant %s is not supported",
+                              ml_dsa_variants[i].name);
+                goto error;
+            } else if (rc == CKR_POLICY_VIOLATION) {
+                testcase_skip("IBM ML-DSA key generation is not allowed by policy");
+                goto error;
+            } else {
+                testcase_new_assertion();
+                testcase_fail("C_GenerateKeyPair with %s failed, rc=%s",
+                              ml_dsa_variants[i].name, p11_get_ckr(rc));
+                goto error;
+            }
+        }
+
+        testcase_new_assertion();
+
+        // sign with original private key
+
+        rc = funcs->C_SignInit(session, &mech, priv_key);
+        if (rc != CKR_OK) {
+            testcase_error("C_SignInit() rc=%s", p11_get_ckr(rc));
+            goto error;
+        }
+        msglen = sizeof(msg);
+        siglen = sizeof(sig);
+        rc = funcs->C_Sign(session, msg, msglen, sig, &siglen);
+        if (rc != CKR_OK) {
+            testcase_error("C_Sign() rc=%s", p11_get_ckr(rc));
+            goto error;
+        }
+
+        // verify with original public key
+
+        rc = funcs->C_VerifyInit(session, &mech, publ_key);
+        if (rc != CKR_OK) {
+            testcase_error("C_VerifyInit() rc=%s", p11_get_ckr(rc));
+            goto error;
+        }
+        rc = funcs->C_Verify(session, msg, msglen, sig, siglen);
+        if (rc == CKR_OK) {
+            ;
+        } else if (rc == CKR_SIGNATURE_INVALID ||
+                   rc == CKR_SIGNATURE_LEN_RANGE) {
+            testcase_fail("signature verify failed");
+            goto error;
+        } else {
+            testcase_error("C_Verify() rc=%s", p11_get_ckr(rc));
+            goto error;
+        }
+
+        // export original public key's CCA/EP11 blob
+
+        rc = export_ibm_opaque(session, publ_key, &publ_opaquekey,
+                               &publ_opaquekeylen);
+        if (rc != CKR_OK) {
+            testcase_fail("export_ibm_opaque on public key failed rc=%s",
+                           p11_get_ckr(rc));
+            goto error;
+        }
+
+        // re-import this CCA/EP11 public ML-DSA key blob as new public ML-DSA key
+
+        snprintf(label, sizeof(label), "re-imported_ml_dsa_%s_public_key",
+                 ml_dsa_variants[i].name);
+        rc = import_ibm_ml_dsa_publ_key(session, CKK_IBM_ML_DSA,
+                                        label, publ_opaquekey,
+                                        publ_opaquekeylen, &imp_publ_key);
+        if (rc != CKR_OK) {
+            if (rc == CKR_PUBLIC_KEY_INVALID && is_ep11_token(SLOT_ID)) {
+                testcase_skip("import_ibm_ml_dsa_publ_key on exported CCA/EP11 ML-DSA key blob failed due to missing EP11 FW fix");
+            } else {
+                testcase_fail("import_ibm_ml_dsa_publ_key on exported CCA/EP11 ML-DSA key blob failed rc=%s",
+                              p11_get_ckr(rc));
+            }
+            goto error;
+        }
+
+        // export original private key's CCA/EP11 blob
+
+        rc = export_ibm_opaque(session, priv_key, &priv_opaquekey,
+                               &priv_opaquekeylen);
+        if (rc != CKR_OK) {
+            testcase_fail("export_ibm_opaque on private key failed rc=%s",
+                          p11_get_ckr(rc));
+            goto error;
+        }
+
+        // re-import this CCA/EP11 private ML-DSA key blob as new private ML-DSA key
+
+        snprintf(label, sizeof(label), "re-imported_ml_dsa_%s_private_key",
+                 ml_dsa_variants[i].name);
+        rc = import_ibm_ml_dsa_priv_key(session, CKK_IBM_ML_DSA,
+                                        label, priv_opaquekey,
+                                        priv_opaquekeylen, &imp_priv_key);
+        if (rc != CKR_OK) {
+            if (rc == CKR_PUBLIC_KEY_INVALID && is_ep11_token(SLOT_ID)) {
+                testcase_skip("import_ibm_ml_dsa_priv_key on exported CCA/EP11 ML-DSA key blob failed due to missing EP11 FW fix");
+            } else {
+                testcase_fail("import_ibm_ml_dsa_priv_key on exported CCA/EP11 ML-DSA key blob failed rc=%s",
+                              p11_get_ckr(rc));
+            }
+            goto error;
+        }
+
+        // sign with re-imported private key
+
+        rc = funcs->C_SignInit(session, &mech, imp_priv_key);
+        if (rc != CKR_OK) {
+            testcase_error("C_SignInit() with re-imported priv key failed, rc=%s",
+                           p11_get_ckr(rc));
+            goto error;
+        }
+        msglen = sizeof(msg);
+        siglen = sizeof(sig);
+        rc = funcs->C_Sign(session, msg, msglen, sig, &siglen);
+        if (rc != CKR_OK) {
+            testcase_error("C_Sign() with re-imported priv key failed, rc=%s",
+                           p11_get_ckr(rc));
+            goto error;
+        }
+
+        // verify with original public key
+
+        rc = funcs->C_VerifyInit(session, &mech, publ_key);
+        if (rc != CKR_OK) {
+            testcase_error("C_VerifyInit() rc=%s", p11_get_ckr(rc));
+            goto error;
+        }
+        rc = funcs->C_Verify(session, msg, msglen, sig, siglen);
+        if (rc == CKR_OK) {
+            ;
+        } else if (rc == CKR_SIGNATURE_INVALID ||
+                   rc == CKR_SIGNATURE_LEN_RANGE) {
+            testcase_fail("signature verify on signature generated with re-imported priv key failed, rc=%s",
+                          p11_get_ckr(rc));
+            goto error;
+        } else {
+            testcase_error("C_Verify() on signature generated with re-imported priv key failed, rc=%s",
+                           p11_get_ckr(rc));
+            goto error;
+        }
+
+        // sign with original private key
+
+        rc = funcs->C_SignInit(session, &mech, priv_key);
+        if (rc != CKR_OK) {
+            testcase_error("C_SignInit() rc=%s", p11_get_ckr(rc));
+            goto error;
+        }
+        msglen = sizeof(msg);
+        siglen = sizeof(sig);
+        rc = funcs->C_Sign(session, msg, msglen, sig, &siglen);
+        if (rc != CKR_OK) {
+            testcase_error("C_Sign() rc=%s", p11_get_ckr(rc));
+            goto error;
+        }
+
+        // verify with re-imported public key
+
+        rc = funcs->C_VerifyInit(session, &mech, imp_publ_key);
+        if (rc != CKR_OK) {
+            testcase_error("C_VerifyInit() with re-imported pub key failed, rc=%s",
+                           p11_get_ckr(rc));
+            goto error;
+        }
+        rc = funcs->C_Verify(session, msg, msglen, sig, siglen);
+        if (rc == CKR_OK) {
+            ;
+        } else if (rc == CKR_SIGNATURE_INVALID ||
+                   rc == CKR_SIGNATURE_LEN_RANGE) {
+            testcase_fail("signature verify with re-imported pub key on signature failed");
+            goto error;
+        } else {
+            testcase_error("C_Verify() with re-imported pub key on signature failed, rc=%s",
+                           p11_get_ckr(rc));
+            goto error;
+        }
+
+        testcase_pass("CCA/EP11 export/import test with public/private IBM ML-DSA %s keys",
+                      ml_dsa_variants[i].name);
+
+error:
+        free(priv_opaquekey);
+        priv_opaquekey = NULL;
+        free(publ_opaquekey);
+        publ_opaquekey = NULL;
+
+        if (publ_key != CK_INVALID_HANDLE) {
+            funcs->C_DestroyObject(session, publ_key);
+            publ_key = CK_INVALID_HANDLE;
+        }
+        if (priv_key != CK_INVALID_HANDLE) {
+            funcs->C_DestroyObject(session, priv_key);
+            priv_key = CK_INVALID_HANDLE;
+        }
+        if (imp_publ_key != CK_INVALID_HANDLE) {
+            funcs->C_DestroyObject(session, imp_publ_key);
+            imp_publ_key = CK_INVALID_HANDLE;
+        }
+        if (imp_priv_key != CK_INVALID_HANDLE) {
+            funcs->C_DestroyObject(session, imp_priv_key);
+            imp_priv_key = CK_INVALID_HANDLE;
+        }
+    }
+
+testcase_cleanup:
+    testcase_close_session();
+out:
+    return rc;
+}
+
+static struct {
+    CK_ULONG parameter_set;
+    const char *name;
+} ml_kem_variants[] = {
+    {CKP_IBM_ML_KEM_512, "ML-KEM 512"},
+    {CKP_IBM_ML_KEM_768, "ML-KEM 768"},
+    {CKP_IBM_ML_KEM_1024, "ML-KEM 1024"},
+    {0, NULL}
+};
+
+static CK_RV ibm_ml_kem_export_import_tests(void)
+{
+    CK_RV rc = CKR_OK;
+    CK_FLAGS flags;
+    CK_SESSION_HANDLE session;
+    CK_BYTE user_pin[PKCS11_MAX_PIN_LEN];
+    CK_ULONG user_pin_len;
+    CK_BBOOL attr_derive = TRUE;
+    CK_BBOOL true = CK_TRUE;
+    CK_BBOOL false = CK_FALSE;
+    CK_OBJECT_HANDLE publ_key = CK_INVALID_HANDLE, priv_key = CK_INVALID_HANDLE;
+    CK_OBJECT_HANDLE imp_priv_key = CK_INVALID_HANDLE, imp_publ_key = CK_INVALID_HANDLE;
+    CK_BYTE output_data[8192];
+    CK_ULONG outlen;
+    CK_IBM_ML_KEM_PARAMS ml_kem_params;
+    CK_MECHANISM mech = { CKM_IBM_ML_KEM, &ml_kem_params, sizeof(ml_kem_params)};
+    CK_MECHANISM keygen_mech = { CKM_IBM_ML_KEM_KEY_PAIR_GEN, 0, 0};
+    CK_BYTE *priv_opaquekey = NULL, *publ_opaquekey = NULL;
+    CK_ULONG priv_opaquekeylen, publ_opaquekeylen;
+    char label[80];
+    int i;
+
+    if (!is_cca_token(SLOT_ID) && !is_ep11_token(SLOT_ID)) {
+        testcase_skip("this slot is not a CCA or EP11 token");
+        goto out;
+    }
+    if (!mech_supported(SLOT_ID, CKM_IBM_ML_KEM_KEY_PAIR_GEN)) {
+        testcase_skip("this slot does not support CKM_IBM_ML_KEM_KEY_PAIR_GEN");
+        goto out;
+    }
+    if (!mech_supported(SLOT_ID, CKM_IBM_ML_KEM)) {
+        testcase_skip("this slot does not support CKM_IBM_ML_KEM");
+        goto out;
+    }
+
+    testcase_rw_session();
+    testcase_user_login();
+
+    for (i = 0; ml_kem_variants[i].parameter_set != 0; i++) {
+        CK_ATTRIBUTE ibm_ml_kem_attr_private[] = {
+            {CKA_DERIVE, &attr_derive, sizeof(CK_BBOOL)},
+            {CKA_IBM_PARAMETER_SET,
+             (CK_BYTE *)&ml_kem_variants[i].parameter_set, sizeof(CK_ULONG)},
+             {CKA_TOKEN, &true, sizeof(true)},
+             {CKA_PRIVATE, &true, sizeof(true)},
+        };
+        CK_ATTRIBUTE ibm_ml_kem_attr_public[] = {
+            {CKA_DERIVE, &attr_derive, sizeof(CK_BBOOL)},
+            {CKA_IBM_PARAMETER_SET,
+             (CK_BYTE *)&ml_kem_variants[i].parameter_set, sizeof(CK_ULONG)},
+             {CKA_TOKEN, &false, sizeof(false)},
+             {CKA_PRIVATE, &false, sizeof(false)},
+        };
+        CK_ULONG num_ibm_ml_kem_attrs =
+                sizeof(ibm_ml_kem_attr_public) / sizeof(CK_ATTRIBUTE);
+        CK_OBJECT_CLASS class = CKO_SECRET_KEY;
+        CK_KEY_TYPE key_type = CKK_AES;
+        CK_ULONG secret_key_len = 32;
+        CK_ATTRIBUTE  derive_tmpl[] = {
+            {CKA_CLASS, &class, sizeof(class)},
+            {CKA_KEY_TYPE, &key_type, sizeof(key_type)},
+            {CKA_SENSITIVE, &false, sizeof(false)},
+            {CKA_VALUE_LEN, &secret_key_len, sizeof(secret_key_len)},
+            {CKA_SIGN, &true, sizeof(true)},
+            {CKA_VERIFY, &true, sizeof(true)},
+        };
+        CK_ULONG derive_tmpl_len = sizeof(derive_tmpl) / sizeof(CK_ATTRIBUTE);
+        CK_OBJECT_HANDLE key1 = CK_INVALID_HANDLE;
+        CK_OBJECT_HANDLE key2 = CK_INVALID_HANDLE;
+        CK_OBJECT_HANDLE key3 = CK_INVALID_HANDLE;
+        CK_OBJECT_HANDLE key4 = CK_INVALID_HANDLE;
+
+        testcase_begin("CCA/EP11 export/import test with public/private IBM ML-KEM %s keys",
+                       ml_kem_variants[i].name);
+
+        /* Generate IBM-ML-KEM key pair */
+        rc = funcs->C_GenerateKeyPair(session, &keygen_mech,
+                       ibm_ml_kem_attr_public, num_ibm_ml_kem_attrs,
+                       ibm_ml_kem_attr_private, num_ibm_ml_kem_attrs,
+                       &publ_key, &priv_key);
+        if (rc != CKR_OK) {
+            if (rc == CKR_KEY_SIZE_RANGE) {
+                testcase_skip("IBM ML-KEM variant %s is not supported",
+                              ml_kem_variants[i].name);
+                goto error;
+            } else if (rc == CKR_POLICY_VIOLATION) {
+                testcase_skip("IBM ML-KEM key generation is not allowed by policy");
+                goto error;
+            } else {
+                testcase_new_assertion();
+                testcase_fail("C_GenerateKeyPair with %s failed, rc=%s",
+                              ml_kem_variants[i].name, p11_get_ckr(rc));
+                goto error;
+            }
+        }
+
+        testcase_new_assertion();
+
+        // Encapsulate with original public key
+
+        memset(&ml_kem_params, 0, sizeof(ml_kem_params));
+        ml_kem_params.ulVersion = CK_IBM_ML_KEM_VERSION;
+        ml_kem_params.mode = CK_IBM_ML_KEM_ENCAPSULATE;
+        ml_kem_params.ulCipherLen = sizeof(output_data);
+        ml_kem_params.pCipher = output_data;
+        ml_kem_params.kdf = CKD_NULL;
+        ml_kem_params.pSharedData = NULL;;
+        ml_kem_params.ulSharedDataLen = 0;
+        ml_kem_params.bPrepend = CK_FALSE;
+        ml_kem_params.hSecret = CK_INVALID_HANDLE;
+
+        rc = funcs->C_DeriveKey(session, &mech, publ_key, derive_tmpl,
+                                derive_tmpl_len, &key1);
+        if (rc != CKR_OK) {
+            testcase_fail("C_DeriveKey (encapsulate) with %s failed, rc=%s",
+                          ml_kem_variants[i].name, p11_get_ckr(rc));
+            goto error;
+        }
+        outlen = ml_kem_params.ulCipherLen;
+
+        // Decapsulate with original private key
+
+        memset(&ml_kem_params, 0, sizeof(ml_kem_params));
+        ml_kem_params.ulVersion = CK_IBM_ML_KEM_VERSION;
+        ml_kem_params.mode = CK_IBM_ML_KEM_DECAPSULATE;
+        ml_kem_params.ulCipherLen = outlen;
+        ml_kem_params.kdf = CKD_NULL;
+        ml_kem_params.pCipher = output_data;
+        ml_kem_params.pSharedData = NULL;;
+        ml_kem_params.ulSharedDataLen = 0;
+        ml_kem_params.bPrepend = CK_FALSE;
+        ml_kem_params.hSecret = CK_INVALID_HANDLE;
+
+        rc = funcs->C_DeriveKey(session, &mech, priv_key, derive_tmpl,
+                                derive_tmpl_len, &key2);
+        if (rc != CKR_OK) {
+            testcase_fail("C_DeriveKey (decapsulate) with %s failed, rc=%s",
+                          ml_kem_variants[i].name, p11_get_ckr(rc));
+            goto error;
+        }
+
+        // export original public key's CCA/EP11 blob
+
+        rc = export_ibm_opaque(session, publ_key, &publ_opaquekey,
+                               &publ_opaquekeylen);
+        if (rc != CKR_OK) {
+            testcase_fail("export_ibm_opaque on public key failed rc=%s",
+                           p11_get_ckr(rc));
+            goto error;
+        }
+
+        // re-import this CCA/EP11 public ML-KEM key blob as new public ML-KEM key
+
+        snprintf(label, sizeof(label), "re-imported_ml_kem_%s_public_key",
+                 ml_kem_variants[i].name);
+        rc = import_ibm_ml_kem_publ_key(session, CKK_IBM_ML_KEM,
+                                        label, publ_opaquekey,
+                                        publ_opaquekeylen, &imp_publ_key);
+        if (rc != CKR_OK) {
+            if (rc == CKR_PUBLIC_KEY_INVALID && is_ep11_token(SLOT_ID)) {
+                testcase_skip("import_ibm_ml_kem_publ_key on exported CCA/EP11 ML-KEM key blob failed due to missing EP11 FW fix");
+            } else {
+                testcase_fail("import_ibm_ml_kem_publ_key on exported CCA/EP11 ML-KEM key blob failed rc=%s",
+                              p11_get_ckr(rc));
+            }
+            goto error;
+        }
+
+        // export original private key's CCA/EP11 blob
+
+        rc = export_ibm_opaque(session, priv_key, &priv_opaquekey,
+                               &priv_opaquekeylen);
+        if (rc != CKR_OK) {
+            testcase_fail("export_ibm_opaque on private key failed rc=%s",
+                          p11_get_ckr(rc));
+            goto error;
+        }
+
+        // re-import this CCA/EP11 private ML-KEM key blob as new private ML-KEM key
+
+        snprintf(label, sizeof(label), "re-imported_ml_kem_%s_private_key",
+                 ml_kem_variants[i].name);
+        rc = import_ibm_ml_kem_priv_key(session, CKK_IBM_ML_KEM,
+                                        label, priv_opaquekey,
+                                        priv_opaquekeylen, &imp_priv_key);
+        if (rc != CKR_OK) {
+            if (rc == CKR_PUBLIC_KEY_INVALID && is_ep11_token(SLOT_ID)) {
+                testcase_skip("import_ibm_ml_kem_priv_key on exported CCA/EP11 ML-KEM key blob failed due to missing EP11 FW fix");
+            } else {
+                testcase_fail("import_ibm_ml_kem_priv_key on exported CCA/EP11 ML-KEM key blob failed rc=%s",
+                              p11_get_ckr(rc));
+            }
+            goto error;
+        }
+
+        // Decapsulate with imported private key
+
+        memset(&ml_kem_params, 0, sizeof(ml_kem_params));
+        ml_kem_params.ulVersion = CK_IBM_ML_KEM_VERSION;
+        ml_kem_params.mode = CK_IBM_ML_KEM_DECAPSULATE;
+        ml_kem_params.ulCipherLen = outlen;
+        ml_kem_params.kdf = CKD_NULL;
+        ml_kem_params.pCipher = output_data;
+        ml_kem_params.pSharedData = NULL;;
+        ml_kem_params.ulSharedDataLen = 0;
+        ml_kem_params.bPrepend = CK_FALSE;
+        ml_kem_params.hSecret = CK_INVALID_HANDLE;
+
+        rc = funcs->C_DeriveKey(session, &mech, imp_priv_key, derive_tmpl,
+                                derive_tmpl_len, &key3);
+        if (rc != CKR_OK) {
+            testcase_fail("C_DeriveKey (decapsulate) with %s failed, rc=%s",
+                          ml_kem_variants[i].name, p11_get_ckr(rc));
+            goto error;
+        }
+
+        // Encapsulate with imported public key
+
+        memset(&ml_kem_params, 0, sizeof(ml_kem_params));
+        ml_kem_params.ulVersion = CK_IBM_ML_KEM_VERSION;
+        ml_kem_params.mode = CK_IBM_ML_KEM_ENCAPSULATE;
+        ml_kem_params.ulCipherLen = sizeof(output_data);
+        ml_kem_params.pCipher = output_data;
+        ml_kem_params.kdf = CKD_NULL;
+        ml_kem_params.pSharedData = NULL;;
+        ml_kem_params.ulSharedDataLen = 0;
+        ml_kem_params.bPrepend = CK_FALSE;
+        ml_kem_params.hSecret = CK_INVALID_HANDLE;
+
+        rc = funcs->C_DeriveKey(session, &mech, imp_publ_key, derive_tmpl,
+                                derive_tmpl_len, &key4);
+        if (rc != CKR_OK) {
+            testcase_fail("C_DeriveKey (encapsulate) with %s failed, rc=%s",
+                          ml_kem_variants[i].name, p11_get_ckr(rc));
+            goto error;
+        }
+        outlen = ml_kem_params.ulCipherLen;
+
+        testcase_pass("CCA/EP11 export/import test with public/private IBM ML-KEM %s keys",
+                      ml_kem_variants[i].name);
+
+error:
+        free(priv_opaquekey);
+        priv_opaquekey = NULL;
+        free(publ_opaquekey);
+        publ_opaquekey = NULL;
+
+        if (publ_key != CK_INVALID_HANDLE) {
+            funcs->C_DestroyObject(session, publ_key);
+            publ_key = CK_INVALID_HANDLE;
+        }
+        if (priv_key != CK_INVALID_HANDLE) {
+            funcs->C_DestroyObject(session, priv_key);
+            priv_key = CK_INVALID_HANDLE;
+        }
+        if (imp_publ_key != CK_INVALID_HANDLE) {
+            funcs->C_DestroyObject(session, imp_publ_key);
+            imp_publ_key = CK_INVALID_HANDLE;
+        }
+        if (imp_priv_key != CK_INVALID_HANDLE) {
+            funcs->C_DestroyObject(session, imp_priv_key);
+            imp_priv_key = CK_INVALID_HANDLE;
+        }
+        if (key1 != CK_INVALID_HANDLE) {
+            funcs->C_DestroyObject(session, key1);
+            key1 = CK_INVALID_HANDLE;
+        }
+        if (key2 != CK_INVALID_HANDLE) {
+            funcs->C_DestroyObject(session, key2);
+            key2 = CK_INVALID_HANDLE;
+        }
+        if (key3 != CK_INVALID_HANDLE) {
+            funcs->C_DestroyObject(session, key3);
+            key3 = CK_INVALID_HANDLE;
+        }
+        if (key4 != CK_INVALID_HANDLE) {
+            funcs->C_DestroyObject(session, key4);
+            key4 = CK_INVALID_HANDLE;
+        }
+    }
+
+testcase_cleanup:
+    testcase_close_session();
+out:
+    return rc;
+}
+
 static CK_RV cca_ep11_export_import_tests(void)
 {
     CK_RV rc = CKR_OK, rv = CKR_OK;
@@ -2153,6 +2796,14 @@ static CK_RV cca_ep11_export_import_tests(void)
         rv = rc;
 
     rc = ibm_dilithium_export_import_tests();
+    if (rc != CKR_OK && rv == CKR_OK)
+        rv = rc;
+
+    rc = ibm_ml_dsa_export_import_tests();
+    if (rc != CKR_OK && rv == CKR_OK)
+        rv = rc;
+
+    rc = ibm_ml_kem_export_import_tests();
     if (rc != CKR_OK && rv == CKR_OK)
         rv = rc;
 
