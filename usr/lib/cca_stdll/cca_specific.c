@@ -935,14 +935,6 @@ static CK_RV cca_get_version(STDLL_TokData_t *tokdata)
     long return_code, reason_code;
     long version_data_length;
     long exit_data_len = 0;
-    char date[20];
-
-    /* Version data format of CSUACFV is different on non-s390x- platforms */
-#if !defined(__s390__)
-    const char *verstrfmt = "%u.%u.%uc %s";
-#else
-    const char *verstrfmt = "%u.%u.%uz%s";
-#endif
 
     /* Get CCA host library version */
     version_data_length = sizeof(version_data);
@@ -958,10 +950,10 @@ static CK_RV cca_get_version(STDLL_TokData_t *tokdata)
     /* CSUACFV returns a null-terminated version string */
     TRACE_DEVEL("CCA Version string: %s\n", version_data);
 
-    if (sscanf((char *)version_data, verstrfmt,
+    if (sscanf((char *)version_data, "%u.%u.%u",
                &cca_private->cca_lib_version.ver,
                &cca_private->cca_lib_version.rel,
-               &cca_private->cca_lib_version.mod, date) != 4) {
+               &cca_private->cca_lib_version.mod) != 3) {
         TRACE_ERROR("CCA library version is invalid: %s\n", version_data);
         return CKR_FUNCTION_FAILED;
     }
@@ -4318,8 +4310,8 @@ static CK_RV cca_get_adapter_version(cca_min_card_version_t *data)
     memcpy(ccaversion, &rule_array[CCA_STATCCA_CCA_VERSION_OFFSET],
            CCA_STATCCA_CCA_VERSION_LENGTH);
 
-    if (sscanf(ccaversion, "%d.%d.%02d*", (int *)&adapter_version.ver,
-               (int *)&adapter_version.rel, (int *)&adapter_version.mod) != 3) {
+    if (sscanf(ccaversion, "%u.%u.%u", &adapter_version.ver,
+               &adapter_version.rel, &adapter_version.mod) != 3) {
         TRACE_ERROR("sscanf of string %s failed, cannot determine CCA card version\n",
                     ccaversion);
         return CKR_FUNCTION_FAILED;
