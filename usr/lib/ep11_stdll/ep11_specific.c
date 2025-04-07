@@ -5248,6 +5248,79 @@ out:
     return rc;
 }
 
+struct check_uv_session_data {
+    STDLL_TokData_t *tokdata;
+    CK_BYTE *session_id;
+    CK_BBOOL found;
+};
+
+static CK_RV check_uv_session_handler(uint_32 adapter, uint_32 domain,
+                                      void *handler_data)
+{
+    struct check_uv_session_data *data = handler_data;
+    CK_MECHANISM mech = { CKM_AES_KEY_GEN, NULL_PTR, 0 };
+    CK_BYTE blob[MAX_BLOBSIZE];
+    CK_BYTE csum[MAX_CSUMSIZE];
+    size_t csum_l = sizeof(csum), blob_l = sizeof(blob);
+    CK_ULONG len = 32;
+    CK_BBOOL cktrue = 1;
+    CK_ATTRIBUTE wrap_tmpl[] = {
+        { CKA_VALUE_LEN, &len, sizeof(CK_ULONG) },
+        { CKA_WRAP, &cktrue, sizeof(cktrue) },
+        { CKA_UNWRAP, &cktrue, sizeof(cktrue) },
+        { CKA_ENCRYPT, &cktrue, sizeof(cktrue) },
+        { CKA_DECRYPT, &cktrue, sizeof(cktrue) },
+        { CKA_EXTRACTABLE, &cktrue, sizeof(cktrue) },
+    };
+    CK_ULONG wrap_tmpl_len = sizeof(wrap_tmpl) / sizeof(CK_ATTRIBUTE);
+    target_t target = 0;
+    CK_BYTE *uv_session = NULL;
+    CK_RV rc;
+
+    if (data->found) /* Already found a matching UV session */
+        return CKR_OK;
+
+    rc = get_ep11_target_for_apqn(adapter, domain, &target, 0);
+    if (rc != CKR_OK)
+        return rc;
+
+    /* Generate a temporary key on this APQN to get its UV session */
+    rc = dll_m_GenerateKey(&mech, wrap_tmpl, wrap_tmpl_len, NULL, 0,
+                           blob, &blob_l, csum, &csum_l, target);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("%s Failed to generate temporary AES key on APQN %02X.%04X "
+                    "rc=0x%lx\n", __func__, adapter, domain, rc);
+        /* Ignore the error, APQN might be offline, etc */
+        rc = CKR_OK;
+        goto out;
+    }
+
+    if (check_expected_mkvp(data->tokdata, blob, blob_l, NULL) != CKR_OK) {
+        TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
+        rc = CKR_DEVICE_ERROR;
+        goto out;
+    }
+
+    rc = ep11tok_extract_blob_info(blob, blob_l, NULL, NULL,
+                                   &uv_session, NULL);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("ep11tok_extract_blob_info failed\n");
+        goto out;
+    }
+
+    if (uv_session != NULL && data->session_id != NULL &&
+        memcmp(data->session_id, uv_session, XCP_WK_BYTES) == 0) {
+        TRACE_DEVEL("Session matches the UV session of APQN %02X.%04X\n",
+                    adapter, domain);
+        data->found = TRUE;
+    }
+
+out:
+    free_ep11_target_for_apqn(target);
+
+    return rc;
+}
+
 static CK_RV import_blob(STDLL_TokData_t *tokdata, SESSION *sess, OBJECT *obj,
                          CK_OBJECT_CLASS class, CK_KEY_TYPE keytype,
                          CK_BYTE *blob, CK_ULONG blob_len)
@@ -5284,6 +5357,8 @@ static CK_RV import_blob(STDLL_TokData_t *tokdata, SESSION *sess, OBJECT *obj,
         { CKA_IBM_STD_COMPLIANCE1, &stdcomp2, sizeof(stdcomp2) },
     };
     CK_ULONG get_attr2_num = sizeof(get_attr2) / sizeof(CK_ATTRIBUTE);
+    CK_BBOOL in_sel_guest = FALSE;
+    struct check_uv_session_data uv_data;
     CK_RV rc;
 
     rc = ep11tok_extract_blob_info(blob, keytype == CKK_AES_XTS ?
@@ -5347,6 +5422,35 @@ static CK_RV import_blob(STDLL_TokData_t *tokdata, SESSION *sess, OBJECT *obj,
         blob_len = maced_spki_len;
     }
 
+    ep11_get_pin_blob(tokdata, ep11_session,
+                      object_is_session_object(obj),
+                      object_is_private(obj),
+                      &ep11_pin_blob, &ep11_pin_blob_len);
+
+    if (ep11_pin_blob == NULL) {
+        /*
+         * In a secure execution guest keys might be bound to the ultravisor
+         * session. Get the UV session ID (if any) from the wrap blob.
+         * Note that if multipe domains of the same card(s) are available,
+         * then each domain uses its own ultravisor session.
+         */
+        rc = ep11tok_extract_blob_info(ep11_data->raw2key_wrap_blob,
+                                       ep11_data->raw2key_wrap_blob_l,
+                                       NULL, NULL,
+                                       &exp_session, NULL);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("extract_blob_info failed for wrap blob\n");
+            return rc;
+        }
+
+        if (memcmp(exp_session, zero_session, XCP_WK_BYTES) == 0)
+            exp_session = NULL; /* No UV session, not running in an SEL guest */
+        else
+            in_sel_guest = TRUE; /* Running in an SEL guest */
+    } else {
+        exp_session = ep11_pin_blob;
+    }
+
     /* Check if session bound and if so for valid session */
     if (memcmp(session_id, zero_session, XCP_WK_BYTES) == 0)
         session_id = NULL;
@@ -5365,36 +5469,11 @@ static CK_RV import_blob(STDLL_TokData_t *tokdata, SESSION *sess, OBJECT *obj,
             return CKR_ATTRIBUTE_VALUE_INVALID;
         }
 
-        if (session_id != NULL && session_id2 != NULL &&
+        if (session_id != NULL && session_id2 != NULL && !in_sel_guest &&
             memcmp(session_id, session_id2, XCP_WK_BYTES) != 0) {
             TRACE_ERROR("AES-XTS key blob is inconsistent\n");
             return CKR_ATTRIBUTE_VALUE_INVALID;
         }
-    }
-
-    ep11_get_pin_blob(tokdata, ep11_session,
-                      object_is_session_object(obj),
-                      object_is_private(obj),
-                      &ep11_pin_blob, &ep11_pin_blob_len);
-
-    if (ep11_pin_blob == NULL) {
-        /*
-         * In a secure execution guest keys might be bound to the ultravisor
-         * session. Get the UV session ID (if any) from the wrap blob.
-         */
-        rc = ep11tok_extract_blob_info(ep11_data->raw2key_wrap_blob,
-                                       ep11_data->raw2key_wrap_blob_l,
-                                       NULL, NULL,
-                                       &exp_session, NULL);
-        if (rc != CKR_OK) {
-            TRACE_ERROR("extract_blob_info failed for wrap blob\n");
-            return rc;
-        }
-
-        if (memcmp(exp_session, zero_session, XCP_WK_BYTES) == 0)
-            exp_session = NULL;
-    } else {
-        exp_session = ep11_pin_blob;
     }
 
     if (exp_session == NULL && session_id != NULL) {
@@ -5405,10 +5484,43 @@ static CK_RV import_blob(STDLL_TokData_t *tokdata, SESSION *sess, OBJECT *obj,
         TRACE_ERROR("Key blob must be session bound, but it is not\n");
         return CKR_ATTRIBUTE_VALUE_INVALID;
     }
-    if (exp_session != NULL && session_id != NULL &&
+    if (exp_session != NULL && session_id != NULL && !in_sel_guest &&
         memcmp(exp_session, session_id, XCP_WK_BYTES) != 0) {
         TRACE_ERROR("Key blob is bound to an unexpected session\n");
         return CKR_ATTRIBUTE_VALUE_INVALID;
+    }
+    if (exp_session != NULL && session_id != NULL && in_sel_guest) {
+        uv_data.tokdata = tokdata;
+        uv_data.session_id = session_id;
+        uv_data.found = FALSE;
+        rc = handle_all_ep11_cards(&ep11_data->target_list,
+                                   check_uv_session_handler, &uv_data);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("handle_all_ep11_cards failed for check UV session\n");
+            return rc;
+        }
+        if (!uv_data.found) {
+            TRACE_ERROR("Key blob is not bound to an expected UV session\n");
+            return CKR_ATTRIBUTE_VALUE_INVALID;
+        }
+
+        if (keytype == CKK_AES_XTS && session_id2 != NULL) {
+            uv_data.tokdata = tokdata;
+            uv_data.session_id = session_id2;
+            uv_data.found = FALSE;
+            rc = handle_all_ep11_cards(&ep11_data->target_list,
+                                       check_uv_session_handler, &uv_data);
+            if (rc != CKR_OK) {
+                TRACE_ERROR("handle_all_ep11_cards failed for check UV "
+                            "session (2nd AES-XTS key)\n");
+                return rc;
+            }
+            if (!uv_data.found) {
+                TRACE_ERROR("2nd key of AES-XTS key blob is not bound to an "
+                            "expected UV session\n");
+                return CKR_ATTRIBUTE_VALUE_INVALID;
+            }
+        }
     }
 
     /* Check for valid master key */
