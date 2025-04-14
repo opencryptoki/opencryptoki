@@ -4596,10 +4596,10 @@ static CK_BBOOL cca_pqc_strength_supported(STDLL_TokData_t * tokdata,
     struct cca_private_data *cca_private = tokdata->private_data;
 #ifdef __s390__
     const struct cca_version cca_v7_1 = { .ver = 7, .rel = 1, .mod = 0 };
-    const struct cca_version cca_v8_0 = { .ver = 8, .rel = 0, .mod = 0 };
 #else
     const struct cca_version cca_v7_2_43 = { .ver = 7, .rel = 2, .mod = 43 };
 #endif
+    const struct cca_version cca_v8_0 = { .ver = 8, .rel = 0, .mod = 0 };
     const struct cca_version *required = NULL;
     CK_BBOOL ret;
 
@@ -4613,13 +4613,11 @@ static CK_BBOOL cca_pqc_strength_supported(STDLL_TokData_t * tokdata,
             required = &cca_v7_2_43;
 #endif
             break;
-#ifdef __s390__
         case CK_IBM_DILITHIUM_KEYFORM_ROUND2_87:
         case CK_IBM_DILITHIUM_KEYFORM_ROUND3_65:
         case CK_IBM_DILITHIUM_KEYFORM_ROUND3_87:
             required = &cca_v8_0;
             break;
-#endif
         default:
             TRACE_DEVEL("Dilithium keyform %lu not supported by CCA\n",
                         keyform);
@@ -4651,7 +4649,6 @@ static CK_BBOOL cca_pqc_strength_supported(STDLL_TokData_t * tokdata,
 static CK_BBOOL cca_sha3_supported(STDLL_TokData_t *tokdata)
 {
     CK_BBOOL ret;
-#ifdef __s390__
     struct cca_private_data *cca_private = tokdata->private_data;
     const struct cca_version cca_v8_1 = { .ver = 8, .rel = 1, .mod = 0 };
 
@@ -4669,11 +4666,6 @@ static CK_BBOOL cca_sha3_supported(STDLL_TokData_t *tokdata)
         TRACE_ERROR("CCA min_card_version RD-Unlock failed.\n");
         return FALSE;
     }
-#else
-    UNUSED(tokdata);
-
-    ret = CK_FALSE;
-#endif
 
     return ret;
 }
@@ -4681,7 +4673,6 @@ static CK_BBOOL cca_sha3_supported(STDLL_TokData_t *tokdata)
 static CK_BBOOL cca_rsa_oaep_2_1_supported(STDLL_TokData_t *tokdata)
 {
     CK_BBOOL ret;
-#ifdef __s390__
     struct cca_private_data *cca_private = tokdata->private_data;
     const struct cca_version cca_v8_1 = { .ver = 8, .rel = 1, .mod = 0 };
 
@@ -4699,11 +4690,6 @@ static CK_BBOOL cca_rsa_oaep_2_1_supported(STDLL_TokData_t *tokdata)
         TRACE_ERROR("CCA min_card_version RD-Unlock failed.\n");
         return FALSE;
     }
-#else
-    UNUSED(tokdata);
-
-    ret = CK_FALSE;
-#endif
 
     return ret;
 }
@@ -4712,7 +4698,6 @@ static CK_BBOOL cca_rsa_aeskw_supported(STDLL_TokData_t *tokdata,
                                         CK_KEY_TYPE key_type)
 {
     CK_BBOOL supp = CK_FALSE;
-#ifdef __s390__
     CK_BBOOL aes_supp;
     struct cca_private_data *cca_private = tokdata->private_data;
     const struct cca_version cca_v8_2 = { .ver = 8, .rel = 2, .mod = 0 };
@@ -4771,10 +4756,6 @@ static CK_BBOOL cca_rsa_aeskw_supported(STDLL_TokData_t *tokdata,
         TRACE_ERROR("CCA min_card_version RD-Unlock failed.\n");
         return FALSE;
     }
-#else
-    UNUSED(tokdata);
-    UNUSED(key_type);
-#endif
 
     return supp;
 }
