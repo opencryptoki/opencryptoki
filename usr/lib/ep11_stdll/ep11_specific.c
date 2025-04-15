@@ -7601,6 +7601,9 @@ CK_RV token_specific_aes_xts(STDLL_TokData_t *tokdata, SESSION *session,
 struct EP11_KEM_MECH {
     CK_MECHANISM mech;
     struct XCP_KYBER_KEM_PARAMS params;
+    CK_ULONG blob_len;
+    CK_BYTE blob[MAX_BLOBSIZE];
+    CK_BYTE reencblob[MAX_BLOBSIZE];
 };
 
 static CK_RV ep11tok_ml_kem_mech_pre_process(STDLL_TokData_t *tokdata,
@@ -7700,6 +7703,284 @@ static CK_RV ep11tok_ml_kem_mech_post_process(STDLL_TokData_t *tokdata,
 
     ml_kem_params = mech->pParameter;
     if (mech->ulParameterLen != sizeof(CK_IBM_ML_KEM_PARAMS)) {
+        TRACE_ERROR("Mechanism parameter length not as expected\n");
+        return CKR_MECHANISM_PARAM_INVALID;
+    }
+
+    if (ml_kem_params->mode != CK_IBM_ML_KEM_ENCAPSULATE)
+        return CKR_OK;
+
+    /*
+     * For encapsulate:
+     * Generated cipher is returned in csum prepended with the checksum of
+     * the generated symmetric key and its bit count (in total 7 bytes).
+     */
+    if (cslen < EP11_CSUMSIZE + 4) {
+        TRACE_ERROR("%s returned cipher size is invalid: %lu\n",
+                    __func__, cslen);
+        return CKR_FUNCTION_FAILED;
+    }
+
+    cipher_len = cslen - (EP11_CSUMSIZE + 4);
+
+    if (ml_kem_params->ulCipherLen < cipher_len) {
+        TRACE_ERROR("%s Cipher buffer in ML-KEM mechanism param too small, required: %lu\n",
+                    __func__, cipher_len);
+        ml_kem_params->ulCipherLen = cipher_len;
+        OPENSSL_cleanse(&csum[EP11_CSUMSIZE + 4], cipher_len);
+        return CKR_BUFFER_TOO_SMALL;
+    }
+
+    memcpy(ml_kem_params->pCipher, &csum[EP11_CSUMSIZE + 4], cipher_len);
+    ml_kem_params->ulCipherLen = cipher_len;
+
+    OPENSSL_cleanse(&csum[EP11_CSUMSIZE + 4], cipher_len);
+    return CKR_OK;
+}
+
+static CK_RV ep11tok_ml_kem_with_ecdh_mech_pre_process(
+                                                STDLL_TokData_t *tokdata,
+                                                SESSION *session,
+                                                CK_MECHANISM *mech,
+                                                struct EP11_KEM_MECH *mech_ep11,
+                                                CK_BBOOL use_reenc_blob)
+{
+    ep11_private_data_t *ep11_data = tokdata->private_data;
+    ep11_session_t *ep11_session = (ep11_session_t *) session->private_data;
+    CK_IBM_ML_KEM_WITH_ECDH_PARAMS *ml_kem_params;
+    CK_BYTE *ec_key_blob = NULL;
+    CK_ULONG ec_key_blob_len = 0;
+    OBJECT *ec_key_obj = NULL;
+    CK_ATTRIBUTE *ec_parms_attr = NULL;
+    CK_ULONG privlen, ecpoint_len;
+    CK_BYTE *ecpoint = NULL;
+    CK_BBOOL allocated = FALSE;
+    CK_ECDH1_DERIVE_PARAMS ecdh_params = { 0 };
+    CK_OBJECT_CLASS class = CKO_SECRET_KEY;
+    CK_KEY_TYPE keytype = CKK_GENERIC_SECRET;
+    CK_BBOOL ck_true = CK_TRUE;
+    CK_MECHANISM ecdh_mech = { CKM_ECDH1_DERIVE,
+                               &ecdh_params, sizeof(ecdh_params) };
+    CK_ATTRIBUTE ecdh_attrs[] = {
+            { CKA_CLASS, &class, sizeof(class) },
+            { CKA_KEY_TYPE, &keytype, sizeof(keytype) },
+            { CKA_VALUE_LEN, &privlen, sizeof(privlen) },
+            { CKA_IBM_USE_AS_DATA, &ck_true, sizeof(ck_true) },
+    };
+    CK_ULONG ecdh_attrs_len = sizeof(ecdh_attrs) / sizeof(CK_ATTRIBUTE);
+    ep11_target_info_t* target_info;
+    unsigned char *ep11_pin_blob = NULL;
+    CK_ULONG ep11_pin_blob_len = 0;
+    CK_BYTE csum[MAX_BLOBSIZE];
+    CK_ULONG cslen = sizeof(csum);
+    CK_BYTE *useblob;
+    size_t useblobsize;
+    CK_RV rc;
+
+    ml_kem_params = mech->pParameter;
+    if (mech->ulParameterLen != sizeof(CK_IBM_ML_KEM_WITH_ECDH_PARAMS)) {
+        TRACE_ERROR("Mechanism parameter length not as expected\n");
+        rc = CKR_MECHANISM_PARAM_INVALID;
+        goto out;
+    }
+
+    /* Prepare ML-KEM mechanism and parameter */
+    mech_ep11->mech.mechanism = CKM_IBM_ML_KEM;
+    mech_ep11->mech.pParameter = &mech_ep11->params;
+    mech_ep11->mech.ulParameterLen = sizeof(mech_ep11->params);
+
+    memset(&mech_ep11->params, 0, sizeof(mech_ep11->params));
+    mech_ep11->params.version = XCP_KYBER_KEM_VERSION;
+    mech_ep11->params.mode = ml_kem_params->mode;
+    mech_ep11->params.kdf = ml_kem_params->kdf;
+    mech_ep11->params.prepend = FALSE;
+    mech_ep11->params.pSharedData = ml_kem_params->pSharedData;
+    mech_ep11->params.ulSharedDataLen = ml_kem_params->ulSharedDataLen;
+
+    switch (ml_kem_params->mode) {
+    case CK_IBM_ML_KEM_ENCAPSULATE:
+        if (ml_kem_params->ulCipherLen > 0 && ml_kem_params->pCipher == NULL) {
+            TRACE_ERROR("Unsupported cipher buffer in ML-KEM mechnism param "
+                        "cannot be NULL\n");
+            rc = CKR_MECHANISM_PARAM_INVALID;
+            goto out;
+        }
+
+        mech_ep11->params.pCipher = NULL;
+        mech_ep11->params.ulCipherLen = 0;
+        /* Cipher is returned in 2nd output param of m_DeriveKey */
+        break;
+
+    case CK_IBM_KEM_DECAPSULATE:
+        mech_ep11->params.pCipher = ml_kem_params->pCipher;
+        mech_ep11->params.ulCipherLen = ml_kem_params->ulCipherLen;
+        break;
+
+    default:
+        TRACE_ERROR("Unsupported mode in ML-KEM mechanism param\n");
+        rc = CKR_MECHANISM_PARAM_INVALID;
+        goto out;
+    }
+
+    /* Prepare for ECDH */
+    rc = h_opaque_2_blob(tokdata, ml_kem_params->hECPrivateKey,
+                         &ec_key_blob, &ec_key_blob_len,
+                         &ec_key_obj, READ_LOCK);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s failed hSecret=0x%lx\n", __func__,
+                    ml_kem_params->hECPrivateKey);
+        goto out;
+    }
+
+    /* As per PKCS#11, a token MUST be able to accept this value encoded
+     * as a raw octet string (as per section A.5.2 of [ANSI X9.62]).
+     * A token MAY, in addition, support accepting this value as a
+     * DER-encoded ECPoint (as per section E.6 of [ANSI X9.62]) i.e.
+     * the same as a CKA_EC_POINT encoding.
+     * The EP11 host library only accepts the raw form, thus convert
+     * it to the raw format if the caller specified it in the DER-encoded
+     * form.
+     * Also, the EP11 host library only accepts EC points in uncompressed
+     * form, so uncompress it if in compressed or hybrid form.
+     */
+    rc = get_ecsiglen(ec_key_obj, &privlen);
+    privlen /= 2;
+
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s get_ecsiglen failed\n", __func__);
+        goto out;
+    }
+
+    rc = template_attribute_get_non_empty(ec_key_obj->template,
+                                          CKA_EC_PARAMS,
+                                          &ec_parms_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_EC_PARAMS in EC key\n");
+        goto out;
+    }
+
+    rc = ec_point_uncompressed_from_public_data(ml_kem_params->pPublicData,
+                                                ml_kem_params->ulPublicDataLen,
+                                                privlen,
+                                                (CK_BYTE *)
+                                                         ec_parms_attr->pValue,
+                                                ec_parms_attr->ulValueLen,
+                                                TRUE, &allocated,
+                                                &ecpoint, &ecpoint_len);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("ec_point_from_public_data failed\n");
+        goto out;
+    }
+
+    ecdh_params.kdf = CKD_IBM_HYBRID_NULL;
+    ecdh_params.pPublicData = ecpoint;
+    ecdh_params.ulPublicDataLen = ecpoint_len;
+    ecdh_params.pSharedData = NULL;
+    ecdh_params.ulSharedDataLen = 0;
+
+    rc = tokdata->policy->is_mech_allowed(tokdata->policy, &ecdh_mech,
+                                          &ec_key_obj->strength,
+                                          POLICY_CHECK_DERIVE,
+                                          session);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("POLICY VIOLATION: derive key\n");
+        goto out;
+    }
+
+    if (!key_object_is_mechanism_allowed(ec_key_obj->template,
+                                         ecdh_mech.mechanism)) {
+        TRACE_ERROR("Mechanism not allowed per CKA_ALLOWED_MECHANISMS.\n");
+        rc = CKR_MECHANISM_INVALID;
+        goto out;
+    }
+
+    /*
+     * EP11 supports CKM_ECDH1_DERIVE (and CKM_IBM_EC_C*) slightly different
+     * than specified in PKCS#11 v2.11 or later. It expects the public data
+     * directly as mechanism param, not via CK_ECDH1_DERIVE_PARAMS. It also
+     * does not support KDFs and shared data.
+     *
+     * Newer EP11 crypto cards that support API version 3 support this
+     * mechanism in the PKCS#11 c2.11 way. If the used API version is > 2,
+     * then we can pass the mechanism parameters as-is, otherwise we still
+     * need to use the old way.
+     */
+    target_info = get_target_info(tokdata);
+    if (target_info == NULL) {
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+
+    if (target_info->used_firmware_API_version <= 2) {
+        ecdh_mech.pParameter = ecpoint;
+        ecdh_mech.ulParameterLen = ecpoint_len;
+    }
+    put_target_info(tokdata, target_info);
+
+    /* Perform the ECDH */
+    ep11_get_pin_blob(tokdata, ep11_session, CK_TRUE, CK_TRUE,
+                      &ep11_pin_blob, &ep11_pin_blob_len);
+
+    mech_ep11->blob_len = sizeof(mech_ep11->blob);
+
+    RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
+    RETRY_REENC_BLOB_START(tokdata, target_info, ec_key_obj, ec_key_blob,
+                           ec_key_blob_len, useblob, useblobsize, rc)
+    RETRY_REENC_CREATE_KEY_START()
+        if (ep11_pqc_obj_strength_supported(target_info, ecdh_mech.mechanism,
+                                            ec_key_obj))
+            rc = dll_m_DeriveKey(&ecdh_mech, ecdh_attrs, ecdh_attrs_len,
+                                 useblob, useblobsize, NULL, 0,
+                                 ep11_pin_blob, ep11_pin_blob_len,
+                                 mech_ep11->blob, &mech_ep11->blob_len,
+                                 csum, &cslen, target_info->target);
+        else
+            rc = CKR_KEY_SIZE_RANGE;
+    RETRY_REENC_CREATE_KEY_END(tokdata, session, target_info,
+                               mech_ep11->blob, mech_ep11->reencblob,
+                               mech_ep11->blob_len, rc)
+    RETRY_REENC_BLOB_END(tokdata, target_info, useblob, useblobsize, rc)
+    RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, session)
+
+    if (rc != CKR_OK) {
+        rc = ep11_error_to_pkcs11_error(rc, session);
+        TRACE_ERROR("%s m_DeriveKey failed rc=0x%lx \n", __func__, rc);
+        goto out;
+    }
+
+    if (check_expected_mkvp(tokdata, mech_ep11->blob, mech_ep11->blob_len,
+                            NULL) != CKR_OK) {
+        TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
+        rc = CKR_DEVICE_ERROR;
+        goto out;
+    }
+
+    /* Set derived blob into KEM mechanism param */
+    mech_ep11->params.pBlob = (use_reenc_blob && ep11_data->mk_change_active) ?
+                                        mech_ep11->reencblob : mech_ep11->blob;
+    mech_ep11->params.ulBlobLen = mech_ep11->blob_len;
+
+out:
+    if (allocated && ecpoint != NULL)
+        free(ecpoint);
+    object_put(tokdata, ec_key_obj, TRUE);
+    ec_key_obj = NULL;
+
+    return rc;
+}
+
+static CK_RV ep11tok_ml_kem_with_ecdh_mech_post_process(
+                                                STDLL_TokData_t *tokdata,
+                                                CK_MECHANISM *mech,
+                                                CK_BYTE *csum, CK_ULONG cslen)
+{
+    CK_IBM_ML_KEM_WITH_ECDH_PARAMS *ml_kem_params;
+    CK_ULONG cipher_len;
+
+    UNUSED(tokdata);
+
+    ml_kem_params = mech->pParameter;
+    if (mech->ulParameterLen != sizeof(CK_IBM_ML_KEM_WITH_ECDH_PARAMS)) {
         TRACE_ERROR("Mechanism parameter length not as expected\n");
         return CKR_MECHANISM_PARAM_INVALID;
     }
@@ -8701,6 +8982,16 @@ do_retry:
         mech = &mech_ep11.mech;
         break;
 
+    case CKM_IBM_ML_KEM_WITH_ECDH:
+        rc = ep11tok_ml_kem_with_ecdh_mech_pre_process(tokdata, session,
+                                                       mech_orig, &mech_ep11,
+                                                       retry_mech_param_blob
+                                                                         != 0);
+        if (rc != CKR_OK)
+            goto error;
+        mech = &mech_ep11.mech;
+        break;
+
     default:
         break;
     }
@@ -8797,6 +9088,13 @@ do_retry:
     case CKM_IBM_KYBER:
     case CKM_IBM_ML_KEM:
         rc = ep11tok_ml_kem_mech_post_process(tokdata, mech_orig, csum, cslen);
+        if (rc != CKR_OK)
+            goto error;
+        break;
+
+    case CKM_IBM_ML_KEM_WITH_ECDH:
+        rc = ep11tok_ml_kem_with_ecdh_mech_post_process(tokdata, mech_orig,
+                                                        csum, cslen);
         if (rc != CKR_OK)
             goto error;
         break;
@@ -13687,6 +13985,7 @@ static const CK_MECHANISM_TYPE ep11_supported_mech_list[] = {
     CKM_IBM_ML_DSA_KEY_PAIR_GEN,
     CKM_IBM_ML_KEM,
     CKM_IBM_ML_KEM_KEY_PAIR_GEN,
+    CKM_IBM_ML_KEM_WITH_ECDH,
     CKM_IBM_SHA3_224,
     CKM_IBM_SHA3_224_HMAC,
     CKM_IBM_SHA3_256,
@@ -14100,6 +14399,13 @@ CK_RV ep11tok_get_mechanism_list(STDLL_TokData_t * tokdata,
             goto out;
         rc = ep11tok_mechanism_list_add_sha3_combined(tokdata, pMechanismList,
                                                       pulCount, 0);
+        if (rc != CKR_OK)
+            goto out;
+        if (ep11tok_is_mechanism_supported(tokdata, CKM_IBM_ML_KEM) == CKR_OK &&
+            ep11tok_is_mechanism_supported(tokdata, CKM_ECDH1_DERIVE) ==
+                                                                    CKR_OK) {
+            *pulCount += 1;
+        }
     } else {
         /* 2. call, content request */
         size = *pulCount;
@@ -14190,6 +14496,15 @@ CK_RV ep11tok_get_mechanism_list(STDLL_TokData_t * tokdata,
             goto out;
         rc = ep11tok_mechanism_list_add_sha3_combined(tokdata, pMechanismList,
                                                       pulCount, size);
+        if (rc != CKR_OK)
+            goto out;
+        if (ep11tok_is_mechanism_supported(tokdata, CKM_IBM_ML_KEM) == CKR_OK &&
+            ep11tok_is_mechanism_supported(tokdata, CKM_ECDH1_DERIVE) ==
+                                                                   CKR_OK) {
+            if (*pulCount < size)
+                pMechanismList[*pulCount] = CKM_IBM_ML_KEM_WITH_ECDH;
+            *pulCount = *pulCount + 1;
+        }
         if (*pulCount > size)
             rc = CKR_BUFFER_TOO_SMALL;
     }
@@ -14476,6 +14791,17 @@ CK_RV ep11tok_is_mechanism_supported(STDLL_TokData_t *tokdata,
             goto out;
         }
         break;
+
+    case CKM_IBM_ML_KEM_WITH_ECDH:
+        if (ep11tok_is_mechanism_supported(tokdata, CKM_IBM_ML_KEM) != CKR_OK ||
+            ep11tok_is_mechanism_supported(tokdata, CKM_ECDH1_DERIVE) !=
+                                                                    CKR_OK) {
+            TRACE_INFO("%s Mech '%s' not suppported\n", __func__,
+                       ep11_get_ckm(tokdata, orig_mech));
+            rc = CKR_MECHANISM_INVALID;
+            goto out;
+        }
+        break;
     }
 
 out:
@@ -14560,6 +14886,9 @@ CK_RV ep11tok_get_mechanism_info(STDLL_TokData_t * tokdata,
             pInfo->flags = (CK_FLAGS)(CKF_HW|CKF_GENERATE);
             break;
         default:
+            if (type == CKM_IBM_ML_KEM_WITH_ECDH)
+                type = CKM_IBM_ML_KEM;
+
             RETRY_SINGLE_APQN_START(tokdata, rc)
                 rc = dll_m_GetMechanismInfo(0, type, pInfo, 
                                             target_info->target);
