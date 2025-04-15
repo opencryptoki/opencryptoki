@@ -316,6 +316,7 @@ static const MECH_LIST_ELEMENT soft_mech_list[] = {
     {CKM_IBM_ML_DSA, {1312, 2592, CKF_SIGN | CKF_VERIFY}},
     {CKM_IBM_ML_KEM_KEY_PAIR_GEN, {800, 1568, CKF_GENERATE_KEY_PAIR}},
     {CKM_IBM_ML_KEM, {800, 1568, CKF_DERIVE}},
+    {CKM_IBM_ML_KEM_WITH_ECDH, {800, 1568, CKF_DERIVE}},
 #endif
 };
 
@@ -446,6 +447,7 @@ static CK_BBOOL token_specific_filter_mechanism(STDLL_TokData_t *tokdata,
         return soft_private->supports_ml_dsa;
     case CKM_IBM_ML_KEM_KEY_PAIR_GEN:
     case CKM_IBM_ML_KEM:
+    case CKM_IBM_ML_KEM_WITH_ECDH:
         return soft_private->supports_ml_kem;
 #endif
     default:
