@@ -22,6 +22,7 @@
 #include "h_extern.h"
 #include "tok_spec_struct.h"
 #include "trace.h"
+#include "ec_defs.h"
 
 #include <openssl/crypto.h>
 #include <openssl/err.h>
@@ -6649,7 +6650,161 @@ out:
     return rc;
 }
 
-CK_RV openssl_specific_pqc_kem_derive(STDLL_TokData_t *tokdata, SESSION *sess,
+static CK_RV openssl_specific_pqc_perform_kem(const struct pqc_oid *oid,
+                                              CK_MECHANISM *mech,
+                                              OBJECT *base_key_object,
+                                              CK_OBJECT_CLASS base_key_class,
+                                              CK_BBOOL encapsulate,
+                                              CK_BYTE *pCipher,
+                                              CK_ULONG *ulCipherLen,
+                                              CK_BYTE **pSecret,
+                                              CK_ULONG *ulSecretLen)
+{
+    struct openssl_ex_data *ex_data = NULL;
+    EVP_PKEY *pkey = NULL;
+    CK_RV rc = CKR_OK;
+    EVP_PKEY_CTX *ctx = NULL;
+    const char *alg_name;
+    size_t cipher_len, secret_len;
+
+    alg_name = openssl_get_pqc_oid_name(oid);
+    if (alg_name == NULL) {
+        TRACE_ERROR("PQC key form is not supported by oqsprovider or "
+                    "OpenSSL\n");
+        return CKR_KEY_SIZE_RANGE;
+    }
+
+    rc = openssl_get_ex_data(base_key_object, (void **)&ex_data,
+                             sizeof(struct openssl_ex_data),
+                             openssl_need_wr_lock, NULL);
+    if (rc != CKR_OK)
+        return rc;
+
+    if (ex_data->pkey == NULL) {
+        rc = openssl_make_pqc_key_from_template(base_key_object->template,
+                                                oid, mech->mechanism,
+                                                !encapsulate, alg_name,
+                                                &ex_data->pkey);
+        if (rc != CKR_OK)
+            goto out;
+    }
+
+    pkey = ex_data->pkey;
+    if (EVP_PKEY_up_ref(pkey) != 1) {
+        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+
+    ctx = EVP_PKEY_CTX_new(pkey, NULL);
+    if (ctx == NULL) {
+        TRACE_ERROR("EVP_PKEY_CTX_new failed\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+
+    if (encapsulate) {
+        if (base_key_class != CKO_PUBLIC_KEY) {
+            TRACE_ERROR("%s\n", ock_err(ERR_KEY_TYPE_INCONSISTENT));
+            rc = CKR_KEY_TYPE_INCONSISTENT;
+            goto out;
+        }
+
+        if (EVP_PKEY_encapsulate_init(ctx, NULL) != 1) {
+            TRACE_ERROR("EVP_PKEY_encapsulate_init failed\n");
+            rc = CKR_FUNCTION_FAILED;
+            goto out;
+        }
+
+        /* size query */
+        if (EVP_PKEY_encapsulate(ctx, NULL, &cipher_len,
+                                 NULL, &secret_len) <= 0) {
+            TRACE_ERROR("EVP_PKEY_encapsulate (size query) failed\n");
+            rc = CKR_FUNCTION_FAILED;
+            goto out;
+        }
+
+        if (*ulCipherLen < cipher_len || pCipher == NULL) {
+            *ulCipherLen = cipher_len;
+            TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
+            rc = CKR_BUFFER_TOO_SMALL;
+            goto out;
+        }
+
+        *pSecret = calloc(secret_len, 1);
+        if (*pSecret == NULL) {
+            TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+            rc = CKR_HOST_MEMORY;
+            goto out;
+        }
+
+        /* Do the encapsulate */
+        cipher_len = *ulCipherLen;
+        if (EVP_PKEY_encapsulate(ctx, pCipher, &cipher_len,
+                                 *pSecret, &secret_len) <= 0) {
+            TRACE_ERROR("EVP_PKEY_encapsulate failed\n");
+            rc = CKR_FUNCTION_FAILED;
+            goto out;
+        }
+
+        *ulCipherLen = cipher_len;
+        *ulSecretLen = secret_len;
+    } else {
+        if (base_key_class != CKO_PRIVATE_KEY) {
+            TRACE_ERROR("%s\n", ock_err(ERR_KEY_TYPE_INCONSISTENT));
+            rc = CKR_KEY_TYPE_INCONSISTENT;
+            goto out;
+        }
+
+        if (EVP_PKEY_decapsulate_init(ctx, NULL) != 1) {
+            TRACE_ERROR("EVP_PKEY_decapsulate_init failed\n");
+            rc = CKR_FUNCTION_FAILED;
+            goto out;
+        }
+
+        /* Size query */
+        if (EVP_PKEY_decapsulate(ctx, NULL, &secret_len,
+                                 pCipher, *ulCipherLen) <= 0) {
+            TRACE_ERROR("EVP_PKEY_decapsulate (size query) failed\n");
+            rc = CKR_FUNCTION_FAILED;
+            goto out;
+        }
+
+        *pSecret = calloc(secret_len, 1);
+        if (*pSecret == NULL) {
+            TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+            rc = CKR_HOST_MEMORY;
+            goto out;
+        }
+
+        /* Do the decapsulate */
+        if (EVP_PKEY_decapsulate(ctx, *pSecret, &secret_len,
+                                 pCipher, *ulCipherLen) <= 0) {
+            TRACE_ERROR("EVP_PKEY_decapsulate failed\n");
+            rc = CKR_FUNCTION_FAILED;
+            goto out;
+        }
+
+        *ulSecretLen = secret_len;
+    }
+
+out:
+    if (pkey != NULL)
+        EVP_PKEY_free(pkey);
+    if (ctx != NULL)
+        EVP_PKEY_CTX_free(ctx);
+    if (rc != CKR_OK && *pSecret != NULL) {
+        OPENSSL_cleanse(*pSecret, secret_len);
+        free(*pSecret);
+        *pSecret = NULL;
+        *ulSecretLen = 0;
+    }
+    object_ex_data_unlock(base_key_object);
+
+    return rc;
+}
+
+static CK_RV openssl_specific_pqc_kem(STDLL_TokData_t *tokdata, SESSION *sess,
                                       const struct pqc_oid *oid,
                                       CK_MECHANISM *mech,
                                       OBJECT *base_key_object,
@@ -6659,11 +6814,7 @@ CK_RV openssl_specific_pqc_kem_derive(STDLL_TokData_t *tokdata, SESSION *sess,
                                       CK_KEY_TYPE derived_key_type,
                                       CK_ULONG derived_keylen)
 {
-    struct openssl_ex_data *ex_data = NULL;
-    EVP_PKEY *pkey = NULL;
     CK_RV rc = CKR_OK;
-    EVP_PKEY_CTX *ctx = NULL;
-    const char *alg_name;
     CK_IBM_ML_KEM_PARAMS *kem_params = NULL;
     CK_BBOOL encapsulate = TRUE;
     CK_ULONG kdf_type = CKD_NULL;
@@ -6677,20 +6828,13 @@ CK_RV openssl_specific_pqc_kem_derive(STDLL_TokData_t *tokdata, SESSION *sess,
     CK_ATTRIBUTE *hybrid_key_value = NULL;
     CK_MECHANISM_TYPE digest_mech;
     CK_ULONG kdf_digest_len;
-    size_t cipher_len, secret_len;
+    CK_ULONG secret_len = 0;
     CK_BYTE *secret = NULL;
     CK_BYTE *hybrid_secret = NULL;
     CK_ULONG hybrid_secret_len;
     CK_BYTE *value = NULL;
     CK_ULONG value_len;
     CK_BBOOL value_allocated = FALSE, use_as_data = FALSE;
-
-    alg_name = openssl_get_pqc_oid_name(oid);
-    if (alg_name == NULL) {
-        TRACE_ERROR("PQC key form is not supported by oqsprovider or "
-                    "OpenSSL\n");
-        return CKR_KEY_SIZE_RANGE;
-    }
 
     switch (mech->mechanism) {
     case CKM_IBM_KYBER:
@@ -6819,117 +6963,14 @@ CK_RV openssl_specific_pqc_kem_derive(STDLL_TokData_t *tokdata, SESSION *sess,
         }
     }
 
-    rc = openssl_get_ex_data(base_key_object, (void **)&ex_data,
-                             sizeof(struct openssl_ex_data),
-                             openssl_need_wr_lock, NULL);
-    if (rc != CKR_OK)
-        return rc;
-
-    if (ex_data->pkey == NULL) {
-        rc = openssl_make_pqc_key_from_template(base_key_object->template,
-                                                oid, mech->mechanism,
-                                                !encapsulate, alg_name,
-                                                &ex_data->pkey);
-        if (rc != CKR_OK)
-            goto out;
-    }
-
-    pkey = ex_data->pkey;
-    if (EVP_PKEY_up_ref(pkey) != 1) {
-        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
-        rc = CKR_FUNCTION_FAILED;
+    rc = openssl_specific_pqc_perform_kem(oid, mech, base_key_object,
+                                          base_key_class, encapsulate,
+                                          kem_params->pCipher,
+                                          &kem_params->ulCipherLen,
+                                          &secret, &secret_len);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("openssl_specific_pqc_perform_kem failed\n");
         goto out;
-    }
-
-    ctx = EVP_PKEY_CTX_new(pkey, NULL);
-    if (ctx == NULL) {
-        TRACE_ERROR("EVP_PKEY_CTX_new failed\n");
-        rc = CKR_FUNCTION_FAILED;
-        goto out;
-    }
-
-    if (encapsulate) {
-        if (base_key_class != CKO_PUBLIC_KEY) {
-            TRACE_ERROR("%s\n", ock_err(ERR_KEY_TYPE_INCONSISTENT));
-            rc = CKR_KEY_TYPE_INCONSISTENT;
-            goto out;
-        }
-
-        if (EVP_PKEY_encapsulate_init(ctx, NULL) != 1) {
-            TRACE_ERROR("EVP_PKEY_encapsulate_init failed\n");
-            rc = CKR_FUNCTION_FAILED;
-            goto out;
-        }
-
-        /* size query */
-        if (EVP_PKEY_encapsulate(ctx, NULL, &cipher_len,
-                                 NULL, &secret_len) <= 0) {
-            TRACE_ERROR("EVP_PKEY_encapsulate (size query) failed\n");
-            rc = CKR_FUNCTION_FAILED;
-            goto out;
-        }
-
-        if (kem_params->ulCipherLen < cipher_len ||
-            kem_params->pCipher == NULL) {
-            kem_params->ulCipherLen = cipher_len;
-            TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
-            rc = CKR_BUFFER_TOO_SMALL;
-            goto out;
-        }
-
-        secret = calloc(secret_len, 1);
-        if (secret == NULL) {
-            TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-            rc = CKR_HOST_MEMORY;
-            goto out;
-        }
-
-        /* Do the encapsulate */
-        cipher_len = kem_params->ulCipherLen;
-        if (EVP_PKEY_encapsulate(ctx, kem_params->pCipher, &cipher_len,
-                                 secret, &secret_len) <= 0) {
-            TRACE_ERROR("EVP_PKEY_encapsulate failed\n");
-            rc = CKR_FUNCTION_FAILED;
-            goto out;
-        }
-        kem_params->ulCipherLen = cipher_len;
-    } else {
-        if (base_key_class != CKO_PRIVATE_KEY) {
-            TRACE_ERROR("%s\n", ock_err(ERR_KEY_TYPE_INCONSISTENT));
-            rc = CKR_KEY_TYPE_INCONSISTENT;
-            goto out;
-        }
-
-        if (EVP_PKEY_decapsulate_init(ctx, NULL) != 1) {
-            TRACE_ERROR("EVP_PKEY_decapsulate_init failed\n");
-            rc = CKR_FUNCTION_FAILED;
-            goto out;
-        }
-
-        /* Size query */
-        if (EVP_PKEY_decapsulate(ctx, NULL, &secret_len,
-                                 kem_params->pCipher,
-                                 kem_params->ulCipherLen) <= 0) {
-            TRACE_ERROR("EVP_PKEY_decapsulate (size query) failed\n");
-            rc = CKR_FUNCTION_FAILED;
-            goto out;
-        }
-
-        secret = calloc(secret_len, 1);
-        if (secret == NULL) {
-            TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-            rc = CKR_HOST_MEMORY;
-            goto out;
-        }
-
-        /* Do the decapsulate */
-        if (EVP_PKEY_decapsulate(ctx, secret, &secret_len,
-                                 kem_params->pCipher,
-                                 kem_params->ulCipherLen) <= 0) {
-            TRACE_ERROR("EVP_PKEY_decapsulate failed\n");
-            rc = CKR_FUNCTION_FAILED;
-            goto out;
-        }
     }
 
     if (hybrid_key_value != NULL) {
@@ -7064,10 +7105,6 @@ CK_RV openssl_specific_pqc_kem_derive(STDLL_TokData_t *tokdata, SESSION *sess,
     }
 
 out:
-    if (pkey != NULL)
-        EVP_PKEY_free(pkey);
-    if (ctx != NULL)
-        EVP_PKEY_CTX_free(ctx);
     if (secret != NULL) {
         OPENSSL_cleanse(secret, secret_len);
         free(secret);
@@ -7076,13 +7113,304 @@ out:
         OPENSSL_cleanse(value, value_len);
         free(value);
     }
-    object_ex_data_unlock(base_key_object);
     if (hybrid_key_object != NULL) {
         object_put(tokdata, hybrid_key_object, TRUE);
         hybrid_key_object = NULL;
     }
 
     return rc;
+}
+
+static CK_RV openssl_specific_pqc_kem_with_ecdh(STDLL_TokData_t *tokdata,
+                                                SESSION *sess,
+                                                const struct pqc_oid *oid,
+                                                CK_MECHANISM *mech,
+                                                OBJECT *base_key_object,
+                                                CK_OBJECT_CLASS base_key_class,
+                                                CK_KEY_TYPE base_key_type,
+                                                OBJECT *derived_key_object,
+                                                CK_KEY_TYPE derived_key_type,
+                                                CK_ULONG derived_keylen)
+{
+    CK_RV rc = CKR_OK;
+    CK_IBM_ML_KEM_WITH_ECDH_PARAMS *kem_params = NULL;
+    CK_BBOOL encapsulate = TRUE;
+    OBJECT *ec_key_object = NULL;
+    CK_BYTE ecdh_secret_z[MAX_ECDH_SHARED_SECRET_SIZE];
+    CK_ULONG ecdh_secret_z_len = 0;
+    CK_MECHANISM_TYPE digest_mech;
+    CK_ULONG kdf_digest_len;
+    CK_ULONG kem_secret_t_len = 0;
+    CK_BYTE *kem_secret_t = NULL;
+    CK_BYTE *hybrid_secret = NULL;
+    CK_ULONG hybrid_secret_len;
+    CK_BYTE *value = NULL;
+    CK_ULONG value_len;
+    CK_BBOOL value_allocated = FALSE;
+
+    if (base_key_type != CKK_IBM_ML_KEM) {
+        TRACE_ERROR("%s\n", ock_err(ERR_KEY_TYPE_INCONSISTENT));
+        rc = CKR_KEY_TYPE_INCONSISTENT;
+        goto out;
+    }
+
+    if (mech->pParameter == NULL ||
+        mech->ulParameterLen != sizeof(CK_IBM_ML_KEM_WITH_ECDH_PARAMS)) {
+        TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
+        rc = CKR_MECHANISM_PARAM_INVALID;
+        goto out;
+    }
+    kem_params = mech->pParameter;
+
+    switch (kem_params->mode) {
+    case CK_IBM_ML_KEM_ENCAPSULATE:
+        encapsulate = TRUE;
+
+        /* pCipher/ulCipherLen is output on encapsulate */
+        if (kem_params->ulCipherLen > 0 && kem_params->pCipher == NULL) {
+            TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
+            rc = CKR_MECHANISM_PARAM_INVALID;
+            goto out;
+        }
+        break;
+    case CK_IBM_ML_KEM_DECAPSULATE:
+        encapsulate = FALSE;
+
+        /* pCipher/ulCipherLen is input on decapsulate */
+        if (kem_params->pCipher == NULL || kem_params->ulCipherLen == 0) {
+            TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
+            rc = CKR_MECHANISM_PARAM_INVALID;
+            goto out;
+        }
+        break;
+    default:
+        TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
+        rc = CKR_MECHANISM_PARAM_INVALID;
+        goto out;
+    }
+
+    if (kem_params->ulSharedDataLen > 0 &&
+        kem_params->pSharedData == NULL) {
+        TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
+        rc = CKR_MECHANISM_PARAM_INVALID;
+        goto out;
+    }
+
+    /* Optional shared data can only be provided together with a KDF */
+    if ((kem_params->kdf == CKD_NULL ||
+         kem_params->kdf == CKD_IBM_HYBRID_NULL) &&
+        (kem_params->pSharedData != NULL ||
+         kem_params->ulSharedDataLen != 0)) {
+        TRACE_ERROR("No KDF specified, but shared data ptr is not NULL.\n");
+        rc = CKR_MECHANISM_PARAM_INVALID;
+        goto out;
+    }
+
+    if (kem_params->ulPublicDataLen == 0 ||
+        kem_params->pPublicData == NULL) {
+        TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
+        rc = CKR_MECHANISM_PARAM_INVALID;
+        goto out;
+    }
+
+    /* Perform ECDH first */
+    rc = object_mgr_find_in_map1(tokdata, kem_params->hECPrivateKey,
+                                 &ec_key_object, READ_LOCK);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Failed to acquire EC private key from handle.\n");
+        if (rc == CKR_OBJECT_HANDLE_INVALID)
+            rc = CKR_KEY_HANDLE_INVALID;
+        goto out;
+    }
+
+    rc = ckm_ecdh_pkcs_derive(tokdata, sess, kem_params->pPublicData,
+                              kem_params->ulPublicDataLen, ec_key_object,
+                              ecdh_secret_z, &ecdh_secret_z_len, NULL, FALSE);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("ckm_ecdh_pkcs_derive failed\n");
+        goto out;
+    }
+
+    /* Perform KEM next */
+    rc = openssl_specific_pqc_perform_kem(oid, mech, base_key_object,
+                                          base_key_class, encapsulate,
+                                          kem_params->pCipher,
+                                          &kem_params->ulCipherLen,
+                                          &kem_secret_t, &kem_secret_t_len);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("openssl_specific_pqc_perform_kem failed\n");
+        goto out;
+    }
+
+    /* concatenate secrets: Z' = Z || T */
+    hybrid_secret_len = ecdh_secret_z_len + kem_secret_t_len;
+    hybrid_secret = malloc(hybrid_secret_len);
+    if (hybrid_secret == NULL) {
+        TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+        rc = CKR_HOST_MEMORY;
+        goto out;
+    }
+
+    memcpy(hybrid_secret, ecdh_secret_z, ecdh_secret_z_len);
+    memcpy(hybrid_secret + ecdh_secret_z_len, kem_secret_t, kem_secret_t_len);
+
+    OPENSSL_cleanse(kem_secret_t, kem_secret_t_len);
+    OPENSSL_cleanse(ecdh_secret_z, ecdh_secret_z_len);
+
+    /* Apply KDF (if any) */
+    switch (kem_params->kdf) {
+    case CKD_NULL:
+    case CKD_IBM_HYBRID_NULL:
+        value = hybrid_secret;
+        value_len = hybrid_secret_len;
+        if (value_len > derived_keylen) {
+            value_len = derived_keylen;
+        } else if (value_len < derived_keylen) {
+            TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCONSISTENT));
+            rc = CKR_TEMPLATE_INCONSISTENT;
+            goto out;
+        }
+        break;
+
+    case CKD_SHA1_KDF:
+    case CKD_SHA224_KDF:
+    case CKD_SHA256_KDF:
+    case CKD_SHA384_KDF:
+    case CKD_SHA512_KDF:
+    case CKD_SHA3_224_KDF:
+    case CKD_SHA3_256_KDF:
+    case CKD_SHA3_384_KDF:
+    case CKD_SHA3_512_KDF:
+    case CKD_IBM_HYBRID_SHA1_KDF:
+    case CKD_IBM_HYBRID_SHA224_KDF:
+    case CKD_IBM_HYBRID_SHA256_KDF:
+    case CKD_IBM_HYBRID_SHA384_KDF:
+    case CKD_IBM_HYBRID_SHA512_KDF:
+        rc = digest_from_kdf(kem_params->kdf, &digest_mech);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("Cannot determine mech from kdf.\n");
+            rc = CKR_MECHANISM_PARAM_INVALID;
+            goto out;
+        }
+
+        rc = get_sha_size(digest_mech, &kdf_digest_len);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("Cannot determine SHA digest size.\n");
+            rc = CKR_MECHANISM_PARAM_INVALID;
+            goto out;
+        }
+
+        value_len = derived_keylen;
+
+        /* ckm_kdf_X9_63() needs a buffer of multiple of kdf digest length */
+        derived_keylen = ((value_len / kdf_digest_len) + 1) * kdf_digest_len;
+        value = malloc(derived_keylen);
+        if (value == NULL) {
+            TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+            rc = CKR_HOST_MEMORY;
+            goto out;
+        }
+        value_allocated = TRUE;
+
+        rc = ckm_kdf_X9_63(tokdata, sess, kem_params->kdf, kdf_digest_len,
+                           hybrid_secret, hybrid_secret_len,
+                           kem_params->pSharedData, kem_params->ulSharedDataLen,
+                           value, derived_keylen);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("ckm_kdf_X9_63 failed\n");
+            goto out;
+        }
+        break;
+    default:
+        TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
+        rc = CKR_MECHANISM_PARAM_INVALID;
+        goto out;
+    }
+
+    /* Update derived key value in target object */
+    rc = template_build_update_attribute(derived_key_object->template,
+                                         CKA_VALUE, value, value_len);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_build_update_attribute failed for CKA_VALUE, "
+                    "rc=0x%lx.\n", rc);
+        goto out;
+    }
+
+    switch (derived_key_type) {
+    case CKK_GENERIC_SECRET:
+    case CKK_AES:
+    case CKK_AES_XTS:
+        /* Supply CKA_VALUE_LEN since this is required for those key types */
+        rc = template_build_update_attribute(derived_key_object->template,
+                                             CKA_VALUE_LEN,
+                                             (CK_BYTE*)&value_len,
+                                             sizeof(value_len));
+        if (rc != CKR_OK) {
+            TRACE_ERROR("template_build_update_attribute failed for "
+                        "CKA_VALUE_LEN, rc=0x%lx.\n", rc);
+            goto out;
+        }
+        break;
+    case CKK_DES:
+        if (des_check_weak_key(hybrid_secret)) {
+            TRACE_ERROR("Derived key is a weak DES key\n");
+            rc = CKR_FUNCTION_FAILED;
+            goto out;
+        }
+        break;
+    default:
+        break;
+    }
+
+out:
+    if (kem_secret_t != NULL) {
+        OPENSSL_cleanse(kem_secret_t, kem_secret_t_len);
+        free(kem_secret_t);
+    }
+    if (hybrid_secret != NULL) {
+        OPENSSL_cleanse(hybrid_secret, hybrid_secret_len);
+        free(hybrid_secret);
+    }
+    if (value != NULL && value_allocated) {
+        OPENSSL_cleanse(value, value_len);
+        free(value);
+    }
+    if (ec_key_object != NULL) {
+        object_put(tokdata, ec_key_object, TRUE);
+        ec_key_object = NULL;
+    }
+
+    return rc;
+}
+
+CK_RV openssl_specific_pqc_kem_derive(STDLL_TokData_t *tokdata, SESSION *sess,
+                                      const struct pqc_oid *oid,
+                                      CK_MECHANISM *mech,
+                                      OBJECT *base_key_object,
+                                      CK_OBJECT_CLASS base_key_class,
+                                      CK_KEY_TYPE base_key_type,
+                                      OBJECT *derived_key_object,
+                                      CK_KEY_TYPE derived_key_type,
+                                      CK_ULONG derived_keylen)
+{
+    switch (mech->mechanism) {
+    case CKM_IBM_KYBER:
+    case CKM_IBM_ML_KEM:
+        return openssl_specific_pqc_kem(tokdata, sess, oid, mech,
+                                        base_key_object, base_key_class,
+                                        base_key_type, derived_key_object,
+                                        derived_key_type, derived_keylen);
+    case CKM_IBM_ML_KEM_WITH_ECDH:
+        return openssl_specific_pqc_kem_with_ecdh(tokdata, sess, oid, mech,
+                                                  base_key_object,
+                                                  base_key_class,
+                                                  base_key_type,
+                                                  derived_key_object,
+                                                  derived_key_type,
+                                                  derived_keylen);
+    default:
+        return CKR_MECHANISM_INVALID;
+    }
 }
 
 #endif

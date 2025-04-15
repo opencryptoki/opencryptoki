@@ -1920,6 +1920,12 @@ CK_RV ec_hash_verify_final(STDLL_TokData_t *tokdata,
                            SIGN_VERIFY_CONTEXT *ctx,
                            CK_BYTE *signature, CK_ULONG sig_len);
 
+CK_RV ckm_ecdh_pkcs_derive(STDLL_TokData_t *tokdata, SESSION *sess,
+                           CK_VOID_PTR other_pubkey, CK_ULONG other_pubkey_len,
+                           OBJECT* base_key_obj,
+                           CK_BYTE *secret_value, CK_ULONG *secret_value_len,
+                           CK_MECHANISM_PTR mech, CK_BBOOL count_statistic);
+
 CK_RV ckm_kdf_X9_63(STDLL_TokData_t *tokdata, SESSION *sess, CK_ULONG kdf,
                     CK_ULONG kdf_digest_len, const CK_BYTE *z, CK_ULONG z_len,
                     const CK_BYTE *shared_data, CK_ULONG shared_data_len,
