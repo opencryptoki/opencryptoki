@@ -7356,7 +7356,8 @@ struct EP11_KYBER_MECH {
 static CK_RV ep11tok_kyber_mech_pre_process(STDLL_TokData_t *tokdata,
                                             CK_MECHANISM *mech,
                                             struct EP11_KYBER_MECH *mech_ep11,
-                                            OBJECT **secret_key_obj)
+                                            OBJECT **secret_key_obj,
+                                            CK_BBOOL use_reenc_blob)
 {
     CK_IBM_KYBER_PARAMS *kyber_params;
     CK_RV rc;
@@ -7412,11 +7413,22 @@ static CK_RV ep11tok_kyber_mech_pre_process(STDLL_TokData_t *tokdata,
                              &mech_ep11->params.pBlob,
                              &mech_ep11->params.ulBlobLen,
                              secret_key_obj, READ_LOCK);
-         if (rc != CKR_OK) {
-             TRACE_ERROR("%s failed hSecret=0x%lx\n", __func__,
+        if (rc != CKR_OK) {
+            TRACE_ERROR("h_opaque_2_blob failed hSecret=0x%lx\n",
                         kyber_params->hSecret);
-             return rc;
-         }
+            return rc;
+        }
+
+        if (use_reenc_blob) {
+            rc = obj_opaque_2_reenc_blob(tokdata, *secret_key_obj,
+                                         &mech_ep11->params.pBlob,
+                                         &mech_ep11->params.ulBlobLen);
+            if (rc != CKR_OK && rc != CKR_TEMPLATE_INCOMPLETE) {
+                TRACE_ERROR("obj_opaque_2_reenc_blob failed hSecret=0x%lx\n",
+                            kyber_params->hSecret);
+                return rc;
+            }
+        }
     }
 
     return CKR_OK;
@@ -7859,6 +7871,7 @@ CK_RV ep11tok_derive_key(STDLL_TokData_t *tokdata, SESSION *session,
     CK_KEY_TYPE keytype;
     CK_BYTE *useblob;
     size_t useblobsize;
+    int retry_mech_param_blob = 0;
 
     memset(newblob, 0, sizeof(newblob));
     memset(newblobreenc, 0, sizeof(newblobreenc));
@@ -8154,7 +8167,8 @@ CK_RV ep11tok_derive_key(STDLL_TokData_t *tokdata, SESSION *session,
         goto error;
     }
 
-    switch (mech->mechanism) {
+do_retry:
+    switch (mech_orig->mechanism) {
     case CKM_IBM_BTC_DERIVE:
         rc = ep11tok_btc_mech_pre_process(tokdata, key_obj, &new_attrs2,
                                           &new_attrs2_len);
@@ -8163,8 +8177,9 @@ CK_RV ep11tok_derive_key(STDLL_TokData_t *tokdata, SESSION *session,
         break;
 
     case CKM_IBM_KYBER:
-        rc = ep11tok_kyber_mech_pre_process(tokdata, mech, &mech_ep11,
-                                            &kyber_secret_obj);
+        rc = ep11tok_kyber_mech_pre_process(tokdata, mech_orig, &mech_ep11,
+                                            &kyber_secret_obj,
+                                            retry_mech_param_blob != 0);
         if (rc != CKR_OK)
             goto error;
         mech = &mech_ep11.mech;
@@ -8197,7 +8212,23 @@ CK_RV ep11tok_derive_key(STDLL_TokData_t *tokdata, SESSION *session,
     RETRY_REENC_CREATE_KEY_END(tokdata, session, target_info,
                                newblob, newblobreenc, newblobsize, rc)
     RETRY_REENC_BLOB_END(tokdata, target_info, useblob, useblobsize, rc)
+        /*
+         * Special handling for mechs where mech param contains a blob:
+         * If blob in mech param causes CKR_IBM_WKID_MISMATCH then retry the
+         * whole operation including preprocessing. This will then cause the
+         * blob in the mech param to be the reenciphered one.
+         */
+        if (rc == CKR_IBM_WKID_MISMATCH && mech == &mech_ep11.mech &&
+            ep11_data->mk_change_active) {
+            TRACE_DEVEL("Blob in mech param and WKID mismatch -> retry\n");
+            retry_mech_param_blob++;
+        } else {
+            retry_mech_param_blob = 0;
+        }
     RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, session)
+
+    if (retry_mech_param_blob == 1) /* Retry only once */
+        goto do_retry;
 
     if (rc != CKR_OK) {
         rc = ep11_error_to_pkcs11_error(rc, session);
@@ -8237,7 +8268,7 @@ CK_RV ep11tok_derive_key(STDLL_TokData_t *tokdata, SESSION *session,
         }
     }
 
-    switch (mech->mechanism) {
+    switch (mech_orig->mechanism) {
     case CKM_IBM_BTC_DERIVE:
         rc = ep11tok_btc_mech_post_process(tokdata, session, mech, class, ktype,
                                            key_obj, newblob, newblobsize,
