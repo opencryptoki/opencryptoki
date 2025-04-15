@@ -75,6 +75,22 @@ const _kemParam kemInput[] = {
     { CKD_IBM_HYBRID_SHA512_KDF, CKK_GENERIC_SECRET, 32, 16,
       { 0x32,0x3F,0xA3,0x16,0x9D,0x8E,0x9C,0x65,0x93,0xF5,0x94,0x76,0xBC,0x14,0x20,0x00 },
       CK_TRUE, CK_TRUE },
+    { CKD_IBM_HYBRID_SHA224_KDF, CKK_AES, 32, 0, {0x00}, CK_TRUE, CK_FALSE },
+    { CKD_IBM_HYBRID_SHA224_KDF, CKK_AES, 32, 16,
+      { 0x32,0x3F,0xA3,0x16,0x9D,0x8E,0x9C,0x65,0x93,0xF5,0x94,0x76,0xBC,0x14,0x20,0x00 },
+      CK_TRUE, CK_TRUE },
+    { CKD_IBM_HYBRID_SHA256_KDF, CKK_AES, 32, 0, {0x00}, CK_TRUE, CK_FALSE },
+    { CKD_IBM_HYBRID_SHA256_KDF, CKK_AES, 32, 16,
+      { 0x32,0x3F,0xA3,0x16,0x9D,0x8E,0x9C,0x65,0x93,0xF5,0x94,0x76,0xBC,0x14,0x20,0x00 },
+      CK_TRUE, CK_TRUE },
+    { CKD_IBM_HYBRID_SHA384_KDF, CKK_AES, 32, 0, {0x00}, CK_TRUE, CK_FALSE },
+    { CKD_IBM_HYBRID_SHA384_KDF, CKK_AES, 32, 16,
+      { 0x32,0x3F,0xA3,0x16,0x9D,0x8E,0x9C,0x65,0x93,0xF5,0x94,0x76,0xBC,0x14,0x20,0x00 },
+      CK_TRUE, CK_TRUE },
+    { CKD_IBM_HYBRID_SHA512_KDF, CKK_AES, 32, 0, {0x00}, CK_TRUE, CK_FALSE },
+    { CKD_IBM_HYBRID_SHA512_KDF, CKK_AES, 32, 16,
+      { 0x32,0x3F,0xA3,0x16,0x9D,0x8E,0x9C,0x65,0x93,0xF5,0x94,0x76,0xBC,0x14,0x20,0x00 },
+      CK_TRUE, CK_TRUE },
 };
 
 static const char *p11_get_ckd(CK_EC_KDF_TYPE kdf)
@@ -473,6 +489,199 @@ testcase_cleanup:
     return rc;
 }
 
+CK_RV run_EnDecapsulateMLKEMwithECDH(CK_SESSION_HANDLE session,
+                                    CK_OBJECT_HANDLE priv_key,
+                                    CK_OBJECT_HANDLE publ_key,
+                                    CK_KEY_TYPE key_type,
+                                    CK_ULONG secret_key_len,
+                                    CK_IBM_ML_KEM_KDF_TYPE kdf,
+                                    const CK_BYTE *pSharedData,
+                                    CK_ULONG ulSharedDataLen)
+{
+    CK_MECHANISM mech;
+    CK_IBM_ML_KEM_WITH_ECDH_PARAMS ml_kem_params;
+    CK_BYTE *cipher = NULL;
+    CK_ULONG cipher_len = 0;
+    CK_OBJECT_HANDLE secret_key1 = CK_INVALID_HANDLE;
+    CK_OBJECT_HANDLE secret_key2 = CK_INVALID_HANDLE;
+    CK_OBJECT_HANDLE ec_priv_key = CK_INVALID_HANDLE;
+    CK_OBJECT_HANDLE ec_pub_key = CK_INVALID_HANDLE;
+    CK_RV rc;
+
+    CK_OBJECT_CLASS class = CKO_SECRET_KEY;
+    CK_BBOOL true = CK_TRUE;
+    CK_BBOOL false = CK_FALSE;
+    CK_ATTRIBUTE  derive_tmpl[] = {
+        {CKA_CLASS, &class, sizeof(class)},
+        {CKA_KEY_TYPE, &key_type, sizeof(key_type)},
+        {CKA_SENSITIVE, &false, sizeof(false)},
+        {CKA_VALUE_LEN, &secret_key_len, sizeof(secret_key_len)},
+        {CKA_SIGN, &true, sizeof(true)},
+        {CKA_VERIFY, &true, sizeof(true)},
+    };
+    CK_ULONG secret_tmpl_len = sizeof(derive_tmpl) / sizeof(CK_ATTRIBUTE);
+    CK_BYTE pubkey_value[256];
+    CK_ATTRIBUTE  extr_tmpl[] = {
+        {CKA_EC_POINT, pubkey_value, sizeof(pubkey_value)},
+    };
+    CK_ULONG extr_tmpl_len = sizeof(extr_tmpl)/sizeof(CK_ATTRIBUTE);
+
+    mech.mechanism = CKM_IBM_ML_KEM_WITH_ECDH;
+    mech.ulParameterLen = sizeof(ml_kem_params);
+    mech.pParameter = &ml_kem_params;
+
+    /* Query the slot, check if this mech if supported */
+    if (!mech_supported(SLOT_ID, mech.mechanism)) {
+        testcase_notice("Slot %u doesn't support %s",
+                        (unsigned int) SLOT_ID,
+                        p11_get_ckm(&mechtable_funcs, mech.mechanism));
+        rc = CKR_MECHANISM_INVALID;
+        goto testcase_cleanup;
+    }
+    if (!mech_supported(SLOT_ID, CKM_EC_KEY_PAIR_GEN)) {
+        testcase_notice("Slot %u doesn't support CKM_EC_KEY_PAIR_GEN\n",
+                        (unsigned int) SLOT_ID);
+        rc = CKR_MECHANISM_INVALID;
+        goto testcase_cleanup;
+    }
+
+    if (is_cca_token(SLOT_ID)) {
+        if (key_type != CKK_AES) {
+            testcase_notice("CCA token in slot %u does only support to derive"
+                            " AES keys\n", (unsigned int) SLOT_ID);
+            rc = CKR_MECHANISM_INVALID;
+            goto testcase_cleanup;
+        }
+
+        switch (kdf) {
+        case CKD_IBM_HYBRID_SHA224_KDF:
+        case CKD_IBM_HYBRID_SHA256_KDF:
+        case CKD_IBM_HYBRID_SHA384_KDF:
+        case CKD_IBM_HYBRID_SHA512_KDF:
+            break;
+        default:
+            testcase_skip("CCA token in slot %u doesn't support this kdf\n",
+                          (unsigned int) SLOT_ID);
+            rc = CKR_MECHANISM_INVALID;
+            goto testcase_cleanup;
+        }
+    }
+
+    rc = generate_EC_KeyPair(session, (CK_BYTE *)prime256v1, sizeof(prime256v1),
+                             &ec_pub_key, &ec_priv_key, CK_FALSE);
+    if (rc != CKR_OK) {
+        testcase_notice("generate_EC_KeyPair rc=%s", p11_get_ckr(rc));
+        goto testcase_cleanup;
+    }
+
+    rc = funcs->C_GetAttributeValue(session, ec_pub_key, extr_tmpl, extr_tmpl_len);
+    if (rc != CKR_OK) {
+        testcase_notice("C_GetAttributeValue: rc = %s", p11_get_ckr(rc));
+        goto testcase_cleanup;
+    }
+
+    /* Perform encapsulation with public key */
+    memset(&ml_kem_params, 0, sizeof(ml_kem_params));
+    ml_kem_params.mode = CK_IBM_ML_KEM_ENCAPSULATE;
+    ml_kem_params.kdf = kdf;
+    ml_kem_params.pSharedData = (CK_BYTE *)pSharedData;
+    ml_kem_params.ulSharedDataLen = ulSharedDataLen;
+    ml_kem_params.hECPrivateKey = ec_priv_key;
+    ml_kem_params.pPublicData = extr_tmpl[0].pValue;
+    ml_kem_params.ulPublicDataLen = extr_tmpl[0].ulValueLen;
+
+    /* Size query */
+    rc = funcs->C_DeriveKey(session, &mech, publ_key, derive_tmpl,
+                            secret_tmpl_len, &secret_key1);
+    if (rc != CKR_BUFFER_TOO_SMALL) {
+        testcase_error("C_DeriveKey (size query) rc=%s (expected CKR_BUFFER_TOO_SMALL)",
+                       p11_get_ckr(rc));
+        goto testcase_cleanup;
+    }
+
+    cipher_len = ml_kem_params.ulCipherLen;
+    cipher = calloc(cipher_len, sizeof(CK_BYTE));
+    if (cipher == NULL) {
+        testcase_error("Can't allocate memory for %lu bytes",
+                       sizeof(CK_BYTE) * cipher_len);
+        rc = CKR_HOST_MEMORY;
+        goto testcase_cleanup;
+    }
+
+    ml_kem_params.ulCipherLen = cipher_len;
+    ml_kem_params.pCipher = cipher;
+
+    /* Encapsulation */
+    rc = funcs->C_DeriveKey(session, &mech, publ_key, derive_tmpl,
+                            secret_tmpl_len, &secret_key1);
+    if (rc != CKR_OK) {
+        testcase_error("C_DeriveKey (encapsulation) rc=%s", p11_get_ckr(rc));
+        goto testcase_cleanup;
+    }
+    cipher_len = ml_kem_params.ulCipherLen;
+
+    /* Perform Decapsulation with private key */
+    memset(&ml_kem_params, 0, sizeof(ml_kem_params));
+    ml_kem_params.mode = CK_IBM_ML_KEM_DECAPSULATE;
+    ml_kem_params.kdf = kdf;
+    ml_kem_params.pSharedData = (CK_BYTE *)pSharedData;
+    ml_kem_params.ulSharedDataLen = ulSharedDataLen;
+    ml_kem_params.hECPrivateKey = ec_priv_key;
+    ml_kem_params.pPublicData = extr_tmpl[0].pValue;
+    ml_kem_params.ulPublicDataLen = extr_tmpl[0].ulValueLen;
+    ml_kem_params.ulCipherLen = cipher_len;
+    ml_kem_params.pCipher = cipher;
+
+    rc = funcs->C_DeriveKey(session, &mech, priv_key, derive_tmpl,
+                            secret_tmpl_len, &secret_key2);
+    if (rc != CKR_OK) {
+        testcase_error("C_DeriveKey (decapsulation) rc=%s", p11_get_ckr(rc));
+        goto testcase_cleanup;
+    }
+
+    if (secret_key1 != CK_INVALID_HANDLE) {
+        switch (key_type) {
+        case CKK_AES:
+            rc = run_AESCrypt(session, secret_key1, secret_key2);
+            if (rc != CKR_OK) {
+                testcase_fail("Derived keys are not usable or not the same: %s",
+                              p11_get_ckr(rc));
+                goto testcase_cleanup;
+            }
+            break;
+        case CKK_GENERIC_SECRET:
+            rc = run_HMACSign(session, secret_key1, secret_key2, secret_key_len);
+            if (rc != CKR_OK) {
+                testcase_fail("Derived keys are not usable or not the same: %s",
+                              p11_get_ckr(rc));
+                goto testcase_cleanup;
+            }
+            break;
+        default:
+            testcase_fail("Derived key type can not be tested");
+            rc = CKR_FUNCTION_FAILED;
+            goto testcase_cleanup;
+        }
+    }
+
+    rc = CKR_OK;
+
+testcase_cleanup:
+    if (cipher != NULL)
+        free(cipher);
+    if (secret_key1 != CK_INVALID_HANDLE)
+        funcs->C_DestroyObject(session, secret_key1);
+    if (secret_key2 != CK_INVALID_HANDLE)
+        funcs->C_DestroyObject(session, secret_key2);
+    if (ec_priv_key != CK_INVALID_HANDLE)
+        funcs->C_DestroyObject(session, ec_priv_key);
+    if (ec_pub_key != CK_INVALID_HANDLE)
+        funcs->C_DestroyObject(session, ec_pub_key);
+
+    return rc;
+}
+
+
 CK_RV run_GenerateMLKEMKeyPairKEM(void)
 {
     CK_MECHANISM mech;
@@ -573,6 +782,38 @@ CK_RV run_GenerateMLKEMKeyPairKEM(void)
                               kemInput[j].shard_data_len,
                               j);
             }
+
+            if (!kemInput[j].hybrid)
+                continue;
+
+            rc = run_EnDecapsulateMLKEMwithECDH(session, priv_key, publ_key,
+                                                kemInput[j].secret_key_type,
+                                                kemInput[j].secret_key_len,
+                                                kemInput[j].kdf,
+                                                kemInput[j].shared_data,
+                                                kemInput[j].shard_data_len);
+            if (rc == CKR_MECHANISM_INVALID) {
+                testcase_skip("run_EnDecapsulateMLKEMwithECDH with %s, %s, Shared data len %lu (index %lu).",
+                                               variants[i].name,
+                                               p11_get_ckd(kemInput[j].kdf),
+                                               kemInput[j].shard_data_len,
+                                               j);
+            } else if (rc != 0) {
+                testcase_new_assertion();
+                testcase_fail("run_EnDecapsulateMLKEMwithECDH with %s, %s, Shared data len %lu (index %lu) failed.",
+                               variants[i].name,
+                               p11_get_ckd(kemInput[j].kdf),
+                               kemInput[j].shard_data_len,
+                               j);
+                goto next;
+            } else {
+                testcase_new_assertion();
+                testcase_pass("*Combined Encapsulate & Decapsulate (KEM) with ECDH with %s, %s, Shared data len %lu (index %lu) passed.",
+                              variants[i].name,
+                              p11_get_ckd(kemInput[j].kdf),
+                              kemInput[j].shard_data_len,
+                              j);
+            }
         }
 
 next:
@@ -611,9 +852,10 @@ CK_RV run_ImportMLKEMKeyPairSignVerify(void)
     testcase_user_login();
 
     /* query the slot, check if this mech is supported */
-    if (!mech_supported(SLOT_ID, CKM_IBM_ML_KEM)) {
-        testcase_skip("Slot %u doesn't support CKM_IBM_ML_KEM",
-                      (unsigned int) SLOT_ID);
+    if (!mech_supported(SLOT_ID, CKM_IBM_ML_KEM) &&
+        !mech_supported(SLOT_ID, CKM_IBM_ML_KEM_WITH_ECDH)) {
+        testcase_skip("Slot %u doesn't support CKM_IBM_ML_KEM nor "
+                      "CKM_IBM_ML_KEM_WITH_ECDH", (unsigned int) SLOT_ID);
         rc = CKR_OK;
         goto testcase_cleanup;
     }
@@ -689,6 +931,20 @@ CK_RV run_ImportMLKEMKeyPairSignVerify(void)
         } else {
             testcase_new_assertion();
             testcase_pass("*Encapsulate & Decapsulate (KEM), i=%lu passed.", i);
+        }
+
+        rc = run_EnDecapsulateMLKEMwithECDH(session, priv_key, publ_key,
+                                            CKK_AES, 32,
+                                            CKD_IBM_HYBRID_SHA256_KDF, NULL, 0);
+        if (rc == CKR_MECHANISM_INVALID) {
+            testcase_skip("run_EnDecapsulateMLKEMwithECDH index=%lu.", i);
+        } else if (rc != 0) {
+            testcase_new_assertion();
+            testcase_fail("run_EnDecapsulateMLKEMwithECDH failed index=%lu.", i);
+            goto testcase_cleanup;
+        } else {
+            testcase_new_assertion();
+            testcase_pass("*Combined Encapsulate & Decapsulate (KEM), i=%lu passed.", i);
         }
 
         /* Clean up */
@@ -826,9 +1082,10 @@ CK_RV run_TransferMLKEMKeyPairSignVerify(void)
     testcase_user_login();
 
     /* query the slot, check if this mech is supported */
-    if (!mech_supported(SLOT_ID, CKM_IBM_ML_KEM)) {
-        testcase_skip("Slot %u doesn't support CKM_IBM_ML_KEM",
-                      (unsigned int) SLOT_ID);
+    if (!mech_supported(SLOT_ID, CKM_IBM_ML_KEM) &&
+        !mech_supported(SLOT_ID, CKM_IBM_ML_KEM_WITH_ECDH)) {
+        testcase_skip("Slot %u doesn't support CKM_IBM_ML_KEM nor "
+                      "CKM_IBM_ML_KEM_WITH_ECDH", (unsigned int) SLOT_ID);
         rc = CKR_OK;
         goto testcase_cleanup;
     }
@@ -961,6 +1218,20 @@ CK_RV run_TransferMLKEMKeyPairSignVerify(void)
         } else {
             testcase_new_assertion();
             testcase_pass("*Encapsulate & Decapsulate (KEM), i=%lu passed.", i);
+        }
+
+        rc = run_EnDecapsulateMLKEMwithECDH(session, priv_key, publ_key,
+                                            CKK_AES, 32,
+                                            CKD_IBM_HYBRID_SHA256_KDF, NULL, 0);
+        if (rc == CKR_MECHANISM_INVALID) {
+            testcase_skip("run_EnDecapsulateMLKEMwithECDH index=%lu.", i);
+        } else if (rc != 0) {
+            testcase_new_assertion();
+            testcase_fail("run_EnDecapsulateMLKEMwithECDH failed index=%lu.", i);
+            goto testcase_cleanup;
+        } else {
+            testcase_new_assertion();
+            testcase_pass("*Combined Encapsulate & Decapsulate (KEM), i=%lu passed.", i);
         }
 
         /* Clean up */

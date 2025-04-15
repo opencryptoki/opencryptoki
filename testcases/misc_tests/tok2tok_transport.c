@@ -550,21 +550,39 @@ struct wrapped_mech_info wrapped_key_tests[] = {
         .pqc_keyform = CKP_IBM_ML_DSA_87,
     },
     {
-        .name = "key type IBM ML-KEM 512",
+        .name = "key type IBM ML-KEM 512 (using CKM_IBM_ML_KEM)",
         .wrapped_key_gen_mech = { CKM_IBM_ML_KEM_KEY_PAIR_GEN, 0, 0 },
         .operation_mech = { CKM_IBM_ML_KEM, 0, 0 },
         .pqc_keyform = CKP_IBM_ML_KEM_512,
     },
     {
-        .name = "key type IBM ML-KEM 768",
+        .name = "key type IBM ML-KEM 768 (using CKM_IBM_ML_KEM)",
         .wrapped_key_gen_mech = { CKM_IBM_ML_KEM_KEY_PAIR_GEN, 0, 0 },
         .operation_mech = { CKM_IBM_ML_KEM, 0, 0 },
         .pqc_keyform = CKP_IBM_ML_KEM_768,
     },
     {
-        .name = "key type IBM ML-KEM 1024",
+        .name = "key type IBM ML-KEM 1024 (using CKM_IBM_ML_KEM)",
         .wrapped_key_gen_mech = { CKM_IBM_ML_KEM_KEY_PAIR_GEN, 0, 0 },
         .operation_mech = { CKM_IBM_ML_KEM, 0, 0 },
+        .pqc_keyform = CKP_IBM_ML_KEM_1024,
+    },
+    {
+        .name = "key type IBM ML-KEM 512 (using CKM_IBM_ML_KEM_WITH_ECDH)",
+        .wrapped_key_gen_mech = { CKM_IBM_ML_KEM_KEY_PAIR_GEN, 0, 0 },
+        .operation_mech = { CKM_IBM_ML_KEM_WITH_ECDH, 0, 0 },
+        .pqc_keyform = CKP_IBM_ML_KEM_512,
+    },
+    {
+        .name = "key type IBM ML-KEM 768 (using CKM_IBM_ML_KEM_WITH_ECDH)",
+        .wrapped_key_gen_mech = { CKM_IBM_ML_KEM_KEY_PAIR_GEN, 0, 0 },
+        .operation_mech = { CKM_IBM_ML_KEM_WITH_ECDH, 0, 0 },
+        .pqc_keyform = CKP_IBM_ML_KEM_768,
+    },
+    {
+        .name = "key type IBM ML-KEM 1024 (using CKM_IBM_ML_KEM_WITH_ECDH)",
+        .wrapped_key_gen_mech = { CKM_IBM_ML_KEM_KEY_PAIR_GEN, 0, 0 },
+        .operation_mech = { CKM_IBM_ML_KEM_WITH_ECDH, 0, 0 },
         .pqc_keyform = CKP_IBM_ML_KEM_1024,
     },
 };
@@ -604,6 +622,7 @@ CK_RV do_perform_operation(CK_MECHANISM *mech,
     CK_BYTE output_data[8192];
     CK_OBJECT_HANDLE encr_key, decr_key, sign_key, verify_key;
     CK_IBM_ML_KEM_PARAMS ml_kem_params;
+    CK_IBM_ML_KEM_WITH_ECDH_PARAMS ml_kem_ecdh_params;
     CK_OBJECT_CLASS class = CKO_SECRET_KEY;
     CK_KEY_TYPE key_type = CKK_AES;
     CK_BBOOL true = CK_TRUE;
@@ -622,6 +641,20 @@ CK_RV do_perform_operation(CK_MECHANISM *mech,
     CK_OBJECT_HANDLE key2 = CK_INVALID_HANDLE;
     CK_MECHANISM kem_mech;
     CK_MECHANISM aes_ebc_mech = { CKM_AES_ECB, NULL, 0 };
+    CK_OBJECT_HANDLE ec_publ_key1 = CK_INVALID_HANDLE;
+    CK_OBJECT_HANDLE ec_priv_key1 = CK_INVALID_HANDLE;
+    CK_OBJECT_HANDLE ec_publ_key2 = CK_INVALID_HANDLE;
+    CK_OBJECT_HANDLE ec_priv_key2 = CK_INVALID_HANDLE;
+    CK_BYTE pubkey1_value[256];
+    CK_BYTE pubkey2_value[256];
+    CK_ATTRIBUTE  extr_tmpl1[] = {
+        {CKA_EC_POINT, pubkey1_value, sizeof(pubkey1_value)},
+    };
+    CK_ULONG extr_tmpl1_len = sizeof(extr_tmpl1)/sizeof(CK_ATTRIBUTE);
+    CK_ATTRIBUTE  extr_tmpl2[] = {
+        {CKA_EC_POINT, pubkey2_value, sizeof(pubkey2_value)},
+    };
+    CK_ULONG extr_tmpl2_len = sizeof(extr_tmpl2)/sizeof(CK_ATTRIBUTE);
 
     /* Check if Encrypt/Decrypt or Sign/Verify is supported */
     rc = funcs->C_GetMechanismInfo(slot1, mech->mechanism, &mech_info);
@@ -827,6 +860,115 @@ CK_RV do_perform_operation(CK_MECHANISM *mech,
             if (rc != CKR_OK)
                 return rc;
             break;
+        case CKM_IBM_ML_KEM_WITH_ECDH:
+            /* Generate EC key pairs on both slots */
+            rc = generate_EC_KeyPair(sess1, prime256v1, sizeof(prime256v1),
+                                     &ec_publ_key1, &ec_priv_key1, CK_FALSE);
+            if (rc != CKR_OK) {
+                testcase_error("generate_EC_KeyPair on slot %lu rc=%s",
+                               slot1, p11_get_ckr(rc));
+                return rc;
+            }
+
+            rc = funcs->C_GetAttributeValue(sess1, ec_publ_key1,
+                                            extr_tmpl1, extr_tmpl1_len);
+            if (rc != CKR_OK) {
+                testcase_error("C_GetAttributeValue: on slot %lu rc=%s",
+                               slot1, p11_get_ckr(rc));
+                funcs->C_DestroyObject(sess1, ec_priv_key1);
+                funcs->C_DestroyObject(sess1, ec_publ_key1);
+                return rc;
+            }
+
+            rc = generate_EC_KeyPair(sess2, prime256v1, sizeof(prime256v1),
+                                     &ec_publ_key2, &ec_priv_key2, CK_FALSE);
+            if (rc != CKR_OK) {
+                testcase_error("generate_EC_KeyPair on slot %lu rc=%s",
+                               slot2, p11_get_ckr(rc));
+                funcs->C_DestroyObject(sess1, ec_priv_key1);
+                funcs->C_DestroyObject(sess1, ec_publ_key1);
+                return rc;
+            }
+
+            rc = funcs->C_GetAttributeValue(sess2, ec_publ_key2,
+                                            extr_tmpl2, extr_tmpl2_len);
+            if (rc != CKR_OK) {
+                testcase_error("C_GetAttributeValue: on slot %lu rc=%s",
+                               slot2, p11_get_ckr(rc));
+                funcs->C_DestroyObject(sess1, ec_priv_key1);
+                funcs->C_DestroyObject(sess1, ec_publ_key1);
+                funcs->C_DestroyObject(sess2, ec_priv_key2);
+                funcs->C_DestroyObject(sess2, ec_publ_key2);
+                return rc;
+            }
+
+            kem_mech.mechanism = mech->mechanism;
+            kem_mech.pParameter = &ml_kem_ecdh_params;
+            kem_mech.ulParameterLen = sizeof(ml_kem_ecdh_params);
+
+            /* Perform encapsulation with public key */
+            memset(&ml_kem_ecdh_params, 0, sizeof(ml_kem_ecdh_params));
+            ml_kem_ecdh_params.mode = CK_IBM_ML_KEM_ENCAPSULATE;
+            ml_kem_ecdh_params.ulCipherLen = sizeof(output_data);
+            ml_kem_ecdh_params.pCipher = output_data;
+            ml_kem_ecdh_params.kdf = CKD_IBM_HYBRID_SHA256_KDF;
+            ml_kem_ecdh_params.pSharedData = NULL;
+            ml_kem_ecdh_params.ulSharedDataLen = 0;
+            ml_kem_ecdh_params.hECPrivateKey = ec_priv_key1;
+            ml_kem_ecdh_params.pPublicData = extr_tmpl2[0].pValue;
+            ml_kem_ecdh_params.ulPublicDataLen = extr_tmpl2[0].ulValueLen;
+
+            /* Encapsulation */
+            rc = funcs->C_DeriveKey(sess1, &kem_mech, publ_key1, derive_tmpl,
+                                    derive_tmpl_len, &key1);
+            if (rc != CKR_OK) {
+                testcase_error("C_DeriveKey (encapsulation) on slot %lu rc=%s",
+                               slot1, p11_get_ckr(rc));
+                funcs->C_DestroyObject(sess1, ec_priv_key1);
+                funcs->C_DestroyObject(sess1, ec_publ_key1);
+                funcs->C_DestroyObject(sess2, ec_priv_key2);
+                funcs->C_DestroyObject(sess2, ec_publ_key2);
+                return rc;
+            }
+            output_size = ml_kem_ecdh_params.ulCipherLen;
+
+            /* Perform Decapsulation with private key */
+            memset(&ml_kem_ecdh_params, 0, sizeof(ml_kem_ecdh_params));
+            ml_kem_ecdh_params.mode = CK_IBM_ML_KEM_DECAPSULATE;
+            ml_kem_ecdh_params.ulCipherLen = output_size;
+            ml_kem_ecdh_params.pCipher = output_data;
+            ml_kem_ecdh_params.kdf = CKD_IBM_HYBRID_SHA256_KDF;
+            ml_kem_ecdh_params.pSharedData = NULL;
+            ml_kem_ecdh_params.ulSharedDataLen = 0;
+            ml_kem_ecdh_params.hECPrivateKey = ec_priv_key2;
+            ml_kem_ecdh_params.pPublicData = extr_tmpl1[0].pValue;
+            ml_kem_ecdh_params.ulPublicDataLen = extr_tmpl1[0].ulValueLen;
+
+            rc = funcs->C_DeriveKey(sess2, &kem_mech, priv_key2, derive_tmpl,
+                                    derive_tmpl_len, &key2);
+            if (rc != CKR_OK) {
+                testcase_error("C_DeriveKey (decapsulation) on slot %lu rc=%s",
+                               slot1, p11_get_ckr(rc));
+                funcs->C_DestroyObject(sess1, key1);
+                funcs->C_DestroyObject(sess1, ec_priv_key1);
+                funcs->C_DestroyObject(sess1, ec_publ_key1);
+                funcs->C_DestroyObject(sess2, ec_priv_key2);
+                funcs->C_DestroyObject(sess2, ec_publ_key2);
+                return rc;
+            }
+
+            rc = do_perform_operation(&aes_ebc_mech,
+                                      slot1, sess1, key1, CK_INVALID_HANDLE,
+                                      slot2, sess2, key2, CK_INVALID_HANDLE);
+            funcs->C_DestroyObject(sess2, key2);
+            funcs->C_DestroyObject(sess1, ec_priv_key1);
+            funcs->C_DestroyObject(sess1, ec_publ_key1);
+            funcs->C_DestroyObject(sess2, ec_priv_key2);
+            funcs->C_DestroyObject(sess2, ec_publ_key2);
+            if (rc != CKR_OK)
+                return rc;
+            break;
+
         default:
             testcase_error("Operation not supported by testcase");
             return CKR_FUNCTION_NOT_SUPPORTED;
@@ -1232,7 +1374,8 @@ do_wrap:
         break;
     }
 
-    if (tsuite->operation_mech.mechanism == CKM_IBM_ML_KEM) {
+    if (tsuite->operation_mech.mechanism == CKM_IBM_ML_KEM ||
+        tsuite->operation_mech.mechanism == CKM_IBM_ML_KEM_WITH_ECDH) {
         /* KEM needs CKA_DERIVE=TRUE in unwrap template */
         unwrap_tmpl[unwrap_tmpl_num].type = CKA_DERIVE;
         unwrap_tmpl[unwrap_tmpl_num].pValue = &ck_true;
