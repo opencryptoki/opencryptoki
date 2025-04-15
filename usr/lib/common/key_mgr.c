@@ -1883,6 +1883,7 @@ CK_RV key_mgr_derive_key(STDLL_TokData_t *tokdata,
         break;
     case CKM_IBM_KYBER:
     case CKM_IBM_ML_KEM:
+    case CKM_IBM_ML_KEM_WITH_ECDH:
         if (!derived_key) {
             TRACE_ERROR("%s received bad argument(s)\n", __func__);
             rc = CKR_FUNCTION_FAILED;

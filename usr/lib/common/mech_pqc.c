@@ -741,6 +741,7 @@ CK_RV pqc_pack_priv_key(TEMPLATE *templ, const struct pqc_oid *oid,
         return ibm_ml_dsa_pack_priv_key(templ, oid, mech, priv, priv_len);
     case CKM_IBM_ML_KEM:
     case CKM_IBM_ML_KEM_KEY_PAIR_GEN:
+    case CKM_IBM_ML_KEM_WITH_ECDH:
         return ibm_ml_kem_pack_priv_key(templ, oid, mech, priv, priv_len);
     default:
         return CKR_MECHANISM_INVALID;
@@ -758,6 +759,7 @@ CK_RV pqc_pack_pub_key(TEMPLATE *templ, const struct pqc_oid *oid,
         return ibm_ml_dsa_pack_pub_key(templ, oid, mech, pub, pub_len);
     case CKM_IBM_ML_KEM:
     case CKM_IBM_ML_KEM_KEY_PAIR_GEN:
+    case CKM_IBM_ML_KEM_WITH_ECDH:
         return ibm_ml_kem_pack_pub_key(templ, oid, mech, pub, pub_len);
     default:
         return CKR_MECHANISM_INVALID;
@@ -775,6 +777,7 @@ CK_RV pqc_unpack_priv_key(CK_BYTE *priv, CK_ULONG priv_len,
         return ibm_ml_dsa_unpack_priv_key(priv, priv_len, oid, mech, templ);
     case CKM_IBM_ML_KEM:
     case CKM_IBM_ML_KEM_KEY_PAIR_GEN:
+    case CKM_IBM_ML_KEM_WITH_ECDH:
         return ibm_ml_kem_unpack_priv_key(priv, priv_len, oid, mech, templ);
     default:
         return CKR_MECHANISM_INVALID;
@@ -792,6 +795,7 @@ CK_RV pqc_unpack_pub_key(CK_BYTE *pub, CK_ULONG pub_len,
         return ibm_ml_dsa_unpack_pub_key(pub, pub_len, oid, mech, templ);
     case CKM_IBM_ML_KEM:
     case CKM_IBM_ML_KEM_KEY_PAIR_GEN:
+    case CKM_IBM_ML_KEM_WITH_ECDH:
         return ibm_ml_kem_unpack_pub_key(pub, pub_len, oid, mech, templ);
     default:
         return CKR_MECHANISM_INVALID;

@@ -2875,6 +2875,7 @@ static CK_RV pqc_keyform_mode_attrs_by_mech(CK_MECHANISM_TYPE mech,
         break;
     case CKM_IBM_ML_KEM:
     case CKM_IBM_ML_KEM_KEY_PAIR_GEN:
+    case CKM_IBM_ML_KEM_WITH_ECDH:
         *keyform_attr = CKA_IBM_PARAMETER_SET;
         *mode_attr = (CK_ATTRIBUTE_TYPE)-1;
         *oids = ml_kem_oids;
