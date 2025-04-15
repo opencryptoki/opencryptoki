@@ -740,6 +740,18 @@ typedef struct CK_IBM_ML_KEM_PARAMS {
     CK_OBJECT_HANDLE        hSecret;
 } CK_IBM_ML_KEM_PARAMS;
 
+typedef struct CK_IBM_ML_KEM_WITH_ECDH_PARAMS {
+    CK_IBM_ML_KEM_MODE      mode;
+    CK_BYTE                 *pCipher;
+    CK_ULONG                ulCipherLen;
+    CK_OBJECT_HANDLE        hECPrivateKey;
+    CK_IBM_ML_KEM_KDF_TYPE  kdf;
+    CK_ULONG                ulSharedDataLen;
+    CK_BYTE_PTR             pSharedData;
+    CK_ULONG                ulPublicDataLen;
+    CK_BYTE_PTR             pPublicData;
+} CK_IBM_ML_KEM_WITH_ECDH_PARAMS;
+
 /* For NSS 3.30: */
 #define NSSCK_VENDOR_NSS          0x4E534350
 #define CKA_NSS                   (CKA_VENDOR_DEFINED | NSSCK_VENDOR_NSS)
@@ -1151,6 +1163,7 @@ typedef CK_ULONG CK_MECHANISM_TYPE;
 #define CKM_IBM_ATTRIBUTEBOUND_WRAP    CKM_VENDOR_DEFINED + 0x00020004
 #define CKM_IBM_BTC_DERIVE             CKM_VENDOR_DEFINED + 0x00070001
 #endif
+#define CKM_IBM_ML_KEM_WITH_ECDH       CKM_VENDOR_DEFINED + 0x0001ff01
 
 #define CKM_IBM_EC_C25519              CKM_IBM_EC_X25519
 #define CKM_IBM_EC_C448                CKM_IBM_EC_X448
