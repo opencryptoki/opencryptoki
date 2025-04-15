@@ -101,6 +101,7 @@ const struct mechrow mechtable_rows[] =
      { "CKM_IBM_ML_DSA_KEY_PAIR_GEN", CKM_IBM_ML_DSA_KEY_PAIR_GEN,   0,           MC_KEY_DEPENDENT, MCF_KEYGEN },
      { "CKM_IBM_ML_KEM",              CKM_IBM_ML_KEM,                0,           MC_KEY_DEPENDENT, MCF_DERIVE | MCF_NEEDSPARAM},
      { "CKM_IBM_ML_KEM_KEY_PAIR_GEN", CKM_IBM_ML_KEM_KEY_PAIR_GEN,   0,           MC_KEY_DEPENDENT, MCF_KEYGEN },
+     { "CKM_IBM_ML_KEM_WITH_ECDH",    CKM_IBM_ML_KEM_WITH_ECDH,      0,           MC_KEY_DEPENDENT, MCF_DERIVE | MCF_NEEDSPARAM},
      { "CKM_IBM_SHA3_224",            CKM_IBM_SHA3_224,            144,                         28, MCF_DIGEST },
      { "CKM_IBM_SHA3_224_HMAC",       CKM_IBM_SHA3_224_HMAC,       144,                         28, MCF_SIGNVERIFY },
      { "CKM_IBM_SHA3_256",            CKM_IBM_SHA3_256,            136,                         32, MCF_DIGEST },

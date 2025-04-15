@@ -1118,6 +1118,23 @@ static CK_RV policy_is_mech_allowed(policy_t p, CK_MECHANISM_PTR mech,
                 break;
             }
             break;
+        case CKM_IBM_ML_KEM_WITH_ECDH:
+            if (mech->ulParameterLen != sizeof(CK_IBM_ML_KEM_WITH_ECDH_PARAMS)) {
+                TRACE_ERROR("Invalid mechanism parameter\n");
+                rv = CKR_MECHANISM_PARAM_INVALID;
+                break;
+            }
+            if (mech->pParameter == NULL) {
+                TRACE_ERROR("Invalid mechanism parameter\n");
+                rv = CKR_MECHANISM_PARAM_INVALID;
+                break;
+            }
+            if (policy_is_kdf_allowed(pp,
+                                      ((CK_IBM_ML_KEM_WITH_ECDH_PARAMS *)mech->pParameter)->kdf) != CKR_OK) {
+                rv = CKR_FUNCTION_FAILED;
+                break;
+            }
+            break;
         case CKM_RSA_AES_KEY_WRAP:
             if (mech->ulParameterLen != sizeof(CK_RSA_AES_KEY_WRAP_PARAMS) ||
                 mech->pParameter == NULL) {
@@ -1361,6 +1378,7 @@ static CK_RV policy_update_mech_info(policy_t p, CK_MECHANISM_TYPE mech,
         case CKM_IBM_ML_DSA:
         case CKM_IBM_ML_KEM_KEY_PAIR_GEN:
         case CKM_IBM_ML_KEM:
+        case CKM_IBM_ML_KEM_WITH_ECDH:
             break;
         case CKM_IBM_SHA3_224:
         case CKM_IBM_SHA3_256:
