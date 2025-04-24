@@ -4398,7 +4398,8 @@ static CK_BBOOL cca_get_acp(struct cca_role_data *role_data,
         goto out;
 
     ofs = sizeof(struct cca_role_data);
-    for (i = 0; i < role_data->num_segments && ofs < role_data_size; i++) {
+    for (i = 0; i < be16toh(role_data->num_segments) &&
+                ofs < role_data_size; i++) {
         if (ofs + sizeof(struct cca_acp_segment) > role_data_size)
             goto out;
 
@@ -4406,15 +4407,15 @@ static CK_BBOOL cca_get_acp(struct cca_role_data *role_data,
               (struct cca_acp_segment *)((CK_BYTE*)role_data + ofs);
         ofs += sizeof(struct cca_acp_segment);
 
-        if (acp_num >= acp_segment->start_bit_no &&
-            acp_num <= acp_segment->end_bit_no) {
-            if (ofs + acp_segment->num_bytes > role_data_size)
+        if (acp_num >= be16toh(acp_segment->start_bit_no) &&
+            acp_num <= be16toh(acp_segment->end_bit_no)) {
+            if (ofs + be16toh(acp_segment->num_bytes) > role_data_size)
                 goto out;
 
             bitmap = ((CK_BYTE *)acp_segment) + sizeof(struct cca_acp_segment);
-            bit_no = acp_num - acp_segment->start_bit_no;
+            bit_no = acp_num - be16toh(acp_segment->start_bit_no);
 
-            if (ACP_BYTE_NO(bit_no) > acp_segment->num_bytes)
+            if (ACP_BYTE_NO(bit_no) > be16toh(acp_segment->num_bytes))
                 goto out;
 
             ret = (bitmap[ACP_BYTE_NO(bit_no)] & ACP_BIT_MASK(bit_no)) != 0;
@@ -4422,7 +4423,7 @@ static CK_BBOOL cca_get_acp(struct cca_role_data *role_data,
             goto out;
         }
 
-        ofs += acp_segment->num_bytes;
+        ofs += be16toh(acp_segment->num_bytes);
     }
 
 out:
@@ -4511,11 +4512,15 @@ static CK_RV cca_get_acp_info_handler(STDLL_TokData_t *tokdata,
         role_info = (struct cca_role_data *)role_data;
 
         /* Identify default role */
-        if ((memcmp(role_name, "DFLT", 4) != 0 &&    /* since z13 */
+        if ((memcmp(role_name, "DFLT", 4) != 0 &&    /* since z13 + non-s390x */
+#if defined(__s390__)
              memcmp(role_name, "DEFALT", 6) != 0) || /* before z13 */
-            role_info->lower_time_limit != 0x0000 ||
-            (role_info->upper_time_limit != 0x0000 &&
-             role_info->upper_time_limit != 0x173b) || /* 23:59 */
+#else
+             memcmp(role_name, "DEFAULT", 7) != 0) || /* non-s390x */
+#endif
+            be16toh(role_info->lower_time_limit) != 0x0000 ||
+            (be16toh(role_info->upper_time_limit) != 0x0000 &&
+             be16toh(role_info->upper_time_limit) != 0x173b) || /* 23:59 */
             role_info->days_valid != 0xfe)
             continue;
 
