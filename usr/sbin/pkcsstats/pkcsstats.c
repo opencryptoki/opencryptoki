@@ -111,10 +111,10 @@ static int open_shm(uid_t user_id, const char *user_name,
     }
 
     /*
-     * If the shared memory segment does not belong to the pkcs11 group or does
+     * If the shared memory segment does not belong to the user or does
      * not have correct permissions, do not use it.
      */
-    if (stat_buf.st_uid != user_id || stat_buf.st_gid != user_id ||
+    if (stat_buf.st_uid != user_id ||
         (stat_buf.st_mode & ~S_IFMT) != (S_IRUSR | S_IWUSR)) {
         warnx("Failed to open statistics for user '%s': SHM '%s' has wrong mode/owner",
               user_name, shm_name);
