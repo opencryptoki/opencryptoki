@@ -444,8 +444,8 @@ LIBICA_CFLAGS=
 LIBICA_LIBS=
 if test "x$with_libica" != "xno"; then
 	if test "x$with_libica" != "xyes" -a "x$with_libica" != "xcheck"; then
-		LIBICA_CFLAGS="-I$with_libica"
-		LIBICA_LIBS="-L$with_libica"
+		LIBICA_CFLAGS="-I$with_libica/include"
+		LIBICA_LIBS="-L$with_libica/src/.libs"
 	fi
 	old_cflags="$CFLAGS"
 	old_libs="$LIBS"
