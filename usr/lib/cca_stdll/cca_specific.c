@@ -11604,7 +11604,7 @@ CK_RV token_specific_ecdh_pkcs_derive_kdf(STDLL_TokData_t *tokdata,
 
     /* Check the ECDH params */
     if (params->pPublicData == NULL || params->ulPublicDataLen == 0 ||
-        (params->ulSharedDataLen >0 && params->pSharedData == NULL)) {
+        (params->ulSharedDataLen > 0 && params->pSharedData == NULL)) {
         TRACE_ERROR("Invalid mechanism parameter\n");
         return CKR_MECHANISM_PARAM_INVALID;
     }
@@ -11655,6 +11655,10 @@ CK_RV token_specific_ecdh_pkcs_derive_kdf(STDLL_TokData_t *tokdata,
     }
 
     rc = get_ecsiglen(base_key_obj, &privlen);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("get_ecsiglen failed\n");
+        return rc;
+    }
     privlen /= 2;
 
     if (derived_key_class != CKO_SECRET_KEY || derived_key_type != CKK_AES) {
@@ -11814,6 +11818,7 @@ CK_RV token_specific_ecdh_pkcs_derive_kdf(STDLL_TokData_t *tokdata,
     privkey_token_length = opaque_attr->ulValueLen;
 
     USE_CCA_ADAPTER_START(tokdata, return_code, reason_code)
+    RETRY_NEW_MK_BLOB_START()
         dll_CSNDEDH(&return_code,
                     &reason_code,
                     &exit_data_len,
@@ -11830,6 +11835,8 @@ CK_RV token_specific_ecdh_pkcs_derive_kdf(STDLL_TokData_t *tokdata,
                     &param1, param2, &param1, param2,
                     &param1, param2, &param1, param2,
                     &symkey_token_length, symkey_token);
+    RETRY_NEW_MK_BLOB_END(tokdata, return_code, reason_code,
+                          opaque_attr->pValue, opaque_attr->ulValueLen)
     USE_CCA_ADAPTER_END(tokdata, return_code, reason_code)
 
     if (return_code != CCA_SUCCESS) {
