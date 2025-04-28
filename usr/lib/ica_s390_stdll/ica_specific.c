@@ -28,7 +28,10 @@
 #include "trace.h"
 #include "pkcs_utils.h"
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wstrict-prototypes"
 #include <ica_api.h>
+#pragma GCC diagnostic pop
 
 #ifndef EC_DH
 #define NO_EC
