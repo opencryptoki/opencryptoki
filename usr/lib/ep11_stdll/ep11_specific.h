@@ -19,7 +19,10 @@
 #include "ep11_func.h"
 #include "configuration.h"
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wstrict-prototypes"
 #include <ica_api.h>
+#pragma GCC diagnostic pop
 
 #include <pthread.h>
 
