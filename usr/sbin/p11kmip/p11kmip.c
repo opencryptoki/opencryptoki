@@ -359,17 +359,17 @@ static const struct p11tool_opt p11kmip_import_key_opts[] = {
     {.short_opt = 'w', .long_opt = "wrapkey-label", .required = true,
      .arg = {.type = ARG_TYPE_STRING, .required = true,
              .value.string = &opt_wrap_label, .name = "WRAPKEY-LABEL",},
-     .description = "The label of the public key to be used for wrapping.",},
+     .description = "The label of the key to be used for wrapping.",},
     {.short_opt = 't', .long_opt = "targkey-label", .required = true,
      .arg = {.type = ARG_TYPE_STRING, .required = true,
              .value.string = &opt_target_label, .name = "TARGKEY-LABEL",},
-     .description = "The label of the secret key to be imported from the "
+     .description = "The label of the target key to be imported from the "
                     "KMIP server.",},
     {.short_opt = 0, .long_opt = "targkey-attrs", .required = false,
      .long_opt_val = OPT_TARGKEY_ATTRS,
      .arg = {.type = ARG_TYPE_STRING, .required = true,
              .value.string = &opt_target_attrs, .name = "TARGKEY-ATTRS",},
-     .description = "The boolean attributes to set for the secret key "
+     .description = "The boolean attributes to set for the target key "
                     "after it has been imported (optional):"
                     "  P M B Y S X K. "
                     "Specify a set of these letters without any "
@@ -381,29 +381,29 @@ static const struct p11tool_opt p11kmip_import_key_opts[] = {
      .arg = {.type = ARG_TYPE_STRING, .required = true,
              .value.string = &opt_target_id, .name = "TARGKEY-ID",},
      .description = "The value to be set for the CKA_ID attribute of "
-                    "the imported secret key (optional)",},
+                    "the imported target key (optional)",},
     {.short_opt = 'u', .long_opt = "unwrapkey-label", .required = false,
      .arg = {.type = ARG_TYPE_STRING, .required = true,
              .value.string = &opt_unwrap_label, .name = "UNWRAPKEY-LABEL",},
      .description = "The label of the private key in the PKCS#11 "
                     "slot to be used for unwrapping the target key, "
-                    "if different from the label of the public key used "
+                    "if different from the label of the wrapping key used "
                     "for wrapping (optional).",},
     {.short_opt = 0, .long_opt = "send-wrapkey", .required = false,
      .long_opt_val = OPT_SEND_WRAPKEY,
      .arg = {.type = ARG_TYPE_PLAIN, .required = false,
              .value.plain = &opt_send_wrapkey,},
-     .description = "If specified, registers a public key from the "
+     .description = "If specified, registers a wrapping key from the "
      "PKCS#11 slot with the KMIP server and uses it for wrapping. In "
      "this case, the label specified by the 'wrapkey-label' option is used to "
-     "select the local public key to be sent, and the public key is "
+     "select the local wrapping key to be sent, and the wrapping key is "
      "registered with a name attribute value of the label on the "
      "KMIP server.",},
     {.short_opt = 0, .long_opt = "gen-targkey", .required = false,
      .long_opt_val = OPT_GEN_TARGKEY,
      .arg = {.type = ARG_TYPE_PLAIN, .required = false,
              .value.plain = &opt_gen_targkey,},
-     .description = "If specified, the secret key to be imported is "
+     .description = "If specified, the target key to be imported is "
                     "first created on the KMIP server. Currently only" 
                     " supports AES keys.",},
     { .short_opt = 0, .long_opt = "targkey-length", .required = false,      
@@ -424,14 +424,14 @@ static const struct p11tool_opt p11kmip_export_key_opts[] = {
     {.short_opt = 'w', .long_opt = "wrapkey-label", .required = true,
      .arg = {.type = ARG_TYPE_STRING, .required = true,
              .value.string = &opt_wrap_label, .name = "WRAPKEY-LABEL",},
-     .description = "The label of the public key to be used for wrapping. "
+     .description = "The label of the wrapping key to be used for wrapping. "
                     "Must exist on the KMIP server, and must exist "
                     "in the PKCS#11 repository unless specified with "
                     "option '--retr-wrapkey'.",},
     {.short_opt = 't', .long_opt = "targkey-label", .required = true,
      .arg = {.type = ARG_TYPE_STRING, .required = true,
              .value.string = &opt_target_label, .name = "TARGKEY-LABEL",},
-     .description = "The label of the secret key to be exported to the "
+     .description = "The label of the target key to be exported to the "
                     "KMIP server. Must exist in the PKCS#11 repository. "
                     "This label will be used as the name attribute of "
                     "the exported key.",},
@@ -439,7 +439,7 @@ static const struct p11tool_opt p11kmip_export_key_opts[] = {
      .long_opt_val = OPT_RETR_WRAPKEY,
      .arg = {.type = ARG_TYPE_PLAIN, .required = false,
              .value.plain = &opt_retr_wrapkey,},
-     .description = "If specified, the public key to be used for "
+     .description = "If specified, the wrapping key to be used for "
                     "wrapping is first retrieved from the KMIP server and "
                     "stored in the PKCS#11 repository. The new key is stored "
                     "using the same label specified in the "
@@ -448,7 +448,7 @@ static const struct p11tool_opt p11kmip_export_key_opts[] = {
      .long_opt_val = OPT_WRAPKEY_ATTRS,
      .arg = {.type = ARG_TYPE_STRING, .required = true,
              .value.string = &opt_wrap_attrs, .name = "WRAPKEY-ATTRS",},
-     .description = "The boolean attributes to set for the public key "
+     .description = "The boolean attributes to set for the wrapping key "
                     "after it has been imported (optional). Only compatible "
                     " with the '--retr-wrapkey' option:"
                     "  P M B Y S X K H. "
@@ -508,8 +508,6 @@ static struct kmip_conn_config kmip_default_config = {
     /**
      * The KMIP server.
      * For Plain-TLS transport, only the hostname and optional port number.
-     * For HTTPS transport, an URL in the form
-     * 'https://hostname[:port]/uri'
      */
     .server = "0.0.0.0:5696",
     /** The client key as an OpenSSL PKEY object. */
@@ -529,7 +527,7 @@ static struct kmip_conn_config kmip_default_config = {
     .tls_issuer_cert = NULL,
     /**
      * Optional: File name of a PEM file containing the servers pinned
-     * public key. Public key pinning requires that verify_peer or
+     * wrapping key. Wrapping key pinning requires that verify_peer or
      * verify_host (or both) is true.
      */
     .tls_pinned_pubkey = NULL,
@@ -1643,9 +1641,9 @@ static bool aes_is_attr_applicable(const struct p11tool_objtype *keytype,
 /* Commands */
 
 /**
- * Registers a public key with a KMIP server, retrieves a secret key from
- * the KMIP server wrapped with that public key, and then unwraps and imports
- * the secret key locally
+ * Registers a wrapping key with a KMIP server, retrieves a target key from
+ * the KMIP server wrapped with that wrapping key, and then unwraps and imports
+ * the target key locally
  * 
  * global opt_wrap_label        wrapping key label
  * global opt_send_wrapkey      flag to register wrapping key
@@ -1686,7 +1684,7 @@ static CK_RV p11kmip_import_key(void)
 
     secret_keytype = &p11kmip_aes_keytype;
     
-    /* Validate and set secret key length */
+    /* Validate and set target key length */
     if (opt_target_length != (CK_ULONG)-1) {
         switch (opt_target_length)
         {
@@ -1759,7 +1757,7 @@ static CK_RV p11kmip_import_key(void)
     if (wrap_pubkey_uid == NULL) {
         /* If we were told to send the wrapkey, send it */
         if (opt_send_wrapkey) {
-            /* Next we send the public key to the server */
+            /* Next we send the wrapping key to the server */
             rc = p11kmip_register_remote_public_key(pubkey_keytype,
                                                     wrapping_pubkey,
                                                     opt_wrap_label,
@@ -1879,7 +1877,7 @@ static CK_RV p11kmip_import_key(void)
             print_hex(remote_key_digest, (int) remote_key_digest_len);
             printf("\n");
         } else {
-            printf("  Secret Key\n");
+            printf("  Target key\n");
             printf("     PKCS#11 Label...%s\n", opt_target_label);
             printf("     PKCS#11 Digest..");
             if (rc == CKR_KEY_INDIGESTIBLE) {
@@ -1895,7 +1893,7 @@ static CK_RV p11kmip_import_key(void)
             print_hex(remote_key_digest, (int) remote_key_digest_len);
             printf("\n");
 
-            printf("  Public Key\n");
+            printf("  Wrapping key\n");
             printf("     PKCS#11 Label...%s\n", opt_wrap_label);
             printf("     KMIP UID........%s\n",
                    kmip_node_get_text_string(wrap_pubkey_uid));
@@ -1965,8 +1963,8 @@ static CK_RV p11kmip_export_key(void)
         }
     }
     /** 
-     * We must locate the KMIP public key to obtain its UID, even if
-     * we intend to utilize a local PKCS#11 public key for the actual 
+     * We must locate the KMIP wrapping key to obtain its UID, even if
+     * we intend to utilize a local PKCS#11 wrapping key for the actual 
      * wrapping.
      */
     rc = p11kmip_locate_remote_key(opt_wrap_label, CKO_PUBLIC_KEY,
@@ -1993,7 +1991,7 @@ static CK_RV p11kmip_export_key(void)
                                                 wrap_pubkey_uid, &pub_key);
 
         if (rc != CKR_OK) {
-            warnx("Failed to retrieve public key from KMIP server");
+            warnx("Failed to retrieve wrapping key from KMIP server");
             goto done;
         }
 
@@ -2005,11 +2003,11 @@ static CK_RV p11kmip_export_key(void)
 
         if (rc != CKR_OK) {
             if (p11tool_is_rejected_by_policy(rc, p11tool_pkcs11_session)) {
-                warnx("Failed to create public key '%s' due to policy",
+                warnx("Failed to create wrapping key '%s' due to policy",
                       opt_wrap_label);
                 goto done;
             }
-            warnx("Failed to create public key '%s'", opt_wrap_label);
+            warnx("Failed to create wrapping key '%s'", opt_wrap_label);
             goto done;
         }
     } else {
@@ -2022,7 +2020,7 @@ static CK_RV p11kmip_export_key(void)
                                     opt_wrap_id, &wrapping_pubkey);
 
         if (rc != CKR_OK) {
-            warnx("Failed to locate public key '%s'", opt_wrap_label);
+            warnx("Failed to locate wrapping key '%s'", opt_wrap_label);
             goto done;
         }
     }
@@ -2032,7 +2030,7 @@ static CK_RV p11kmip_export_key(void)
                                 &secret_key_handle);
 
     if (rc != CKR_OK) {
-        warnx("Failed to find local secret key '%s'", opt_target_label);
+        warnx("Failed to find local target key '%s'", opt_target_label);
         goto done;
     }
 
@@ -2042,10 +2040,10 @@ static CK_RV p11kmip_export_key(void)
 
     if (rc != CKR_OK) {
         if (p11tool_is_rejected_by_policy(rc, p11tool_pkcs11_session)) {
-            warnx("Wrap local secret key is rejected by policy");
+            warnx("Wrap local target key is rejected by policy");
             goto done;
         }
-        warnx("Failed to wrap local secret key");
+        warnx("Failed to wrap local target key");
         goto done;
     }
 
@@ -2056,7 +2054,7 @@ static CK_RV p11kmip_export_key(void)
                                              wrap_pubkey_uid, &secret_key_uid);
 
     if (rc != CKR_OK) {
-        warnx("Failed to register wrapped secret key with server");
+        warnx("Failed to register wrapped target key with server");
         goto done;
     }
     /* Display digests of the retrieved keys */
@@ -2100,7 +2098,7 @@ static CK_RV p11kmip_export_key(void)
             print_hex(remote_key_digest, (int) remote_key_digest_len);
             printf("\n");
         } else {
-            printf("  Secret Key\n");
+            printf("  Target key\n");
             printf("     PKCS#11 Label...%s\n", opt_target_label);
             printf("     PKCS#11 Digest..");
             if (rc == CKR_KEY_INDIGESTIBLE) {
@@ -2116,7 +2114,7 @@ static CK_RV p11kmip_export_key(void)
             print_hex(remote_key_digest, (int) remote_key_digest_len);
             printf("\n");
 
-            printf("  Public Key\n");
+            printf("  Wrapping Key\n");
             printf("     PKCS#11 Label...%s\n", opt_wrap_label);
             printf("     KMIP UID........%s\n",
                    kmip_node_get_text_string(wrap_pubkey_uid));
@@ -2564,20 +2562,20 @@ static CK_RV p11kmip_create_local_public_key(
 #if !OPENSSL_VERSION_PREREQ(3, 0)
     rsa = EVP_PKEY_get0_RSA(pub_key);
     if (rsa == NULL) {
-        warnx("Failed to get public key params");
+        warnx("Failed to get wrapping key params");
         rc = CKR_FUNCTION_FAILED;
         goto done;
     }
     RSA_get0_key(rsa, &bn_n, &bn_e, NULL);
     if (bn_n == NULL || bn_e == NULL) {
-        warnx("Failed to get public key params");
+        warnx("Failed to get wrapping key params");
         rc = CKR_FUNCTION_FAILED;
         goto done;
     }
 #else
     if (!EVP_PKEY_get_bn_param(pub_key, OSSL_PKEY_PARAM_RSA_N, &bn_n) ||
         !EVP_PKEY_get_bn_param(pub_key, OSSL_PKEY_PARAM_RSA_E, &bn_e)) {
-        warnx("Failed to get public key params");
+        warnx("Failed to get wrapping key params");
         rc = CKR_FUNCTION_FAILED;
         goto done;
     }
@@ -2943,7 +2941,7 @@ static CK_RV p11kmip_register_remote_public_key(
     enum kmip_result_reason reg_reason = 0, act_reason = 0;
     int rc;
 
-    /* Export the public key from PKCS#11 into an OpenSSL EVP Key */
+    /* Export the wrapping key from PKCS#11 into an OpenSSL EVP Key */
     if (keytype->export_asym_pkey != NULL) {
         rc = keytype->export_asym_pkey(keytype, &pkey, false,
                                        wrapping_pubkey, wrapping_key_label);
@@ -2974,7 +2972,7 @@ static CK_RV p11kmip_register_remote_public_key(
         EVP_PKEY_get_bn_param(pkey, OSSL_PKEY_PARAM_RSA_E, &pub_exp);
 #endif
         if (modulus == NULL || pub_exp == NULL) {
-            warnx("Failed to get RSA public key parts");
+            warnx("Failed to get RSA wrapping key parts");
             rc = CKR_GENERAL_ERROR;
             goto out;
         }
@@ -3249,7 +3247,7 @@ static CK_RV p11kmip_register_remote_wrapped_key(
         goto out;
     }
 
-    if (asprintf(&description, "Secret key for PKCS#11 client on system %s",
+    if (asprintf(&description, "Target key for PKCS#11 client on system %s",
                  utsname.nodename) <= 0) {
         rc = CKR_GENERAL_ERROR;
         warnx("asprintf failed");
@@ -3318,7 +3316,7 @@ out:
 }
 
 /**
- * Sends a request to a KMIP server to retrieve a secret key wrapped in a
+ * Sends a request to a KMIP server to retrieve a target key wrapped in a
  * wrapping key. Expects the wrapping key to already be available on the server.
  * 
  * @param wrapped_key_label     label of the target key
@@ -3563,12 +3561,12 @@ out:
 }
 
 /**
- * Sends a request to a KMIP server to retrieve a public key of the given
+ * Sends a request to a KMIP server to retrieve a wrapping key of the given
  * key type and label
  * 
- * @param keytype           used to specify the algorithm of the public key
- * @param public_key_label  the label of the public key on the remote server
- * @param pkey              an EVP format public key object which the retrieved
+ * @param keytype           used to specify the algorithm of the wrapping key
+ * @param public_key_label  the label of the wrapping key on the remote server
+ * @param pkey              an EVP format wrapping key object which the retrieved
  *                          key is written into
  * 
  * @return CK_RV 
@@ -3607,7 +3605,7 @@ static CK_RV p11kmip_retrieve_remote_public_key(
     }
 
     if (public_keytype->type != CKK_RSA) {
-        warnx("Unsupported public key algorithm");
+        warnx("Unsupported wrapping key algorithm");
         rc = CKR_GENERAL_ERROR;
         goto out;
     }
@@ -3643,7 +3641,7 @@ static CK_RV p11kmip_retrieve_remote_public_key(
     rc = kmip_get_public_key(kobj, &kblock);
 
     if (rc) {
-        warnx("Failed to get public key");
+        warnx("Failed to get wrapping key");
         rc = CKR_GENERAL_ERROR;
         goto out;
     }
@@ -3679,7 +3677,7 @@ static CK_RV p11kmip_retrieve_remote_public_key(
     case KMIP_KEY_FORMAT_TYPE_PKCS_1:
         rc = kmip_get_pkcs1_public_key(key, algo, pub_key);
         if (rc != CKR_OK) {
-            warnx("Failed to get RSA public key parts");
+            warnx("Failed to get RSA wrapping key parts");
             rc = CKR_FUNCTION_FAILED;
             goto out;
         }
@@ -3687,7 +3685,7 @@ static CK_RV p11kmip_retrieve_remote_public_key(
     case KMIP_KEY_FORMAT_TYPE_PKCS_8:
         rc = kmip_get_pkcs8_public_key(key, pub_key);
         if (rc != CKR_OK) {
-            warnx("Failed to get RSA public key parts");
+            warnx("Failed to get RSA wrapping key parts");
             rc = CKR_FUNCTION_FAILED;
             goto out;
         }
@@ -3695,7 +3693,7 @@ static CK_RV p11kmip_retrieve_remote_public_key(
     case KMIP_KEY_FORMAT_TYPE_TRANSPARENT_RSA_PUBLIC_KEY:
         rc = kmip_get_transparent_rsa_public_key(key, modulus_ptr, pub_exp_ptr);
         if (rc != CKR_OK) {
-            warnx("Failed to get RSA public key parts");
+            warnx("Failed to get RSA wrapping key parts");
             rc = CKR_FUNCTION_FAILED;
             goto out;
         }

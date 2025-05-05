@@ -25,22 +25,9 @@ There are two sections in the configuration. Both consist of a title, brackets,
 and a set of key\-value pairs.
 
 The first section configures the connection to the KMIP server. It contains
-the following keywords: 
-.B host
-,
-.B tls_client_cert
-,
-.B tls_client_key
-,
-.B wrap_key_format
-,
-.B wrap_key_algorithm
-,
-.B wrap_key_size
-,
-.B wrap_padding_method
-,
-.B wrap_hashing_algorithm .
+the following keywords: \fBhost\fR, \fBtls_client_cert\fR, \fBtls_client_key\fR,
+\fBwrap_key_format\fR, \fBwrap_key_algorithm\fR, \fBwrap_key_size\fR, 
+\fBwrap_padding_method\fR, \fBwrap_hashing_algorithm\fR.
 
 .PP
 Example:
@@ -60,40 +47,45 @@ kmip {
 
 The
 .B host
-value must be the hostname of the KMIP server with which to connect, enclosed in quotes.
+attribute must be specified in the format "hostname[:port]" when using plain TLS, where 
+"hostname" may be an IPv4 address, IPv6 address, or a symbolical hostname, and 
+"port" may optionally be used to specify a non-standard port number. If 
+"port" is not specified, 5696 is used as the default.
 
 The
 .B tls_client_cert
-value must be the path of the KMIP client certificate, enclosed in quotes.
+attribute must specify the path to a PEM format file containing the client certificate
+used for TLS authentication to the KMIP server.
 
 The
 .B tls_client_key
-value must be the path of the KMIP client private key, enclosed in quotes.
+attribute must specify the path to a PEM format file containing the client private key
+used for TLS authentication to the KMIP server.
 
 The
 .B wrap_key_format
-value must be the format of the wrapping key when sent to or from the KMIP server, enclosed
-in quotes. Currently only formats "PKCS1", "PKCS8", and "TransparentPublicKey" are supported.
+attribute specifies the format used to transmit the wrapping key, and must be one of "PKCS1", 
+"PKCS8", or "TransparentPublicKey".
 
 The 
 .B wrap_key_algorithm
-value must be the algorithm of the wrapping key, enclosed in quotes. Current only "RSA" is
-supported.
+attribute specifies the algorithm used for key wrapping. Currently only "RSA" is supported.
 
 The
 .B wrap_key_size
-value must be an integer specifying the size of the wrapping key. Currently only size 2048 is
-supported.
+attribute specifies the length of the key used for wrapping. This value must match the length of 
+the actual wrapping and unwrapping key which are provided when the tool is invoked.
 
 The
 .B wrap_padding_method
-value must be the padding method used during the key wrap. Currently padding methods
+attribute specifies padding method used during the key wrap. Currently padding methods
 "PKCS1.5" and "OAEP" are supported.
 
 The
 .B wrap_hashing_algorithm
-value is the hashing algorithm used when "OAEP" is specified. Currently hashing algorithms
-"SHA-1" and "SHA-256" are supported.
+specifies the hashing algorithm used by the padding method. Only the "OAEP" padding
+method requires a hashing algorithm to be specified. For the "OAEP" padding method, only the "SHA-1" and "SHA-256" hashing algorithms
+are supported. For all other padding methods this field is ignored, and may be absent.
 
 The second section configures interaction with the PKCS\~#11 token repository. It contains
 the following keyword: 
@@ -107,7 +99,25 @@ pkcs11 {
 
 The
 .B slot
-value must be an integer specifying the slot number to use.
+attribute must be an integer specifying the slot number to use.
+
+Of these attributes, the 
+.B host
+, 
+.B tls_client_cert
+, 
+.B tls_client_key
+attributes of the 
+.B kmip 
+section and the 
+.B slot
+attribute of the 
+.B pkcs11 
+section may be absent from the file if specified by an environment variable or command option.
+
+The remaining attributes will be treated as the the default values shown in this example when they are
+absent. The configuration file need not be present if all required attributes are specified by other means.
+Attributes and groups may be specified in any order within the configuration file. 
 
 .PP
 

@@ -1,6 +1,6 @@
 .TH P11KMIP 1 "August 2023" "@PACKAGE_VERSION@" "openCryptoki"
 .SH NAME
-p11kmip \- Transfer secret keys between PKCS\~#11 and KMIP.
+p11kmip \- Transfer cryptographic keys between PKCS\~#11 and KMIP.
 .
 .
 .
@@ -19,11 +19,11 @@ p11kmip \- Transfer secret keys between PKCS\~#11 and KMIP.
 .
 .
 .SH DESCRIPTION
-The \fBp11kmip\fP tool can be used to transfer secret keys between a PKCS\~#11
-key repository and a KMIP server. Secret keys may be imported or exported, and
-are wrapped using public-key cryptography during transit. Public keys used for
+The \fBp11kmip\fP tool can be used to transfer target keys between a PKCS\~#11
+key repository and a KMIP server. Target keys may be imported or exported, and
+are wrapped using public-key cryptography during transit. Keys used for
 wrapping may also be sent and recieved. Only AES keys are supported as
-secret keys, and only RSA is supported for key wrapping.
+target keys, and only RSA is supported for key wrapping.
 .
 .
 .
@@ -31,7 +31,7 @@ secret keys, and only RSA is supported for key wrapping.
 The \fBp11kmip\fP tool supports commands to import and export keys between
 a PKCS\~#11 token repository and KMIP server.
 .PP
-.SS "Importing secret keys"
+.SS "Importing target keys"
 .B p11kmip
 .BR import\-key | import | imp
 .BR \-\-targkey\-label | \-t
@@ -52,26 +52,30 @@ a PKCS\~#11 token repository and KMIP server.
 .PP
 Use the
 .BR import\-key
-command to import an AES symmetric key located on a KMIP server to a
-PKCS\~#11 token repository.
+command to import a target key located on a KMIP server to a
+PKCS\~#11 token repository. Importing a key from a KMIP server requires a wrapping key present on 
+the server with its corresponding unwrapping key present in a local PKCS\#11 slot. 
+Currently RSA is supported for wrapping and unwrapping keys and AES is supported for
+target keys.
 
 The
 .BR \-\-targkey\-label | \-t
 .I TARGKEY\-LABEL
-option specifies the KMIP name attribute of the symmetric key to be imported.
+option specifies the KMIP name attribute of the target key to be imported.
 Once imported into the PKCS\~#11 token repository, the
 .B CKA_LABEL
-attribute of the symmetric key will be set to the same value as
+attribute of the target key will be set to the same value as
 .IR TARGKEY\-LABEL .
 The 
 .BR \-\-wrapkey\-label | \-w
 .I WRAPKEY\-LABEL
-option species the KMIP name attribute of the 2048-bit RSA public key
-located on the KMIP server to be used for wrapping the imported key.
-.
+option specifies the KMIP name attribute of the key to be used for wrapping.
+This wrapping key must already be present on the KMIP server, unless the
+.BR \-\-send\-wrapkey
+option is specified.
 
-The imported key will be unwrapped using a 2048-bit RSA private key 
-located in the PKCS\~#11 token repository with an
+The imported key will be unwrapped using a corresponding unwrapping key 
+located in the PKCS\~#11 token repository with a
 .B CKA_LABEL
 attribute value that is the same as
 .I WRAPKEY\-LABEL
@@ -98,24 +102,24 @@ The public key will then be used for wrapping.
 After the import operation has been completed successfully, information will be displayed
 about the keys involved. This includes the 
 .B CKA_LABEL
-attribute values of the imported key and wrapping public key, the KMIP UID attributes
-of both keys, and a SHA-256 digest of the imported symmetric key from both the KMIP server and the
+attribute values of the imported target key and wrapping key, the KMIP UID attributes
+of both keys, and a SHA-256 digest of the imported target key from both the KMIP server and the
 PKCS\~#11 token repository.
 
 Example:
-  Secret Key
-     PKCS#11 Label...SECRET_KEY_LABEL
+  Target Key
+     PKCS#11 Label...TARGET_KEY_LABEL
      PKCS#11 Digest..FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
-     KMIP UID........SECRET_KEY_UUID
+     KMIP UID........TARGET_KEY_UUID
      KMIP Digest.....AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-  Public Key
-     PKCS#11 Label...PUBLIC_KEY_LABEL
-     KMIP UID........PUBLIC_KEY_UUID
+  Wrapping Key
+     PKCS#11 Label...WRAPPING_KEY_LABEL
+     KMIP UID........WRAPPING_KEY_UUID
 
 The 
 .B \-\-targkey\-attrs 
 .I TARGKEY\-ATTRS 
-option can be used to set the boolean attributes of the imported key 
+option can be used to set the boolean attributes of the imported target key 
 (see below for detailed description of the attributes). The
 .B \-\-targkey\-id
 .I ID 
@@ -125,11 +129,12 @@ attribute of the target key.
 
 When the
 .BR \-\-gen\-targkey
-option is specified, the AES key to be imported will first be generated on the
+option is specified, the target key will first be generated on the
 KMIP server. In this case, the value of the 
 .BR \-\-targkey\-label | \-t
 .I TARGKEY\-LABEL
-option will be used as the KMIP name attribute of the generated key.
+option will be used as the KMIP name attribute of the generated key. 
+Currently, only AES symmetric keys may be generated in this way.
 
 The 
 .B \-\-targkey\-length 
@@ -147,7 +152,7 @@ The
 option will also show the arguments and options available.
 .
 .PP
-.SS "Exporting secret keys"
+.SS "Exporting target keys"
 .B p11kmip
 .BR export\-key | export | exp
 .BR \-\-targkey\-label | \-t
@@ -163,27 +168,32 @@ option will also show the arguments and options available.
 .PP
 Use the
 .BR export\-key
-command to export a AES symmetric key located in a PKCS\~#11 token
-repository to a KMIP server.
+command to export a target key located in a PKCS\~#11 token
+repository to a KMIP server. Exporting a key from a PKCS\~#11 slot to a KMIP server requires an 
+unwrapping key to be present on the server with a corresponding wrapping key present in the 
+PKCS\~#11 slot. Currently only RSA is supported for wrapping and unwrapping keys and 
+AES for target keys.
 
 The
 .BR \-\-targkey\-label | \-t
 .I TARGKEY\-LABEL
 option specifies the 
 .B CKA_LABEL
-attribute value of the symmetric key to be exported.
+attribute value of the target key to be exported.
 Once exported to the KMIP server, the KMIP name attribute of the 
-symmetric key will be set to the same value as
+target key will be set to the same value as
 .IR TARGKEY\-LABEL .
 The 
 .BR \-\-wrapkey\-label | \-w
 .I WRAPKEY\-LABEL
 option species the 
 .B CKA_LABEL
-attribute value of the 2048-bit RSA public key located in the
-PKCS\~#11 token repository to be used for wrapping the exported key.
+attribute value of key to be used for wrapping the exported key. The wrapping
+key must already be present in PKCS\~#11 token repository, unless the 
+.BR \-\-retr\-wrapkey
+option is specified.
 
-The exported key will be unwrapped using a 2048-bit RSA private key 
+The exported key will be unwrapped corresponding unwrapping key 
 located on the KMIP server with a KMIP name attribute that is the same as
 .I WRAPKEY\-LABEL
 .
@@ -193,11 +203,11 @@ When the
 option is specified, the 
 .BR \-\-wrapkey\-label | \-w
 .I WRAPKEY\-LABEL
-option will instead be used to identify a public key 
+option will instead be used to identify a wrapping key 
 located on the KMIP server with a KMIP name attribute that is the
 same as 
 .IR WRAPKEY\-LABEL .
-This public key will be retrieved from the KMIP server and imported into the
+This wrapping key will be retrieved from the KMIP server and imported into the
 PKCS\~#11 token repository, with a 
 .B CKA_LABEL
 attribute value of
@@ -206,7 +216,7 @@ attribute value of
 from the KMIP server, the
 .B \-\-wrapkey\-attrs 
 .I WRAPKEY\-ATTRS
-option can be used to set the boolean attributes of the retrieved public key 
+option can be used to set the boolean attributes of the retrieved wrapping key 
 (see below for detailed description of the attributes). The
 .B \-\-wrapkey\-id
 .I ID 
@@ -217,19 +227,19 @@ attribute of the public key.
 After the export operation has been completed successfully, information will be displayed
 about the keys involved. This includes the 
 .B CKA_LABEL
-attribute values of the exported symmetric key and wrapping public key, the KMIP UID attributes
-of both keys, and a SHA-256 digest of the exported symmetric key from both the KMIP server and the
+attribute values of the exported target key and public key, the KMIP UID attributes
+of both keys, and a SHA-256 digest of the exported target key from both the KMIP server and the
 PKCS\~#11 token repository.
 
 Example:
-  Secret Key
-     PKCS#11 Label...SECRET_KEY_LABEL
+  Target Key
+     PKCS#11 Label...TARGET_KEY_LABEL
      PKCS#11 Digest..FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
-     KMIP UID........SECRET_KEY_UUID
+     KMIP UID........TARGET_KEY_UUID
      KMIP Digest.....AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-  Public Key
-     PKCS#11 Label...PUBLIC_KEY_LABEL
-     KMIP UID........PUBLIC_KEY_UUID
+  Wrapping Key
+     PKCS#11 Label...WRAPPING_KEY_LABEL
+     KMIP UID........WRAPPING_KEY_UUID
 
 See below for a detailed description of 
 .BR OPTIONS .
@@ -248,7 +258,7 @@ command, specify the PKCS\~#11 boolean attributes that are to be set for the
 retrieved wrapping key. For the
 .B import\-key
 , specify the PKCS\~#11 boolean attributes that are to be set for the 
-imported symmetric key.
+imported target key.
 .PP
 .RS 8
 .B Note:
@@ -482,8 +492,8 @@ Suppress messages.
 Print shortened results.
 
 Example:
-    SECRET_KEY_LABEL:FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
-    SECRET_KEY_UUID:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+SECRET_KEY_LABEL:FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+SECRET_KEY_UUID:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
 .PP
 .
 .
