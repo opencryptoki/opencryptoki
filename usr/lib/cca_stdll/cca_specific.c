@@ -251,6 +251,7 @@ static const MECH_LIST_ELEMENT cca_mech_list[] = {
     {CKM_AES_CBC, {16, 32, CKF_HW | CKF_ENCRYPT | CKF_DECRYPT}},
     {CKM_AES_CBC_PAD, {16, 32, CKF_HW | CKF_ENCRYPT | CKF_DECRYPT}},
     {CKM_AES_XTS, {32, 64, CKF_ENCRYPT | CKF_DECRYPT}},
+    {CKM_AES_GCM, {16, 32, CKF_HW | CKF_ENCRYPT | CKF_DECRYPT}},
     {CKM_SHA3_512, {0, 0, CKF_HW | CKF_DIGEST}},
     {CKM_SHA3_384, {0, 0, CKF_HW | CKF_DIGEST}},
     {CKM_SHA3_256, {0, 0, CKF_HW | CKF_DIGEST}},
@@ -7182,6 +7183,176 @@ CK_RV token_specific_aes_cbc(STDLL_TokData_t * tokdata,
 #ifndef NO_PKEY
 done:
 #endif
+
+    return rc;
+}
+
+CK_RV token_specific_aes_gcm_init(STDLL_TokData_t *tokdata, SESSION *sess,
+                                  ENCR_DECR_CONTEXT *ctx, CK_MECHANISM *mech,
+                                  CK_OBJECT_HANDLE key, CK_BYTE encrypt)
+{
+    UNUSED(sess);
+    UNUSED(ctx);
+    UNUSED(mech);
+    UNUSED(key);
+    UNUSED(encrypt);
+
+    if (((struct cca_private_data *)tokdata->private_data)->inconsistent) {
+        TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
+        return CKR_DEVICE_ERROR;
+    }
+
+    return CKR_OK;
+}
+
+CK_RV token_specific_aes_gcm(STDLL_TokData_t *tokdata, SESSION *sess,
+                             ENCR_DECR_CONTEXT *ctx, CK_BYTE *in_data,
+                             CK_ULONG in_data_len, CK_BYTE *out_data,
+                             CK_ULONG *out_data_len, CK_BYTE encrypt)
+{
+    long return_code, reason_code, rule_array_count, exit_data_len = 0;
+    unsigned char rule_array[CCA_RULE_ARRAY_SIZE];
+    unsigned char chaining_vector[104] = { 0 };
+    long in_length, out_length, key_len, block_size = 16, chain_vector_len;
+    unsigned char exit_data[1];
+    CK_GCM_PARAMS *aes_gcm_param = NULL;
+    OBJECT *key = NULL;
+    CK_ATTRIBUTE *attr = NULL;
+    long tag_len, iv_len, aad_len;
+    CK_BYTE *tag_data;
+    CK_RV rc;
+
+    UNUSED(sess);
+
+    if (((struct cca_private_data *)tokdata->private_data)->inconsistent) {
+        TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
+        return CKR_DEVICE_ERROR;
+    }
+
+    aes_gcm_param = (CK_GCM_PARAMS *)ctx->mech.pParameter;
+    if (aes_gcm_param == NULL) {
+        TRACE_ERROR("Mechanism parameter is NULL\n");
+        return CKR_MECHANISM_PARAM_INVALID;
+    }
+
+    tag_len = (aes_gcm_param->ulTagBits + 7) / 8;
+    if (tag_len != 4 && tag_len != 8 && tag_len < 12 && tag_len > 16) {
+        TRACE_ERROR("Tag len is invalid\n");
+        return CKR_MECHANISM_PARAM_INVALID;
+    }
+
+    if (encrypt) {
+        if (*out_data_len < in_data_len + tag_len) {
+            TRACE_ERROR("Output buffer is too small\n");
+            *out_data_len = in_data_len + tag_len;
+            return CKR_BUFFER_TOO_SMALL;
+        }
+    } else {
+        if (in_data_len < (CK_ULONG)tag_len) {
+            TRACE_ERROR("Input buffer is too small\n");
+            return CKR_ARGUMENTS_BAD;
+        }
+        if (*out_data_len < in_data_len - tag_len) {
+            TRACE_ERROR("Output buffer is too small\n");
+            *out_data_len = in_data_len - tag_len;
+            return CKR_BUFFER_TOO_SMALL;
+        }
+    }
+
+    rc = object_mgr_find_in_map_nocache(tokdata, ctx->key, &key, READ_LOCK);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Failed to find specified object.\n");
+        return rc;
+    }
+
+    rc = template_attribute_get_non_empty(key->template, CKA_IBM_OPAQUE, &attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_VALUE for the key\n");
+        goto done;
+    }
+
+    rule_array_count = 4;
+    memcpy(rule_array, "AES     GCM     KEYIDENTONLY    ",
+           4 * CCA_KEYWORD_SIZE);
+
+    key_len = attr->ulValueLen;
+    iv_len = aes_gcm_param->ulIvLen;
+    aad_len = aes_gcm_param->ulAADLen;
+    chain_vector_len = sizeof(chaining_vector);
+
+    USE_CCA_ADAPTER_START(tokdata, return_code, reason_code)
+    RETRY_NEW_MK_BLOB_START()
+        if (encrypt) {
+            in_length = in_data_len;
+            out_length = *out_data_len - tag_len;
+            tag_data = out_data + in_data_len;
+
+            dll_CSNBSAE(&return_code, &reason_code,
+                        &exit_data_len, exit_data,
+                        &rule_array_count, rule_array,
+                        &key_len, attr->pValue,
+                        &tag_len, tag_data,
+                        &block_size,
+                        &iv_len, aes_gcm_param->pIv,
+                        &chain_vector_len, chaining_vector,
+                        &in_length, in_data,
+                        &out_length, out_data,
+                        &aad_len, aes_gcm_param->pAAD);
+
+            out_length += tag_len;
+        } else {
+            in_length = in_data_len - tag_len;
+            out_length = *out_data_len;
+            tag_data = in_data + in_data_len - tag_len;
+
+            dll_CSNBSAD(&return_code, &reason_code,
+                        &exit_data_len, exit_data,
+                        &rule_array_count, rule_array,
+                        &key_len, attr->pValue,
+                        &tag_len, tag_data,
+                        &block_size,
+                        &iv_len, aes_gcm_param->pIv,
+                        &chain_vector_len, chaining_vector,
+                        &in_length, in_data,
+                        &out_length, out_data,
+                        &aad_len, aes_gcm_param->pAAD);
+        }
+    RETRY_NEW_MK_BLOB_END(tokdata, return_code, reason_code,
+                          attr->pValue, attr->ulValueLen)
+    USE_CCA_ADAPTER_END(tokdata, return_code, reason_code)
+
+    if (return_code != CCA_SUCCESS) {
+        if (encrypt) {
+            TRACE_ERROR("CSNBSAE (AES GCM ENCRYPT) failed. return:%ld,"
+                        " reason:%ld\n", return_code, reason_code);
+        } else {
+            TRACE_ERROR("CSNBSAD (AES GCM DECRYPT) failed. return:%ld,"
+                        " reason:%ld\n", return_code, reason_code);
+        }
+        (*out_data_len) = 0;
+
+        if (!encrypt && return_code == 8 && reason_code == 2947)
+            rc = CKR_ENCRYPTED_DATA_INVALID; /* Auth tag invalid */
+        else
+            rc = CKR_FUNCTION_FAILED;
+        goto done;
+    } else if (reason_code != 0) {
+        if (encrypt) {
+            TRACE_WARNING("CSNBSAE (AES GCM ENCRYPT) succeeded, but"
+                          " returned reason:%ld\n", reason_code);
+        } else {
+            TRACE_WARNING("CSNBSAD (AES GCM DECRYPT) succeeded, but"
+                          " returned reason:%ld\n", reason_code);
+        }
+    }
+
+    *out_data_len = out_length;
+
+    rc = CKR_OK;
+
+done:
+    object_put(tokdata, key, TRUE);
+    key = NULL;
 
     return rc;
 }
