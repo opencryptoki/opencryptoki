@@ -1,8 +1,8 @@
 %global _hardened_build 1
 
 Name:			opencryptoki
-Summary:		Implementation of the PKCS#11 (Cryptoki) specification v3.0
-Version:		3.24.0
+Summary:		Implementation of the PKCS#11 (Cryptoki) specification v3.0 and partially v3.1
+Version:		3.25.0
 Release:		1%{?dist}
 License:		CPL
 Group:			System Environment/Base
@@ -31,10 +31,10 @@ Requires(postun):	systemd
 
 
 %description
-Opencryptoki implements the PKCS#11 specification v2.20 for a set of
-cryptographic hardware, such as IBM 4764 and 4765 crypto cards, and the
-Trusted Platform Module (TPM) chip. Opencryptoki also brings a software
-token implementation that can be used without any cryptographic
+Opencryptoki implements the PKCS#11 specification  v3.0 and partially v3.1
+for a set of cryptographic hardware, such as IBM 4767, 4768, 4769 and 4770
+crypto cards, and the Trusted Platform Module (TPM) chip. Opencryptoki also
+brings a software token implementation that can be used without any cryptographic
 hardware.
 This package contains the Slot Daemon (pkcsslotd) and general utilities.
 
@@ -45,10 +45,10 @@ Summary:		The run-time libraries for opencryptoki package
 Requires(pre):		shadow-utils
 
 %description libs
-Opencryptoki implements the PKCS#11 specification v2.20 for a set of
-cryptographic hardware, such as IBM 4764 and 4765 crypto cards, and the
-Trusted Platform Module (TPM) chip. Opencryptoki also brings a software
-token implementation that can be used without any cryptographic
+Opencryptoki implements the PKCS#11 specification  v3.0 and partially v3.1
+for a set of cryptographic hardware, such as IBM 4767, 4768, 4769 and 4770
+crypto cards, and the Trusted Platform Module (TPM) chip. Opencryptoki also
+brings a software token implementation that can be used without any cryptographic
 hardware.
 This package contains the PKCS#11 library implementation, and requires
 at least one token implementation (packaged separately) to be fully
@@ -73,10 +73,10 @@ Requires:		%{name}-libs%{?_isa} = %{version}-%{release}
 Provides:		%{name}(token)
 
 %description swtok
-Opencryptoki implements the PKCS#11 specification v2.20 for a set of
-cryptographic hardware, such as IBM 4764 and 4765 crypto cards, and the
-Trusted Platform Module (TPM) chip. Opencryptoki also brings a software
-token implementation that can be used without any cryptographic
+Opencryptoki implements the PKCS#11 specification  v3.0 and partially v3.1
+for a set of cryptographic hardware, such as IBM 4767, 4768, 4769 and 4770
+crypto cards, and the Trusted Platform Module (TPM) chip. Opencryptoki also
+brings a software token implementation that can be used without any cryptographic
 hardware.
 This package brings the software token implementation to use opencryptoki
 without any specific cryptographic hardware.
@@ -90,10 +90,10 @@ Requires:		%{name}-libs%{?_isa} = %{version}-%{release}
 Provides:		%{name}(token)
 
 %description tpmtok
-Opencryptoki implements the PKCS#11 specification v2.20 for a set of
-cryptographic hardware, such as IBM 4764 and 4765 crypto cards, and the
-Trusted Platform Module (TPM) chip. Opencryptoki also brings a software
-token implementation that can be used without any cryptographic
+Opencryptoki implements the PKCS#11 specification  v3.0 and partially v3.1
+for a set of cryptographic hardware, such as IBM 4767, 4768, 4769 and 4770
+crypto cards, and the Trusted Platform Module (TPM) chip. Opencryptoki also
+brings a software token implementation that can be used without any cryptographic
 hardware.
 This package brings the necessary libraries and files to support
 Trusted Platform Module (TPM) devices in the opencryptoki stack.
@@ -107,10 +107,10 @@ Requires:		%{name}-libs%{?_isa} = %{version}-%{release}
 Provides:		%{name}(token)
 
 %description icsftok
-Opencryptoki implements the PKCS#11 specification v2.20 for a set of
-cryptographic hardware, such as IBM 4764 and 4765 crypto cards, and the
-Trusted Platform Module (TPM) chip. Opencryptoki also brings a software
-token implementation that can be used without any cryptographic
+Opencryptoki implements the PKCS#11 specification  v3.0 and partially v3.1
+for a set of cryptographic hardware, such as IBM 4767, 4768, 4769 and 4770
+crypto cards, and the Trusted Platform Module (TPM) chip. Opencryptoki also
+brings a software token implementation that can be used without any cryptographic
 hardware.
 This package brings the necessary libraries and files to support
 ICSF token in the opencryptoki stack.
@@ -125,14 +125,14 @@ Requires:		%{name}-libs%{?_isa} = %{version}-%{release}
 Provides:		%{name}(token)
 
 %description icatok
-Opencryptoki implements the PKCS#11 specification v2.20 for a set of
-cryptographic hardware, such as IBM 4764 and 4765 crypto cards, and the
-Trusted Platform Module (TPM) chip. Opencryptoki also brings a software
-token implementation that can be used without any cryptographic
+Opencryptoki implements the PKCS#11 specification  v3.0 and partially v3.1
+for a set of cryptographic hardware, such as IBM 4767, 4768, 4769 and 4770
+crypto cards, and the Trusted Platform Module (TPM) chip. Opencryptoki also
+brings a software token implementation that can be used without any cryptographic
 hardware.
 This package brings the necessary libraries and files to support ICA
 devices in the opencryptoki stack. ICA is an interface to IBM
-cryptographic hardware such as IBM 4764 or 4765 that uses the
+cryptographic hardware such as IBM 4767, 4768, 4769 and 4770 that uses the
 "accelerator" or "clear-key" path.
 %endif
 
@@ -144,14 +144,14 @@ Requires:		%{name}-libs%{?_isa} = %{version}-%{release}
 Provides:		%{name}(token)
 
 %description ccatok
-Opencryptoki implements the PKCS#11 specification v2.20 for a set of
-cryptographic hardware, such as IBM 4764 and 4765 crypto cards, and the
-Trusted Platform Module (TPM) chip. Opencryptoki also brings a software
-token implementation that can be used without any cryptographic
+Opencryptoki implements the PKCS#11 specification  v3.0 and partially v3.1
+for a set of cryptographic hardware, such as IBM 4767, 4768, 4769 and 4770
+crypto cards, and the Trusted Platform Module (TPM) chip. Opencryptoki also
+brings a software token implementation that can be used without any cryptographic
 hardware.
 This package brings the necessary libraries and files to support CCA
 devices in the opencryptoki stack. CCA is an interface to IBM
-cryptographic hardware such as IBM 4764 or 4765 that uses the
+cryptographic hardware such as IBM 4767, 4768, 4769 and 4770 that uses the
 "co-processor" or "secure-key" path.
 
 %ifarch s390 s390x
@@ -163,10 +163,10 @@ Requires:		%{name}-libs%{?_isa} = %{version}-%{release}
 Provides:		%{name}(token)
 
 %description ep11tok
-Opencryptoki implements the PKCS#11 specification v2.20 for a set of
-cryptographic hardware, such as IBM 4764 and 4765 crypto cards, and the
-Trusted Platform Module (TPM) chip. Opencryptoki also brings a software
-token implementation that can be used without any cryptographic
+Opencryptoki implements the PKCS#11 specification  v3.0 and partially v3.1
+for a set of cryptographic hardware, such as IBM 4767, 4768, 4769 and 4770
+crypto cards, and the Trusted Platform Module (TPM) chip. Opencryptoki also
+brings a software token implementation that can be used without any cryptographic
 hardware.
 This package brings the necessary libraries and files to support EP11
 tokens in the opencryptoki stack. The EP11 token is a token that uses
