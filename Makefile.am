@@ -7,13 +7,13 @@ MAINTAINERCLEANFILES = test-driver \
 	depcomp ylwrap
 
 if AIX
-EXTRA_DIST = opencryptoki.map opencryptoki_tok.map \
-	opencryptoki.map.sym opencryptoki_tok.map.sym
+EXTRA_DIST = bootstrap.sh opencryptoki.map opencryptoki_tok.map \
+	opencryptoki.map.sym opencryptoki_tok.map.sym FAQ LICENSE
 SHLIBEXT=a
 LNFLAG=fs
 KILLALL = ./kill-all
 else
-EXTRA_DIST = opencryptoki.map opencryptoki_tok.map
+EXTRA_DIST = bootstrap.sh opencryptoki.map opencryptoki_tok.map FAQ LICENSE
 SHLIBEXT=so
 LNFLAG=nfs
 KILLALL = killall
