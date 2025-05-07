@@ -247,6 +247,9 @@ endif
 if ENABLE_P11SAK
 	rm -f $(DESTDIR)$(sysconfdir)/opencryptoki/p11sak_defined_attrs.conf || true
 endif
+if ENABLE_P11KMIP
+	rm -f $(DESTDIR)$(sysconfdir)/opencryptoki/p11kmip.conf || true
+endif
 	rm -f $(DESTDIR)$(sysconfdir)/opencryptoki/opencryptoki.conf || true
 	rm -f $(DESTDIR)$(sysconfdir)/opencryptoki/strength.conf || true
 
