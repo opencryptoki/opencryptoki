@@ -2166,14 +2166,6 @@ CK_RV cca_load_config_file(STDLL_TokData_t *tokdata, char *conf_name)
     cca_private->token_config_filename[
                     sizeof(cca_private->token_config_filename) - 1] = '\0';
 
-#ifndef NO_PKEY
-    cca_private->pkey_mode = PKEY_MODE_DEFAULT;
-#else
-    cca_private->pkey_mode = PKEY_MODE_DISABLED;
-#endif
-
-    cca_private->aes_key_mode = AES_KEY_MODE_DATA;
-
     confignode_foreach(c, config, i) {
         TRACE_DEBUG("Config node: '%s' type: %u line: %u\n",
                     c->key, c->type, c->line);
@@ -4786,6 +4778,12 @@ CK_RV token_specific_init(STDLL_TokData_t * tokdata, CK_SLOT_ID SlotNumber,
 
     tokdata->private_data = cca_private;
     cca_private->pkeyfd = -1;
+#ifndef NO_PKEY
+    cca_private->pkey_mode = PKEY_MODE_DEFAULT;
+#else
+    cca_private->pkey_mode = PKEY_MODE_DISABLED;
+#endif
+    cca_private->aes_key_mode = AES_KEY_MODE_DATA;
 
     rc = cca_load_config_file(tokdata, conf_name);
     if (rc != CKR_OK)
