@@ -23,4 +23,4 @@ usr_sbin_p11kmip_kmipclient_libkmipclient_a_SOURCES =			\
 	usr/sbin/p11kmip/kmipclient/utils.c				\
 	usr/sbin/p11kmip/kmipclient/xml.c
 
-EXTRA_DIST = usr/sbin/p11kmip/kmipclient/README.md
+EXTRA_DIST += usr/sbin/p11kmip/kmipclient/README.md
