@@ -248,6 +248,7 @@ exit 0
 %config(noreplace) %{_sysconfdir}/%{name}/%{name}.conf
 %attr(0640, root, pkcs11) %config(noreplace) %{_sysconfdir}/%{name}/strength.conf
 %attr(0640, root, pkcs11) %config(noreplace) %{_sysconfdir}/%{name}/p11sak_defined_attrs.conf
+%attr(0640, root, pkcs11) %config(noreplace) %{_sysconfdir}/%{name}/p11kmip.conf
 %{_prefix}/lib/tmpfiles.d/%{name}.conf
 %{_unitdir}/pkcsslotd.service
 %{_sbindir}/pkcsconf
@@ -269,6 +270,7 @@ exit 0
 %{_mandir}/man5/p11sak_defined_attrs.conf.5*
 %{_mandir}/man5/policy.conf.5*
 %{_mandir}/man5/strength.conf.5*
+%{_mandir}/man5/p11kmip.conf.5*
 %{_mandir}/man7/%{name}.7*
 %{_mandir}/man8/pkcsslotd.8*
 %{_libdir}/opencryptoki/methods
