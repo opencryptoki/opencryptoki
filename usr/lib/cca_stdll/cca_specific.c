@@ -3688,11 +3688,6 @@ static CK_RV import_aes_xts_key(STDLL_TokData_t *tokdata,
         return CKR_MECHANISM_INVALID;
     }
 
-    if (!ccatok_pkey_check_aes_xts(object->template)) {
-        TRACE_ERROR("%s CCA AES XTS is not supported\n", __func__);
-        return CKR_TEMPLATE_INCONSISTENT;
-    }
-
     rc = template_attribute_find(object->template, CKA_IBM_OPAQUE, &opaque_attr);
     if (rc == TRUE) {
         /*
@@ -3718,6 +3713,8 @@ static CK_RV import_aes_xts_key(STDLL_TokData_t *tokdata,
         if (token_type == sec_aes_data_key) {
             /* keybitsize has been checked by the analyse_cca_key_token() function */
             mode = CK_IBM_CCA_AES_DATA_KEY;
+            cpacf_exp = CK_TRUE;
+            exp = CK_TRUE;
         } else if (token_type == sec_aes_cipher_key) {
             mode = CK_IBM_CCA_AES_CIPHER_KEY;
             if (token_keybitsize == 0) {
@@ -3776,7 +3773,8 @@ static CK_RV import_aes_xts_key(STDLL_TokData_t *tokdata,
 
         if (token_type2 == sec_aes_data_key) {
             /* keybitsize has been checked by the analyse_cca_key_token() function */
-            ;
+            cpacf_exp2 = CK_TRUE;
+            exp2 = CK_TRUE;
         } else if (token_type2 == sec_aes_cipher_key) {
             if (token_keybitsize2 == 0) {
                 /*
@@ -3832,42 +3830,40 @@ static CK_RV import_aes_xts_key(STDLL_TokData_t *tokdata,
             return CKR_ATTRIBUTE_VALUE_INVALID;
         }
 
-        if (token_type == sec_aes_cipher_key) {
-            if (exp != exp2 || cpacf_exp != cpacf_exp2) {
-                TRACE_ERROR("CCA AES XTS keys attribute value mismatch\n");
-                return CKR_ATTRIBUTE_VALUE_INVALID;
-            }
+        if (exp != exp2 || cpacf_exp != cpacf_exp2) {
+            TRACE_ERROR("CCA AES XTS keys attribute value mismatch\n");
+            return CKR_ATTRIBUTE_VALUE_INVALID;
+        }
 
-            rc = build_update_attribute(object->template, CKA_EXTRACTABLE,
-                                        (CK_BYTE *)&exp, sizeof(exp));
-            if (rc != CKR_OK) {
-                TRACE_DEVEL("build_update_attribute(CKA_EXTRACTABLE) "
-                            "failed\n");
-                return rc;
-            }
+        rc = build_update_attribute(object->template, CKA_EXTRACTABLE,
+                                    (CK_BYTE *)&exp, sizeof(exp));
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("build_update_attribute(CKA_EXTRACTABLE) "
+                        "failed\n");
+            return rc;
+        }
 
 #ifndef NO_PKEY
+        rc = build_update_attribute(object->template,
+                                    CKA_IBM_PROTKEY_EXTRACTABLE,
+                                    (CK_BYTE *)&cpacf_exp,
+                                    sizeof(cpacf_exp));
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("build_update_attribute(CKA_IBM_PROTKEY_EXTRACTABLE) "
+                        "failed\n");
+            return rc;
+        }
+        if (cpacf_exp) {
             rc = build_update_attribute(object->template,
-                                        CKA_IBM_PROTKEY_EXTRACTABLE,
-                                        (CK_BYTE *)&cpacf_exp,
-                                        sizeof(cpacf_exp));
+                                        CKA_IBM_PROTKEY_NEVER_EXTRACTABLE,
+                                        (CK_BYTE *)&false, sizeof(false));
             if (rc != CKR_OK) {
-                TRACE_DEVEL("build_update_attribute(CKA_IBM_PROTKEY_EXTRACTABLE) "
+                TRACE_DEVEL("build_update_attribute(CKA_IBM_PROTKEY_NEVER_EXTRACTABLE) "
                             "failed\n");
                 return rc;
             }
-            if (cpacf_exp) {
-                rc = build_update_attribute(object->template,
-                                            CKA_IBM_PROTKEY_NEVER_EXTRACTABLE,
-                                            (CK_BYTE *)&false, sizeof(false));
-                if (rc != CKR_OK) {
-                    TRACE_DEVEL("build_update_attribute(CKA_IBM_PROTKEY_NEVER_EXTRACTABLE) "
-                                "failed\n");
-                    return rc;
-                }
-            }
-#endif
         }
+#endif
 
         rc = build_update_attribute(object->template, CKA_IBM_CCA_AES_KEY_MODE,
                                     (CK_BYTE *)&mode, sizeof(mode));
@@ -3924,6 +3920,11 @@ static CK_RV import_aes_xts_key(STDLL_TokData_t *tokdata,
             return rc;
         }
 
+        if (!ccatok_pkey_check_aes_xts(object->template)) {
+            TRACE_ERROR("%s CCA AES XTS is not supported\n", __func__);
+            return CKR_TEMPLATE_INCONSISTENT;
+        }
+
     } else {
         /*
          * This is an import of a clear key value which is to be transfered
@@ -3937,6 +3938,11 @@ static CK_RV import_aes_xts_key(STDLL_TokData_t *tokdata,
         CK_ATTRIBUTE *value_attr = NULL;
         long reserved_1 = 0, key_part_len;
         CK_IBM_CCA_AES_KEY_MODE_TYPE mode;
+
+        if (!ccatok_pkey_check_aes_xts(object->template)) {
+            TRACE_ERROR("%s CCA AES XTS is not supported\n", __func__);
+            return CKR_TEMPLATE_INCONSISTENT;
+        }
 
         rc = template_attribute_get_non_empty(object->template, CKA_VALUE,
                                               &value_attr);
@@ -10337,6 +10343,8 @@ static CK_RV import_symmetric_key(STDLL_TokData_t *tokdata,
             if (token_type == sec_aes_data_key) {
                 /* keybitsize has been checked by the analyse_cca_key_token() function */
                 mode = CK_IBM_CCA_AES_DATA_KEY;
+                cpacf_exp = CK_TRUE;
+                exp = CK_TRUE;
             } else if (token_type == sec_aes_cipher_key) {
                 mode = CK_IBM_CCA_AES_CIPHER_KEY;
                 if (token_keybitsize == 0) {
@@ -10366,40 +10374,40 @@ static CK_RV import_symmetric_key(STDLL_TokData_t *tokdata,
                                                         &exp, &cpacf_exp);
                 if (rc != CKR_OK)
                     return rc;
-
-                rc = build_update_attribute(object->template, CKA_EXTRACTABLE,
-                                            (CK_BYTE *)&exp, sizeof(exp));
-                if (rc != CKR_OK) {
-                    TRACE_DEVEL("build_update_attribute(CKA_EXTRACTABLE) "
-                                "failed\n");
-                    return rc;
-                }
-
-#ifndef NO_PKEY
-                rc = build_update_attribute(object->template,
-                                            CKA_IBM_PROTKEY_EXTRACTABLE,
-                                            (CK_BYTE *)&cpacf_exp,
-                                            sizeof(cpacf_exp));
-                if (rc != CKR_OK) {
-                    TRACE_DEVEL("build_update_attribute(CKA_IBM_PROTKEY_EXTRACTABLE) "
-                                "failed\n");
-                    return rc;
-                }
-                if (cpacf_exp) {
-                    rc = build_update_attribute(object->template,
-                                                CKA_IBM_PROTKEY_NEVER_EXTRACTABLE,
-                                                (CK_BYTE *)&false, sizeof(false));
-                    if (rc != CKR_OK) {
-                        TRACE_DEVEL("build_update_attribute(CKA_IBM_PROTKEY_NEVER_EXTRACTABLE) "
-                                    "failed\n");
-                        return rc;
-                    }
-                }
-#endif
             } else {
                 TRACE_ERROR("CCA token type in CKA_IBM_OPAQUE does not match to keytype CKK_AES\n");
                 return CKR_TEMPLATE_INCONSISTENT;
             }
+
+            rc = build_update_attribute(object->template, CKA_EXTRACTABLE,
+                                        (CK_BYTE *)&exp, sizeof(exp));
+            if (rc != CKR_OK) {
+                TRACE_DEVEL("build_update_attribute(CKA_EXTRACTABLE) "
+                            "failed\n");
+                return rc;
+            }
+
+#ifndef NO_PKEY
+            rc = build_update_attribute(object->template,
+                                        CKA_IBM_PROTKEY_EXTRACTABLE,
+                                        (CK_BYTE *)&cpacf_exp,
+                                        sizeof(cpacf_exp));
+            if (rc != CKR_OK) {
+                TRACE_DEVEL("build_update_attribute(CKA_IBM_PROTKEY_EXTRACTABLE) "
+                            "failed\n");
+                return rc;
+            }
+            if (cpacf_exp) {
+                rc = build_update_attribute(object->template,
+                                            CKA_IBM_PROTKEY_NEVER_EXTRACTABLE,
+                                            (CK_BYTE *)&false, sizeof(false));
+                if (rc != CKR_OK) {
+                    TRACE_DEVEL("build_update_attribute(CKA_IBM_PROTKEY_NEVER_EXTRACTABLE) "
+                                "failed\n");
+                    return rc;
+                }
+            }
+#endif
 
             rc = build_update_attribute(object->template,
                                         CKA_IBM_CCA_AES_KEY_MODE,
