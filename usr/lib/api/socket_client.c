@@ -203,7 +203,7 @@ static bool match_token_label_filter(event_msg_t *event, API_Slot_t *sltp)
 
 struct type_model {
     unsigned int type;
-    char model[member_size(CK_TOKEN_INFO_32, model)];
+    char model[member_size(CK_TOKEN_INFO_32, model) + 1];
 };
 
 static const struct type_model type_model_flt[] = {
@@ -221,7 +221,8 @@ static bool match_token_type_filter(event_msg_t *event, API_Slot_t *sltp)
     for (i = 0; i < sizeof(type_model_flt) / sizeof(struct type_model); i++) {
         if (memcmp(sltp->TokData->nv_token_data->token_info.model,
                    type_model_flt[i].model,
-                   sizeof(type_model_flt[i].model)) == 0 &&
+                   sizeof(sltp->TokData->nv_token_data->token_info.model))
+                                                                    == 0 &&
             (event->token_type & type_model_flt[i].type) != 0)
             return true;
     }

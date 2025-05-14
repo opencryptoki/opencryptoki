@@ -5055,7 +5055,7 @@ static CK_RV cca_cipher_key_gen(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
     unsigned char rule_array[CCA_RULE_ARRAY_SIZE] = { 0x20, };
     long exit_data_len = 0, rule_array_count;
     unsigned char exit_data[4] = { 0, };
-    unsigned char key_type_2[CCA_KEYWORD_SIZE] = "        ";
+    unsigned char key_type_2[CCA_KEYWORD_SIZE + 1] = "        ";
     long clear_key_bit_length, zero_length = 0, key_token_len;
     enum cca_token_type keytype;
     unsigned int keybitsize;

@@ -17,7 +17,7 @@
 #include "regress.h"
 #include "defs.h"
 
-const char payload[20] = "12345678901234567890";
+const char payload[20 + 1] = "12345678901234567890";
 
 static inline void init_event_destination(struct event_destination *dest,
                                           unsigned int token_type,
