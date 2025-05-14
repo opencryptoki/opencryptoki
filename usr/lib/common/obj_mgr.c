@@ -1664,6 +1664,38 @@ done:
     return rc;
 }
 
+static CK_BBOOL modifiable_override(CK_ATTRIBUTE *pTemplate, CK_ULONG ulCount)
+{
+    CK_ULONG i, k;
+    CK_BBOOL found;
+
+    const CK_ATTRIBUTE_TYPE always_modifiable_attrs[] = {
+       CKA_IBM_OPAQUE,
+       CKA_IBM_OPAQUE_REENC,
+       CKA_IBM_OPAQUE_OLD,
+    };
+
+    if (!token_specific.secure_key_token)
+        return CK_FALSE;
+
+    /* Check if template only contains always modifiable attrs */
+    for (i = 0; i < ulCount; i++) {
+        found = CK_FALSE;
+        for (k = 0; k < sizeof(always_modifiable_attrs) /
+                                        sizeof(CK_ATTRIBUTE_TYPE); k++) {
+            if (pTemplate[i].type == always_modifiable_attrs[k]) {
+                found = CK_TRUE;
+                break;
+            }
+        }
+
+        if (!found)
+            return CK_FALSE;
+    }
+
+    return CK_TRUE;
+}
+
 //
 //
 CK_RV object_mgr_set_attribute_values(STDLL_TokData_t *tokdata,
@@ -1697,7 +1729,7 @@ CK_RV object_mgr_set_attribute_values(STDLL_TokData_t *tokdata,
     // if object is not modifiable, it doesn't matter what kind of session
     // is issuing the request...
     //
-    if (!modifiable) {
+    if (!modifiable && !modifiable_override(pTemplate, ulCount)) {
         TRACE_ERROR("Object is not modifiable\n");
         rc = CKR_ACTION_PROHIBITED;
         goto done;
