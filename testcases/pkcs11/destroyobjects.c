@@ -45,21 +45,21 @@ CK_RV do_DestroyObjects(void)
     CK_BBOOL true = TRUE;
     CK_KEY_TYPE aes_type = CKK_AES;
     CK_OBJECT_CLASS key_class = CKO_SECRET_KEY;
-    CK_CHAR aes_value[] = "This is a fake aes key.";
-    CK_CHAR test_id[5] = "abcde";
+    CK_CHAR aes_value[32] = "This is a fake aes key.";
+    CK_CHAR test_id[5 + 1] = "abcde";
     CK_ULONG aesgen_keylen = 32;
 
     CK_ATTRIBUTE aes_tmpl[] = {
         {CKA_CLASS, &key_class, sizeof(key_class)},
         {CKA_KEY_TYPE, &aes_type, sizeof(aes_type)},
-        {CKA_ID, &test_id, sizeof(test_id)},
+        {CKA_ID, &test_id, strlen((char *)test_id)},
         {CKA_VALUE, &aes_value, sizeof(aes_value)}
     };
 
     CK_ATTRIBUTE aes_tmpl_no_destroy[] = {
         {CKA_CLASS, &key_class, sizeof(key_class)},
         {CKA_KEY_TYPE, &aes_type, sizeof(aes_type)},
-        {CKA_ID, &test_id, sizeof(test_id)},
+        {CKA_ID, &test_id, strlen((char *)test_id)},
         {CKA_VALUE, &aes_value, sizeof(aes_value)},
         {CKA_DESTROYABLE, &false, sizeof(false)},
     };
@@ -67,14 +67,14 @@ CK_RV do_DestroyObjects(void)
     CK_ATTRIBUTE aesgen_tmpl[] = {
         {CKA_CLASS, &key_class, sizeof(key_class)},
         {CKA_KEY_TYPE, &aes_type, sizeof(aes_type)},
-        {CKA_ID, &test_id, sizeof(test_id)},
+        {CKA_ID, &test_id, strlen((char *)test_id)},
         {CKA_VALUE_LEN, &aesgen_keylen, sizeof(aesgen_keylen)},
         {CKA_TOKEN, &true, sizeof(true)}
     };
 
     CK_ATTRIBUTE find_tmpl[] = {
         {CKA_KEY_TYPE, &aes_type, sizeof(aes_type)},
-        {CKA_ID, &test_id, sizeof(test_id)}
+        {CKA_ID, &test_id, strlen((char *)test_id)}
     };
 
     testcase_begin("");
