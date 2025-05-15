@@ -352,7 +352,6 @@ int kmip_connection_tls_init(struct kmip_connection *conn, bool debug)
 		if (tok == NULL) {
 			kmip_debug(debug, "malformed IPv6 address");
 			rc = -EINVAL;
-			free(hostname);
 			goto out;
 		}
 		tok++;

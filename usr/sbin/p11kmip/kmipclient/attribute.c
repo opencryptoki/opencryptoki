@@ -2432,7 +2432,7 @@ out:
 	kmip_node_free(iv);
 	kmip_node_free(tag);
 	kmip_node_free(ffl);
-	kmip_node_free(ffl);
+	kmip_node_free(ifl);
 	kmip_node_free(cnt);
 	kmip_node_free(icv);
 	kmip_node_free(salt);

@@ -1369,7 +1369,7 @@ int kmip_get_get_response_payload(const struct kmip_node *node,
 	return 0;
 
 error:
-	if (*unique_id != NULL) {
+	if (unique_id != NULL && *unique_id != NULL) {
 		kmip_node_free(*unique_id);
 		*unique_id = NULL;
 	}
