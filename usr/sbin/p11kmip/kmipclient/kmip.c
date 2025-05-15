@@ -1497,7 +1497,7 @@ retry:
 	chain = SSL_get_peer_cert_chain(conn->plain_tls.ssl);
 	if (chain == NULL) {
 		kmip_debug(debug, "SSL_get_peer_cert_chain failed");
-		return -EIO;
+		rc = -EIO;
 		goto out;
 	}
 

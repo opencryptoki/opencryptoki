@@ -626,14 +626,20 @@ static enum kmip_crypto_usage_mask get_kmip_usage_mask_p11(
                                         const struct p11tool_objtype *keytype)
 {
     /* Gnarly bitwise chain to turn on the appropriate flags for key usage */
-    const enum kmip_crypto_usage_mask usage_mask =
-        (keytype->encrypt_decrypt &
-         (KMIP_CRY_USAGE_MASK_ENCRYPT | KMIP_CRY_USAGE_MASK_DECRYPT))
-        | (keytype->sign_verify &
-           (KMIP_CRY_USAGE_MASK_SIGN | KMIP_CRY_USAGE_MASK_VERIFY))
-        | (keytype->wrap_unwrap &
-           (KMIP_CRY_USAGE_MASK_WRAP_KEY | KMIP_CRY_USAGE_MASK_UNWRAP_KEY))
-        | (keytype->derive & (KMIP_CRY_USAGE_MASK_DERIVE_KEY));
+    enum kmip_crypto_usage_mask usage_mask = 0;
+
+    if (keytype->encrypt_decrypt)
+        usage_mask |=
+                (KMIP_CRY_USAGE_MASK_ENCRYPT | KMIP_CRY_USAGE_MASK_DECRYPT);
+    if (keytype->sign_verify)
+        usage_mask |=
+                (KMIP_CRY_USAGE_MASK_SIGN | KMIP_CRY_USAGE_MASK_VERIFY);
+    if (keytype->wrap_unwrap)
+        usage_mask |=
+                (KMIP_CRY_USAGE_MASK_WRAP_KEY | KMIP_CRY_USAGE_MASK_UNWRAP_KEY);
+    if (keytype->derive)
+        usage_mask |= KMIP_CRY_USAGE_MASK_DERIVE_KEY;
+
     return usage_mask;
 }
 
@@ -2524,7 +2530,7 @@ static CK_RV p11kmip_wrap_local_secret_key(CK_OBJECT_HANDLE wrapping_key_handle,
     }
 
     *wrapped_key_blob = malloc(sizeof(CK_BYTE) * (*wrapped_key_length));
-    if (wrapped_key_blob == NULL) {
+    if (*wrapped_key_blob == NULL) {
         warnx("Unable to allocated storage for wrapped key blob");
         return CKR_HOST_MEMORY;
     }
@@ -3076,12 +3082,14 @@ static CK_RV p11kmip_register_remote_public_key(
     if (reg_req == NULL) {
         warnx("Allocate KMIP node failed");
         rc = CKR_HOST_MEMORY;
+        goto out;
     }
 
     act_req = kmip_new_activate_request_payload(NULL);  /* ID placeholder */
     if (act_req == NULL) {
         warnx("Allocate KMIP node failed");
         rc = CKR_HOST_MEMORY;
+        goto out;
     }
 
     rc = perform_kmip_request2(KMIP_OPERATION_REGISTER, reg_req,
@@ -3268,12 +3276,14 @@ static CK_RV p11kmip_register_remote_wrapped_key(
     if (reg_req == NULL) {
         warnx("Allocate KMIP node failed");
         rc = CKR_HOST_MEMORY;
+        goto out;
     }
 
     act_req = kmip_new_activate_request_payload(NULL);  /* ID placeholder */
     if (act_req == NULL) {
         warnx("Allocate KMIP node failed");
         rc = CKR_HOST_MEMORY;
+        goto out;
     }
 
     rc = perform_kmip_request2(KMIP_OPERATION_REGISTER, reg_req,
@@ -3377,12 +3387,14 @@ static CK_RV p11kmip_retrieve_remote_wrapped_key(
     if (cparams == NULL) {
         warnx("Allocate KMIP node failed");
         rc = CKR_HOST_MEMORY;
+        goto out;
     }
 
     wkey_info = kmip_new_key_info(false, wrapping_key_uid, cparams);
     if (wkey_info == NULL) {
         warnx("Allocate KMIP node failed");
         rc = CKR_HOST_MEMORY;
+        goto out;
     }
 
     wrap_spec = kmip_new_key_wrapping_specification_va(NULL,
@@ -3393,6 +3405,7 @@ static CK_RV p11kmip_retrieve_remote_wrapped_key(
     if (wrap_spec == NULL) {
         warnx("Allocate KMIP node failed");
         rc = CKR_HOST_MEMORY;
+        goto out;
     }
 
     req_pl = kmip_new_get_request_payload(NULL, wrapped_key_uid,
@@ -3401,6 +3414,7 @@ static CK_RV p11kmip_retrieve_remote_wrapped_key(
     if (req_pl == NULL) {
         warnx("Allocate KMIP node failed");
         rc = CKR_HOST_MEMORY;
+        goto out;
     }
 
     rc = perform_kmip_request(KMIP_OPERATION_GET, req_pl, &resp_pl,
@@ -3615,6 +3629,7 @@ static CK_RV p11kmip_retrieve_remote_public_key(
     if (req_pl == NULL) {
         warnx("Allocate KMIP node failed");
         rc = CKR_HOST_MEMORY;
+        goto out;
     }
 
     rc = perform_kmip_request(KMIP_OPERATION_GET, req_pl, &resp_pl,

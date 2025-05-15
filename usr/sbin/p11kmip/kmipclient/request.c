@@ -210,6 +210,8 @@ struct kmip_node *kmip_new_request_header(const struct kmip_version *version,
 out:
 	kmip_node_free(ver);
 	kmip_node_free(max);
+	kmip_node_free(ccorr);
+	kmip_node_free(scorr);
 	kmip_node_free(async);
 	kmip_node_free(err);
 	kmip_node_free(ord);
