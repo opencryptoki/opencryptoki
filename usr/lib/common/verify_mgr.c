@@ -823,6 +823,49 @@ CK_RV verify_mgr_init(STDLL_TokData_t *tokdata,
         ctx->context_len = 0;
         ctx->context = NULL;
         break;
+    case CKM_IBM_ML_DSA:
+        if (mech->ulParameterLen != 0 &&
+            mech->ulParameterLen != sizeof(CK_IBM_SIGN_ADDITIONAL_CONTEXT)) {
+            TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
+            rc = CKR_MECHANISM_PARAM_INVALID;
+            goto done;
+        }
+        if (mech->ulParameterLen == sizeof(CK_IBM_SIGN_ADDITIONAL_CONTEXT) &&
+            mech->pParameter == NULL) {
+            rc = CKR_MECHANISM_PARAM_INVALID;
+            goto done;
+        }
+
+        rc = template_attribute_get_ulong(key_obj->template, CKA_KEY_TYPE,
+                                          &keytype);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("Could not find CKA_KEY_TYPE for the key.\n");
+            goto done;
+        }
+
+        if (keytype != CKK_IBM_ML_DSA) {
+            TRACE_ERROR("%s\n", ock_err(ERR_KEY_TYPE_INCONSISTENT));
+            rc = CKR_KEY_TYPE_INCONSISTENT;
+            goto done;
+        }
+
+        rc = template_attribute_get_ulong(key_obj->template, CKA_CLASS,
+                                          &class);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("Could not find CKA_CLASS for the key.\n");
+            goto done;
+        }
+
+        if (class != CKO_PUBLIC_KEY) {
+            TRACE_ERROR("This operation requires a public key.\n");
+            rc = CKR_KEY_FUNCTION_NOT_PERMITTED;
+            goto done;
+        }
+
+        ctx->context_len = 0;
+        ctx->context = NULL;
+        break;
+
     default:
         TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
         rc = CKR_MECHANISM_INVALID;
@@ -1056,8 +1099,9 @@ CK_RV verify_mgr_verify(STDLL_TokData_t *tokdata,
         return ec_verify(tokdata, sess, ctx,
                          in_data, in_data_len, signature, sig_len);
     case CKM_IBM_DILITHIUM:
-        return ibm_dilithium_verify(tokdata, sess, ctx,
-                                    in_data, in_data_len, signature, sig_len);
+    case CKM_IBM_ML_DSA:
+        return ibm_ml_dsa_verify(tokdata, sess, ctx,
+                                 in_data, in_data_len, signature, sig_len);
     default:
         TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
         return CKR_MECHANISM_INVALID;

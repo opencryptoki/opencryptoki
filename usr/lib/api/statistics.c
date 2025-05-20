@@ -245,6 +245,23 @@ static CK_RV statistics_increment(struct statistics *statistics,
         if (rc != CKR_OK)
             return rc;
         break;
+    case CKM_IBM_ML_KEM:
+        if (mech->ulParameterLen != sizeof(CK_IBM_ML_KEM_PARAMS))
+            return CKR_MECHANISM_PARAM_INVALID;
+        if (mech->pParameter == NULL)
+            return CKR_MECHANISM_PARAM_INVALID;
+        if (((CK_IBM_ML_KEM_PARAMS *)mech->pParameter)->kdf == CKD_NULL ||
+            ((CK_IBM_ML_KEM_PARAMS *)mech->pParameter)->kdf == CKD_IBM_HYBRID_NULL)
+            break;
+        rc = digest_from_kdf(((CK_IBM_ML_KEM_PARAMS *)mech->pParameter)->kdf,
+                             &implicit_mech.mechanism);
+        if (rc != CKR_OK)
+            return rc;
+        rc = statistics_increment(statistics, slot, &implicit_mech,
+                                  POLICY_STRENGTH_IDX_0);
+        if (rc != CKR_OK)
+            return rc;
+        break;
 
     default:
         break;

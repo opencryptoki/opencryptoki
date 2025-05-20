@@ -993,6 +993,14 @@ CK_RV pkcsget_keytype_for_mech(CK_MECHANISM_TYPE mech, CK_KEY_TYPE *keytype,
     case CKM_IBM_KYBER:
         *keytype = CKK_IBM_PQC_KYBER;
         break;
+    case CKM_IBM_ML_DSA:
+    case CKM_IBM_ML_DSA_KEY_PAIR_GEN:
+        *keytype = CKK_IBM_ML_DSA;
+        break;
+    case CKM_IBM_ML_KEM:
+    case CKM_IBM_ML_KEM_KEY_PAIR_GEN:
+        *keytype = CKK_IBM_ML_KEM;
+        break;
     default:
         return CKR_MECHANISM_INVALID;
     }

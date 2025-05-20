@@ -476,7 +476,7 @@ static CK_BBOOL ep11_pqc_obj_strength_supported(ep11_target_info_t *target_info,
         return TRUE;
     }
 
-    oid = ibm_pqc_get_keyform_mode(key_obj->template, mech);
+    oid = pqc_get_keyform_mode(key_obj->template, mech);
     if (oid == NULL) {
         TRACE_DEVEL("No keyform/mode found in key object\n");
         return FALSE;
@@ -4928,16 +4928,16 @@ static CK_RV import_IBM_pqc_key(STDLL_TokData_t *tokdata, SESSION *sess,
              * Decode SPKI and add public key attributes. This also adds the
              * keyform and mode attributes to the template.
              */
-            rc = ibm_pqc_priv_unwrap_get_data(pqc_key_obj->template, keytype,
-                                              data, data_len, FALSE);
+            rc = pqc_priv_unwrap_get_data(pqc_key_obj->template, keytype,
+                                          data, data_len, FALSE);
             if (rc != CKR_OK) {
                 TRACE_ERROR("Failed to decode SPKI from CKA_VALUE.\n");
                 goto done;
             }
          } else {
             /* Individual attributes */
-             rc = ibm_pqc_publ_get_spki(pqc_key_obj->template, keytype,
-                                        FALSE, &data, &data_len);
+             rc = pqc_publ_get_spki(pqc_key_obj->template, keytype,
+                                    FALSE, &data, &data_len);
             if (rc != CKR_OK) {
                 TRACE_ERROR("%s public key import class=0x%lx rc=0x%lx "
                             "data_len=0x%lx\n", __func__, class, rc, data_len);
@@ -4948,15 +4948,15 @@ static CK_RV import_IBM_pqc_key(STDLL_TokData_t *tokdata, SESSION *sess,
             }
 
             /* Ensure both, keyform and mode attributes are added */
-            oid = ibm_pqc_get_keyform_mode(pqc_key_obj->template, pqc_mech);
+            oid = pqc_get_keyform_mode(pqc_key_obj->template, pqc_mech);
             if (oid == NULL) {
                 rc = CKR_TEMPLATE_INCOMPLETE;
                 goto done;
             }
 
-            rc = ibm_pqc_add_keyform_mode(pqc_key_obj->template, oid, pqc_mech);
+            rc = pqc_add_keyform_mode(pqc_key_obj->template, oid, pqc_mech);
             if (rc != CKR_OK) {
-                TRACE_ERROR("ibm_pqc_add_keyform_mode failed\n");
+                TRACE_ERROR("pqc_add_keyform_mode failed\n");
                 goto done;
             }
 
@@ -5009,8 +5009,8 @@ static CK_RV import_IBM_pqc_key(STDLL_TokData_t *tokdata, SESSION *sess,
             data_alloced = FALSE;
 
             /* Decode PKCS#8 private key and add key attributes */
-            rc = ibm_pqc_priv_unwrap(pqc_key_obj->template, keytype,
-                                     data, data_len, FALSE);
+            rc = pqc_priv_unwrap(pqc_key_obj->template, keytype,
+                                 data, data_len, FALSE);
             if (rc != CKR_OK) {
                 TRACE_ERROR("Failed to decode private key from CKA_VALUE.\n");
                 goto done;
@@ -5020,8 +5020,8 @@ static CK_RV import_IBM_pqc_key(STDLL_TokData_t *tokdata, SESSION *sess,
              * padding is done in mechanism. This also adds the keyform and mode
              * attributes to the template.
              */
-            rc = ibm_pqc_priv_wrap_get_data(pqc_key_obj->template, keytype,
-                                            FALSE, &data, &data_len);
+            rc = pqc_priv_wrap_get_data(pqc_key_obj->template, keytype,
+                                        FALSE, &data, &data_len);
             if (rc != CKR_OK) {
                 TRACE_DEVEL("%s %s wrap get data failed\n", __func__,
                             key_type_str);
@@ -5029,15 +5029,15 @@ static CK_RV import_IBM_pqc_key(STDLL_TokData_t *tokdata, SESSION *sess,
             }
 
             /* Ensure both, keyform and mode attributes are added */
-            oid = ibm_pqc_get_keyform_mode(pqc_key_obj->template, pqc_mech);
+            oid = pqc_get_keyform_mode(pqc_key_obj->template, pqc_mech);
             if (oid == NULL) {
                 rc = CKR_TEMPLATE_INCOMPLETE;
                 goto done;
             }
 
-            rc = ibm_pqc_add_keyform_mode(pqc_key_obj->template, oid, pqc_mech);
+            rc = pqc_add_keyform_mode(pqc_key_obj->template, oid, pqc_mech);
             if (rc != CKR_OK) {
-                TRACE_ERROR("ibm_pqc_add_keyform_mode failed\n");
+                TRACE_ERROR("pqc_add_keyform_mode failed\n");
                 goto done;
             }
         }
@@ -5167,12 +5167,9 @@ static CK_RV import_blob_private_public(STDLL_TokData_t *tokdata, SESSION *sess,
         rc = dh_priv_unwrap_get_data(obj->template, spki, spki_len, is_public);
         break;
     case CKK_IBM_PQC_DILITHIUM:
-        rc = ibm_dilithium_priv_unwrap_get_data(obj->template, spki, spki_len,
-                                                is_public);
-        break;
     case CKK_IBM_PQC_KYBER:
-        rc = ibm_kyber_priv_unwrap_get_data(obj->template, spki, spki_len,
-                                            is_public);
+        rc = pqc_priv_unwrap_get_data(obj->template, keytype, spki, spki_len,
+                                      is_public);
         break;
     default:
         TRACE_ERROR("%s Key type 0x%lx not supported\n", __func__, keytype);
@@ -10018,9 +10015,9 @@ static CK_RV ibm_pqc_generate_keypair(STDLL_TokData_t *tokdata,
         goto error;
     }
 
-    pqc_oid = ibm_pqc_get_keyform_mode(publ_tmpl, pMechanism->mechanism);
+    pqc_oid = pqc_get_keyform_mode(publ_tmpl, pMechanism->mechanism);
     if (pqc_oid == NULL)
-        pqc_oid = ibm_pqc_get_keyform_mode(priv_tmpl, pMechanism->mechanism);
+        pqc_oid = pqc_get_keyform_mode(priv_tmpl, pMechanism->mechanism);
     if (pqc_oid == NULL) {
         switch (pMechanism->mechanism) {
         case CKM_IBM_DILITHIUM:
@@ -10224,18 +10221,16 @@ static CK_RV ibm_pqc_generate_keypair(STDLL_TokData_t *tokdata,
     }
 
     /* Decode SPKI */
-    rc = ibm_pqc_priv_unwrap_get_data(publ_tmpl, ktype,
-                                      spki, spki_len, TRUE);
+    rc = pqc_priv_unwrap_get_data(publ_tmpl, ktype, spki, spki_len, TRUE);
     if (rc != CKR_OK) {
-        TRACE_ERROR("%s ibm_pqc_priv_unwrap_get_data with rc=0x%lx\n",
+        TRACE_ERROR("%s pqc_priv_unwrap_get_data with rc=0x%lx\n",
                     __func__, rc);
         goto error;
     }
 
-    rc = ibm_pqc_priv_unwrap_get_data(priv_tmpl, ktype,
-                                      spki, spki_len, FALSE);
+    rc = pqc_priv_unwrap_get_data(priv_tmpl, ktype, spki, spki_len, FALSE);
     if (rc != CKR_OK) {
-        TRACE_ERROR("%s ibm_pqc_priv_unwrap_get_data with rc=0x%lx\n",
+        TRACE_ERROR("%s pqc_priv_unwrap_get_data with rc=0x%lx\n",
                     __func__, rc);
         goto error;
     }
@@ -13443,12 +13438,10 @@ CK_RV ep11tok_unwrap_key(STDLL_TokData_t * tokdata, SESSION * session,
                                          FALSE);
             break;
         case CKK_IBM_PQC_DILITHIUM:
-            rc = ibm_dilithium_priv_unwrap_get_data(key_obj->template,
-                                                    csum, cslen, FALSE);
-            break;
         case CKK_IBM_PQC_KYBER:
-            rc = ibm_kyber_priv_unwrap_get_data(key_obj->template,
-                                                csum, cslen, FALSE);
+            rc = pqc_priv_unwrap_get_data(key_obj->template,
+                                          *(CK_KEY_TYPE *)keytype_attr->pValue,
+                                          csum, cslen, FALSE);
             break;
         }
 

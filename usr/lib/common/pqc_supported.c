@@ -147,7 +147,7 @@ const struct pqc_oid *find_pqc_by_keyform(const struct pqc_oid *pqcs,
 }
 
 const struct pqc_oid *find_pqc_by_oid(const struct pqc_oid *pqcs,
-                                      CK_BYTE *oid, CK_ULONG oid_len)
+                                      const CK_BYTE *oid, CK_ULONG oid_len)
 {
     CK_ULONG i;
 

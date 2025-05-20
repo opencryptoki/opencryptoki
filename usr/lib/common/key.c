@@ -791,10 +791,20 @@ CK_RV publ_key_get_spki(TEMPLATE *tmpl, CK_ULONG keytype, CK_BBOOL length_only,
         rc = ec_publ_get_spki(tmpl, length_only, data, data_len);
         break;
     case CKK_IBM_PQC_DILITHIUM:
-        rc = ibm_dilithium_publ_get_spki(tmpl, length_only, data, data_len);
+        rc = ibm_ml_dsa_publ_get_spki(tmpl, length_only, data, data_len,
+                                      CKM_IBM_DILITHIUM);
         break;
     case CKK_IBM_PQC_KYBER:
-        rc = ibm_kyber_publ_get_spki(tmpl, length_only, data, data_len);
+        rc = ibm_ml_kem_publ_get_spki(tmpl, length_only, data, data_len,
+                                      CKM_IBM_KYBER);
+        break;
+    case CKK_IBM_ML_DSA:
+        rc = ibm_ml_dsa_publ_get_spki(tmpl, length_only, data, data_len,
+                                      CKM_IBM_ML_DSA);
+        break;
+    case CKK_IBM_ML_KEM:
+        rc = ibm_ml_kem_publ_get_spki(tmpl, length_only, data, data_len,
+                                      CKM_IBM_ML_KEM);
         break;
     default:
         TRACE_ERROR("%s\n", ock_err(ERR_KEY_TYPE_INCONSISTENT));
@@ -1125,10 +1135,17 @@ CK_RV priv_key_unwrap(TEMPLATE *tmpl,
         rc = ec_priv_unwrap(tmpl, data, data_len);
         break;
     case CKK_IBM_PQC_DILITHIUM:
-        rc = ibm_dilithium_priv_unwrap(tmpl, data, data_len, TRUE);
+        rc = ibm_ml_dsa_priv_unwrap(tmpl, data, data_len, TRUE,
+                                    CKM_IBM_DILITHIUM);
         break;
     case CKK_IBM_PQC_KYBER:
-        rc = ibm_kyber_priv_unwrap(tmpl, data, data_len, TRUE);
+        rc = ibm_ml_kem_priv_unwrap(tmpl,  data, data_len, TRUE, CKM_IBM_KYBER);
+        break;
+    case CKK_IBM_ML_DSA:
+        rc = ibm_ml_dsa_priv_unwrap(tmpl, data, data_len, TRUE, CKM_IBM_ML_DSA);
+        break;
+    case CKK_IBM_ML_KEM:
+        rc = ibm_ml_kem_priv_unwrap(tmpl,  data, data_len, TRUE, CKM_IBM_ML_KEM);
         break;
     default:
         TRACE_ERROR("%s\n", ock_err(ERR_WRAPPED_KEY_INVALID));
@@ -2834,10 +2851,10 @@ out:
     return rc;
 }
 
-static CK_RV ibm_pqc_keyform_mode_attrs_by_mech(CK_MECHANISM_TYPE mech,
-                                                CK_ATTRIBUTE_TYPE *keyform_attr,
-                                                CK_ATTRIBUTE_TYPE *mode_attr,
-                                                const struct pqc_oid **oids)
+static CK_RV pqc_keyform_mode_attrs_by_mech(CK_MECHANISM_TYPE mech,
+                                            CK_ATTRIBUTE_TYPE *keyform_attr,
+                                            CK_ATTRIBUTE_TYPE *mode_attr,
+                                            const struct pqc_oid **oids)
 {
     switch (mech) {
     case CKM_IBM_DILITHIUM:
@@ -2850,6 +2867,18 @@ static CK_RV ibm_pqc_keyform_mode_attrs_by_mech(CK_MECHANISM_TYPE mech,
         *mode_attr = CKA_IBM_KYBER_MODE;
         *oids = kyber_oids;
         break;
+    case CKM_IBM_ML_DSA:
+    case CKM_IBM_ML_DSA_KEY_PAIR_GEN:
+        *keyform_attr = CKA_IBM_PARAMETER_SET;
+        *mode_attr = (CK_ATTRIBUTE_TYPE)-1;
+        *oids = ml_dsa_oids;
+        break;
+    case CKM_IBM_ML_KEM:
+    case CKM_IBM_ML_KEM_KEY_PAIR_GEN:
+        *keyform_attr = CKA_IBM_PARAMETER_SET;
+        *mode_attr = (CK_ATTRIBUTE_TYPE)-1;
+        *oids = ml_kem_oids;
+        break;
     default:
         TRACE_ERROR("Unsupported mechanims: 0x%lx\n", mech);
         return CKR_MECHANISM_INVALID;
@@ -2858,16 +2887,16 @@ static CK_RV ibm_pqc_keyform_mode_attrs_by_mech(CK_MECHANISM_TYPE mech,
     return CKR_OK;
 }
 
-const struct pqc_oid *ibm_pqc_get_keyform_mode(TEMPLATE *tmpl,
-                                               CK_MECHANISM_TYPE mech)
+const struct pqc_oid *pqc_get_keyform_mode(TEMPLATE *tmpl,
+                                           CK_MECHANISM_TYPE mech)
 {
     CK_ATTRIBUTE *attr = NULL;
     const struct pqc_oid *oids = NULL, *oid;
     CK_ATTRIBUTE_TYPE keyform_attr = 0;
     CK_ATTRIBUTE_TYPE mode_attr = 0;
 
-    if (ibm_pqc_keyform_mode_attrs_by_mech(mech, &keyform_attr,
-                                           &mode_attr, &oids) != CKR_OK)
+    if (pqc_keyform_mode_attrs_by_mech(mech, &keyform_attr,
+                                       &mode_attr, &oids) != CKR_OK)
         return NULL;
 
     if (template_attribute_find(tmpl, keyform_attr, &attr) &&
@@ -2881,7 +2910,8 @@ const struct pqc_oid *ibm_pqc_get_keyform_mode(TEMPLATE *tmpl,
         return oid;
     }
 
-    if (template_attribute_find(tmpl, mode_attr, &attr) &&
+    if (mode_attr != (CK_ATTRIBUTE_TYPE)-1 &&
+        template_attribute_find(tmpl, mode_attr, &attr) &&
         attr->ulValueLen != 0 && attr->pValue != NULL) {
         oid = find_pqc_by_oid(oids, attr->pValue, attr->ulValueLen);
         if (oid == NULL) {
@@ -2895,8 +2925,8 @@ const struct pqc_oid *ibm_pqc_get_keyform_mode(TEMPLATE *tmpl,
     return NULL;
 }
 
-CK_RV ibm_pqc_add_keyform_mode(TEMPLATE *tmpl, const struct pqc_oid *oid,
-                               CK_MECHANISM_TYPE mech)
+CK_RV pqc_add_keyform_mode(TEMPLATE *tmpl, const struct pqc_oid *oid,
+                           CK_MECHANISM_TYPE mech)
 {
     CK_ATTRIBUTE *mode = NULL;
     CK_ATTRIBUTE *keyform = NULL;
@@ -2905,21 +2935,24 @@ CK_RV ibm_pqc_add_keyform_mode(TEMPLATE *tmpl, const struct pqc_oid *oid,
     CK_ATTRIBUTE_TYPE mode_attr = 0;
     const struct pqc_oid *oids;
 
-    if (ibm_pqc_keyform_mode_attrs_by_mech(mech, &keyform_attr,
-                                           &mode_attr, &oids) != CKR_OK)
+    if (pqc_keyform_mode_attrs_by_mech(mech, &keyform_attr,
+                                       &mode_attr, &oids) != CKR_OK)
         return CKR_MECHANISM_INVALID;
 
-    rc = build_attribute(mode_attr, (CK_BYTE *)oid->oid, oid->oid_len, &mode);
-    if (rc != CKR_OK) {
-        TRACE_DEVEL("build_attribute failed\n");
-        goto error;
+    if (mode_attr != (CK_ATTRIBUTE_TYPE)-1) {
+        rc = build_attribute(mode_attr, (CK_BYTE *)oid->oid, oid->oid_len,
+                             &mode);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("build_attribute failed\n");
+            goto error;
+        }
+        rc = template_update_attribute(tmpl, mode);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("template_update_attribute failed.\n");
+            goto error;
+        }
+        mode = NULL;
     }
-    rc = template_update_attribute(tmpl, mode);
-    if (rc != CKR_OK) {
-        TRACE_DEVEL("template_update_attribute failed.\n");
-        goto error;
-    }
-    mode = NULL;
 
     rc = build_attribute(keyform_attr, (CK_BYTE *)&oid->keyform,
                          sizeof(CK_ULONG), &keyform);
@@ -2945,37 +2978,63 @@ error:
     return rc;
 }
 
+static CK_RV pqc_private_seed_attr_by_mech(CK_MECHANISM_TYPE mech,
+                                           CK_ATTRIBUTE_TYPE *priv_seed_attr)
+{
+    switch (mech) {
+    case CKM_IBM_DILITHIUM:
+        *priv_seed_attr = (CK_ATTRIBUTE_TYPE)-1;
+        break;
+    case CKM_IBM_KYBER:
+        *priv_seed_attr = (CK_ATTRIBUTE_TYPE)-1;
+        break;
+    case CKM_IBM_ML_DSA:
+    case CKM_IBM_ML_DSA_KEY_PAIR_GEN:
+        *priv_seed_attr = CKA_IBM_ML_DSA_PRIVATE_SEED;
+        break;
+    case CKM_IBM_ML_KEM:
+    case CKM_IBM_ML_KEM_KEY_PAIR_GEN:
+        *priv_seed_attr = CKA_IBM_ML_KEM_PRIVATE_SEED;
+        break;
+    default:
+        TRACE_ERROR("Unsupported mechanims: 0x%lx\n", mech);
+        return CKR_MECHANISM_INVALID;
+    }
+
+    return CKR_OK;
+}
+
 /*
- * Extract the SubjectPublicKeyInfo from the Dilithium public key
+ * Extract the SubjectPublicKeyInfo from the Dilithium or ML-DSA public key
  */
-CK_RV ibm_dilithium_publ_get_spki(TEMPLATE *tmpl, CK_BBOOL length_only,
-                                  CK_BYTE **data, CK_ULONG *data_len)
+CK_RV ibm_ml_dsa_publ_get_spki(TEMPLATE *tmpl, CK_BBOOL length_only,
+                               CK_BYTE **data, CK_ULONG *data_len,
+                               CK_MECHANISM_TYPE mech)
 {
     CK_ATTRIBUTE *rho = NULL;
     CK_ATTRIBUTE *t1 = NULL;
     const struct pqc_oid *oid;
     CK_RV rc;
 
-    oid = ibm_pqc_get_keyform_mode(tmpl, CKM_IBM_DILITHIUM);
+    oid = pqc_get_keyform_mode(tmpl, mech);
     if (oid == NULL)
        return CKR_TEMPLATE_INCOMPLETE;
 
-    rc = template_attribute_get_non_empty(tmpl, CKA_IBM_DILITHIUM_RHO, &rho);
+    rc = template_attribute_get_non_empty(tmpl, CKA_IBM_ML_DSA_RHO, &rho);
     if (rc != CKR_OK) {
-        TRACE_ERROR("Could not find CKA_IBM_DILITHIUM_RHO for the key.\n");
+        TRACE_ERROR("Could not find CKA_IBM_ML_DSA_RHO for the key.\n");
         return rc;
     }
-    rc = template_attribute_get_non_empty(tmpl, CKA_IBM_DILITHIUM_T1, &t1);
+    rc = template_attribute_get_non_empty(tmpl, CKA_IBM_ML_DSA_T1, &t1);
     if (rc != CKR_OK) {
-        TRACE_ERROR("Could not find CKA_PUBLIC_EXPONENT for the key.\n");
+        TRACE_ERROR("Could not find CKA_IBM_ML_DSA_T1 for the key.\n");
         return rc;
     }
 
-    rc = ber_encode_IBM_DilithiumPublicKey(length_only, data, data_len,
-                                           oid->oid, oid->oid_len,
-                                           rho, t1);
+    rc = ber_encode_IBM_ML_DSA_PublicKey(mech, length_only, data, data_len,
+                                         oid->oid, oid->oid_len, rho, t1);
     if (rc != CKR_OK) {
-        TRACE_ERROR("ber_encode_IBM_DilithiumPublicKey failed.\n");
+        TRACE_ERROR("ber_encode_IBM_ML_DSA_PublicKey failed.\n");
         return rc;
     }
 
@@ -2983,75 +3042,89 @@ CK_RV ibm_dilithium_publ_get_spki(TEMPLATE *tmpl, CK_BBOOL length_only,
 }
 
 
-CK_RV ibm_dilithium_priv_wrap_get_data(TEMPLATE *tmpl,
-                                       CK_BBOOL length_only,
-                                       CK_BYTE **data, CK_ULONG *data_len)
+CK_RV ibm_ml_dsa_priv_wrap_get_data(TEMPLATE *tmpl, CK_BBOOL length_only,
+                                    CK_BYTE **data, CK_ULONG *data_len,
+                                    CK_MECHANISM_TYPE mech)
 {
     CK_ATTRIBUTE *rho = NULL, *seed = NULL;
     CK_ATTRIBUTE *tr = NULL, *s1 = NULL, *s2 = NULL;
-    CK_ATTRIBUTE *t0 = NULL, *t1 = NULL;
+    CK_ATTRIBUTE *t0 = NULL, *t1 = NULL, *priv_seed = NULL;
     const struct pqc_oid *oid;
+    CK_MECHANISM_TYPE priv_seed_attr;
     CK_RV rc;
 
-    oid = ibm_pqc_get_keyform_mode(tmpl, CKM_IBM_DILITHIUM);
+    oid = pqc_get_keyform_mode(tmpl, mech);
     if (oid == NULL)
        return CKR_TEMPLATE_INCOMPLETE;
 
-    rc = template_attribute_get_non_empty(tmpl, CKA_IBM_DILITHIUM_RHO, &rho);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("Could not find CKA_IBM_DILITHIUM_RHO for the key.\n");
+    rc = pqc_private_seed_attr_by_mech(mech, &priv_seed_attr);
+    if (rc != CKR_OK)
         return rc;
+
+    /* If private seed is available, then the other components are optional */
+    if (priv_seed_attr != (CK_MECHANISM_TYPE)-1 &&
+        template_attribute_find(tmpl, priv_seed_attr, &priv_seed) == TRUE) {
+        if (priv_seed->ulValueLen == 0 || priv_seed->pValue == NULL)
+            priv_seed = NULL;
     }
 
-    rc = template_attribute_get_non_empty(tmpl, CKA_IBM_DILITHIUM_SEED, &seed);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("Could not find CKA_IBM_DILITHIUM_SEED for the key.\n");
-        return rc;
+    template_attribute_find(tmpl, CKA_IBM_ML_DSA_RHO, &rho);
+    template_attribute_find(tmpl, CKA_IBM_ML_DSA_SEED, &seed);
+    template_attribute_find(tmpl, CKA_IBM_ML_DSA_TR, &tr);
+    template_attribute_find(tmpl, CKA_IBM_ML_DSA_S1, &s1);
+    template_attribute_find(tmpl, CKA_IBM_ML_DSA_S2, &s2);
+    template_attribute_find(tmpl, CKA_IBM_ML_DSA_T0, &t0);
+    template_attribute_find(tmpl, CKA_IBM_ML_DSA_T1, &t1);
+
+    if (priv_seed == NULL) {
+        if (rho == NULL || rho->ulValueLen == 0 || rho->pValue == NULL) {
+            TRACE_ERROR("Could not find CKA_IBM_ML_DSA_RHO for the key.\n");
+            return CKR_TEMPLATE_INCOMPLETE;
+        }
+
+        if (seed == NULL || seed->ulValueLen == 0 || seed->pValue == NULL) {
+            TRACE_ERROR("Could not find CKA_IBM_ML_DSA_SEED for the key.\n");
+            return CKR_TEMPLATE_INCOMPLETE;
+        }
+
+        if (tr == NULL || tr->ulValueLen == 0 || tr->pValue == NULL) {
+            TRACE_ERROR("Could not find CKA_IBM_ML_DSA_TR for the key.\n");
+            return CKR_TEMPLATE_INCOMPLETE;
+        }
+
+        if (s1 == NULL || s1->ulValueLen == 0 || s1->pValue == NULL) {
+            TRACE_ERROR("Could not find CKA_IBM_ML_DSA_S1 for the key.\n");
+            return CKR_TEMPLATE_INCOMPLETE;
+        }
+
+        if (s2 == NULL || s2->ulValueLen == 0 || s2->pValue == NULL) {
+            TRACE_ERROR("Could not find CKA_IBM_ML_DSA_S2 for the key.\n");
+            return CKR_TEMPLATE_INCOMPLETE;
+        }
+
+        if (t0 == NULL || t0->ulValueLen == 0 || t0->pValue == NULL) {
+            TRACE_ERROR("Could not find CKA_IBM_ML_DSA_T0 for the key.\n");
+            return CKR_TEMPLATE_INCOMPLETE;
+        }
+
+        /* t1 is optional and can be NULL */
     }
 
-    rc = template_attribute_get_non_empty(tmpl, CKA_IBM_DILITHIUM_TR, &tr);
+    rc = ber_encode_IBM_ML_DSA_PrivateKey(mech, length_only, data, data_len,
+                                          oid->oid, oid->oid_len,
+                                          rho, seed, tr, s1, s2, t0, t1,
+                                          priv_seed);
     if (rc != CKR_OK) {
-        TRACE_ERROR("Could not find CKA_IBM_DILITHIUM_TR for the key.\n");
-        return rc;
-    }
-
-    rc = template_attribute_get_non_empty(tmpl, CKA_IBM_DILITHIUM_S1, &s1);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("Could not find CKA_IBM_DILITHIUM_S1 for the key.\n");
-        return rc;
-    }
-
-    rc = template_attribute_get_non_empty(tmpl, CKA_IBM_DILITHIUM_S2, &s2);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("Could not find CKA_IBM_DILITHIUM_S2 for the key.\n");
-        return rc;
-    }
-
-    rc = template_attribute_get_non_empty(tmpl, CKA_IBM_DILITHIUM_T0, &t0);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("Could not find CKA_IBM_DILITHIUM_T0 for the key.\n");
-        return rc;
-    }
-
-    rc = template_attribute_get_non_empty(tmpl, CKA_IBM_DILITHIUM_T1, &t1);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("Could not find CKA_IBM_DILITHIUM_T1 for the key.\n");
-        return rc;
-    }
-
-    rc = ber_encode_IBM_DilithiumPrivateKey(length_only, data, data_len,
-                                            oid->oid, oid->oid_len,
-                                            rho, seed, tr, s1, s2, t0, t1);
-    if (rc != CKR_OK) {
-        TRACE_DEVEL("ber_encode_IBM_DilithiumPrivateKey failed\n");
+        TRACE_DEVEL("ber_encode_IBM_ML_DSA_PrivateKey failed\n");
     }
 
     return rc;
 }
 
-CK_RV ibm_dilithium_priv_unwrap_get_data(TEMPLATE *tmpl, CK_BYTE *data,
-                                         CK_ULONG total_length,
-                                         CK_BBOOL is_public)
+CK_RV ibm_ml_dsa_priv_unwrap_get_data(TEMPLATE *tmpl, CK_BYTE *data,
+                                      CK_ULONG total_length,
+                                      CK_BBOOL is_public,
+                                      CK_MECHANISM_TYPE mech)
 {
     CK_ATTRIBUTE *rho = NULL;
     CK_ATTRIBUTE *t1 = NULL;
@@ -3059,16 +3132,16 @@ CK_RV ibm_dilithium_priv_unwrap_get_data(TEMPLATE *tmpl, CK_BYTE *data,
     const struct pqc_oid *oid;
     CK_RV rc;
 
-    rc = ber_decode_IBM_DilithiumPublicKey(data, total_length, &rho, &t1,
-                                           &value, &oid);
+    rc = ber_decode_IBM_ML_DSA_PublicKey(mech, data, total_length, &rho, &t1,
+                                         &value, &oid);
     if (rc != CKR_OK) {
-        TRACE_ERROR("ber_decode_DilithiumPublicKey failed\n");
+        TRACE_ERROR("ber_decode_IBM_ML_DSA_PublicKey failed\n");
         return rc;
     }
 
-    rc = ibm_pqc_add_keyform_mode(tmpl, oid, CKM_IBM_DILITHIUM);
+    rc = pqc_add_keyform_mode(tmpl, oid, mech);
     if (rc != CKR_OK) {
-        TRACE_ERROR("ibm_pqc_add_keyform_mode failed\n");
+        TRACE_ERROR("pqc_add_keyform_mode failed\n");
         goto error;
     }
 
@@ -3110,72 +3183,94 @@ error:
 
 //
 //
-CK_RV ibm_dilithium_priv_unwrap(TEMPLATE *tmpl, CK_BYTE *data,
-                                CK_ULONG total_length, CK_BBOOL add_value)
+CK_RV ibm_ml_dsa_priv_unwrap(TEMPLATE *tmpl, CK_BYTE *data,
+                             CK_ULONG total_length, CK_BBOOL add_value,
+                             CK_MECHANISM_TYPE mech)
 {
     CK_ATTRIBUTE *rho = NULL, *seed = NULL, *tr = NULL, *value = NULL;
     CK_ATTRIBUTE *s1 = NULL, *s2 = NULL, *t0 = NULL, *t1 = NULL;
+    CK_ATTRIBUTE *private_seed = NULL;
     const struct pqc_oid *oid;
     CK_RV rc;
 
-    rc = ber_decode_IBM_DilithiumPrivateKey(data, total_length,
-                                            &rho, &seed, &tr, &s1, &s2, &t0,
-                                            &t1, &value, &oid);
+    rc = ber_decode_IBM_ML_DSA_PrivateKey(mech, data, total_length,
+                                          &rho, &seed, &tr, &s1, &s2, &t0,
+                                          &t1, &private_seed, &value, &oid);
     if (rc != CKR_OK) {
-        TRACE_ERROR("der_decode_IBM_DilithiumPrivateKey failed\n");
+        TRACE_ERROR("ber_decode_IBM_ML_DSA_PrivateKey failed\n");
         return rc;
     }
 
-    rc = ibm_pqc_add_keyform_mode(tmpl, oid, CKM_IBM_DILITHIUM);
+    rc = pqc_add_keyform_mode(tmpl, oid, mech);
     if (rc != CKR_OK) {
-        TRACE_ERROR("ibm_pqc_add_keyform_mode failed\n");
+        TRACE_ERROR("pqc_add_keyform_mode failed\n");
         goto error;
     }
 
-    rc = template_update_attribute(tmpl, rho);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("template_update_attribute failed\n");
-        goto error;
+    if (rho != NULL) {
+        rc = template_update_attribute(tmpl, rho);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("template_update_attribute failed\n");
+            goto error;
+        }
+        rho = NULL;
     }
-    rho = NULL;
-    rc = template_update_attribute(tmpl, seed);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("template_update_attribute failed\n");
-        goto error;
+    if (seed != NULL) {
+        rc = template_update_attribute(tmpl, seed);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("template_update_attribute failed\n");
+            goto error;
+        }
+        seed = NULL;
     }
-    seed = NULL;
-    rc = template_update_attribute(tmpl, tr);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("template_update_attribute failed\n");
-        goto error;
+    if (tr != NULL) {
+        rc = template_update_attribute(tmpl, tr);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("template_update_attribute failed\n");
+            goto error;
+        }
+        tr = NULL;
     }
-    tr = NULL;
-    rc = template_update_attribute(tmpl, s1);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("template_update_attribute failed\n");
-        goto error;
+    if (s1 != NULL) {
+        rc = template_update_attribute(tmpl, s1);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("template_update_attribute failed\n");
+            goto error;
+        }
+        s1 = NULL;
     }
-    s1 = NULL;
-    rc = template_update_attribute(tmpl, s2);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("template_update_attribute failed\n");
-        goto error;
+    if (s2 != NULL) {
+        rc = template_update_attribute(tmpl, s2);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("template_update_attribute failed\n");
+            goto error;
+        }
+        s2 = NULL;
     }
-    s2 = NULL;
-    rc = template_update_attribute(tmpl, t0);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("template_update_attribute failed\n");
-        goto error;
+    if (t0 != NULL) {
+        rc = template_update_attribute(tmpl, t0);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("template_update_attribute failed\n");
+            goto error;
+        }
+        t0 = NULL;
     }
-    t0 = NULL;
     if (t1 != NULL) {
         rc = template_update_attribute(tmpl, t1);
         if (rc != CKR_OK) {
             TRACE_ERROR("template_update_attribute failed\n");
             goto error;
         }
+        t1 = NULL;
     }
-    t1 = NULL;
+    if (private_seed) {
+        rc = template_update_attribute(tmpl, private_seed);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("template_update_attribute failed.\n");
+            goto error;
+        }
+        private_seed = NULL;
+    }
     if (add_value) {
         rc = template_update_attribute(tmpl, value);
         if (rc != CKR_OK) {
@@ -3204,6 +3299,8 @@ error:
         free(t0);
     if (t1)
         free(t1);
+    if (private_seed)
+        free(private_seed);
     if (value)
         free(value);
 
@@ -3211,88 +3308,102 @@ error:
 }
 
 /*
- * Extract the SubjectPublicKeyInfo from the Kyber public key
+ * Extract the SubjectPublicKeyInfo from the Kyber or ML-KEM public key
  */
-CK_RV ibm_kyber_publ_get_spki(TEMPLATE *tmpl, CK_BBOOL length_only,
-                              CK_BYTE **data, CK_ULONG *data_len)
+CK_RV ibm_ml_kem_publ_get_spki(TEMPLATE *tmpl, CK_BBOOL length_only,
+                               CK_BYTE **data, CK_ULONG *data_len,
+                               CK_MECHANISM_TYPE mech)
 {
     CK_ATTRIBUTE *pk = NULL;
     const struct pqc_oid *oid;
     CK_RV rc;
 
-    oid = ibm_pqc_get_keyform_mode(tmpl, CKM_IBM_KYBER);
+    oid = pqc_get_keyform_mode(tmpl, mech);
     if (oid == NULL)
        return CKR_TEMPLATE_INCOMPLETE;
 
-    rc = template_attribute_get_non_empty(tmpl, CKA_IBM_KYBER_PK, &pk);
+    rc = template_attribute_get_non_empty(tmpl, CKA_IBM_ML_KEM_PK, &pk);
     if (rc != CKR_OK) {
-        TRACE_ERROR("Could not find CKA_IBM_KYBER_PK for the key.\n");
+        TRACE_ERROR("Could not find CKA_IBM_ML_KEM_PK for the key.\n");
         return rc;
     }
 
-    rc = ber_encode_IBM_KyberPublicKey(length_only, data, data_len,
-                                       oid->oid, oid->oid_len, pk);
+    rc = ber_encode_IBM_ML_KEM_PublicKey(mech, length_only, data, data_len,
+                                         oid->oid, oid->oid_len, pk);
     if (rc != CKR_OK) {
-        TRACE_ERROR("ber_encode_IBM_KyberPublicKey failed.\n");
+        TRACE_ERROR("ber_encode_IBM_ML_KEM_PublicKey failed.\n");
         return rc;
     }
 
     return CKR_OK;
 }
 
-
-CK_RV ibm_kyber_priv_wrap_get_data(TEMPLATE *tmpl,
-                                   CK_BBOOL length_only,
-                                   CK_BYTE **data, CK_ULONG *data_len)
+CK_RV ibm_ml_kem_priv_wrap_get_data(TEMPLATE *tmpl, CK_BBOOL length_only,
+                                    CK_BYTE **data, CK_ULONG *data_len,
+                                    CK_MECHANISM_TYPE mech)
 {
-    CK_ATTRIBUTE *sk = NULL, *pk = NULL;
+    CK_ATTRIBUTE *sk = NULL, *pk = NULL, *priv_seed = NULL;
     const struct pqc_oid *oid;
+    CK_MECHANISM_TYPE priv_seed_attr;
     CK_RV rc;
 
-    oid = ibm_pqc_get_keyform_mode(tmpl, CKM_IBM_KYBER);
+    oid = pqc_get_keyform_mode(tmpl, mech);
     if (oid == NULL)
        return CKR_TEMPLATE_INCOMPLETE;
 
-    rc = template_attribute_get_non_empty(tmpl, CKA_IBM_KYBER_SK, &sk);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("Could not find CKA_IBM_KYBER_SK for the key.\n");
+    rc = pqc_private_seed_attr_by_mech(mech, &priv_seed_attr);
+    if (rc != CKR_OK)
         return rc;
+
+    /* If private seed is available, then the other components are optional */
+    if (priv_seed_attr != (CK_MECHANISM_TYPE)-1 &&
+        template_attribute_find(tmpl, priv_seed_attr, &priv_seed) == TRUE) {
+        if (priv_seed->ulValueLen == 0 || priv_seed->pValue == NULL)
+            priv_seed = NULL;
     }
 
-    rc = template_attribute_get_non_empty(tmpl, CKA_IBM_KYBER_PK, &pk);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("Could not find CKA_IBM_KYBER_PK for the key.\n");
-        return rc;
+    template_attribute_find(tmpl, CKA_IBM_ML_KEM_SK, &sk);
+    template_attribute_find(tmpl, CKA_IBM_ML_KEM_PK, &pk);
+
+    if (priv_seed == NULL) {
+        if (sk == NULL || sk->ulValueLen == 0 || sk->pValue == NULL) {
+            TRACE_ERROR("Could not find CKA_IBM_ML_KEM_SK for the key.\n");
+            return CKR_TEMPLATE_INCOMPLETE;
+        }
+
+        /* pk is optional and can be NULL */
     }
 
-    rc = ber_encode_IBM_KyberPrivateKey(length_only, data, data_len,
-                                        oid->oid, oid->oid_len, sk, pk);
+    rc = ber_encode_IBM_ML_KEM_PrivateKey(mech, length_only, data, data_len,
+                                          oid->oid, oid->oid_len, sk, pk,
+                                          priv_seed);
     if (rc != CKR_OK) {
-        TRACE_DEVEL("ber_encode_IBM_KyberPrivateKey failed\n");
+        TRACE_DEVEL("ber_encode_IBM_ML_KEM_PrivateKey failed\n");
     }
 
     return rc;
 }
 
-CK_RV ibm_kyber_priv_unwrap_get_data(TEMPLATE *tmpl, CK_BYTE *data,
-                                     CK_ULONG total_length,
-                                     CK_BBOOL is_public)
+CK_RV ibm_ml_kem_priv_unwrap_get_data(TEMPLATE *tmpl, CK_BYTE *data,
+                                      CK_ULONG total_length,
+                                      CK_BBOOL is_public,
+                                      CK_MECHANISM_TYPE mech)
 {
     CK_ATTRIBUTE *pk = NULL;
     CK_ATTRIBUTE *value = NULL;
     const struct pqc_oid *oid;
     CK_RV rc;
 
-    rc = ber_decode_IBM_KyberPublicKey(data, total_length, &pk,
-                                       &value, &oid);
+    rc = ber_decode_IBM_ML_KEM_PublicKey(mech, data, total_length, &pk,
+                                         &value, &oid);
     if (rc != CKR_OK) {
-        TRACE_ERROR("ber_decode_IBM_KyberPublicKey failed\n");
+        TRACE_ERROR("ber_decode_IBM_ML_KEM_PublicKey failed\n");
         return rc;
     }
 
-    rc = ibm_pqc_add_keyform_mode(tmpl, oid, CKM_IBM_KYBER);
+    rc = pqc_add_keyform_mode(tmpl, oid, mech);
     if (rc != CKR_OK) {
-        TRACE_ERROR("ibm_pqc_add_keyform_mode failed\n");
+        TRACE_ERROR("pqc_add_keyform_mode failed\n");
         goto error;
     }
 
@@ -3326,38 +3437,53 @@ error:
 
 //
 //
-CK_RV ibm_kyber_priv_unwrap(TEMPLATE *tmpl, CK_BYTE *data,
-                            CK_ULONG total_length, CK_BBOOL add_value)
+CK_RV ibm_ml_kem_priv_unwrap(TEMPLATE *tmpl, CK_BYTE *data,
+                             CK_ULONG total_length, CK_BBOOL add_value,
+                             CK_MECHANISM_TYPE mech)
 {
     CK_ATTRIBUTE *sk = NULL, *pk = NULL, *value = NULL;
+    CK_ATTRIBUTE *private_seed = NULL;
     const struct pqc_oid *oid;
     CK_RV rc;
 
-    rc = ber_decode_IBM_KyberPrivateKey(data, total_length,
-                                        &sk, &pk, &value, &oid);
+    rc = ber_decode_IBM_ML_KEM_PrivateKey(mech, data, total_length,
+                                          &sk, &pk, &private_seed,
+                                          &value, &oid);
     if (rc != CKR_OK) {
-        TRACE_ERROR("ber_decode_IBM_KyberPrivateKey failed\n");
+        TRACE_ERROR("ber_decode_IBM_ML_KEM_PrivateKey mech, failed\n");
         return rc;
     }
 
-    rc = ibm_pqc_add_keyform_mode(tmpl, oid, CKM_IBM_KYBER);
+    rc = pqc_add_keyform_mode(tmpl, oid, mech);
     if (rc != CKR_OK) {
-        TRACE_ERROR("ibm_pqc_add_keyform_mode failed\n");
+        TRACE_ERROR("pqc_add_keyform_mode failed\n");
         goto error;
     }
 
-    rc = template_update_attribute(tmpl, sk);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("template_update_attribute failed\n");
-        goto error;
+    if (sk != NULL) {
+        rc = template_update_attribute(tmpl, sk);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("template_update_attribute failed\n");
+            goto error;
+        }
+        sk = NULL;
     }
-    sk = NULL;
-    rc = template_update_attribute(tmpl, pk);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("template_update_attribute failed\n");
-        goto error;
+    if (pk != NULL) {
+        rc = template_update_attribute(tmpl, pk);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("template_update_attribute failed\n");
+            goto error;
+        }
+        pk = NULL;
     }
-    pk = NULL;
+    if (private_seed != NULL) {
+        rc = template_update_attribute(tmpl, private_seed);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("template_update_attribute failed\n");
+            goto error;
+        }
+        private_seed = NULL;
+    }
     if (add_value) {
         rc = template_update_attribute(tmpl, value);
         if (rc != CKR_OK) {
@@ -3376,68 +3502,99 @@ error:
         free(sk);
     if (pk)
         free(pk);
+    if (private_seed)
+        free(private_seed);
     if (value)
         free(value);
 
     return rc;
 }
 
-CK_RV ibm_pqc_publ_get_spki(TEMPLATE *tmpl, CK_KEY_TYPE keytype,
+CK_RV pqc_publ_get_spki(TEMPLATE *tmpl, CK_KEY_TYPE keytype,
+                        CK_BBOOL length_only,
+                        CK_BYTE **data, CK_ULONG *data_len)
+{
+    switch (keytype) {
+    case CKK_IBM_PQC_DILITHIUM:
+        return ibm_ml_dsa_publ_get_spki(tmpl, length_only, data, data_len,
+                                        CKM_IBM_DILITHIUM);
+    case CKK_IBM_PQC_KYBER:
+        return ibm_ml_kem_publ_get_spki(tmpl, length_only, data, data_len,
+                                        CKM_IBM_KYBER);
+    case CKK_IBM_ML_DSA:
+        return ibm_ml_dsa_publ_get_spki(tmpl, length_only, data, data_len,
+                                        CKM_IBM_ML_DSA);
+    case CKK_IBM_ML_KEM:
+        return ibm_ml_kem_publ_get_spki(tmpl, length_only, data, data_len,
+                                        CKM_IBM_ML_KEM);
+    default:
+        TRACE_DEVEL("Key type 0x%lx not supported.\n", keytype);
+        return CKR_KEY_TYPE_INCONSISTENT;
+    }
+}
+
+CK_RV pqc_priv_wrap_get_data(TEMPLATE *tmpl, CK_KEY_TYPE keytype,
                             CK_BBOOL length_only,
                             CK_BYTE **data, CK_ULONG *data_len)
 {
     switch (keytype) {
     case CKK_IBM_PQC_DILITHIUM:
-        return ibm_dilithium_publ_get_spki(tmpl, length_only, data, data_len);
+        return ibm_ml_dsa_priv_wrap_get_data(tmpl, length_only, data, data_len,
+                                             CKM_IBM_DILITHIUM);
     case CKK_IBM_PQC_KYBER:
-        return ibm_kyber_publ_get_spki(tmpl, length_only, data, data_len);
+        return ibm_ml_kem_priv_wrap_get_data(tmpl, length_only, data, data_len,
+                                             CKM_IBM_KYBER);
+    case CKK_IBM_ML_DSA:
+        return ibm_ml_dsa_priv_wrap_get_data(tmpl, length_only, data, data_len,
+                                             CKM_IBM_ML_DSA);
+    case CKK_IBM_ML_KEM:
+        return ibm_ml_kem_priv_wrap_get_data(tmpl, length_only, data, data_len,
+                                             CKM_IBM_ML_KEM);
     default:
         TRACE_DEVEL("Key type 0x%lx not supported.\n", keytype);
         return CKR_KEY_TYPE_INCONSISTENT;
     }
 }
 
-CK_RV ibm_pqc_priv_wrap_get_data(TEMPLATE *tmpl, CK_KEY_TYPE keytype,
-                                 CK_BBOOL length_only,
-                                 CK_BYTE **data, CK_ULONG *data_len)
+CK_RV pqc_priv_unwrap(TEMPLATE *tmpl, CK_KEY_TYPE keytype, CK_BYTE *data,
+                      CK_ULONG total_length, CK_BBOOL add_value)
 {
     switch (keytype) {
     case CKK_IBM_PQC_DILITHIUM:
-        return ibm_dilithium_priv_wrap_get_data(tmpl, length_only, data,
-                                                data_len);
+        return ibm_ml_dsa_priv_unwrap(tmpl, data, total_length, add_value,
+                                      CKM_IBM_DILITHIUM);
     case CKK_IBM_PQC_KYBER:
-        return ibm_kyber_priv_wrap_get_data(tmpl, length_only, data, data_len);
+        return ibm_ml_kem_priv_unwrap(tmpl, data, total_length, add_value,
+                                      CKM_IBM_KYBER);
+    case CKK_IBM_ML_DSA:
+        return ibm_ml_dsa_priv_unwrap(tmpl, data, total_length, add_value,
+                                      CKM_IBM_ML_DSA);
+    case CKK_IBM_ML_KEM:
+        return ibm_ml_kem_priv_unwrap(tmpl, data, total_length, add_value,
+                                      CKM_IBM_ML_KEM);
     default:
         TRACE_DEVEL("Key type 0x%lx not supported.\n", keytype);
         return CKR_KEY_TYPE_INCONSISTENT;
     }
 }
 
-CK_RV ibm_pqc_priv_unwrap(TEMPLATE *tmpl, CK_KEY_TYPE keytype, CK_BYTE *data,
-                          CK_ULONG total_length, CK_BBOOL add_value)
+CK_RV pqc_priv_unwrap_get_data(TEMPLATE *tmpl, CK_KEY_TYPE keytype,
+                               CK_BYTE *data, CK_ULONG total_length,
+                               CK_BBOOL is_public)
 {
     switch (keytype) {
     case CKK_IBM_PQC_DILITHIUM:
-        return ibm_dilithium_priv_unwrap(tmpl, data, total_length, add_value);
+        return ibm_ml_dsa_priv_unwrap_get_data(tmpl, data, total_length,
+                                               is_public, CKM_IBM_DILITHIUM);
     case CKK_IBM_PQC_KYBER:
-        return ibm_kyber_priv_unwrap(tmpl, data, total_length, add_value);
-    default:
-        TRACE_DEVEL("Key type 0x%lx not supported.\n", keytype);
-        return CKR_KEY_TYPE_INCONSISTENT;
-    }
-}
-
-CK_RV ibm_pqc_priv_unwrap_get_data(TEMPLATE *tmpl, CK_KEY_TYPE keytype,
-                                   CK_BYTE *data, CK_ULONG total_length,
-                                   CK_BBOOL is_public)
-{
-    switch (keytype) {
-    case CKK_IBM_PQC_DILITHIUM:
-        return ibm_dilithium_priv_unwrap_get_data(tmpl, data, total_length,
-                                                  is_public);
-    case CKK_IBM_PQC_KYBER:
-        return ibm_kyber_priv_unwrap_get_data(tmpl, data, total_length,
-                                              is_public);
+        return ibm_ml_kem_priv_unwrap_get_data(tmpl, data, total_length,
+                                               is_public, CKM_IBM_KYBER);
+    case CKK_IBM_ML_DSA:
+        return ibm_ml_dsa_priv_unwrap_get_data(tmpl, data, total_length,
+                                               is_public, CKM_IBM_ML_DSA);
+    case CKK_IBM_ML_KEM:
+        return ibm_ml_kem_priv_unwrap_get_data(tmpl, data, total_length,
+                                               is_public, CKM_IBM_ML_KEM);
     default:
         TRACE_DEVEL("Key type 0x%lx not supported.\n", keytype);
         return CKR_KEY_TYPE_INCONSISTENT;
@@ -5209,9 +5366,10 @@ CK_RV dh_priv_wrap_get_data(TEMPLATE *tmpl,
     return rc;
 }
 
-//  ibm_dilithium_publ_set_default_attributes()
+//  ibm_ml_dsa_publ_set_default_attributes() - for Dilithium and ML-DSA
 //
-CK_RV ibm_dilithium_publ_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
+CK_RV ibm_ml_dsa_publ_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode,
+                                             CK_KEY_TYPE key_type)
 {
     CK_ATTRIBUTE *type_attr = NULL;
     CK_ATTRIBUTE *rho_attr = NULL;
@@ -5235,13 +5393,13 @@ CK_RV ibm_dilithium_publ_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     type_attr->type = CKA_KEY_TYPE;
     type_attr->ulValueLen = sizeof(CK_KEY_TYPE);
     type_attr->pValue = (CK_BYTE *) type_attr + sizeof(CK_ATTRIBUTE);
-    *(CK_KEY_TYPE *) type_attr->pValue = CKK_IBM_PQC_DILITHIUM;
+    *(CK_KEY_TYPE *)type_attr->pValue = key_type;
 
-    rho_attr->type = CKA_IBM_DILITHIUM_RHO;
+    rho_attr->type = CKA_IBM_ML_DSA_RHO;
     rho_attr->ulValueLen = 0;
     rho_attr->pValue = NULL;
 
-    t1_attr->type = CKA_IBM_DILITHIUM_T1;
+    t1_attr->type = CKA_IBM_ML_DSA_T1;
     t1_attr->ulValueLen = 0;
     t1_attr->pValue = NULL;
 
@@ -5289,9 +5447,10 @@ error:
    return rc;
 }
 
-//  ibm_dilithium_priv_set_default_attributes()
+//  ibm_ml_dsa_priv_set_default_attributes() - for Dilithium and ML-DSA
 //
-CK_RV ibm_dilithium_priv_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
+CK_RV ibm_ml_dsa_priv_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode,
+                                             CK_KEY_TYPE key_type)
 {
     CK_ATTRIBUTE *type_attr = NULL;
     CK_ATTRIBUTE *rho_attr = NULL;
@@ -5301,6 +5460,7 @@ CK_RV ibm_dilithium_priv_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     CK_ATTRIBUTE *s2_attr = NULL;
     CK_ATTRIBUTE *t0_attr = NULL;
     CK_ATTRIBUTE *t1_attr = NULL;
+    CK_ATTRIBUTE *priv_seed_attr = NULL;
     CK_ATTRIBUTE *value_attr = NULL;
     CK_RV rc;
 
@@ -5315,9 +5475,12 @@ CK_RV ibm_dilithium_priv_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     t0_attr = (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE));
     t1_attr = (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE));
     value_attr = (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE));
+    if (key_type == CKK_IBM_ML_DSA)
+        priv_seed_attr = (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE));
 
     if (!type_attr || !rho_attr || !seed_attr || !tr_attr || !s1_attr
-        || !s2_attr || !t0_attr || !t1_attr || !value_attr) {
+        || !s2_attr || !t0_attr || !t1_attr || !value_attr ||
+        (key_type == CKK_IBM_ML_DSA && !priv_seed_attr)) {
         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
         rc = CKR_HOST_MEMORY;
         goto error;
@@ -5326,35 +5489,41 @@ CK_RV ibm_dilithium_priv_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     type_attr->type = CKA_KEY_TYPE;
     type_attr->ulValueLen = sizeof(CK_KEY_TYPE);
     type_attr->pValue = (CK_BYTE *) type_attr + sizeof(CK_ATTRIBUTE);
-    *(CK_KEY_TYPE *) type_attr->pValue = CKK_IBM_PQC_DILITHIUM;
+    *(CK_KEY_TYPE *)type_attr->pValue = key_type;
 
-    rho_attr->type = CKA_IBM_DILITHIUM_RHO;
+    rho_attr->type = CKA_IBM_ML_DSA_RHO;
     rho_attr->ulValueLen = 0;
     rho_attr->pValue = NULL;
 
-    seed_attr->type = CKA_IBM_DILITHIUM_SEED;
+    seed_attr->type = CKA_IBM_ML_DSA_SEED;
     seed_attr->ulValueLen = 0;
     seed_attr->pValue = NULL;
 
-    tr_attr->type = CKA_IBM_DILITHIUM_TR;
+    tr_attr->type = CKA_IBM_ML_DSA_TR;
     tr_attr->ulValueLen = 0;
     tr_attr->pValue = NULL;
 
-    s1_attr->type = CKA_IBM_DILITHIUM_S1;
+    s1_attr->type = CKA_IBM_ML_DSA_S1;
     s1_attr->ulValueLen = 0;
     s1_attr->pValue = NULL;
 
-    s2_attr->type = CKA_IBM_DILITHIUM_S2;
+    s2_attr->type = CKA_IBM_ML_DSA_S2;
     s2_attr->ulValueLen = 0;
     s2_attr->pValue = NULL;
 
-    t0_attr->type = CKA_IBM_DILITHIUM_T0;
+    t0_attr->type = CKA_IBM_ML_DSA_T0;
     t0_attr->ulValueLen = 0;
     t0_attr->pValue = NULL;
 
-    t1_attr->type = CKA_IBM_DILITHIUM_T1;
+    t1_attr->type = CKA_IBM_ML_DSA_T1;
     t1_attr->ulValueLen = 0;
     t1_attr->pValue = NULL;
+
+    if (key_type == CKK_IBM_ML_DSA) {
+        priv_seed_attr->type = CKA_IBM_ML_DSA_PRIVATE_SEED;
+        priv_seed_attr->ulValueLen = 0;
+        priv_seed_attr->pValue = NULL;
+    }
 
     value_attr->type = CKA_VALUE;
     value_attr->ulValueLen = 0;
@@ -5408,6 +5577,14 @@ CK_RV ibm_dilithium_priv_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
         goto error;
     }
     t1_attr = NULL;
+    if (key_type == CKK_IBM_ML_DSA) {
+        rc = template_update_attribute(tmpl, priv_seed_attr);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("template_update_attribute failed\n");
+            goto error;
+        }
+        priv_seed_attr = NULL;
+    }
     rc = template_update_attribute(tmpl, value_attr);
     if (rc != CKR_OK) {
         TRACE_ERROR("template_update_attribute failed\n");
@@ -5434,15 +5611,18 @@ error:
         free(t0_attr);
     if (t1_attr)
         free(t1_attr);
+    if (priv_seed_attr)
+        free(priv_seed_attr);
     if (value_attr)
         free(value_attr);
 
     return rc;
 }
 
-//  ibm_dilithium_publ_set_default_attributes()
+//  ibm_ml_kem_publ_set_default_attributes() - for Kyber and ML-KEM
 //
-CK_RV ibm_kyber_publ_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
+CK_RV ibm_ml_kem_publ_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode,
+                                             CK_KEY_TYPE key_type)
 {
     CK_ATTRIBUTE *type_attr = NULL;
     CK_ATTRIBUTE *pk_attr = NULL;
@@ -5464,9 +5644,9 @@ CK_RV ibm_kyber_publ_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     type_attr->type = CKA_KEY_TYPE;
     type_attr->ulValueLen = sizeof(CK_KEY_TYPE);
     type_attr->pValue = (CK_BYTE *) type_attr + sizeof(CK_ATTRIBUTE);
-    *(CK_KEY_TYPE *) type_attr->pValue = CKK_IBM_PQC_KYBER;
+    *(CK_KEY_TYPE *)type_attr->pValue = key_type;
 
-    pk_attr->type = CKA_IBM_KYBER_PK;
+    pk_attr->type = CKA_IBM_ML_KEM_PK;
     pk_attr->ulValueLen = 0;
     pk_attr->pValue = NULL;
 
@@ -5506,13 +5686,15 @@ error:
    return rc;
 }
 
-//  ibm_dilithium_priv_set_default_attributes()
+//  ibm_ml_kem_priv_set_default_attributes() - for Kyber and ML-KEM
 //
-CK_RV ibm_kyber_priv_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
+CK_RV ibm_ml_kem_priv_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode,
+                                             CK_KEY_TYPE key_type)
 {
     CK_ATTRIBUTE *type_attr = NULL;
     CK_ATTRIBUTE *sk_attr = NULL;
     CK_ATTRIBUTE *pk_attr = NULL;
+    CK_ATTRIBUTE *priv_seed_attr = NULL;
     CK_ATTRIBUTE *value_attr = NULL;
     CK_RV rc;
 
@@ -5522,8 +5704,11 @@ CK_RV ibm_kyber_priv_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     sk_attr = (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE));
     pk_attr = (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE));
     value_attr = (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE));
+    if (key_type == CKK_IBM_ML_KEM)
+        priv_seed_attr = (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE));
 
-    if (!type_attr || !sk_attr || !pk_attr || !value_attr) {
+    if (!type_attr || !sk_attr || !pk_attr || !value_attr ||
+        (key_type == CKK_IBM_ML_KEM && !priv_seed_attr)) {
         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
         rc = CKR_HOST_MEMORY;
         goto error;
@@ -5532,15 +5717,21 @@ CK_RV ibm_kyber_priv_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     type_attr->type = CKA_KEY_TYPE;
     type_attr->ulValueLen = sizeof(CK_KEY_TYPE);
     type_attr->pValue = (CK_BYTE *) type_attr + sizeof(CK_ATTRIBUTE);
-    *(CK_KEY_TYPE *) type_attr->pValue = CKK_IBM_PQC_KYBER;
+    *(CK_KEY_TYPE *)type_attr->pValue = key_type;
 
-    sk_attr->type = CKA_IBM_KYBER_SK;
+    sk_attr->type = CKA_IBM_ML_KEM_SK;
     sk_attr->ulValueLen = 0;
     sk_attr->pValue = NULL;
 
-    pk_attr->type = CKA_IBM_KYBER_PK;
+    pk_attr->type = CKA_IBM_ML_KEM_PK;
     pk_attr->ulValueLen = 0;
     pk_attr->pValue = NULL;
+
+    if (key_type == CKK_IBM_ML_KEM) {
+        priv_seed_attr->type = CKA_IBM_ML_KEM_PRIVATE_SEED;
+        priv_seed_attr->ulValueLen = 0;
+        priv_seed_attr->pValue = NULL;
+    }
 
     value_attr->type = CKA_VALUE;
     value_attr->ulValueLen = 0;
@@ -5564,6 +5755,14 @@ CK_RV ibm_kyber_priv_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
         goto error;
     }
     pk_attr = NULL;
+    if (key_type == CKK_IBM_ML_KEM) {
+        rc = template_update_attribute(tmpl, priv_seed_attr);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("template_update_attribute failed\n");
+            goto error;
+        }
+        priv_seed_attr = NULL;
+    }
     rc = template_update_attribute(tmpl, value_attr);
     if (rc != CKR_OK) {
         TRACE_ERROR("template_update_attribute failed\n");
@@ -5580,16 +5779,19 @@ error:
         free(sk_attr);
     if (pk_attr)
         free(pk_attr);
+    if (priv_seed_attr)
+        free(priv_seed_attr);
     if (value_attr)
         free(value_attr);
 
     return rc;
 }
 
-static CK_RV ibm_pqc_check_attributes(TEMPLATE *tmpl, CK_ULONG mode,
-                                      CK_MECHANISM_TYPE mech,
-                                      CK_ULONG *req_attrs,
-                                      CK_ULONG num_req_attrs)
+static CK_RV pqc_check_attributes(TEMPLATE *tmpl, CK_ULONG mode,
+                                  CK_MECHANISM_TYPE mech,
+                                  const CK_MECHANISM_TYPE *req_attrs,
+                                  CK_ULONG num_req_attrs,
+                                  CK_MECHANISM_TYPE priv_seed_attr)
 {
     CK_ATTRIBUTE_TYPE keyform_attr;
     CK_ATTRIBUTE_TYPE mode_attr;
@@ -5600,8 +5802,8 @@ static CK_RV ibm_pqc_check_attributes(TEMPLATE *tmpl, CK_ULONG mode,
     CK_ULONG i;
     CK_RV rc;
 
-    if (ibm_pqc_keyform_mode_attrs_by_mech(mech, &keyform_attr,
-                                           &mode_attr, &oids) != CKR_OK)
+    if (pqc_keyform_mode_attrs_by_mech(mech, &keyform_attr,
+                                       &mode_attr, &oids) != CKR_OK)
         return CKR_MECHANISM_INVALID;
 
     if (template_attribute_find(tmpl, keyform_attr, &attr) &&
@@ -5615,7 +5817,8 @@ static CK_RV ibm_pqc_check_attributes(TEMPLATE *tmpl, CK_ULONG mode,
         keyform_present = TRUE;
     }
 
-    if (template_attribute_find(tmpl, mode_attr, &attr) &&
+    if (mode_attr != (CK_ATTRIBUTE_TYPE)-1 &&
+        template_attribute_find(tmpl, mode_attr, &attr) &&
         attr->ulValueLen > 0 && attr->pValue != NULL) {
         oid = find_pqc_by_oid(oids, attr->pValue, attr->ulValueLen);
         if (oid == NULL) {
@@ -5633,8 +5836,12 @@ static CK_RV ibm_pqc_check_attributes(TEMPLATE *tmpl, CK_ULONG mode,
             template_attribute_get_non_empty(tmpl, CKA_IBM_OPAQUE,
                                              &attr) == CKR_OK)
             break;
-        /* Either CKA_VALUE or all other attrs must be present */
+        /* Either CKA_VALUE or priv. seed or all other attrs must be present */
         if (template_attribute_get_non_empty(tmpl, CKA_VALUE, &attr) == CKR_OK)
+            break;
+        if (priv_seed_attr != (CK_ATTRIBUTE_TYPE)-1 &&
+            template_attribute_get_non_empty(tmpl, priv_seed_attr, &attr)
+                                                                    == CKR_OK)
             break;
         for (i = 0; i < num_req_attrs; i++) {
             rc = template_attribute_get_non_empty(tmpl, req_attrs[i], &attr);
@@ -5664,7 +5871,8 @@ static CK_RV ibm_pqc_check_attributes(TEMPLATE *tmpl, CK_ULONG mode,
         break;
     case MODE_COPY:
         /* All attributes must be present */
-        if (!keyform_present || !mode_present) {
+        if (!keyform_present ||
+            (mode_attr != (CK_ATTRIBUTE_TYPE)-1 && !mode_present)) {
             TRACE_ERROR("%s, KEYFORM or MODE must be specified .\n",
                         ock_err(ERR_TEMPLATE_INCOMPLETE));
             return CKR_TEMPLATE_INCOMPLETE;
@@ -5676,24 +5884,32 @@ static CK_RV ibm_pqc_check_attributes(TEMPLATE *tmpl, CK_ULONG mode,
                 return CKR_TEMPLATE_INCOMPLETE;
             }
         }
+        if (priv_seed_attr != (CK_ATTRIBUTE_TYPE)-1 &&
+            !template_attribute_find(tmpl, priv_seed_attr, &attr)) {
+            TRACE_ERROR("%s, attribute %08lX missing.\n",
+                        ock_err(ERR_TEMPLATE_INCOMPLETE), priv_seed_attr);
+            return CKR_TEMPLATE_INCOMPLETE;
+        }
         break;
     }
 
     return CKR_OK;
 }
 
-// ibm_dilithium_publ_check_required_attributes()
+// ibm_ml_dsa_publ_check_required_attributes() - for Dilithium and ML-DSA
 //
-CK_RV ibm_dilithium_publ_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode)
+CK_RV ibm_ml_dsa_publ_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode,
+                                                CK_MECHANISM_TYPE mech)
 {
-    static CK_ULONG req_attrs[] = {
-        CKA_IBM_DILITHIUM_RHO,
-        CKA_IBM_DILITHIUM_T1,
+    static const CK_MECHANISM_TYPE req_attrs[] = {
+        CKA_IBM_ML_DSA_RHO,
+        CKA_IBM_ML_DSA_T1,
     };
     CK_RV rc;
 
-    rc = ibm_pqc_check_attributes(tmpl, mode, CKM_IBM_DILITHIUM, req_attrs,
-                                  sizeof(req_attrs) / sizeof(req_attrs[0]));
+    rc = pqc_check_attributes(tmpl, mode, mech, req_attrs,
+                              sizeof(req_attrs) / sizeof(req_attrs[0]),
+                              (CK_MECHANISM_TYPE)-1);
     if (rc != CKR_OK)
         return rc;
 
@@ -5701,23 +5917,29 @@ CK_RV ibm_dilithium_publ_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode
     return publ_key_check_required_attributes(tmpl, mode);
 }
 
-// ibm_dilithium_priv_check_required_attributes()
+// ibm_ml_dsa_priv_check_required_attributes() - for Dilithium and ML-DSA
 //
-CK_RV ibm_dilithium_priv_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode)
+CK_RV ibm_ml_dsa_priv_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode,
+                                                CK_MECHANISM_TYPE mech)
 {
-    static CK_ULONG req_attrs[] = {
-        CKA_IBM_DILITHIUM_RHO,
-        CKA_IBM_DILITHIUM_SEED,
-        CKA_IBM_DILITHIUM_TR,
-        CKA_IBM_DILITHIUM_S1,
-        CKA_IBM_DILITHIUM_S2,
-        CKA_IBM_DILITHIUM_T0,
-        CKA_IBM_DILITHIUM_T1,
+    static const CK_MECHANISM_TYPE req_attrs[] = {
+        CKA_IBM_ML_DSA_RHO,
+        CKA_IBM_ML_DSA_SEED,
+        CKA_IBM_ML_DSA_TR,
+        CKA_IBM_ML_DSA_S1,
+        CKA_IBM_ML_DSA_S2,
+        CKA_IBM_ML_DSA_T0,
+        CKA_IBM_ML_DSA_T1,
     };
+    CK_MECHANISM_TYPE priv_seed_attr;
     CK_RV rc;
 
-    rc = ibm_pqc_check_attributes(tmpl, mode, CKM_IBM_DILITHIUM, req_attrs,
-                                  sizeof(req_attrs) / sizeof(req_attrs[0]));
+    if (pqc_private_seed_attr_by_mech(mech, &priv_seed_attr) != CKR_OK)
+        return CKR_MECHANISM_INVALID;
+
+    rc = pqc_check_attributes(tmpl, mode, mech, req_attrs,
+                              sizeof(req_attrs) / sizeof(req_attrs[0]),
+                              priv_seed_attr);
     if (rc != CKR_OK)
         return rc;
 
@@ -5725,17 +5947,19 @@ CK_RV ibm_dilithium_priv_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode
     return priv_key_check_required_attributes(tmpl, mode);
 }
 
-// ibm_kyber_publ_check_required_attributes()
+// ibm_ml_kem_publ_check_required_attributes() - for Kyber and ML-KEM
 //
-CK_RV ibm_kyber_publ_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode)
+CK_RV ibm_ml_kem_publ_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode,
+                                                CK_MECHANISM_TYPE mech)
 {
-    static CK_ULONG req_attrs[] = {
-        CKA_IBM_KYBER_PK,
+    static const CK_MECHANISM_TYPE req_attrs[] = {
+        CKA_IBM_ML_KEM_PK,
     };
     CK_RV rc;
 
-    rc = ibm_pqc_check_attributes(tmpl, mode, CKM_IBM_KYBER, req_attrs,
-                                  sizeof(req_attrs) / sizeof(req_attrs[0]));
+    rc = pqc_check_attributes(tmpl, mode, mech, req_attrs,
+                              sizeof(req_attrs) / sizeof(req_attrs[0]),
+                              (CK_MECHANISM_TYPE)-1);
     if (rc != CKR_OK)
         return rc;
 
@@ -5743,18 +5967,24 @@ CK_RV ibm_kyber_publ_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     return publ_key_check_required_attributes(tmpl, mode);
 }
 
-// ibm_kyber_priv_check_required_attributes()
+// ibm_ml_kem_priv_check_required_attributes() - for Kyber and ML-KEM
 //
-CK_RV ibm_kyber_priv_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode)
+CK_RV ibm_ml_kem_priv_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode,
+                                                CK_MECHANISM_TYPE mech)
 {
-    static CK_ULONG req_attrs[] = {
-        CKA_IBM_KYBER_SK,
-        CKA_IBM_KYBER_PK,
+    static const CK_MECHANISM_TYPE req_attrs[] = {
+        CKA_IBM_ML_KEM_SK,
+        CKA_IBM_ML_KEM_PK,
     };
+    CK_MECHANISM_TYPE priv_seed_attr;
     CK_RV rc;
 
-    rc = ibm_pqc_check_attributes(tmpl, mode, CKM_IBM_KYBER, req_attrs,
-                                  sizeof(req_attrs) / sizeof(req_attrs[0]));
+    if (pqc_private_seed_attr_by_mech(mech, &priv_seed_attr) != CKR_OK)
+        return CKR_MECHANISM_INVALID;
+
+    rc = pqc_check_attributes(tmpl, mode, mech, req_attrs,
+                              sizeof(req_attrs) / sizeof(req_attrs[0]),
+                              priv_seed_attr);
     if (rc != CKR_OK)
         return rc;
 
@@ -5762,15 +5992,15 @@ CK_RV ibm_kyber_priv_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     return priv_key_check_required_attributes(tmpl, mode);
 }
 
-static CK_RV ibm_pqc_validate_keyform_mode(CK_ATTRIBUTE *attr, CK_ULONG mode,
-                                           CK_MECHANISM_TYPE mech)
+static CK_RV pqc_validate_keyform_mode(CK_ATTRIBUTE *attr, CK_ULONG mode,
+                                       CK_MECHANISM_TYPE mech)
 {
     CK_ATTRIBUTE_TYPE keyform_attr;
     CK_ATTRIBUTE_TYPE mode_attr;
     const struct pqc_oid *oids, *oid;
 
-    if (ibm_pqc_keyform_mode_attrs_by_mech(mech, &keyform_attr,
-                                           &mode_attr, &oids) != CKR_OK)
+    if (pqc_keyform_mode_attrs_by_mech(mech, &keyform_attr,
+                                       &mode_attr, &oids) != CKR_OK)
         return CKR_MECHANISM_INVALID;
 
     if (attr->type == keyform_attr) {
@@ -5806,26 +6036,27 @@ static CK_RV ibm_pqc_validate_keyform_mode(CK_ATTRIBUTE *attr, CK_ULONG mode,
         return CKR_ATTRIBUTE_READ_ONLY;
     }
 
-    return CKR_OK;
+    return CKR_ATTRIBUTE_TYPE_INVALID;
 }
 
-// ibm_dilithium_publ_validate_attribute()
+// ibm_ml_dsa_publ_validate_attribute() - for Dilithium and ML-DSA
 //
-CK_RV ibm_dilithium_publ_validate_attribute(STDLL_TokData_t *tokdata,
-                                            TEMPLATE *tmpl, CK_ATTRIBUTE *attr,
-                                            CK_ULONG mode)
+CK_RV ibm_ml_dsa_publ_validate_attribute(STDLL_TokData_t *tokdata,
+                                         TEMPLATE *tmpl, CK_ATTRIBUTE *attr,
+                                         CK_ULONG mode, CK_MECHANISM_TYPE mech)
 {
     CK_RV rc;
 
     switch (attr->type) {
     case CKA_IBM_DILITHIUM_KEYFORM:
     case CKA_IBM_DILITHIUM_MODE:
-        rc = ibm_pqc_validate_keyform_mode(attr, mode, CKM_IBM_DILITHIUM);
+    case CKA_IBM_PARAMETER_SET:
+        rc = pqc_validate_keyform_mode(attr, mode, mech);
         if (rc != CKR_OK)
             return rc;
         return CKR_OK;
-    case CKA_IBM_DILITHIUM_RHO:
-    case CKA_IBM_DILITHIUM_T1:
+    case CKA_IBM_ML_DSA_RHO:
+    case CKA_IBM_ML_DSA_T1:
     case CKA_VALUE:
         if (mode == MODE_CREATE)
             return CKR_OK;
@@ -5836,28 +6067,33 @@ CK_RV ibm_dilithium_publ_validate_attribute(STDLL_TokData_t *tokdata,
     }
 }
 
-// ibm_dilithium_priv_validate_attribute()
+// ibm_ml_dsa_priv_validate_attribute() - for Dilithium and ML-DSA
 //
-CK_RV ibm_dilithium_priv_validate_attribute(STDLL_TokData_t *tokdata,
-                                            TEMPLATE *tmpl, CK_ATTRIBUTE *attr,
-                                            CK_ULONG mode)
+CK_RV ibm_ml_dsa_priv_validate_attribute(STDLL_TokData_t *tokdata,
+                                         TEMPLATE *tmpl, CK_ATTRIBUTE *attr,
+                                         CK_ULONG mode, CK_MECHANISM_TYPE mech)
 {
     CK_RV rc;
 
     switch (attr->type) {
     case CKA_IBM_DILITHIUM_KEYFORM:
     case CKA_IBM_DILITHIUM_MODE:
-        rc = ibm_pqc_validate_keyform_mode(attr, mode, CKM_IBM_DILITHIUM);
+    case CKA_IBM_PARAMETER_SET:
+        rc = pqc_validate_keyform_mode(attr, mode, mech);
         if (rc != CKR_OK)
             return rc;
         return CKR_OK;
-    case CKA_IBM_DILITHIUM_RHO:
-    case CKA_IBM_DILITHIUM_SEED:
-    case CKA_IBM_DILITHIUM_TR:
-    case CKA_IBM_DILITHIUM_S1:
-    case CKA_IBM_DILITHIUM_S2:
-    case CKA_IBM_DILITHIUM_T0:
-    case CKA_IBM_DILITHIUM_T1:
+    case CKA_IBM_ML_DSA_PRIVATE_SEED:
+        if (mech != CKM_IBM_ML_DSA)
+            return CKR_ATTRIBUTE_TYPE_INVALID;
+        /* Fall through */
+    case CKA_IBM_ML_DSA_RHO:
+    case CKA_IBM_ML_DSA_SEED:
+    case CKA_IBM_ML_DSA_TR:
+    case CKA_IBM_ML_DSA_S1:
+    case CKA_IBM_ML_DSA_S2:
+    case CKA_IBM_ML_DSA_T0:
+    case CKA_IBM_ML_DSA_T1:
     case CKA_VALUE:
         if (mode == MODE_CREATE)
             return CKR_OK;
@@ -5868,33 +6104,35 @@ CK_RV ibm_dilithium_priv_validate_attribute(STDLL_TokData_t *tokdata,
     }
 }
 
-CK_BBOOL ibm_dilithium_priv_check_exportability(CK_ATTRIBUTE_TYPE type)
+CK_BBOOL ibm_ml_dsa_priv_check_exportability(CK_ATTRIBUTE_TYPE type)
 {
     switch (type) {
     case CKA_VALUE:
-    case CKA_IBM_DILITHIUM_SEED:
-    case CKA_IBM_DILITHIUM_TR:
-    case CKA_IBM_DILITHIUM_S1:
-    case CKA_IBM_DILITHIUM_S2:
-    case CKA_IBM_DILITHIUM_T0:
+    case CKA_IBM_ML_DSA_SEED:
+    case CKA_IBM_ML_DSA_TR:
+    case CKA_IBM_ML_DSA_S1:
+    case CKA_IBM_ML_DSA_S2:
+    case CKA_IBM_ML_DSA_T0:
+    case CKA_IBM_ML_DSA_PRIVATE_SEED:
         return FALSE;
     }
 
     return TRUE;
 }
 
-// ibm_kyber_publ_validate_attribute()
+// ibm_ml_kem_publ_validate_attribute() - for Kyber and KL-KEM
 //
-CK_RV ibm_kyber_publ_validate_attribute(STDLL_TokData_t *tokdata,
-                                        TEMPLATE *tmpl, CK_ATTRIBUTE *attr,
-                                        CK_ULONG mode)
+CK_RV ibm_ml_kem_publ_validate_attribute(STDLL_TokData_t *tokdata,
+                                         TEMPLATE *tmpl, CK_ATTRIBUTE *attr,
+                                         CK_ULONG mode, CK_MECHANISM_TYPE mech)
 {
     CK_RV rc;
 
     switch (attr->type) {
     case CKA_IBM_KYBER_KEYFORM:
     case CKA_IBM_KYBER_MODE:
-        rc = ibm_pqc_validate_keyform_mode(attr, mode, CKM_IBM_KYBER);
+    case CKA_IBM_PARAMETER_SET:
+        rc = pqc_validate_keyform_mode(attr, mode, mech);
         if (rc != CKR_OK)
             return rc;
         return CKR_OK;
@@ -5909,23 +6147,28 @@ CK_RV ibm_kyber_publ_validate_attribute(STDLL_TokData_t *tokdata,
     }
 }
 
-// ibm_kyber_priv_validate_attribute()
+// ibm_ml_kem_priv_validate_attribute() - for Kyber and KL-KEM
 //
-CK_RV ibm_kyber_priv_validate_attribute(STDLL_TokData_t *tokdata,
-                                        TEMPLATE *tmpl, CK_ATTRIBUTE *attr,
-                                        CK_ULONG mode)
+CK_RV ibm_ml_kem_priv_validate_attribute(STDLL_TokData_t *tokdata,
+                                         TEMPLATE *tmpl, CK_ATTRIBUTE *attr,
+                                         CK_ULONG mode, CK_MECHANISM_TYPE mech)
 {
     CK_RV rc;
 
     switch (attr->type) {
     case CKA_IBM_KYBER_KEYFORM:
     case CKA_IBM_KYBER_MODE:
-        rc = ibm_pqc_validate_keyform_mode(attr, mode, CKM_IBM_KYBER);
+    case CKA_IBM_PARAMETER_SET:
+        rc = pqc_validate_keyform_mode(attr, mode, mech);
         if (rc != CKR_OK)
             return rc;
         return CKR_OK;
-    case CKA_IBM_KYBER_SK:
-    case CKA_IBM_KYBER_PK:
+    case CKA_IBM_ML_KEM_PRIVATE_SEED:
+        if (mech != CKM_IBM_ML_KEM)
+            return CKR_ATTRIBUTE_TYPE_INVALID;
+        /* Fall through */
+    case CKA_IBM_ML_KEM_SK:
+    case CKA_IBM_ML_KEM_PK:
     case CKA_VALUE:
         if (mode == MODE_CREATE)
             return CKR_OK;
@@ -5936,11 +6179,12 @@ CK_RV ibm_kyber_priv_validate_attribute(STDLL_TokData_t *tokdata,
     }
 }
 
-CK_BBOOL ibm_kyber_priv_check_exportability(CK_ATTRIBUTE_TYPE type)
+CK_BBOOL ibm_ml_kem_priv_check_exportability(CK_ATTRIBUTE_TYPE type)
 {
     switch (type) {
     case CKA_VALUE:
-    case CKA_IBM_KYBER_SK:
+    case CKA_IBM_ML_KEM_SK:
+    case CKA_IBM_ML_KEM_PRIVATE_SEED:
         return FALSE;
     }
 
