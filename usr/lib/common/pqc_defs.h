@@ -67,6 +67,6 @@ extern const struct pqc_oid ml_kem_oids[];
 const struct pqc_oid *find_pqc_by_keyform(const struct pqc_oid *pqcs,
                                           CK_ULONG keyform);
 const struct pqc_oid *find_pqc_by_oid(const struct pqc_oid *pqcs,
-                                      CK_BYTE *oid, CK_ULONG oid_len);
+                                      const CK_BYTE *oid, CK_ULONG oid_len);
 
 #endif

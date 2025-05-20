@@ -611,6 +611,13 @@ CK_RV key_mgr_generate_key_pair(STDLL_TokData_t *tokdata,
         }
         subclass = CKK_IBM_DILITHIUM;
         break;
+    case CKM_IBM_ML_DSA_KEY_PAIR_GEN:
+        if (subclass != 0 && subclass != CKK_IBM_ML_DSA) {
+            TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCONSISTENT));
+            return CKR_TEMPLATE_INCONSISTENT;
+        }
+        subclass = CKK_IBM_ML_DSA;
+        break;
     default:
         TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
         return CKR_MECHANISM_INVALID;
@@ -663,8 +670,9 @@ CK_RV key_mgr_generate_key_pair(STDLL_TokData_t *tokdata,
 #endif
 /* End code contributed by Corrent corp. */
     case CKM_IBM_DILITHIUM:
-        rc = ckm_ibm_dilithium_key_pair_gen(tokdata, publ_key_obj->template,
-                                            priv_key_obj->template);
+    case CKM_IBM_ML_DSA_KEY_PAIR_GEN:
+        rc = ckm_ibm_ml_dsa_key_pair_gen(tokdata, mech, publ_key_obj->template,
+                                         priv_key_obj->template);
         break;
     default:
         TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
@@ -1109,18 +1117,13 @@ CK_RV key_mgr_wrap_key(STDLL_TokData_t *tokdata,
         }
         break;
     case CKK_IBM_PQC_DILITHIUM:
-        rc = ibm_dilithium_priv_wrap_get_data(key_obj->template, FALSE,
-                                              &data, &data_len);
-        if (rc != CKR_OK) {
-            TRACE_DEVEL("ibm_dilithium_priv_wrap_get_data failed.\n");
-            goto done;
-        }
-        break;
     case CKK_IBM_PQC_KYBER:
-        rc = ibm_kyber_priv_wrap_get_data(key_obj->template, FALSE,
-                                          &data, &data_len);
+    case CKK_IBM_ML_DSA:
+    case CKK_IBM_ML_KEM:
+        rc = pqc_priv_wrap_get_data(key_obj->template, keytype, FALSE,
+                                    &data, &data_len);
         if (rc != CKR_OK) {
-            TRACE_DEVEL("ibm_kyber_priv_wrap_get_data failed.\n");
+            TRACE_DEVEL("pqc_priv_wrap_get_data failed.\n");
             goto done;
         }
         break;
@@ -1693,6 +1696,24 @@ CK_RV key_mgr_get_private_key_type(CK_BYTE *keydata,
             memcmp(alg, kyber_oids[i].oid, kyber_oids[i].oid_len) == 0 &&
             memcmp(alg + kyber_oids[i].oid_len, ber_NULL, ber_NULLLen) == 0) {
             *keytype = CKK_IBM_PQC_KYBER;
+            return CKR_OK;
+        }
+    }
+    // Check only the OBJECT IDENTIFIERs for ML-DSA
+    //
+    for (i = 0; ml_dsa_oids[i].oid != NULL; i++) {
+        if (alg_len == ml_dsa_oids[i].oid_len &&
+            memcmp(alg, ml_dsa_oids[i].oid, ml_dsa_oids[i].oid_len) == 0) {
+            *keytype = CKK_IBM_ML_DSA;
+            return CKR_OK;
+        }
+    }
+    // Check only the OBJECT IDENTIFIERs for ML-KEM
+    //
+    for (i = 0; ml_kem_oids[i].oid != NULL; i++) {
+        if (alg_len == ml_kem_oids[i].oid_len &&
+            memcmp(alg, ml_kem_oids[i].oid, ml_kem_oids[i].oid_len) == 0) {
+            *keytype = CKK_IBM_ML_KEM;
             return CKR_OK;
         }
     }

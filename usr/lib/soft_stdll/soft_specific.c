@@ -1537,8 +1537,8 @@ CK_RV import_ibm_dilithium_key(STDLL_TokData_t *tokdata, OBJECT *obj)
         switch (class) {
         case CKO_PRIVATE_KEY:
             /* Private key in PKCS#8 form is present in CKA_VALUE */
-            rc = ibm_dilithium_priv_unwrap(obj->template, attr->pValue,
-                                           attr->ulValueLen, FALSE);
+            rc = pqc_priv_unwrap(obj->template, CKK_IBM_PQC_DILITHIUM,
+                                 attr->pValue, attr->ulValueLen, FALSE);
             if (rc != CKR_OK) {
                 TRACE_ERROR("Failed to decode private key from "
                             "CKA_VALUE.\n");
@@ -1547,10 +1547,9 @@ CK_RV import_ibm_dilithium_key(STDLL_TokData_t *tokdata, OBJECT *obj)
             break;
         case CKO_PUBLIC_KEY:
             /* Public key in SPKI form is present in CKA_VALUE */
-            rc = ibm_dilithium_priv_unwrap_get_data(obj->template,
-                                                    attr->pValue,
-                                                    attr->ulValueLen,
-                                                    FALSE);
+            rc = pqc_priv_unwrap_get_data(obj->template, CKK_IBM_PQC_DILITHIUM,
+                                          attr->pValue, attr->ulValueLen,
+                                          FALSE);
             if (rc != CKR_OK) {
                 TRACE_ERROR("Failed to decode public key from "
                             "CKA_VALUE.\n");
@@ -1564,16 +1563,16 @@ CK_RV import_ibm_dilithium_key(STDLL_TokData_t *tokdata, OBJECT *obj)
         /* Add CKA_VALUE withPKCS#8 or SPKI */
         switch (class) {
          case CKO_PRIVATE_KEY:
-             rc = ibm_dilithium_priv_wrap_get_data(obj->template,
-                                                   FALSE, &data, &data_len);
+             rc = pqc_priv_wrap_get_data(obj->template, CKK_IBM_PQC_DILITHIUM,
+                                         FALSE, &data, &data_len);
              if (rc != CKR_OK) {
                  TRACE_ERROR("Failed to encode private key.\n");
                  return rc;
              }
              break;
          case CKO_PUBLIC_KEY:
-             rc = ibm_dilithium_publ_get_spki(obj->template,
-                                              FALSE, &data, &data_len);
+             rc = pqc_publ_get_spki(obj->template, CKK_IBM_PQC_DILITHIUM,
+                                    FALSE, &data, &data_len);
              if (rc != CKR_OK) {
                  TRACE_ERROR("Failed to encode public key.\n");
                  return rc;
@@ -1598,7 +1597,7 @@ CK_RV import_ibm_dilithium_key(STDLL_TokData_t *tokdata, OBJECT *obj)
         }
     }
 
-    oid = ibm_pqc_get_keyform_mode(obj->template, CKM_IBM_DILITHIUM);
+    oid = pqc_get_keyform_mode(obj->template, CKM_IBM_DILITHIUM);
     if (oid == NULL) {
         TRACE_ERROR("%s Failed to determine dilithium OID\n", __func__);
         return CKR_TEMPLATE_INCOMPLETE;
@@ -1609,9 +1608,9 @@ CK_RV import_ibm_dilithium_key(STDLL_TokData_t *tokdata, OBJECT *obj)
         return CKR_KEY_SIZE_RANGE;
     }
 
-    rc = ibm_pqc_add_keyform_mode(obj->template, oid, CKM_IBM_DILITHIUM);
+    rc = pqc_add_keyform_mode(obj->template, oid, CKM_IBM_DILITHIUM);
     if (rc != CKR_OK) {
-        TRACE_ERROR("ibm_pqc_add_keyform_mode failed\n");
+        TRACE_ERROR("pqc_add_keyform_mode failed\n");
         return rc;
     }
 
@@ -1739,7 +1738,7 @@ CK_RV token_specific_set_attrs_for_new_object(STDLL_TokData_t *tokdata,
             return CKR_MECHANISM_INVALID;
         }
 
-        oid = ibm_pqc_get_keyform_mode(tmpl, CKM_IBM_DILITHIUM);
+        oid = pqc_get_keyform_mode(tmpl, CKM_IBM_DILITHIUM);
         if (oid == NULL) {
             TRACE_ERROR("%s Failed to determine dilithium OID\n", __func__);
             return CKR_TEMPLATE_INCOMPLETE;
@@ -1751,11 +1750,11 @@ CK_RV token_specific_set_attrs_for_new_object(STDLL_TokData_t *tokdata,
             return CKR_KEY_SIZE_RANGE;
         }
 
-        /* Check if the oqsprovider supports the variant */
-        rc = openssl_make_ibm_dilithium_key_from_template(tmpl, oid,
-                                                          class ==
-                                                                CKO_PRIVATE_KEY,
-                                                           alg_name, &pkey);
+        /* Check if the oqsprovider or OpenSSL supports the variant */
+        rc = openssl_make_pqc_key_from_template(tmpl, oid, 
+                                                CKM_IBM_DILITHIUM,
+                                                class == CKO_PRIVATE_KEY,
+                                                alg_name, &pkey);
         if (pkey != NULL)
                 EVP_PKEY_free(pkey);
 
@@ -1769,66 +1768,56 @@ CK_RV token_specific_set_attrs_for_new_object(STDLL_TokData_t *tokdata,
 
 #if OPENSSL_VERSION_PREREQ(3, 0)
 
-CK_RV token_specific_ibm_dilithium_generate_keypair(STDLL_TokData_t *tokdata,
-                                                    const struct pqc_oid *oid,
-                                                    TEMPLATE *publ_tmpl,
-                                                    TEMPLATE *priv_tmpl)
+CK_RV token_specific_ibm_ml_dsa_generate_keypair(STDLL_TokData_t *tokdata,
+                                                 CK_MECHANISM *mech,
+                                                 const struct pqc_oid *oid,
+                                                 TEMPLATE *publ_tmpl,
+                                                 TEMPLATE *priv_tmpl)
 {
-    struct soft_private_data *soft_private = tokdata->private_data;
-
-    if (soft_private->oqs_provider == NULL) {
-        TRACE_ERROR("The oqsprovider is not loaded\n");
+    if (!token_specific_filter_mechanism(tokdata, mech->mechanism))
         return CKR_MECHANISM_INVALID;
-    }
 
-    return openssl_specific_ibm_dilithium_generate_keypair(tokdata, oid,
-                                                           publ_tmpl,
-                                                           priv_tmpl);
+    return openssl_specific_pqc_generate_keypair(tokdata, oid, mech,
+                                                 publ_tmpl, priv_tmpl);
 }
 
-CK_RV token_specific_ibm_dilithium_sign(STDLL_TokData_t *tokdata,
-                                        SESSION *sess,
-                                        CK_BBOOL length_only,
-                                        const struct pqc_oid *oid,
-                                        CK_BYTE *in_data,
-                                        CK_ULONG in_data_len,
-                                        CK_BYTE *signature,
-                                        CK_ULONG *signature_len,
-                                        OBJECT *key_obj)
+CK_RV token_specific_ibm_ml_dsa_sign(STDLL_TokData_t *tokdata,
+                                     SESSION *sess,
+                                     CK_BBOOL length_only,
+                                     const struct pqc_oid *oid,
+                                     CK_MECHANISM *mech,
+                                     CK_BYTE *in_data,
+                                     CK_ULONG in_data_len,
+                                     CK_BYTE *signature,
+                                     CK_ULONG *signature_len,
+                                     OBJECT *key_obj)
 {
-    struct soft_private_data *soft_private = tokdata->private_data;
-
-    if (soft_private->oqs_provider == NULL) {
-        TRACE_ERROR("The oqsprovider is not loaded\n");
+    if (!token_specific_filter_mechanism(tokdata, mech->mechanism))
         return CKR_MECHANISM_INVALID;
-    }
 
-    return openssl_specific_ibm_dilithium_sign(tokdata, sess, length_only, oid,
-                                               in_data, in_data_len,
-                                               signature, signature_len,
-                                               key_obj);
+    return openssl_specific_pqc_sign(tokdata, sess, length_only, oid,
+                                     mech, in_data, in_data_len,
+                                     signature, signature_len,
+                                     key_obj);
 }
 
-CK_RV token_specific_ibm_dilithium_verify(STDLL_TokData_t *tokdata,
-                                          SESSION *sess,
-                                          const struct pqc_oid *oid,
-                                          CK_BYTE *in_data,
-                                          CK_ULONG in_data_len,
-                                          CK_BYTE *signature,
-                                          CK_ULONG signature_len,
-                                          OBJECT *key_obj)
+CK_RV token_specific_ibm_ml_dsa_verify(STDLL_TokData_t *tokdata,
+                                       SESSION *sess,
+                                       const struct pqc_oid *oid,
+                                       CK_MECHANISM *mech,
+                                       CK_BYTE *in_data,
+                                       CK_ULONG in_data_len,
+                                       CK_BYTE *signature,
+                                       CK_ULONG signature_len,
+                                       OBJECT *key_obj)
 {
-    struct soft_private_data *soft_private = tokdata->private_data;
-
-    if (soft_private->oqs_provider == NULL) {
-        TRACE_ERROR("The oqsprovider is not loaded\n");
+    if (!token_specific_filter_mechanism(tokdata, mech->mechanism))
         return CKR_MECHANISM_INVALID;
-    }
 
-    return openssl_specific_ibm_dilithium_verify(tokdata, sess, oid,
-                                                 in_data, in_data_len,
-                                                 signature, signature_len,
-                                                 key_obj);
+    return openssl_specific_pqc_verify(tokdata, sess, oid, mech,
+                                       in_data, in_data_len,
+                                       signature, signature_len,
+                                       key_obj);
 }
 
 #endif

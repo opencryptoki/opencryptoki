@@ -5877,10 +5877,11 @@ static CK_RV get_key_from_pkey(EVP_PKEY *pkey, const char *param,
     return CKR_OK;
 }
 
-CK_RV openssl_specific_ibm_dilithium_generate_keypair(STDLL_TokData_t *tokdata,
-                                                      const struct pqc_oid *oid,
-                                                      TEMPLATE *publ_tmpl,
-                                                      TEMPLATE *priv_tmpl)
+CK_RV openssl_specific_pqc_generate_keypair(STDLL_TokData_t *tokdata,
+                                            const struct pqc_oid *oid,
+                                            CK_MECHANISM *mech,
+                                            TEMPLATE *publ_tmpl,
+                                            TEMPLATE *priv_tmpl)
 {
     EVP_PKEY_CTX *ctx = NULL;
     EVP_PKEY *pkey = NULL;
@@ -5889,20 +5890,30 @@ CK_RV openssl_specific_ibm_dilithium_generate_keypair(STDLL_TokData_t *tokdata,
     CK_ULONG spki_len = 0, pkcs8_len = 0;
     size_t priv_len = 0, pub_len = 0;
     CK_BYTE *priv_key = NULL, *pub_key = NULL;
+    CK_KEY_TYPE keytype;
+    CK_OBJECT_CLASS class;
     CK_RV rc = CKR_OK;
 
     UNUSED(tokdata);
 
+    rc = pkcs_get_keytype(NULL, 0, mech, &keytype, &class);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("pkcs_get_keytype failed\n");
+        goto out;
+    }
+
     alg_name = openssl_get_pqc_oid_name(oid);
     if (alg_name == NULL) {
-        TRACE_ERROR("Dilithium key form '%lu' not supported by oqsprovider\n",
+        TRACE_ERROR("PQC key form '%lu' not supported by oqsprovider\n",
                     oid->keyform);
         rc = CKR_KEY_SIZE_RANGE;
         goto out;
     }
 
-    /* Generate key via oqsprovider */
-    ctx = EVP_PKEY_CTX_new_from_name(NULL, alg_name, NULL);
+    /* Generate key via oqsprovider or OpenSSL 3.5 */
+    ctx = EVP_PKEY_CTX_new_from_name(NULL, alg_name,
+                                     mech->mechanism != CKM_IBM_DILITHIUM ?
+                                                 "?provider=default" : NULL);
     if (ctx == NULL) {
         TRACE_ERROR("EVP_PKEY_CTX_new_from_name failed for '%s'\n", alg_name);
         rc = CKR_FUNCTION_FAILED;
@@ -5937,42 +5948,45 @@ CK_RV openssl_specific_ibm_dilithium_generate_keypair(STDLL_TokData_t *tokdata,
     }
 
     /* Extract key components */
-    rc = ibm_dilithium_unpack_priv_key(priv_key, priv_len, oid, priv_tmpl);
+    rc = pqc_unpack_priv_key(priv_key, priv_len, oid,
+                             mech->mechanism, priv_tmpl);
     if (rc != CKR_OK) {
-        TRACE_ERROR("ibm_dilithium_unpack_priv_key failed for priv key\n");
+        TRACE_ERROR("pqc_unpack_priv_key failed for priv key\n");
         goto out;
     }
 
-    rc = ibm_dilithium_unpack_pub_key(pub_key, pub_len, oid, publ_tmpl);
+    rc = pqc_unpack_pub_key(pub_key, pub_len, oid,
+                            mech->mechanism, publ_tmpl);
     if (rc != CKR_OK) {
-        TRACE_ERROR("ibm_dilithium_unpack_pub_key failed for pub key\n");
+        TRACE_ERROR("pqc_unpack_pub_key failed for pub key\n");
         goto out;
     }
 
     /* Also add public key components to private template */
-    rc = ibm_dilithium_unpack_pub_key(pub_key, pub_len, oid, priv_tmpl);
+    rc = pqc_unpack_pub_key(pub_key, pub_len, oid,
+                            mech->mechanism, priv_tmpl);
     if (rc != CKR_OK) {
-        TRACE_ERROR("ibm_dilithium_unpack_pub_key failed for pub key\n");
+        TRACE_ERROR("pqc_unpack_pub_key failed for pub key\n");
         goto out;
     }
 
     /* Add keyform and mode attributes to public and private template */
-    rc = ibm_pqc_add_keyform_mode(publ_tmpl, oid, CKM_IBM_DILITHIUM);
+    rc = pqc_add_keyform_mode(publ_tmpl, oid, mech->mechanism);
     if (rc != CKR_OK) {
-        TRACE_ERROR("ibm_pqc_add_keyform_mode failed\n");
+        TRACE_ERROR("pqc_add_keyform_mode failed\n");
         goto out;
     }
 
-    rc = ibm_pqc_add_keyform_mode(priv_tmpl, oid, CKM_IBM_DILITHIUM);
+    rc = pqc_add_keyform_mode(priv_tmpl, oid, mech->mechanism);
     if (rc != CKR_OK) {
-        TRACE_ERROR("ibm_pqc_add_keyform_mode failed\n");
+        TRACE_ERROR("pqc_add_keyform_mode failed\n");
         goto out;
     }
 
     /* Add SPKI as CKA_VALUE to public template */
-    rc = ibm_dilithium_publ_get_spki(publ_tmpl, FALSE, &spki, &spki_len);
+    rc = pqc_publ_get_spki(publ_tmpl, keytype, FALSE, &spki, &spki_len);
     if (rc != CKR_OK) {
-        TRACE_ERROR("ibm_dilithium_publ_get_spki failed\n");
+        TRACE_ERROR("pqc_publ_get_spki failed\n");
         goto out;
     }
 
@@ -5984,13 +5998,14 @@ CK_RV openssl_specific_ibm_dilithium_generate_keypair(STDLL_TokData_t *tokdata,
     }
 
     /* Add PKCS#8 encoding of private key to private template */
-    rc = ibm_dilithium_priv_wrap_get_data(priv_tmpl, FALSE, &pkcs8, &pkcs8_len);
+    rc = pqc_priv_wrap_get_data(priv_tmpl, keytype, FALSE, &pkcs8, &pkcs8_len);
     if (rc != CKR_OK) {
-        TRACE_ERROR("ibm_dilithium_priv_wrap_get_data failed\n");
+        TRACE_ERROR("pqc_priv_wrap_get_data failed\n");
         goto out;
     }
 
-    rc = template_build_update_attribute(priv_tmpl, CKA_VALUE, pkcs8, pkcs8_len);
+    rc = template_build_update_attribute(priv_tmpl, CKA_VALUE,
+                                         pkcs8, pkcs8_len);
     if (rc != CKR_OK) {
         TRACE_ERROR("template_build_update_attribute for CKA_VALUE failed "
                     "rc=0x%lx\n", rc);
@@ -6018,11 +6033,12 @@ out:
     return rc;
 }
 
-CK_RV openssl_make_ibm_dilithium_key_from_template(TEMPLATE *tmpl,
-                                                   const struct pqc_oid *oid,
-                                                   CK_BBOOL private_key,
-                                                   const char *alg_name,
-                                                   EVP_PKEY **pkey)
+CK_RV openssl_make_pqc_key_from_template(TEMPLATE *tmpl,
+                                         const struct pqc_oid *oid,
+                                         CK_MECHANISM_TYPE mech,
+                                         CK_BBOOL private_key,
+                                         const char *alg_name,
+                                         EVP_PKEY **pkey)
 {
     CK_ULONG priv_len = 0, pub_len = 0;
     CK_BYTE *priv_key = NULL, *pub_key = NULL;
@@ -6032,9 +6048,9 @@ CK_RV openssl_make_ibm_dilithium_key_from_template(TEMPLATE *tmpl,
     CK_RV rc;
 
     if (private_key) {
-        rc = ibm_dilithium_pack_priv_key(tmpl, oid, NULL, &priv_len);
+        rc = pqc_pack_priv_key(tmpl, oid, mech, NULL, &priv_len);
         if (rc != CKR_OK) {
-            TRACE_ERROR("ibm_dilithium_pack_priv_key failed\n");
+            TRACE_ERROR("pqc_pack_priv_key failed\n");
             goto out;
         }
 
@@ -6045,16 +6061,16 @@ CK_RV openssl_make_ibm_dilithium_key_from_template(TEMPLATE *tmpl,
             goto out;
         }
 
-        rc = ibm_dilithium_pack_priv_key(tmpl, oid, priv_key, &priv_len);
+        rc = pqc_pack_priv_key(tmpl, oid, mech, priv_key, &priv_len);
         if (rc != CKR_OK) {
-            TRACE_ERROR("ibm_dilithium_pack_priv_key failed\n");
+            TRACE_ERROR("pqc_pack_priv_key failed\n");
             goto out;
         }
     }
 
-    rc = ibm_dilithium_pack_pub_key(tmpl, oid, NULL, &pub_len);
+    rc = pqc_pack_pub_key(tmpl, oid, mech, NULL, &pub_len);
     if (rc != CKR_OK) {
-        TRACE_ERROR("ibm_dilithium_pack_pub_key failed\n");
+        TRACE_ERROR("pqc_pack_pub_key failed\n");
         goto out;
     }
 
@@ -6065,9 +6081,9 @@ CK_RV openssl_make_ibm_dilithium_key_from_template(TEMPLATE *tmpl,
         goto out;
     }
 
-    rc = ibm_dilithium_pack_pub_key(tmpl, oid, pub_key, &pub_len);
+    rc = pqc_pack_pub_key(tmpl, oid, mech, pub_key, &pub_len);
     if (rc != CKR_OK) {
-        TRACE_ERROR("ibm_dilithium_pack_pub_key failed\n");
+        TRACE_ERROR("pqc_pack_pub_key failed\n");
         goto out;
     }
 
@@ -6101,7 +6117,9 @@ CK_RV openssl_make_ibm_dilithium_key_from_template(TEMPLATE *tmpl,
         goto out;
     }
 
-    pctx = EVP_PKEY_CTX_new_from_name(NULL, alg_name, NULL);
+    pctx = EVP_PKEY_CTX_new_from_name(NULL, alg_name,
+                                      mech != CKM_IBM_DILITHIUM ?
+                                               "?provider=default" : NULL);
     if (pctx == NULL) {
         TRACE_ERROR("EVP_PKEY_CTX_new_from_name failed for '%s'\n", alg_name);
         rc = CKR_FUNCTION_FAILED;
@@ -6139,15 +6157,16 @@ out:
     return rc;
 }
 
-CK_RV openssl_specific_ibm_dilithium_sign(STDLL_TokData_t *tokdata,
-                                          SESSION *sess,
-                                          CK_BBOOL length_only,
-                                          const struct pqc_oid *oid,
-                                          CK_BYTE *in_data,
-                                          CK_ULONG in_data_len,
-                                          CK_BYTE *signature,
-                                          CK_ULONG *signature_len,
-                                          OBJECT *key_obj)
+CK_RV openssl_specific_pqc_sign(STDLL_TokData_t *tokdata,
+                                SESSION *sess,
+                                CK_BBOOL length_only,
+                                const struct pqc_oid *oid,
+                                CK_MECHANISM *mech,
+                                CK_BYTE *in_data,
+                                CK_ULONG in_data_len,
+                                CK_BYTE *signature,
+                                CK_ULONG *signature_len,
+                                OBJECT *key_obj)
 {
     struct openssl_ex_data *ex_data = NULL;
     EVP_PKEY *pkey = NULL;
@@ -6161,7 +6180,8 @@ CK_RV openssl_specific_ibm_dilithium_sign(STDLL_TokData_t *tokdata,
 
     alg_name = openssl_get_pqc_oid_name(oid);
     if (alg_name == NULL) {
-        TRACE_ERROR("Dilithium key form is not supported by oqsprovider\n");
+        TRACE_ERROR("PQC key form is not supported by oqsprovider or "
+                    "OpenSSL\n");
         return CKR_KEY_SIZE_RANGE;
     }
 
@@ -6172,9 +6192,10 @@ CK_RV openssl_specific_ibm_dilithium_sign(STDLL_TokData_t *tokdata,
         return rc;
 
     if (ex_data->pkey == NULL) {
-        rc = openssl_make_ibm_dilithium_key_from_template(key_obj->template,
-                                                          oid, TRUE, alg_name,
-                                                          &ex_data->pkey);
+        rc = openssl_make_pqc_key_from_template(key_obj->template,
+                                                oid, mech->mechanism,
+                                                TRUE, alg_name,
+                                                &ex_data->pkey);
         if (rc != CKR_OK)
             goto out;
     }
@@ -6229,14 +6250,15 @@ out:
     return rc;
 }
 
-CK_RV openssl_specific_ibm_dilithium_verify(STDLL_TokData_t *tokdata,
-                                            SESSION *sess,
-                                            const struct pqc_oid *oid,
-                                            CK_BYTE *in_data,
-                                            CK_ULONG in_data_len,
-                                            CK_BYTE *signature,
-                                            CK_ULONG signature_len,
-                                            OBJECT *key_obj)
+CK_RV openssl_specific_pqc_verify(STDLL_TokData_t *tokdata,
+                                  SESSION *sess,
+                                  const struct pqc_oid *oid,
+                                  CK_MECHANISM *mech,
+                                  CK_BYTE *in_data,
+                                  CK_ULONG in_data_len,
+                                  CK_BYTE *signature,
+                                  CK_ULONG signature_len,
+                                  OBJECT *key_obj)
 {
     struct openssl_ex_data *ex_data = NULL;
     EVP_PKEY *pkey = NULL;
@@ -6250,7 +6272,8 @@ CK_RV openssl_specific_ibm_dilithium_verify(STDLL_TokData_t *tokdata,
 
     alg_name = openssl_get_pqc_oid_name(oid);
     if (alg_name == NULL) {
-        TRACE_ERROR("Dilithium key form is not supported by oqsprovider\n");
+        TRACE_ERROR("PQC key form is not supported by oqsprovider or "
+                    "OpenSSL\n");
         return CKR_KEY_SIZE_RANGE;
     }
 
@@ -6261,9 +6284,10 @@ CK_RV openssl_specific_ibm_dilithium_verify(STDLL_TokData_t *tokdata,
         return rc;
 
     if (ex_data->pkey == NULL) {
-        rc = openssl_make_ibm_dilithium_key_from_template(key_obj->template,
-                                                          oid, FALSE, alg_name,
-                                                          &ex_data->pkey);
+        rc = openssl_make_pqc_key_from_template(key_obj->template,
+                                                oid, mech->mechanism,
+                                                FALSE, alg_name,
+                                                &ex_data->pkey);
         if (rc != CKR_OK)
             goto out;
     }

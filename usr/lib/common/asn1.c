@@ -746,7 +746,8 @@ CK_RV ber_decode_SEQUENCE(CK_BYTE *seq,
 CK_RV ber_encode_CHOICE(CK_BBOOL length_only,
                         CK_BYTE option,
                         CK_BYTE **str,
-                        CK_ULONG *str_len, CK_BYTE *data, CK_ULONG data_len)
+                        CK_ULONG *str_len, CK_BYTE *data, CK_ULONG data_len,
+                        CK_BBOOL constructed)
 {
     CK_BYTE *buf = NULL;
     CK_ULONG len;
@@ -780,7 +781,7 @@ CK_RV ber_encode_CHOICE(CK_BBOOL length_only,
     }
 
     if (data_len < 128) {
-        buf[0] = 0xA0 | option; // constructed, CHOICE
+        buf[0] = 0x80 | (constructed ? 0x20 : 0x00) | option; // CHOICE
         buf[1] = data_len;
         memcpy(&buf[2], data, data_len);
 
@@ -790,7 +791,7 @@ CK_RV ber_encode_CHOICE(CK_BBOOL length_only,
     }
 
     if (data_len < 256) {
-        buf[0] = 0xA0 | option; // constructed, CHOICE
+        buf[0] = 0x80 | (constructed ? 0x20 : 0x00) | option; // CHOICE
         buf[1] = 0x81;          // length header -- 1 length octets
         buf[2] = data_len;
 
@@ -802,7 +803,7 @@ CK_RV ber_encode_CHOICE(CK_BBOOL length_only,
     }
 
     if (data_len < (1 << 16)) {
-        buf[0] = 0xA0 | option; // constructed, CHOICE
+        buf[0] = 0x80 | (constructed ? 0x20 : 0x00) | option; // CHOICE
         buf[1] = 0x82;          // length header -- 2 length octets
         buf[2] = (data_len >> 8) & 0xFF;
         buf[3] = (data_len) & 0xFF;
@@ -814,7 +815,7 @@ CK_RV ber_encode_CHOICE(CK_BBOOL length_only,
         return CKR_OK;
     }
     if (data_len < (1 << 24)) {
-        buf[0] = 0xA0 | option; // constructed, CHOICE
+        buf[0] = 0x80 | (constructed ? 0x20 : 0x00) | option; // CHOICE
         buf[1] = 0x83;          // length header -- 3 length octets
         buf[2] = (data_len >> 16) & 0xFF;
         buf[3] = (data_len >> 8) & 0xFF;
@@ -833,14 +834,7 @@ CK_RV ber_encode_CHOICE(CK_BBOOL length_only,
     return CKR_FUNCTION_FAILED;
 }
 
-// PrivateKeyInfo ::= SEQUENCE {
-//    version  Version  -- always '0' for now
-//    privateKeyAlgorithm PrivateKeyAlgorithmIdentifier
-//    privateKey  PrivateKey
-//    attributes
-// }
-//
-CK_RV ber_decode_CHOICE(CK_BYTE *choice,
+CK_RV ber_decode_CHOICE(CK_BYTE *choice, CK_BBOOL constructed,
                         CK_BYTE **data,
                         CK_ULONG *data_len, CK_ULONG *field_len,
                         CK_ULONG *option)
@@ -853,7 +847,7 @@ CK_RV ber_decode_CHOICE(CK_BYTE *choice,
         return CKR_FUNCTION_FAILED;
     }
 
-    if ((choice[0] & 0xE0) != 0xA0) {
+    if ((choice[0] & 0xE0) != (0x80 | (constructed ? 0x20 : 0x00))) {
         TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
         return CKR_FUNCTION_FAILED;
     }
@@ -2566,7 +2560,7 @@ CK_RV der_encode_ECPrivateKey(CK_BBOOL length_only,
        }
 
         rc = ber_encode_CHOICE(TRUE, 1, &buf2, &len, (CK_BYTE *)val->bv_val,
-                               val->bv_len);
+                               val->bv_len, TRUE);
         if (rc != 0) {
             TRACE_DEVEL("ber_encode_CHOICE failed\n");
             ber_free(ber, 1);
@@ -2651,7 +2645,7 @@ CK_RV der_encode_ECPrivateKey(CK_BBOOL length_only,
        }
 
         rc = ber_encode_CHOICE(FALSE, 1, &buf2, &len, (CK_BYTE *)val->bv_val,
-                               val->bv_len);
+                               val->bv_len, TRUE);
         if (rc != CKR_OK) {
             TRACE_DEVEL("ber_encode_CHOICE failed\n");
             ber_free(ber, 1);
@@ -2791,8 +2785,8 @@ CK_RV der_decode_ECPrivateKey(CK_BYTE *data,
     if (buf_offset + offset < data_len) {
 
         /* Decode CHOICE */
-        rc = ber_decode_CHOICE(buf + offset, &choice, &choice_len, &field_len,
-                               &option);
+        rc = ber_decode_CHOICE(buf + offset, TRUE, &choice, &choice_len,
+                               &field_len, &option);
         if (rc != CKR_OK) {
             TRACE_DEVEL("ber_decode_CHOICE failed\n");
             goto cleanup;
@@ -3638,10 +3632,13 @@ cleanup:
  *        BIT STRING (256 bit)   = 32 bytes
  *        BIT STRING (13824 bit) = 1728 bytes
  */
-CK_RV ber_encode_IBM_DilithiumPublicKey(CK_BBOOL length_only,
-                                        CK_BYTE **data, CK_ULONG *data_len,
-                                        const CK_BYTE *oid, CK_ULONG oid_len,
-                                        CK_ATTRIBUTE *rho, CK_ATTRIBUTE *t1)
+static CK_RV ber_encode_IBM_DilithiumPublicKey(CK_BBOOL length_only,
+                                               CK_BYTE **data,
+                                               CK_ULONG *data_len,
+                                               const CK_BYTE *oid,
+                                               CK_ULONG oid_len,
+                                               CK_ATTRIBUTE *rho,
+                                               CK_ATTRIBUTE *t1)
 {
     CK_BYTE *buf = NULL, *buf2 = NULL, *buf3 = NULL, *buf4 = NULL;
     CK_BYTE *buf5 = NULL, *algid = NULL;
@@ -3800,12 +3797,12 @@ error:
 }
 
 
-CK_RV ber_decode_IBM_DilithiumPublicKey(CK_BYTE *data,
-                                        CK_ULONG data_len,
-                                        CK_ATTRIBUTE **rho_attr,
-                                        CK_ATTRIBUTE **t1_attr,
-                                        CK_ATTRIBUTE **value_attr,
-                                        const struct pqc_oid **oid)
+static CK_RV ber_decode_IBM_DilithiumPublicKey(CK_BYTE *data,
+                                               CK_ULONG data_len,
+                                               CK_ATTRIBUTE **rho_attr,
+                                               CK_ATTRIBUTE **t1_attr,
+                                               CK_ATTRIBUTE **value_attr,
+                                               const struct pqc_oid **oid)
 {
     CK_ATTRIBUTE *rho_attr_temp = NULL;
     CK_ATTRIBUTE *t1_attr_temp = NULL;
@@ -3930,17 +3927,17 @@ cleanup:
  *       }
  *     }
  */
-CK_RV ber_encode_IBM_DilithiumPrivateKey(CK_BBOOL length_only,
-                                         CK_BYTE **data,
-                                         CK_ULONG *data_len,
-                                         const CK_BYTE *oid, CK_ULONG oid_len,
-                                         CK_ATTRIBUTE *rho,
-                                         CK_ATTRIBUTE *seed,
-                                         CK_ATTRIBUTE *tr,
-                                         CK_ATTRIBUTE *s1,
-                                         CK_ATTRIBUTE *s2,
-                                         CK_ATTRIBUTE *t0,
-                                         CK_ATTRIBUTE *t1)
+static CK_RV ber_encode_IBM_DilithiumPrivateKey(CK_BBOOL length_only,
+                                                CK_BYTE **data,
+                                                CK_ULONG *data_len,
+                                                const CK_BYTE *oid, CK_ULONG oid_len,
+                                                CK_ATTRIBUTE *rho,
+                                                CK_ATTRIBUTE *seed,
+                                                CK_ATTRIBUTE *tr,
+                                                CK_ATTRIBUTE *s1,
+                                                CK_ATTRIBUTE *s2,
+                                                CK_ATTRIBUTE *t0,
+                                                CK_ATTRIBUTE *t1)
 {
     CK_BYTE *buf = NULL, *buf2 = NULL, *buf3 = NULL;
     CK_BYTE *algid = NULL, *algid_buf = NULL;
@@ -3971,7 +3968,7 @@ CK_RV ber_encode_IBM_DilithiumPrivateKey(CK_BBOOL length_only,
     offset += len;
     if (t1) {
         rc |= ber_encode_BIT_STRING(TRUE, NULL, &len2, NULL, t1->ulValueLen, 0);
-        rc |= ber_encode_CHOICE(TRUE, 0, NULL, &len, NULL, len2);
+        rc |= ber_encode_CHOICE(TRUE, 0, NULL, &len, NULL, len2, TRUE);
         offset += len;
     }
 
@@ -4091,7 +4088,7 @@ CK_RV ber_encode_IBM_DilithiumPrivateKey(CK_BBOOL length_only,
     /* (t1) Optional bit-string of public key */
     if (t1 && t1->pValue) {
         rc = ber_encode_BIT_STRING(FALSE, &buf3, &len2, t1->pValue, t1->ulValueLen, 0);
-        rc |= ber_encode_CHOICE(FALSE, 0, &buf2, &len, buf3, len2);
+        rc |= ber_encode_CHOICE(FALSE, 0, &buf2, &len, buf3, len2, TRUE);
         if (rc != CKR_OK) {
             TRACE_ERROR("encoding of t1 value failed\n");
             goto error;
@@ -4163,17 +4160,17 @@ error:
  *         }
  *       }
  */
-CK_RV ber_decode_IBM_DilithiumPrivateKey(CK_BYTE *data,
-                                         CK_ULONG data_len,
-                                         CK_ATTRIBUTE **rho,
-                                         CK_ATTRIBUTE **seed,
-                                         CK_ATTRIBUTE **tr,
-                                         CK_ATTRIBUTE **s1,
-                                         CK_ATTRIBUTE **s2,
-                                         CK_ATTRIBUTE **t0,
-                                         CK_ATTRIBUTE **t1,
-                                         CK_ATTRIBUTE **value,
-                                         const struct pqc_oid **oid)
+static CK_RV ber_decode_IBM_DilithiumPrivateKey(CK_BYTE *data,
+                                                CK_ULONG data_len,
+                                                CK_ATTRIBUTE **rho,
+                                                CK_ATTRIBUTE **seed,
+                                                CK_ATTRIBUTE **tr,
+                                                CK_ATTRIBUTE **s1,
+                                                CK_ATTRIBUTE **s2,
+                                                CK_ATTRIBUTE **t0,
+                                                CK_ATTRIBUTE **t1,
+                                                CK_ATTRIBUTE **value,
+                                                const struct pqc_oid **oid)
 {
     CK_ATTRIBUTE *rho_attr = NULL, *seed_attr = NULL;
     CK_ATTRIBUTE *tr_attr = NULL, *s1_attr = NULL, *s2_attr = NULL;
@@ -4319,7 +4316,8 @@ CK_RV ber_decode_IBM_DilithiumPrivateKey(CK_BYTE *data,
 
     /* t1 (optional, within choice) */
     if (offset < buf_len) {
-        rc = ber_decode_CHOICE(buf + offset, &tmp, &len, &field_len, &option);
+        rc = ber_decode_CHOICE(buf + offset, TRUE, &tmp, &len, &field_len,
+                               &option);
         if (rc != CKR_OK) {
             TRACE_DEVEL("ber_decode_BIT_STRING of (t1) failed\n");
             goto cleanup;
@@ -4364,7 +4362,7 @@ CK_RV ber_decode_IBM_DilithiumPrivateKey(CK_BYTE *data,
     }
     rc = build_attribute(CKA_VALUE, data, field_len, &value_attr);
     if (rc != CKR_OK) {
-        TRACE_DEVEL("build_attribute for (t1) failed\n");
+        TRACE_DEVEL("build_attribute for (value) failed\n");
         goto cleanup;
     }
 
@@ -4412,10 +4410,10 @@ cleanup:
  *      SEQUENCE (1 elem)
  *        pk BIT STRING -- public key
  */
-CK_RV ber_encode_IBM_KyberPublicKey(CK_BBOOL length_only,
-                                    CK_BYTE **data, CK_ULONG *data_len,
-                                    const CK_BYTE *oid, CK_ULONG oid_len,
-                                    CK_ATTRIBUTE *pk)
+static CK_RV ber_encode_IBM_KyberPublicKey(CK_BBOOL length_only,
+                                           CK_BYTE **data, CK_ULONG *data_len,
+                                           const CK_BYTE *oid, CK_ULONG oid_len,
+                                           CK_ATTRIBUTE *pk)
 {
     CK_BYTE *buf = NULL, *buf2 = NULL, *buf3 = NULL, *buf4 = NULL;
     CK_BYTE *buf5 = NULL, *algid = NULL;
@@ -4557,11 +4555,11 @@ error:
     return rc;
 }
 
-CK_RV ber_decode_IBM_KyberPublicKey(CK_BYTE *data,
-                                    CK_ULONG data_len,
-                                    CK_ATTRIBUTE **pk_attr,
-                                    CK_ATTRIBUTE **value_attr,
-                                    const struct pqc_oid **oid)
+static CK_RV ber_decode_IBM_KyberPublicKey(CK_BYTE *data,
+                                           CK_ULONG data_len,
+                                           CK_ATTRIBUTE **pk_attr,
+                                           CK_ATTRIBUTE **value_attr,
+                                           const struct pqc_oid **oid)
 {
     CK_ATTRIBUTE *pk_attr_temp = NULL;
     CK_ATTRIBUTE *value_attr_temp = NULL;
@@ -4653,22 +4651,30 @@ cleanup:
  *       version INTEGER,     -- v0, reserved 0
  *       sk BIT STRING,       -- private key
  *       pk [0] IMPLICIT OPTIONAL {
- *         pk||rs BIT STRING  -- public key (pk) concatenated with 2x32 bytes rs
+ *         pk||fs BIT STRING  -- public key (pk) concatenated with 2x32 bytes fs
  *       }
  *     }
  */
-CK_RV ber_encode_IBM_KyberPrivateKey(CK_BBOOL length_only,
-                                     CK_BYTE **data,
-                                     CK_ULONG *data_len,
-                                     const CK_BYTE *oid, CK_ULONG oid_len,
-                                     CK_ATTRIBUTE *sk,
-                                     CK_ATTRIBUTE *pk)
+static CK_RV ber_encode_IBM_KyberPrivateKey(CK_BBOOL length_only,
+                                            CK_BYTE **data,
+                                            CK_ULONG *data_len,
+                                            const CK_BYTE *oid,
+                                            CK_ULONG oid_len,
+                                            CK_ATTRIBUTE *sk,
+                                            CK_ATTRIBUTE *pk)
 {
     CK_BYTE *buf = NULL, *buf2 = NULL, *buf3 = NULL;
-    CK_BYTE *algid = NULL, *algid_buf = NULL, *pk_rs = NULL;
+    CK_BYTE *algid = NULL, *algid_buf = NULL, *pk_fs = NULL;
     CK_ULONG len, len2 = 0, offset, algid_len = 0;
     CK_BYTE version[] = { 0 };
+    const struct pqc_oid *pqc_oid;
     CK_RV rc;
+
+    pqc_oid = find_pqc_by_oid(kyber_oids, oid, oid_len);
+    if (pqc_oid == NULL) {
+        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
+        return CKR_FUNCTION_FAILED;
+    }
 
     /* Calculate storage for sequence */
     offset = 0;
@@ -4684,7 +4690,7 @@ CK_RV ber_encode_IBM_KyberPrivateKey(CK_BBOOL length_only,
     if (pk) {
         rc |= ber_encode_BIT_STRING(TRUE, NULL, &len2, NULL,
                                     pk->ulValueLen + 64, 0);
-        rc |= ber_encode_CHOICE(TRUE, 0, NULL, &len, NULL, len2);
+        rc |= ber_encode_CHOICE(TRUE, 0, NULL, &len, NULL, len2, TRUE);
         offset += len;
     }
 
@@ -4743,20 +4749,22 @@ CK_RV ber_encode_IBM_KyberPrivateKey(CK_BBOOL length_only,
 
     /* (pk) Optional bit-string of public key */
     if (pk && pk->pValue) {
-        /* append rs to public key */
-        pk_rs = (CK_BYTE *)malloc(pk->ulValueLen + 64);
-        if (!pk_rs) {
+        /* append fs to public key */
+        pk_fs = (CK_BYTE *)malloc(pk->ulValueLen +
+                                        pqc_oid->len_info.ml_kem.fs_len);
+        if (!pk_fs) {
             TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
             rc = CKR_HOST_MEMORY;
             goto error;
         }
 
-        memcpy(pk_rs, pk->pValue, pk->ulValueLen);
-        memset(pk_rs + pk->ulValueLen, 0x30, 64);
+        memcpy(pk_fs, pk->pValue, pk->ulValueLen);
+        memset(pk_fs + pk->ulValueLen, 0x30, pqc_oid->len_info.ml_kem.fs_len);
 
         rc = ber_encode_BIT_STRING(FALSE, &buf3, &len2,
-                                   pk_rs, pk->ulValueLen + 64, 0);
-        rc |= ber_encode_CHOICE(FALSE, 0, &buf2, &len, buf3, len2);
+                                   pk_fs, pk->ulValueLen +
+                                           pqc_oid->len_info.ml_kem.fs_len, 0);
+        rc |= ber_encode_CHOICE(FALSE, 0, &buf2, &len, buf3, len2, TRUE);
         if (rc != CKR_OK) {
             TRACE_ERROR("encoding of pk value failed\n");
             goto error;
@@ -4808,8 +4816,8 @@ error:
         free(buf);
     if (algid)
         free(algid);
-    if (pk_rs)
-        free(pk_rs);
+    if (pk_fs)
+        free(pk_fs);
 
     return rc;
 }
@@ -4821,16 +4829,16 @@ error:
  *       version INTEGER,     -- v0, reserved 0
  *       sk BIT STRING,       -- private key
  *       pk [0] IMPLICIT OPTIONAL {
- *         pk||rs BIT STRING  -- public key (pk) concatenated with 2x32 bytes rs
+ *         pk||fs BIT STRING  -- public key (pk) concatenated with 2x32 bytes fs
  *       }
  *     }
  */
-CK_RV ber_decode_IBM_KyberPrivateKey(CK_BYTE *data,
-                                     CK_ULONG data_len,
-                                     CK_ATTRIBUTE **sk,
-                                     CK_ATTRIBUTE **pk,
-                                     CK_ATTRIBUTE **value,
-                                     const struct pqc_oid **oid)
+static CK_RV ber_decode_IBM_KyberPrivateKey(CK_BYTE *data,
+                                            CK_ULONG data_len,
+                                            CK_ATTRIBUTE **sk,
+                                            CK_ATTRIBUTE **pk,
+                                            CK_ATTRIBUTE **value,
+                                            const struct pqc_oid **oid)
 {
     CK_ATTRIBUTE *sk_attr = NULL, *pk_attr = NULL, *value_attr = NULL;
     CK_BYTE *algoid = NULL;
@@ -4894,7 +4902,8 @@ CK_RV ber_decode_IBM_KyberPrivateKey(CK_BYTE *data,
 
     /* pk (optional, within choice) */
     if (offset < buf_len) {
-        rc = ber_decode_CHOICE(buf + offset, &tmp, &len, &field_len, &option);
+        rc = ber_decode_CHOICE(buf + offset, TRUE, &tmp, &len, &field_len,
+                               &option);
         if (rc != CKR_OK) {
             TRACE_DEVEL("ber_decode_BIT_STRING of (t1) failed\n");
             goto cleanup;
@@ -4916,8 +4925,8 @@ CK_RV ber_decode_IBM_KyberPrivateKey(CK_BYTE *data,
         tmp++; /* Remove unused-bits byte */
         len--;
 
-        if (len > 64)
-            len -= 64; /* Remove 'rs' */
+        if (len > (*oid)->len_info.ml_kem.fs_len)
+            len -= (*oid)->len_info.ml_kem.fs_len; /* Remove 'fs' */
 
         rc = build_attribute(CKA_IBM_KYBER_PK, tmp, len, &pk_attr);
         if (rc != CKR_OK) {
@@ -4942,7 +4951,7 @@ CK_RV ber_decode_IBM_KyberPrivateKey(CK_BYTE *data,
     }
     rc = build_attribute(CKA_VALUE, data, field_len, &value_attr);
     if (rc != CKR_OK) {
-        TRACE_DEVEL("build_attribute for (t1) failed\n");
+        TRACE_DEVEL("build_attribute for (value) failed\n");
         goto cleanup;
     }
 
@@ -4964,3 +4973,1064 @@ cleanup:
     return rc;
 }
 
+/**
+ * An IBM ML-DSA public key is given by:
+ *
+ *  SEQUENCE (2 elem)
+ *    SEQUENCE (2 elem)
+ *      OBJECT IDENTIFIER 2.16.840.1.101.3.4.3.xxx
+ *    BIT STRING - public key (rho | t1)
+ */
+CK_RV ber_encode_IBM_ML_DSA_PublicKey(CK_MECHANISM_TYPE mech,
+                                      CK_BBOOL length_only,
+                                      CK_BYTE **data, CK_ULONG *data_len,
+                                      const CK_BYTE *oid, CK_ULONG oid_len,
+                                      CK_ATTRIBUTE *rho, CK_ATTRIBUTE *t1)
+{
+    CK_BYTE *buf = NULL, *pub = NULL, *alg = NULL;
+    CK_ULONG alg_len = 0, pub_len = 0, total_len = 0;
+    CK_RV rc;
+
+    if (mech == CKM_IBM_DILITHIUM)
+        return ber_encode_IBM_DilithiumPublicKey(length_only, data, data_len,
+                                                 oid, oid_len, rho, t1);
+
+    /* Calculate storage for AlgID sequence */
+    rc = ber_encode_SEQUENCE(TRUE, NULL, &alg_len, NULL, oid_len);
+
+    /* Calculate storage for public key bitsring */
+    rc |= ber_encode_BIT_STRING(TRUE, NULL, &pub_len, NULL,
+                                rho->ulValueLen + t1->ulValueLen, 0);
+
+    /* Calculate storage for outer sequence */
+    rc |= ber_encode_SEQUENCE(TRUE, NULL, &total_len, NULL, alg_len + pub_len);
+
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s ber_encode failed with rc=0x%lx\n", __func__, rc);
+        return rc;
+    }
+
+    if (length_only) {
+        *data_len = total_len;
+        return CKR_OK;
+    }
+
+    /* Allocate storage for public key */
+    buf = malloc(rho->ulValueLen + t1->ulValueLen);
+    if (buf == NULL) {
+        TRACE_ERROR("%s Memory allocation failed\n", __func__);
+        return CKR_HOST_MEMORY;
+    }
+
+    memcpy(buf, rho->pValue, rho->ulValueLen);
+    memcpy(buf + rho->ulValueLen, t1->pValue, t1->ulValueLen);
+
+    rc = ber_encode_BIT_STRING(FALSE, &pub, &pub_len, buf,
+                               rho->ulValueLen + t1->ulValueLen, 0);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s ber_encode_BIT_STRING failed with rc=0x%lx\n",
+                    __func__, rc);
+        goto error;
+    }
+    free(buf);
+    buf = NULL;
+
+    rc = ber_encode_SEQUENCE(FALSE, &alg, &alg_len, (CK_BYTE *)oid, oid_len);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s ber_encode_SEQUENCE failed with rc=0x%lx\n",
+                    __func__, rc);
+        goto error;
+    }
+
+    /* Allocate storage for outer sequence */
+    buf = malloc(alg_len + pub_len);
+    if (buf == NULL) {
+        TRACE_ERROR("%s Memory allocation failed\n", __func__);
+        rc = CKR_HOST_MEMORY;
+        goto error;
+    }
+
+    memcpy(buf, alg, alg_len);
+    memcpy(buf + alg_len, pub, pub_len);
+
+    rc = ber_encode_SEQUENCE(FALSE, data, data_len, buf, alg_len + pub_len);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s ber_encode_SEQUENCE failed with rc=0x%lx\n",
+                    __func__, rc);
+        goto error;
+    }
+
+error:
+    if (buf != NULL)
+        free(buf);
+    if (pub != NULL)
+        free(pub);
+    if (alg != NULL)
+        free(alg);
+
+    return rc;
+}
+
+CK_RV ber_decode_IBM_ML_DSA_PublicKey(CK_MECHANISM_TYPE mech,
+                                      CK_BYTE *data,
+                                      CK_ULONG data_len,
+                                      CK_ATTRIBUTE **rho_attr,
+                                      CK_ATTRIBUTE **t1_attr,
+                                      CK_ATTRIBUTE **value_attr,
+                                      const struct pqc_oid **oid)
+{
+    CK_ATTRIBUTE *rho_attr_temp = NULL;
+    CK_ATTRIBUTE *t1_attr_temp = NULL;
+    CK_ATTRIBUTE *value_attr_temp = NULL;
+    CK_BYTE *algoid = NULL;
+    CK_ULONG algoid_len;
+    CK_BYTE *param = NULL;
+    CK_ULONG param_len;
+    CK_BYTE *pub = NULL;
+    CK_ULONG pub_len = 0;
+    CK_ULONG raw_spki_len;
+    CK_RV rc;
+
+    if (mech == CKM_IBM_DILITHIUM)
+        return ber_decode_IBM_DilithiumPublicKey(data, data_len, rho_attr,
+                                                 t1_attr, value_attr, oid);
+
+    /*
+     *  SEQUENCE (2 elem)
+     *    SEQUENCE (2 elem)
+     *      OBJECT IDENTIFIER 2.16.840.1.101.3.4.3.xxx
+     *    BIT STRING - public key (rho | t1)
+     */
+
+    rc = ber_decode_SPKI(data, &algoid, &algoid_len, &param, &param_len,
+                         &pub, &pub_len);
+    if (rc != CKR_OK) {
+       TRACE_DEVEL("ber_decode_SPKI failed\n");
+       return rc;
+    }
+
+    *oid = find_pqc_by_oid(ml_dsa_oids, algoid, algoid_len);
+    if (*oid == NULL) {
+        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
+        return CKR_FUNCTION_FAILED;
+    }
+
+    if (pub_len != (*oid)->len_info.ml_dsa.rho_len +
+                                    (*oid)->len_info.ml_dsa.t1_len) {
+        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
+        return CKR_FUNCTION_FAILED;
+    }
+
+    /* Build rho attribute */
+    rc = build_attribute(CKA_IBM_ML_DSA_RHO, pub,
+                         (*oid)->len_info.ml_dsa.rho_len, &rho_attr_temp);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("build_attribute failed\n");
+        goto cleanup;
+    }
+
+    /* Build t1 attribute */
+    rc = build_attribute(CKA_IBM_ML_DSA_T1,
+                         pub + (*oid)->len_info.ml_dsa.rho_len,
+                         (*oid)->len_info.ml_dsa.t1_len, &t1_attr_temp);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("build_attribute failed\n");
+        goto cleanup;
+    }
+
+    /* Add raw SPKI as CKA_VALUE to public key (z/OS ICSF compatibility) */
+    rc = ber_decode_SEQUENCE(data, &pub, &pub_len, &raw_spki_len);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s ber_decode_SEQUENCE failed with rc=0x%lx\n",
+                    __func__, rc);
+        goto cleanup;
+    }
+    rc = build_attribute(CKA_VALUE, data, raw_spki_len, &value_attr_temp);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("build_attribute failed\n");
+        goto cleanup;
+    }
+
+    *rho_attr = rho_attr_temp;
+    *t1_attr = t1_attr_temp;
+    *value_attr = value_attr_temp;
+
+    return CKR_OK;
+
+cleanup:
+    if (rho_attr_temp)
+        free(rho_attr_temp);
+    if (t1_attr_temp)
+        free(t1_attr_temp);
+    if (value_attr_temp)
+        free(value_attr_temp);
+
+    return rc;
+}
+
+/**
+ * An IBM ML-DSA private key is given by:
+ *
+ *     ML-DSA-PrivateKey ::= CHOICE {
+ *       private-seed [0]  OCTET STRING (SIZE (32),
+ *       expandedKey       OCTET STRING (rho | seed | tr | s1 | s2 | t0),
+ *       both SEQUENCE {
+ *         private-seed    OCTET STRING (SIZE (32),
+ *         expandedKey     OCTET STRING (rho | seed | tr | s1 | s2 | t0)
+ *       }
+ *     }
+ *
+ */
+CK_RV ber_encode_IBM_ML_DSA_PrivateKey(CK_MECHANISM_TYPE mech,
+                                       CK_BBOOL length_only,
+                                       CK_BYTE **data,
+                                       CK_ULONG *data_len,
+                                       const CK_BYTE *oid, CK_ULONG oid_len,
+                                       CK_ATTRIBUTE *rho,
+                                       CK_ATTRIBUTE *seed,
+                                       CK_ATTRIBUTE *tr,
+                                       CK_ATTRIBUTE *s1,
+                                       CK_ATTRIBUTE *s2,
+                                       CK_ATTRIBUTE *t0,
+                                       CK_ATTRIBUTE *t1,
+                                       CK_ATTRIBUTE *priv_seed)
+{
+    CK_BBOOL priv_avail, priv_seed_avail;
+    CK_ULONG priv_seed_len = 0, exp_key_len = 0, priv_key_len = 0;
+    CK_ULONG alg_len = 0, ofs = 0;
+    CK_BYTE *alg = NULL, *buf = NULL, *priv_key = NULL, *exp_key = NULL;
+    CK_BYTE *pseed = NULL;
+    CK_RV rc;
+
+    if (mech == CKM_IBM_DILITHIUM)
+        return ber_encode_IBM_DilithiumPrivateKey(length_only, data, data_len,
+                                                  oid, oid_len, rho, seed,
+                                                  tr, s1, s2, t0, t1);
+
+    priv_avail = (rho != NULL && rho->ulValueLen != 0 && rho->pValue != NULL &&
+                  seed != NULL && seed->ulValueLen != 0 &&
+                                                       seed->pValue != NULL &&
+                  tr != NULL && tr->ulValueLen != 0 && tr->pValue != NULL &&
+                  s1 != NULL && s1->ulValueLen != 0 && s1->pValue != NULL &&
+                  s2 != NULL && s2->ulValueLen != 0 && s2->pValue != NULL &&
+                  t0 != NULL && t0->ulValueLen != 0 && t0->pValue != NULL);
+    priv_seed_avail = (priv_seed != NULL && priv_seed->ulValueLen != 0 &&
+                       priv_seed->pValue != NULL);
+
+    /* Calculate length of key material */
+    rc = ber_encode_SEQUENCE(TRUE, NULL, &alg_len, NULL, oid_len);
+
+    if (priv_avail && priv_seed_avail) {
+        /* both format */
+        rc |= ber_encode_OCTET_STRING(TRUE, NULL, &exp_key_len, NULL,
+                                      rho->ulValueLen + seed->ulValueLen +
+                                      tr->ulValueLen + s1->ulValueLen +
+                                      s2->ulValueLen + t0->ulValueLen);
+        rc |= ber_encode_OCTET_STRING(TRUE, NULL, &priv_seed_len, NULL,
+                                      priv_seed->ulValueLen);
+        rc |= ber_encode_SEQUENCE(TRUE, NULL, &priv_key_len, NULL,
+                                  exp_key_len + priv_seed_len);
+    } else if (priv_avail) {
+        /* expanded key only */
+        rc |= ber_encode_OCTET_STRING(TRUE, NULL, &priv_key_len, NULL,
+                                      rho->ulValueLen + seed->ulValueLen +
+                                      tr->ulValueLen + s1->ulValueLen +
+                                      s2->ulValueLen + t0->ulValueLen);
+    } else if (priv_seed_avail) {
+        /* private-seed only */
+        rc = ber_encode_CHOICE(TRUE, 0x00, NULL, &priv_key_len, NULL,
+                               priv_seed->ulValueLen, FALSE);
+    } else {
+        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
+        return CKR_FUNCTION_FAILED;
+    }
+
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("ber_encode failed\n");
+        return rc;
+    }
+
+    if (length_only == TRUE) {
+        rc = ber_encode_PrivateKeyInfo(TRUE, NULL, data_len,
+                                       NULL, alg_len, NULL, priv_key_len);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("ber_encode_PrivateKeyInfo failed\n");
+            return rc;
+        }
+
+        return CKR_OK;
+    }
+
+    rc = ber_encode_SEQUENCE(FALSE, &alg, &alg_len, (CK_BYTE *)oid, oid_len);
+
+    if (priv_avail) {
+        buf = malloc(rho->ulValueLen + seed->ulValueLen + tr->ulValueLen +
+                     s1->ulValueLen + s2->ulValueLen + t0->ulValueLen);
+        if (buf == NULL) {
+            TRACE_ERROR("%s Memory allocation failed\n", __func__);
+            rc = CKR_HOST_MEMORY;
+            goto error;
+        }
+
+        ofs = 0;
+        memcpy(buf + ofs, rho->pValue, rho->ulValueLen);
+        ofs += rho->ulValueLen;
+        memcpy(buf + ofs, seed->pValue, seed->ulValueLen);
+        ofs += seed->ulValueLen;
+        memcpy(buf + ofs, tr->pValue, tr->ulValueLen);
+        ofs += tr->ulValueLen;
+        memcpy(buf + ofs, s1->pValue, s1->ulValueLen);
+        ofs += s1->ulValueLen;
+        memcpy(buf + ofs, s2->pValue, s2->ulValueLen);
+        ofs += s2->ulValueLen;
+        memcpy(buf + ofs, t0->pValue, t0->ulValueLen);
+        ofs += t0->ulValueLen;
+    }
+
+    if (priv_avail && priv_seed_avail) {
+        /* both format */
+        rc |= ber_encode_OCTET_STRING(FALSE, &exp_key, &exp_key_len, buf,
+                                      rho->ulValueLen + seed->ulValueLen +
+                                      tr->ulValueLen + s1->ulValueLen +
+                                      s2->ulValueLen + t0->ulValueLen);
+        rc |= ber_encode_OCTET_STRING(FALSE, &pseed, &priv_seed_len,
+                                      priv_seed->pValue, priv_seed->ulValueLen);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("ber_encode failed\n");
+            goto error;
+        }
+
+        free(buf);
+        buf = malloc(exp_key_len + priv_seed_len);
+        if (buf == NULL) {
+            TRACE_ERROR("%s Memory allocation failed\n", __func__);
+            rc = CKR_HOST_MEMORY;
+            goto error;
+        }
+        memcpy(buf, pseed, priv_seed_len);
+        memcpy(buf + priv_seed_len, exp_key, exp_key_len);
+
+        rc = ber_encode_SEQUENCE(FALSE, &priv_key, &priv_key_len, buf,
+                                 exp_key_len + priv_seed_len);
+    } else if (priv_avail) {
+        /* expanded key only */
+        rc |= ber_encode_OCTET_STRING(FALSE, &priv_key, &priv_key_len, buf,
+                                      rho->ulValueLen + seed->ulValueLen +
+                                      tr->ulValueLen + s1->ulValueLen +
+                                      s2->ulValueLen + t0->ulValueLen);
+    } else if (priv_seed_avail) {
+        /* private-seed only */
+        rc = ber_encode_CHOICE(FALSE, 0x00, &priv_key, &priv_key_len,
+                               priv_seed->pValue, priv_seed->ulValueLen, FALSE);
+    } else {
+        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
+        rc = CKR_FUNCTION_FAILED;
+        goto error;
+    }
+
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("ber_encode failed\n");
+        goto error;
+    }
+
+    rc = ber_encode_PrivateKeyInfo(FALSE, data, data_len,
+                                   alg, alg_len, priv_key, priv_key_len);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("ber_encode_PrivateKeyInfo failed\n");
+        goto error;
+    }
+
+error:
+    if (alg != NULL)
+        free(alg);
+    if (buf != NULL)
+        free(buf);
+    if (priv_key != NULL)
+        free(priv_key);
+    if (exp_key != NULL)
+        free(exp_key);
+    if (pseed != NULL)
+        free(pseed);
+
+    return rc;
+}
+
+CK_RV ber_decode_IBM_ML_DSA_PrivateKey(CK_MECHANISM_TYPE mech,
+                                       CK_BYTE *data,
+                                       CK_ULONG data_len,
+                                       CK_ATTRIBUTE **rho,
+                                       CK_ATTRIBUTE **seed,
+                                       CK_ATTRIBUTE **tr,
+                                       CK_ATTRIBUTE **s1,
+                                       CK_ATTRIBUTE **s2,
+                                       CK_ATTRIBUTE **t0,
+                                       CK_ATTRIBUTE **t1,
+                                       CK_ATTRIBUTE **priv_seed,
+                                       CK_ATTRIBUTE **value,
+                                       const struct pqc_oid **oid)
+{
+    CK_ATTRIBUTE *rho_attr = NULL, *seed_attr = NULL;
+    CK_ATTRIBUTE *tr_attr = NULL, *s1_attr = NULL, *s2_attr = NULL;
+    CK_ATTRIBUTE *t0_attr = NULL, *priv_seed_attr = NULL, *value_attr = NULL;
+    CK_BYTE *algid = NULL, *priv = NULL, *both = NULL, *key = NULL;
+    CK_BYTE *pseed = NULL, *tmp = NULL;
+    CK_ULONG both_len, field_len, algid_len, key_len = 0, pseed_len = 0;
+    CK_ULONG ofs = 0, option, len;
+    CK_RV rc;
+
+    if (mech == CKM_IBM_DILITHIUM) {
+        *priv_seed = NULL;
+        return ber_decode_IBM_DilithiumPrivateKey(data, data_len, rho, seed,
+                                                  tr, s1, s2, t0, t1,
+                                                  value, oid);
+    }
+
+    /* Check if this is a ML-DSA private key */
+    rc = ber_decode_PrivateKeyInfo(data, data_len, &algid, &algid_len,
+                                   &priv);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("ber_decode_PrivateKeyInfo failed\n");
+        return rc;
+    }
+
+    *oid = find_pqc_by_oid(ml_dsa_oids, algid, algid_len);
+    if (*oid == NULL) {
+        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
+        return CKR_FUNCTION_FAILED;
+    }
+
+    /*
+     * Check which choice is used:
+     *
+     *     ML-DSA-PrivateKey ::= CHOICE {
+     *       private-seed [0]  OCTET STRING (SIZE (32),
+     *       expandedKey       OCTET STRING (rho | seed | tr | s1 | s2 | t0),
+     *       both SEQUENCE {
+     *         private-seed    OCTET STRING (SIZE (32),
+     *         expandedKey     OCTET STRING (rho | seed | tr | s1 | s2 | t0)
+     *       }
+     *     }
+     */
+    switch (priv[0]) {
+    case 0x30: /* SEQUENCE  - both format*/
+        rc = ber_decode_SEQUENCE(priv, &both, &both_len, &field_len);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("ber_decode_SEQUENCE failed\n");
+            return rc;
+        }
+
+        rc = ber_decode_OCTET_STRING(both, &pseed, &pseed_len, &field_len);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("ber_decode_OCTET_STRING failed\n");
+            return rc;
+        }
+
+        rc = ber_decode_OCTET_STRING(both + field_len, &key, &key_len,
+                                     &field_len);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("ber_decode_OCTET_STRING failed\n");
+            return rc;
+        }
+        break;
+    case 0x04: /* OCTET STRING - expanded key */
+        rc = ber_decode_OCTET_STRING(priv, &key, &key_len, &field_len);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("ber_decode_OCTET_STRING failed\n");
+            return rc;
+        }
+        break;
+    case 0x80: /* CHOICE - private seed only */
+        rc = ber_decode_CHOICE(priv, FALSE, &pseed, &pseed_len, &field_len,
+                               &option);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("ber_decode_CHOICE failed\n");
+            return rc;
+        }
+        break;
+    default:
+        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
+        return CKR_FUNCTION_FAILED;
+    }
+
+    if (key != NULL) {
+        if (key_len != (*oid)->len_info.ml_dsa.rho_len +
+                       (*oid)->len_info.ml_dsa.seed_len +
+                       (*oid)->len_info.ml_dsa.tr_len +
+                       (*oid)->len_info.ml_dsa.s1_len +
+                       (*oid)->len_info.ml_dsa.s2_len +
+                       (*oid)->len_info.ml_dsa.t0_len) {
+            TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
+            return CKR_FUNCTION_FAILED;
+        }
+
+        rc = build_attribute(CKA_IBM_ML_DSA_RHO, key + ofs,
+                             (*oid)->len_info.ml_dsa.rho_len, &rho_attr);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("build_attribute for (rho) failed\n");
+            goto cleanup;
+        }
+        ofs += (*oid)->len_info.ml_dsa.rho_len;
+
+        rc = build_attribute(CKA_IBM_ML_DSA_SEED, key + ofs,
+                             (*oid)->len_info.ml_dsa.seed_len, &seed_attr);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("build_attribute for (seed) failed\n");
+            goto cleanup;
+        }
+        ofs += (*oid)->len_info.ml_dsa.seed_len;
+
+        rc = build_attribute(CKA_IBM_ML_DSA_TR, key + ofs,
+                             (*oid)->len_info.ml_dsa.tr_len, &tr_attr);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("build_attribute for (tr) failed\n");
+            goto cleanup;
+        }
+        ofs += (*oid)->len_info.ml_dsa.tr_len;
+
+        rc = build_attribute(CKA_IBM_ML_DSA_S1, key + ofs,
+                             (*oid)->len_info.ml_dsa.s1_len, &s1_attr);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("build_attribute for (s1) failed\n");
+            goto cleanup;
+        }
+        ofs += (*oid)->len_info.ml_dsa.s1_len;
+
+        rc = build_attribute(CKA_IBM_ML_DSA_S2, key + ofs,
+                             (*oid)->len_info.ml_dsa.s2_len, &s2_attr);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("build_attribute for (s2) failed\n");
+            goto cleanup;
+        }
+        ofs += (*oid)->len_info.ml_dsa.s2_len;
+
+        rc = build_attribute(CKA_IBM_ML_DSA_T0, key + ofs,
+                             (*oid)->len_info.ml_dsa.t0_len, &t0_attr);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("build_attribute for (t0) failed\n");
+            goto cleanup;
+        }
+        ofs += (*oid)->len_info.ml_dsa.t0_len;
+    }
+
+    if (pseed != NULL) {
+        if (pseed_len != (*oid)->len_info.ml_dsa.priv_seed_len) {
+            TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
+            return CKR_FUNCTION_FAILED;
+        }
+
+        rc = build_attribute(CKA_IBM_ML_DSA_PRIVATE_SEED, pseed,
+                             (*oid)->len_info.ml_dsa.priv_seed_len,
+                             &priv_seed_attr);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("build_attribute for (priv-seed) failed\n");
+            goto cleanup;
+        }
+    }
+
+    /* Add private key as CKA_VALUE to public key (z/OS ICSF compatibility) */
+    rc = ber_decode_SEQUENCE(data, &tmp, &len, &field_len);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s ber_decode_SEQUENCE failed with rc=0x%lx\n",
+                    __func__, rc);
+        goto cleanup;
+    }
+    rc = build_attribute(CKA_VALUE, data, field_len, &value_attr);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("build_attribute for (value) failed\n");
+        goto cleanup;
+    }
+
+    *rho = rho_attr;
+    *seed = seed_attr;
+    *tr = tr_attr;
+    *s1 = s1_attr;
+    *s2 = s2_attr;
+    *t0 = t0_attr;
+    *t1 = NULL;
+    *priv_seed = priv_seed_attr;
+    *value = value_attr;
+
+    return CKR_OK;
+
+cleanup:
+    if (rho_attr)
+        free(rho_attr);
+    if (seed_attr)
+        free(seed_attr);
+    if (tr_attr)
+        free(tr_attr);
+    if (s1_attr)
+        free(s1_attr);
+    if (s2_attr)
+        free(s2_attr);
+    if (t0_attr)
+        free(t0_attr);
+    if (priv_seed_attr)
+        free(priv_seed_attr);
+    if (value_attr)
+        free(value_attr);
+
+    return rc;
+}
+
+/**
+ * An IBM ML-DSA public key is given by:
+ *
+ *  SEQUENCE (2 elem)
+ *    SEQUENCE (2 elem)
+ *      OBJECT IDENTIFIER 2.16.840.1.101.3.4.4.xxx
+ *    BIT STRING - public key (pk)
+ */
+CK_RV ber_encode_IBM_ML_KEM_PublicKey(CK_MECHANISM_TYPE mech,
+                                      CK_BBOOL length_only,
+                                      CK_BYTE **data, CK_ULONG *data_len,
+                                      const CK_BYTE *oid, CK_ULONG oid_len,
+                                      CK_ATTRIBUTE *pk)
+{
+    CK_BYTE *buf = NULL, *pub = NULL, *alg = NULL;
+    CK_ULONG alg_len = 0, pub_len = 0, total_len = 0;
+    CK_RV rc;
+
+    if (mech == CKM_IBM_KYBER)
+        return ber_encode_IBM_KyberPublicKey(length_only, data, data_len,
+                                             oid, oid_len, pk);
+
+    /* Calculate storage for AlgID sequence */
+    rc = ber_encode_SEQUENCE(TRUE, NULL, &alg_len, NULL, oid_len);
+
+    /* Calculate storage for public key bitsring */
+    rc |= ber_encode_BIT_STRING(TRUE, NULL, &pub_len, NULL, pk->ulValueLen, 0);
+
+    /* Calculate storage for outer sequence */
+    rc |= ber_encode_SEQUENCE(TRUE, NULL, &total_len, NULL, alg_len + pub_len);
+
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s ber_encode failed with rc=0x%lx\n", __func__, rc);
+        return rc;
+    }
+
+    if (length_only) {
+        *data_len = total_len;
+        return CKR_OK;
+    }
+
+    rc = ber_encode_BIT_STRING(FALSE, &pub, &pub_len, pk->pValue,
+                               pk->ulValueLen, 0);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s ber_encode_BIT_STRING failed with rc=0x%lx\n",
+                    __func__, rc);
+        goto error;
+    }
+
+    rc = ber_encode_SEQUENCE(FALSE, &alg, &alg_len, (CK_BYTE *)oid, oid_len);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s ber_encode_SEQUENCE failed with rc=0x%lx\n",
+                    __func__, rc);
+        goto error;
+    }
+
+    /* Allocate storage for outer sequence */
+    buf = malloc(alg_len + pub_len);
+    if (buf == NULL) {
+        TRACE_ERROR("%s Memory allocation failed\n", __func__);
+        rc = CKR_HOST_MEMORY;
+        goto error;
+    }
+
+    memcpy(buf, alg, alg_len);
+    memcpy(buf + alg_len, pub, pub_len);
+
+    rc = ber_encode_SEQUENCE(FALSE, data, data_len, buf, alg_len + pub_len);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s ber_encode_SEQUENCE failed with rc=0x%lx\n",
+                    __func__, rc);
+        goto error;
+    }
+
+error:
+    if (buf != NULL)
+        free(buf);
+    if (pub != NULL)
+        free(pub);
+    if (alg != NULL)
+        free(alg);
+
+    return rc;
+
+}
+
+CK_RV ber_decode_IBM_ML_KEM_PublicKey(CK_MECHANISM_TYPE mech,
+                                      CK_BYTE *data,
+                                      CK_ULONG data_len,
+                                      CK_ATTRIBUTE **pk_attr,
+                                      CK_ATTRIBUTE **value_attr,
+                                      const struct pqc_oid **oid)
+{
+    CK_ATTRIBUTE *pk_attr_temp = NULL;
+    CK_ATTRIBUTE *value_attr_temp = NULL;
+    CK_BYTE *algoid = NULL;
+    CK_ULONG algoid_len;
+    CK_BYTE *param = NULL;
+    CK_ULONG param_len;
+    CK_BYTE *pub = NULL;
+    CK_ULONG pub_len = 0;
+    CK_ULONG raw_spki_len;
+    CK_RV rc;
+
+    if (mech == CKM_IBM_KYBER)
+        return ber_decode_IBM_KyberPublicKey(data, data_len, pk_attr,
+                                             value_attr, oid);
+
+    /*
+     *  SEQUENCE (2 elem)
+     *    SEQUENCE (2 elem)
+     *      OBJECT IDENTIFIER 2.16.840.1.101.3.4.4.xxx
+     *    BIT STRING - public key (pk)
+     */
+
+    rc = ber_decode_SPKI(data, &algoid, &algoid_len, &param, &param_len,
+                         &pub, &pub_len);
+    if (rc != CKR_OK) {
+       TRACE_DEVEL("ber_decode_SPKI failed\n");
+       return rc;
+    }
+
+    *oid = find_pqc_by_oid(ml_kem_oids, algoid, algoid_len);
+    if (*oid == NULL) {
+        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
+        return CKR_FUNCTION_FAILED;
+    }
+
+    if (pub_len != (*oid)->len_info.ml_kem.pk_len) {
+        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
+        return CKR_FUNCTION_FAILED;
+    }
+
+    /* Build pk attribute */
+    rc = build_attribute(CKA_IBM_ML_KEM_PK, pub,
+                         (*oid)->len_info.ml_kem.pk_len, &pk_attr_temp);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("build_attribute failed\n");
+        goto cleanup;
+    }
+
+    /* Add raw SPKI as CKA_VALUE to public key (z/OS ICSF compatibility) */
+    rc = ber_decode_SEQUENCE(data, &pub, &pub_len, &raw_spki_len);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s ber_decode_SEQUENCE failed with rc=0x%lx\n",
+                    __func__, rc);
+        goto cleanup;
+    }
+    rc = build_attribute(CKA_VALUE, data, raw_spki_len, &value_attr_temp);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("build_attribute failed\n");
+        goto cleanup;
+    }
+
+    *pk_attr = pk_attr_temp;
+    *value_attr = value_attr_temp;
+
+    return CKR_OK;
+
+cleanup:
+    if (pk_attr_temp)
+        free(pk_attr_temp);
+    if (value_attr_temp)
+        free(value_attr_temp);
+
+    return rc;
+}
+
+/*
+ * An IBM ML-KEM private key is given by:
+ *
+ *     ML-KEM-PrivateKey ::= CHOICE {
+ *       private-seed [0]  OCTET STRING (SIZE (64),
+ *       expandedKey       OCTET STRING (sk),
+ *       both SEQUENCE {
+ *         private-seed    OCTET STRING (SIZE (64),
+ *         expandedKey     OCTET STRING (sk)
+ *       }
+ *     }
+ *
+ */
+CK_RV ber_encode_IBM_ML_KEM_PrivateKey(CK_MECHANISM_TYPE mech,
+                                       CK_BBOOL length_only,
+                                       CK_BYTE **data,
+                                       CK_ULONG *data_len,
+                                       const CK_BYTE *oid, CK_ULONG oid_len,
+                                       CK_ATTRIBUTE *sk,
+                                       CK_ATTRIBUTE *pk,
+                                       CK_ATTRIBUTE *priv_seed)
+{
+    CK_BBOOL priv_avail, priv_seed_avail;
+    CK_ULONG priv_seed_len = 0, exp_key_len = 0, priv_key_len = 0;
+    CK_ULONG alg_len = 0;
+    CK_BYTE *alg = NULL, *buf = NULL, *priv_key = NULL, *exp_key = NULL;
+    CK_BYTE *pseed = NULL;
+    CK_RV rc;
+
+    if (mech == CKM_IBM_KYBER)
+        return ber_encode_IBM_KyberPrivateKey(length_only, data, data_len,
+                                              oid, oid_len, sk, pk);
+
+    priv_avail = (sk != NULL && sk->ulValueLen != 0 && sk->pValue != NULL);
+    priv_seed_avail = (priv_seed != NULL && priv_seed->ulValueLen != 0 &&
+                       priv_seed->pValue != NULL);
+
+    /* Calculate length of key material */
+    rc = ber_encode_SEQUENCE(TRUE, NULL, &alg_len, NULL, oid_len);
+
+    if (priv_avail && priv_seed_avail) {
+        /* both format */
+        rc |= ber_encode_OCTET_STRING(TRUE, NULL, &exp_key_len, NULL,
+                                      sk->ulValueLen);
+        rc |= ber_encode_OCTET_STRING(TRUE, NULL, &priv_seed_len, NULL,
+                                      priv_seed->ulValueLen);
+        rc |= ber_encode_SEQUENCE(TRUE, NULL, &priv_key_len, NULL,
+                                  exp_key_len + priv_seed_len);
+    } else if (priv_avail) {
+        /* expanded key only */
+        rc |= ber_encode_OCTET_STRING(TRUE, NULL, &priv_key_len, NULL,
+                                      sk->ulValueLen);
+    } else if (priv_seed_avail) {
+        /* private-seed only */
+        rc = ber_encode_CHOICE(TRUE, 0x00, NULL, &priv_key_len, NULL,
+                               priv_seed->ulValueLen, FALSE);
+    } else {
+        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
+        return CKR_FUNCTION_FAILED;
+    }
+
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("ber_encode failed\n");
+        return rc;
+    }
+
+    if (length_only == TRUE) {
+        rc = ber_encode_PrivateKeyInfo(TRUE, NULL, data_len,
+                                       NULL, alg_len, NULL, priv_key_len);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("ber_encode_PrivateKeyInfo failed\n");
+            return rc;
+        }
+
+        return CKR_OK;
+    }
+
+    rc = ber_encode_SEQUENCE(FALSE, &alg, &alg_len, (CK_BYTE *)oid, oid_len);
+
+    if (priv_avail && priv_seed_avail) {
+        /* both format */
+        rc |= ber_encode_OCTET_STRING(FALSE, &exp_key, &exp_key_len,
+                                      sk->pValue, sk->ulValueLen);
+        rc |= ber_encode_OCTET_STRING(FALSE, &pseed, &priv_seed_len,
+                                      priv_seed->pValue, priv_seed->ulValueLen);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("ber_encode failed\n");
+            goto error;
+        }
+
+        buf = malloc(exp_key_len + priv_seed_len);
+        if (buf == NULL) {
+            TRACE_ERROR("%s Memory allocation failed\n", __func__);
+            rc = CKR_HOST_MEMORY;
+            goto error;
+        }
+        memcpy(buf, pseed, priv_seed_len);
+        memcpy(buf + priv_seed_len, exp_key, exp_key_len);
+
+        rc = ber_encode_SEQUENCE(FALSE, &priv_key, &priv_key_len, buf,
+                                 exp_key_len + priv_seed_len);
+    } else if (priv_avail) {
+        /* expanded key only */
+        rc |= ber_encode_OCTET_STRING(FALSE, &priv_key, &priv_key_len,
+                                      sk->pValue, sk->ulValueLen);
+    } else if (priv_seed_avail) {
+        /* private-seed only */
+        rc = ber_encode_CHOICE(FALSE, 0x00, &priv_key, &priv_key_len,
+                               priv_seed->pValue, priv_seed->ulValueLen, FALSE);
+    } else {
+        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
+        rc = CKR_FUNCTION_FAILED;
+        goto error;
+    }
+
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("ber_encode failed\n");
+        goto error;
+    }
+
+    rc = ber_encode_PrivateKeyInfo(FALSE, data, data_len,
+                                   alg, alg_len, priv_key, priv_key_len);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("ber_encode_PrivateKeyInfo failed\n");
+        goto error;
+    }
+
+error:
+    if (alg != NULL)
+        free(alg);
+    if (buf != NULL)
+        free(buf);
+    if (priv_key != NULL)
+        free(priv_key);
+    if (exp_key != NULL)
+        free(exp_key);
+    if (pseed != NULL)
+        free(pseed);
+
+    return rc;
+}
+
+CK_RV ber_decode_IBM_ML_KEM_PrivateKey(CK_MECHANISM_TYPE mech,
+                                       CK_BYTE *data,
+                                       CK_ULONG data_len,
+                                       CK_ATTRIBUTE **sk,
+                                       CK_ATTRIBUTE **pk,
+                                       CK_ATTRIBUTE **priv_seed,
+                                       CK_ATTRIBUTE **value,
+                                       const struct pqc_oid **oid)
+{
+    CK_ATTRIBUTE *sk_attr = NULL, *seed_attr = NULL;
+    CK_ATTRIBUTE *priv_seed_attr = NULL, *value_attr = NULL;
+    CK_BYTE *algid = NULL, *priv = NULL, *both = NULL, *key = NULL;
+    CK_BYTE *pseed = NULL, *tmp = NULL;
+    CK_ULONG both_len, field_len, algid_len, key_len = 0, pseed_len = 0;
+    CK_ULONG option, len;
+    CK_RV rc;
+
+    if (mech == CKM_IBM_KYBER) {
+        *priv_seed = NULL;
+        return ber_decode_IBM_KyberPrivateKey(data, data_len, sk, pk,
+                                              value, oid);
+    }
+
+    /* Check if this is a ML-KEM private key */
+    rc = ber_decode_PrivateKeyInfo(data, data_len, &algid, &algid_len,
+                                   &priv);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("ber_decode_PrivateKeyInfo failed\n");
+        return rc;
+    }
+
+    *oid = find_pqc_by_oid(ml_kem_oids, algid, algid_len);
+    if (*oid == NULL) {
+        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
+        return CKR_FUNCTION_FAILED;
+    }
+
+    /*
+     * Check which choice is used:
+     *
+     *     ML-KEM-PrivateKey ::= CHOICE {
+     *       private-seed [0]  OCTET STRING (SIZE (64),
+     *       expandedKey       OCTET STRING (sk),
+     *       both SEQUENCE {
+     *         private-seed    OCTET STRING (SIZE (64),
+     *         expandedKey     OCTET STRING (sk)
+     *       }
+     *     }
+     */
+    switch (priv[0]) {
+    case 0x30: /* SEQUENCE  - both format*/
+        rc = ber_decode_SEQUENCE(priv, &both, &both_len, &field_len);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("ber_decode_SEQUENCE failed\n");
+            return rc;
+        }
+
+        rc = ber_decode_OCTET_STRING(both, &pseed, &pseed_len, &field_len);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("ber_decode_OCTET_STRING failed\n");
+            return rc;
+        }
+
+        rc = ber_decode_OCTET_STRING(both + field_len, &key, &key_len,
+                                     &field_len);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("ber_decode_OCTET_STRING failed\n");
+            return rc;
+        }
+        break;
+    case 0x04: /* OCTET STRING - expanded key */
+        rc = ber_decode_OCTET_STRING(priv, &key, &key_len, &field_len);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("ber_decode_OCTET_STRING failed\n");
+            return rc;
+        }
+        break;
+    case 0x80: /* CHOICE - private seed only */
+        rc = ber_decode_CHOICE(priv, FALSE, &pseed, &pseed_len, &field_len,
+                               &option);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("ber_decode_CHOICE failed\n");
+            return rc;
+        }
+        break;
+    default:
+        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
+        return CKR_FUNCTION_FAILED;
+    }
+
+    if (key != NULL) {
+        if (key_len != (*oid)->len_info.ml_kem.sk_len) {
+            TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
+            return CKR_FUNCTION_FAILED;
+        }
+
+        rc = build_attribute(CKA_IBM_ML_KEM_SK, key,
+                             (*oid)->len_info.ml_kem.sk_len, &sk_attr);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("build_attribute for (sk) failed\n");
+            goto cleanup;
+        }
+    }
+
+    if (pseed != NULL) {
+        if (pseed_len != (*oid)->len_info.ml_kem.priv_seed_len) {
+            TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
+            return CKR_FUNCTION_FAILED;
+        }
+
+        rc = build_attribute(CKA_IBM_ML_KEM_PRIVATE_SEED, pseed,
+                             (*oid)->len_info.ml_kem.priv_seed_len,
+                             &priv_seed_attr);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("build_attribute for (priv-seed) failed\n");
+            goto cleanup;
+        }
+    }
+
+    /* Add private key as CKA_VALUE to public key (z/OS ICSF compatibility) */
+    rc = ber_decode_SEQUENCE(data, &tmp, &len, &field_len);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s ber_decode_SEQUENCE failed with rc=0x%lx\n",
+                    __func__, rc);
+        goto cleanup;
+    }
+    rc = build_attribute(CKA_VALUE, data, field_len, &value_attr);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("build_attribute for (value) failed\n");
+        goto cleanup;
+    }
+
+    *sk = sk_attr;
+    *pk = NULL;
+    *priv_seed = priv_seed_attr;
+    *value = value_attr;
+
+    return CKR_OK;
+
+cleanup:
+    if (sk_attr)
+        free(sk_attr);
+    if (seed_attr)
+        free(seed_attr);
+    if (priv_seed_attr)
+        free(priv_seed_attr);
+    if (value_attr)
+        free(value_attr);
+
+    return rc;
+}

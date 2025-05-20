@@ -19,47 +19,47 @@
 #include "tok_spec_struct.h"
 #include "trace.h"
 
-CK_RV ckm_ibm_dilithium_key_pair_gen(STDLL_TokData_t *tokdata,
-                                     TEMPLATE *publ_tmpl, TEMPLATE *priv_tmpl)
+CK_RV ckm_ibm_ml_dsa_key_pair_gen(STDLL_TokData_t *tokdata, CK_MECHANISM *mech,
+                                  TEMPLATE *publ_tmpl, TEMPLATE *priv_tmpl)
 {
     const struct pqc_oid *pqc_oid;
     CK_RV rc;
 
-    if (token_specific.t_ibm_dilithium_generate_keypair == NULL) {
+    if (token_specific.t_ibm_ml_dsa_generate_keypair == NULL) {
         TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
         return CKR_MECHANISM_INVALID;
     }
 
-    pqc_oid = ibm_pqc_get_keyform_mode(publ_tmpl, CKM_IBM_DILITHIUM);
+    pqc_oid = pqc_get_keyform_mode(publ_tmpl, mech->mechanism);
     if (pqc_oid == NULL)
-        pqc_oid = ibm_pqc_get_keyform_mode(priv_tmpl, CKM_IBM_DILITHIUM);
-    if (pqc_oid == NULL)
+        pqc_oid = pqc_get_keyform_mode(priv_tmpl, mech->mechanism);
+    if (pqc_oid == NULL && mech->mechanism == CKM_IBM_DILITHIUM)
         pqc_oid = find_pqc_by_keyform(dilithium_oids,
                                       CK_IBM_DILITHIUM_KEYFORM_ROUND2_65);
     if (pqc_oid == NULL) {
-        TRACE_ERROR("%s Failed to determine dilithium OID\n", __func__);
+        TRACE_ERROR("%s Failed to determine ML-DSA OID\n", __func__);
         return CKR_TEMPLATE_INCOMPLETE;
     }
 
-    rc = token_specific.t_ibm_dilithium_generate_keypair(tokdata, pqc_oid,
-                                                         publ_tmpl, priv_tmpl);
+    rc = token_specific.t_ibm_ml_dsa_generate_keypair(tokdata, mech, pqc_oid,
+                                                      publ_tmpl, priv_tmpl);
     if (rc != CKR_OK)
-        TRACE_DEVEL("Token specific dilithium keypair generation failed.\n");
+        TRACE_DEVEL("Token specific ML-DSA keypair generation failed.\n");
 
     return rc;
 }
 
-CK_RV ibm_dilithium_sign(STDLL_TokData_t *tokdata, SESSION *sess,
-                         CK_BBOOL length_only, SIGN_VERIFY_CONTEXT *ctx,
-                         CK_BYTE *in_data, CK_ULONG in_data_len,
-                         CK_BYTE *out_data, CK_ULONG *out_data_len)
+CK_RV ibm_ml_dsa_sign(STDLL_TokData_t *tokdata, SESSION *sess,
+                      CK_BBOOL length_only, SIGN_VERIFY_CONTEXT *ctx,
+                      CK_BYTE *in_data, CK_ULONG in_data_len,
+                      CK_BYTE *out_data, CK_ULONG *out_data_len)
 {
     OBJECT *key_obj = NULL;
     CK_OBJECT_CLASS class;
     const struct pqc_oid *oid;
     CK_RV rc;
 
-    if (token_specific.t_ibm_dilithium_sign == NULL) {
+    if (token_specific.t_ibm_ml_dsa_sign == NULL) {
         TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
         return CKR_MECHANISM_INVALID;
     }
@@ -85,18 +85,18 @@ CK_RV ibm_dilithium_sign(STDLL_TokData_t *tokdata, SESSION *sess,
         goto done;
     }
 
-    oid = ibm_pqc_get_keyform_mode(key_obj->template, CKM_IBM_DILITHIUM);
+    oid = pqc_get_keyform_mode(key_obj->template, ctx->mech.mechanism);
     if (oid == NULL) {
         TRACE_DEVEL("No keyform/mode found in key object\n");
         rc = CKR_TEMPLATE_INCOMPLETE;
         goto done;
     }
 
-    rc = token_specific.t_ibm_dilithium_sign(tokdata, sess, length_only, oid,
-                                             in_data, in_data_len,
-                                             out_data, out_data_len, key_obj);
+    rc = token_specific.t_ibm_ml_dsa_sign(tokdata, sess, length_only, oid,
+                                          &ctx->mech, in_data, in_data_len,
+                                          out_data, out_data_len, key_obj);
     if (rc != CKR_OK)
-        TRACE_DEVEL("Token specific ibm dilithium sign failed.\n");
+        TRACE_DEVEL("Token specific IBM ML-DSA sign failed.\n");
 
 done:
     object_put(tokdata, key_obj, TRUE);
@@ -105,17 +105,17 @@ done:
     return rc;
 }
 
-CK_RV ibm_dilithium_verify(STDLL_TokData_t *tokdata, SESSION *sess,
-                           SIGN_VERIFY_CONTEXT *ctx,
-                           CK_BYTE *in_data, CK_ULONG in_data_len,
-                           CK_BYTE *signature, CK_ULONG sig_len)
+CK_RV ibm_ml_dsa_verify(STDLL_TokData_t *tokdata, SESSION *sess,
+                        SIGN_VERIFY_CONTEXT *ctx,
+                        CK_BYTE *in_data, CK_ULONG in_data_len,
+                        CK_BYTE *signature, CK_ULONG sig_len)
 {
     OBJECT *key_obj = NULL;
     CK_OBJECT_CLASS class;
     const struct pqc_oid *oid;
     CK_RV rc;
 
-    if (token_specific.t_ibm_dilithium_verify == NULL) {
+    if (token_specific.t_ibm_ml_dsa_verify == NULL) {
         TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
         return CKR_MECHANISM_INVALID;
     }
@@ -141,18 +141,18 @@ CK_RV ibm_dilithium_verify(STDLL_TokData_t *tokdata, SESSION *sess,
         goto done;
     }
 
-    oid = ibm_pqc_get_keyform_mode(key_obj->template, CKM_IBM_DILITHIUM);
+    oid = pqc_get_keyform_mode(key_obj->template, ctx->mech.mechanism);
     if (oid == NULL) {
         TRACE_DEVEL("No keyform/mode found in key object\n");
         rc = CKR_TEMPLATE_INCOMPLETE;
         goto done;
     }
 
-    rc = token_specific.t_ibm_dilithium_verify(tokdata, sess, oid,
-                                               in_data, in_data_len,
-                                               signature, sig_len, key_obj);
+    rc = token_specific.t_ibm_ml_dsa_verify(tokdata, sess, oid, &ctx->mech,
+                                            in_data, in_data_len,
+                                            signature, sig_len, key_obj);
     if (rc != CKR_OK)
-        TRACE_DEVEL("Token specific ibm dilithium verify failed.\n");
+        TRACE_DEVEL("Token specific IBM ML-DSA verify failed.\n");
 
 done:
     object_put(tokdata, key_obj, TRUE);
@@ -173,114 +173,6 @@ done:
     memcpy(&(buf)[(ofs)], (attr)->pValue, (attr)->ulValueLen);          \
     (ofs) += (attr)->ulValueLen
 
-CK_RV ibm_dilithium_pack_priv_key(TEMPLATE *templ, const struct pqc_oid *oid,
-                                  CK_BYTE *buf, CK_ULONG *buf_len)
-{
-    CK_ATTRIBUTE *rho = NULL, *seed = NULL;
-    CK_ATTRIBUTE *tr = NULL, *s1 = NULL, *s2 = NULL;
-    CK_ATTRIBUTE *t0 = NULL;
-    CK_ULONG ofs = 0;
-    CK_RV rc;
-
-    if (buf == NULL) {
-        *buf_len = oid->len_info.ml_dsa.rho_len +
-                   oid->len_info.ml_dsa.seed_len +
-                   oid->len_info.ml_dsa.tr_len +
-                   oid->len_info.ml_dsa.s1_len +
-                   oid->len_info.ml_dsa.s2_len +
-                   oid->len_info.ml_dsa.t0_len;
-        return CKR_OK;
-    }
-
-    rc = template_attribute_get_non_empty(templ, CKA_IBM_DILITHIUM_RHO,
-                                          &rho);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("Could not find CKA_IBM_DILITHIUM_RHO for the key.\n");
-        return rc;
-    }
-
-    rc = template_attribute_get_non_empty(templ, CKA_IBM_DILITHIUM_SEED,
-                                          &seed);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("Could not find CKA_IBM_DILITHIUM_SEED for the key.\n");
-        return rc;
-    }
-
-    rc = template_attribute_get_non_empty(templ, CKA_IBM_DILITHIUM_TR,
-                                          &tr);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("Could not find CKA_IBM_DILITHIUM_TR for the key.\n");
-        return rc;
-    }
-
-    rc = template_attribute_get_non_empty(templ, CKA_IBM_DILITHIUM_S1,
-                                          &s1);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("Could not find CKA_IBM_DILITHIUM_S1 for the key.\n");
-        return rc;
-    }
-
-    rc = template_attribute_get_non_empty(templ, CKA_IBM_DILITHIUM_S2,
-                                          &s2);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("Could not find CKA_IBM_DILITHIUM_S2 for the key.\n");
-        return rc;
-    }
-
-    rc = template_attribute_get_non_empty(templ, CKA_IBM_DILITHIUM_T0,
-                                          &t0);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("Could not find CKA_IBM_DILITHIUM_T0 for the key.\n");
-        return rc;
-    }
-
-    PACK_PART(rho, oid->len_info.ml_dsa.rho_len, buf, *buf_len, ofs);
-    PACK_PART(seed, oid->len_info.ml_dsa.seed_len, buf, *buf_len, ofs);
-    PACK_PART(tr, oid->len_info.ml_dsa.tr_len, buf, *buf_len, ofs);
-    PACK_PART(s1, oid->len_info.ml_dsa.s1_len, buf, *buf_len, ofs);
-    PACK_PART(s2, oid->len_info.ml_dsa.s2_len, buf, *buf_len, ofs);
-    PACK_PART(t0, oid->len_info.ml_dsa.t0_len, buf, *buf_len, ofs);
-
-    *buf_len = ofs;
-
-    return CKR_OK;
-}
-
-CK_RV ibm_dilithium_pack_pub_key(TEMPLATE *templ, const struct pqc_oid *oid,
-                                 CK_BYTE *buf, CK_ULONG *buf_len)
-{
-    CK_ATTRIBUTE *rho = NULL, *t1 = NULL;
-    CK_ULONG ofs = 0;
-    CK_RV rc;
-
-    if (buf == NULL) {
-        *buf_len = oid->len_info.ml_dsa.rho_len +
-                   oid->len_info.ml_dsa.t1_len;
-        return CKR_OK;
-    }
-
-    rc = template_attribute_get_non_empty(templ, CKA_IBM_DILITHIUM_RHO,
-                                          &rho);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("Could not find CKA_IBM_DILITHIUM_RHO for the key.\n");
-        return rc;
-    }
-
-    rc = template_attribute_get_non_empty(templ, CKA_IBM_DILITHIUM_T1,
-                                          &t1);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("Could not find CKA_IBM_DILITHIUM_T1 for the key.\n");
-        return rc;
-    }
-
-    PACK_PART(rho, oid->len_info.ml_dsa.rho_len, buf, *buf_len, ofs);
-    PACK_PART(t1, oid->len_info.ml_dsa.t1_len, buf, *buf_len, ofs);
-
-    *buf_len = ofs;
-
-    return CKR_OK;
-}
-
 #define UNPACK_PART(attr, attr_type, len, buf, buflen, ofs, rc, label)     \
     if ((ofs) + (len) > (buflen)) {                                        \
         TRACE_ERROR("Buffer is too small\n");                              \
@@ -294,9 +186,10 @@ CK_RV ibm_dilithium_pack_pub_key(TEMPLATE *templ, const struct pqc_oid *oid,
     }                                                                      \
     (ofs) += (len);
 
-CK_RV ibm_dilithium_unpack_priv_key(CK_BYTE *buf, CK_ULONG buf_len,
-                                    const struct pqc_oid *oid,
-                                    TEMPLATE *templ)
+static CK_RV ibm_ml_dsa_pack_priv_key(TEMPLATE *templ,
+                                      const struct pqc_oid *oid,
+                                      CK_MECHANISM_TYPE mech,
+                                      CK_BYTE *priv, CK_ULONG *priv_len)
 {
     CK_ATTRIBUTE *rho = NULL, *seed = NULL;
     CK_ATTRIBUTE *tr = NULL, *s1 = NULL, *s2 = NULL;
@@ -304,57 +197,175 @@ CK_RV ibm_dilithium_unpack_priv_key(CK_BYTE *buf, CK_ULONG buf_len,
     CK_ULONG ofs = 0;
     CK_RV rc;
 
-    UNPACK_PART(rho, CKA_IBM_DILITHIUM_RHO, oid->len_info.ml_dsa.rho_len,
-                buf, buf_len, ofs, rc, out);
-    UNPACK_PART(seed, CKA_IBM_DILITHIUM_SEED, oid->len_info.ml_dsa.seed_len,
-                buf, buf_len, ofs, rc, out);
-    UNPACK_PART(tr, CKA_IBM_DILITHIUM_TR, oid->len_info.ml_dsa.tr_len,
-                buf, buf_len, ofs, rc, out);
-    UNPACK_PART(s1, CKA_IBM_DILITHIUM_S1, oid->len_info.ml_dsa.s1_len,
-                buf, buf_len, ofs, rc, out);
-    UNPACK_PART(s2, CKA_IBM_DILITHIUM_S2, oid->len_info.ml_dsa.s2_len,
-                buf, buf_len, ofs, rc, out);
-    UNPACK_PART(t0, CKA_IBM_DILITHIUM_T0, oid->len_info.ml_dsa.t0_len,
-                buf, buf_len, ofs, rc, out);
+    UNUSED(mech);
+
+    if (priv == NULL) {
+        *priv_len = oid->len_info.ml_dsa.rho_len +
+                    oid->len_info.ml_dsa.seed_len +
+                    oid->len_info.ml_dsa.tr_len +
+                    oid->len_info.ml_dsa.s1_len +
+                    oid->len_info.ml_dsa.s2_len +
+                    oid->len_info.ml_dsa.t0_len;
+        return CKR_OK;
+    }
+
+    rc = template_attribute_get_non_empty(templ, CKA_IBM_ML_DSA_RHO,
+                                          &rho);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_IBM_ML_DSA_RHO for the key.\n");
+        return rc;
+    }
+
+    rc = template_attribute_get_non_empty(templ, CKA_IBM_ML_DSA_SEED,
+                                          &seed);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_IBM_ML_DSA_SEED for the key.\n");
+        return rc;
+    }
+
+    rc = template_attribute_get_non_empty(templ, CKA_IBM_ML_DSA_TR,
+                                          &tr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_IBM_ML_DSA_TR for the key.\n");
+        return rc;
+    }
+
+    rc = template_attribute_get_non_empty(templ, CKA_IBM_ML_DSA_S1,
+                                          &s1);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_IBM_ML_DSA_S1 for the key.\n");
+        return rc;
+    }
+
+    rc = template_attribute_get_non_empty(templ, CKA_IBM_ML_DSA_S2,
+                                          &s2);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_IBM_ML_DSA_S2 for the key.\n");
+        return rc;
+    }
+
+    rc = template_attribute_get_non_empty(templ, CKA_IBM_ML_DSA_T0,
+                                          &t0);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_IBM_ML_DSA_T0 for the key.\n");
+        return rc;
+    }
+
+    PACK_PART(rho, oid->len_info.ml_dsa.rho_len, priv, *priv_len, ofs);
+    PACK_PART(seed, oid->len_info.ml_dsa.seed_len, priv, *priv_len, ofs);
+    PACK_PART(tr, oid->len_info.ml_dsa.tr_len, priv, *priv_len, ofs);
+    PACK_PART(s1, oid->len_info.ml_dsa.s1_len, priv, *priv_len, ofs);
+    PACK_PART(s2, oid->len_info.ml_dsa.s2_len, priv, *priv_len, ofs);
+    PACK_PART(t0, oid->len_info.ml_dsa.t0_len, priv, *priv_len, ofs);
+
+    *priv_len = ofs;
+
+    return CKR_OK;
+}
+
+static CK_RV ibm_ml_dsa_pack_pub_key(TEMPLATE *templ,
+                                     const struct pqc_oid *oid,
+                                     CK_MECHANISM_TYPE mech,
+                                     CK_BYTE *pub, CK_ULONG *pub_len)
+{
+    CK_ATTRIBUTE *rho = NULL, *t1 = NULL;
+    CK_ULONG ofs = 0;
+    CK_RV rc;
+
+    UNUSED(mech);
+
+    if (pub == NULL) {
+        *pub_len = oid->len_info.ml_dsa.rho_len +
+                   oid->len_info.ml_dsa.t1_len;
+        return CKR_OK;
+    }
+
+    rc = template_attribute_get_non_empty(templ, CKA_IBM_ML_DSA_RHO,
+                                          &rho);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_IBM_ML_DSA_RHO for the key.\n");
+        return rc;
+    }
+
+    rc = template_attribute_get_non_empty(templ, CKA_IBM_ML_DSA_T1,
+                                          &t1);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_IBM_ML_DSA_T1 for the key.\n");
+        return rc;
+    }
+
+    PACK_PART(rho, oid->len_info.ml_dsa.rho_len, pub, *pub_len, ofs);
+    PACK_PART(t1, oid->len_info.ml_dsa.t1_len, pub, *pub_len, ofs);
+
+    *pub_len = ofs;
+
+    return CKR_OK;
+}
+
+static CK_RV ibm_ml_dsa_unpack_priv_key(CK_BYTE *priv, CK_ULONG priv_len,
+                                        const struct pqc_oid *oid,
+                                        CK_MECHANISM_TYPE mech,
+                                        TEMPLATE *templ)
+{
+    CK_ATTRIBUTE *rho = NULL, *seed = NULL;
+    CK_ATTRIBUTE *tr = NULL, *s1 = NULL, *s2 = NULL;
+    CK_ATTRIBUTE *t0 = NULL;
+    CK_ULONG ofs = 0;
+    CK_RV rc;
+
+    UNUSED(mech);
+
+    UNPACK_PART(rho, CKA_IBM_ML_DSA_RHO, oid->len_info.ml_dsa.rho_len,
+                priv, priv_len, ofs, rc, out);
+    UNPACK_PART(seed, CKA_IBM_ML_DSA_SEED, oid->len_info.ml_dsa.seed_len,
+                priv, priv_len, ofs, rc, out);
+    UNPACK_PART(tr, CKA_IBM_ML_DSA_TR, oid->len_info.ml_dsa.tr_len,
+                priv, priv_len, ofs, rc, out);
+    UNPACK_PART(s1, CKA_IBM_ML_DSA_S1, oid->len_info.ml_dsa.s1_len,
+                priv, priv_len, ofs, rc, out);
+    UNPACK_PART(s2, CKA_IBM_ML_DSA_S2, oid->len_info.ml_dsa.s2_len,
+                priv, priv_len, ofs, rc, out);
+    UNPACK_PART(t0, CKA_IBM_ML_DSA_T0, oid->len_info.ml_dsa.t0_len,
+                priv, priv_len, ofs, rc, out);
 
     rc = template_update_attribute(templ, rho);
     if (rc != CKR_OK) {
-        TRACE_DEVEL("Template update forCKA_IBM_DILITHIUM_RHO failed\n");
+        TRACE_DEVEL("Template update for CKA_IBM_ML_DSA_RHO failed\n");
         goto out;
     }
     rho = NULL;
 
     rc = template_update_attribute(templ, seed);
     if (rc != CKR_OK) {
-        TRACE_DEVEL("Template update forCKA_IBM_DILITHIUM_SEED failed\n");
+        TRACE_DEVEL("Template update for CKA_IBM_ML_DSA_SEED failed\n");
         goto out;
     }
     seed = NULL;
 
     rc = template_update_attribute(templ, tr);
     if (rc != CKR_OK) {
-        TRACE_DEVEL("Template update forCKA_IBM_DILITHIUM_TR failed\n");
+        TRACE_DEVEL("Template update for CKA_IBM_ML_DSA_TR failed\n");
         goto out;
     }
     tr = NULL;
 
     rc = template_update_attribute(templ, s1);
     if (rc != CKR_OK) {
-        TRACE_DEVEL("Template update forCKA_IBM_DILITHIUM_S1 failed\n");
+        TRACE_DEVEL("Template update for CKA_IBM_ML_DSA_S1 failed\n");
         goto out;
     }
     s1 = NULL;
 
     rc = template_update_attribute(templ, s2);
     if (rc != CKR_OK) {
-        TRACE_DEVEL("Template update forCKA_IBM_DILITHIUM_S2 failed\n");
+        TRACE_DEVEL("Template update for CKA_IBM_ML_DSA_S2 failed\n");
         goto out;
     }
     s2 = NULL;
 
     rc = template_update_attribute(templ, t0);
     if (rc != CKR_OK) {
-        TRACE_DEVEL("Template update forCKA_IBM_DILITHIUM_T0 failed\n");
+        TRACE_DEVEL("Template update for CKA_IBM_ML_DSA_T0 failed\n");
         goto out;
     }
     t0 = NULL;
@@ -376,29 +387,32 @@ out:
     return rc;
 }
 
-CK_RV ibm_dilithium_unpack_pub_key(CK_BYTE *buf, CK_ULONG buf_len,
-                                   const struct pqc_oid *oid,
-                                   TEMPLATE *templ)
+static CK_RV ibm_ml_dsa_unpack_pub_key(CK_BYTE *pub, CK_ULONG pub_len,
+                                       const struct pqc_oid *oid,
+                                       CK_MECHANISM_TYPE mech,
+                                       TEMPLATE *templ)
 {
     CK_ATTRIBUTE *rho = NULL, *t1 = NULL;
     CK_ULONG ofs = 0;
     CK_RV rc;
 
-    UNPACK_PART(rho, CKA_IBM_DILITHIUM_RHO, oid->len_info.ml_dsa.rho_len,
-                buf, buf_len, ofs, rc, out);
-    UNPACK_PART(t1, CKA_IBM_DILITHIUM_T1, oid->len_info.ml_dsa.t1_len,
-                buf, buf_len, ofs, rc, out);
+    UNUSED(mech);
+
+    UNPACK_PART(rho, CKA_IBM_ML_DSA_RHO, oid->len_info.ml_dsa.rho_len,
+                pub, pub_len, ofs, rc, out);
+    UNPACK_PART(t1, CKA_IBM_ML_DSA_T1, oid->len_info.ml_dsa.t1_len,
+                pub, pub_len, ofs, rc, out);
 
     rc = template_update_attribute(templ, rho);
     if (rc != CKR_OK) {
-        TRACE_DEVEL("Template update forCKA_IBM_DILITHIUM_RHO failed\n");
+        TRACE_DEVEL("Template update for CKA_IBM_ML_DSA_RHO failed\n");
         goto out;
     }
     rho = NULL;
 
     rc = template_update_attribute(templ, t1);
     if (rc != CKR_OK) {
-        TRACE_DEVEL("Template update forCKA_IBM_DILITHIUM_T1 failed\n");
+        TRACE_DEVEL("Template update for CKA_IBM_ML_DSA_T1 failed\n");
         goto out;
     }
     t1 = NULL;
@@ -410,4 +424,189 @@ out:
         free(t1);
 
     return rc;
+}
+
+static CK_RV ibm_ml_kem_pack_priv_key(TEMPLATE *templ,
+                                      const struct pqc_oid *oid,
+                                      CK_MECHANISM_TYPE mech,
+                                      CK_BYTE *priv, CK_ULONG *priv_len)
+{
+    CK_ATTRIBUTE *sk = NULL;
+    CK_ULONG ofs = 0;
+    CK_RV rc;
+
+    UNUSED(mech);
+
+    if (priv == NULL) {
+        *priv_len = oid->len_info.ml_kem.sk_len;
+        return CKR_OK;
+    }
+
+    rc = template_attribute_get_non_empty(templ, CKA_IBM_ML_KEM_SK, &sk);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_IBM_ML_KEM_SK for the key.\n");
+        return rc;
+    }
+
+    PACK_PART(sk, oid->len_info.ml_kem.sk_len, priv, *priv_len, ofs);
+
+    *priv_len = ofs;
+
+    return CKR_OK;
+}
+
+static CK_RV ibm_ml_kem_pack_pub_key(TEMPLATE *templ,
+                                     const struct pqc_oid *oid,
+                                     CK_MECHANISM_TYPE mech,
+                                     CK_BYTE *pub, CK_ULONG *pub_len)
+{
+    CK_ATTRIBUTE *pk = NULL;
+    CK_ULONG ofs = 0;
+    CK_RV rc;
+
+    UNUSED(mech);
+
+    if (pub == NULL) {
+        *pub_len = oid->len_info.ml_kem.pk_len;
+        return CKR_OK;
+    }
+
+    rc = template_attribute_get_non_empty(templ, CKA_IBM_ML_KEM_PK, &pk);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_IBM_ML_KEM_PK for the key.\n");
+        return rc;
+    }
+
+    PACK_PART(pk, oid->len_info.ml_kem.pk_len, pub, *pub_len, ofs);
+
+    *pub_len = ofs;
+
+    return CKR_OK;
+}
+
+static CK_RV ibm_ml_kem_unpack_priv_key(CK_BYTE *priv, CK_ULONG priv_len,
+                                        const struct pqc_oid *oid,
+                                        CK_MECHANISM_TYPE mech,
+                                        TEMPLATE *templ)
+{
+    CK_ATTRIBUTE *sk = NULL;
+    CK_ULONG ofs = 0;
+    CK_RV rc;
+
+    UNUSED(mech);
+
+    UNPACK_PART(sk, CKA_IBM_ML_KEM_SK, oid->len_info.ml_kem.sk_len,
+                priv, priv_len, ofs, rc, out);
+
+    rc = template_update_attribute(templ, sk);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("Template update for CKA_IBM_ML_KEM_SK failed\n");
+        goto out;
+    }
+    sk = NULL;
+
+out:
+    if (sk != NULL)
+        free(sk);
+
+    return rc;
+}
+
+static CK_RV ibm_ml_kem_unpack_pub_key(CK_BYTE *pub, CK_ULONG pub_len,
+                                       const struct pqc_oid *oid,
+                                       CK_MECHANISM_TYPE mech,
+                                       TEMPLATE *templ)
+{
+    CK_ATTRIBUTE *pk = NULL;
+    CK_ULONG ofs = 0;
+    CK_RV rc;
+
+    UNUSED(mech);
+
+    UNPACK_PART(pk, CKA_IBM_ML_KEM_PK, oid->len_info.ml_kem.pk_len,
+                pub, pub_len, ofs, rc, out);
+
+    rc = template_update_attribute(templ, pk);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("Template update for CKA_IBM_ML_KEM_PK failed\n");
+        goto out;
+    }
+    pk = NULL;
+
+out:
+    if (pk != NULL)
+        free(pk);
+
+    return rc;
+}
+
+#undef PACK_PART
+#undef UNPACK_PART
+
+CK_RV pqc_pack_priv_key(TEMPLATE *templ, const struct pqc_oid *oid,
+                        CK_MECHANISM_TYPE mech, CK_BYTE *priv,
+                        CK_ULONG *priv_len)
+{
+    switch(mech) {
+    case CKM_IBM_DILITHIUM:
+    case CKM_IBM_ML_DSA:
+    case CKM_IBM_ML_DSA_KEY_PAIR_GEN:
+        return ibm_ml_dsa_pack_priv_key(templ, oid, mech, priv, priv_len);
+    case CKM_IBM_ML_KEM:
+    case CKM_IBM_ML_KEM_KEY_PAIR_GEN:
+        return ibm_ml_kem_pack_priv_key(templ, oid, mech, priv, priv_len);
+    default:
+        return CKR_MECHANISM_INVALID;
+    }
+}
+
+CK_RV pqc_pack_pub_key(TEMPLATE *templ, const struct pqc_oid *oid,
+                       CK_MECHANISM_TYPE mech, CK_BYTE *pub,
+                       CK_ULONG *pub_len)
+{
+    switch(mech) {
+    case CKM_IBM_DILITHIUM:
+    case CKM_IBM_ML_DSA:
+    case CKM_IBM_ML_DSA_KEY_PAIR_GEN:
+        return ibm_ml_dsa_pack_pub_key(templ, oid, mech, pub, pub_len);
+    case CKM_IBM_ML_KEM:
+    case CKM_IBM_ML_KEM_KEY_PAIR_GEN:
+        return ibm_ml_kem_pack_pub_key(templ, oid, mech, pub, pub_len);
+    default:
+        return CKR_MECHANISM_INVALID;
+    }
+}
+
+CK_RV pqc_unpack_priv_key(CK_BYTE *priv, CK_ULONG priv_len,
+                          const struct pqc_oid *oid,
+                          CK_MECHANISM_TYPE mech, TEMPLATE *templ)
+{
+    switch(mech) {
+    case CKM_IBM_DILITHIUM:
+    case CKM_IBM_ML_DSA:
+    case CKM_IBM_ML_DSA_KEY_PAIR_GEN:
+        return ibm_ml_dsa_unpack_priv_key(priv, priv_len, oid, mech, templ);
+    case CKM_IBM_ML_KEM:
+    case CKM_IBM_ML_KEM_KEY_PAIR_GEN:
+        return ibm_ml_kem_unpack_priv_key(priv, priv_len, oid, mech, templ);
+    default:
+        return CKR_MECHANISM_INVALID;
+    }
+}
+
+CK_RV pqc_unpack_pub_key(CK_BYTE *pub, CK_ULONG pub_len,
+                         const struct pqc_oid *oid,
+                         CK_MECHANISM_TYPE mech, TEMPLATE *templ)
+{
+    switch(mech) {
+    case CKM_IBM_DILITHIUM:
+    case CKM_IBM_ML_DSA:
+    case CKM_IBM_ML_DSA_KEY_PAIR_GEN:
+        return ibm_ml_dsa_unpack_pub_key(pub, pub_len, oid, mech, templ);
+    case CKM_IBM_ML_KEM:
+    case CKM_IBM_ML_KEM_KEY_PAIR_GEN:
+        return ibm_ml_kem_unpack_pub_key(pub, pub_len, oid, mech, templ);
+    default:
+        return CKR_MECHANISM_INVALID;
+    }
 }

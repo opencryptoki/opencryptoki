@@ -210,6 +210,16 @@ static CK_RV policy_get_pqc_args(CK_KEY_TYPE key_type,
         mode_attr = CKA_IBM_KYBER_MODE;
         oids = kyber_oids;
         break;
+    case CKK_IBM_ML_DSA:
+        keyform_attr = CKA_IBM_PARAMETER_SET;
+        mode_attr = (CK_ATTRIBUTE_TYPE)-1;
+        oids = ml_dsa_oids;
+        break;
+    case CKK_IBM_ML_KEM:
+        keyform_attr = CKA_IBM_PARAMETER_SET;
+        mode_attr = (CK_ATTRIBUTE_TYPE)-1;
+        oids = ml_kem_oids;
+        break;
     default:
         TRACE_ERROR("Unsupported key type 0x%lx\n", key_type);
         return CKR_KEY_TYPE_INCONSISTENT;
@@ -218,7 +228,7 @@ static CK_RV policy_get_pqc_args(CK_KEY_TYPE key_type,
     rv = getattr(d, keyform_attr, &keyform);
     if (rv == CKR_OK && keyform->ulValueLen == sizeof(CK_ULONG)) {
         pqc_oid = find_pqc_by_keyform(oids, *(CK_ULONG *)keyform->pValue);
-    } else {
+    } else if (mode_attr != (CK_ATTRIBUTE_TYPE)-1) {
         rv = getattr(d, mode_attr, &mode);
         if (rv == CKR_OK && mode->ulValueLen > 0)
             pqc_oid = find_pqc_by_oid(oids, mode->pValue, mode->ulValueLen);
@@ -357,6 +367,8 @@ static CK_RV policy_extract_key_data(get_attr_val_f getattr, void *d,
         break;
     case CKK_IBM_PQC_DILITHIUM:
     case CKK_IBM_PQC_KYBER:
+    case CKK_IBM_ML_DSA:
+    case CKK_IBM_ML_KEM:
         rv = policy_get_pqc_args(*(CK_ULONG *)keytype->pValue, getattr, d,
                                  free_attr, size, siglen, oid, oidlen);
         *comptarget = COMPARE_PQC;
@@ -434,6 +446,8 @@ static CK_RV policy_get_sig_size(CK_MECHANISM_PTR mech, struct objstrength *s,
         case CKM_IBM_ED448_SHA3:
             /* Fallthrough */
         case CKM_IBM_DILITHIUM:
+            /* Fallthrough */
+        case CKM_IBM_ML_DSA:
             *ssize = s->siglen;
             break;
         case CKM_DSA_SHA1:
@@ -812,6 +826,8 @@ static CK_RV policy_check_signature_size(struct policy_private *pp,
                 params = 8;
                 break;
             case CKM_IBM_DILITHIUM:
+                /* Fallthrough */
+            case CKM_IBM_ML_DSA:
                 siglen = 256;
                 break;
             default:
@@ -1085,6 +1101,23 @@ static CK_RV policy_is_mech_allowed(policy_t p, CK_MECHANISM_PTR mech,
                 break;
             }
             break;
+        case CKM_IBM_ML_KEM:
+            if (mech->ulParameterLen != sizeof(CK_IBM_ML_KEM_PARAMS)) {
+                TRACE_ERROR("Invalid mechanism parameter\n");
+                rv = CKR_MECHANISM_PARAM_INVALID;
+                break;
+            }
+            if (mech->pParameter == NULL) {
+                TRACE_ERROR("Invalid mechanism parameter\n");
+                rv = CKR_MECHANISM_PARAM_INVALID;
+                break;
+            }
+            if (policy_is_kdf_allowed(pp,
+                                      ((CK_IBM_ML_KEM_PARAMS *)mech->pParameter)->kdf) != CKR_OK) {
+                rv = CKR_FUNCTION_FAILED;
+                break;
+            }
+            break;
         case CKM_RSA_AES_KEY_WRAP:
             if (mech->ulParameterLen != sizeof(CK_RSA_AES_KEY_WRAP_PARAMS) ||
                 mech->pParameter == NULL) {
@@ -1324,6 +1357,10 @@ static CK_RV policy_update_mech_info(policy_t p, CK_MECHANISM_TYPE mech,
             break;
         case CKM_IBM_DILITHIUM:
         case CKM_IBM_KYBER:
+        case CKM_IBM_ML_DSA_KEY_PAIR_GEN:
+        case CKM_IBM_ML_DSA:
+        case CKM_IBM_ML_KEM_KEY_PAIR_GEN:
+        case CKM_IBM_ML_KEM:
             break;
         case CKM_IBM_SHA3_224:
         case CKM_IBM_SHA3_256:

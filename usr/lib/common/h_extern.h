@@ -885,32 +885,34 @@ CK_RV ckm_dh_pkcs_key_pair_gen(STDLL_TokData_t *tokdata,
 #endif
 /* End code contributed by Corrent corp. */
 
-CK_RV ckm_ibm_dilithium_key_pair_gen(STDLL_TokData_t *tokdata,
-                                     TEMPLATE *publ_tmpl, TEMPLATE *priv_tmpl);
+CK_RV ckm_ibm_ml_dsa_key_pair_gen(STDLL_TokData_t *tokdata, CK_MECHANISM *mech,
+                                  TEMPLATE *publ_tmpl, TEMPLATE *priv_tmpl);
 
-CK_RV ibm_dilithium_sign(STDLL_TokData_t *tokdata, SESSION *sess,
-                         CK_BBOOL length_only, SIGN_VERIFY_CONTEXT *ctx,
-                         CK_BYTE *in_data, CK_ULONG in_data_len,
-                         CK_BYTE *out_data, CK_ULONG *out_data_len);
+CK_RV ibm_ml_dsa_sign(STDLL_TokData_t *tokdata, SESSION *sess,
+                      CK_BBOOL length_only, SIGN_VERIFY_CONTEXT *ctx,
+                      CK_BYTE *in_data, CK_ULONG in_data_len,
+                      CK_BYTE *out_data, CK_ULONG *out_data_len);
 
-CK_RV ibm_dilithium_verify(STDLL_TokData_t *tokdata, SESSION *sess,
-                           SIGN_VERIFY_CONTEXT *ctx,
-                           CK_BYTE *in_data, CK_ULONG in_data_len,
-                           CK_BYTE *signature, CK_ULONG sig_len);
+CK_RV ibm_ml_dsa_verify(STDLL_TokData_t *tokdata, SESSION *sess,
+                        SIGN_VERIFY_CONTEXT *ctx,
+                        CK_BYTE *in_data, CK_ULONG in_data_len,
+                        CK_BYTE *signature, CK_ULONG sig_len);
 
-CK_RV ibm_dilithium_pack_priv_key(TEMPLATE *templ, const struct pqc_oid *oid,
-                                  CK_BYTE *buf, CK_ULONG *buf_len);
+CK_RV pqc_pack_priv_key(TEMPLATE *templ, const struct pqc_oid *oid,
+                        CK_MECHANISM_TYPE mech,
+                        CK_BYTE *priv, CK_ULONG *priv_len);
 
-CK_RV ibm_dilithium_pack_pub_key(TEMPLATE *templ, const struct pqc_oid *oid,
-                                 CK_BYTE *buf, CK_ULONG *buf_len);
+CK_RV pqc_pack_pub_key(TEMPLATE *templ, const struct pqc_oid *oid,
+                       CK_MECHANISM_TYPE mech,
+                       CK_BYTE *pub, CK_ULONG *pub_len);
 
-CK_RV ibm_dilithium_unpack_priv_key(CK_BYTE *buf, CK_ULONG buf_len,
-                                    const struct pqc_oid *oid,
-                                    TEMPLATE *templ);
+CK_RV pqc_unpack_priv_key(CK_BYTE *priv, CK_ULONG priv_len,
+                          const struct pqc_oid *oid,
+                          CK_MECHANISM_TYPE mech, TEMPLATE *templ);
 
-CK_RV ibm_dilithium_unpack_pub_key(CK_BYTE *buf, CK_ULONG buf_len,
-                                   const struct pqc_oid *oid,
-                                   TEMPLATE *templ);
+CK_RV pqc_unpack_pub_key(CK_BYTE *pub, CK_ULONG pub_len,
+                         const struct pqc_oid *oid,
+                         CK_MECHANISM_TYPE mech, TEMPLATE *templ);
 
 CK_RV digest_from_kdf(CK_EC_KDF_TYPE kdf, CK_MECHANISM_TYPE *mech);
 CK_RV get_digest_from_mech(CK_MECHANISM_TYPE mech, CK_MECHANISM_TYPE *digest);
@@ -2732,65 +2734,85 @@ CK_RV ecdsa_priv_unwrap_get_data(TEMPLATE *tmpl, CK_BYTE *data,
                                  CK_ULONG data_len, CK_BBOOL is_public);
 CK_RV ec_priv_unwrap(TEMPLATE *tmpl, CK_BYTE *data, CK_ULONG data_len);
 
-// Dilithium routines
+// IBM ML-DSA and Dilithium routines
 //
-CK_RV ibm_dilithium_publ_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode);
-CK_RV ibm_dilithium_publ_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode);
-CK_RV ibm_dilithium_publ_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
-                                            CK_ATTRIBUTE *attr, CK_ULONG mode);
-CK_RV ibm_dilithium_publ_get_spki(TEMPLATE *tmpl, CK_BBOOL length_only,
-                                  CK_BYTE **data, CK_ULONG *data_len);
-CK_RV ibm_dilithium_priv_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode);
-CK_RV ibm_dilithium_priv_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode);
-CK_RV ibm_dilithium_priv_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
-                                            CK_ATTRIBUTE *attr, CK_ULONG mode);
-CK_BBOOL ibm_dilithium_priv_check_exportability(CK_ATTRIBUTE_TYPE type);
-CK_RV ibm_dilithium_priv_wrap_get_data(TEMPLATE *tmpl, CK_BBOOL length_only,
-                                       CK_BYTE **data, CK_ULONG *data_len);
-CK_RV ibm_dilithium_priv_unwrap(TEMPLATE *tmpl, CK_BYTE *data,
-                                CK_ULONG total_length, CK_BBOOL add_value);
-CK_RV ibm_dilithium_priv_unwrap_get_data(TEMPLATE *tmpl,
-                                         CK_BYTE *data, CK_ULONG total_length,
-                                         CK_BBOOL is_public);
+CK_RV ibm_ml_dsa_publ_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode,
+                                                CK_MECHANISM_TYPE mech);
+CK_RV ibm_ml_dsa_publ_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode,
+                                             CK_KEY_TYPE key_type);
+CK_RV ibm_ml_dsa_publ_validate_attribute(STDLL_TokData_t *tokdata,
+                                         TEMPLATE *tmpl, CK_ATTRIBUTE *attr,
+                                         CK_ULONG mode, CK_MECHANISM_TYPE mech);
+CK_RV ibm_ml_dsa_publ_get_spki(TEMPLATE *tmpl, CK_BBOOL length_only,
+                               CK_BYTE **data, CK_ULONG *data_len,
+                               CK_MECHANISM_TYPE mech);
+CK_RV ibm_ml_dsa_priv_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode,
+                                                CK_MECHANISM_TYPE mech);
+CK_RV ibm_ml_dsa_priv_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode,
+                                             CK_KEY_TYPE key_type);
+CK_RV ibm_ml_dsa_priv_validate_attribute(STDLL_TokData_t *tokdata,
+                                         TEMPLATE *tmpl, CK_ATTRIBUTE *attr,
+                                         CK_ULONG mode, CK_MECHANISM_TYPE mech);
+CK_BBOOL ibm_ml_dsa_priv_check_exportability(CK_ATTRIBUTE_TYPE type);
+CK_RV ibm_ml_dsa_priv_wrap_get_data(TEMPLATE *tmpl, CK_BBOOL length_only,
+                                    CK_BYTE **data, CK_ULONG *data_len,
+                                    CK_MECHANISM_TYPE mech);
+CK_RV ibm_ml_dsa_priv_unwrap(TEMPLATE *tmpl, CK_BYTE *data,
+                             CK_ULONG total_length, CK_BBOOL add_value,
+                             CK_MECHANISM_TYPE mech);
+CK_RV ibm_ml_dsa_priv_unwrap_get_data(TEMPLATE *tmpl,
+                                      CK_BYTE *data, CK_ULONG total_length,
+                                      CK_BBOOL is_public,
+                                      CK_MECHANISM_TYPE mech);
 
-// Kyber routines
+// IBM ML-KEM and Kyber routines
 //
-CK_RV ibm_kyber_publ_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode);
-CK_RV ibm_kyber_publ_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode);
-CK_RV ibm_kyber_publ_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
-                                        CK_ATTRIBUTE *attr, CK_ULONG mode);
-CK_RV ibm_kyber_publ_get_spki(TEMPLATE *tmpl, CK_BBOOL length_only,
-                              CK_BYTE **data, CK_ULONG *data_len);
-CK_RV ibm_kyber_priv_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode);
-CK_RV ibm_kyber_priv_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode);
-CK_RV ibm_kyber_priv_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
-                                        CK_ATTRIBUTE *attr, CK_ULONG mode);
-CK_BBOOL ibm_kyber_priv_check_exportability(CK_ATTRIBUTE_TYPE type);
-CK_RV ibm_kyber_priv_wrap_get_data(TEMPLATE *tmpl, CK_BBOOL length_only,
-                                   CK_BYTE **data, CK_ULONG *data_len);
-CK_RV ibm_kyber_priv_unwrap(TEMPLATE *tmpl, CK_BYTE *data,
-                            CK_ULONG total_length, CK_BBOOL add_value);
-CK_RV ibm_kyber_priv_unwrap_get_data(TEMPLATE *tmpl,
-                                     CK_BYTE *data, CK_ULONG total_length,
-                                     CK_BBOOL is_public);
+CK_RV ibm_ml_kem_publ_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode,
+                                                CK_MECHANISM_TYPE mech);
+CK_RV ibm_ml_kem_publ_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode,
+                                             CK_KEY_TYPE key_type);
+CK_RV ibm_ml_kem_publ_validate_attribute(STDLL_TokData_t *tokdata,
+                                         TEMPLATE *tmpl, CK_ATTRIBUTE *attr,
+                                         CK_ULONG mode, CK_MECHANISM_TYPE mech);
+CK_RV ibm_ml_kem_publ_get_spki(TEMPLATE *tmpl, CK_BBOOL length_only,
+                               CK_BYTE **data, CK_ULONG *data_len,
+                               CK_MECHANISM_TYPE mech);
+CK_RV ibm_ml_kem_priv_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode,
+                                                CK_MECHANISM_TYPE mech);
+CK_RV ibm_ml_kem_priv_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode,
+                                             CK_KEY_TYPE key_type);
+CK_RV ibm_ml_kem_priv_validate_attribute(STDLL_TokData_t *tokdata,
+                                         TEMPLATE *tmpl, CK_ATTRIBUTE *attr,
+                                         CK_ULONG mode, CK_MECHANISM_TYPE mech);
+CK_BBOOL ibm_ml_kem_priv_check_exportability(CK_ATTRIBUTE_TYPE type);
+CK_RV ibm_ml_kem_priv_wrap_get_data(TEMPLATE *tmpl, CK_BBOOL length_only,
+                                    CK_BYTE **data, CK_ULONG *data_len,
+                                    CK_MECHANISM_TYPE mech);
+CK_RV ibm_ml_kem_priv_unwrap(TEMPLATE *tmpl, CK_BYTE *data,
+                             CK_ULONG total_length, CK_BBOOL add_value,
+                             CK_MECHANISM_TYPE mech);
+CK_RV ibm_ml_kem_priv_unwrap_get_data(TEMPLATE *tmpl,
+                                      CK_BYTE *data, CK_ULONG total_length,
+                                      CK_BBOOL is_public,
+                                      CK_MECHANISM_TYPE mech);
 
 // PQC helper routines
 //
-CK_RV ibm_pqc_publ_get_spki(TEMPLATE *tmpl, CK_KEY_TYPE keytype,
-                            CK_BBOOL length_only,
-                            CK_BYTE **data, CK_ULONG *data_len);
-CK_RV ibm_pqc_priv_wrap_get_data(TEMPLATE *tmpl, CK_KEY_TYPE keytype,
-                                 CK_BBOOL length_only,
-                                 CK_BYTE **data, CK_ULONG *data_len);
-CK_RV ibm_pqc_priv_unwrap(TEMPLATE *tmpl, CK_KEY_TYPE keytype, CK_BYTE *data,
-                          CK_ULONG total_length, CK_BBOOL add_value);
-CK_RV ibm_pqc_priv_unwrap_get_data(TEMPLATE *tmpl, CK_KEY_TYPE keytype,
-                                   CK_BYTE *data, CK_ULONG total_length,
-                                   CK_BBOOL is_public);
-const struct pqc_oid *ibm_pqc_get_keyform_mode(TEMPLATE *tmpl,
-                                               CK_MECHANISM_TYPE mech);
-CK_RV ibm_pqc_add_keyform_mode(TEMPLATE *tmpl, const struct pqc_oid *oid,
-                               CK_MECHANISM_TYPE mech);
+CK_RV pqc_publ_get_spki(TEMPLATE *tmpl, CK_KEY_TYPE keytype,
+                        CK_BBOOL length_only,
+                        CK_BYTE **data, CK_ULONG *data_len);
+CK_RV pqc_priv_wrap_get_data(TEMPLATE *tmpl, CK_KEY_TYPE keytype,
+                             CK_BBOOL length_only,
+                             CK_BYTE **data, CK_ULONG *data_len);
+CK_RV pqc_priv_unwrap(TEMPLATE *tmpl, CK_KEY_TYPE keytype, CK_BYTE *data,
+                      CK_ULONG total_length, CK_BBOOL add_value);
+CK_RV pqc_priv_unwrap_get_data(TEMPLATE *tmpl, CK_KEY_TYPE keytype,
+                               CK_BYTE *data, CK_ULONG total_length,
+                               CK_BBOOL is_public);
+const struct pqc_oid *pqc_get_keyform_mode(TEMPLATE *tmpl,
+                                           CK_MECHANISM_TYPE mech);
+CK_RV pqc_add_keyform_mode(TEMPLATE *tmpl, const struct pqc_oid *oid,
+                           CK_MECHANISM_TYPE mech);
 
 // diffie-hellman routines
 //
@@ -2888,6 +2910,12 @@ CK_RV ber_decode_INTEGER(CK_BYTE *ber_int,
                          CK_BYTE **data,
                          CK_ULONG *data_len, CK_ULONG *field_len);
 
+CK_ULONG ber_encode_BIT_STRING(CK_BBOOL length_only,
+                               CK_BYTE **ber_str,
+                               CK_ULONG *ber_str_len, CK_BYTE *data,
+                               CK_ULONG data_len,
+                               CK_BYTE unused_bits);
+
 CK_RV ber_decode_BIT_STRING(CK_BYTE *str,
                             CK_BYTE **data,
                             CK_ULONG *data_len, CK_ULONG *field_len);
@@ -2909,6 +2937,17 @@ CK_RV ber_encode_SEQUENCE(CK_BBOOL length_only,
 CK_RV ber_decode_SEQUENCE(CK_BYTE *seq,
                           CK_BYTE **data,
                           CK_ULONG *data_len, CK_ULONG *field_len);
+
+CK_RV ber_encode_CHOICE(CK_BBOOL length_only,
+                        CK_BYTE option,
+                        CK_BYTE **str,
+                        CK_ULONG *str_len, CK_BYTE *data, CK_ULONG data_len,
+                        CK_BBOOL constructed);
+
+CK_RV ber_decode_CHOICE(CK_BYTE *choice, CK_BBOOL constructed,
+                        CK_BYTE **data,
+                        CK_ULONG *data_len, CK_ULONG *field_len,
+                        CK_ULONG *option);
 
 CK_RV ber_encode_PrivateKeyInfo(CK_BBOOL length_only,
                                 CK_BYTE **data,
@@ -3031,66 +3070,78 @@ CK_RV ber_decode_ECDHPrivateKey(CK_BYTE *data,
                                 CK_ATTRIBUTE **pub_key,
                                 CK_ATTRIBUTE **priv_key);
 
-CK_RV ber_encode_IBM_DilithiumPublicKey(CK_BBOOL length_only,
-                                        CK_BYTE **data, CK_ULONG *data_len,
-                                        const CK_BYTE *oid, CK_ULONG oid_len,
-                                        CK_ATTRIBUTE *rho, CK_ATTRIBUTE *t1);
+CK_RV ber_encode_IBM_ML_DSA_PublicKey(CK_MECHANISM_TYPE mech,
+                                      CK_BBOOL length_only,
+                                      CK_BYTE **data, CK_ULONG *data_len,
+                                      const CK_BYTE *oid, CK_ULONG oid_len,
+                                      CK_ATTRIBUTE *rho, CK_ATTRIBUTE *t1);
 
-CK_RV ber_decode_IBM_DilithiumPublicKey(CK_BYTE *data,
-                                        CK_ULONG data_len,
-                                        CK_ATTRIBUTE **rho_attr,
-                                        CK_ATTRIBUTE **t1_attr,
-                                        CK_ATTRIBUTE **value_attr,
-                                        const struct pqc_oid **oid);
+CK_RV ber_decode_IBM_ML_DSA_PublicKey(CK_MECHANISM_TYPE mech,
+                                      CK_BYTE *data,
+                                      CK_ULONG data_len,
+                                      CK_ATTRIBUTE **rho_attr,
+                                      CK_ATTRIBUTE **t1_attr,
+                                      CK_ATTRIBUTE **value_attr,
+                                      const struct pqc_oid **oid);
 
-CK_RV ber_encode_IBM_DilithiumPrivateKey(CK_BBOOL length_only,
-                                         CK_BYTE **data,
-                                         CK_ULONG *data_len,
-                                         const CK_BYTE *oid, CK_ULONG oid_len,
-                                         CK_ATTRIBUTE *rho,
-                                         CK_ATTRIBUTE *seed,
-                                         CK_ATTRIBUTE *tr,
-                                         CK_ATTRIBUTE *s1,
-                                         CK_ATTRIBUTE *s2,
-                                         CK_ATTRIBUTE *t0,
-                                         CK_ATTRIBUTE *t1);
+CK_RV ber_encode_IBM_ML_DSA_PrivateKey(CK_MECHANISM_TYPE mech,
+                                       CK_BBOOL length_only,
+                                       CK_BYTE **data,
+                                       CK_ULONG *data_len,
+                                       const CK_BYTE *oid, CK_ULONG oid_len,
+                                       CK_ATTRIBUTE *rho,
+                                       CK_ATTRIBUTE *seed,
+                                       CK_ATTRIBUTE *tr,
+                                       CK_ATTRIBUTE *s1,
+                                       CK_ATTRIBUTE *s2,
+                                       CK_ATTRIBUTE *t0,
+                                       CK_ATTRIBUTE *t1,
+                                       CK_ATTRIBUTE *priv_seed);
 
-CK_RV ber_decode_IBM_DilithiumPrivateKey(CK_BYTE *data,
-                                         CK_ULONG data_len,
-                                         CK_ATTRIBUTE **rho,
-                                         CK_ATTRIBUTE **seed,
-                                         CK_ATTRIBUTE **tr,
-                                         CK_ATTRIBUTE **s1,
-                                         CK_ATTRIBUTE **s2,
-                                         CK_ATTRIBUTE **t0,
-                                         CK_ATTRIBUTE **t1,
-                                         CK_ATTRIBUTE **value,
-                                         const struct pqc_oid **oid);
+CK_RV ber_decode_IBM_ML_DSA_PrivateKey(CK_MECHANISM_TYPE mech,
+                                       CK_BYTE *data,
+                                       CK_ULONG data_len,
+                                       CK_ATTRIBUTE **rho,
+                                       CK_ATTRIBUTE **seed,
+                                       CK_ATTRIBUTE **tr,
+                                       CK_ATTRIBUTE **s1,
+                                       CK_ATTRIBUTE **s2,
+                                       CK_ATTRIBUTE **t0,
+                                       CK_ATTRIBUTE **t1,
+                                       CK_ATTRIBUTE **priv_seed,
+                                       CK_ATTRIBUTE **value,
+                                       const struct pqc_oid **oid);
 
-CK_RV ber_encode_IBM_KyberPublicKey(CK_BBOOL length_only,
-                                    CK_BYTE **data, CK_ULONG *data_len,
-                                    const CK_BYTE *oid, CK_ULONG oid_len,
-                                    CK_ATTRIBUTE *pk);
+CK_RV ber_encode_IBM_ML_KEM_PublicKey(CK_MECHANISM_TYPE mech,
+                                      CK_BBOOL length_only,
+                                      CK_BYTE **data, CK_ULONG *data_len,
+                                      const CK_BYTE *oid, CK_ULONG oid_len,
+                                      CK_ATTRIBUTE *pk);
 
-CK_RV ber_decode_IBM_KyberPublicKey(CK_BYTE *data,
-                                    CK_ULONG data_len,
-                                    CK_ATTRIBUTE **pk_attr,
-                                    CK_ATTRIBUTE **value_attr,
-                                    const struct pqc_oid **oid);
+CK_RV ber_decode_IBM_ML_KEM_PublicKey(CK_MECHANISM_TYPE mech,
+                                      CK_BYTE *data,
+                                      CK_ULONG data_len,
+                                      CK_ATTRIBUTE **pk_attr,
+                                      CK_ATTRIBUTE **value_attr,
+                                      const struct pqc_oid **oid);
 
-CK_RV ber_encode_IBM_KyberPrivateKey(CK_BBOOL length_only,
-                                     CK_BYTE **data,
-                                     CK_ULONG *data_len,
-                                     const CK_BYTE *oid, CK_ULONG oid_len,
-                                     CK_ATTRIBUTE *sk,
-                                     CK_ATTRIBUTE *pk);
+CK_RV ber_encode_IBM_ML_KEM_PrivateKey(CK_MECHANISM_TYPE mech,
+                                       CK_BBOOL length_only,
+                                       CK_BYTE **data,
+                                       CK_ULONG *data_len,
+                                       const CK_BYTE *oid, CK_ULONG oid_len,
+                                       CK_ATTRIBUTE *sk,
+                                       CK_ATTRIBUTE *pk,
+                                       CK_ATTRIBUTE *priv_seed);
 
-CK_RV ber_decode_IBM_KyberPrivateKey(CK_BYTE *data,
-                                     CK_ULONG data_len,
-                                     CK_ATTRIBUTE **sk,
-                                     CK_ATTRIBUTE **pk,
-                                     CK_ATTRIBUTE **value,
-                                     const struct pqc_oid **oid);
+CK_RV ber_decode_IBM_ML_KEM_PrivateKey(CK_MECHANISM_TYPE mech,
+                                       CK_BYTE *data,
+                                       CK_ULONG data_len,
+                                       CK_ATTRIBUTE **sk,
+                                       CK_ATTRIBUTE **pk,
+                                       CK_ATTRIBUTE **priv_seed,
+                                       CK_ATTRIBUTE **value,
+                                       const struct pqc_oid **oid);
 
 typedef CK_RV (*t_rsa_encrypt)(STDLL_TokData_t *, CK_BYTE *in_data,
                                CK_ULONG in_data_len, CK_BYTE *out_data,
@@ -3342,32 +3393,36 @@ CK_RV calc_rsa_crt_from_me(CK_ATTRIBUTE *modulus, CK_ATTRIBUTE *pub_exp,
 
 #if OPENSSL_VERSION_PREREQ(3, 0)
 const char *openssl_get_pqc_oid_name(const struct pqc_oid *oid);
-CK_RV openssl_specific_ibm_dilithium_generate_keypair(STDLL_TokData_t *tokdata,
-                                                      const struct pqc_oid *oid,
-                                                      TEMPLATE *publ_tmpl,
-                                                      TEMPLATE *priv_tmpl);
-CK_RV openssl_make_ibm_dilithium_key_from_template(TEMPLATE *tmpl,
-                                                   const struct pqc_oid *oid,
-                                                   CK_BBOOL private_key,
-                                                   const char *alg_name,
-                                                   EVP_PKEY **pkey);
-CK_RV openssl_specific_ibm_dilithium_sign(STDLL_TokData_t *tokdata,
-                                          SESSION *sess,
-                                          CK_BBOOL length_only,
-                                          const struct pqc_oid *oid,
-                                          CK_BYTE *in_data,
-                                          CK_ULONG in_data_len,
-                                          CK_BYTE *signature,
-                                          CK_ULONG *signature_len,
-                                          OBJECT *key_obj);
-CK_RV openssl_specific_ibm_dilithium_verify(STDLL_TokData_t *tokdata,
-                                            SESSION *sess,
+CK_RV openssl_specific_pqc_generate_keypair(STDLL_TokData_t *tokdata,
                                             const struct pqc_oid *oid,
-                                            CK_BYTE *in_data,
-                                            CK_ULONG in_data_len,
-                                            CK_BYTE *signature,
-                                            CK_ULONG signature_len,
-                                            OBJECT *key_obj);
+                                            CK_MECHANISM *mech,
+                                            TEMPLATE *publ_tmpl,
+                                            TEMPLATE *priv_tmpl);
+CK_RV openssl_make_pqc_key_from_template(TEMPLATE *tmpl,
+                                         const struct pqc_oid *oid,
+                                         CK_MECHANISM_TYPE mech,
+                                         CK_BBOOL private_key,
+                                         const char *alg_name,
+                                         EVP_PKEY **pkey);
+CK_RV openssl_specific_pqc_sign(STDLL_TokData_t *tokdata,
+                                SESSION *sess,
+                                CK_BBOOL length_only,
+                                const struct pqc_oid *oid,
+                                CK_MECHANISM *mech,
+                                CK_BYTE *in_data,
+                                CK_ULONG in_data_len,
+                                CK_BYTE *signature,
+                                CK_ULONG *signature_len,
+                                OBJECT *key_obj);
+CK_RV openssl_specific_pqc_verify(STDLL_TokData_t *tokdata,
+                                  SESSION *sess,
+                                  const struct pqc_oid *oid,
+                                  CK_MECHANISM *mech,
+                                  CK_BYTE *in_data,
+                                  CK_ULONG in_data_len,
+                                  CK_BYTE *signature,
+                                  CK_ULONG signature_len,
+                                  OBJECT *key_obj);
 #endif
 
 #include "tok_spec_struct.h"

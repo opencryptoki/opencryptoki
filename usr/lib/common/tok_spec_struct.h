@@ -282,19 +282,20 @@ struct token_specific_struct {
     CK_RV(*t_dsa_verify) (STDLL_TokData_t *, CK_BYTE *, CK_BYTE *, OBJECT *);
 
     // Token Specific PQC functions
-    CK_RV (*t_ibm_dilithium_generate_keypair)(STDLL_TokData_t *,
-                                              const struct pqc_oid *,
-                                              TEMPLATE *, TEMPLATE *);
+    CK_RV (*t_ibm_ml_dsa_generate_keypair)(STDLL_TokData_t *,
+                                           CK_MECHANISM *mech,
+                                           const struct pqc_oid *,
+                                           TEMPLATE *, TEMPLATE *);
 
-    CK_RV (*t_ibm_dilithium_sign)(STDLL_TokData_t *, SESSION *, CK_BBOOL,
-                                  const struct pqc_oid *,
-                                  CK_BYTE *, CK_ULONG,
-                                  CK_BYTE *, CK_ULONG *, OBJECT *);
+    CK_RV (*t_ibm_ml_dsa_sign)(STDLL_TokData_t *, SESSION *, CK_BBOOL,
+                               const struct pqc_oid *, CK_MECHANISM *,
+                               CK_BYTE *, CK_ULONG,
+                               CK_BYTE *, CK_ULONG *, OBJECT *);
 
-    CK_RV (*t_ibm_dilithium_verify)(STDLL_TokData_t *, SESSION *,
-                                    const struct pqc_oid *,
-                                    CK_BYTE *, CK_ULONG,
-                                    CK_BYTE *, CK_ULONG, OBJECT *);
+    CK_RV (*t_ibm_ml_dsa_verify)(STDLL_TokData_t *, SESSION *,
+                                 const struct pqc_oid *, CK_MECHANISM *,
+                                 CK_BYTE *, CK_ULONG,
+                                 CK_BYTE *, CK_ULONG, OBJECT *);
 
     CK_RV(*t_get_mechanism_list) (STDLL_TokData_t *, CK_MECHANISM_TYPE_PTR,
                                   CK_ULONG_PTR);
