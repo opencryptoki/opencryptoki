@@ -51,6 +51,13 @@
     #include <openssl/core_names.h>
     #include <openssl/decoder.h>
     #include <openssl/param_build.h>
+
+    #ifndef OSSL_PKEY_PARAM_ML_DSA_SEED
+        #define OSSL_PKEY_PARAM_ML_DSA_SEED "seed"
+    #endif
+    #ifndef OSSL_PKEY_PARAM_ML_KEM_SEED
+        #define OSSL_PKEY_PARAM_ML_KEM_SEED "seed"
+    #endif
 #endif
 
 static CK_RV p11sak_generate_key(void);
@@ -184,6 +191,11 @@ static CK_RV ibm_kyber_add_public_attrs(const struct p11tool_objtype *keytype,
                                         CK_ATTRIBUTE **attrs,
                                         CK_ULONG *num_attrs,
                                         void *private);
+static CK_RV ibm_ml_dsa_kem_add_public_attrs(
+                                         const struct p11tool_objtype *keytype,
+                                         CK_ATTRIBUTE **attrs,
+                                         CK_ULONG *num_attrs,
+                                         void *private);
 
 static CK_RV p11sak_import_check_des_keysize(
                                         const struct p11tool_objtype *keytype,
@@ -228,10 +240,14 @@ static CK_RV p11sak_import_dilithium_kyber_pem_data(
                                         bool private,
                                         CK_ATTRIBUTE **attrs,
                                         CK_ULONG *num_attrs);
-static CK_RV p11sak_import_dilithium_pkey(const struct p11tool_objtype *keytype,
+static CK_RV p11sak_import_dilithium_ml_dsa_pkey(const struct p11tool_objtype *keytype,
                                           EVP_PKEY *pkey, bool private,
                                           CK_ATTRIBUTE **attrs,
                                           CK_ULONG *num_attrs);
+static CK_RV p11sak_import_ml_kem_pkey(const struct p11tool_objtype *keytype,
+                                       EVP_PKEY *pkey, bool private,
+                                       CK_ATTRIBUTE **attrs,
+                                       CK_ULONG *num_attrs);
 static CK_RV p11sak_export_sym_clear_des_3des_aes_generic(
                                     const struct p11tool_objtype *keytype,
                                     CK_BYTE **data, CK_ULONG* data_len,
@@ -253,10 +269,14 @@ static CK_RV p11sak_export_dilithium_kyber_pem_data(
                                         CK_BYTE **data, CK_ULONG *data_len,
                                         bool private, CK_OBJECT_HANDLE key,
                                         const char *label);
-static CK_RV p11sak_export_dilithium_pkey(const struct p11tool_objtype *keytype,
+static CK_RV p11sak_export_dilithium_ml_dsa_pkey(const struct p11tool_objtype *keytype,
                                           EVP_PKEY **pkey, bool private,
                                           CK_OBJECT_HANDLE key,
                                           const char *label);
+static CK_RV p11sak_export_ml_kem_pkey(const struct p11tool_objtype *keytype,
+                                       EVP_PKEY **pkey, bool private,
+                                       CK_OBJECT_HANDLE key,
+                                       const char *label);
 static CK_RV p11sak_export_x509(const struct p11tool_objtype *certtype,
                                 CK_BYTE **data, CK_ULONG *data_len,
                                 CK_OBJECT_HANDLE cert, const char *label);
@@ -661,6 +681,91 @@ static const struct p11tool_attr p11sak_private_ibm_kyber_attrs[] = {
     { .name = NULL },
 };
 
+#define DECLARE_PUBLIC_PRIVATE_IBM_ML_DSA_ATTRS                                \
+    { .name = "CKA_IBM_PARAMETER_SET", .type = CKA_IBM_PARAMETER_SET,          \
+      .secret = false, .public = true, .private = true, .settable = true,      \
+      .print_long = p11tool_print_ibm_ml_dsa_parameter_set_attr, },            \
+    { .name = "CKA_IBM_ML_DSA_RHO", .type = CKA_IBM_ML_DSA_RHO,                \
+      .secret = false, .public = true, .private = true, .settable = true,      \
+      .print_long = p11tool_print_byte_array_attr, },                          \
+    { .name = "CKA_IBM_ML_DSA_T1", .type = CKA_IBM_ML_DSA_T1,                  \
+      .secret = false, .public = true, .private = true, .settable = true,      \
+      .print_long = p11tool_print_byte_array_attr, }
+
+static const struct p11tool_attr p11sak_public_ibm_ml_dsa_attrs[] = {
+    DECLARE_KEY_ATTRS,
+    DECLARE_PUBLIC_KEY_ATTRS,
+    DECLARE_PUBLIC_PRIVATE_IBM_ML_DSA_ATTRS,
+    { .name = "CKA_VALUE", .type = CKA_VALUE,
+      .secret = false, .public = true, .private = false, .settable = true,
+      .print_long = p11tool_print_byte_array_attr, },
+    { .name = NULL },
+};
+
+static const struct p11tool_attr p11sak_private_ibm_ml_dsa_attrs[] = {
+    DECLARE_KEY_ATTRS,
+    DECLARE_PRIVATE_KEY_ATTRS,
+    DECLARE_PUBLIC_PRIVATE_IBM_ML_DSA_ATTRS,
+    { .name = "CKA_VALUE", .type = CKA_VALUE,
+      .secret = false, .public = false, .private = true, .settable = true,
+      .print_long = p11tool_print_byte_array_attr, },
+    { .name = "CKA_IBM_ML_DSA_SEED", .type = CKA_IBM_ML_DSA_SEED,
+      .secret = false, .public = false, .private = true, .settable = true,
+      .print_long = p11tool_print_byte_array_attr, },
+    { .name = "CKA_IBM_ML_DSA_TR", .type = CKA_IBM_ML_DSA_TR,
+      .secret = false, .public = false, .private = true, .settable = true,
+      .print_long = p11tool_print_byte_array_attr, },
+    { .name = "CKA_IBM_ML_DSA_S1", .type = CKA_IBM_ML_DSA_S1,
+      .secret = false, .public = false, .private = true, .settable = true,
+      .print_long = p11tool_print_byte_array_attr, },
+    { .name = "CKA_IBM_ML_DSA_S2", .type = CKA_IBM_ML_DSA_S2,
+      .secret = false, .public = false, .private = true, .settable = true,
+      .print_long = p11tool_print_byte_array_attr, },
+    { .name = "CKA_IBM_ML_DSA_T0", .type = CKA_IBM_ML_DSA_T0,
+      .secret = false, .public = false, .private = true, .settable = true,
+      .print_long = p11tool_print_byte_array_attr, },
+    { .name = "CKA_IBM_ML_DSA_PRIVATE_SEED",
+       .type = CKA_IBM_ML_DSA_PRIVATE_SEED,
+      .secret = false, .public = false, .private = true, .settable = true,
+      .print_long = p11tool_print_byte_array_attr, },
+    { .name = NULL },
+};
+
+#define DECLARE_PUBLIC_PRIVATE_IBM_ML_KEM_ATTRS                                \
+    { .name = "CKA_IBM_PARAMETER_SET", .type = CKA_IBM_PARAMETER_SET,          \
+      .secret = false, .public = true, .private = true, .settable = true,      \
+      .print_long = p11tool_print_ibm_ml_kem_parameter_set_attr, },            \
+    { .name = "CKA_IBM_ML_KEM_PK", .type = CKA_IBM_ML_KEM_PK,                  \
+      .secret = false, .public = true, .private = true, .settable = true,      \
+      .print_long = p11tool_print_byte_array_attr, }
+
+static const struct p11tool_attr p11sak_public_ibm_ml_kem_attrs[] = {
+    DECLARE_KEY_ATTRS,
+    DECLARE_PUBLIC_KEY_ATTRS,
+    DECLARE_PUBLIC_PRIVATE_IBM_ML_KEM_ATTRS,
+    { .name = "CKA_VALUE", .type = CKA_VALUE,
+      .secret = false, .public = true, .private = false, .settable = true,
+      .print_long = p11tool_print_byte_array_attr, },
+    { .name = NULL },
+};
+
+static const struct p11tool_attr p11sak_private_ibm_ml_kem_attrs[] = {
+    DECLARE_KEY_ATTRS,
+    DECLARE_PRIVATE_KEY_ATTRS,
+    DECLARE_PUBLIC_PRIVATE_IBM_ML_KEM_ATTRS,
+    { .name = "CKA_VALUE", .type = CKA_VALUE,
+      .secret = false, .public = false, .private = true, .settable = true,
+      .print_long = p11tool_print_byte_array_attr, },
+    { .name = "CKA_IBM_ML_KEM_SK", .type = CKA_IBM_ML_KEM_SK,
+      .secret = false, .public = false, .private = true, .settable = true,
+      .print_long = p11tool_print_byte_array_attr, },
+    { .name = "CKA_IBM_ML_KEM_PRIVATE_SEED",
+      .type = CKA_IBM_ML_KEM_PRIVATE_SEED,
+      .secret = false, .public = false, .private = true, .settable = true,
+      .print_long = p11tool_print_byte_array_attr, },
+    { .name = NULL },
+};
+
 static const struct p11tool_objtype p11sak_des_keytype = {
     .obj_typestr = "key", .obj_liststr = "Key",
     .name = "DES", .type = CKK_DES, .ck_name = "CKK_DES",
@@ -1032,9 +1137,9 @@ static const struct p11tool_objtype p11sak_ibm_dilithium_keytype = {
     .public_attrs = p11sak_public_ibm_dilithium_attrs,
     .private_attrs = p11sak_private_ibm_dilithium_attrs,
     .import_asym_pem_data = p11sak_import_dilithium_kyber_pem_data,
-    .import_asym_pkey = p11sak_import_dilithium_pkey,
+    .import_asym_pkey = p11sak_import_dilithium_ml_dsa_pkey,
     .export_asym_pem_data = p11sak_export_dilithium_kyber_pem_data,
-    .export_asym_pkey = p11sak_export_dilithium_pkey,
+    .export_asym_pkey = p11sak_export_dilithium_ml_dsa_pkey,
     .pem_name_private = "IBM-DILITHIUM PRIVATE KEY",
     .pem_name_public = "IBM-DILITHIUM PUBLIC KEY",
 };
@@ -1056,6 +1161,40 @@ static const struct p11tool_objtype p11sak_ibm_kyber_keytype = {
     .export_asym_pem_data = p11sak_export_dilithium_kyber_pem_data,
     .pem_name_private = "IBM-KYBER PRIVATE KEY",
     .pem_name_public = "IBM-KYBER PUBLIC KEY",
+};
+
+static const struct p11tool_objtype p11sak_ibm_ml_dsa_keytype = {
+    .obj_typestr = "key", .obj_liststr = "Key",
+    .name = "IBM-ML-DSA",  .type = CKK_IBM_ML_DSA,
+    .ck_name = "CKK_IBM_ML_DSA",
+    .keygen_mech = { .mechanism = CKM_IBM_ML_DSA_KEY_PAIR_GEN, },
+    .is_asymmetric = true,
+    .keygen_add_public_attrs = ibm_ml_dsa_kem_add_public_attrs,
+    .sign_verify = true, .encrypt_decrypt = false,
+    .wrap_unwrap = false, .derive = false,
+    .filter_attr = CKA_KEY_TYPE, .filter_value = CKK_IBM_ML_DSA,
+    .keysize_attr = (CK_ATTRIBUTE_TYPE)-1,
+    .public_attrs = p11sak_public_ibm_ml_dsa_attrs,
+    .private_attrs = p11sak_private_ibm_ml_dsa_attrs,
+    .import_asym_pkey = p11sak_import_dilithium_ml_dsa_pkey,
+    .export_asym_pkey = p11sak_export_dilithium_ml_dsa_pkey,
+};
+
+static const struct p11tool_objtype p11sak_ibm_ml_kem_keytype = {
+    .obj_typestr = "key", .obj_liststr = "Key",
+    .name = "IBM-ML-KEM",  .type = CKK_IBM_ML_KEM,
+    .ck_name = "CKK_IBM_ML_KEM",
+    .keygen_mech = { .mechanism = CKM_IBM_ML_KEM_KEY_PAIR_GEN, },
+    .is_asymmetric = true,
+    .keygen_add_public_attrs = ibm_ml_dsa_kem_add_public_attrs,
+    .sign_verify = false, .encrypt_decrypt = false,
+    .wrap_unwrap = false, .derive = true,
+    .filter_attr = CKA_KEY_TYPE, .filter_value = CKK_IBM_ML_KEM,
+    .keysize_attr = (CK_ATTRIBUTE_TYPE)-1,
+    .public_attrs = p11sak_public_ibm_ml_kem_attrs,
+    .private_attrs = p11sak_private_ibm_ml_kem_attrs,
+    .import_asym_pkey = p11sak_import_ml_kem_pkey,
+    .export_asym_pkey = p11sak_export_ml_kem_pkey,
 };
 
 static const struct p11tool_objtype p11sak_secret_keytype = {
@@ -1118,6 +1257,8 @@ const struct p11tool_objtype *p11sak_keytypes[] = {
     &p11sak_ec_keytype,
     &p11sak_ibm_dilithium_keytype,
     &p11sak_ibm_kyber_keytype,
+    &p11sak_ibm_ml_dsa_keytype,
+    &p11sak_ibm_ml_kem_keytype,
     NULL,
 };
 
@@ -1271,7 +1412,11 @@ static const struct p11tool_opt p11sak_generic_opts[] = {
     { .value = "ibm-dilithium", .args = args_prefix##_ibm_dilithium_args,      \
       .private = { .ptr = &p11sak_ibm_dilithium_keytype }, },                  \
     { .value = "ibm-kyber", .args = args_prefix##_ibm_kyber_args,              \
-      .private = { .ptr = &p11sak_ibm_kyber_keytype }, }
+      .private = { .ptr = &p11sak_ibm_kyber_keytype }, },                      \
+    { .value = "ibm-ml-dsa", .args = args_prefix##_ibm_ml_dsa_args,            \
+      .private = { .ptr = &p11sak_ibm_ml_dsa_keytype }, },                     \
+    { .value = "ibm-ml-kem", .args = args_prefix##_ibm_ml_kem_args,            \
+      .private = { .ptr = &p11sak_ibm_ml_kem_keytype }, }
 
 #define GROUP_KEYTYPES                                                         \
     { .value = "public", .args = NULL,                                         \
@@ -1522,6 +1667,22 @@ static const struct p11tool_arg p11sak_generate_ibm_kyber_args[] = {
     { .name = NULL, },
 };
 
+static const struct p11tool_arg p11sak_generate_ibm_ml_dsa_args[] = {
+    { .name = "VERSION", .type = ARG_TYPE_ENUM, .required = true,
+      .enum_values = p11tool_ibm_ml_dsa_versions,
+      .value.enum_value = &opt_pqc_version,
+      .description = "The version of the IBM ML-DSA key pair:", },
+    { .name = NULL, },
+};
+
+static const struct p11tool_arg p11sak_generate_ibm_ml_kem_args[] = {
+    { .name = "VERSION", .type = ARG_TYPE_ENUM, .required = true,
+      .enum_values = p11tool_ibm_ml_kem_versions,
+      .value.enum_value = &opt_pqc_version,
+      .description = "The version of the IBM ML-KEM key pair:", },
+    { .name = NULL, },
+};
+
 static const struct p11tool_enum_value p11sak_generate_key_keytypes[] = {
     KEYGEN_KEYTYPES(p11sak_generate),
     { .value = NULL, },
@@ -1610,6 +1771,8 @@ static const struct p11tool_opt p11sak_list_cert_opts[] = {
 #define null_ec_args                NULL
 #define null_ibm_dilithium_args     NULL
 #define null_ibm_kyber_args         NULL
+#define null_ibm_ml_dsa_args        NULL
+#define null_ibm_ml_kem_args        NULL
 
 static const struct p11tool_enum_value
                         p11sak_list_remove_set_copy_export_key_keytypes[] = {
@@ -1631,6 +1794,10 @@ static const struct p11tool_enum_value p11sak_private_key_keytypes[] = {
       .private = { .ptr = &p11sak_ibm_dilithium_keytype }, },
     { .value = "ibm-kyber", .args = NULL,
       .private = { .ptr = &p11sak_ibm_kyber_keytype }, },
+    { .value = "ibm-ml-dsa", .args = NULL,
+      .private = { .ptr = &p11sak_ibm_ml_dsa_keytype }, },
+    { .value = "ibm-ml-kem", .args = NULL,
+      .private = { .ptr = &p11sak_ibm_ml_kem_keytype }, },
     { .value = "private", .args = NULL,
       .private = { .ptr = &p11sak_private_keytype }, },
     { .value = "all", .args = NULL,
@@ -2022,7 +2189,11 @@ static const struct p11tool_arg p11sak_import_asym_args[] = {
     { .value = "ibm-dilithium", .args = asym_args,                             \
       .private = { .ptr = &p11sak_ibm_dilithium_keytype }, },                  \
     { .value = "ibm-kyber", .args = asym_args,                                 \
-      .private = { .ptr = &p11sak_ibm_kyber_keytype }, }
+      .private = { .ptr = &p11sak_ibm_kyber_keytype }, },                      \
+    { .value = "ibm-ml-dsa", .args = asym_args,                                \
+      .private = { .ptr = &p11sak_ibm_ml_dsa_keytype }, },                     \
+    { .value = "ibm-ml-kem", .args = asym_args,                                \
+      .private = { .ptr = &p11sak_ibm_ml_kem_keytype }, }
 
 static const struct p11tool_enum_value p11sak_import_key_keytypes[] = {
     IMPORT_KEYTYPES(p11sak_import_asym_args),
@@ -3416,6 +3587,21 @@ static CK_RV ibm_kyber_add_public_attrs(const struct p11tool_objtype *keytype,
                                  attrs, num_attrs);
 }
 
+static CK_RV ibm_ml_dsa_kem_add_public_attrs(
+                                         const struct p11tool_objtype *keytype,
+                                         CK_ATTRIBUTE **attrs,
+                                         CK_ULONG *num_attrs,
+                                         void *private)
+{
+    UNUSED(private);
+    UNUSED(keytype);
+
+    return p11tool_add_attribute(CKA_IBM_PARAMETER_SET,
+                                 &opt_pqc_version->private.num,
+                                 sizeof(opt_pqc_version->private.num),
+                                 attrs, num_attrs);
+}
+
 static CK_RV parse_key_pair_label(const char *label, char **pub_label,
                                   char** priv_label)
 {
@@ -3550,7 +3736,8 @@ static const struct p11tool_objtype *find_keytype_by_pkey(int pkey_type)
 
 #if OPENSSL_VERSION_PREREQ(3, 0)
 static const struct pqc_oid *pqc_oid_from_pkey(EVP_PKEY *pkey,
-                                               const struct pqc_oid *pqc_oids)
+                                               const struct pqc_oid *pqc_oids,
+                                               bool show_err_msg)
 {
     const char *alg_name;
     ASN1_OBJECT *obj = NULL;
@@ -3587,7 +3774,7 @@ static const struct pqc_oid *pqc_oid_from_pkey(EVP_PKEY *pkey,
     }
 
     oid = find_pqc_by_oid(pqc_oids, val, val_len);
-    if (oid == NULL)
+    if (oid == NULL && show_err_msg)
         warnx("Algorithm '%s' is not supported by p11sak", alg_name);
 
     OPENSSL_free(val);
@@ -5907,9 +6094,14 @@ static CK_RV p11sak_extract_x509_pk(const struct p11tool_objtype *certtype,
 
 #if OPENSSL_VERSION_PREREQ(3, 0)
     if (keytype == NULL && pkey_type == NID_undef) {
-        oid = pqc_oid_from_pkey(pkey, dilithium_oids);
-        if (oid != NULL)
+        oid = pqc_oid_from_pkey(pkey, dilithium_oids, false);
+        if (oid != NULL) {
             keytype = &p11sak_ibm_dilithium_keytype;
+        } else {
+            oid = pqc_oid_from_pkey(pkey, ml_dsa_oids, false);
+            if (oid != NULL)
+                keytype = &p11sak_ibm_ml_dsa_keytype;
+        }
     }
 #endif
 
@@ -6609,7 +6801,8 @@ static CK_RV p11sak_import_dilithium_kyber_pem_data(
     return p11tool_add_attribute(CKA_VALUE, data, data_len, attrs, num_attrs);
 }
 
-static CK_RV p11sak_import_dilithium_pkey(const struct p11tool_objtype *keytype,
+static CK_RV p11sak_import_dilithium_ml_dsa_pkey(
+                                          const struct p11tool_objtype *keytype,
                                           EVP_PKEY *pkey, bool private,
                                           CK_ATTRIBUTE **attrs,
                                           CK_ULONG *num_attrs)
@@ -6619,16 +6812,22 @@ static CK_RV p11sak_import_dilithium_pkey(const struct p11tool_objtype *keytype,
     size_t priv_len = 0, pub_len = 0;
     CK_BYTE *priv_key = NULL, *pub_key = NULL;
     CK_ULONG ofs;
+    size_t seed_len = 0;
+    CK_BYTE *priv_seed = NULL;
     CK_RV rc;
 
     UNUSED(keytype);
 
-    oid = pqc_oid_from_pkey(pkey, dilithium_oids);
+    oid = pqc_oid_from_pkey(pkey, keytype->type == CKK_IBM_PQC_DILITHIUM ?
+                                        dilithium_oids : ml_dsa_oids,
+                            true);
     if (oid == NULL)
         return CKR_FUNCTION_FAILED;
 
     /* Add keyform and attribute */
-    rc = p11tool_add_attribute(CKA_IBM_DILITHIUM_KEYFORM,
+    rc = p11tool_add_attribute(keytype->type == CKK_IBM_PQC_DILITHIUM ?
+                                  CKA_IBM_DILITHIUM_KEYFORM :
+                                  CKA_IBM_PARAMETER_SET,
                                &oid->keyform, sizeof(oid->keyform),
                                attrs, num_attrs);
     if (rc != CKR_OK)
@@ -6637,7 +6836,8 @@ static CK_RV p11sak_import_dilithium_pkey(const struct p11tool_objtype *keytype,
     if (private) {
         rc = p11tool_get_octet_string_param_from_pkey(pkey,
                                                       OSSL_PKEY_PARAM_PRIV_KEY,
-                                                      &priv_key, &priv_len);
+                                                      &priv_key, &priv_len,
+                                                      FALSE);
         if (rc != CKR_OK)
             goto out;
 
@@ -6647,13 +6847,13 @@ static CK_RV p11sak_import_dilithium_pkey(const struct p11tool_objtype *keytype,
                         oid->len_info.ml_dsa.s1_len +
                         oid->len_info.ml_dsa.s2_len +
                         oid->len_info.ml_dsa.t0_len) {
-            warnx("Size of private Dilithium key is not valid.");
+            warnx("Size of private %s key is not valid.", keytype->name);
             rc = CKR_FUNCTION_FAILED;
             goto out;
         }
 
         ofs = 0;
-        rc = p11tool_add_attribute(CKA_IBM_DILITHIUM_RHO,
+        rc = p11tool_add_attribute(CKA_IBM_ML_DSA_RHO,
                                    priv_key + ofs,
                                    oid->len_info.ml_dsa.rho_len,
                                    attrs, num_attrs);
@@ -6661,7 +6861,7 @@ static CK_RV p11sak_import_dilithium_pkey(const struct p11tool_objtype *keytype,
            goto out;
 
         ofs += oid->len_info.ml_dsa.rho_len;
-        rc = p11tool_add_attribute(CKA_IBM_DILITHIUM_SEED,
+        rc = p11tool_add_attribute(CKA_IBM_ML_DSA_SEED,
                                    priv_key + ofs,
                                    oid->len_info.ml_dsa.seed_len,
                                    attrs, num_attrs);
@@ -6669,7 +6869,7 @@ static CK_RV p11sak_import_dilithium_pkey(const struct p11tool_objtype *keytype,
            goto out;
 
         ofs += oid->len_info.ml_dsa.seed_len;
-        rc = p11tool_add_attribute(CKA_IBM_DILITHIUM_TR,
+        rc = p11tool_add_attribute(CKA_IBM_ML_DSA_TR,
                                    priv_key + ofs,
                                    oid->len_info.ml_dsa.tr_len,
                                    attrs, num_attrs);
@@ -6677,7 +6877,7 @@ static CK_RV p11sak_import_dilithium_pkey(const struct p11tool_objtype *keytype,
            goto out;
 
         ofs += oid->len_info.ml_dsa.tr_len;
-        rc = p11tool_add_attribute(CKA_IBM_DILITHIUM_S1,
+        rc = p11tool_add_attribute(CKA_IBM_ML_DSA_S1,
                                    priv_key + ofs,
                                    oid->len_info.ml_dsa.s1_len,
                                    attrs, num_attrs);
@@ -6685,7 +6885,7 @@ static CK_RV p11sak_import_dilithium_pkey(const struct p11tool_objtype *keytype,
            goto out;
 
         ofs += oid->len_info.ml_dsa.s1_len;
-        rc = p11tool_add_attribute(CKA_IBM_DILITHIUM_S2,
+        rc = p11tool_add_attribute(CKA_IBM_ML_DSA_S2,
                                    priv_key + ofs,
                                    oid->len_info.ml_dsa.s2_len,
                                    attrs, num_attrs);
@@ -6693,37 +6893,155 @@ static CK_RV p11sak_import_dilithium_pkey(const struct p11tool_objtype *keytype,
            goto out;
 
         ofs += oid->len_info.ml_dsa.s2_len;
-        rc = p11tool_add_attribute(CKA_IBM_DILITHIUM_T0,
+        rc = p11tool_add_attribute(CKA_IBM_ML_DSA_T0,
                                    priv_key + ofs,
                                    oid->len_info.ml_dsa.t0_len,
                                    attrs, num_attrs);
         if (rc != CKR_OK)
            goto out;
+
+        /* Try to get private seed, but ignore if it is not available */
+        rc = p11tool_get_octet_string_param_from_pkey(pkey,
+                                              OSSL_PKEY_PARAM_ML_DSA_SEED,
+                                              &priv_seed, &seed_len, TRUE);
+        if (rc != CKR_OK)
+            goto out;
+
+        if (priv_seed != NULL &&
+            seed_len == oid->len_info.ml_dsa.priv_seed_len) {
+            rc = p11tool_add_attribute(CKA_IBM_ML_DSA_PRIVATE_SEED,
+                                       priv_seed, seed_len,
+                                       attrs, num_attrs);
+            if (rc != CKR_OK)
+               goto out;
+        }
     }
 
     rc = p11tool_get_octet_string_param_from_pkey(pkey,
                                                   OSSL_PKEY_PARAM_PUB_KEY,
-                                                  &pub_key, &pub_len);
+                                                  &pub_key, &pub_len, FALSE);
     if (rc != CKR_OK)
         goto out;
 
     if (pub_len != oid->len_info.ml_dsa.rho_len +
                    oid->len_info.ml_dsa.t1_len) {
-        warnx("Size of public Dilithium key is not valid.");
+        warnx("Size of public %s key is not valid.", keytype->name);
         rc = CKR_FUNCTION_FAILED;
         goto out;
     }
 
     ofs = 0;
-    rc = p11tool_add_attribute(CKA_IBM_DILITHIUM_RHO,
+    rc = p11tool_add_attribute(CKA_IBM_ML_DSA_RHO,
                                pub_key + ofs, oid->len_info.ml_dsa.rho_len,
                                attrs, num_attrs);
     if (rc != CKR_OK)
        goto out;
 
     ofs += oid->len_info.ml_dsa.rho_len;
-    rc = p11tool_add_attribute(CKA_IBM_DILITHIUM_T1,
+    rc = p11tool_add_attribute(CKA_IBM_ML_DSA_T1,
                                pub_key + ofs, oid->len_info.ml_dsa.t1_len,
+                               attrs, num_attrs);
+    if (rc != CKR_OK)
+       goto out;
+
+out:
+    if (priv_key != NULL) {
+        OPENSSL_cleanse(priv_key, priv_len);
+        free(priv_key);
+    }
+    if (pub_key != NULL)
+        free(pub_key);
+
+    return rc;
+#else
+    UNUSED(keytype);
+    UNUSED(pkey);
+    UNUSED(private);
+    UNUSED(attrs);
+    UNUSED(num_attrs);
+
+    warnx("Importing an 'oqsprovider' format PEM file is only supported with "
+          "OpenSSL 3.0 or later.");
+    return CKR_FUNCTION_NOT_SUPPORTED;
+#endif
+}
+
+static CK_RV p11sak_import_ml_kem_pkey(const struct p11tool_objtype *keytype,
+                                       EVP_PKEY *pkey, bool private,
+                                       CK_ATTRIBUTE **attrs,
+                                       CK_ULONG *num_attrs)
+{
+#if OPENSSL_VERSION_PREREQ(3, 0)
+    const struct pqc_oid *oid;
+    size_t priv_len = 0, pub_len = 0;
+    CK_BYTE *priv_key = NULL, *pub_key = NULL;
+    size_t seed_len = 0;
+    CK_BYTE *priv_seed = NULL;
+    CK_RV rc;
+
+    UNUSED(keytype);
+
+    oid = pqc_oid_from_pkey(pkey, ml_kem_oids, true);
+    if (oid == NULL)
+        return CKR_FUNCTION_FAILED;
+
+    /* Add Parameter-set and attribute */
+    rc = p11tool_add_attribute(CKA_IBM_PARAMETER_SET,
+                               &oid->keyform, sizeof(oid->keyform),
+                               attrs, num_attrs);
+    if (rc != CKR_OK)
+       goto out;
+
+    if (private) {
+        rc = p11tool_get_octet_string_param_from_pkey(pkey,
+                                                      OSSL_PKEY_PARAM_PRIV_KEY,
+                                                      &priv_key, &priv_len,
+                                                      FALSE);
+        if (rc != CKR_OK)
+            goto out;
+
+        if (priv_len != oid->len_info.ml_kem.sk_len) {
+            warnx("Size of private %s key is not valid.", keytype->name);
+            rc = CKR_FUNCTION_FAILED;
+            goto out;
+        }
+
+        rc = p11tool_add_attribute(CKA_IBM_ML_KEM_SK,
+                                   priv_key, oid->len_info.ml_kem.sk_len,
+                                   attrs, num_attrs);
+        if (rc != CKR_OK)
+           goto out;
+
+        rc = p11tool_get_octet_string_param_from_pkey(pkey,
+                                              OSSL_PKEY_PARAM_ML_KEM_SEED,
+                                              &priv_seed, &seed_len, TRUE);
+        if (rc != CKR_OK)
+            goto out;
+
+        if (priv_seed != NULL &&
+            seed_len == oid->len_info.ml_dsa.priv_seed_len) {
+            rc = p11tool_add_attribute(CKA_IBM_ML_KEM_PRIVATE_SEED,
+                                       priv_seed, seed_len,
+                                       attrs, num_attrs);
+            if (rc != CKR_OK)
+               goto out;
+        }
+    }
+
+    rc = p11tool_get_octet_string_param_from_pkey(pkey,
+                                                  OSSL_PKEY_PARAM_PUB_KEY,
+                                                  &pub_key, &pub_len, FALSE);
+    if (rc != CKR_OK)
+        goto out;
+
+    if (pub_len != oid->len_info.ml_kem.pk_len) {
+        warnx("Size of public %s key is not valid.", keytype->name);
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+
+    rc = p11tool_add_attribute(CKA_IBM_ML_KEM_PK,
+                               pub_key, oid->len_info.ml_kem.pk_len,
                                attrs, num_attrs);
     if (rc != CKR_OK)
        goto out;
@@ -8284,7 +8602,8 @@ static const char *get_openssl_pqc_oid_name(const struct pqc_oid *oid)
 }
 #endif
 
-static CK_RV p11sak_export_dilithium_pkey(const struct p11tool_objtype *keytype,
+static CK_RV p11sak_export_dilithium_ml_dsa_pkey(
+                                          const struct p11tool_objtype *keytype,
                                           EVP_PKEY **pkey, bool private,
                                           CK_OBJECT_HANDLE key,
                                           const char *label)
@@ -8293,36 +8612,44 @@ static CK_RV p11sak_export_dilithium_pkey(const struct p11tool_objtype *keytype,
     CK_ULONG keyform = 0;
     CK_ATTRIBUTE keyform_attr = { CKA_IBM_DILITHIUM_KEYFORM,
                                   &keyform, sizeof(keyform) };
+    CK_ATTRIBUTE parameter_set_attr = { CKA_IBM_PARAMETER_SET,
+                                        &keyform, sizeof(keyform) };
     CK_ATTRIBUTE priv_attrs[] = {
-        { CKA_IBM_DILITHIUM_RHO, NULL, 0 },
-        { CKA_IBM_DILITHIUM_SEED, NULL, 0 },
-        { CKA_IBM_DILITHIUM_TR, NULL, 0 },
-        { CKA_IBM_DILITHIUM_S1, NULL, 0 },
-        { CKA_IBM_DILITHIUM_S2, NULL, 0 },
-        { CKA_IBM_DILITHIUM_T0, NULL, 0 },
+        { CKA_IBM_ML_DSA_RHO, NULL, 0 },
+        { CKA_IBM_ML_DSA_SEED, NULL, 0 },
+        { CKA_IBM_ML_DSA_TR, NULL, 0 },
+        { CKA_IBM_ML_DSA_S1, NULL, 0 },
+        { CKA_IBM_ML_DSA_S2, NULL, 0 },
+        { CKA_IBM_ML_DSA_T0, NULL, 0 },
+        { CKA_IBM_ML_DSA_PRIVATE_SEED, NULL, 0 },
     };
     CK_ATTRIBUTE pub_attrs[] = {
-        { CKA_IBM_DILITHIUM_RHO, NULL, 0 },
-        { CKA_IBM_DILITHIUM_T1, NULL, 0 },
+        { CKA_IBM_ML_DSA_RHO, NULL, 0 },
+        { CKA_IBM_ML_DSA_T1, NULL, 0 },
     };
     const struct pqc_oid *oid;
     const char *alg_name;
     EVP_PKEY_CTX *pctx = NULL;
     OSSL_PARAM_BLD *bld = NULL;
     OSSL_PARAM *params = NULL;
-    CK_ULONG priv_len = 0, pub_len = 0, ofs;
-    CK_BYTE *priv_key = NULL, *pub_key = NULL;
+    CK_ULONG priv_len = 0, pub_len = 0, seed_len = 0, ofs;
+    CK_BYTE *priv_key = NULL, *pub_key = NULL, *priv_seed = NULL;
     CK_RV rc;
 
-    rc = p11tool_get_attribute(key, &keyform_attr);
+    rc = p11tool_get_attribute(key, keytype->type == CKK_IBM_PQC_DILITHIUM ?
+                                        &keyform_attr : &parameter_set_attr);
     if (rc != CKR_OK) {
-        warnx("Failed to retrieve attribute CKA_IBM_DILITHIUM_KEYFORM from %s "
-              "key object \"%s\": 0x%lX: %s", keytype->name, label, rc,
-              p11_get_ckr(rc));
+        warnx("Failed to retrieve attribute %s from %s "
+              "key object \"%s\": 0x%lX: %s",
+              keytype->type == CKK_IBM_PQC_DILITHIUM ?
+                      "CKA_IBM_DILITHIUM_KEYFORM" : "CKA_IBM_PARAMETER_SET",
+              keytype->name, label, rc, p11_get_ckr(rc));
         return rc;
     }
 
-    oid = find_pqc_by_keyform(dilithium_oids, keyform);
+    oid = find_pqc_by_keyform(keytype->type == CKK_IBM_PQC_DILITHIUM ?
+                                        dilithium_oids : ml_dsa_oids,
+                              keyform);
     if (oid == NULL) {
         warnx("%s keyform '%lu' is not supported by p11sak.", keytype->name,
               keyform);
@@ -8332,7 +8659,8 @@ static CK_RV p11sak_export_dilithium_pkey(const struct p11tool_objtype *keytype,
     alg_name = get_openssl_pqc_oid_name(oid);
     if (alg_name == NULL) {
         warnx("%s keyform '%lu' is not supported by OpenSSL. "
-              "Is the 'oqsprovider' configured?", keytype->name, keyform);
+              "Is the 'oqsprovider' configured (for OpenSSL < version 3.5)?",
+              keytype->name, keyform);
         ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
         return CKR_FUNCTION_FAILED;
     }
@@ -8350,6 +8678,16 @@ static CK_RV p11sak_export_dilithium_pkey(const struct p11tool_objtype *keytype,
             warnx("Failed to allocate buffer for private key.");
             rc = CKR_HOST_MEMORY;
             goto out;
+        }
+
+        if (keytype->type == CKK_IBM_ML_DSA) {
+            seed_len = oid->len_info.ml_dsa.priv_seed_len;
+            priv_seed = calloc(1, seed_len);
+            if (priv_key == NULL) {
+                warnx("Failed to allocate buffer for private seed.");
+                rc = CKR_HOST_MEMORY;
+                goto out;
+            }
         }
 
         ofs = 0;
@@ -8371,8 +8709,16 @@ static CK_RV p11sak_export_dilithium_pkey(const struct p11tool_objtype *keytype,
         priv_attrs[5].pValue = priv_key + ofs;
         priv_attrs[5].ulValueLen = oid->len_info.ml_dsa.t0_len;
 
+        if (keytype->type == CKK_IBM_ML_DSA) {
+            priv_attrs[6].pValue = priv_seed;
+            priv_attrs[6].ulValueLen = oid->len_info.ml_dsa.priv_seed_len;
+        }
+
         rc = p11tool_pkcs11_funcs->C_GetAttributeValue(p11tool_pkcs11_session,
-                                                       key, priv_attrs, 6);
+                                                       key, priv_attrs,
+                                                       keytype->type ==
+                                                               CKK_IBM_ML_DSA ?
+                                                                       7 : 6);
         if (rc == CKR_ATTRIBUTE_SENSITIVE)
             goto out;
         if (rc != CKR_OK) {
@@ -8394,6 +8740,18 @@ static CK_RV p11sak_export_dilithium_pkey(const struct p11tool_objtype *keytype,
             rc = CKR_FUNCTION_FAILED;
             goto out;
         }
+
+        if (keytype->type == CKK_IBM_ML_DSA &&
+            priv_attrs[6].ulValueLen != oid->len_info.ml_dsa.priv_seed_len &&
+            priv_attrs[6].ulValueLen != 0) {
+            warnx("Failed to retrieve private key attributes from %s key "
+                  "object \"%s\": Private key component lengths are wrong.",
+                  keytype->name, label);
+            rc = CKR_FUNCTION_FAILED;
+            goto out;
+        }
+
+        seed_len = priv_attrs[6].ulValueLen;
     }
 
     pub_len = oid->len_info.ml_dsa.rho_len +
@@ -8433,6 +8791,16 @@ static CK_RV p11sak_export_dilithium_pkey(const struct p11tool_objtype *keytype,
         goto out;
     }
 
+    pctx = EVP_PKEY_CTX_new_from_name(NULL, alg_name, NULL);
+    if (pctx == NULL) {
+        warnx("EVP_PKEY_CTX_new_from_name failed for '%s'. "
+              "Is the 'oqsprovider' configured (for OpenSSL < version 3.5)?",
+              alg_name);
+        ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+
     bld = OSSL_PARAM_BLD_new();
     if (bld == NULL) {
         warnx("OSSL_PARAM_BLD_new failed.");
@@ -8448,6 +8816,20 @@ static CK_RV p11sak_export_dilithium_pkey(const struct p11tool_objtype *keytype,
             ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
             rc = CKR_FUNCTION_FAILED;
             goto out;
+        }
+
+        /* Try to set private seed, but ignore if it is not available */
+        if (p11tool_check_settable_fromdata_params(pctx,
+                                             OSSL_PKEY_PARAM_ML_KEM_SEED) &&
+            seed_len > 0) {
+            if (OSSL_PARAM_BLD_push_octet_string(bld,
+                                                 OSSL_PKEY_PARAM_ML_DSA_SEED,
+                                                 priv_seed, seed_len) != 1) {
+                warnx("OSSL_PARAM_BLD_push_octet_string failed.");
+                ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
+                rc = CKR_FUNCTION_FAILED;
+                goto out;
+            }
         }
     }
 
@@ -8467,12 +8849,238 @@ static CK_RV p11sak_export_dilithium_pkey(const struct p11tool_objtype *keytype,
         goto out;
     }
 
+    if (EVP_PKEY_fromdata_init(pctx) != 1) {
+        warnx("EVP_PKEY_fromdata_init failed for '%s'.", alg_name);
+        ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+
+    if (EVP_PKEY_fromdata(pctx, pkey, private ? EVP_PKEY_KEYPAIR :
+                                                EVP_PKEY_PUBLIC_KEY,
+                          params) != 1) {
+        warnx("EVP_PKEY_fromdata failed for '%s'.", alg_name);
+        ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+
+out:
+    if (priv_key != NULL) {
+        OPENSSL_cleanse(priv_key, priv_len);
+        free(priv_key);
+    }
+    if (priv_seed != NULL) {
+        OPENSSL_cleanse(priv_seed, seed_len);
+        free(priv_seed);
+    }
+    if (pub_key != NULL)
+        free(pub_key);
+    if (pctx != NULL)
+        EVP_PKEY_CTX_free(pctx);
+    if (bld != NULL)
+        OSSL_PARAM_BLD_free(bld);
+    if (params != NULL)
+        OSSL_PARAM_free(params);
+
+    return rc;
+#else
+    UNUSED(keytype);
+    UNUSED(pkey);
+    UNUSED(private);
+    UNUSED(key);
+    UNUSED(label);
+
+    warnx("Exporting an 'oqsprovider' format PEM file is only supported with "
+          "OpenSSL 3.0 or later.");
+    return CKR_FUNCTION_NOT_SUPPORTED;
+#endif
+}
+
+static CK_RV p11sak_export_ml_kem_pkey(const struct p11tool_objtype *keytype,
+                                       EVP_PKEY **pkey, bool private,
+                                       CK_OBJECT_HANDLE key,
+                                       const char *label)
+{
+#if OPENSSL_VERSION_PREREQ(3, 0)
+    CK_ULONG parameter_set = 0;
+    CK_ATTRIBUTE parameter_set_attr = { CKA_IBM_PARAMETER_SET,
+                                        &parameter_set, sizeof(parameter_set) };
+    CK_ATTRIBUTE priv_attrs[] = {
+        { CKA_IBM_ML_KEM_SK, NULL, 0 },
+        { CKA_IBM_ML_KEM_PRIVATE_SEED, NULL, 0 },
+    };
+    CK_ATTRIBUTE pub_attrs[] = {
+        { CKA_IBM_ML_KEM_PK, NULL, 0 },
+    };
+    const struct pqc_oid *oid;
+    const char *alg_name;
+    EVP_PKEY_CTX *pctx = NULL;
+    OSSL_PARAM_BLD *bld = NULL;
+    OSSL_PARAM *params = NULL;
+    CK_ULONG priv_len = 0, pub_len = 0, seed_len = 0;
+    CK_BYTE *priv_key = NULL, *pub_key = NULL, *priv_seed = NULL;
+    CK_RV rc;
+
+    rc = p11tool_get_attribute(key, &parameter_set_attr);
+    if (rc != CKR_OK) {
+        warnx("Failed to retrieve attribute CKA_IBM_PARAMETER_SET from %s "
+              "key object \"%s\": 0x%lX: %s",
+              keytype->name, label, rc, p11_get_ckr(rc));
+        return rc;
+    }
+
+    oid = find_pqc_by_keyform(ml_kem_oids, parameter_set);
+    if (oid == NULL) {
+        warnx("%s parameter set '%lu' is not supported by p11sak.",
+              keytype->name, parameter_set);
+        return CKR_FUNCTION_FAILED;
+    }
+
+    alg_name = get_openssl_pqc_oid_name(oid);
+    if (alg_name == NULL) {
+        warnx("%s parameter set '%lu' is not supported by OpenSSL. "
+              "Is the 'oqsprovider' configured (for OpenSSL < version 3.5)?",
+              keytype->name, parameter_set);
+        ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
+        return CKR_FUNCTION_FAILED;
+    }
+
+    if (private) {
+        priv_len = oid->len_info.ml_kem.sk_len;
+
+        priv_key = calloc(1, priv_len);
+        if (priv_key == NULL) {
+            warnx("Failed to allocate buffer for private key.");
+            rc = CKR_HOST_MEMORY;
+            goto out;
+        }
+
+        seed_len = oid->len_info.ml_kem.priv_seed_len;
+        priv_seed = calloc(1, seed_len);
+        if (priv_key == NULL) {
+            warnx("Failed to allocate buffer for private seed.");
+            rc = CKR_HOST_MEMORY;
+            goto out;
+        }
+
+        priv_attrs[0].pValue = priv_key;
+        priv_attrs[0].ulValueLen = oid->len_info.ml_kem.sk_len;
+        priv_attrs[1].pValue = priv_seed;
+        priv_attrs[1].ulValueLen = oid->len_info.ml_kem.priv_seed_len;
+
+        rc = p11tool_pkcs11_funcs->C_GetAttributeValue(p11tool_pkcs11_session,
+                                                       key, priv_attrs, 2);
+        if (rc == CKR_ATTRIBUTE_SENSITIVE)
+            goto out;
+        if (rc != CKR_OK) {
+            warnx("Failed to retrieve private key attributes from %s key "
+                  "object \"%s\": 0x%lX: %s", keytype->name, label, rc,
+                  p11_get_ckr(rc));
+            goto out;
+        }
+
+        if (priv_attrs[0].ulValueLen != oid->len_info.ml_kem.sk_len ||
+            (priv_attrs[1].ulValueLen != oid->len_info.ml_kem.priv_seed_len &&
+             priv_attrs[1].ulValueLen != 0)) {
+            warnx("Failed to retrieve private key attributes from %s key "
+                  "object \"%s\": Private key component lengths are wrong.",
+                  keytype->name, label);
+            rc = CKR_FUNCTION_FAILED;
+            goto out;
+        }
+
+        seed_len = priv_attrs[1].ulValueLen;
+    }
+
+    pub_len = oid->len_info.ml_kem.pk_len;
+
+    pub_key = calloc(1, pub_len);
+    if (pub_key == NULL) {
+        warnx("Failed to allocate buffer for public key.");
+        rc = CKR_HOST_MEMORY;
+        goto out;
+    }
+
+    pub_attrs[0].pValue = pub_key;
+    pub_attrs[0].ulValueLen = oid->len_info.ml_kem.pk_len;
+
+    rc = p11tool_pkcs11_funcs->C_GetAttributeValue(p11tool_pkcs11_session, key,
+                                                   pub_attrs, 1);
+    if (rc == CKR_ATTRIBUTE_SENSITIVE)
+        goto out;
+    if (rc != CKR_OK) {
+        warnx("Failed to retrieve public key attributes from %s key "
+              "object \"%s\": 0x%lX: %s", keytype->name, label, rc,
+              p11_get_ckr(rc));
+        goto out;
+    }
+
+    if (pub_attrs[0].ulValueLen != oid->len_info.ml_kem.pk_len) {
+        warnx("Failed to retrieve public key attributes from %s key "
+              "object \"%s\": Public key component lengths are wrong.",
+              keytype->name, label);
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+
+
     pctx = EVP_PKEY_CTX_new_from_name(NULL, alg_name, NULL);
     if (pctx == NULL) {
         warnx("EVP_PKEY_CTX_new_from_name failed for '%s'. "
-              "Is the 'oqsprovider' configured?", alg_name);
+              "Is the 'oqsprovider' configured (for OpenSSL < version 3.5)?",
+              alg_name);
         ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
-        return CKR_FUNCTION_FAILED;
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+
+    bld = OSSL_PARAM_BLD_new();
+    if (bld == NULL) {
+        warnx("OSSL_PARAM_BLD_new failed.");
+        ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
+        rc = CKR_HOST_MEMORY;
+        goto out;
+    }
+
+    if (private) {
+        if (OSSL_PARAM_BLD_push_octet_string(bld, OSSL_PKEY_PARAM_PRIV_KEY,
+                                             priv_key, priv_len) != 1) {
+            warnx("OSSL_PARAM_BLD_push_octet_string failed.");
+            ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
+            rc = CKR_FUNCTION_FAILED;
+            goto out;
+        }
+
+        /* Try to set private seed, but ignore if it is not available */
+        if (p11tool_check_settable_fromdata_params(pctx,
+                                              OSSL_PKEY_PARAM_ML_KEM_SEED) &&
+            seed_len > 0) {
+            if (OSSL_PARAM_BLD_push_octet_string(bld,
+                                                 OSSL_PKEY_PARAM_ML_KEM_SEED,
+                                                 priv_seed, seed_len) != 1) {
+                warnx("OSSL_PARAM_BLD_push_octet_string failed.");
+                ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
+                rc = CKR_FUNCTION_FAILED;
+                goto out;
+            }
+        }
+    }
+
+    if (OSSL_PARAM_BLD_push_octet_string(bld, OSSL_PKEY_PARAM_PUB_KEY,
+                                         pub_key, pub_len) != 1) {
+        warnx("OSSL_PARAM_BLD_push_octet_string failed.");
+        ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+
+    params = OSSL_PARAM_BLD_to_param(bld);
+    if (params == NULL) {
+        warnx("OSSL_PARAM_BLD_to_param failed.");
+        ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
     }
 
 

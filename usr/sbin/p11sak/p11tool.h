@@ -240,6 +240,8 @@ extern char *p11tool_pin;
 extern const struct p11tool_class p11tool_classes[];
 extern const struct p11tool_enum_value p11tool_ibm_dilithium_versions[];
 extern const struct p11tool_enum_value p11tool_ibm_kyber_versions[];
+extern const struct p11tool_enum_value p11tool_ibm_ml_dsa_versions[];
+extern const struct p11tool_enum_value p11tool_ibm_ml_kem_versions[];
 
 const struct p11tool_cmd *p11tool_find_command(const struct p11tool_cmd *cmds,
                                                const char *cmd);
@@ -300,6 +302,12 @@ void p11tool_print_ibm_dilithium_keyform_attr(const char *attr,
 void p11tool_print_ibm_kyber_keyform_attr(const char *attr,
                                           const CK_ATTRIBUTE *val,
                                           int indent, bool sensitive);
+void p11tool_print_ibm_ml_dsa_parameter_set_attr(const char *attr,
+                                                 const CK_ATTRIBUTE *val,
+                                                 int indent, bool sensitive);
+void p11tool_print_ibm_ml_kem_parameter_set_attr(const char *attr,
+                                                 const CK_ATTRIBUTE *val,
+                                                 int indent, bool sensitive);
 
 int p11tool_openssl_err_cb(const char *str, size_t len, void *u);
 
@@ -400,9 +408,12 @@ int p11tool_pem_password_cb(char *buf, int size, int rwflag, void *userdata);
 
 CK_RV p11tool_ASN1_TIME2date(const ASN1_TIME *asn1time, CK_DATE *date);
 
+CK_BBOOL p11tool_check_settable_fromdata_params(EVP_PKEY_CTX *ctx,
+                                                const char *name);
 CK_RV p11tool_get_octet_string_param_from_pkey(EVP_PKEY *pkey,
                                                const char *param,
-                                               CK_BYTE **key, size_t *key_len);
+                                               CK_BYTE **key, size_t *key_len,
+                                               CK_BBOOL check);
 
 CK_RV p11tool_prepare_uri(CK_OBJECT_HANDLE key, CK_OBJECT_CLASS *class,
                           const struct p11tool_objtype *objtype,

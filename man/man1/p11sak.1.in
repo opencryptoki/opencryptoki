@@ -1,4 +1,4 @@
-.TH P11SAK 1 "May 2020" "@PACKAGE_VERSION@" "openCryptoki"
+.TH P11SAK 1 "May 2025" "@PACKAGE_VERSION@" "openCryptoki"
 .SH NAME
 p11sak \- Manage token keys in a PKCS\~#11 token repository.
 .
@@ -24,11 +24,12 @@ The \fBp11sak\fP tool can be used to manage token keys and certificates in a
 PKCS\~#11 token repository. The utility provides a flexible key management tool 
 to generate, list, remove, update, copy, import, and export symmetric (DES, 
 3DES, generic, SHA\-HMAC, AES, AES\-XTS) and asymmetric (RSA, DH, DSA, EC,
-IBM Dilithium, IBM Kyber) keys. This tool is also capable of listing the keys
-with their PKCS\~#11 attributes and their values (not all attributes may be
-displayed if a key is sensitive). It also supports the import, export, copy,
-and listing of certificates. Public keys inside certificates and private keys
-can be extracted and added to the token repository as new public key objects.
+IBM Dilithium, IBM Kyber, IBM ML\-DSA, IBM ML\-KEM) keys. This tool is also
+capable of listing the keys with their PKCS\~#11 attributes and their values
+(not all attributes may be displayed if a key is sensitive). It also supports
+the import, export, copy, and listing of certificates. Public keys inside
+certificates and private keys can be extracted and added to the token
+repository as new public key objects.
 
 .PP
 .B Note:
@@ -73,7 +74,7 @@ argument are:
 sha256\-hmac |\: sha384\-hmac |\: sha512\-hmac |\: sha512/224\-hmac |\: \
 sha512/256\-hmac |\: sha3\-224\-hmac |\: sha3\-256\-hmac |\: sha3\-384\-hmac \
 |\: sha3\-512\-hmac |\: aes |\: aes\-xts |\: rsa |\: dh |\: dsa |\: ec |\: \
-ibm\-dilithium |\: ibm\-kyber .
+ibm\-dilithium |\: ibm\-kyber |\: ibm\-ml\-dsa |\: ibm\-ml\-kem .
 See below for a detailed description of the arguments and options. The
 .BR \-\-help | \-h
 option also shows the arguments and options available.
@@ -670,6 +671,122 @@ option can be used to set the value of the
 attribute of the key.
 .
 .PP
+.SS "Generating IBM ML\-DSA keys"
+.
+.B p11sak
+.BR generate\-key | gen\-key | gen
+.BR ibm\-ml\-dsa
+.I VERSION
+.BR \-\-slot | \-s
+.I SLOTID
+.RB [ \-\-pin | \-p
+.IR PIN ]
+.RB [ \-\-force\-pin\-prompt ]
+.RB [ \-\-no\-login | \-N ]
+.RB [ \-\-so ]
+.BR \-\-label | \-L
+.IR LABEL | PUB\-LABEL : PRIV\-LABEL
+.BR \-\-attr | \-a
+.IR ATTRS | PUB\-ATTRS : PRIV\-ATTRS
+.RB [ \-\-id | \-i
+.IR ID ]
+.RB [ \-\-help | \-h ]
+.PP
+Use the
+.BR generate\-key | gen\-key | gen
+.B ibm\-ml\-dsa
+.I VERSION
+command and
+.I KEYTYPE
+argument to generate an IBM ML\-DSA key (\fBCKK_IBM_ML_DSA\fP), where
+.I VERSION
+specifies the version of the IBM ML\-DSA keypair. The following arguments can
+be used for respective keys:
+.BR 44 | 65 | 87
+.PP
+.B Note:
+Not all IBM ML\-DSA versions will be supported by all tokens and key
+generation will fail when the specified
+.I VERSION
+is not supported.
+.PP
+The
+.BR \-\-label | \-L
+.IR LABEL | PUB\-LABEL : PRIV\-LABEL
+option sets the
+.B CKA_LABEL
+attribute of the key and the
+.BR \-\-attr | \-a
+.I ATTRS
+can be used to set the boolean attributes of the key (see below for detailed
+description of the attributes).
+Optionally, set individual key attributes for public and private key separated
+by a colon (\fB:\fP). The
+.BR \-\-id | \-i
+.I ID
+option can be used to set the value of the
+.B CKA_ID
+attribute of the key.
+.
+.PP
+.SS "Generating IBM ML\-KEM keys"
+.
+.B p11sak
+.BR generate\-key | gen\-key | gen
+.BR ibm\-ml\-kem
+.I VERSION
+.BR \-\-slot | \-s
+.I SLOTID
+.RB [ \-\-pin | \-p
+.IR PIN ]
+.RB [ \-\-force\-pin\-prompt ]
+.RB [ \-\-no\-login | \-N ]
+.RB [ \-\-so ]
+.BR \-\-label | \-L
+.IR LABEL | PUB\-LABEL : PRIV\-LABEL
+.BR \-\-attr | \-a
+.IR ATTRS | PUB\-ATTRS : PRIV\-ATTRS
+.RB [ \-\-id | \-i
+.IR ID ]
+.RB [ \-\-help | \-h ]
+.PP
+Use the
+.BR generate\-key | gen\-key | gen
+.B ibm\-ml\-kem
+.I VERSION
+command and
+.I KEYTYPE
+argument to generate an IBM ML\-KEM key (\fBCKK_IBM_ML_KEM\fP), where
+.I VERSION
+specifies the version of the IBM ML\-KEM keypair. The following arguments can
+be used for respective keys:
+.BR 512 | 768 | 1024
+.PP
+.B Note:
+Not all IBM ML\-KEM versions will be supported by all tokens and key
+generation will fail when the specified
+.I VERSION
+is not supported.
+.PP
+The
+.BR \-\-label | \-L
+.IR LABEL | PUB\-LABEL : PRIV\-LABEL
+option sets the
+.B CKA_LABEL
+attribute of the key and the
+.BR \-\-attr | \-a
+.I ATTRS
+can be used to set the boolean attributes of the key (see below for detailed
+description of the attributes).
+Optionally, set individual key attributes for public and private key separated
+by a colon (\fB:\fP). The
+.BR \-\-id | \-i
+.I ID
+option can be used to set the value of the
+.B CKA_ID
+attribute of the key.
+.
+.PP
 .SS "Listing symmetric and asymmetric keys"
 .
 .B p11sak
@@ -709,7 +826,8 @@ argument are:
 sha256\-hmac |\: sha384\-hmac |\: sha512\-hmac |\: sha512/224\-hmac |\: \
 sha512/256\-hmac |\: sha3\-224\-hmac |\: sha3\-256\-hmac |\: sha3\-384\-hmac \
 |\: sha3\-512\-hmac |\: aes |\: aes\-xts |\: rsa |\: dh |\: dsa |\: ec |\: \
-ibm\-dilithium |\: ibm\-kyber |\: public |\: private |\: secret |\: all .
+ibm\-dilithium |\: ibm\-kyber |\: ibm\-ml\-dsa |\: ibm\-ml\-kem |\: public \
+|\: private |\: secret |\: all .
 If
 .I KEYTYPE
 is omitted, then all key types are listed.
@@ -797,7 +915,8 @@ argument are:
 sha256\-hmac |\: sha384\-hmac |\: sha512\-hmac |\: sha512/224\-hmac |\: \
 sha512/256\-hmac |\: sha3\-224\-hmac |\: sha3\-256\-hmac |\: sha3\-384\-hmac \
 |\: sha3\-512\-hmac |\: aes |\: aes\-xts |\: rsa |\: dh |\: dsa |\: ec |\: \
-ibm\-dilithium |\: ibm\-kyber |\: public |\: private |\: secret |\: all .
+ibm\-dilithium |\: ibm\-kyber |\: ibm\-ml\-dsa |\: ibm\-ml\-kem |\: public \
+|\: private |\: secret |\: all .
 If
 .I KEYTYPE
 is omitted, then all key types are selected for removal.
@@ -870,7 +989,8 @@ argument are:
 sha256\-hmac |\: sha384\-hmac |\: sha512\-hmac |\: sha512/224\-hmac |\: \
 sha512/256\-hmac |\: sha3\-224\-hmac |\: sha3\-256\-hmac |\: sha3\-384\-hmac \
 |\: sha3\-512\-hmac |\: aes |\: aes\-xts |\: rsa |\: dh |\: dsa |\: ec |\: \
-ibm\-dilithium |\: ibm\-kyber |\: public |\: private |\: secret |\: all .
+ibm\-dilithium |\: ibm\-kyber |\: ibm\-ml\-dsa |\: ibm\-ml\-kem |\: public \
+|\: private |\: secret |\: all .
 If
 .I KEYTYPE
 is omitted, then all key types are selected for updating.
@@ -965,7 +1085,8 @@ argument are:
 sha256\-hmac |\: sha384\-hmac |\: sha512\-hmac |\: sha512/224\-hmac |\: \
 sha512/256\-hmac |\: sha3\-224\-hmac |\: sha3\-256\-hmac |\: sha3\-384\-hmac \
 |\: sha3\-512\-hmac |\: aes |\: aes\-xts |\: rsa |\: dh |\: dsa |\: ec |\: \
-ibm\-dilithium |\: ibm\-kyber |\: public |\: private |\: secret |\: all .
+ibm\-dilithium |\: ibm\-kyber |\: ibm\-ml\-dsa |\: ibm\-ml\-kem |\: public \
+|\: private |\: secret |\: all .
 If
 .I KEYTYPE
 is omitted, then all key types are selected for copying.
@@ -1058,7 +1179,8 @@ argument are:
 sha256\-hmac |\: sha384\-hmac |\: sha512\-hmac |\: sha512/224\-hmac |\: \
 sha512/256\-hmac |\: sha3\-224\-hmac |\: sha3\-256\-hmac |\: sha3\-384\-hmac \
 |\: sha3\-512\-hmac |\: aes |\: aes\-xts |\: rsa |\: dh |\: dsa |\: ec |\: \
-ibm\-dilithium |\: ibm\-kyber |\: public |\: private |\: secret |\: all .
+ibm\-dilithium |\: ibm\-kyber |\: ibm\-ml\-dsa |\: ibm\-ml\-kem |\: public \
+|\: private |\: secret |\: all .
 .PP
 The
 .BR \-\-label | \-L
@@ -1160,7 +1282,8 @@ argument are:
 sha256\-hmac |\: sha384\-hmac |\: sha512\-hmac |\: sha512/224\-hmac |\: \
 sha512/256\-hmac |\: sha3\-224\-hmac |\: sha3\-256\-hmac |\: sha3\-384\-hmac \
 |\: sha3\-512\-hmac |\: aes |\: aes\-xts |\: rsa |\: dh |\: dsa |\: ec |\: \
-ibm\-dilithium |\: ibm\-kyber |\: public |\: private |\: secret |\: all .
+ibm\-dilithium |\: ibm\-kyber |\: ibm\-ml\-dsa |\: ibm\-ml\-kem |\: public \
+|\: private |\: secret |\: all .
 If
 .I KEYTYPE
 is omitted, then all key types are selected for export.
@@ -1331,8 +1454,8 @@ as new token object.
 Possible values for the
 .I KEYTYPE
 argument are:
-.BR rsa |\: dh |\: dsa |\: ec |\: ibm\-dilithium |\: ibm\-kyber |\: private \
-|\: all .
+.BR rsa |\: dh |\: dsa |\: ec |\: ibm\-dilithium |\: ibm\-kyber |\: \
+ibm\-ml\-dsa |\: ibm\-ml\-kem |\: private |\: all .
 If
 .I KEYTYPE
 is omitted, then all private key types are selected for export.
@@ -1429,7 +1552,8 @@ argument are:
 sha256\-hmac |\: sha384\-hmac |\: sha512\-hmac |\: sha512/224\-hmac |\: \
 sha512/256\-hmac |\: sha3\-224\-hmac |\: sha3\-256\-hmac |\: sha3\-384\-hmac \
 |\: sha3\-512\-hmac |\: aes |\: aes\-xts |\: rsa |\: dh |\: dsa |\: ec |\: \
-ibm\-dilithium |\: ibm\-kyber |\: private |\: secret |\: all .
+ibm\-dilithium |\: ibm\-kyber |\: ibm\-ml\-dsa |\: ibm\-ml\-kem |\: private \
+|\: secret |\: all .
 If
 .I KEYTYPE
 is omitted, then all key types are selected for wrapping.
@@ -1744,7 +1868,7 @@ argument are:
 sha256\-hmac |\: sha384\-hmac |\: sha512\-hmac |\: sha512/224\-hmac |\: \
 sha512/256\-hmac |\: sha3\-224\-hmac |\: sha3\-256\-hmac |\: sha3\-384\-hmac \
 |\: sha3\-512\-hmac |\: aes |\: aes\-xts |\: rsa |\: dh |\: dsa |\: ec |\: \
-ibm\-dilithium |\: ibm\-kyber .
+ibm\-dilithium |\: ibm\-kyber |\: ibm\-ml\-dsa |\: ibm\-ml\-kem .
 .PP
 Specify the
 .BR \-\-kek\-label | \-K
@@ -2394,7 +2518,8 @@ selected. Possible values are:
 sha256\-hmac |\: sha384\-hmac |\: sha512\-hmac |\: sha512/224\-hmac |\: \
 sha512/256\-hmac |\: sha3\-224\-hmac |\: sha3\-256\-hmac |\: sha3\-384\-hmac \
 |\: sha3\-512\-hmac |\: aes |\: aes\-xts |\: rsa |\: dh |\: dsa |\: ec |\: \
-ibm\-dilithium |\: ibm\-kyber |\: public |\: private |\: secret |\: all .
+ibm\-dilithium |\: ibm\-kyber |\: ibm\-ml\-dsa |\: ibm\-ml\-kem |\: public \
+|\: private |\: secret |\: all .
 The
 .BR public |\: private |\: secret |\: all
 argument can only be used with commands that use the
@@ -2497,7 +2622,8 @@ brainpoolP384r1 |\: brainpoolP384t1 |\: brainpoolP512r1 |\: brainpoolP512t1 \
 .
 .SS "VERSION"
 .
-Specifies the version for an IBM Dilithium or IBM Kyber key.
+Specifies the version for an IBM Dilithium, IBM Kyber, IBM ML\-DSA, or
+IBM ML\-KEM key.
 For the
 .B ibm\-dilithium
 key type, possible values are
@@ -2506,6 +2632,14 @@ For the
 .B ibm\-kyber
 key type, possible values are
 .BR r2_768 |\: r2_1024 .
+For the
+.B ibm\-ml\-dsa
+key type, possible values are
+.BR 44 |\: 65 |\: 87 .
+For the
+.B ibm\-ml\-kem
+key type, possible values are
+.BR 512 |\: 768 |\: 1024 .
 .PP
 .
 .SS "KIND"
@@ -3115,7 +3249,7 @@ in PEM format.
 .
 .TP 8
 .BR \-\-uri\-pem | \-u
-Export the key's or certificate’s PKCS#11 URI in PEM form instead of the key or
+Export the key's or certificate's PKCS#11 URI in PEM form instead of the key or
 certificate material. Such an URI-PEM file can then be used with the
 .B pkcs11\-provider
 from
