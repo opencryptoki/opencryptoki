@@ -77,6 +77,26 @@ const struct p11tool_enum_value p11tool_ibm_kyber_versions[] = {
     { .value = NULL, },
 };
 
+const struct p11tool_enum_value p11tool_ibm_ml_dsa_versions[] = {
+    { .value = "44", .args = NULL,
+      .private = { .num = CKP_IBM_ML_DSA_44 }, },
+    { .value = "65", .args = NULL,
+      .private = { .num = CKP_IBM_ML_DSA_65 }, },
+    { .value = "87", .args = NULL,
+      .private = { .num = CKP_IBM_ML_DSA_87 }, },
+    { .value = NULL, },
+};
+
+const struct p11tool_enum_value p11tool_ibm_ml_kem_versions[] = {
+    { .value = "512", .args = NULL,
+      .private = { .num = CKP_IBM_ML_KEM_512 }, },
+    { .value = "768", .args = NULL,
+      .private = { .num = CKP_IBM_ML_KEM_768 }, },
+    { .value = "1024", .args = NULL,
+      .private = { .num = CKP_IBM_ML_KEM_1024 }, },
+    { .value = NULL, },
+};
+
 static bool p11tool_argument_is_set(const struct p11tool_arg *arg);
 
 const struct p11tool_cmd *p11tool_find_command(const struct p11tool_cmd *cmds,
@@ -1315,6 +1335,62 @@ void p11tool_print_ibm_kyber_keyform_attr(const char *attr,
             }
         }
         printf("%*s%s: %s (0x%lX)\n", indent, "", attr, name,
+               *(CK_ULONG *)(val->pValue));
+    }
+}
+
+void p11tool_print_ibm_ml_dsa_parameter_set_attr(const char *attr,
+                                                 const CK_ATTRIBUTE *val,
+                                                 int indent, bool sensitive)
+{
+    const struct p11tool_enum_value *eval;
+    const char *name = "[unknown]";
+
+    if ((val->ulValueLen == CK_UNAVAILABLE_INFORMATION ||
+         val->ulValueLen != sizeof (CK_ULONG)) &&
+        !sensitive)
+        return;
+
+    if (sensitive) {
+        printf("%*s%s: [sensitive]\n", indent, "", attr);
+    } else if (val->ulValueLen == 0) {
+        printf("%*s%s: [no value]\n", indent, "", attr);
+    } else {
+        for (eval = p11tool_ibm_ml_dsa_versions; eval->value != NULL; eval++) {
+            if (eval->private.num == *(CK_ULONG *)(val->pValue)) {
+                name = eval->value;
+                break;
+            }
+        }
+        printf("%*s%s: ML-DSA-%s (0x%lX)\n", indent, "", attr, name,
+               *(CK_ULONG *)(val->pValue));
+    }
+}
+
+void p11tool_print_ibm_ml_kem_parameter_set_attr(const char *attr,
+                                                 const CK_ATTRIBUTE *val,
+                                                 int indent, bool sensitive)
+{
+    const struct p11tool_enum_value *eval;
+    const char *name = "[unknown]";
+
+    if ((val->ulValueLen == CK_UNAVAILABLE_INFORMATION ||
+         val->ulValueLen != sizeof (CK_ULONG)) &&
+        !sensitive)
+        return;
+
+    if (sensitive) {
+        printf("%*s%s: [sensitive]\n", indent, "", attr);
+    } else if (val->ulValueLen == 0) {
+        printf("%*s%s: [no value]\n", indent, "", attr);
+    } else {
+        for (eval = p11tool_ibm_ml_kem_versions; eval->value != NULL; eval++) {
+            if (eval->private.num == *(CK_ULONG *)(val->pValue)) {
+                name = eval->value;
+                break;
+            }
+        }
+        printf("%*s%s: ML-KEM-%s (0x%lX)\n", indent, "", attr, name,
                *(CK_ULONG *)(val->pValue));
     }
 }
@@ -2578,10 +2654,45 @@ CK_RV p11tool_ASN1_TIME2date(const ASN1_TIME *asn1time, CK_DATE *date)
 }
 
 #if OPENSSL_VERSION_PREREQ(3, 0)
+CK_BBOOL p11tool_check_settable_fromdata_params(EVP_PKEY_CTX *ctx,
+                                                const char *name)
+{
+    const OSSL_PARAM *settable, *p;
+
+    settable = EVP_PKEY_fromdata_settable(ctx, EVP_PKEY_KEYPAIR);
+
+    for (p = settable; p != NULL && p->key != NULL; p++) {
+        if (strcmp(p->key, name) == 0)
+            return TRUE;
+    }
+
+    return CK_FALSE;
+}
+
 CK_RV p11tool_get_octet_string_param_from_pkey(EVP_PKEY *pkey,
                                                const char *param,
-                                               CK_BYTE **key, size_t *key_len)
+                                               CK_BYTE **key, size_t *key_len,
+                                               CK_BBOOL check)
 {
+    const OSSL_PARAM *settable, *p;
+    CK_BBOOL found = FALSE;
+
+    if (check) {
+        settable = EVP_PKEY_gettable_params(pkey);
+        for (p = settable; p != NULL && p->key != NULL; p++) {
+            if (strcmp(p->key, param) == 0) {
+                found = TRUE;
+                break;
+            }
+        }
+
+        if (!found) {
+            *key = NULL;
+            *key_len = 0;
+            return CKR_OK;
+        }
+    }
+
     if (EVP_PKEY_get_octet_string_param(pkey, param, NULL, 0, key_len) != 1 ||
         *key_len == OSSL_PARAM_UNMODIFIED) {
         warnx("EVP_PKEY_get_octet_string_param failed for '%s'\n", param);
