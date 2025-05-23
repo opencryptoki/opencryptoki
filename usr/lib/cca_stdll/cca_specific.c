@@ -319,6 +319,7 @@ static const MECH_LIST_ELEMENT cca_mech_list[] = {
     {CKM_IBM_DILITHIUM, {256, 256, CKF_HW | CKF_GENERATE_KEY_PAIR |
                          CKF_SIGN | CKF_VERIFY}},
     {CKM_IBM_ML_DSA_KEY_PAIR_GEN, {1312, 2592, CKF_HW | CKF_GENERATE_KEY_PAIR}},
+    {CKM_IBM_ML_DSA, {1312, 2592, CKF_HW | CKF_SIGN | CKF_VERIFY}},
     {CKM_RSA_AES_KEY_WRAP, {2048, 4096, CKF_HW | CKF_WRAP | CKF_UNWRAP}},
 };
 
@@ -4676,6 +4677,7 @@ static CK_BBOOL cca_pqc_strength_supported(STDLL_TokData_t * tokdata,
         }
         break;
     case CKM_IBM_ML_DSA_KEY_PAIR_GEN:
+    case CKM_IBM_ML_DSA:
         required = &cca_v8_4;
         break;
     default:
@@ -7529,6 +7531,7 @@ static CK_BBOOL token_specific_filter_mechanism(STDLL_TokData_t *tokdata,
                                         CK_IBM_DILITHIUM_KEYFORM_ROUND2_65);
         break;
     case CKM_IBM_ML_DSA_KEY_PAIR_GEN:
+    case CKM_IBM_ML_DSA:
         rc = cca_pqc_strength_supported(tokdata, mechanism, CKP_IBM_ML_DSA_65);
         break;
     case CKM_SHA3_224_RSA_PKCS:
@@ -10006,30 +10009,91 @@ CK_RV token_specific_ibm_ml_dsa_generate_keypair(STDLL_TokData_t *tokdata,
                                        publ_tmpl, priv_tmpl);
 }
 
-static CK_RV check_ibm_dilithium_data_len(const struct pqc_oid *oid,
-                                          CK_ULONG in_data_len)
+static CK_RV check_ibm_ml_dsa_data_len(STDLL_TokData_t *tokdata,
+                                       CK_MECHANISM_TYPE mech,
+                                       const struct pqc_oid *oid,
+                                       CK_ULONG in_data_len)
 {
-    switch (oid->keyform) {
-    case CK_IBM_DILITHIUM_KEYFORM_ROUND2_65:
-    case CK_IBM_DILITHIUM_KEYFORM_ROUND3_65:
-        if (in_data_len > CCA_MAX_DILITHIUM_65_DATA_LEN) {
-            TRACE_DEVEL("Input too large for Dilithium keyform %lu\n",
+    struct cca_private_data *cca_private = tokdata->private_data;
+    const struct cca_version cca_v8_0 = { .ver = 8, .rel = 0, .mod = 0 };
+    CK_BBOOL is_CEX8;
+
+    if (pthread_rwlock_rdlock(&cca_private->min_card_version_rwlock)
+                                                        != 0) {
+        TRACE_ERROR("CCA min_card_version RD-Lock failed.\n");
+        return CKR_CANT_LOCK;
+    }
+
+    is_CEX8 =
+          (compare_cca_version(&cca_private->cca_lib_version, &cca_v8_0) >= 0 &&
+           compare_cca_version(&cca_private->min_card_version, &cca_v8_0) >= 0);
+
+    if (pthread_rwlock_unlock(&cca_private->min_card_version_rwlock)
+                                                        != 0) {
+        TRACE_ERROR("CCA min_card_version RD-Unlock failed.\n");
+        return CKR_CANT_LOCK;
+    }
+
+    switch (mech) {
+    case CKM_IBM_DILITHIUM:
+        switch (oid->keyform) {
+        case CK_IBM_DILITHIUM_KEYFORM_ROUND2_65:
+        case CK_IBM_DILITHIUM_KEYFORM_ROUND3_65:
+            if (in_data_len > (is_CEX8 ? CCA_MAX_CEX8_DILITHIUM_65_DATA_LEN :
+                                         CCA_MAX_DILITHIUM_65_DATA_LEN)) {
+                TRACE_DEVEL("Input too large for Dilithium keyform %lu\n",
+                            oid->keyform);
+                return CKR_DATA_LEN_RANGE;
+            }
+            break;
+        case CK_IBM_DILITHIUM_KEYFORM_ROUND2_87:
+        case CK_IBM_DILITHIUM_KEYFORM_ROUND3_87:
+            if (in_data_len > (is_CEX8 ? CCA_MAX_CEX8_DILITHIUM_87_DATA_LEN :
+                                         CCA_MAX_DILITHIUM_87_DATA_LEN)) {
+                TRACE_DEVEL("Input too large for Dilithium keyform %lu\n",
+                            oid->keyform);
+                return CKR_DATA_LEN_RANGE;
+            }
+            break;
+        default:
+            TRACE_DEVEL("Dilithium keyform %lu not supported by CCA\n",
                         oid->keyform);
-            return CKR_DATA_LEN_RANGE;
+            return CKR_KEY_SIZE_RANGE;
         }
         break;
-    case CK_IBM_DILITHIUM_KEYFORM_ROUND2_87:
-    case CK_IBM_DILITHIUM_KEYFORM_ROUND3_87:
-        if (in_data_len > CCA_MAX_DILITHIUM_87_DATA_LEN) {
-            TRACE_DEVEL("Input too large for Dilithium keyform %lu\n",
+
+    case CKM_IBM_ML_DSA: /* CEX8 or later only */
+        switch (oid->keyform) {
+        case CKP_IBM_ML_DSA_44:
+            if (in_data_len > CCA_MAX_CEX8_ML_DSA_44_DATA_LEN) {
+                TRACE_DEVEL("Input too large for ML-DSA keyform %lu\n",
+                            oid->keyform);
+                return CKR_DATA_LEN_RANGE;
+            }
+            break;
+        case CKP_IBM_ML_DSA_65:
+            if (in_data_len > CCA_MAX_CEX8_ML_DSA_65_DATA_LEN) {
+                TRACE_DEVEL("Input too large for ML-DSA keyform %lu\n",
+                            oid->keyform);
+                return CKR_DATA_LEN_RANGE;
+            }
+            break;
+        case CKP_IBM_ML_DSA_87:
+            if (in_data_len > CCA_MAX_CEX8_ML_DSA_87_DATA_LEN) {
+                TRACE_DEVEL("Input too large for ML-DSA keyform %lu\n",
+                            oid->keyform);
+                return CKR_DATA_LEN_RANGE;
+            }
+            break;
+        default:
+            TRACE_DEVEL("ML-DSA keyform %lu not supported by CCA\n",
                         oid->keyform);
-            return CKR_DATA_LEN_RANGE;
+            return CKR_KEY_SIZE_RANGE;
         }
         break;
+
     default:
-        TRACE_DEVEL("Dilithium keyform %lu not supported by CCA\n",
-                    oid->keyform);
-        return CKR_KEY_SIZE_RANGE;
+        return CKR_MECHANISM_INVALID;
     }
 
     return CKR_OK;
@@ -10050,6 +10114,7 @@ CK_RV token_specific_ibm_ml_dsa_sign(STDLL_TokData_t *tokdata,
     unsigned char rule_array[CCA_RULE_ARRAY_SIZE] = { 0, };
     long signature_bit_length;
     CK_ATTRIBUTE *attr;
+    CK_IBM_SIGN_ADDITIONAL_CONTEXT *sign_param = mech->pParameter;
     CK_RV rc;
 
     UNUSED(sess);
@@ -10065,17 +10130,9 @@ CK_RV token_specific_ibm_ml_dsa_sign(STDLL_TokData_t *tokdata,
         return CKR_KEY_SIZE_RANGE;
     }
 
-    rc = check_ibm_dilithium_data_len(oid, in_data_len);
+    rc = check_ibm_ml_dsa_data_len(tokdata, mech->mechanism, oid, in_data_len);
     if (rc != CKR_OK)
         return rc;
-
-    if (length_only) {
-        *signature_len = CCA_MAX_DILITHIUM_SIGNATURE_LEN;
-        return CKR_OK;
-    }
-
-    if (*signature_len > CCA_MAX_DILITHIUM_SIGNATURE_LEN)
-        *signature_len = CCA_MAX_DILITHIUM_SIGNATURE_LEN;
 
     /* Find the secure key token */
     rc = template_attribute_get_non_empty(key_obj->template, CKA_IBM_OPAQUE,
@@ -10087,6 +10144,41 @@ CK_RV token_specific_ibm_ml_dsa_sign(STDLL_TokData_t *tokdata,
 
     rule_array_count = 3;
     memcpy(rule_array, "CRDL-DSAMESSAGE CRDLHASH", CCA_KEYWORD_SIZE * 3);
+
+    switch (mech->mechanism) {
+    case CKM_IBM_ML_DSA:
+        if (mech->pParameter == NULL ||
+            mech->ulParameterLen != sizeof(CK_IBM_SIGN_ADDITIONAL_CONTEXT))
+            break;
+
+        if (sign_param->pContext != NULL && sign_param->ulContextLen != 0) {
+            TRACE_ERROR("CCA does not support ML-DSA with context\n");
+            return CKR_MECHANISM_PARAM_INVALID;
+        }
+
+        switch (sign_param->hedgeVariant) {
+        case CKH_IBM_HEDGE_PREFERRED:
+        case CKH_IBM_HEDGE_REQUIRED:
+            memcpy(rule_array + (rule_array_count * CCA_KEYWORD_SIZE),
+                   "NONDETER", CCA_KEYWORD_SIZE);
+            rule_array_count++;
+            break;
+        case CKH_IBM_DETERMINISTIC_REQUIRED:
+            memcpy(rule_array + (rule_array_count * CCA_KEYWORD_SIZE),
+                   "DETER   ", CCA_KEYWORD_SIZE);
+            rule_array_count++;
+            break;
+        }
+        break;
+    }
+
+    if (length_only) {
+        *signature_len = CCA_MAX_ML_DSA_SIGNATURE_LEN;
+        return CKR_OK;
+    }
+
+    if (*signature_len > CCA_MAX_ML_DSA_SIGNATURE_LEN)
+        *signature_len = CCA_MAX_ML_DSA_SIGNATURE_LEN;
 
     USE_CCA_ADAPTER_START(tokdata, return_code, reason_code)
     RETRY_NEW_MK_BLOB_START()
@@ -10145,7 +10237,7 @@ CK_RV token_specific_ibm_ml_dsa_verify(STDLL_TokData_t *tokdata,
         return CKR_KEY_SIZE_RANGE;
     }
 
-    rc = check_ibm_dilithium_data_len(oid, in_data_len);
+    rc = check_ibm_ml_dsa_data_len(tokdata, mech->mechanism, oid, in_data_len);
     if (rc != CKR_OK)
         return rc;
 
