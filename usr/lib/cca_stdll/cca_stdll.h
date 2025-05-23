@@ -66,12 +66,16 @@
 #define CCA_QSA_ALGO_DILITHIUM_ROUND_2  0x01
 #define CCA_QSA_ALGO_DILITHIUM_ROUND_3  0x03
 #define CCA_QSA_ALGO_ML_DSA_PURE        0x05
+#define CCA_QSA_ALGO_ML_KEM             0x06
 #define CCA_QSA_ALGO_ML_DSA_PRE_HASH    0x07
 #define CCA_QSA_ALGO_DILITHIUM_65       0x0605
 #define CCA_QSA_ALGO_DILITHIUM_87       0x0807
 #define CCA_QSA_ALGO_ML_DSA_44          0x0404
 #define CCA_QSA_ALGO_ML_DSA_65          0x0605
 #define CCA_QSA_ALGO_ML_DSA_87          0x0807
+#define CCA_QSA_ALGO_ML_KEM_512         0x0512
+#define CCA_QSA_ALGO_ML_KEM_768         0x0768
+#define CCA_QSA_ALGO_ML_KEM_1024        0x1024
 #define CCA_QSA_CLEAR_FORMAT_NO_KEY     0x00
 #define CCA_QSA_CLEAR_FORMAT_KAT        0x01
 #define CCA_QSA_CLEAR_FORMAT_PUB_ONLY   0x03
@@ -157,6 +161,10 @@
 #define CCA_QSA_EXTTOK_RHO_OFFSET          10
 /* Offset into an QSA public key area of the t1 length */
 #define CCA_QSA_EXTTOK_T1_OFFSET           12
+/* Offset into an QSA public key area of the pk length */
+#define CCA_QSA_EXTTOK_PK_OFFSET           10
+/* Offset into an QSA public key area of the seed length */
+#define CCA_QSA_EXTTOK_SEED_OFFSET         12
 /* Offset into an QSA public key area of the payload area */
 #define CCA_QSA_EXTTOK_PAYLOAD_OFFSET      24
 
