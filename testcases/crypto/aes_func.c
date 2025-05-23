@@ -460,14 +460,18 @@ CK_RV alloc_gcm_param(CK_GCM_PARAMS *gcm_param, CK_BYTE *pIV, CK_ULONG ulIVLen,
     memcpy(gcm_param->pIv, pIV, ulIVLen);
     gcm_param->ulIvBits = ulIVLen * 8;
 
-    gcm_param->pAAD = malloc(ulAADLen);
-    if (ulAADLen != 0 && gcm_param->pAAD == NULL) {
-        free(gcm_param->pIv);
-        gcm_param->pIv = NULL;
-        return CKR_HOST_MEMORY;
+    if (ulAADLen > 0) {
+        gcm_param->pAAD = malloc(ulAADLen);
+        if (gcm_param->pAAD == NULL) {
+            free(gcm_param->pIv);
+            gcm_param->pIv = NULL;
+            return CKR_HOST_MEMORY;
+        }
+        memcpy(gcm_param->pAAD, pAAD, ulAADLen);
+    } else {
+        gcm_param->pAAD = NULL;
     }
     gcm_param->ulAADLen = ulAADLen;
-    memcpy(gcm_param->pAAD, pAAD, ulAADLen);
 
     return CKR_OK;
 }
@@ -724,6 +728,10 @@ CK_RV do_EncryptUpdateAES(struct published_test_suite_info * tsuite)
     }
     if (is_cca_token(slot_id) && tsuite->mech.mechanism == CKM_AES_XTS && pkey == FALSE) {
         testcase_skip("Slot supports AES-XTS only for protected keys.\n");
+        goto testcase_cleanup;
+    }
+    if (is_cca_token(slot_id) && tsuite->mech.mechanism == CKM_AES_GCM) {
+        testcase_skip("Slot supports AES-GCM only in single-chunk mode.\n");
         goto testcase_cleanup;
     }
     for (i = 0; i < tsuite->tvcount; i++) {
@@ -1127,6 +1135,10 @@ CK_RV do_DecryptUpdateAES(struct published_test_suite_info * tsuite)
     }
     if (is_cca_token(slot_id) && tsuite->mech.mechanism == CKM_AES_XTS && pkey == FALSE) {
         testcase_skip("Slot supports AES-XTS only for protected keys.\n");
+        goto testcase_cleanup;
+    }
+    if (is_cca_token(slot_id) && tsuite->mech.mechanism == CKM_AES_GCM) {
+        testcase_skip("Slot supports AES-GCM only in single-chunk mode.\n");
         goto testcase_cleanup;
     }
 
