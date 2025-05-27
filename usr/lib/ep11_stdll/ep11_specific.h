@@ -343,6 +343,8 @@ typedef struct {
 #define REGEX_SUB_CARD_PATTERN  "[0-9a-fA-F]+\\.[0-9a-fA-F]+"
 #define MASK_EP11               0x04000000
 
+#define SYSFS_SEL_GUEST        "/sys/firmware/uv/prot_virt_guest"
+
 typedef struct {
     STDLL_TokData_t *tokdata;
     ep11_session_t *ep11_session;
