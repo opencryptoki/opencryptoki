@@ -186,6 +186,8 @@ static CK_RV obj_opaque_2_blob(STDLL_TokData_t *tokdata, OBJECT *key_obj,
 static CK_RV obj_opaque_2_reenc_blob(STDLL_TokData_t *tokdata, OBJECT *key_obj,
                                      CK_BYTE **blob, size_t *blobsize);
 
+static CK_RV file_fgets(const char *fname, char *buf, size_t buflen);
+
 /* EP11 Firmware levels that contain the HMAC min/max keysize fix */
 static const CK_VERSION cex4p_hmac_fix = { .major = 4, .minor = 20 };
 static const CK_VERSION cex5p_hmac_fix = { .major = 6, .minor = 3 };
@@ -3209,6 +3211,21 @@ static CK_RV ep11tok_load_libica(STDLL_TokData_t *tokdata)
     return CKR_OK;
 }
 
+static CK_BBOOL ep11tok_is_sel_guest(void)
+{
+    char buf[20];
+    CK_RV rc;
+
+    if (access(SYSFS_SEL_GUEST, R_OK) != 0)
+        return FALSE;
+
+    rc = file_fgets(SYSFS_SEL_GUEST, buf, sizeof(buf));
+    if (rc != CKR_OK)
+        return FALSE;
+
+    return (buf[0] == '1');
+}
+
 CK_RV ep11tok_init(STDLL_TokData_t * tokdata, CK_SLOT_ID SlotNumber,
                    char *conf_name)
 {
@@ -3356,6 +3373,16 @@ CK_RV ep11tok_init(STDLL_TokData_t * tokdata, CK_SLOT_ID SlotNumber,
 #endif /* NO_PKEY */
 
     if (ep11_data->vhsm_mode || ep11_data->fips_session_mode) {
+        if (ep11tok_is_sel_guest()) {
+            TRACE_ERROR("Strict-session or VHSM mode is not supported in a "
+                        "Secure Execution for Linux guest\n");
+            OCK_SYSLOG(LOG_ERR, "Slot %lu: Strict-session or VHSM mode is "
+                       "not supported in a Secure Execution for Linux guest\n",
+                       tokdata->slot_id);
+            rc = CKR_FUNCTION_FAILED;
+            goto error;
+        }
+
         if (pthread_mutex_init(&ep11_data->session_mutex, NULL) != 0) {
             TRACE_ERROR("Initializing session lock failed.\n");
             rc = CKR_CANT_LOCK;
