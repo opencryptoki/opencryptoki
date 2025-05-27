@@ -1,3 +1,21 @@
++ openCryptoki 3.25
+- ICA/Soft: Add support for PKCS#11 v3.0 SHAKE key derivation
+- EP11: Add support for PKCS#11 v3.0 SHA3 and SHA3-HMAC mechanisms
+- EP11: Add support for PKCS#11 v3.0 SHA3 mechanisms and MGFs for RSA-OAEP
+- EP11: Add support for PKCS#11 v3.0 SHA3 variants of RSA-PKCS and ECDSA mechanisms
+- CCA: Add support for CCA AES CIPHER secure key types
+- CCA: Add support for the CKM_ECDH1_DERIVE mechanism
+- Soft/ICA: Add support for the CKM_AES_KEY_WRAP[_*] mechanisms
+- CCA/Soft/ICA: Add support for the CKM_RSA_AES_KEY_WRAP mechanism
+- Soft/ICA: Add support for the CKM_ECDH_AES_KEY_WRAP mechanism
+- ICA: Report mechanisms dependent on if libica is in FIPS mode
+- P11KMIP: Add a tool for import and exporting PKCS#11 keys to a KMIP server
+- EP11: Add support for opaque secure key blob import via C_CreateObject
+- Soft/ICA: Add support for key wrapping with AES-GCM
+- CCA: Add support for newer CCA versions on s390x and non-s390x platforms
+- CCA: Add support for CKM_AES_GCM (single-part operations only)
+- Bug fixes
+
 + openCryptoki 3.24
 - Add support for building Opencryptoki on the IBM AIX platform
 - Add support for the CCA token on non-IBM Z platforms (x86_64, ppc64)
