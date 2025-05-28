@@ -19,8 +19,6 @@
 #include <strings.h>
 #include <stdbool.h>
 #include <unistd.h>
-#include <getopt.h>
-#include <err.h>
 #include <limits.h>
 #include <dlfcn.h>
 #include <pwd.h>
@@ -39,6 +37,7 @@
 #include <openssl/pem.h>
 #include <openssl/err.h>
 
+#include "platform.h"
 #include "p11kmip.h"
 #include "p11util.h"
 #include "pin_prompt.h"

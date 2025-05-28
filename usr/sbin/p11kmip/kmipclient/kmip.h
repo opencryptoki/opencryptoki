@@ -29,6 +29,8 @@
 
 #include "kmipclient.h"
 
+#include "platform.h"
+
 /* KMIP Connection related structures */
 #define KMIP_DEFAULT_PROTOCOL_VERSION_MAJOR	1
 #define KMIP_DEFAULT_PROTOCOL_VERSION_MINOR	0
