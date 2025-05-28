@@ -7,7 +7,8 @@ noinst_HEADERS += usr/sbin/p11kmip/kmipclient/kmipclient.h		\
 
 usr_sbin_p11kmip_kmipclient_libkmipclient_a_CFLAGS =			\
 	 -DLINUX -DPROGRAM_NAME=\"$(@)\"				\
-	-I${srcdir}/usr/sbin/p11kmip/kmipclient
+	-I${srcdir}/usr/sbin/p11kmip/kmipclient				\
+	-I${srcdir}/usr/lib/common
 	
 usr_sbin_p11kmip_kmipclient_libkmipclient_a_SOURCES =			\
 	usr/sbin/p11kmip/kmipclient/attribute.c				\

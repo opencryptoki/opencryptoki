@@ -11,10 +11,10 @@
 #define _DEFAULT_SOURCE
 
 #include <errno.h>
-#include <err.h>
 #include <stdarg.h>
 #include <string.h>
 #include <strings.h>
+#include <sys/time.h>
 
 #include "utils.h"
 #include "names.h"
@@ -353,13 +353,15 @@ int kmip_parse_timestamp(const char *str, int64_t *val)
 	if (p == NULL || *p != 0)
 		return -EBADMSG;
 
+#if !defined(_AIX)
 	/* Adjust according to the parsed time zone */
 	tm.tm_sec -= tm.tm_gmtoff;
 	tm.tm_gmtoff = 0;
 	tm.tm_isdst = 0;
 
 	*val = (time_t)timegm(&tm);
-
+#endif
+	
 	return 0;
 }
 

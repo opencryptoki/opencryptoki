@@ -9,7 +9,6 @@
  */
 
 #include <errno.h>
-#include <endian.h>
 #include <string.h>
 
 #include "kmip.h"
