@@ -13,7 +13,6 @@
 #include <errno.h>
 #include <stdarg.h>
 #include <string.h>
-#include <err.h>
 
 #include <openssl/bn.h>
 #include <openssl/evp.h>
