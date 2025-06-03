@@ -485,6 +485,9 @@ int chk_create_tokdir(Slot_Info_t_64 *psinfo)
     char *tokgroup = psinfo->usergroup;
     char token_md5_hash[MD5_HASH_SIZE];
 
+    if (psinfo->present == FALSE)
+        return 0;
+
     proc_umask = umask(0);
 
     if (strlen(tokgroup) == 0)
@@ -512,8 +515,31 @@ int chk_create_tokdir(Slot_Info_t_64 *psinfo)
      * specified, the token directory name is not known, thus we can not check
      * or create it.
      */
-    if (!tokdir || strlen(tokdir) == 0)
+    if (!tokdir || strlen(tokdir) == 0) {
+        /*
+         * Build the md5 hash from the dll name prefixed with 'dll:' to
+         * check for duplicate tokens with no 'tokname'.
+         */
+        snprintf(tokendir, sizeof(tokendir), "dll:%s", psinfo->dll_location);
+        rc = compute_md5(tokendir, strlen(tokendir), token_md5_hash);
+        if (rc) {
+            fprintf(stderr, "Error calculating MD5 of token name!\n");
+            return -1;
+        }
+
+        /* check for duplicate token names */
+        if (is_duplicate(token_md5_hash, tokname_hash_table)) {
+            fprintf(stderr, "Duplicate token in slot %llu!\n",
+                    psinfo->slot_number);
+            return -1;
+        }
+
+        /* add entry into hash table */
+        memcpy(tokname_hash_table[psinfo->slot_number], token_md5_hash,
+               MD5_HASH_SIZE);
+
         return 0;
+    }
 
     /* Check if the path length fits in the max path length
        (include 2 * / and 0)
