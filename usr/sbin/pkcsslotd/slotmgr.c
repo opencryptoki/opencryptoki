@@ -722,8 +722,14 @@ static int config_parse_slot(const char *config_file,
 
     if (slot_no >= NUMBER_SLOTS_MANAGED) {
         ErrLog("Error parsing config file '%s': Slot number %d unsupported! "
-               "Slot number has to be less than %d!", config_file, slot_no,
+               "Slot number has to be less than %d!\n", config_file, slot_no,
                NUMBER_SLOTS_MANAGED);
+        return 1;
+    }
+
+    if (sinfo[slot_no].present) {
+        ErrLog("Error parsing config file '%s': Duplicate slot number %d\n",
+               config_file, slot_no);
         return 1;
     }
 
