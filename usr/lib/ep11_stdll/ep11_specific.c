@@ -3373,12 +3373,18 @@ CK_RV ep11tok_init(STDLL_TokData_t * tokdata, CK_SLOT_ID SlotNumber,
 #endif /* NO_PKEY */
 
     if (ep11_data->vhsm_mode || ep11_data->fips_session_mode) {
-        if (ep11tok_is_sel_guest()) {
-            TRACE_ERROR("Strict-session or VHSM mode is not supported in a "
-                        "Secure Execution for Linux guest\n");
-            OCK_SYSLOG(LOG_ERR, "Slot %lu: Strict-session or VHSM mode is "
-                       "not supported in a Secure Execution for Linux guest\n",
-                       tokdata->slot_id);
+        if (ep11tok_is_sel_guest() && (
+#ifndef EP11_HSMSIM
+             compare_ck_version(&ep11_data->ep11_lib_version, &ver4_1) < 0 ||
+#endif
+             ep11_data->target_info->used_firmware_API_version < 6)) {
+            TRACE_ERROR("Strict-session or VHSM mode requires an EP11 "
+                        "host library >= v4.1 and API ordinal >= 6 when "
+                        "running in a Secure Execution for Linux guest\n");
+            OCK_SYSLOG(LOG_ERR, "Slot %lu: Strict-session or VHSM mode "
+                       "requires an EP11 host library >= v4.1 and API ordinal "
+                       ">= 6 when running in a Secure Execution for Linux "
+                       "guest\n", tokdata->slot_id);
             rc = CKR_FUNCTION_FAILED;
             goto error;
         }
