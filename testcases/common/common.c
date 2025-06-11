@@ -37,6 +37,7 @@ CK_BBOOL securekey;
  */
 CK_BBOOL pkey = CK_FALSE;
 CK_BBOOL combined_extract = CK_FALSE;
+CK_BBOOL rsa8k = CK_FALSE;
 
 CK_ULONG t_total = 0;           // total test assertions
 CK_ULONG t_ran = 0;             // number of assertions ran
@@ -422,7 +423,9 @@ CK_RV create_RSAPrivateKey(CK_SESSION_HANDLE session,
     // create key
     rc = funcs->C_CreateObject(session, template, template_len, priv_key);
     if (rc != CKR_OK) {
-        if (is_rejected_by_policy(rc, session))
+        if (rc == CKR_KEY_SIZE_RANGE)
+            testcase_notice("C_CreateObject rc=%s", p11_get_ckr(rc));
+        else if (is_rejected_by_policy(rc, session))
             rc = CKR_POLICY_VIOLATION;
         else
             testcase_error("C_CreateObject rc=%s", p11_get_ckr(rc));
@@ -459,7 +462,9 @@ CK_RV create_RSAPublicKey(CK_SESSION_HANDLE session,
     // create key
     rc = funcs->C_CreateObject(session, template, 8, publ_key);
     if (rc != CKR_OK) {
-        if (is_rejected_by_policy(rc, session))
+        if (rc == CKR_KEY_SIZE_RANGE)
+            testcase_notice("C_CreateObject rc=%s", p11_get_ckr(rc));
+        else if (is_rejected_by_policy(rc, session))
             rc = CKR_POLICY_VIOLATION;
         else
             testcase_error("C_CreateObject rc=%s", p11_get_ckr(rc));
@@ -1499,8 +1504,8 @@ void print_hex(CK_BYTE * buf, CK_ULONG len)
 
 void usage(char *fct)
 {
-    printf("usage:  %s [-securekey] [-noskip] [-noinit] [-h] -slot <num>\n\n",
-           fct);
+    printf("usage:  %s [-securekey] [-noskip] [-noinit] [-combined-extract] "
+           "[-rsa8k] [-h] -slot <num>\n\n", fct);
 
     return;
 }
@@ -1545,6 +1550,8 @@ int do_ParseArgs(int argc, char **argv)
             no_stop = TRUE;
         } else if (strcmp(argv[i], "-combined-extract") == 0) {
             combined_extract = TRUE;
+        } else if (strcmp(argv[i], "-rsa8k") == 0) {
+            rsa8k = TRUE;
         } else {
             printf("Invalid argument passed as option: %s\n", argv[i]);
             usage(argv[0]);
