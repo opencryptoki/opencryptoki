@@ -28,6 +28,7 @@
 #include "mech_to_str.h"
 #include "ec_curves.h"
 #include "common.c"
+#include <openssl/rsa.h>
 
 CK_RSA_PKCS_OAEP_PARAMS oaep_params_sha1 = {
         .hashAlg = CKM_SHA_1,
@@ -124,6 +125,14 @@ struct wrapping_mech_info wrapping_tests[] = {
         .wrapping_mech = { CKM_RSA_PKCS, 0, 0 },
         .wrapping_key_gen_mech = { CKM_RSA_PKCS_KEY_PAIR_GEN, 0, 0 },
         .rsa_modbits = 2048,
+        .rsa_publ_exp_len = 3,
+        .rsa_publ_exp = {0x01, 0x00, 0x01},
+    },
+    {
+        .name = "Wrap/Unwrap with RSA 8192 PKCS",
+        .wrapping_mech = { CKM_RSA_PKCS, 0, 0 },
+        .wrapping_key_gen_mech = { CKM_RSA_PKCS_KEY_PAIR_GEN, 0, 0 },
+        .rsa_modbits = 8192,
         .rsa_publ_exp_len = 3,
         .rsa_publ_exp = {0x01, 0x00, 0x01},
     },
@@ -340,6 +349,16 @@ struct wrapping_mech_info wrapping_tests[] = {
         .rsa_publ_exp = {0x01, 0x00, 0x01},
     },
     {
+        .name = "Wrap/Unwrap with RSA 8192 AES KEY WRAP (AES 256, OAEP SHA-1)",
+        .wrapping_mech = { CKM_RSA_AES_KEY_WRAP,
+                           &rsa_aeskw_aes_256_oaep_sha1_params,
+                           sizeof(CK_RSA_AES_KEY_WRAP_PARAMS) },
+        .wrapping_key_gen_mech = { CKM_RSA_PKCS_KEY_PAIR_GEN, 0, 0 },
+        .rsa_modbits = 8192,
+        .rsa_publ_exp_len = 3,
+        .rsa_publ_exp = {0x01, 0x00, 0x01},
+    },
+    {
         .name = "Wrap/Unwrap with ECDH AES KEY WRAP (AES 256, P-256)",
         .wrapping_mech = { CKM_ECDH_AES_KEY_WRAP,
                            &ecdh_aeskw_aes_256__params,
@@ -538,7 +557,7 @@ CK_RV do_perform_operation(CK_MECHANISM *mech,
                                0x08,0x09,0x0a,0x0b,0x0c,0x0d,0x0e,0x0f,
                                0x10,0x11,0x12,0x13,0x14,0x15,0x16,0x17,
                                0x18,0x19,0x1a,0x1b,0x1c,0x1d,0x1e,0x1f};
-    CK_BYTE cipher_data[512];
+    CK_BYTE cipher_data[OPENSSL_RSA_MAX_MODULUS_BITS / 8];
     CK_BYTE output_data[8192];
     CK_OBJECT_HANDLE encr_key, decr_key, sign_key, verify_key;
 
@@ -785,6 +804,11 @@ CK_RV do_wrap_key_test(struct wrapped_mech_info *tsuite,
             goto testcase_cleanup;
         }
 
+        if (tsuite->rsa_modbits > 4096 && !rsa8k) {
+            testcase_skip("Tests with modbits='%lu' are not enabled",
+                           tsuite->rsa_modbits);
+            goto testcase_cleanup;
+        }
         if (!keysize_supported(slot_id1, tsuite->wrapped_key_gen_mech.mechanism,
                                tsuite->rsa_modbits)) {
             testcase_skip("Token in slot %lu cannot be used with modbits='%lu'",
@@ -901,6 +925,15 @@ CK_RV do_wrap_key_test(struct wrapped_mech_info *tsuite,
         if (rc == CKR_POLICY_VIOLATION) {
             testcase_skip("generate to be wrapped key with mech %s (%u) in slot "
                           "%lu is not allowed by policy",
+                          mech_to_str(tsuite->wrapped_key_gen_mech.mechanism),
+                          (unsigned int)tsuite->wrapped_key_gen_mech.mechanism,
+                          slot_id1);
+            rc = CKR_OK;
+            goto testcase_cleanup;
+        }
+        if (rc == CKR_KEY_SIZE_RANGE) {
+            testcase_skip("generate to be wrapped key of the key size with "
+                          "mech %s (%u) in slot %lu is not supported",
                           mech_to_str(tsuite->wrapped_key_gen_mech.mechanism),
                           (unsigned int)tsuite->wrapped_key_gen_mech.mechanism,
                           slot_id1);
@@ -1160,7 +1193,7 @@ CK_RV do_wrapping_test(struct wrapping_mech_info *tsuite)
     CK_RV loc_rc, rc = CKR_OK;
     CK_ULONG i;
     char *s = NULL;
-    CK_BYTE modulus[512];
+    CK_BYTE modulus[OPENSSL_RSA_MAX_MODULUS_BITS / 8];
     CK_BYTE publ_exp[16];
     CK_BYTE key[64];
     CK_ULONG key_size = 0;
@@ -1243,6 +1276,11 @@ CK_RV do_wrapping_test(struct wrapping_mech_info *tsuite)
             goto testcase_cleanup;
         }
 
+        if (tsuite->rsa_modbits > 4096 && !rsa8k) {
+            testcase_skip("Tests with modbits='%lu' are not enabled",
+                           tsuite->rsa_modbits);
+            goto testcase_cleanup;
+        }
         if (!keysize_supported(slot_id1,
                                tsuite->wrapping_key_gen_mech.mechanism,
                                tsuite->rsa_modbits)) {
@@ -1392,6 +1430,15 @@ CK_RV do_wrapping_test(struct wrapping_mech_info *tsuite)
             rc = CKR_OK;
             goto testcase_cleanup;
         }
+        if (rc == CKR_KEY_SIZE_RANGE) {
+            testcase_skip("generate wrapping key of the key size with mech %s "
+                          "(%u) in slot %lu is not supported",
+                          mech_to_str(tsuite->wrapping_key_gen_mech.mechanism),
+                          (unsigned int)tsuite->wrapping_key_gen_mech.mechanism,
+                          slot_id2);
+            rc = CKR_OK;
+            goto testcase_cleanup;
+        }
 
         testcase_error("generate wrapping key with mech %s (%u) in slot %lu "
                        "failed, rc=%s",
@@ -1481,6 +1528,12 @@ CK_RV do_wrapping_test(struct wrapping_mech_info *tsuite)
     if (rc != CKR_OK) {
         if (rc == CKR_POLICY_VIOLATION) {
             testcase_skip("import wrapping key in slot %lu is not allowed by policy",
+                          slot_id1);
+            rc = CKR_OK;
+            goto testcase_cleanup;
+        }
+        if (rc == CKR_KEY_SIZE_RANGE) {
+            testcase_skip("import wrapping key size is not supported in slot %lu",
                           slot_id1);
             rc = CKR_OK;
             goto testcase_cleanup;
@@ -1579,18 +1632,18 @@ int main(int argc, char **argv)
                 return -1;
             }
             slot_id1 = atoi(argv[i]);
-        }
-        else if (strcmp(argv[i], "-slot2") == 0) {
+        } else if (strcmp(argv[i], "-slot2") == 0) {
             ++i;
             if (i >= argc) {
                 printf("Slot number missing\n");
                 return -1;
             }
             slot_id2 = atoi(argv[i]);
-        }
-
-        if (strcmp(argv[i], "-h") == 0) {
-            printf("usage:  %s [-slot1 <num>] [-slot2 <num>] [-h]\n\n",
+        } else if (strcmp(argv[i], "-rsa8k") == 0) {
+            ++i;
+            rsa8k = TRUE;
+        } else if (strcmp(argv[i], "-h") == 0) {
+            printf("usage:  %s [-slot1 <num>] [-slot2 <num>] [-rsa8k] [-h]\n\n",
                    argv[0]);
             printf("By default, Slot #1 and #2 are used\n\n");
             return -1;

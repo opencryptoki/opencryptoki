@@ -102,6 +102,12 @@ CK_RV do_EncryptDecryptRSA(struct GENERATED_TEST_SUITE_INFO *tsuite)
 
         rc = CKR_OK;            // set rc
 
+        if (tsuite->tv[i].modbits > 4096 && !rsa8k) {
+            testcase_skip("Tests with  modbits='%lu' are not enabled",
+                          tsuite->tv[i].modbits);
+            free(s);
+            continue;
+        }
         if (!keysize_supported(slot_id, tsuite->mech.mechanism,
                                tsuite->tv[i].modbits)) {
             testcase_skip("Token in slot %lu cannot be used with modbits='%lu'",
@@ -441,6 +447,12 @@ CK_RV do_EncryptDecryptImportRSA(struct PUBLISHED_TEST_SUITE_INFO *tsuite,
 
         rc = CKR_OK;            // set rc
 
+        if (tsuite->tv[i].mod_len * 8 > 4096 && !rsa8k) {
+            testcase_skip("Tests with  modbits='%lu' are not enabled",
+                          tsuite->tv[i].mod_len * 8);
+            free(s);
+            continue;
+        }
         if (!keysize_supported(slot_id, tsuite->mech.mechanism,
                                tsuite->tv[i].mod_len * 8)) {
             testcase_skip("Token in slot %lu cannot be used with modbits='%lu'",
@@ -576,6 +588,10 @@ CK_RV do_EncryptDecryptImportRSA(struct PUBLISHED_TEST_SUITE_INFO *tsuite,
                 testcase_skip("RSA key import is not allowed by policy");
                 continue;
             }
+            if (rc == CKR_KEY_SIZE_RANGE) {
+                testcase_skip("RSA key size is not in supported range");
+                continue;
+            }
 
             testcase_error("create_RSAPrivateKey(), rc=%s", p11_get_ckr(rc));
             goto error;
@@ -591,6 +607,10 @@ CK_RV do_EncryptDecryptImportRSA(struct PUBLISHED_TEST_SUITE_INFO *tsuite,
             if (rc == CKR_POLICY_VIOLATION) {
                 testcase_skip("RSA key import is not allowed by policy");
                 funcs->C_DestroyObject(session, priv_key);
+                continue;
+            }
+            if (rc == CKR_KEY_SIZE_RANGE) {
+                testcase_skip("RSA key size is not in supported range");
                 continue;
             }
 
@@ -663,6 +683,9 @@ CK_RV do_EncryptDecryptImportRSA(struct PUBLISHED_TEST_SUITE_INFO *tsuite,
                               "and/or MGF other than SHA-1/SHA256 with "
                               "CCA 8.1 or later");
                 goto tv_cleanup;
+            } else if (rc == CKR_KEY_SIZE_RANGE) {
+                testcase_skip("RSA key size is not in supported range");
+                continue;
             }
 
             testcase_error("C_Encrypt, rc=%s", p11_get_ckr(rc));
@@ -817,6 +840,12 @@ CK_RV do_SignVerifyRSA(struct GENERATED_TEST_SUITE_INFO * tsuite,
                        recover_mode ? "Recover" : "", i, s,
                        tsuite->tv[i].modbits, tsuite->tv[i].keylen);
 
+        if (tsuite->tv[i].modbits > 4096 && !rsa8k) {
+            testcase_skip("Tests with  modbits='%lu' are not enabled",
+                          tsuite->tv[i].modbits);
+            free(s);
+            continue;
+        }
         if (!keysize_supported(slot_id, tsuite->mech.mechanism,
                                tsuite->tv[i].modbits)) {
             testcase_skip("Token in slot %lu cannot be used with modbits='%lu'",
@@ -1078,6 +1107,12 @@ CK_RV do_SignVerify_RSAPSS(struct GENERATED_TEST_SUITE_INFO * tsuite)
                        tsuite->name, i, s,
                        tsuite->tv[i].modbits, tsuite->tv[i].keylen);
 
+        if (tsuite->tv[i].modbits > 4096 && !rsa8k) {
+            testcase_skip("Tests with  modbits='%lu' are not enabled",
+                          tsuite->tv[i].modbits);
+            free(s);
+            continue;
+        }
         if (!keysize_supported(slot_id, tsuite->mech.mechanism,
                                tsuite->tv[i].modbits)) {
             testcase_skip("Token in slot %lu cannot be used with modbits='%lu'",
@@ -1293,6 +1328,11 @@ CK_RV do_WrapUnwrapRSA(struct GENERATED_TEST_SUITE_INFO * tsuite)
             continue;
         }
 
+        if (tsuite->tv[i].modbits > 4096 && !rsa8k) {
+            testcase_skip("Tests with  modbits='%lu' are not enabled",
+                          tsuite->tv[i].modbits);
+            continue;
+        }
         if (!keysize_supported(slot_id, tsuite->mech.mechanism,
                                tsuite->tv[i].modbits)) {
             testcase_skip("Token in slot %lu cannot be used with modbits='%lu'",
@@ -1453,7 +1493,7 @@ CK_RV do_WrapUnwrapRSA(struct GENERATED_TEST_SUITE_INFO * tsuite)
         memset(re_cipher, 0, sizeof(re_cipher));
 
         // initialize buffer lengths
-        wrapped_keylen = PKCS11_MAX_PIN_LEN;
+        wrapped_keylen = 0;
 
         // generate RSA key pair
         rc = generate_RSA_PKCS_KeyPair_cached(session, tsuite->tv[i].modbits,
@@ -1762,6 +1802,11 @@ CK_RV do_SignRSA(struct PUBLISHED_TEST_SUITE_INFO * tsuite, CK_BBOOL me_only)
 
         rc = CKR_OK;            // set return value
 
+        if (tsuite->tv[i].mod_len * 8 > 4096 && !rsa8k) {
+            testcase_skip("Tests with  modbits='%lu' are not enabled",
+                          tsuite->tv[i].mod_len * 8);
+            continue;
+        }
         if (!keysize_supported(slot_id, tsuite->mech.mechanism,
                                tsuite->tv[i].mod_len * 8)) {
             testcase_skip("Token in slot %lu cannot be used with modbits='%lu'",
@@ -1862,6 +1907,10 @@ CK_RV do_SignRSA(struct PUBLISHED_TEST_SUITE_INFO * tsuite, CK_BBOOL me_only)
         if (rc != CKR_OK) {
             if (rc == CKR_POLICY_VIOLATION) {
                 testcase_skip("RSA key import is not allowed by policy");
+                continue;
+            }
+            if (rc == CKR_KEY_SIZE_RANGE) {
+                testcase_skip("RSA key size is not in supported range");
                 continue;
             }
 
@@ -1971,6 +2020,11 @@ CK_RV do_VerifyRSA(struct PUBLISHED_TEST_SUITE_INFO * tsuite)
 
         rc = CKR_OK;            // set return value
 
+        if (tsuite->tv[i].mod_len * 8 > 4096 && !rsa8k) {
+            testcase_skip("Tests with  modbits='%lu' are not enabled",
+                          tsuite->tv[i].mod_len * 8);
+            continue;
+        }
         if (!keysize_supported(slot_id, tsuite->mech.mechanism,
                                tsuite->tv[i].mod_len * 8)) {
             testcase_skip("Token in slot %lu cannot be used with modbits='%lu'",
@@ -2038,6 +2092,10 @@ CK_RV do_VerifyRSA(struct PUBLISHED_TEST_SUITE_INFO * tsuite)
                 testcase_skip("RSA key import is not allowed by policy");
                 continue;
             }
+            if (rc == CKR_KEY_SIZE_RANGE) {
+                testcase_skip("RSA key size is not in supported range");
+                continue;
+            }
 
             testcase_error("create_RSAPublicKey(), rc=%s", p11_get_ckr(rc));
             goto error;
@@ -2060,6 +2118,8 @@ CK_RV do_VerifyRSA(struct PUBLISHED_TEST_SUITE_INFO * tsuite)
 
         if (rc == CKR_OK) {
             testcase_pass("C_Verify.");
+        } else if (rc == CKR_KEY_SIZE_RANGE) {
+           testcase_skip("RSA key size is not in supported range");
         } else {
             testcase_fail("%s Sign Verify with test vector %u "
                           "failed.", tsuite->name, i);
@@ -2146,6 +2206,11 @@ CK_RV do_RSAImplicitRejection(struct PUBLISHED_TEST_SUITE_INFO *tsuite)
 
         rc = CKR_OK;
 
+        if (tsuite->tv[i].mod_len * 8 > 4096 && !rsa8k) {
+            testcase_skip("Tests with  modbits='%lu' are not enabled",
+                          tsuite->tv[i].mod_len * 8);
+            continue;
+        }
         if (!keysize_supported(slot_id, tsuite->mech.mechanism,
                                tsuite->tv[i].mod_len * 8)) {
             testcase_skip("Token in slot %lu cannot be used with modbits='%lu'",
@@ -2180,6 +2245,10 @@ CK_RV do_RSAImplicitRejection(struct PUBLISHED_TEST_SUITE_INFO *tsuite)
         if (rc != CKR_OK) {
             if (rc == CKR_POLICY_VIOLATION) {
                 testcase_skip("RSA key import is not allowed by policy");
+                continue;
+            }
+            if (rc == CKR_KEY_SIZE_RANGE) {
+                testcase_skip("RSA key size is not in supported range");
                 continue;
             }
 
