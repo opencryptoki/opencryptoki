@@ -4275,6 +4275,8 @@ retry:
 typedef struct {
     CK_BBOOL card_level_set;
     struct cca_version min_card_version;
+    struct cca_version min_cex7_card_version;
+    struct cca_version min_cex8_card_version;
 } cca_min_card_version_t;
 
 /* return -1 if v1 < v2, 0 if v1 == v2, 1 if v1 > v2 */
@@ -4337,6 +4339,15 @@ static CK_RV cca_get_adapter_version(cca_min_card_version_t *data)
         data->card_level_set = 1;
     }
 
+    if (adapter_version.ver == 7 &&
+        compare_cca_version(&adapter_version,
+                            &data->min_cex7_card_version) < 0)
+        data->min_cex7_card_version = adapter_version;
+    if (adapter_version.ver == 8 &&
+        compare_cca_version(&adapter_version,
+                            &data->min_cex8_card_version) < 0)
+        data->min_cex8_card_version = adapter_version;
+
     return CKR_OK;
 }
 
@@ -4370,6 +4381,12 @@ static CK_RV cca_get_min_card_level(STDLL_TokData_t *tokdata)
     card_level_data.min_card_version.ver = UINT_MAX;
     card_level_data.min_card_version.rel = UINT_MAX;
     card_level_data.min_card_version.mod = UINT_MAX;
+    card_level_data.min_cex7_card_version.ver = UINT_MAX;
+    card_level_data.min_cex7_card_version.rel = UINT_MAX;
+    card_level_data.min_cex7_card_version.mod = UINT_MAX;
+    card_level_data.min_cex8_card_version.ver = UINT_MAX;
+    card_level_data.min_cex8_card_version.rel = UINT_MAX;
+    card_level_data.min_cex8_card_version.mod = UINT_MAX;
 
     ret = cca_iterate_adapters(tokdata, cca_get_card_level_handler,
                                &card_level_data);
@@ -4388,6 +4405,21 @@ static CK_RV cca_get_min_card_level(STDLL_TokData_t *tokdata)
     }
 
     cca_private->min_card_version = card_level_data.min_card_version;
+
+    if (card_level_data.min_cex7_card_version.ver == 7)
+        cca_private->min_cex7_card_version =
+                                        card_level_data.min_cex7_card_version;
+    else
+        memset(&cca_private->min_cex7_card_version, 0,
+               sizeof(cca_private->min_cex7_card_version));
+
+    if (card_level_data.min_cex8_card_version.ver == 8)
+        cca_private->min_cex8_card_version =
+                                        card_level_data.min_cex8_card_version;
+    else
+        memset(&cca_private->min_cex8_card_version, 0,
+               sizeof(cca_private->min_cex8_card_version));
+
     if (pthread_rwlock_unlock(&cca_private->min_card_version_rwlock) != 0) {
         TRACE_ERROR("CCA min_card_version RW-unlock failed.\n");
         ret = CKR_CANT_LOCK;
@@ -4773,6 +4805,47 @@ static CK_BBOOL cca_rsa_aeskw_supported(STDLL_TokData_t *tokdata,
     }
 
     return supp;
+}
+
+static CK_BBOOL cca_rsa_8192_supported(STDLL_TokData_t *tokdata)
+{
+    CK_BBOOL ret = FALSE;
+    struct cca_private_data *cca_private = tokdata->private_data;
+    const struct cca_version cca_v7_6 = { .ver = 7, .rel = 6, .mod = 0 };
+    const struct cca_version cca_v8_4 = { .ver = 8, .rel = 4, .mod = 0 };
+
+    if (pthread_rwlock_rdlock(&cca_private->min_card_version_rwlock)
+                                                        != 0) {
+        TRACE_ERROR("CCA min_card_version RD-Lock failed.\n");
+        return FALSE;
+    }
+
+    /* CCA v7.x must be 7.6 or later, else v8.4 or later */
+    if (cca_private->cca_lib_version.ver == 7)
+        ret = (compare_cca_version(&cca_private->cca_lib_version,
+                                   &cca_v7_6) >= 0);
+    else
+        ret = (compare_cca_version(&cca_private->cca_lib_version,
+                                   &cca_v8_4) >= 0);
+
+    if (cca_private->min_card_version.ver <= 8) {
+        if (cca_private->min_cex8_card_version.ver == 8)
+            ret &= (compare_cca_version(&cca_private->min_cex8_card_version,
+                    &cca_v8_4) >= 0);
+        if (cca_private->min_cex7_card_version.ver == 7)
+            ret &= (compare_cca_version(&cca_private->min_cex7_card_version,
+                    &cca_v7_6) >= 0);
+        if (cca_private->min_card_version.ver < 7)
+            ret = FALSE;
+    }
+
+    if (pthread_rwlock_unlock(&cca_private->min_card_version_rwlock)
+                                                        != 0) {
+        TRACE_ERROR("CCA min_card_version RD-Unlock failed.\n");
+        return FALSE;
+    }
+
+    return ret;
 }
 
 CK_RV token_specific_init(STDLL_TokData_t * tokdata, CK_SLOT_ID SlotNumber,
@@ -5674,6 +5747,8 @@ CK_RV token_specific_rsa_generate_keypair(STDLL_TokData_t * tokdata,
     if (return_code != CCA_SUCCESS) {
         TRACE_ERROR("CSNDPKB (RSA KEY TOKEN BUILD) failed. return:%ld,"
                     " reason:%ld\n", return_code, reason_code);
+        if (return_code == 8 && reason_code == 760)
+            return CKR_KEY_SIZE_RANGE;
         return CKR_FUNCTION_FAILED;
     }
 
@@ -5696,6 +5771,8 @@ CK_RV token_specific_rsa_generate_keypair(STDLL_TokData_t * tokdata,
     if (return_code != CCA_SUCCESS) {
         TRACE_ERROR("CSNDPKG (RSA KEY GENERATE) failed. return:%ld,"
                     " reason:%ld\n", return_code, reason_code);
+        if (return_code == 8 && reason_code == 121)
+            return CKR_KEY_SIZE_RANGE;
         return CKR_FUNCTION_FAILED;
     }
 
@@ -5788,6 +5865,7 @@ CK_RV token_specific_rsa_encrypt(STDLL_TokData_t * tokdata,
     long return_code, reason_code, rule_array_count, data_structure_length;
     unsigned char rule_array[CCA_RULE_ARRAY_SIZE] = { 0, };
     CK_ATTRIBUTE *attr;
+    CK_ULONG max_out_len;
     CK_RV rc;
 
     if (((struct cca_private_data *)tokdata->private_data)->inconsistent) {
@@ -5803,11 +5881,12 @@ CK_RV token_specific_rsa_encrypt(STDLL_TokData_t * tokdata,
         return rc;
     }
 
-    /* The max value allowable by CCA for out_data_len is 512, so cap the
+    /* The max value allowable by CCA for out_data_len is 512/1024, so cap the
      * incoming value if its too large. CCA will throw error 8, 72 otherwise.
      */
-    if (*out_data_len > 512)
-        *out_data_len = 512;
+    max_out_len = (cca_rsa_8192_supported(tokdata) ? 1024 : 512);
+    if (*out_data_len > max_out_len)
+        *out_data_len = max_out_len;
 
     rule_array_count = 1;
     memcpy(rule_array, "PKCS-1.2", CCA_KEYWORD_SIZE);
@@ -5836,6 +5915,8 @@ CK_RV token_specific_rsa_encrypt(STDLL_TokData_t * tokdata,
     if (return_code != CCA_SUCCESS) {
         TRACE_ERROR("CSNDPKE (RSA ENCRYPT) failed. return:%ld, reason:%ld\n",
                     return_code, reason_code);
+        if (return_code == 8 && reason_code == 770)
+            return CKR_KEY_SIZE_RANGE;
         return CKR_FUNCTION_FAILED;
     } else if (reason_code != 0) {
         TRACE_WARNING("CSNDPKE (RSA ENCRYPT) succeeded, but"
@@ -5854,6 +5935,7 @@ CK_RV token_specific_rsa_decrypt(STDLL_TokData_t * tokdata,
     long return_code, reason_code, rule_array_count, data_structure_length;
     unsigned char rule_array[CCA_RULE_ARRAY_SIZE] = { 0, };
     CK_ATTRIBUTE *attr;
+    CK_ULONG max_out_len;
     CK_RV rc;
 
     if (((struct cca_private_data *)tokdata->private_data)->inconsistent) {
@@ -5869,11 +5951,12 @@ CK_RV token_specific_rsa_decrypt(STDLL_TokData_t * tokdata,
         return rc;
     }
 
-    /* The max value allowable by CCA for out_data_len is 512, so cap the
+    /* The max value allowable by CCA for out_data_len is 512/1024, so cap the
      * incoming value if its too large. CCA will throw error 8, 72 otherwise.
      */
-    if (*out_data_len > 512)
-        *out_data_len = 512;
+    max_out_len = (cca_rsa_8192_supported(tokdata) ? 1024 : 512);
+    if (*out_data_len > max_out_len)
+        *out_data_len = max_out_len;
 
     rule_array_count = 1;
     memcpy(rule_array, "PKCS-1.2", CCA_KEYWORD_SIZE);
@@ -5908,6 +5991,9 @@ CK_RV token_specific_rsa_decrypt(STDLL_TokData_t * tokdata,
     rc = constant_time_select(constant_time_eq(return_code, 8) &
                               constant_time_eq(reason_code, 66),
                               CKR_ENCRYPTED_DATA_INVALID, rc);
+    rc = constant_time_select(constant_time_eq(return_code, 8) &
+                              constant_time_eq(reason_code, 770),
+                              CKR_KEY_SIZE_RANGE, rc);
 
     return rc;
 }
@@ -5925,6 +6011,7 @@ CK_RV token_specific_rsa_oaep_encrypt(STDLL_TokData_t *tokdata,
     long return_code, reason_code, rule_array_count, data_structure_length;
     unsigned char rule_array[CCA_RULE_ARRAY_SIZE] = { 0, };
     CK_ATTRIBUTE *attr;
+    CK_ULONG max_out_len;
     OBJECT *key_obj = NULL;
     CK_BBOOL oaep2_supported;
     CK_MECHANISM_TYPE mgf_mech;
@@ -5978,11 +6065,12 @@ CK_RV token_specific_rsa_oaep_encrypt(STDLL_TokData_t *tokdata,
         goto done;
     }
 
-    /* The max value allowable by CCA for out_data_len is 512, so cap the
+    /* The max value allowable by CCA for out_data_len is 512/1024, so cap the
      * incoming value if its too large. CCA will throw error 8, 72 otherwise.
      */
-    if (*out_data_len > 512)
-        *out_data_len = 512;
+    max_out_len = (cca_rsa_8192_supported(tokdata) ? 1024 : 512);
+    if (*out_data_len > max_out_len)
+        *out_data_len = max_out_len;
 
     oaep2_supported = cca_rsa_oaep_2_1_supported(tokdata);
     if (oaep2_supported)
@@ -6057,6 +6145,10 @@ CK_RV token_specific_rsa_oaep_encrypt(STDLL_TokData_t *tokdata,
     if (return_code != CCA_SUCCESS) {
         TRACE_ERROR("CSNDPKE (RSA ENCRYPT) failed. return:%ld, reason:%ld\n",
                     return_code, reason_code);
+        if (return_code == 8 && reason_code == 770) {
+            rc = CKR_KEY_SIZE_RANGE;
+            goto done;
+        }
         rc = CKR_FUNCTION_FAILED;
         goto done;
     } else if (reason_code != 0) {
@@ -6084,6 +6176,7 @@ CK_RV token_specific_rsa_oaep_decrypt(STDLL_TokData_t *tokdata,
     long return_code, reason_code, rule_array_count, data_structure_length;
     unsigned char rule_array[CCA_RULE_ARRAY_SIZE] = { 0, };
     CK_ATTRIBUTE *attr;
+    CK_ULONG max_out_len;
     OBJECT *key_obj = NULL;
     CK_BBOOL oaep2_supported;
     CK_MECHANISM_TYPE mgf_mech;
@@ -6137,11 +6230,12 @@ CK_RV token_specific_rsa_oaep_decrypt(STDLL_TokData_t *tokdata,
         goto done;
     }
 
-    /* The max value allowable by CCA for out_data_len is 512, so cap the
+    /* The max value allowable by CCA for out_data_len is 512/1024, so cap the
      * incoming value if its too large. CCA will throw error 8, 72 otherwise.
      */
-    if (*out_data_len > 512)
-        *out_data_len = 512;
+    max_out_len = (cca_rsa_8192_supported(tokdata) ? 1024 : 512);
+    if (*out_data_len > max_out_len)
+        *out_data_len = max_out_len;
 
     oaep2_supported = cca_rsa_oaep_2_1_supported(tokdata);
     if (oaep2_supported)
@@ -6225,6 +6319,9 @@ CK_RV token_specific_rsa_oaep_decrypt(STDLL_TokData_t *tokdata,
     rc = constant_time_select(constant_time_eq(return_code, 8) &
                               constant_time_eq(reason_code, 2053),
                               CKR_ENCRYPTED_DATA_INVALID, rc);
+    rc = constant_time_select(constant_time_eq(return_code, 8) &
+                              constant_time_eq(reason_code, 770),
+                              CKR_KEY_SIZE_RANGE, rc);
 
 done:
     object_put(tokdata, key_obj, TRUE);
@@ -6243,6 +6340,7 @@ CK_RV token_specific_rsa_sign(STDLL_TokData_t * tokdata,
     long return_code, reason_code, rule_array_count;
     unsigned char rule_array[CCA_RULE_ARRAY_SIZE] = { 0, };
     long signature_bit_length;
+    CK_ULONG max_out_len;
     CK_ATTRIBUTE *attr;
     CK_RV rc;
 
@@ -6261,11 +6359,12 @@ CK_RV token_specific_rsa_sign(STDLL_TokData_t * tokdata,
         return rc;
     }
 
-    /* The max value allowable by CCA for out_data_len is 512, so cap the
+    /* The max value allowable by CCA for out_data_len is 512/1024, so cap the
      * incoming value if its too large. CCA will throw error 8, 72 otherwise.
      */
-    if (*out_data_len > 512)
-        *out_data_len = 512;
+    max_out_len = (cca_rsa_8192_supported(tokdata) ? 1024 : 512);
+    if (*out_data_len > max_out_len)
+        *out_data_len = max_out_len;
 
     rule_array_count = 1;
     memcpy(rule_array, "PKCS-1.1", CCA_KEYWORD_SIZE);
@@ -6290,6 +6389,8 @@ CK_RV token_specific_rsa_sign(STDLL_TokData_t * tokdata,
     if (return_code != CCA_SUCCESS) {
         TRACE_ERROR("CSNDDSG (RSA SIGN) failed. return :%ld, reason: %ld\n",
                     return_code, reason_code);
+        if (return_code == 8 && reason_code == 770)
+            return CKR_KEY_SIZE_RANGE;
         return CKR_FUNCTION_FAILED;
     } else if (reason_code != 0) {
         TRACE_WARNING("CSNDDSG (RSA SIGN) succeeded, but "
@@ -6309,6 +6410,7 @@ CK_RV token_specific_rsa_verify(STDLL_TokData_t * tokdata,
     long return_code, reason_code, rule_array_count;
     unsigned char rule_array[CCA_RULE_ARRAY_SIZE] = { 0, };
     CK_ATTRIBUTE *attr;
+    CK_ULONG max_out_len;
     CK_RV rc;
 
     UNUSED(sess);
@@ -6326,11 +6428,12 @@ CK_RV token_specific_rsa_verify(STDLL_TokData_t * tokdata,
         return rc;
     }
 
-    /* The max value allowable by CCA for out_data_len is 512, so cap the
+    /* The max value allowable by CCA for out_data_len is 512/1024, so cap the
      * incoming value if its too large. CCA will throw error 8, 72 otherwise.
      */
-    if (out_data_len > 512)
-        out_data_len = 512;
+    max_out_len = (cca_rsa_8192_supported(tokdata) ? 1024 : 512);
+    if (out_data_len > max_out_len)
+        out_data_len = max_out_len;
 
     rule_array_count = 1;
     memcpy(rule_array, "PKCS-1.1", CCA_KEYWORD_SIZE);
@@ -6365,6 +6468,8 @@ CK_RV token_specific_rsa_verify(STDLL_TokData_t * tokdata,
              */
             return CKR_SIGNATURE_INVALID;
         }
+        if (return_code == 8 && reason_code == 770)
+            return CKR_KEY_SIZE_RANGE;
         return CKR_FUNCTION_FAILED;
     }
 
@@ -6388,6 +6493,7 @@ CK_RV token_specific_rsa_pss_sign(STDLL_TokData_t *tokdata,
     unsigned char rule_array[CCA_RULE_ARRAY_SIZE] = { 0, };
     long signature_bit_length, message_len;
     CK_ATTRIBUTE *attr;
+    CK_ULONG max_out_len;
     OBJECT *key_obj = NULL;
     CK_BYTE *message = NULL;
     CK_RV rc;
@@ -6432,11 +6538,12 @@ CK_RV token_specific_rsa_pss_sign(STDLL_TokData_t *tokdata,
     *((uint32_t *)message) = htobe32(pss->sLen);
     memcpy(message + 4, in_data, in_data_len);
 
-    /* The max value allowable by CCA for out_data_len is 512, so cap the
+    /* The max value allowable by CCA for out_data_len is 512/1024, so cap the
      * incoming value if its too large. CCA will throw error 8, 72 otherwise.
      */
-    if (*out_data_len > 512)
-        *out_data_len = 512;
+    max_out_len = (cca_rsa_8192_supported(tokdata) ? 1024 : 512);
+    if (*out_data_len > max_out_len)
+        *out_data_len = max_out_len;
 
     rule_array_count = 2;
     switch (pss->hashAlg) {
@@ -6502,6 +6609,10 @@ CK_RV token_specific_rsa_pss_sign(STDLL_TokData_t *tokdata,
     if (return_code != CCA_SUCCESS) {
         TRACE_ERROR("CSNDDSG (RSA PSS SIGN) failed. return :%ld, reason: %ld\n",
                     return_code, reason_code);
+        if (return_code == 8 && reason_code == 770) {
+            rc = CKR_KEY_SIZE_RANGE;
+            goto done;
+        }
         rc = CKR_FUNCTION_FAILED;
         goto done;
     } else if (reason_code != 0) {
@@ -6531,6 +6642,7 @@ CK_RV token_specific_rsa_pss_verify(STDLL_TokData_t *tokdata,
     long return_code, reason_code, rule_array_count, message_len;
     unsigned char rule_array[CCA_RULE_ARRAY_SIZE] = { 0, };
     CK_ATTRIBUTE *attr;
+    CK_ULONG max_out_len;
     OBJECT *key_obj = NULL;
     CK_BYTE *message = NULL;
     CK_RV rc;
@@ -6575,11 +6687,12 @@ CK_RV token_specific_rsa_pss_verify(STDLL_TokData_t *tokdata,
     *((uint32_t *)message) = htobe32(pss->sLen);
     memcpy(message + 4, in_data, in_data_len);
 
-    /* The max value allowable by CCA for out_data_len is 512, so cap the
+    /* The max value allowable by CCA for out_data_len is 512/1024, so cap the
      * incoming value if its too large. CCA will throw error 8, 72 otherwise.
      */
-    if (out_data_len > 512)
-        out_data_len = 512;
+    max_out_len = (cca_rsa_8192_supported(tokdata) ? 1024 : 512);
+    if (out_data_len > max_out_len)
+        out_data_len = max_out_len;
 
     rule_array_count = 2;
     switch (pss->hashAlg) {
@@ -6656,6 +6769,10 @@ CK_RV token_specific_rsa_pss_verify(STDLL_TokData_t *tokdata,
              * greater or equal to the modulus.
              */
             rc = CKR_SIGNATURE_INVALID;
+            goto done;
+        }
+        if (return_code == 8 && reason_code == 770) {
+            rc = CKR_KEY_SIZE_RANGE;
             goto done;
         }
         rc = CKR_FUNCTION_FAILED;
@@ -7379,8 +7496,6 @@ static CK_BBOOL token_specific_filter_mechanism(STDLL_TokData_t *tokdata,
 {
     CK_BBOOL rc = CK_FALSE;
 
-    UNUSED(info);
-
     switch(mechanism) {
     case CKM_AES_XTS:
     case CKM_AES_XTS_KEY_GEN:
@@ -7402,6 +7517,13 @@ static CK_BBOOL token_specific_filter_mechanism(STDLL_TokData_t *tokdata,
         rc = cca_pqc_strength_supported(tokdata, mechanism,
                                         CK_IBM_DILITHIUM_KEYFORM_ROUND2_65);
         break;
+    case CKM_SHA3_224_RSA_PKCS:
+    case CKM_SHA3_256_RSA_PKCS:
+    case CKM_SHA3_384_RSA_PKCS:
+    case CKM_SHA3_512_RSA_PKCS:
+        if (info != NULL && cca_rsa_8192_supported(tokdata))
+            info->ulMaxKeySize = 8192;
+        /* Fall through */
     case CKM_SHA3_224:
     case CKM_SHA3_256:
     case CKM_SHA3_384:
@@ -7410,10 +7532,6 @@ static CK_BBOOL token_specific_filter_mechanism(STDLL_TokData_t *tokdata,
     case CKM_IBM_SHA3_256:
     case CKM_IBM_SHA3_384:
     case CKM_IBM_SHA3_512:
-    case CKM_SHA3_224_RSA_PKCS:
-    case CKM_SHA3_256_RSA_PKCS:
-    case CKM_SHA3_384_RSA_PKCS:
-    case CKM_SHA3_512_RSA_PKCS:
     case CKM_ECDSA_SHA3_224:
     case CKM_ECDSA_SHA3_256:
     case CKM_ECDSA_SHA3_384:
@@ -7422,6 +7540,27 @@ static CK_BBOOL token_specific_filter_mechanism(STDLL_TokData_t *tokdata,
         break;
     case CKM_RSA_AES_KEY_WRAP:
         rc = cca_rsa_aeskw_supported(tokdata, -1);
+        if (info != NULL && rc == TRUE && cca_rsa_8192_supported(tokdata))
+            info->ulMaxKeySize = 8192;
+        break;
+    case CKM_RSA_PKCS_KEY_PAIR_GEN:
+    case CKM_RSA_PKCS:
+    case CKM_MD5_RSA_PKCS:
+    case CKM_SHA1_RSA_PKCS:
+    case CKM_SHA224_RSA_PKCS:
+    case CKM_SHA256_RSA_PKCS:
+    case CKM_SHA384_RSA_PKCS:
+    case CKM_SHA512_RSA_PKCS:
+    case CKM_RSA_PKCS_PSS:
+    case CKM_SHA1_RSA_PKCS_PSS:
+    case CKM_SHA224_RSA_PKCS_PSS:
+    case CKM_SHA256_RSA_PKCS_PSS:
+    case CKM_SHA384_RSA_PKCS_PSS:
+    case CKM_SHA512_RSA_PKCS_PSS:
+    case CKM_RSA_PKCS_OAEP:
+        if (info != NULL && cca_rsa_8192_supported(tokdata))
+            info->ulMaxKeySize = 8192;
+        rc = CK_TRUE;
         break;
     default:
         rc = CK_TRUE;
@@ -10214,8 +10353,12 @@ static CK_RV import_rsa_privkey(STDLL_TokData_t *tokdata, TEMPLATE * priv_tmpl)
         USE_CCA_ADAPTER_END(tokdata, return_code, reason_code)
 
         if (return_code != CCA_SUCCESS) {
-            TRACE_ERROR("CSNDPKB (RSA KEY TOKEN BUILD RSA CRT) failed."
+            TRACE_ERROR("CSNDPKB (RSA KEY TOKEN BUILD RSA CRT/ME) failed."
                         " return:%ld, reason:%ld\n", return_code, reason_code);
+            if (return_code == 8 && reason_code == 760) {
+                rc = CKR_KEY_SIZE_RANGE;
+                goto err;
+            }
             rc = CKR_FUNCTION_FAILED;
             goto err;
         }
@@ -10238,6 +10381,11 @@ static CK_RV import_rsa_privkey(STDLL_TokData_t *tokdata, TEMPLATE * priv_tmpl)
         if (return_code != CCA_SUCCESS) {
             TRACE_ERROR("CSNDPKI (RSA KEY TOKEN IMPORT) failed."
                         " return:%ld, reason:%ld\n", return_code, reason_code);
+            if ((return_code == 8 && reason_code == 43) ||
+                (return_code == 8 && reason_code == 770)) {
+                rc = CKR_KEY_SIZE_RANGE;
+                goto err;
+            }
             rc = CKR_FUNCTION_FAILED;
             goto err;
         }
@@ -10460,6 +10608,8 @@ static CK_RV import_rsa_pubkey(STDLL_TokData_t *tokdata, TEMPLATE *publ_tmpl)
         if (return_code != CCA_SUCCESS) {
             TRACE_ERROR("CSNDPKB (RSA KEY TOKEN BUILD RSA-PUBL) failed."
                         " return:%ld, reason:%ld\n", return_code, reason_code);
+            if (return_code == 8 && reason_code == 760)
+                return CKR_KEY_SIZE_RANGE;
             return CKR_FUNCTION_FAILED;
         }
         // Add the key object to the template.
@@ -13009,7 +13159,7 @@ static CK_RV ccatok_wrap_key_rsa_pkcs(STDLL_TokData_t *tokdata,
 {
     long return_code, reason_code, rule_array_count;
     unsigned char rule_array[CCA_RULE_ARRAY_SIZE] = { 0 };
-    CK_BYTE buffer[900] = { 0, };
+    CK_BYTE buffer[3500] = { 0, };
     long buffer_len = sizeof(buffer);
     CK_ATTRIBUTE *key_opaque, *wrap_key_opaque;
     CK_OBJECT_CLASS key_class;
@@ -13170,6 +13320,8 @@ static CK_RV ccatok_wrap_key_rsa_pkcs(STDLL_TokData_t *tokdata,
     if (return_code != CCA_SUCCESS) {
         TRACE_ERROR("CSNDSYX (SYMMETRIC KEY EXPORT) failed."
                     " return:%ld, reason:%ld\n", return_code, reason_code);
+        if (return_code == 8 && reason_code == 770)
+            return CKR_WRAPPING_KEY_SIZE_RANGE;
         return CKR_FUNCTION_FAILED;
     }
 
@@ -13356,6 +13508,8 @@ static CK_RV ccatok_unwrap_key_rsa_pkcs(STDLL_TokData_t *tokdata,
     if (return_code != CCA_SUCCESS) {
         TRACE_ERROR("CSNDSYI (SYMMETRIC KEY IMPORT) failed."
                     " return:%ld, reason:%ld\n", return_code, reason_code);
+        if (return_code == 8 && reason_code == 770)
+            return CKR_UNWRAPPING_KEY_SIZE_RANGE;
         return CKR_FUNCTION_FAILED;
     }
 
@@ -13540,6 +13694,8 @@ static CK_RV ccatok_wrap_key_rsa_aeskw_aes(STDLL_TokData_t *tokdata,
             return CKR_FUNCTION_CANCELED; /* Control point prohibits function */
         if (return_code == 8 && reason_code == 760)
             return CKR_WRAPPING_KEY_SIZE_RANGE; /* must be  >= 2048 bit */
+        if (return_code == 8 && reason_code == 770)
+            return CKR_WRAPPING_KEY_SIZE_RANGE;
         return CKR_FUNCTION_FAILED;
     }
 
@@ -13719,6 +13875,8 @@ static CK_RV ccatok_unwrap_key_rsa_aeskw_aes(STDLL_TokData_t *tokdata,
             return CKR_FUNCTION_CANCELED; /* Control point prohibits function */
         if (return_code == 8 && reason_code == 760)
             return CKR_UNWRAPPING_KEY_SIZE_RANGE; /* must be  >= 2048 bit */
+        if (return_code == 8 && reason_code == 770)
+            return CKR_UNWRAPPING_KEY_SIZE_RANGE;
         if (return_code == 8 && reason_code == 55)
             return CKR_WRAPPED_KEY_INVALID; /* temp AES key not 256 bits */
         return CKR_FUNCTION_FAILED;
