@@ -238,8 +238,8 @@ struct cca_acp_info {
 
 /* CCA STDLL constants */
 
-#define CCATOK_MAX_N_LEN  512
-#define CCATOK_MAX_E_LEN  256
+#define CCATOK_MAX_N_LEN  1024
+#define CCATOK_MAX_E_LEN  512
 
 enum cca_key_type {
     CCA_AES_KEY = 0x02,
@@ -338,6 +338,8 @@ struct cca_private_data {
     void *lib_csulcca;
     struct cca_version cca_lib_version;
     struct cca_version min_card_version;
+    struct cca_version min_cex7_card_version;
+    struct cca_version min_cex8_card_version;
     pthread_rwlock_t min_card_version_rwlock;
     unsigned char expected_sym_mkvp[CCA_MKVP_LENGTH];
     unsigned char expected_aes_mkvp[CCA_MKVP_LENGTH];
