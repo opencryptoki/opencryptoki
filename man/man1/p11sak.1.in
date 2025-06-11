@@ -259,7 +259,7 @@ attribute of the key.
 .B p11sak
 .BR generate\-key | gen\-key | gen
 .BR rsa
-.BR 512 | 1024 | 2048 | 4096
+.I KEYBITS
 .RI [ PUBL\-EXP ]
 .BR \-\-slot | \-s
 .I SLOTID
@@ -279,11 +279,15 @@ attribute of the key.
 Use the
 .BR generate\-key | gen\-key | gen
 .B rsa
-.B 1024|2048|4096
+.I KEYBITS
 command and
 .I KEYTYPE
-argument to generate an 512-, 1024-, 2048-, or 4096-bit RSA key (\fBCKK_RSA\fP),
-respectively. The
+argument to generate an RSA key (\fBCKK_RSA\fP) with the key size in bits as
+specified by the
+.I KEYBITS
+argument. The key size must be from 512 to 16384 and a multiple of 8 bits.
+Typical key sizes are 512, 1024, 2048, 4096, or 8192. Not all RSA key sizes
+might be supported by all tokens. The
 .BR \-\-label | \-L
 .IR LABEL | PUB\-LABEL : PRIV\-LABEL
 option sets the
@@ -1907,8 +1911,9 @@ key type, possible values are
 .BR 128 | 256 .
 For the
 .B rsa
-key type, possible values are
-.BR 512 | 1024 | 2048 | 4096 .
+key type, the key size must be from 512 to 16384 and a multiple of 8 bits.
+Typical key sizes are 512, 1024, 2048, 4096, or 8192. Not all RSA key sizes
+might be supported by all tokens.
 .PP
 .
 .SS "PUBL\-EXP"

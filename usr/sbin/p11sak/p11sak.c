@@ -1121,19 +1121,16 @@ static const struct p11tool_arg p11sak_generate_aes_xts_args[] = {
     { .name = NULL, },
 };
 
-static const struct p11tool_enum_value p11sak_rsa_keybits[] = {
-    { .value = "512", .args = NULL, .private = { .num = 512 }, },
-    { .value = "1024", .args = NULL, .private = { .num = 1024 }, },
-    { .value = "2048", .args = NULL, .private = { .num = 2048 }, },
-    { .value = "4096", .args = NULL, .private = { .num = 4096 }, },
-    { .value = NULL, },
-};
+#define STRINGIFY(a)    _STRINGIFY(a)
+#define _STRINGIFY(a)   #a
 
 static const struct p11tool_arg p11sak_generate_rsa_args[] = {
-    { .name = "KEYBITS", .type = ARG_TYPE_ENUM, .required = true,
-      .enum_values = p11sak_rsa_keybits,
-      .value.enum_value = &opt_keybits,
-      .description = "Size of the RSA key in bits:", },
+    { .name = "KEYBITS", .type = ARG_TYPE_NUMBER, .required = true,
+      .value.number = &opt_keybits_num,
+      .description = "Size of the RSA key in bits. Must be from 512 to "
+                      STRINGIFY(OPENSSL_RSA_MAX_MODULUS_BITS) " and a "
+                     "multiple of 8 bits. Typical key sizes are 512, 1024, "
+                     "2048, 4096, or 8192.", },
     { .name = "PUBL-EXP", .type = ARG_TYPE_NUMBER, .required = false,
       .value.number = &opt_exponent,
       .description = "The public exponent for RSA (optional).", },
@@ -2512,7 +2509,14 @@ static CK_RV rsa_get_key_size(const struct p11tool_objtype *keytype,
     UNUSED(private);
     UNUSED(keytype);
 
-    *keysize = opt_keybits->private.num;
+    if ((opt_keybits_num % 8) != 0 ||
+        opt_keybits_num < 512 ||
+        opt_keybits_num > OPENSSL_RSA_MAX_MODULUS_BITS) {
+        warnx("The RSA key size of '%lu' is not valid", opt_keybits_num);
+        return CKR_ARGUMENTS_BAD;
+    }
+
+    *keysize = opt_keybits_num;
 
     return CKR_OK;
 }
@@ -2529,8 +2533,12 @@ static CK_RV rsa_add_public_attrs(const struct p11tool_objtype *keytype,
     UNUSED(private);
     UNUSED(keytype);
 
-    rc = p11tool_add_attribute(CKA_MODULUS_BITS, &opt_keybits->private.num,
-                               sizeof(opt_keybits->private.num), attrs, num_attrs);
+    rc = rsa_get_key_size(keytype, NULL, &val);
+    if (rc != CKR_OK)
+        return rc;
+
+    rc = p11tool_add_attribute(CKA_MODULUS_BITS, &val, sizeof(val),
+                               attrs, num_attrs);
     if (rc != CKR_OK)
         return rc;
 
