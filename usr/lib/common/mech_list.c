@@ -47,14 +47,15 @@ CK_RV ock_generic_get_mechanism_list(STDLL_TokData_t * tokdata,
                                      CK_ULONG_PTR pulCount,
                                      CK_BBOOL (*filter_mechanism)
                                                (STDLL_TokData_t *tokdata,
-                                               CK_MECHANISM_TYPE mechanism))
+                                               CK_MECHANISM_TYPE mechanism,
+                                               CK_MECHANISM_INFO *info))
 {
     int rc = CKR_OK;
     unsigned int i, j;
 
     for (i = 0, j = 0; i < tokdata->mech_list_len; i++) {
         if (filter_mechanism == NULL ||
-            filter_mechanism(tokdata, tokdata->mech_list[i].mech_type)) {
+            filter_mechanism(tokdata, tokdata->mech_list[i].mech_type, NULL)) {
             if (pMechanismList != NULL) {
                 if ((*pulCount) <= j)
                     rc = CKR_BUFFER_TOO_SMALL;
@@ -79,16 +80,19 @@ CK_RV ock_generic_get_mechanism_info(STDLL_TokData_t * tokdata,
                                      CK_MECHANISM_INFO_PTR pInfo,
                                      CK_BBOOL (*filter_mechanism)
                                                (STDLL_TokData_t *tokdata,
-                                               CK_MECHANISM_TYPE mechanism))
+                                               CK_MECHANISM_TYPE mechanism,
+                                               CK_MECHANISM_INFO *info))
 {
+    CK_MECHANISM_INFO info;
     int rc = CKR_OK;
     unsigned int i;
 
     for (i = 0; i < tokdata->mech_list_len; i++) {
         if (tokdata->mech_list[i].mech_type == type) {
-            if (filter_mechanism == NULL || filter_mechanism(tokdata, type)) {
-                memcpy(pInfo, &tokdata->mech_list[i].mech_info,
-                       sizeof(CK_MECHANISM_INFO));
+            info = tokdata->mech_list[i].mech_info;
+            if (filter_mechanism == NULL ||
+                filter_mechanism(tokdata, type, &info)) {
+                *pInfo = info;
                 goto out;
             } else {
                 TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));

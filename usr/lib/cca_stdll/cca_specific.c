@@ -7374,9 +7374,12 @@ done:
 }
 
 static CK_BBOOL token_specific_filter_mechanism(STDLL_TokData_t *tokdata,
-                                                CK_MECHANISM_TYPE mechanism)
+                                                CK_MECHANISM_TYPE mechanism,
+                                                CK_MECHANISM_INFO *info)
 {
     CK_BBOOL rc = CK_FALSE;
+
+    UNUSED(info);
 
     switch(mechanism) {
     case CKM_AES_XTS:

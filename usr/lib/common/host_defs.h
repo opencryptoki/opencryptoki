@@ -362,7 +362,8 @@ CK_RV ock_generic_get_mechanism_list(STDLL_TokData_t * tokdata,
                                      CK_ULONG_PTR pulCount,
                                      CK_BBOOL (*filter_mechanism)
                                                (STDLL_TokData_t *tokdata,
-                                               CK_MECHANISM_TYPE mechanism));
+                                               CK_MECHANISM_TYPE mechanism,
+                                               CK_MECHANISM_INFO *info));
 
 /* mech_list.c */
 CK_RV ock_generic_get_mechanism_info(STDLL_TokData_t * tokdata,
@@ -370,7 +371,8 @@ CK_RV ock_generic_get_mechanism_info(STDLL_TokData_t * tokdata,
                                      CK_MECHANISM_INFO_PTR pInfo,
                                      CK_BBOOL (*filter_mechanism)
                                                (STDLL_TokData_t *tokdata,
-                                               CK_MECHANISM_TYPE mechanism));
+                                               CK_MECHANISM_TYPE mechanism,
+                                               CK_MECHANISM_INFO *info));
 
 typedef struct _TOK_OBJ_ENTRY {
     CK_BBOOL deleted;

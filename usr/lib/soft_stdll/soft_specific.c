@@ -418,13 +418,16 @@ CK_RV token_specific_final(STDLL_TokData_t *tokdata,
 }
 
 static CK_BBOOL token_specific_filter_mechanism(STDLL_TokData_t *tokdata,
-                                                CK_MECHANISM_TYPE mechanism)
+                                                CK_MECHANISM_TYPE mechanism,
+                                                CK_MECHANISM_INFO *info)
 {
 #if OPENSSL_VERSION_PREREQ(3, 0)
     struct soft_private_data *soft_private = tokdata->private_data;
 #else
     UNUSED(tokdata);
 #endif
+
+    UNUSED(info);
 
     switch(mechanism) {
 #if OPENSSL_VERSION_PREREQ(3, 0)
