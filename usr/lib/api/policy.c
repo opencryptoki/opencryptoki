@@ -1170,6 +1170,8 @@ static CK_RV policy_update_mech_info(policy_t p, CK_MECHANISM_TYPE mech,
         case CKM_SHA256_KEY_DERIVATION:
         case CKM_SHA384_KEY_DERIVATION:
         case CKM_SHA512_KEY_DERIVATION:
+        case CKM_SHA512_224_KEY_DERIVATION:
+        case CKM_SHA512_256_KEY_DERIVATION:
         case CKM_SHA3_224_KEY_DERIVATION:
         case CKM_SHA3_256_KEY_DERIVATION:
         case CKM_SHA3_384_KEY_DERIVATION:

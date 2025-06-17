@@ -4853,11 +4853,13 @@ static const REF_MECH_LIST_ELEMENT ref_mech_list[] = {
     {SHA512_224, CKM_SHA512_224, {0, 0, CKF_HW | CKF_DIGEST}},
     {SHA512_224, CKM_SHA512_224_HMAC, {112, 2048, CKF_SIGN | CKF_VERIFY}},
     {SHA512_224, CKM_SHA512_224_HMAC_GENERAL, {112, 2048, CKF_SIGN | CKF_VERIFY}},
+    {SHA512_224, CKM_SHA512_224_KEY_DERIVATION, {8, 224, CKF_DERIVE}},
 #endif
 #ifdef SHA512_256
     {SHA512_256, CKM_SHA512_256, {0, 0, CKF_HW | CKF_DIGEST}},
     {SHA512_256, CKM_SHA512_256_HMAC, {128, 2048, CKF_SIGN | CKF_VERIFY}},
     {SHA512_256, CKM_SHA512_256_HMAC_GENERAL, {128, 2048, CKF_SIGN | CKF_VERIFY}},
+    {SHA512_256, CKM_SHA512_256_KEY_DERIVATION, {8, 256, CKF_DERIVE}},
 #endif
 #ifdef SHA3_224
     {SHA3_224, CKM_SHA3_224, {0, 0, CKF_HW | CKF_DIGEST}},
@@ -5566,12 +5568,14 @@ static CK_RV mech_list_ica_initialize(STDLL_TokData_t *tokdata)
     if (isMechanismAvailable(tokdata, CKM_SHA512_224)) {
         addMechanismToList(tokdata, CKM_SHA512_224_HMAC, sha_hw, 0);
         addMechanismToList(tokdata, CKM_SHA512_224_HMAC_GENERAL, sha_hw, 0);
+        addMechanismToList(tokdata, CKM_SHA512_224_KEY_DERIVATION, sha_hw, 0);
     }
 #endif
 #ifdef NID_sha512_256WithRSAEncryption
     if (isMechanismAvailable(tokdata, CKM_SHA512_256)) {
         addMechanismToList(tokdata, CKM_SHA512_256_HMAC, sha_hw, 0);
         addMechanismToList(tokdata, CKM_SHA512_256_HMAC_GENERAL, sha_hw, 0);
+        addMechanismToList(tokdata, CKM_SHA512_256_KEY_DERIVATION, sha_hw, 0);
     }
 #endif
 #ifdef NID_sha3_224
