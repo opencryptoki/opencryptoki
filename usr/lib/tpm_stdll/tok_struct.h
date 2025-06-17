@@ -39,6 +39,7 @@ struct token_specific_struct token_specific = {
     &token_specific_init_token_data,
     NULL,                       // load_token_data
     NULL,                       // save_token_data
+    NULL,                       // get_token_info
     &token_specific_rng,
     &token_specific_final,
     &token_specific_init_token,

@@ -55,6 +55,7 @@ token_spec_t token_specific = {
     NULL,                       // init_token_data
     NULL,                       // load_token_data
     NULL,                       // save_token_data
+    &token_specific_get_token_info,
     &token_specific_rng,
     NULL,                       // final
     NULL,                       // init_token

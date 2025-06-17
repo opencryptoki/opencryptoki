@@ -286,7 +286,8 @@ CK_RV SC_GetTokenInfo(STDLL_TokData_t *tokdata, CK_SLOT_ID sid,
         goto done;
     }
     copy_token_contents_sensibly(pInfo, tokdata->nv_token_data);
-    rc = ep11tok_copy_firmware_info(tokdata, pInfo);
+    if (token_specific.t_get_token_info != NULL)
+        rc = token_specific.t_get_token_info(tokdata, pInfo);
 
     /* Set the time */
     now = time((time_t *) NULL);
