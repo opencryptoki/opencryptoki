@@ -14968,3 +14968,67 @@ out:
 
     return rc;
 }
+
+static CK_RV get_token_info_cb(STDLL_TokData_t *tokdata, const char *adapter,
+                               unsigned short card, unsigned short domain,
+                               void *private)
+{
+    CK_CHAR *serialNumber = private;
+    CK_ULONG i;
+    CK_RV rc;
+
+    UNUSED(tokdata);
+    UNUSED(adapter);
+    UNUSED(card);
+    UNUSED(domain);
+
+    if (serialNumber == NULL || serialNumber[0] != ' ')
+        return CKR_OK;
+
+    if (member_size(CK_TOKEN_INFO, serialNumber) < CCA_SERIALNO_LENGTH + 1)
+        return CKR_BUFFER_TOO_SMALL;
+
+    rc = cca_get_adapter_serial_number((char *)serialNumber);
+    if (rc != CKR_OK)
+        return rc;
+
+    for (i = CCA_SERIALNO_LENGTH; i < member_size(CK_TOKEN_INFO, serialNumber);
+                                                                            i++)
+        serialNumber[i] = ' ';
+
+    return CKR_OK;
+}
+
+CK_RV token_specific_get_token_info(STDLL_TokData_t *tokdata,
+                                    CK_TOKEN_INFO_PTR pInfo)
+{
+    struct cca_private_data *cca_private = tokdata->private_data;
+    CK_RV rc;
+
+    pInfo->firmwareVersion.major = cca_private->cca_lib_version.ver;
+    pInfo->firmwareVersion.minor = cca_private->cca_lib_version.rel;
+
+    if (pthread_rwlock_rdlock(&cca_private->min_card_version_rwlock)
+                                                        != 0) {
+        TRACE_ERROR("CCA min_card_version RD-Lock failed.\n");
+        return CKR_CANT_LOCK;
+    }
+
+    pInfo->hardwareVersion.major = cca_private->min_card_version.ver;
+    pInfo->hardwareVersion.minor = cca_private->min_card_version.rel;
+
+    if (pthread_rwlock_unlock(&cca_private->min_card_version_rwlock)
+                                                        != 0) {
+        TRACE_ERROR("CCA min_card_version RD-Unlock failed.\n");
+        return CKR_CANT_LOCK;
+    }
+
+    /* Supply serial number of first card (in case of DEV-ANY) */
+    rc = cca_iterate_adapters(tokdata, get_token_info_cb, pInfo->serialNumber);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Failed to obtain the serial number.\n");
+        return rc;
+    }
+
+    return CKR_OK;
+}
