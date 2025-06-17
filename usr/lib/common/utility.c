@@ -843,9 +843,167 @@ CK_RV get_keytype(STDLL_TokData_t *tokdata, CK_OBJECT_HANDLE hkey,
     return rc;
 }
 
-CK_RV pkcs_get_keytype(CK_ATTRIBUTE *attrs, CK_ULONG attrs_len,
-                       CK_MECHANISM_PTR mech, CK_ULONG *type, CK_ULONG *class)
+CK_RV pkcsget_keytype_for_mech(CK_MECHANISM_TYPE mech, CK_KEY_TYPE *keytype,
+                               CK_KEY_TYPE *alt_keytype)
 {
+    *alt_keytype = (CK_KEY_TYPE)-1;
+
+    switch (mech) {
+    case CKM_DES_KEY_GEN:
+        *keytype = CKK_DES;
+        break;
+    case CKM_DES2_KEY_GEN:
+    case CKM_PBE_SHA1_DES2_EDE_CBC:
+        *keytype = CKK_DES2;
+        break;
+    case CKM_DES3_KEY_GEN:
+    case CKM_PBE_SHA1_DES3_EDE_CBC:
+        *keytype = CKK_DES3;
+        break;
+    case CKM_AES_KEY_GEN:
+        *keytype = CKK_AES;
+        break;
+    case CKM_AES_XTS_KEY_GEN:
+        *keytype = CKK_AES_XTS;
+        break;
+    case CKM_GENERIC_SECRET_KEY_GEN:
+    case CKM_SHAKE_128_KEY_DERIVATION:
+    case CKM_SHAKE_256_KEY_DERIVATION:
+        *keytype = CKK_GENERIC_SECRET;
+        break;
+    case CKM_SHA_1_KEY_GEN:
+        *keytype = CKK_SHA_1_HMAC;
+        break;
+    case CKM_SHA1_KEY_DERIVATION:
+    case CKM_SHA_1_HMAC:
+    case CKM_SHA_1_HMAC_GENERAL:
+        *keytype = CKK_GENERIC_SECRET;
+        *alt_keytype = CKK_SHA_1_HMAC;
+        break;
+    case CKM_SHA224_KEY_GEN:
+        *keytype = CKK_SHA224_HMAC;
+        break;
+    case CKM_SHA224_KEY_DERIVATION:
+    case CKM_SHA224_HMAC:
+    case CKM_SHA224_HMAC_GENERAL:
+        *keytype = CKK_GENERIC_SECRET;
+        *alt_keytype = CKK_SHA224_HMAC;
+        break;
+    case CKM_SHA256_KEY_GEN:
+        *keytype = CKK_SHA256_HMAC;
+        break;
+    case CKM_SHA256_KEY_DERIVATION:
+    case CKM_SHA256_HMAC:
+    case CKM_SHA256_HMAC_GENERAL:
+        *keytype = CKK_GENERIC_SECRET;
+        *alt_keytype = CKK_SHA256_HMAC;
+        break;
+    case CKM_SHA384_KEY_GEN:
+        *keytype = CKK_SHA384_HMAC;
+        break;
+    case CKM_SHA384_KEY_DERIVATION:
+    case CKM_SHA384_HMAC:
+    case CKM_SHA384_HMAC_GENERAL:
+        *keytype = CKK_GENERIC_SECRET;
+        *alt_keytype = CKK_SHA384_HMAC;
+        break;
+    case CKM_SHA512_KEY_GEN:
+        *keytype = CKK_SHA512_HMAC;
+        break;
+    case CKM_SHA512_KEY_DERIVATION:
+    case CKM_SHA512_HMAC:
+    case CKM_SHA512_HMAC_GENERAL:
+        *keytype = CKK_GENERIC_SECRET;
+        *alt_keytype = CKK_SHA512_HMAC;
+        break;
+    case CKM_SHA512_224_KEY_GEN:
+        *keytype = CKK_SHA512_224_HMAC;
+        break;
+    case CKM_SHA512_224_KEY_DERIVATION:
+    case CKM_SHA512_224_HMAC:
+    case CKM_SHA512_224_HMAC_GENERAL:
+        *keytype = CKK_GENERIC_SECRET;
+        *alt_keytype = CKK_SHA512_224_HMAC;
+        break;
+    case CKM_SHA512_256_KEY_GEN:
+        *keytype = CKK_SHA512_256_HMAC;
+        break;
+    case CKM_SHA512_256_KEY_DERIVATION:
+    case CKM_SHA512_256_HMAC:
+    case CKM_SHA512_256_HMAC_GENERAL:
+        *keytype = CKK_GENERIC_SECRET;
+        *alt_keytype = CKK_SHA512_256_HMAC;
+        break;
+    case CKM_SHA3_224_KEY_GEN:
+        *keytype = CKK_SHA3_224_HMAC;
+        break;
+    case CKM_SHA3_224_KEY_DERIVATION:
+    case CKM_SHA3_224_HMAC:
+    case CKM_SHA3_224_HMAC_GENERAL:
+    case CKM_IBM_SHA3_224_HMAC:
+        *keytype = CKK_GENERIC_SECRET;
+        *alt_keytype = CKK_SHA3_224_HMAC;
+        break;
+    case CKM_SHA3_256_KEY_GEN:
+        *keytype = CKK_SHA3_256_HMAC;
+        break;
+    case CKM_SHA3_256_KEY_DERIVATION:
+    case CKM_SHA3_256_HMAC:
+    case CKM_SHA3_256_HMAC_GENERAL:
+    case CKM_IBM_SHA3_256_HMAC:
+        *keytype = CKK_GENERIC_SECRET;
+        *alt_keytype = CKK_SHA3_256_HMAC;
+        break;
+    case CKM_SHA3_384_KEY_GEN:
+        *keytype = CKK_SHA3_384_HMAC;
+        break;
+    case CKM_SHA3_384_KEY_DERIVATION:
+    case CKM_SHA3_384_HMAC:
+    case CKM_SHA3_384_HMAC_GENERAL:
+    case CKM_IBM_SHA3_384_HMAC:
+        *keytype = CKK_GENERIC_SECRET;
+        *alt_keytype = CKK_SHA3_384_HMAC;
+        break;
+    case CKM_SHA3_512_KEY_GEN:
+        *keytype = CKK_SHA3_512_HMAC;
+        break;
+    case CKM_SHA3_512_KEY_DERIVATION:
+    case CKM_SHA3_512_HMAC:
+    case CKM_SHA3_512_HMAC_GENERAL:
+    case CKM_IBM_SHA3_512_HMAC:
+        *keytype = CKK_GENERIC_SECRET;
+        *alt_keytype = CKK_SHA3_512_HMAC;
+        break;
+    case CKM_RSA_PKCS_KEY_PAIR_GEN:
+        *keytype = CKK_RSA;
+        break;
+    case CKM_EC_KEY_PAIR_GEN:
+        *keytype = CKK_EC;
+        break;
+    case CKM_DSA_KEY_PAIR_GEN:
+        *keytype = CKK_DSA;
+        break;
+    case CKM_DH_PKCS_KEY_PAIR_GEN:
+        *keytype = CKK_DH;
+        break;
+    case CKM_IBM_DILITHIUM:
+        *keytype = CKK_IBM_PQC_DILITHIUM;
+        break;
+    case CKM_IBM_KYBER:
+        *keytype = CKK_IBM_PQC_KYBER;
+        break;
+    default:
+        return CKR_MECHANISM_INVALID;
+    }
+
+    return CKR_OK;
+}
+
+CK_RV pkcs_get_keytype(CK_ATTRIBUTE *attrs, CK_ULONG attrs_len,
+                       CK_MECHANISM_PTR mech, CK_KEY_TYPE *type,
+                       CK_OBJECT_CLASS *class)
+{
+    CK_KEY_TYPE alt_keytype;
     CK_RV rc;
 
     *type = 0;
@@ -867,63 +1025,7 @@ CK_RV pkcs_get_keytype(CK_ATTRIBUTE *attrs, CK_ULONG attrs_len,
         return CKR_OK;
 
     /* no CKA_KEY_TYPE found, derive from mech */
-    switch (mech->mechanism) {
-    case CKM_DES_KEY_GEN:
-        *type = CKK_DES;
-        break;
-    case CKM_DES2_KEY_GEN:
-    case CKM_PBE_SHA1_DES2_EDE_CBC:
-        *type = CKK_DES2;
-        break;
-    case CKM_DES3_KEY_GEN:
-    case CKM_PBE_SHA1_DES3_EDE_CBC:
-        *type = CKK_DES3;
-        break;
-    case CKM_AES_KEY_GEN:
-        *type = CKK_AES;
-        break;
-    case CKM_AES_XTS_KEY_GEN:
-        *type = CKK_AES_XTS;
-        break;
-    case CKM_GENERIC_SECRET_KEY_GEN:
-    case CKM_SHA1_KEY_DERIVATION:
-    case CKM_SHA224_KEY_DERIVATION:
-    case CKM_SHA256_KEY_DERIVATION:
-    case CKM_SHA384_KEY_DERIVATION:
-    case CKM_SHA512_KEY_DERIVATION:
-    case CKM_SHA512_224_KEY_DERIVATION:
-    case CKM_SHA512_256_KEY_DERIVATION:
-    case CKM_SHA3_224_KEY_DERIVATION:
-    case CKM_SHA3_256_KEY_DERIVATION:
-    case CKM_SHA3_384_KEY_DERIVATION:
-    case CKM_SHA3_512_KEY_DERIVATION:
-    case CKM_SHAKE_128_KEY_DERIVATION:
-    case CKM_SHAKE_256_KEY_DERIVATION:
-        *type = CKK_GENERIC_SECRET;
-        break;
-    case CKM_RSA_PKCS_KEY_PAIR_GEN:
-        *type = CKK_RSA;
-        break;
-    case CKM_EC_KEY_PAIR_GEN:
-        *type = CKK_EC;
-        break;
-    case CKM_DSA_KEY_PAIR_GEN:
-        *type = CKK_DSA;
-        break;
-    case CKM_DH_PKCS_KEY_PAIR_GEN:
-        *type = CKK_DH;
-        break;
-    case CKM_IBM_DILITHIUM:
-        *type = CKK_IBM_PQC_DILITHIUM;
-        break;
-    case CKM_IBM_KYBER:
-        *type = CKK_IBM_PQC_KYBER;
-        break;
-    default:
-        return CKR_MECHANISM_INVALID;
-    }
-
-    return CKR_OK;
+    return pkcsget_keytype_for_mech(mech->mechanism, type, &alt_keytype);
 }
 
 void copy_token_contents_sensibly(CK_TOKEN_INFO_PTR pInfo,

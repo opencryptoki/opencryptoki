@@ -40,7 +40,7 @@ CK_RV verify_mgr_init(STDLL_TokData_t *tokdata,
     OBJECT *key_obj = NULL;
     CK_ATTRIBUTE *attr = NULL;
     CK_BYTE *ptr = NULL;
-    CK_KEY_TYPE keytype;
+    CK_KEY_TYPE keytype, exp_keytype, alt_keytype;
     CK_OBJECT_CLASS class;
     CK_BBOOL flag;
     CK_RV rc;
@@ -433,7 +433,14 @@ CK_RV verify_mgr_init(STDLL_TokData_t *tokdata,
             goto done;
         }
 
-        if (keytype != CKK_GENERIC_SECRET) {
+        rc = pkcsget_keytype_for_mech(mech->mechanism, &exp_keytype,
+                                      &alt_keytype);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("pkcsget_keytype_for_mech failed.\n");
+            goto done;
+        }
+
+        if (keytype != exp_keytype && keytype != alt_keytype) {
             TRACE_ERROR("%s\n", ock_err(ERR_KEY_TYPE_INCONSISTENT));
             rc = CKR_KEY_TYPE_INCONSISTENT;
             goto done;
@@ -549,7 +556,14 @@ CK_RV verify_mgr_init(STDLL_TokData_t *tokdata,
                 goto done;
             }
 
-            if (keytype != CKK_GENERIC_SECRET) {
+            rc = pkcsget_keytype_for_mech(mech->mechanism, &exp_keytype,
+                                          &alt_keytype);
+            if (rc != CKR_OK) {
+                TRACE_ERROR("pkcsget_keytype_for_mech failed.\n");
+                goto done;
+            }
+
+            if (keytype != exp_keytype && keytype != alt_keytype) {
                 TRACE_ERROR("%s\n", ock_err(ERR_KEY_TYPE_INCONSISTENT));
                 rc = CKR_KEY_TYPE_INCONSISTENT;
                 goto done;

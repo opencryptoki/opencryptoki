@@ -237,6 +237,7 @@ CK_RV key_mgr_generate_key(STDLL_TokData_t *tokdata,
     OBJECT *key_obj = NULL;
     CK_ATTRIBUTE *new_attr = NULL;
     CK_ULONG keyclass, subclass = 0;
+    CK_KEY_TYPE keytype1, keytype2;
     CK_RV rc;
 
     if (!sess || !mech || !handle) {
@@ -333,6 +334,30 @@ CK_RV key_mgr_generate_key(STDLL_TokData_t *tokdata,
 
         subclass = CKK_GENERIC_SECRET;
         break;
+    case CKM_SHA_1_KEY_GEN:
+    case CKM_SHA224_KEY_GEN:
+    case CKM_SHA256_KEY_GEN:
+    case CKM_SHA384_KEY_GEN:
+    case CKM_SHA512_KEY_GEN:
+    case CKM_SHA512_224_KEY_GEN:
+    case CKM_SHA512_256_KEY_GEN:
+    case CKM_SHA3_224_KEY_GEN:
+    case CKM_SHA3_256_KEY_GEN:
+    case CKM_SHA3_384_KEY_GEN:
+    case CKM_SHA3_512_KEY_GEN:
+        rc = pkcsget_keytype_for_mech(mech->mechanism, &keytype1, &keytype2);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("pkcsget_keytype_for_mech failed.\n");
+            return rc;
+        }
+
+        if (subclass != 0 && subclass != keytype1) {
+            TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCONSISTENT));
+            return CKR_TEMPLATE_INCONSISTENT;
+        }
+
+        subclass = keytype1;
+        break;
     default:
         TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
         return CKR_MECHANISM_INVALID;
@@ -369,6 +394,17 @@ CK_RV key_mgr_generate_key(STDLL_TokData_t *tokdata,
         rc = ckm_aes_key_gen(tokdata, key_obj->template, TRUE);
         break;
     case CKM_GENERIC_SECRET_KEY_GEN:
+    case CKM_SHA_1_KEY_GEN:
+    case CKM_SHA224_KEY_GEN:
+    case CKM_SHA256_KEY_GEN:
+    case CKM_SHA384_KEY_GEN:
+    case CKM_SHA512_KEY_GEN:
+    case CKM_SHA512_224_KEY_GEN:
+    case CKM_SHA512_256_KEY_GEN:
+    case CKM_SHA3_224_KEY_GEN:
+    case CKM_SHA3_256_KEY_GEN:
+    case CKM_SHA3_384_KEY_GEN:
+    case CKM_SHA3_512_KEY_GEN:
         rc = ckm_generic_secret_key_gen(tokdata, key_obj->template);
         break;
     default:
@@ -1037,6 +1073,17 @@ CK_RV key_mgr_wrap_key(STDLL_TokData_t *tokdata,
         break;
 #endif
     case CKK_GENERIC_SECRET:
+    case CKK_SHA_1_HMAC:
+    case CKK_SHA224_HMAC:
+    case CKK_SHA256_HMAC:
+    case CKK_SHA384_HMAC:
+    case CKK_SHA512_HMAC:
+    case CKK_SHA3_224_HMAC:
+    case CKK_SHA3_256_HMAC:
+    case CKK_SHA3_384_HMAC:
+    case CKK_SHA3_512_HMAC:
+    case CKK_SHA512_224_HMAC:
+    case CKK_SHA512_256_HMAC:
         rc = generic_secret_wrap_get_data(key_obj->template, FALSE,
                                           &data, &data_len);
         if (rc != CKR_OK) {
@@ -1372,8 +1419,23 @@ CK_RV key_mgr_unwrap_key(STDLL_TokData_t *tokdata,
         case CKM_AES_XTS:
         case CKM_AES_GCM:
         case CKM_AES_KEY_WRAP:
-            if (keytype != CKK_AES && keytype != CKK_AES_XTS &&
-                keytype != CKK_GENERIC_SECRET) {
+            switch (keytype) {
+            case CKK_AES:
+            case CKK_AES_XTS:
+            case CKK_GENERIC_SECRET:
+            case CKK_SHA_1_HMAC:
+            case CKK_SHA224_HMAC:
+            case CKK_SHA256_HMAC:
+            case CKK_SHA384_HMAC:
+            case CKK_SHA512_HMAC:
+            case CKK_SHA3_224_HMAC:
+            case CKK_SHA3_256_HMAC:
+            case CKK_SHA3_384_HMAC:
+            case CKK_SHA3_512_HMAC:
+            case CKK_SHA512_224_HMAC:
+            case CKK_SHA512_256_HMAC:
+                break;
+            default:
                 TRACE_ERROR("The key type does not allow CKA_VALUE_LEN to be "
                             "specified in the unwrapping template.\n");
                 rc = CKR_TEMPLATE_INCONSISTENT;

@@ -916,7 +916,10 @@ CK_RV digest_from_kdf(CK_EC_KDF_TYPE kdf, CK_MECHANISM_TYPE *mech);
 CK_RV get_digest_from_mech(CK_MECHANISM_TYPE mech, CK_MECHANISM_TYPE *digest);
 
 CK_RV pkcs_get_keytype(CK_ATTRIBUTE *attrs, CK_ULONG attrs_len,
-                       CK_MECHANISM_PTR mech, CK_ULONG *type, CK_ULONG *class);
+                       CK_MECHANISM_PTR mech, CK_KEY_TYPE *type,
+                       CK_OBJECT_CLASS *class);
+CK_RV pkcsget_keytype_for_mech(CK_MECHANISM_TYPE mech, CK_KEY_TYPE *keytype,
+                               CK_KEY_TYPE *alt_keytype);
 
 CK_RV ecdh_get_derived_key_size(CK_ULONG prime_len, CK_BYTE *curve_oid,
                                 CK_ULONG curve_oid_len, CK_EC_KDF_TYPE kdf,
@@ -2809,7 +2812,8 @@ CK_RV dh_priv_unwrap(TEMPLATE *tmpl, CK_BYTE *data, CK_ULONG data_len);
 
 // Generic secret key routines
 CK_RV generic_secret_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode);
-CK_RV generic_secret_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode);
+CK_RV generic_secret_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode,
+                                            CK_KEY_TYPE key_type);
 CK_RV generic_secret_validate_attribute(STDLL_TokData_t *tokdata,
                                         TEMPLATE *tmpl, CK_ATTRIBUTE *attr,
                                         CK_ULONG mode);

@@ -3368,6 +3368,17 @@ CK_RV openssl_specific_shake_key_derive(STDLL_TokData_t *tokdata, SESSION *sess,
 
     switch (derived_key_type) {
     case CKK_GENERIC_SECRET:
+    case CKK_SHA_1_HMAC:
+    case CKK_SHA256_HMAC:
+    case CKK_SHA384_HMAC:
+    case CKK_SHA512_HMAC:
+    case CKK_SHA224_HMAC:
+    case CKK_SHA3_224_HMAC:
+    case CKK_SHA3_256_HMAC:
+    case CKK_SHA3_384_HMAC:
+    case CKK_SHA3_512_HMAC:
+    case CKK_SHA512_224_HMAC:
+    case CKK_SHA512_256_HMAC:
     case CKK_AES:
     case CKK_AES_XTS:
         /* Supply CKA_VALUE_LEN since this is required for those key types */

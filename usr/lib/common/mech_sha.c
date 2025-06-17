@@ -541,6 +541,7 @@ CK_RV ckm_sha_derive(STDLL_TokData_t *tokdata, SESSION *sess,
     CK_ATTRIBUTE *base_key_value;
     CK_ATTRIBUTE *value_attr, *vallen_attr = NULL;
     CK_ULONG base_key_class, base_key_type;
+    CK_KEY_TYPE keytype1, keytype2;
     CK_RV rc;
 
     memset(&ctx, 0, sizeof(DIGEST_CONTEXT));
@@ -589,6 +590,29 @@ CK_RV ckm_sha_derive(STDLL_TokData_t *tokdata, SESSION *sess,
     case CKK_GENERIC_SECRET:
         allowed_keysize = hsize;
         break;
+    case CKK_SHA_1_HMAC:
+    case CKK_SHA224_HMAC:
+    case CKK_SHA256_HMAC:
+    case CKK_SHA384_HMAC:
+    case CKK_SHA512_HMAC:
+    case CKK_SHA3_224_HMAC:
+    case CKK_SHA3_256_HMAC:
+    case CKK_SHA3_384_HMAC:
+    case CKK_SHA3_512_HMAC:
+    case CKK_SHA512_224_HMAC:
+    case CKK_SHA512_256_HMAC:
+        rc = pkcsget_keytype_for_mech(mech->mechanism, &keytype1, &keytype2);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("pkcsget_keytype_for_mech failed.\n");
+            return rc;
+        }
+
+        if (derived_keytype != keytype1 && derived_keytype != keytype2) {
+            TRACE_ERROR("%s\n", ock_err(ERR_KEY_TYPE_INCONSISTENT));
+            return CKR_KEY_TYPE_INCONSISTENT;
+        }
+        allowed_keysize = hsize;
+        break;
     case CKK_DES:
         allowed_keysize = DES_KEY_SIZE;
         break;
@@ -629,11 +653,32 @@ CK_RV ckm_sha_derive(STDLL_TokData_t *tokdata, SESSION *sess,
     if (derived_keylen == 0)
         derived_keylen = allowed_keysize;
 
-    if (derived_keylen > hsize ||
-        (derived_keytype != CKK_GENERIC_SECRET &&
-         derived_keylen != allowed_keysize)) {
+    if (derived_keylen > hsize) {
         TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCONSISTENT));
         return CKR_TEMPLATE_INCONSISTENT;
+    }
+
+    switch (derived_keytype) {
+        case CKK_GENERIC_SECRET:
+        case CKK_SHA_1_HMAC:
+        case CKK_SHA224_HMAC:
+        case CKK_SHA256_HMAC:
+        case CKK_SHA384_HMAC:
+        case CKK_SHA512_HMAC:
+        case CKK_SHA3_224_HMAC:
+        case CKK_SHA3_256_HMAC:
+        case CKK_SHA3_384_HMAC:
+        case CKK_SHA3_512_HMAC:
+        case CKK_SHA512_224_HMAC:
+        case CKK_SHA512_256_HMAC:
+            break;
+        default:
+            /* All other have a fixed key size */
+            if (derived_keylen != allowed_keysize) {
+                TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCONSISTENT));
+                return CKR_TEMPLATE_INCONSISTENT;
+            }
+            break;
     }
 
     if (!template_get_class(base_key_obj->template, &base_key_class,
@@ -649,6 +694,17 @@ CK_RV ckm_sha_derive(STDLL_TokData_t *tokdata, SESSION *sess,
 
     switch (base_key_type) {
     case CKK_GENERIC_SECRET:
+    case CKK_SHA_1_HMAC:
+    case CKK_SHA256_HMAC:
+    case CKK_SHA384_HMAC:
+    case CKK_SHA512_HMAC:
+    case CKK_SHA224_HMAC:
+    case CKK_SHA3_224_HMAC:
+    case CKK_SHA3_256_HMAC:
+    case CKK_SHA3_384_HMAC:
+    case CKK_SHA3_512_HMAC:
+    case CKK_SHA512_224_HMAC:
+    case CKK_SHA512_256_HMAC:
     case CKK_DES:
     case CKK_DES2:
     case CKK_DES3:
@@ -693,6 +749,17 @@ CK_RV ckm_sha_derive(STDLL_TokData_t *tokdata, SESSION *sess,
 
     switch (derived_keytype) {
     case CKK_GENERIC_SECRET:
+    case CKK_SHA_1_HMAC:
+    case CKK_SHA224_HMAC:
+    case CKK_SHA256_HMAC:
+    case CKK_SHA384_HMAC:
+    case CKK_SHA512_HMAC:
+    case CKK_SHA3_224_HMAC:
+    case CKK_SHA3_256_HMAC:
+    case CKK_SHA3_384_HMAC:
+    case CKK_SHA3_512_HMAC:
+    case CKK_SHA512_224_HMAC:
+    case CKK_SHA512_256_HMAC:
     case CKK_AES:
     case CKK_AES_XTS:
         /* Supply CKA_VALUE_LEN since this is required for those key types */
@@ -824,6 +891,17 @@ CK_RV ckm_shake_derive(STDLL_TokData_t *tokdata, SESSION *sess,
 
     switch (derived_keytype) {
     case CKK_GENERIC_SECRET:
+    case CKK_SHA_1_HMAC:
+    case CKK_SHA224_HMAC:
+    case CKK_SHA256_HMAC:
+    case CKK_SHA384_HMAC:
+    case CKK_SHA512_HMAC:
+    case CKK_SHA3_224_HMAC:
+    case CKK_SHA3_256_HMAC:
+    case CKK_SHA3_384_HMAC:
+    case CKK_SHA3_512_HMAC:
+    case CKK_SHA512_224_HMAC:
+    case CKK_SHA512_256_HMAC:
         if (derived_keylen == 0) {
             TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCONSISTENT));
             return CKR_TEMPLATE_INCONSISTENT;
@@ -888,6 +966,17 @@ CK_RV ckm_shake_derive(STDLL_TokData_t *tokdata, SESSION *sess,
 
     switch (base_key_type) {
     case CKK_GENERIC_SECRET:
+    case CKK_SHA_1_HMAC:
+    case CKK_SHA224_HMAC:
+    case CKK_SHA256_HMAC:
+    case CKK_SHA384_HMAC:
+    case CKK_SHA512_HMAC:
+    case CKK_SHA3_224_HMAC:
+    case CKK_SHA3_256_HMAC:
+    case CKK_SHA3_384_HMAC:
+    case CKK_SHA3_512_HMAC:
+    case CKK_SHA512_224_HMAC:
+    case CKK_SHA512_256_HMAC:
     case CKK_DES:
     case CKK_DES2:
     case CKK_DES3:

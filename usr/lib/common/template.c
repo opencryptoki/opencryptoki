@@ -197,7 +197,18 @@ CK_RV template_add_default_attributes(TEMPLATE *tmpl, TEMPLATE *basetmpl,
     case CKO_SECRET_KEY:
         switch (subclass) {
         case CKK_GENERIC_SECRET:
-            return generic_secret_set_default_attributes(tmpl, mode);
+        case CKK_SHA_1_HMAC:
+        case CKK_SHA224_HMAC:
+        case CKK_SHA256_HMAC:
+        case CKK_SHA384_HMAC:
+        case CKK_SHA512_HMAC:
+        case CKK_SHA3_224_HMAC:
+        case CKK_SHA3_256_HMAC:
+        case CKK_SHA3_384_HMAC:
+        case CKK_SHA3_512_HMAC:
+        case CKK_SHA512_224_HMAC:
+        case CKK_SHA512_256_HMAC:
+            return generic_secret_set_default_attributes(tmpl, mode, subclass);
         case CKK_DES:
             return des_set_default_attributes(tmpl, mode);
         case CKK_DES2:
@@ -448,6 +459,17 @@ CK_RV template_check_required_attributes(TEMPLATE *tmpl, CK_ULONG class,
     } else if (class == CKO_SECRET_KEY) {
         switch (subclass) {
         case CKK_GENERIC_SECRET:
+        case CKK_SHA_1_HMAC:
+        case CKK_SHA224_HMAC:
+        case CKK_SHA256_HMAC:
+        case CKK_SHA384_HMAC:
+        case CKK_SHA512_HMAC:
+        case CKK_SHA3_224_HMAC:
+        case CKK_SHA3_256_HMAC:
+        case CKK_SHA3_384_HMAC:
+        case CKK_SHA3_512_HMAC:
+        case CKK_SHA512_224_HMAC:
+        case CKK_SHA512_256_HMAC:
             return generic_secret_check_required_attributes(tmpl, mode);
         case CKK_DES:
             return des_check_required_attributes(tmpl, mode);
@@ -1753,6 +1775,17 @@ CK_RV template_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
     } else if (class == CKO_SECRET_KEY) {
         switch (subclass) {
         case CKK_GENERIC_SECRET:
+        case CKK_SHA_1_HMAC:
+        case CKK_SHA224_HMAC:
+        case CKK_SHA256_HMAC:
+        case CKK_SHA384_HMAC:
+        case CKK_SHA512_HMAC:
+        case CKK_SHA3_224_HMAC:
+        case CKK_SHA3_256_HMAC:
+        case CKK_SHA3_384_HMAC:
+        case CKK_SHA3_512_HMAC:
+        case CKK_SHA512_224_HMAC:
+        case CKK_SHA512_256_HMAC:
             return generic_secret_validate_attribute(tokdata, tmpl, attr, mode);
         case CKK_DES:
             return des_validate_attribute(tokdata, tmpl, attr, mode);
