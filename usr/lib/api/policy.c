@@ -328,6 +328,17 @@ static CK_RV policy_extract_key_data(get_attr_val_f getattr, void *d,
             *siglen = 128;
         /* Fallthrough */
     case CKK_GENERIC_SECRET:
+    case CKK_SHA_1_HMAC:
+    case CKK_SHA224_HMAC:
+    case CKK_SHA256_HMAC:
+    case CKK_SHA384_HMAC:
+    case CKK_SHA512_HMAC:
+    case CKK_SHA3_224_HMAC:
+    case CKK_SHA3_256_HMAC:
+    case CKK_SHA3_384_HMAC:
+    case CKK_SHA3_512_HMAC:
+    case CKK_SHA512_224_HMAC:
+    case CKK_SHA512_256_HMAC:
         rv = getattr(d, CKA_VALUE_LEN, &keysize);
         if (rv != CKR_OK) {
             TRACE_ERROR("Did not find CKA_PRIME for key type 0x%lx\n",
@@ -1283,6 +1294,17 @@ static CK_RV policy_update_mech_info(policy_t p, CK_MECHANISM_TYPE mech,
             }
             break;
         case CKM_GENERIC_SECRET_KEY_GEN:
+        case CKM_SHA_1_KEY_GEN:
+        case CKM_SHA224_KEY_GEN:
+        case CKM_SHA256_KEY_GEN:
+        case CKM_SHA384_KEY_GEN:
+        case CKM_SHA512_KEY_GEN:
+        case CKM_SHA512_224_KEY_GEN:
+        case CKM_SHA512_256_KEY_GEN:
+        case CKM_SHA3_224_KEY_GEN:
+        case CKM_SHA3_256_KEY_GEN:
+        case CKM_SHA3_384_KEY_GEN:
+        case CKM_SHA3_512_KEY_GEN:
         case CKM_SSL3_MD5_MAC:
         case CKM_SSL3_SHA1_MAC:
             if (policy_update_symmetric(pp, info, CK_FALSE,

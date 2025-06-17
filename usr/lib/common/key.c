@@ -1763,6 +1763,17 @@ CK_RV secret_key_unwrap(STDLL_TokData_t *tokdata,
                         keytype == CKK_AES_XTS);
         break;
     case CKK_GENERIC_SECRET:
+    case CKK_SHA_1_HMAC:
+    case CKK_SHA224_HMAC:
+    case CKK_SHA256_HMAC:
+    case CKK_SHA384_HMAC:
+    case CKK_SHA512_HMAC:
+    case CKK_SHA3_224_HMAC:
+    case CKK_SHA3_256_HMAC:
+    case CKK_SHA3_384_HMAC:
+    case CKK_SHA3_512_HMAC:
+    case CKK_SHA512_224_HMAC:
+    case CKK_SHA512_256_HMAC:
         rc = generic_secret_unwrap(tmpl, data, data_len, fromend);
         break;
     default:
@@ -5990,7 +6001,8 @@ CK_RV generic_secret_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode)
 
 //  generic_secret_set_default_attributes()
 //
-CK_RV generic_secret_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
+CK_RV generic_secret_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode,
+                                            CK_KEY_TYPE key_type)
 {
     CK_ATTRIBUTE *value_attr = NULL;
     CK_ATTRIBUTE *value_len_attr = NULL;
@@ -6275,7 +6287,7 @@ CK_RV generic_secret_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     type_attr->type = CKA_KEY_TYPE;
     type_attr->ulValueLen = sizeof(CK_KEY_TYPE);
     type_attr->pValue = (CK_BYTE *) type_attr + sizeof(CK_ATTRIBUTE);
-    *(CK_KEY_TYPE *) type_attr->pValue = CKK_GENERIC_SECRET;
+    *(CK_KEY_TYPE *) type_attr->pValue = key_type;
 
     rc = template_update_attribute(tmpl, type_attr);
     if (rc != CKR_OK) {

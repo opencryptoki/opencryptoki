@@ -173,6 +173,17 @@ CK_RV object_mgr_add(STDLL_TokData_t *tokdata,
 
         switch (keytype) {
         case CKK_GENERIC_SECRET:
+        case CKK_SHA_1_HMAC:
+        case CKK_SHA256_HMAC:
+        case CKK_SHA384_HMAC:
+        case CKK_SHA512_HMAC:
+        case CKK_SHA224_HMAC:
+        case CKK_SHA3_224_HMAC:
+        case CKK_SHA3_256_HMAC:
+        case CKK_SHA3_384_HMAC:
+        case CKK_SHA3_512_HMAC:
+        case CKK_SHA512_224_HMAC:
+        case CKK_SHA512_256_HMAC:
         case CKK_AES:
         case CKK_AES_XTS:
             rc = template_attribute_get_non_empty(o->template, CKA_VALUE,
