@@ -436,6 +436,18 @@ typedef CK_ULONG CK_KEY_TYPE;
 /* CKK_AES_XTS is new for v3.0 */
 #define CKK_AES_XTS         0x00000035
 
+#define CKK_SHA_1_HMAC      0x00000028
+#define CKK_SHA256_HMAC     0x0000002B
+#define CKK_SHA384_HMAC     0x0000002C
+#define CKK_SHA512_HMAC     0x0000002D
+#define CKK_SHA224_HMAC     0x0000002E
+#define CKK_SHA3_224_HMAC   0x00000036
+#define CKK_SHA3_256_HMAC   0x00000037
+#define CKK_SHA3_384_HMAC   0x00000038
+#define CKK_SHA3_512_HMAC   0x00000039
+#define CKK_SHA512_224_HMAC 0x00000043
+#define CKK_SHA512_256_HMAC 0x00000044
+
 #define CKK_VENDOR_DEFINED  0x80000000
 
 #ifndef OCK_NO_EP11_DEFINES
@@ -858,15 +870,19 @@ typedef CK_ULONG CK_MECHANISM_TYPE;
 #define CKM_SHA3_256                   0x000002B0
 #define CKM_SHA3_256_HMAC              0x000002B1
 #define CKM_SHA3_256_HMAC_GENERAL      0x000002B2
+#define CKM_SHA3_256_KEY_GEN           0x000002B3
 #define CKM_SHA3_224                   0x000002B5
 #define CKM_SHA3_224_HMAC              0x000002B6
 #define CKM_SHA3_224_HMAC_GENERAL      0x000002B7
+#define CKM_SHA3_224_KEY_GEN           0x000002B8
 #define CKM_SHA3_384                   0x000002C0
 #define CKM_SHA3_384_HMAC              0x000002C1
 #define CKM_SHA3_384_HMAC_GENERAL      0x000002C2
+#define CKM_SHA3_384_KEY_GEN           0x000002C3
 #define CKM_SHA3_512                   0x000002D0
 #define CKM_SHA3_512_HMAC              0x000002D1
 #define CKM_SHA3_512_HMAC_GENERAL      0x000002D2
+#define CKM_SHA3_512_KEY_GEN           0x000002D3
 
 /* All of the following mechanisms are new for v2.0 */
 /* Note that CAST128 and CAST5 are the same algorithm */
@@ -1046,6 +1062,14 @@ typedef CK_ULONG CK_MECHANISM_TYPE;
 #define CKM_AES_KEY_WRAP_PAD           0x0000210A /* Deprecated with v3.1 */
 #define CKM_AES_KEY_WRAP_KWP           0x0000210B
 #define CKM_AES_KEY_WRAP_PKCS7         0x0000210C
+
+#define CKM_SHA_1_KEY_GEN              0x00004003
+#define CKM_SHA224_KEY_GEN             0x00004004
+#define CKM_SHA256_KEY_GEN             0x00004005
+#define CKM_SHA384_KEY_GEN             0x00004006
+#define CKM_SHA512_KEY_GEN             0x00004007
+#define CKM_SHA512_224_KEY_GEN         0x00004008
+#define CKM_SHA512_256_KEY_GEN         0x00004009
 
 #define CKM_VENDOR_DEFINED             0x80000000
 
