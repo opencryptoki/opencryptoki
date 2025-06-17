@@ -1775,3 +1775,17 @@ CK_RV token_specific_ibm_dilithium_verify(STDLL_TokData_t *tokdata,
 }
 
 #endif
+
+CK_RV token_specific_get_token_info(STDLL_TokData_t *tokdata,
+                                    CK_TOKEN_INFO_PTR pInfo)
+{
+    UNUSED(tokdata);
+
+    /* OpenSSL_version_num returns the version as 0xMNN00PP0 */
+    pInfo->firmwareVersion.major = (OpenSSL_version_num() & 0xF0000000) >> 28;
+    pInfo->firmwareVersion.minor = (OpenSSL_version_num() & 0x0FF00000) >> 20;
+    pInfo->hardwareVersion.major = pInfo->firmwareVersion.major;
+    pInfo->hardwareVersion.minor = pInfo->firmwareVersion.minor;
+
+    return CKR_OK;
+}
