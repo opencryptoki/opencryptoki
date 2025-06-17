@@ -6661,3 +6661,25 @@ CK_RV token_specific_object_add(STDLL_TokData_t *tokdata, SESSION *sess,
         return CKR_OK;
     }
 }
+
+CK_RV token_specific_get_token_info(STDLL_TokData_t *tokdata,
+                                    CK_TOKEN_INFO_PTR pInfo)
+{
+    libica_version_info ver;
+    int rc;
+
+    UNUSED(tokdata);
+
+    rc = ica_get_version(&ver);
+    if (rc != 0) {
+        TRACE_ERROR("ica_get_version failed with %i\n", rc);
+        return CKR_FUNCTION_FAILED;
+    }
+
+    pInfo->firmwareVersion.major = ver.major_version;
+    pInfo->firmwareVersion.minor = ver.minor_version;
+    pInfo->hardwareVersion.major = pInfo->firmwareVersion.major;
+    pInfo->hardwareVersion.minor = pInfo->firmwareVersion.minor;
+
+    return CKR_OK;
+}
