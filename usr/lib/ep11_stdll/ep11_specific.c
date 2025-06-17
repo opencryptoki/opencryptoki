@@ -15940,8 +15940,8 @@ static CK_RV ep11tok_check_wkvps(STDLL_TokData_t *tokdata,
     return CKR_OK;
 }
 
-CK_RV ep11tok_copy_firmware_info(STDLL_TokData_t *tokdata,
-                                 CK_TOKEN_INFO_PTR pInfo)
+CK_RV token_specific_get_token_info(STDLL_TokData_t *tokdata,
+                                    CK_TOKEN_INFO_PTR pInfo)
 {
     ep11_private_data_t *ep11_data = tokdata->private_data;
     ep11_target_info_t* target_info;

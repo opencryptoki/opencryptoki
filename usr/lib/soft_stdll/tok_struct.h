@@ -66,6 +66,7 @@ token_spec_t token_specific = {
     NULL,                       // init_token_data
     NULL,                       // load_token_data
     NULL,                       // save_token_data
+    NULL,                       // get_token_info
     NULL,                       // random number generator
     &token_specific_final,
     NULL,                       // init_token
