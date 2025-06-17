@@ -1276,7 +1276,7 @@ static CK_RV rsa_export_import_tests(void)
     CK_BYTE exp[] = { 0x01, 0x00, 0x01 };
     CK_OBJECT_HANDLE publ_key = CK_INVALID_HANDLE, priv_key = CK_INVALID_HANDLE;
     CK_OBJECT_HANDLE imp_priv_key = CK_INVALID_HANDLE, imp_publ_key = CK_INVALID_HANDLE;
-    CK_BYTE msg[512], sig[512];
+    CK_BYTE msg[1024], sig[1024];
     CK_ULONG msglen, siglen;
     CK_MECHANISM mech = {CKM_RSA_PKCS, 0, 0};
     unsigned int keybitlen;
@@ -1300,7 +1300,10 @@ static CK_RV rsa_export_import_tests(void)
     testcase_rw_session();
     testcase_user_login();
 
-    for (keybitlen = 512; keybitlen <= 4096; keybitlen = 2 * keybitlen) {
+    for (keybitlen = 512; keybitlen <= 8192; keybitlen = 2 * keybitlen) {
+        if (!keysize_supported(SLOT_ID, CKM_RSA_PKCS_KEY_PAIR_GEN, keybitlen) ||
+            (keybitlen > 4096 && !rsa8k))
+            continue;
 
         testcase_begin("CCA/EP11 export/import test with RSA %u key", keybitlen);
 
