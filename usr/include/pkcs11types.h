@@ -848,9 +848,11 @@ typedef CK_ULONG CK_MECHANISM_TYPE;
 #define CKM_SHA512_224                 0x00000048
 #define CKM_SHA512_224_HMAC            0x00000049
 #define CKM_SHA512_224_HMAC_GENERAL    0x0000004A
+#define CKM_SHA512_224_KEY_DERIVATION  0x0000004B
 #define CKM_SHA512_256                 0x0000004C
 #define CKM_SHA512_256_HMAC            0x0000004D
 #define CKM_SHA512_256_HMAC_GENERAL    0x0000004E
+#define CKM_SHA512_256_KEY_DERIVATION  0x0000004F
 
 /* The following are new for v3.0 */
 #define CKM_SHA3_256                   0x000002B0
