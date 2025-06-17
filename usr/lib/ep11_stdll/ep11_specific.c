@@ -7704,6 +7704,12 @@ static CK_RV ep11tok_sha_key_derive_mech_pre_process(STDLL_TokData_t *tokdata,
         case CKM_SHA512_KEY_DERIVATION:
             hsize = SHA512_HASH_SIZE;
             break;
+        case CKM_SHA512_224_KEY_DERIVATION:
+            hsize = SHA224_HASH_SIZE;
+            break;
+        case CKM_SHA512_256_KEY_DERIVATION:
+            hsize = SHA256_HASH_SIZE;
+            break;
         default:
             TRACE_ERROR("%s invalid mechanism 0x%lx\n", __func__,
                         mech->mechanism);
@@ -8182,6 +8188,8 @@ CK_RV ep11tok_derive_key(STDLL_TokData_t *tokdata, SESSION *session,
     case CKM_SHA256_KEY_DERIVATION:
     case CKM_SHA384_KEY_DERIVATION:
     case CKM_SHA512_KEY_DERIVATION:
+    case CKM_SHA512_224_KEY_DERIVATION:
+    case CKM_SHA512_256_KEY_DERIVATION:
         rc = ep11tok_sha_key_derive_mech_pre_process(tokdata, base_key_obj,
                                                      key_obj, mech, ktype);
         if (rc != CKR_OK)
@@ -12978,8 +12986,10 @@ static const CK_MECHANISM_TYPE ep11_supported_mech_list[] = {
     CKM_SHA512,
     CKM_SHA512_224,
     CKM_SHA512_224_HMAC,
+    CKM_SHA512_224_KEY_DERIVATION,
     CKM_SHA512_256,
     CKM_SHA512_256_HMAC,
+    CKM_SHA512_256_KEY_DERIVATION,
     CKM_SHA512_HMAC,
     CKM_SHA512_KEY_DERIVATION,
     CKM_SHA512_RSA_PKCS,
@@ -13850,6 +13860,14 @@ CK_RV ep11tok_get_mechanism_info(STDLL_TokData_t * tokdata,
     case CKM_SHA512_KEY_DERIVATION:
         pInfo->ulMinKeySize = 8;
         pInfo->ulMaxKeySize = SHA512_HASH_SIZE * 8;
+        break;
+    case CKM_SHA512_224_KEY_DERIVATION:
+        pInfo->ulMinKeySize = 8;
+        pInfo->ulMaxKeySize = SHA224_HASH_SIZE * 8;
+        break;
+    case CKM_SHA512_256_KEY_DERIVATION:
+        pInfo->ulMinKeySize = 8;
+        pInfo->ulMaxKeySize = SHA256_HASH_SIZE * 8;
         break;
 
     default:

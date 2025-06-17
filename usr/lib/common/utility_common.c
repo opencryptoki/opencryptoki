@@ -303,6 +303,12 @@ CK_RV get_digest_from_mech(CK_MECHANISM_TYPE mech, CK_MECHANISM_TYPE *digest)
     case CKM_SHA512_KEY_DERIVATION:
         *digest = CKM_SHA512;
         break;
+    case CKM_SHA512_224_KEY_DERIVATION:
+        *digest = CKM_SHA512_224;
+        break;
+    case CKM_SHA512_256_KEY_DERIVATION:
+        *digest = CKM_SHA512_256;
+        break;
     case CKM_ECDSA_SHA3_224:
     case CKM_SHA3_224_RSA_PKCS:
     case CKM_SHA3_224_RSA_PKCS_PSS:
