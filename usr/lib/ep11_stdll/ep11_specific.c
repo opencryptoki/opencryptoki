@@ -77,6 +77,9 @@ static CK_RV ep11tok_pkcs11_mech_translate(STDLL_TokData_t *tokdata,
 static CK_RV ep11tok_pkcs11_mgf_translate(STDLL_TokData_t *tokdata,
                                           CK_RSA_PKCS_MGF_TYPE mgf,
                                           CK_RSA_PKCS_MGF_TYPE* ep11_mgf);
+static CK_RV ep11tok_pkcs11_keytype_translate(STDLL_TokData_t *tokdata,
+                                              CK_KEY_TYPE keytype,
+                                              CK_KEY_TYPE* ep11_keytype);
 
 static m_GenerateRandom_t dll_m_GenerateRandom;
 static m_SeedRandom_t dll_m_SeedRandom;
@@ -2394,7 +2397,19 @@ static CK_RV check_key_attributes(STDLL_TokData_t * tokdata,
 
     switch (kc) {
     case CKO_SECRET_KEY:
-        if (kt == CKK_GENERIC_SECRET) {
+        switch (kt) {
+        case CKK_GENERIC_SECRET:
+        case CKK_SHA_1_HMAC:
+        case CKK_SHA224_HMAC:
+        case CKK_SHA256_HMAC:
+        case CKK_SHA384_HMAC:
+        case CKK_SHA512_HMAC:
+        case CKK_SHA3_224_HMAC:
+        case CKK_SHA3_256_HMAC:
+        case CKK_SHA3_384_HMAC:
+        case CKK_SHA3_512_HMAC:
+        case CKK_SHA512_224_HMAC:
+        case CKK_SHA512_256_HMAC:
             if (ep11_data->cka_sensitive_default_true) {
                 check_types = &check_types_gen_sec_sensitive[0];
                 attr_cnt =
@@ -2404,7 +2419,8 @@ static CK_RV check_key_attributes(STDLL_TokData_t * tokdata,
                 check_types = &check_types_gen_sec[0];
                 attr_cnt = sizeof(check_types_gen_sec) / sizeof(CK_ULONG);
             }
-        } else {
+            break;
+        default:
             if (ep11_data->cka_sensitive_default_true) {
                 check_types = &check_types_sec_sensitive[0];
                 attr_cnt = sizeof(check_types_sec_sensitive) / sizeof(CK_ULONG);
@@ -2412,6 +2428,7 @@ static CK_RV check_key_attributes(STDLL_TokData_t * tokdata,
                 check_types = &check_types_sec[0];
                 attr_cnt = sizeof(check_types_sec) / sizeof(CK_ULONG);
             }
+            break;
         }
         break;
     case CKO_PUBLIC_KEY:
@@ -2667,6 +2684,7 @@ static CK_RV build_ep11_attrs(STDLL_TokData_t * tokdata, TEMPLATE *template,
     CK_ATTRIBUTE_PTR attr;
     CK_RV rc;
     CK_ULONG value_len = 0;
+    CK_KEY_TYPE key_type;
 
     node = template->attribute_list;
     while (node != NULL) {
@@ -2677,6 +2695,41 @@ static CK_RV build_ep11_attrs(STDLL_TokData_t * tokdata, TEMPLATE *template,
         case CKA_NEVER_EXTRACTABLE:
         case CKA_IBM_PROTKEY_NEVER_EXTRACTABLE:
         case CKA_LOCAL:
+            break;
+        case CKA_KEY_TYPE:
+            if (attr->ulValueLen != sizeof(CK_KEY_TYPE) || attr->pValue == NULL)
+                return CKR_ATTRIBUTE_VALUE_INVALID;
+
+            key_type = *(CK_KEY_TYPE *)attr->pValue;
+            ep11tok_pkcs11_keytype_translate(tokdata, key_type, &key_type);
+
+            if (key_type == CKK_AES_XTS && ktype == CKK_AES)
+                key_type = CKK_AES;
+
+            rc = add_to_attribute_array(p_attrs, p_attrs_len, attr->type,
+                                        (CK_BYTE *)&key_type, sizeof(key_type));
+            if (rc != CKR_OK) {
+                TRACE_ERROR("Adding attribute failed type=0x%lx rc=0x%lx\n",
+                            attr->type, rc);
+                return rc;
+            }
+            break;
+        case CKA_VALUE_LEN:
+            if (attr->ulValueLen != sizeof(CK_ULONG) || attr->pValue == NULL)
+                return CKR_ATTRIBUTE_VALUE_INVALID;
+
+            value_len = *(CK_ULONG *)attr->pValue;
+            if (ktype == CKK_AES_XTS)
+                value_len /= 2;
+
+            rc = add_to_attribute_array(p_attrs, p_attrs_len, attr->type,
+                                        (CK_BYTE *)&value_len,
+                                        sizeof(value_len));
+            if (rc != CKR_OK) {
+                TRACE_ERROR("Adding attribute failed type=0x%lx rc=0x%lx\n",
+                            attr->type, rc);
+                return rc;
+            }
             break;
         /* EP11 does not like empty (zero length) attributes of that types */
         case CKA_PUBLIC_KEY_INFO:
@@ -2689,21 +2742,8 @@ static CK_RV build_ep11_attrs(STDLL_TokData_t * tokdata, TEMPLATE *template,
 
             if (attr_applicable_for_ep11(tokdata, attr, ktype, class,
                                          curve_type, mech)) {
-                if (attr->type == CKA_VALUE_LEN && ktype == CKK_AES_XTS) {
-                    value_len = *(CK_ULONG *)attr->pValue / 2;
-                    rc = add_to_attribute_array(p_attrs, p_attrs_len, attr->type,
-                                                (CK_BYTE *)&value_len,
-                                                sizeof(value_len));
-                } else if (attr->type == CKA_KEY_TYPE &&
-                           *(CK_KEY_TYPE *)attr->pValue == CKK_AES_XTS &&
-                           ktype == CKK_AES) {
-                    rc = add_to_attribute_array(p_attrs, p_attrs_len, CKA_KEY_TYPE,
-                                                (CK_BYTE *)&ktype, sizeof(ktype));
-                } else {
-                    rc = add_to_attribute_array(p_attrs, p_attrs_len, attr->type,
-                                                attr->pValue, attr->ulValueLen);
-                }
-
+                rc = add_to_attribute_array(p_attrs, p_attrs_len, attr->type,
+                                            attr->pValue, attr->ulValueLen);
                 if (rc != CKR_OK) {
                     TRACE_ERROR("Adding attribute failed type=0x%lx rc=0x%lx\n",
                                 attr->type, rc);
@@ -5167,6 +5207,17 @@ static CK_RV import_blob_secret(STDLL_TokData_t *tokdata, SESSION *sess,
     case CKK_AES:
     case CKK_AES_XTS:
     case CKK_GENERIC_SECRET:
+    case CKK_SHA_1_HMAC:
+    case CKK_SHA224_HMAC:
+    case CKK_SHA256_HMAC:
+    case CKK_SHA384_HMAC:
+    case CKK_SHA512_HMAC:
+    case CKK_SHA3_224_HMAC:
+    case CKK_SHA3_256_HMAC:
+    case CKK_SHA3_384_HMAC:
+    case CKK_SHA3_512_HMAC:
+    case CKK_SHA512_224_HMAC:
+    case CKK_SHA512_256_HMAC:
         rc = template_build_update_attribute(obj->template, CKA_VALUE_LEN,
                                              (CK_BYTE *)&value_len,
                                              sizeof(value_len));
@@ -5375,6 +5426,7 @@ static CK_RV import_blob(STDLL_TokData_t *tokdata, SESSION *sess, OBJECT *obj,
     size_t useblob_len, blob1_len, blob2_len;
     CK_KEY_TYPE blob_type = CK_UNAVAILABLE_INFORMATION;
     CK_KEY_TYPE blob_type2 = CK_UNAVAILABLE_INFORMATION;
+    CK_KEY_TYPE exp_keytype;
     CK_ULONG value_len, value_len2, stdcomp, stdcomp2;
     CK_BYTE buf[MAX_BLOBSIZE];
     CK_ATTRIBUTE get_attr[] = {
@@ -5660,9 +5712,11 @@ static CK_RV import_blob(STDLL_TokData_t *tokdata, SESSION *sess, OBJECT *obj,
         return rc;
     }
 
-    if (keytype != CKK_AES_XTS && blob_type != keytype) {
+    exp_keytype = keytype;
+    ep11tok_pkcs11_keytype_translate(tokdata, exp_keytype, &exp_keytype);
+    if (keytype != CKK_AES_XTS && blob_type != exp_keytype) {
         TRACE_ERROR("%s Key blob is not of the expected type: 0x%lx expectd "
-                    "0x%lx\n", __func__, blob_type, keytype);
+                    "0x%lx\n", __func__, blob_type, exp_keytype);
 
         if (blob_type == 0x80ffffff || blob_type == CK_UNAVAILABLE_INFORMATION)
             return CKR_PUBLIC_KEY_INVALID; /* Old firmware indication */
@@ -5892,6 +5946,17 @@ CK_RV token_specific_object_add(STDLL_TokData_t * tokdata, SESSION * sess,
     case CKK_DES3:
     case CKK_AES:
     case CKK_GENERIC_SECRET:
+    case CKK_SHA_1_HMAC:
+    case CKK_SHA224_HMAC:
+    case CKK_SHA256_HMAC:
+    case CKK_SHA384_HMAC:
+    case CKK_SHA512_HMAC:
+    case CKK_SHA3_224_HMAC:
+    case CKK_SHA3_256_HMAC:
+    case CKK_SHA3_384_HMAC:
+    case CKK_SHA3_512_HMAC:
+    case CKK_SHA512_224_HMAC:
+    case CKK_SHA512_256_HMAC:
         /* get key value */
         rc = template_attribute_get_non_empty(obj->template, CKA_VALUE, &attr);
         if (rc != CKR_OK) {
@@ -6029,11 +6094,11 @@ CK_RV ep11tok_generate_key(STDLL_TokData_t * tokdata, SESSION * session,
     CK_ATTRIBUTE_PTR new_attrs2 = NULL;
     CK_ULONG new_attrs_len = 0, new_attrs2_len = 0;
     CK_RV rc;
-    CK_BOOL xts = FALSE;
+    CK_BOOL xts = FALSE, mapped_mech = FALSE;
     unsigned char *ep11_pin_blob = NULL;
     CK_ULONG ep11_pin_blob_len = 0;
     ep11_session_t *ep11_session = (ep11_session_t *) session->private_data;
-    CK_MECHANISM mech2 = {CKM_AES_KEY_GEN, NULL, 0};
+    CK_MECHANISM mech2 = {0, NULL, 0};
     CK_BBOOL blob_new_mk = FALSE, blob2_new_mk = FALSE;
 
     memset(blob, 0, sizeof(blob));
@@ -6080,8 +6145,11 @@ CK_RV ep11tok_generate_key(STDLL_TokData_t * tokdata, SESSION * session,
         goto error;
     }
 
-    if (mech->mechanism == CKM_AES_XTS_KEY_GEN) {
+    switch (mech->mechanism){
+    case CKM_AES_XTS_KEY_GEN:
         xts = TRUE;
+        mech2.mechanism = CKM_AES_KEY_GEN;
+        mapped_mech = TRUE;
 #ifndef NO_PKEY
         rc = ep11tok_pkey_check_aes_xts(tokdata, key_obj, mech->mechanism);
 #else
@@ -6092,6 +6160,27 @@ CK_RV ep11tok_generate_key(STDLL_TokData_t * tokdata, SESSION * session,
                         __func__, rc);
             goto error;
         }
+        break;
+    case CKM_SHA_1_KEY_GEN:
+    case CKM_SHA224_KEY_GEN:
+    case CKM_SHA256_KEY_GEN:
+    case CKM_SHA384_KEY_GEN:
+    case CKM_SHA512_KEY_GEN:
+    case CKM_SHA512_224_KEY_GEN:
+    case CKM_SHA512_256_KEY_GEN:
+    case CKM_SHA3_224_KEY_GEN:
+    case CKM_SHA3_256_KEY_GEN:
+    case CKM_SHA3_384_KEY_GEN:
+    case CKM_SHA3_512_KEY_GEN:
+        rc = ep11tok_pkcs11_mech_translate(tokdata, mech->mechanism,
+                                           &mech2.mechanism);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s ep11tok_pkcs11_mech_translate failed: rc=0x%lx\n",
+                        __func__, rc);
+            goto error;
+        }
+        mapped_mech = TRUE;
+        break;
     }
 
     trace_attributes(__func__, "Generate key:", new_attrs2, new_attrs2_len);
@@ -6104,7 +6193,7 @@ CK_RV ep11tok_generate_key(STDLL_TokData_t * tokdata, SESSION * session,
 retry:
     RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
     RETRY_REENC_CREATE_KEY_START()
-        rc = dll_m_GenerateKey(xts ? &mech2 : mech, new_attrs2, new_attrs2_len, 
+        rc = dll_m_GenerateKey(mapped_mech ? &mech2 : mech, new_attrs2, new_attrs2_len,
                                ep11_pin_blob, ep11_pin_blob_len, blob, &blobsize,
                                csum, &csum_len, target_info->target);
     RETRY_REENC_CREATE_KEY_END(tokdata, session, target_info,
@@ -7732,6 +7821,17 @@ static CK_RV ep11tok_sha_key_derive_mech_pre_process(STDLL_TokData_t *tokdata,
 
     switch (keytype) {
     case CKK_GENERIC_SECRET:
+    case CKK_SHA_1_HMAC:
+    case CKK_SHA224_HMAC:
+    case CKK_SHA256_HMAC:
+    case CKK_SHA384_HMAC:
+    case CKK_SHA512_HMAC:
+    case CKK_SHA3_224_HMAC:
+    case CKK_SHA3_256_HMAC:
+    case CKK_SHA3_384_HMAC:
+    case CKK_SHA3_512_HMAC:
+    case CKK_SHA512_224_HMAC:
+    case CKK_SHA512_256_HMAC:
         break;
     case CKK_DES:
     case CKK_DES2:
@@ -10383,6 +10483,32 @@ done:
     return rc;
 }
 
+CK_RV ep11tok_hmac_mech_check_keytype(CK_MECHANISM_TYPE mech, OBJECT *key_obj)
+{
+    CK_KEY_TYPE keytype, exp_keytype, alt_keytype;
+    CK_RV rc;
+
+    rc = template_attribute_get_ulong(key_obj->template, CKA_KEY_TYPE,
+                                      &keytype);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find attribute CKA_KEY_TYPE for the key.\n");
+        return CKR_TEMPLATE_INCOMPLETE;
+    }
+
+    rc = pkcsget_keytype_for_mech(mech, &exp_keytype, &alt_keytype);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("pkcsget_keytype_for_mech failed.\n");
+        return rc;
+    }
+
+    if (keytype != exp_keytype && keytype != alt_keytype) {
+        TRACE_ERROR("%s\n", ock_err(ERR_KEY_TYPE_INCONSISTENT));
+        return CKR_KEY_TYPE_INCONSISTENT;
+    }
+
+    return CKR_OK;
+}
+
 CK_RV ep11tok_check_single_mech_key(STDLL_TokData_t *tokdata, SESSION * session,
                                     CK_MECHANISM *mech, CK_OBJECT_HANDLE key,
                                     CK_ULONG operation, CK_BBOOL *auth_required)
@@ -10463,6 +10589,28 @@ CK_RV ep11tok_check_single_mech_key(STDLL_TokData_t *tokdata, SESSION * session,
             TRACE_ERROR("key_object_is_always_authenticate failed\n");
             goto error;
         }
+    }
+
+    switch (mech->mechanism) {
+    case CKM_SHA_1_HMAC:
+    case CKM_SHA224_HMAC:
+    case CKM_SHA256_HMAC:
+    case CKM_SHA384_HMAC:
+    case CKM_SHA512_HMAC:
+    case CKM_SHA512_224_HMAC:
+    case CKM_SHA512_256_HMAC:
+    case CKM_SHA3_224_HMAC:
+    case CKM_SHA3_256_HMAC:
+    case CKM_SHA3_384_HMAC:
+    case CKM_SHA3_512_HMAC:
+    case CKM_IBM_SHA3_224_HMAC:
+    case CKM_IBM_SHA3_256_HMAC:
+    case CKM_IBM_SHA3_384_HMAC:
+    case CKM_IBM_SHA3_512_HMAC:
+        rc = ep11tok_hmac_mech_check_keytype(mech->mechanism, key_obj);
+        if (rc != CKR_OK)
+            goto error;
+        break;
     }
 
     INC_COUNTER(tokdata, session, mech, key_obj, POLICY_STRENGTH_IDX_0);
@@ -10656,13 +10804,36 @@ CK_RV ep11tok_sign_init(STDLL_TokData_t * tokdata, SESSION * session,
     }
 #endif /* NO_PKEY */
 
-    if (mech->mechanism == CKM_IBM_ECDSA_OTHER) {
+    switch (mech->mechanism) {
+    case CKM_IBM_ECDSA_OTHER:
         rc = ep11tok_ecdsa_other_mech_adjust(mech, &mech_ep11);
         if (rc != CKR_OK) {
             free(ep11_sign_state);
             goto done;
         }
         mech = &mech_ep11.mech;
+        break;
+    case CKM_SHA_1_HMAC:
+    case CKM_SHA224_HMAC:
+    case CKM_SHA256_HMAC:
+    case CKM_SHA384_HMAC:
+    case CKM_SHA512_HMAC:
+    case CKM_SHA512_224_HMAC:
+    case CKM_SHA512_256_HMAC:
+    case CKM_SHA3_224_HMAC:
+    case CKM_SHA3_256_HMAC:
+    case CKM_SHA3_384_HMAC:
+    case CKM_SHA3_512_HMAC:
+    case CKM_IBM_SHA3_224_HMAC:
+    case CKM_IBM_SHA3_256_HMAC:
+    case CKM_IBM_SHA3_384_HMAC:
+    case CKM_IBM_SHA3_512_HMAC:
+        rc = ep11tok_hmac_mech_check_keytype(mech->mechanism, key_obj);
+        if (rc != CKR_OK) {
+            free(ep11_sign_state);
+            goto done;
+        }
+        break;
     }
 
     if (checkauth) {
@@ -10987,11 +11158,32 @@ CK_RV ep11tok_sign_single(STDLL_TokData_t *tokdata, SESSION *session,
         goto done;
     }
 
-    if (mech->mechanism == CKM_IBM_ECDSA_OTHER) {
+    switch (mech->mechanism) {
+    case CKM_IBM_ECDSA_OTHER:
         rc = ep11tok_ecdsa_other_mech_adjust(mech, &mech_ep11);
         if (rc != CKR_OK)
             goto done;
         mech = &mech_ep11.mech;
+        break;
+    case CKM_SHA_1_HMAC:
+    case CKM_SHA224_HMAC:
+    case CKM_SHA256_HMAC:
+    case CKM_SHA384_HMAC:
+    case CKM_SHA512_HMAC:
+    case CKM_SHA512_224_HMAC:
+    case CKM_SHA512_256_HMAC:
+    case CKM_SHA3_224_HMAC:
+    case CKM_SHA3_256_HMAC:
+    case CKM_SHA3_384_HMAC:
+    case CKM_SHA3_512_HMAC:
+    case CKM_IBM_SHA3_224_HMAC:
+    case CKM_IBM_SHA3_256_HMAC:
+    case CKM_IBM_SHA3_384_HMAC:
+    case CKM_IBM_SHA3_512_HMAC:
+        rc = ep11tok_hmac_mech_check_keytype(mech->mechanism, key_obj);
+        if (rc != CKR_OK)
+            goto done;
+        break;
     }
 
     ep11_mech = *mech;
@@ -11124,13 +11316,36 @@ CK_RV ep11tok_verify_init(STDLL_TokData_t * tokdata, SESSION * session,
     }
 #endif /* NO_PKEY */
 
-    if (mech->mechanism == CKM_IBM_ECDSA_OTHER) {
+    switch (mech->mechanism) {
+    case CKM_IBM_ECDSA_OTHER:
         rc = ep11tok_ecdsa_other_mech_adjust(mech, &mech_ep11);
         if (rc != CKR_OK) {
             free(ep11_sign_state);
             goto done;
         }
         mech = &mech_ep11.mech;
+        break;
+    case CKM_SHA_1_HMAC:
+    case CKM_SHA224_HMAC:
+    case CKM_SHA256_HMAC:
+    case CKM_SHA384_HMAC:
+    case CKM_SHA512_HMAC:
+    case CKM_SHA512_224_HMAC:
+    case CKM_SHA512_256_HMAC:
+    case CKM_SHA3_224_HMAC:
+    case CKM_SHA3_256_HMAC:
+    case CKM_SHA3_384_HMAC:
+    case CKM_SHA3_512_HMAC:
+    case CKM_IBM_SHA3_224_HMAC:
+    case CKM_IBM_SHA3_256_HMAC:
+    case CKM_IBM_SHA3_384_HMAC:
+    case CKM_IBM_SHA3_512_HMAC:
+        rc = ep11tok_hmac_mech_check_keytype(mech->mechanism, key_obj);
+        if (rc != CKR_OK) {
+            free(ep11_sign_state);
+            goto done;
+        }
+        break;
     }
 
     ep11_mech = *mech;
@@ -11442,11 +11657,32 @@ CK_RV ep11tok_verify_single(STDLL_TokData_t *tokdata, SESSION *session,
         goto done;
     }
 
-    if (mech->mechanism == CKM_IBM_ECDSA_OTHER) {
+    switch (mech->mechanism) {
+    case CKM_IBM_ECDSA_OTHER:
         rc = ep11tok_ecdsa_other_mech_adjust(mech, &mech_ep11);
         if (rc != CKR_OK)
             goto done;
         mech = &mech_ep11.mech;
+        break;
+    case CKM_SHA_1_HMAC:
+    case CKM_SHA224_HMAC:
+    case CKM_SHA256_HMAC:
+    case CKM_SHA384_HMAC:
+    case CKM_SHA512_HMAC:
+    case CKM_SHA512_224_HMAC:
+    case CKM_SHA512_256_HMAC:
+    case CKM_SHA3_224_HMAC:
+    case CKM_SHA3_256_HMAC:
+    case CKM_SHA3_384_HMAC:
+    case CKM_SHA3_512_HMAC:
+    case CKM_IBM_SHA3_224_HMAC:
+    case CKM_IBM_SHA3_256_HMAC:
+    case CKM_IBM_SHA3_384_HMAC:
+    case CKM_IBM_SHA3_512_HMAC:
+        rc = ep11tok_hmac_mech_check_keytype(mech->mechanism, key_obj);
+        if (rc != CKR_OK)
+            goto done;
+        break;
     }
 
     ep11_mech = *mech;
@@ -12785,6 +13021,17 @@ CK_RV ep11tok_unwrap_key(STDLL_TokData_t * tokdata, SESSION * session,
         switch (*(CK_KEY_TYPE *) keytype_attr->pValue) {
         case CKK_AES:
         case CKK_GENERIC_SECRET:
+        case CKK_SHA_1_HMAC:
+        case CKK_SHA224_HMAC:
+        case CKK_SHA256_HMAC:
+        case CKK_SHA384_HMAC:
+        case CKK_SHA512_HMAC:
+        case CKK_SHA3_224_HMAC:
+        case CKK_SHA3_256_HMAC:
+        case CKK_SHA3_384_HMAC:
+        case CKK_SHA3_512_HMAC:
+        case CKK_SHA512_224_HMAC:
+        case CKK_SHA512_256_HMAC:
             rc = build_attribute(CKA_VALUE_LEN, (CK_BYTE *)&len,
                                  sizeof(CK_ULONG), &attr);
             if (rc != CKR_OK) {
@@ -13012,14 +13259,25 @@ struct mech_translate {
 
 /* Translate PKCS#11 v3.0 SHA3 mechs to IBM-specific SHA3 mechs */
 static const struct mech_translate pkcs11_mechanism_translation[] = {
-    { CKM_SHA3_224,      CKM_IBM_SHA3_224 },
-    { CKM_SHA3_224_HMAC, CKM_IBM_SHA3_224_HMAC },
-    { CKM_SHA3_256,      CKM_IBM_SHA3_256 },
-    { CKM_SHA3_256_HMAC, CKM_IBM_SHA3_256_HMAC },
-    { CKM_SHA3_384,      CKM_IBM_SHA3_384 },
-    { CKM_SHA3_384_HMAC, CKM_IBM_SHA3_384_HMAC },
-    { CKM_SHA3_512,      CKM_IBM_SHA3_512 },
-    { CKM_SHA3_512_HMAC, CKM_IBM_SHA3_512_HMAC },
+    { CKM_SHA3_224,           CKM_IBM_SHA3_224 },
+    { CKM_SHA3_224_HMAC,      CKM_IBM_SHA3_224_HMAC },
+    { CKM_SHA3_256,           CKM_IBM_SHA3_256 },
+    { CKM_SHA3_256_HMAC,      CKM_IBM_SHA3_256_HMAC },
+    { CKM_SHA3_384,           CKM_IBM_SHA3_384 },
+    { CKM_SHA3_384_HMAC,      CKM_IBM_SHA3_384_HMAC },
+    { CKM_SHA3_512,           CKM_IBM_SHA3_512 },
+    { CKM_SHA3_512_HMAC,      CKM_IBM_SHA3_512_HMAC },
+    { CKM_SHA_1_KEY_GEN,      CKM_GENERIC_SECRET_KEY_GEN },
+    { CKM_SHA224_KEY_GEN,     CKM_GENERIC_SECRET_KEY_GEN },
+    { CKM_SHA256_KEY_GEN,     CKM_GENERIC_SECRET_KEY_GEN },
+    { CKM_SHA384_KEY_GEN,     CKM_GENERIC_SECRET_KEY_GEN },
+    { CKM_SHA512_KEY_GEN,     CKM_GENERIC_SECRET_KEY_GEN },
+    { CKM_SHA512_224_KEY_GEN, CKM_GENERIC_SECRET_KEY_GEN },
+    { CKM_SHA512_256_KEY_GEN, CKM_GENERIC_SECRET_KEY_GEN },
+    { CKM_SHA3_224_KEY_GEN,   CKM_GENERIC_SECRET_KEY_GEN },
+    { CKM_SHA3_256_KEY_GEN,   CKM_GENERIC_SECRET_KEY_GEN },
+    { CKM_SHA3_384_KEY_GEN,   CKM_GENERIC_SECRET_KEY_GEN },
+    { CKM_SHA3_512_KEY_GEN,   CKM_GENERIC_SECRET_KEY_GEN },
 };
 
 static const CK_ULONG pkcs11_mechanism_translation_len =
@@ -13040,6 +13298,29 @@ static const struct mgf_translate pkcs11_mgf_translation[] = {
 
 static const CK_ULONG pkcs11_mgf_translation_len =
     (sizeof(pkcs11_mgf_translation) / sizeof(struct mgf_translate));
+
+struct keytype_translate {
+    CK_KEY_TYPE pkcs11_keytype;
+    CK_KEY_TYPE ep11_keytype;
+};
+
+/* Translate PKCS#11 SHA-HMAC key types to generic secrets */
+static const struct keytype_translate pkcs11_keytype_translation[] = {
+    { CKK_SHA_1_HMAC, CKK_GENERIC_SECRET },
+    { CKK_SHA224_HMAC, CKK_GENERIC_SECRET },
+    { CKK_SHA256_HMAC, CKK_GENERIC_SECRET },
+    { CKK_SHA384_HMAC, CKK_GENERIC_SECRET },
+    { CKK_SHA512_HMAC, CKK_GENERIC_SECRET },
+    { CKK_SHA512_224_HMAC, CKK_GENERIC_SECRET },
+    { CKK_SHA512_256_HMAC, CKK_GENERIC_SECRET },
+    { CKK_SHA3_224_HMAC, CKK_GENERIC_SECRET },
+    { CKK_SHA3_256_HMAC, CKK_GENERIC_SECRET },
+    { CKK_SHA3_384_HMAC, CKK_GENERIC_SECRET },
+    { CKK_SHA3_512_HMAC, CKK_GENERIC_SECRET },
+};
+
+static const CK_ULONG pkcs11_keytype_translation_len =
+    (sizeof(pkcs11_keytype_translation) / sizeof(struct keytype_translate));
 
 static CK_RV ep11tok_pkcs11_mech_translate(STDLL_TokData_t *tokdata,
                                            CK_MECHANISM_TYPE type,
@@ -13081,6 +13362,27 @@ static CK_RV ep11tok_pkcs11_mgf_translate(STDLL_TokData_t *tokdata,
     }
 
     return CKR_MECHANISM_INVALID;
+}
+
+static CK_RV ep11tok_pkcs11_keytype_translate(STDLL_TokData_t *tokdata,
+                                              CK_KEY_TYPE keytype,
+                                              CK_KEY_TYPE* ep11_keytype)
+{
+    CK_ULONG i;
+
+    UNUSED(tokdata);
+
+    for (i = 0; i < pkcs11_keytype_translation_len; i++) {
+        if (keytype == pkcs11_keytype_translation[i].pkcs11_keytype) {
+            TRACE_DEVEL("%s Keytype 0x%lx is backed by 0x%lx\n", __func__,
+                        pkcs11_keytype_translation[i].pkcs11_keytype,
+                        pkcs11_keytype_translation[i].ep11_keytype);
+            *ep11_keytype = pkcs11_keytype_translation[i].ep11_keytype;
+            return CKR_OK;
+        }
+    }
+
+    return CKR_KEY_TYPE_INCONSISTENT;
 }
 
 /* Note: Do not move this function inside
