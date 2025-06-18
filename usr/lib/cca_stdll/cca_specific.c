@@ -300,6 +300,11 @@ static const MECH_LIST_ELEMENT cca_mech_list[] = {
                         CKF_EC_NAMEDCURVE | CKF_EC_F_P}},
     {CKM_ECDH1_DERIVE, {160, 521, CKF_DERIVE | CKF_EC_NAMEDCURVE | CKF_EC_F_P}},
     {CKM_GENERIC_SECRET_KEY_GEN, {80, 2048, CKF_HW | CKF_GENERATE}},
+    {CKM_SHA_1_KEY_GEN, {80, 2048, CKF_HW | CKF_GENERATE}},
+    {CKM_SHA224_KEY_GEN, {80, 2048, CKF_HW | CKF_GENERATE}},
+    {CKM_SHA256_KEY_GEN, {80, 2048, CKF_HW | CKF_GENERATE}},
+    {CKM_SHA384_KEY_GEN, {80, 2048, CKF_HW | CKF_GENERATE}},
+    {CKM_SHA512_KEY_GEN, {80, 2048, CKF_HW | CKF_GENERATE}},
     {CKM_IBM_DILITHIUM, {256, 256, CKF_HW | CKF_GENERATE_KEY_PAIR |
                          CKF_SIGN | CKF_VERIFY}},
     {CKM_RSA_AES_KEY_WRAP, {2048, 4096, CKF_HW | CKF_WRAP | CKF_UNWRAP}},
@@ -12760,6 +12765,11 @@ CK_RV token_specific_object_add(STDLL_TokData_t *tokdata, SESSION *sess, OBJECT 
                    attr != NULL ? attr->ulValueLen : 0);
         break;
     case CKK_GENERIC_SECRET:
+    case CKK_SHA_1_HMAC:
+    case CKK_SHA224_HMAC:
+    case CKK_SHA256_HMAC:
+    case CKK_SHA384_HMAC:
+    case CKK_SHA512_HMAC:
         rc = import_generic_secret_key(tokdata, object);
         if (rc != CKR_OK) {
             TRACE_DEVEL("Generic Secret (HMAC) key import failed "
