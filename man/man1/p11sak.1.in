@@ -23,12 +23,12 @@ p11sak \- Manage token keys in a PKCS\~#11 token repository.
 The \fBp11sak\fP tool can be used to manage token keys and certificates in a
 PKCS\~#11 token repository. The utility provides a flexible key management tool 
 to generate, list, remove, update, copy, import, and export symmetric (DES, 
-3DES, generic, AES, AES\-XTS) and asymmetric (RSA, DH, DSA, EC, IBM Dilithium, 
-IBM Kyber) keys. This tool is also capable of listing the keys with their 
-PKCS\~#11 attributes and their values (not all attributes may be displayed if 
-a keys is sensitive). It also supports the import, export, copy, and listing 
-of certificates. Public keys inside certificates and private keys can be
-extracted and added to the token repository as new public key objects.
+3DES, generic, SHA\-HMAC, AES, AES\-XTS) and asymmetric (RSA, DH, DSA, EC,
+IBM Dilithium, IBM Kyber) keys. This tool is also capable of listing the keys
+with their PKCS\~#11 attributes and their values (not all attributes may be
+displayed if a key is sensitive). It also supports the import, export, copy,
+and listing of certificates. Public keys inside certificates and private keys
+can be extracted and added to the token repository as new public key objects.
 
 .PP
 .B Note:
@@ -69,8 +69,11 @@ and
 Possible values for the
 .I KEYTYPE
 argument are:
-.BR des | 3des | generic | aes | aes\-xts | rsa | dh | dsa | ec | \
-ibm\-dilithium | ibm-kyber .
+.BR des |\: 3des |\: generic |\: sha\-1\-hmac |\: sha224\-hmac |\: \
+sha256\-hmac |\: sha384\-hmac |\: sha512\-hmac |\: sha512/224\-hmac |\: \
+sha512/256\-hmac |\: sha3\-224\-hmac |\: sha3\-256\-hmac |\: sha3\-384\-hmac \
+|\: sha3\-512\-hmac |\: aes |\: aes\-xts |\: rsa |\: dh |\: dsa |\: ec |\: \
+ibm\-dilithium |\: ibm\-kyber .
 See below for a detailed description of the arguments and options. The
 .BR \-\-help | \-h
 option will also show the arguments and options available.
@@ -147,7 +150,56 @@ command and
 argument to generate a generic secret key (\fBCKK_GENERIC_SECRET\fP) with the
 key size in bits as specified by the
 .I KEYBITS
-argument.The
+argument. The
+.BR \-\-label | \-L
+.I LABEL
+option sets the
+.B CKA_LABEL
+attribute of the key and the
+.BR \-\-attr | \-a
+.I ATTRS
+option can be used to set the boolean attributes of the key (see below for
+detailed description of the attributes). The
+.BR \-\-id | \-i
+.I ID
+option can be used to set the value of the
+.B CKA_ID
+attribute of the key.
+.
+.PP
+.SS "Generating SHA-HMAC keys"
+.
+.B p11sak
+.BR generate\-key | gen\-key | gen
+.BR sha\-1\-hmac |\: sha224\-hmac |\: sha256\-hmac |\: sha384\-hmac |\: \
+sha512\-hmac |\: sha512/224\-hmac |\: sha512/256\-hmac |\: sha3\-224\-hmac |\: \
+sha3\-256\-hmac |\: sha3\-384\-hmac |\: sha3\-512\-hmac
+.I KEYBITS
+.BR \-\-slot | \-s
+.I SLOTID
+.RB [ \-\-pin | \-p
+.IR PIN ]
+.RB [ \-\-force\-pin\-prompt ]
+.RB [ \-\-no\-login | \-N ]
+.RB [ \-\-so ]
+.BR \-\-label | \-L
+.I LABEL
+.BR \-\-attr | \-a
+.I ATTRS
+.RB [ \-\-id | \-i
+.IR ID ]
+.RB [ \-\-help | \-h ]
+.PP
+Use the
+.BR generate\-key | gen\-key | gen
+.B sha\fInnn\fB\-hmac
+.I KEYBITS
+command and
+.I KEYTYPE
+argument to generate a SHA-HMAC key (\fBCKK_SHAnnn_HMAC\fP) with the
+key size in bits as specified by the
+.I KEYBITS
+argument. The
 .BR \-\-label | \-L
 .I LABEL
 option sets the
@@ -343,8 +395,8 @@ specifies the Diffie\-Hellman FFC group name or
 .I DH\-PARAM\-PEM\-FILE
 specifies the name of a DH parameters PEM file.
 The following arguments can be used for respective groups:
-.BR ffdhe2048 | ffdhe3072 | ffdhe4096 | ffdhe6144 | ffdhe8192 | modp1536 | \
-modp2048 | modp3072 | modp4096 | modp6144 | modp8192
+.BR ffdhe2048 |\: ffdhe3072 |\: ffdhe4096 |\: ffdhe6144 |\: ffdhe8192 |\: \
+modp1536 |\: modp2048 |\: modp3072 |\: modp4096 |\: modp6144 |\: modp8192
 .PP
 .B Note:
 Not all groups are supported by all tokens and key generation will fail
@@ -470,11 +522,12 @@ argument to generate an EC key (\fBCKK_EC\fP), where
 .I CURVE
 specifies the elliptic curve used to create the EC key. The following arguments
 can be used for respective curves:
-.BR prime256v1 | prime192 | secp224 | secp384r1 | secp521r1 | secp265k1 | \
-brainpoolP160r1 | brainpoolP160t1 | brainpoolP192r1 | brainpoolP192t1 |   \
-brainpoolP224r1 | brainpoolP224t1 | brainpoolP256r1 | brainpoolP256t1 |   \
-brainpoolP320r1 | brainpoolP320t1 | brainpoolP384r1 | brainpoolP384t1 |   \
-brainpoolP512r1 | brainpoolP512t1 | curve25519 | curve448 | ed25519 | ed448
+.BR prime256v1 |\: prime192 |\: secp224 |\: secp384r1 |\: secp521r1 |\: \
+secp265k1 |\: brainpoolP160r1 |\: brainpoolP160t1 |\: brainpoolP192r1 |\: \
+brainpoolP192t1 |\: brainpoolP224r1 |\: brainpoolP224t1 |\: brainpoolP256r1 \
+|\: brainpoolP256t1 |\: brainpoolP320r1 |\: brainpoolP320t1 |\: \
+brainpoolP384r1 |\: brainpoolP384t1 |\: brainpoolP512r1 |\: brainpoolP512t1 \
+|\: curve25519 |\: curve448 |\: ed25519 |\: ed448
 .PP
 .B Note:
 Not all curves will be supported by all tokens and key generation will fail
@@ -532,7 +585,7 @@ argument to generate an IBM Dilithium key (\fBCKK_IBM_PQC_DILITHIUM\fP), where
 .I VERSION
 specifies the version of the IBM Dilithium keypair. The following arguments can
 be used for respective keys:
-.BR r2_65 | r2_87 | r3_44 | r3_65 | r3_87
+.BR r2_65 |\: r2_87 |\: r3_44 |\: r3_65 |\: r3_87
 .PP
 .B Note:
 Not all IBM Dilithium versions will be supported by all tokens and key
@@ -652,8 +705,11 @@ keys can also be listed irrespective of the key type.
 Possible values for the
 .I KEYTYPE
 argument are:
-.BR des | 3des | generic | aes | aes\-xts | rsa | dh | dsa | ec | \
-ibm\-dilithium | ibm-kyber | public | private | secret | all .
+.BR des |\: 3des |\: generic |\: sha\-1\-hmac |\: sha224\-hmac |\: \
+sha256\-hmac |\: sha384\-hmac |\: sha512\-hmac |\: sha512/224\-hmac |\: \
+sha512/256\-hmac |\: sha3\-224\-hmac |\: sha3\-256\-hmac |\: sha3\-384\-hmac \
+|\: sha3\-512\-hmac |\: aes |\: aes\-xts |\: rsa |\: dh |\: dsa |\: ec |\: \
+ibm\-dilithium |\: ibm\-kyber |\: public |\: private |\: secret |\: all .
 If
 .I KEYTYPE
 is omitted, then all key types are listed.
@@ -737,8 +793,11 @@ keys can also be selected for removal irrespective of the key type.
 Possible values for the
 .I KEYTYPE
 argument are:
-.BR des | 3des | generic | aes | aes\-xts | rsa | dh | dsa | ec | \
-ibm\-dilithium | ibm-kyber | public | private | secret | all .
+.BR des |\: 3des |\: generic |\: sha\-1\-hmac |\: sha224\-hmac |\: \
+sha256\-hmac |\: sha384\-hmac |\: sha512\-hmac |\: sha512/224\-hmac |\: \
+sha512/256\-hmac |\: sha3\-224\-hmac |\: sha3\-256\-hmac |\: sha3\-384\-hmac \
+|\: sha3\-512\-hmac |\: aes |\: aes\-xts |\: rsa |\: dh |\: dsa |\: ec |\: \
+ibm\-dilithium |\: ibm\-kyber |\: public |\: private |\: secret |\: all .
 If
 .I KEYTYPE
 is omitted, then all key types are selected for removal.
@@ -807,8 +866,11 @@ irrespective of the key type.
 Possible values for the
 .I KEYTYPE
 argument are:
-.BR des | 3des | generic | aes | aes\-xts | rsa | dh | dsa | ec | \
-ibm\-dilithium | ibm-kyber | public | private | secret | all .
+.BR des |\: 3des |\: generic |\: sha\-1\-hmac |\: sha224\-hmac |\: \
+sha256\-hmac |\: sha384\-hmac |\: sha512\-hmac |\: sha512/224\-hmac |\: \
+sha512/256\-hmac |\: sha3\-224\-hmac |\: sha3\-256\-hmac |\: sha3\-384\-hmac \
+|\: sha3\-512\-hmac |\: aes |\: aes\-xts |\: rsa |\: dh |\: dsa |\: ec |\: \
+ibm\-dilithium |\: ibm\-kyber |\: public |\: private |\: secret |\: all .
 If
 .I KEYTYPE
 is omitted, then all key types are selected for updating.
@@ -899,8 +961,11 @@ type.
 Possible values for the
 .I KEYTYPE
 argument are:
-.BR des | 3des | generic | aes | aes\-xts | rsa | dh | dsa | ec | \
-ibm\-dilithium | ibm-kyber | public | private | secret | all .
+.BR des |\: 3des |\: generic |\: sha\-1\-hmac |\: sha224\-hmac |\: \
+sha256\-hmac |\: sha384\-hmac |\: sha512\-hmac |\: sha512/224\-hmac |\: \
+sha512/256\-hmac |\: sha3\-224\-hmac |\: sha3\-256\-hmac |\: sha3\-384\-hmac \
+|\: sha3\-512\-hmac |\: aes |\: aes\-xts |\: rsa |\: dh |\: dsa |\: ec |\: \
+ibm\-dilithium |\: ibm\-kyber |\: public |\: private |\: secret |\: all .
 If
 .I KEYTYPE
 is omitted, then all key types are selected for copying.
@@ -989,8 +1054,11 @@ key.
 Possible values for the
 .I KEYTYPE
 argument are:
-.BR des | 3des | generic | aes | aes\-xts | rsa | dh | dsa | ec | \
-ibm\-dilithium | ibm-kyber | public | private | secret | all .
+.BR des |\: 3des |\: generic |\: sha\-1\-hmac |\: sha224\-hmac |\: \
+sha256\-hmac |\: sha384\-hmac |\: sha512\-hmac |\: sha512/224\-hmac |\: \
+sha512/256\-hmac |\: sha3\-224\-hmac |\: sha3\-256\-hmac |\: sha3\-384\-hmac \
+|\: sha3\-512\-hmac |\: aes |\: aes\-xts |\: rsa |\: dh |\: dsa |\: ec |\: \
+ibm\-dilithium |\: ibm\-kyber |\: public |\: private |\: secret |\: all .
 .PP
 The
 .BR \-\-label | \-L
@@ -1032,7 +1100,7 @@ Specify the
 option when the key material in the PEM file is in the
 .B oqsprovider
 format. This option is only valid for the
-.B ibm-dilithium
+.B ibm\-dilithium
 keytype. PEM files in
 .B oqsprovider
 format are only supported when the
@@ -1084,8 +1152,11 @@ irrespective of the key type.
 Possible values for the
 .I KEYTYPE
 argument are:
-.BR des | 3des | generic | aes | aes\-xts | rsa | dh | dsa | ec | \
-ibm\-dilithium | ibm-kyber | public | private | secret | all .
+.BR des |\: 3des |\: generic |\: sha\-1\-hmac |\: sha224\-hmac |\: \
+sha256\-hmac |\: sha384\-hmac |\: sha512\-hmac |\: sha512/224\-hmac |\: \
+sha512/256\-hmac |\: sha3\-224\-hmac |\: sha3\-256\-hmac |\: sha3\-384\-hmac \
+|\: sha3\-512\-hmac |\: aes |\: aes\-xts |\: rsa |\: dh |\: dsa |\: ec |\: \
+ibm\-dilithium |\: ibm\-kyber |\: public |\: private |\: secret |\: all .
 If
 .I KEYTYPE
 is omitted, then all key types are selected for export.
@@ -1143,7 +1214,7 @@ Specify the
 option when the key material is to be exported in
 .B oqsprovider
 format into the PEM file. This option is only valid for the
-.B ibm-dilithium
+.B ibm\-dilithium
 keytype. PEM files in
 .B oqsprovider
 format are only supported when the
@@ -1241,7 +1312,8 @@ as new token object.
 Possible values for the
 .I KEYTYPE
 argument are:
-.BR rsa | dh | dsa | ec | ibm\-dilithium | ibm-kyber | private | all .
+.BR rsa |\: dh |\: dsa |\: ec |\: ibm\-dilithium |\: ibm\-kyber |\: private \
+|\: all .
 If
 .I KEYTYPE
 is omitted, then all private key types are selected for export.
@@ -1871,10 +1943,13 @@ certificate. To suppress the prompt, use the --force|-f option.
 .
 Selects the respective symmetric or asymmetric key to be generated, imported or
 selected. Possible values are:
-.BR des | 3des | generic | aes | aes\-xts | rsa | dh | dsa | ec | \
-ibm\-dilithium | ibm-kyber | public | private | secret | all .
+.BR des |\: 3des |\: generic |\: sha\-1\-hmac |\: sha224\-hmac |\: \
+sha256\-hmac |\: sha384\-hmac |\: sha512\-hmac |\: sha512/224\-hmac |\: \
+sha512/256\-hmac |\: sha3\-224\-hmac |\: sha3\-256\-hmac |\: sha3\-384\-hmac \
+|\: sha3\-512\-hmac |\: aes |\: aes\-xts |\: rsa |\: dh |\: dsa |\: ec |\: \
+ibm\-dilithium |\: ibm\-kyber |\: public |\: private |\: secret |\: all .
 The
-.BR public | private | secret | all
+.BR public |\: private |\: secret |\: all
 argument can only be used with commands that use the
 .I KEYTYPE
 argument as filter, such as the
@@ -1930,8 +2005,8 @@ Specifies the size of the private key in bits for an DH key.
 .SS "GROUP"
 .
 Specifies the Diffie\-Hellman FFC group name for an DH key. Possible values are
-.BR ffdhe2048 | ffdhe3072 | ffdhe4096 | ffdhe6144 | ffdhe8192 | modp1536 | \
-modp2048 | modp3072 | modp4096 | modp6144 | modp8192 .
+.BR ffdhe2048 |\: ffdhe3072 |\: ffdhe4096 |\: ffdhe6144 |\: ffdhe8192 |\: \
+modp1536 |\: modp2048 |\: modp3072 |\: modp4096 |\: modp6144 |\: modp8192 .
 .PP
 .B Note:
 Not all groups are supported by all tokens and key generation will fail
@@ -1965,11 +2040,12 @@ details about this command.
 .SS "CURVE"
 .
 Specifies the curve for an EC key. Possible values are:
-.BR prime256v1 | prime192 | secp224 | secp384r1 | secp521r1 | secp265k1 | \
-brainpoolP160r1 | brainpoolP160t1 | brainpoolP192r1 | brainpoolP192t1 |   \
-brainpoolP224r1 | brainpoolP224t1 | brainpoolP256r1 | brainpoolP256t1 |   \
-brainpoolP320r1 | brainpoolP320t1 | brainpoolP384r1 | brainpoolP384t1 |   \
-brainpoolP512r1 | brainpoolP512t1 | curve25519 | curve448 | ed25519 | ed448 .
+.BR prime256v1 |\: prime192 |\: secp224 |\: secp384r1 |\: secp521r1 |\: \
+secp265k1 |\: brainpoolP160r1 |\: brainpoolP160t1 |\: brainpoolP192r1 |\: \
+brainpoolP192t1 |\: brainpoolP224r1 |\: brainpoolP224t1 |\: brainpoolP256r1 \
+|\: brainpoolP256t1 |\: brainpoolP320r1 |\: brainpoolP320t1 |\: \
+brainpoolP384r1 |\: brainpoolP384t1 |\: brainpoolP512r1 |\: brainpoolP512t1 \
+|\: curve25519 |\: curve448 |\: ed25519 |\: ed448 .
 .PP
 .
 .SS "VERSION"
@@ -1978,11 +2054,11 @@ Specifies the version for an IBM Dilithium or IBM Kyber key.
 For the
 .B ibm\-dilithium
 key type, possible values are
-.BR r2_65 | r2_87 | r3_44 | r3_65 | r3_87 .
+.BR r2_65 |\: r2_87 |\: r3_44 |\: r3_65 |\: r3_87 .
 For the
 .B ibm\-kyber
 key type, possible values are
-.BR r2_768 | r2_1024 .
+.BR r2_768 |\: r2_1024 .
 .PP
 .
 .SS "KIND"
@@ -2478,7 +2554,7 @@ The key material in the PEM file specified with the
 option is in the
 .B oqsprovider
 format. This option is only valid for the
-.B ibm-dilithium
+.B ibm\-dilithium
 keytype. PEM files in
 .B oqsprovider
 format are only supported when the
