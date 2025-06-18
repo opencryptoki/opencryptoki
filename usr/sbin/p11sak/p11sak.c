@@ -704,6 +704,204 @@ static const struct p11tool_objtype p11sak_generic_keytype = {
     .export_sym_clear = p11sak_export_sym_clear_des_3des_aes_generic,
 };
 
+static const struct p11tool_objtype p11sak_sha_1_hmac_keytype = {
+    .obj_typestr = "key", .obj_liststr = "Key",
+    .name = "SHA-1-HMAC",  .type = CKK_SHA_1_HMAC,
+    .ck_name = "CKK_SHA_1_HMAC",
+    .keygen_mech = { .mechanism = CKM_SHA_1_KEY_GEN, },
+    .is_asymmetric = false,
+    .keygen_get_key_size = generic_get_key_size,
+    .keygen_add_secret_attrs = generic_add_secret_attrs,
+    .sign_verify = true, .encrypt_decrypt = false,
+    .wrap_unwrap = false, .derive = true,
+    .filter_attr = CKA_KEY_TYPE, .filter_value = CKK_SHA_1_HMAC,
+    .keysize_attr = CKA_VALUE_LEN, .key_keysize_adjust = generic_keysize_adjust,
+    .secret_attrs = p11sak_generic_attrs,
+    .import_check_sym_keysize = p11sak_import_check_generic_keysize,
+    .import_sym_clear = p11sak_import_sym_clear_des_3des_aes_generic,
+    .export_sym_clear = p11sak_export_sym_clear_des_3des_aes_generic,
+};
+
+static const struct p11tool_objtype p11sak_sha224_hmac_keytype = {
+    .obj_typestr = "key", .obj_liststr = "Key",
+    .name = "SHA224-HMAC",  .type = CKK_SHA224_HMAC,
+    .ck_name = "CKK_SHA224_HMAC",
+    .keygen_mech = { .mechanism = CKM_SHA224_KEY_GEN, },
+    .is_asymmetric = false,
+    .keygen_get_key_size = generic_get_key_size,
+    .keygen_add_secret_attrs = generic_add_secret_attrs,
+    .sign_verify = true, .encrypt_decrypt = false,
+    .wrap_unwrap = false, .derive = true,
+    .filter_attr = CKA_KEY_TYPE, .filter_value = CKK_SHA224_HMAC,
+    .keysize_attr = CKA_VALUE_LEN, .key_keysize_adjust = generic_keysize_adjust,
+    .secret_attrs = p11sak_generic_attrs,
+    .import_check_sym_keysize = p11sak_import_check_generic_keysize,
+    .import_sym_clear = p11sak_import_sym_clear_des_3des_aes_generic,
+    .export_sym_clear = p11sak_export_sym_clear_des_3des_aes_generic,
+};
+
+static const struct p11tool_objtype p11sak_sha256_hmac_keytype = {
+    .obj_typestr = "key", .obj_liststr = "Key",
+    .name = "SHA256-HMAC",  .type = CKK_SHA256_HMAC,
+    .ck_name = "CKK_SHA256_HMAC",
+    .keygen_mech = { .mechanism = CKM_SHA256_KEY_GEN, },
+    .is_asymmetric = false,
+    .keygen_get_key_size = generic_get_key_size,
+    .keygen_add_secret_attrs = generic_add_secret_attrs,
+    .sign_verify = true, .encrypt_decrypt = false,
+    .wrap_unwrap = false, .derive = true,
+    .filter_attr = CKA_KEY_TYPE, .filter_value = CKK_SHA256_HMAC,
+    .keysize_attr = CKA_VALUE_LEN, .key_keysize_adjust = generic_keysize_adjust,
+    .secret_attrs = p11sak_generic_attrs,
+    .import_check_sym_keysize = p11sak_import_check_generic_keysize,
+    .import_sym_clear = p11sak_import_sym_clear_des_3des_aes_generic,
+    .export_sym_clear = p11sak_export_sym_clear_des_3des_aes_generic,
+};
+
+static const struct p11tool_objtype p11sak_sha384_hmac_keytype = {
+    .obj_typestr = "key", .obj_liststr = "Key",
+    .name = "SHA384-HMAC",  .type = CKK_SHA384_HMAC,
+    .ck_name = "CKK_SHA384_HMAC",
+    .keygen_mech = { .mechanism = CKM_SHA384_KEY_GEN, },
+    .is_asymmetric = false,
+    .keygen_get_key_size = generic_get_key_size,
+    .keygen_add_secret_attrs = generic_add_secret_attrs,
+    .sign_verify = true, .encrypt_decrypt = false,
+    .wrap_unwrap = false, .derive = true,
+    .filter_attr = CKA_KEY_TYPE, .filter_value = CKK_SHA384_HMAC,
+    .keysize_attr = CKA_VALUE_LEN, .key_keysize_adjust = generic_keysize_adjust,
+    .secret_attrs = p11sak_generic_attrs,
+    .import_check_sym_keysize = p11sak_import_check_generic_keysize,
+    .import_sym_clear = p11sak_import_sym_clear_des_3des_aes_generic,
+    .export_sym_clear = p11sak_export_sym_clear_des_3des_aes_generic,
+};
+
+static const struct p11tool_objtype p11sak_sha512_hmac_keytype = {
+    .obj_typestr = "key", .obj_liststr = "Key",
+    .name = "SHA512-HMAC",  .type = CKK_SHA512_HMAC,
+    .ck_name = "CKK_SHA512_HMAC",
+    .keygen_mech = { .mechanism = CKM_SHA512_KEY_GEN, },
+    .is_asymmetric = false,
+    .keygen_get_key_size = generic_get_key_size,
+    .keygen_add_secret_attrs = generic_add_secret_attrs,
+    .sign_verify = true, .encrypt_decrypt = false,
+    .wrap_unwrap = false, .derive = true,
+    .filter_attr = CKA_KEY_TYPE, .filter_value = CKK_SHA512_HMAC,
+    .keysize_attr = CKA_VALUE_LEN, .key_keysize_adjust = generic_keysize_adjust,
+    .secret_attrs = p11sak_generic_attrs,
+    .import_check_sym_keysize = p11sak_import_check_generic_keysize,
+    .import_sym_clear = p11sak_import_sym_clear_des_3des_aes_generic,
+    .export_sym_clear = p11sak_export_sym_clear_des_3des_aes_generic,
+};
+
+static const struct p11tool_objtype p11sak_sha512_224_hmac_keytype = {
+    .obj_typestr = "key", .obj_liststr = "Key",
+    .name = "SHA512/224-HMAC",  .type = CKK_SHA512_224_HMAC,
+    .ck_name = "CKK_SHA512_224_HMAC",
+    .keygen_mech = { .mechanism = CKM_SHA512_224_KEY_GEN, },
+    .is_asymmetric = false,
+    .keygen_get_key_size = generic_get_key_size,
+    .keygen_add_secret_attrs = generic_add_secret_attrs,
+    .sign_verify = true, .encrypt_decrypt = false,
+    .wrap_unwrap = false, .derive = true,
+    .filter_attr = CKA_KEY_TYPE, .filter_value = CKK_SHA512_224_HMAC,
+    .keysize_attr = CKA_VALUE_LEN, .key_keysize_adjust = generic_keysize_adjust,
+    .secret_attrs = p11sak_generic_attrs,
+    .import_check_sym_keysize = p11sak_import_check_generic_keysize,
+    .import_sym_clear = p11sak_import_sym_clear_des_3des_aes_generic,
+    .export_sym_clear = p11sak_export_sym_clear_des_3des_aes_generic,
+};
+
+static const struct p11tool_objtype p11sak_sha512_256_hmac_keytype = {
+    .obj_typestr = "key", .obj_liststr = "Key",
+    .name = "SHA512/256-HMAC",  .type = CKK_SHA512_256_HMAC,
+    .ck_name = "CKK_SHA512_256_HMAC",
+    .keygen_mech = { .mechanism = CKM_SHA512_256_KEY_GEN, },
+    .is_asymmetric = false,
+    .keygen_get_key_size = generic_get_key_size,
+    .keygen_add_secret_attrs = generic_add_secret_attrs,
+    .sign_verify = true, .encrypt_decrypt = false,
+    .wrap_unwrap = false, .derive = true,
+    .filter_attr = CKA_KEY_TYPE, .filter_value = CKK_SHA512_256_HMAC,
+    .keysize_attr = CKA_VALUE_LEN, .key_keysize_adjust = generic_keysize_adjust,
+    .secret_attrs = p11sak_generic_attrs,
+    .import_check_sym_keysize = p11sak_import_check_generic_keysize,
+    .import_sym_clear = p11sak_import_sym_clear_des_3des_aes_generic,
+    .export_sym_clear = p11sak_export_sym_clear_des_3des_aes_generic,
+};
+
+static const struct p11tool_objtype p11sak_sha3_224_hmac_keytype = {
+    .obj_typestr = "key", .obj_liststr = "Key",
+    .name = "SHA3-224-HMAC",  .type = CKK_SHA3_224_HMAC,
+    .ck_name = "CKK_SHA3_224_HMAC",
+    .keygen_mech = { .mechanism = CKM_SHA3_224_KEY_GEN, },
+    .is_asymmetric = false,
+    .keygen_get_key_size = generic_get_key_size,
+    .keygen_add_secret_attrs = generic_add_secret_attrs,
+    .sign_verify = true, .encrypt_decrypt = false,
+    .wrap_unwrap = false, .derive = true,
+    .filter_attr = CKA_KEY_TYPE, .filter_value = CKK_SHA3_224_HMAC,
+    .keysize_attr = CKA_VALUE_LEN, .key_keysize_adjust = generic_keysize_adjust,
+    .secret_attrs = p11sak_generic_attrs,
+    .import_check_sym_keysize = p11sak_import_check_generic_keysize,
+    .import_sym_clear = p11sak_import_sym_clear_des_3des_aes_generic,
+    .export_sym_clear = p11sak_export_sym_clear_des_3des_aes_generic,
+};
+
+static const struct p11tool_objtype p11sak_sha3_256_hmac_keytype = {
+    .obj_typestr = "key", .obj_liststr = "Key",
+    .name = "SHA3-256-HMAC",  .type = CKK_SHA3_256_HMAC,
+    .ck_name = "CKK_SHA3_256_HMAC",
+    .keygen_mech = { .mechanism = CKM_SHA3_256_KEY_GEN, },
+    .is_asymmetric = false,
+    .keygen_get_key_size = generic_get_key_size,
+    .keygen_add_secret_attrs = generic_add_secret_attrs,
+    .sign_verify = true, .encrypt_decrypt = false,
+    .wrap_unwrap = false, .derive = true,
+    .filter_attr = CKA_KEY_TYPE, .filter_value = CKK_SHA3_256_HMAC,
+    .keysize_attr = CKA_VALUE_LEN, .key_keysize_adjust = generic_keysize_adjust,
+    .secret_attrs = p11sak_generic_attrs,
+    .import_check_sym_keysize = p11sak_import_check_generic_keysize,
+    .import_sym_clear = p11sak_import_sym_clear_des_3des_aes_generic,
+    .export_sym_clear = p11sak_export_sym_clear_des_3des_aes_generic,
+};
+
+static const struct p11tool_objtype p11sak_sha3_384_hmac_keytype = {
+    .obj_typestr = "key", .obj_liststr = "Key",
+    .name = "SHA3-384-HMAC",  .type = CKK_SHA3_384_HMAC,
+    .ck_name = "CKK_SHA3_384_HMAC",
+    .keygen_mech = { .mechanism = CKM_SHA3_384_KEY_GEN, },
+    .is_asymmetric = false,
+    .keygen_get_key_size = generic_get_key_size,
+    .keygen_add_secret_attrs = generic_add_secret_attrs,
+    .sign_verify = true, .encrypt_decrypt = false,
+    .wrap_unwrap = false, .derive = true,
+    .filter_attr = CKA_KEY_TYPE, .filter_value = CKK_SHA3_384_HMAC,
+    .keysize_attr = CKA_VALUE_LEN, .key_keysize_adjust = generic_keysize_adjust,
+    .secret_attrs = p11sak_generic_attrs,
+    .import_check_sym_keysize = p11sak_import_check_generic_keysize,
+    .import_sym_clear = p11sak_import_sym_clear_des_3des_aes_generic,
+    .export_sym_clear = p11sak_export_sym_clear_des_3des_aes_generic,
+};
+
+static const struct p11tool_objtype p11sak_sha3_512_hmac_keytype = {
+    .obj_typestr = "key", .obj_liststr = "Key",
+    .name = "SHA3-512-HMAC",  .type = CKK_SHA3_512_HMAC,
+    .ck_name = "CKK_SHA3_512_HMAC",
+    .keygen_mech = { .mechanism = CKM_SHA3_512_KEY_GEN, },
+    .is_asymmetric = false,
+    .keygen_get_key_size = generic_get_key_size,
+    .keygen_add_secret_attrs = generic_add_secret_attrs,
+    .sign_verify = true, .encrypt_decrypt = false,
+    .wrap_unwrap = false, .derive = true,
+    .filter_attr = CKA_KEY_TYPE, .filter_value = CKK_SHA3_512_HMAC,
+    .keysize_attr = CKA_VALUE_LEN, .key_keysize_adjust = generic_keysize_adjust,
+    .secret_attrs = p11sak_generic_attrs,
+    .import_check_sym_keysize = p11sak_import_check_generic_keysize,
+    .import_sym_clear = p11sak_import_sym_clear_des_3des_aes_generic,
+    .export_sym_clear = p11sak_export_sym_clear_des_3des_aes_generic,
+};
+
 static const struct p11tool_objtype p11sak_aes_keytype = {
     .obj_typestr = "key", .obj_liststr = "Key",
     .name = "AES",  .type = CKK_AES, .ck_name = "CKK_AES",
@@ -896,6 +1094,17 @@ static const struct p11tool_objtype *p11sak_keytypes[] = {
     &p11sak_des_keytype,
     &p11sak_3des_keytype,
     &p11sak_generic_keytype,
+    &p11sak_sha_1_hmac_keytype,
+    &p11sak_sha224_hmac_keytype,
+    &p11sak_sha256_hmac_keytype,
+    &p11sak_sha384_hmac_keytype,
+    &p11sak_sha512_hmac_keytype,
+    &p11sak_sha512_224_hmac_keytype,
+    &p11sak_sha512_256_hmac_keytype,
+    &p11sak_sha3_224_hmac_keytype,
+    &p11sak_sha3_256_hmac_keytype,
+    &p11sak_sha3_384_hmac_keytype,
+    &p11sak_sha3_512_hmac_keytype,
     &p11sak_aes_keytype,
     &p11sak_aes_xts_keytype,
     &p11sak_rsa_keytype,
@@ -1020,6 +1229,28 @@ static const struct p11tool_opt p11sak_generic_opts[] = {
       .private = { .ptr = &p11sak_3des_keytype }, },                           \
     { .value = "generic", .args = args_prefix##_generic_args,                  \
       .private = { .ptr = &p11sak_generic_keytype }, },                        \
+    { .value = "sha-1-hmac", .args = args_prefix##_generic_args,               \
+      .private = { .ptr = &p11sak_sha_1_hmac_keytype }, },                     \
+    { .value = "sha224-hmac", .args = args_prefix##_generic_args,              \
+      .private = { .ptr = &p11sak_sha224_hmac_keytype }, },                    \
+    { .value = "sha256-hmac", .args = args_prefix##_generic_args,              \
+      .private = { .ptr = &p11sak_sha256_hmac_keytype }, },                    \
+    { .value = "sha384-hmac", .args = args_prefix##_generic_args,              \
+      .private = { .ptr = &p11sak_sha384_hmac_keytype }, },                    \
+    { .value = "sha512-hmac", .args = args_prefix##_generic_args,              \
+      .private = { .ptr = &p11sak_sha512_hmac_keytype }, },                    \
+    { .value = "sha512/224-hmac", .args = args_prefix##_generic_args,          \
+      .private = { .ptr = &p11sak_sha512_224_hmac_keytype }, },                \
+    { .value = "sha512/256-hmac", .args = args_prefix##_generic_args,          \
+      .private = { .ptr = &p11sak_sha512_256_hmac_keytype }, },                \
+    { .value = "sha3-224-hmac", .args = args_prefix##_generic_args,            \
+      .private = { .ptr = &p11sak_sha3_224_hmac_keytype }, },                  \
+    { .value = "sha3-256-hmac", .args = args_prefix##_generic_args,            \
+      .private = { .ptr = &p11sak_sha3_256_hmac_keytype }, },                  \
+    { .value = "sha3-384-hmac", .args = args_prefix##_generic_args,            \
+      .private = { .ptr = &p11sak_sha3_384_hmac_keytype }, },                  \
+    { .value = "sha3-512-hmac", .args = args_prefix##_generic_args,            \
+      .private = { .ptr = &p11sak_sha3_512_hmac_keytype }, },                  \
     { .value = "aes", .args = args_prefix##_aes_args,                          \
       .private = { .ptr = &p11sak_aes_keytype }, },                            \
     { .value = "aes-xts", .args = args_prefix##_aes_xts_args,                  \
@@ -1745,6 +1976,28 @@ static const struct p11tool_arg p11sak_import_asym_args[] = {
       .private = { .ptr = &p11sak_3des_keytype }, },                           \
     { .value = "generic", .args = NULL,                                        \
       .private = { .ptr = &p11sak_generic_keytype }, },                        \
+    { .value = "sha-1-hmac", .args = NULL,                                     \
+      .private = { .ptr = &p11sak_sha_1_hmac_keytype }, },                     \
+    { .value = "sha224-hmac", .args = NULL,                                    \
+      .private = { .ptr = &p11sak_sha224_hmac_keytype }, },                    \
+    { .value = "sha256-hmac", .args = NULL,                                    \
+      .private = { .ptr = &p11sak_sha256_hmac_keytype }, },                    \
+    { .value = "sha384-hmac", .args = NULL,                                    \
+      .private = { .ptr = &p11sak_sha384_hmac_keytype }, },                    \
+    { .value = "sha512-hmac", .args = NULL,                                    \
+      .private = { .ptr = &p11sak_sha512_hmac_keytype }, },                    \
+    { .value = "sha512/224-hmac", .args = NULL,                                \
+      .private = { .ptr = &p11sak_sha512_224_hmac_keytype }, },                \
+    { .value = "sha512/256-hmac", .args = NULL,                                \
+      .private = { .ptr = &p11sak_sha512_256_hmac_keytype }, },                \
+    { .value = "sha3-224-hmac", .args = NULL,                                  \
+      .private = { .ptr = &p11sak_sha3_224_hmac_keytype }, },                  \
+    { .value = "sha3-256-hmac", .args = NULL,                                  \
+      .private = { .ptr = &p11sak_sha3_256_hmac_keytype }, },                  \
+    { .value = "sha3-384-hmac", .args = NULL,                                  \
+      .private = { .ptr = &p11sak_sha3_384_hmac_keytype }, },                  \
+    { .value = "sha3-512-hmac", .args = NULL,                                  \
+      .private = { .ptr = &p11sak_sha3_512_hmac_keytype }, },                  \
     { .value = "aes", .args = NULL,                                            \
       .private = { .ptr = &p11sak_aes_keytype }, },                            \
     { .value = "aes-xts", .args = NULL,                                        \
