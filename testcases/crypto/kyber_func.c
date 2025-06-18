@@ -379,7 +379,8 @@ decapsulate:
     }
 
     if (pExpectedSecret != NULL && ulExpectedSecret != 0) {
-        rc = create_GenericSecretKey(session, (CK_BYTE *)pExpectedSecret,
+        rc = create_GenericSecretKey(session, CKK_GENERIC_SECRET,
+                                     (CK_BYTE *)pExpectedSecret,
                                      ulExpectedSecret, &expected_secret_key);
         if (rc != CKR_OK) {
             testcase_fail("create_GenericSecretKey failed: %s",

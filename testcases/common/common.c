@@ -337,11 +337,10 @@ CK_RV create_DES3Key(CK_SESSION_HANDLE session,
 
 /** Create Generic Secret key handle with given value **/
 CK_RV create_GenericSecretKey(CK_SESSION_HANDLE session,
-                            CK_BYTE key[],
-                            CK_ULONG key_len, CK_OBJECT_HANDLE * h_key)
+                              CK_KEY_TYPE key_type, CK_BYTE key[],
+                              CK_ULONG key_len, CK_OBJECT_HANDLE * h_key)
 {
     CK_OBJECT_CLASS key_class = CKO_SECRET_KEY;
-    CK_KEY_TYPE key_type = CKK_GENERIC_SECRET;
     CK_BBOOL false = FALSE;
     CK_RV rc;
     CK_ATTRIBUTE key_attribs[] = {
