@@ -483,6 +483,12 @@ struct wrapped_mech_info wrapped_key_tests[] = {
         .sym_keylen = 32,
     },
     {
+        .name = "key type SHA-1 HMAC",
+        .wrapped_key_gen_mech = { CKM_SHA_1_KEY_GEN, 0, 0 },
+        .operation_mech = { CKM_SHA_1_HMAC, 0, 0 },
+        .sym_keylen = 32,
+    },
+    {
         .name = "key type RSA PKCS 512",
         .wrapped_key_gen_mech = { CKM_RSA_PKCS_KEY_PAIR_GEN, 0, 0 },
         .operation_mech = { CKM_RSA_PKCS, 0, 0 },
@@ -786,7 +792,8 @@ CK_RV do_wrap_key_test(struct wrapped_mech_info *tsuite,
     }
 
     if (wrap_mech->mechanism == CKM_AES_KEY_WRAP &&
-        tsuite->wrapped_key_gen_mech.mechanism == CKM_GENERIC_SECRET_KEY_GEN &&
+        (tsuite->wrapped_key_gen_mech.mechanism == CKM_GENERIC_SECRET_KEY_GEN ||
+         tsuite->wrapped_key_gen_mech.mechanism == CKM_SHA_1_KEY_GEN) &&
         tsuite->sym_keylen < 16) {
         testcase_skip("Mechanism CKM_AES_KEY_WRAP can not wrap generic secret "
                       "keys of size %lu (min 16 bytes required)",
@@ -887,6 +894,7 @@ CK_RV do_wrap_key_test(struct wrapped_mech_info *tsuite,
         break;
 
     case CKM_GENERIC_SECRET_KEY_GEN:
+    case CKM_SHA_1_KEY_GEN:
         rc = generate_SecretKey(session1, tsuite->sym_keylen,
                                 &tsuite->wrapped_key_gen_mech, &sym_key);
         break;
@@ -1034,6 +1042,7 @@ do_wrap:
     case CKM_AES_KEY_GEN:
     case CKM_AES_XTS_KEY_GEN:
     case CKM_GENERIC_SECRET_KEY_GEN:
+    case CKM_SHA_1_KEY_GEN:
         unwrap_tmpl_num = 3;
         break;
    default:
@@ -1124,7 +1133,7 @@ do_wrap:
     }
 
     if (key_type == CKK_AES || key_type == CKK_AES_XTS ||
-        key_type == CKK_GENERIC_SECRET) {
+        key_type == CKK_GENERIC_SECRET || key_type == CKK_SHA_1_HMAC) {
         /* Check if the unwrapped key has the desired key length */
         rc = funcs->C_GetAttributeValue(session2, unwrapped_key,
                                         getattr_tmpl, 1);

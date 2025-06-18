@@ -313,7 +313,8 @@ CK_RV do_Sign_FIPS_HMAC_GENERAL(struct HMAC_TEST_SUITE_INFO * tsuite)
         memcpy(expected_mac, tsuite->tv[i].mac, expected_mac_len);
 
         /** create key object **/
-        rc = create_GenericSecretKey(session, key, key_len, &h_key);
+        rc = create_GenericSecretKey(session, CKK_GENERIC_SECRET,
+                                     key, key_len, &h_key);
         if (rc != CKR_OK) {
             if (rc == CKR_POLICY_VIOLATION) {
                 testcase_skip("generic secret key generation is not allowed by policy");
@@ -439,7 +440,8 @@ CK_RV do_Verify_FIPS_HMAC_GENERAL(struct HMAC_TEST_SUITE_INFO * tsuite)
         memcpy(expected_mac, tsuite->tv[i].mac, expected_mac_len);
 
         /** create key object **/
-        rc = create_GenericSecretKey(session, key, key_len, &h_key);
+        rc = create_GenericSecretKey(session, CKK_GENERIC_SECRET,
+                                     key, key_len, &h_key);
         if (rc != CKR_OK) {
             if (rc == CKR_POLICY_VIOLATION) {
                 testcase_skip("generic secret key generation is not allowed by policy");
@@ -588,7 +590,8 @@ CK_RV do_Sign_FIPS_HMAC(struct HMAC_TEST_SUITE_INFO * tsuite)
         memcpy(expected_mac, tsuite->tv[i].mac, expected_mac_len);
 
         /** create key object **/
-        rc = create_GenericSecretKey(session, key, key_len, &h_key);
+        rc = create_GenericSecretKey(session, CKK_GENERIC_SECRET,
+                                     key, key_len, &h_key);
         if (rc != CKR_OK) {
             if (rc == CKR_POLICY_VIOLATION) {
                 testcase_skip("generic secret key generation is not allowed by policy");
@@ -737,7 +740,8 @@ CK_RV do_Verify_FIPS_HMAC(struct HMAC_TEST_SUITE_INFO * tsuite)
         memcpy(expected_mac, tsuite->tv[i].mac, expected_mac_len);
 
         /** create key object **/
-        rc = create_GenericSecretKey(session, key, key_len, &h_key);
+        rc = create_GenericSecretKey(session, CKK_GENERIC_SECRET,
+                                     key, key_len, &h_key);
         if (rc != CKR_OK) {
             if (rc == CKR_POLICY_VIOLATION) {
                 testcase_skip("generic secret key generation is not allowed by policy");
@@ -884,7 +888,8 @@ CK_RV do_SignUpdate_FIPS_HMAC(struct HMAC_TEST_SUITE_INFO * tsuite)
         memcpy(expected_mac, tsuite->tv[i].mac, expected_mac_len);
 
         /** create key object **/
-        rc = create_GenericSecretKey(session, key, key_len, &h_key);
+        rc = create_GenericSecretKey(session, CKK_GENERIC_SECRET,
+                                     key, key_len, &h_key);
         if (rc != CKR_OK) {
             if (rc == CKR_POLICY_VIOLATION) {
                 testcase_skip("generic secret key generation is not allowed by policy");
@@ -1073,7 +1078,8 @@ CK_RV do_VerifyUpdate_FIPS_HMAC(struct HMAC_TEST_SUITE_INFO * tsuite)
         memcpy(expected_mac, tsuite->tv[i].mac, expected_mac_len);
 
         /** create key object **/
-        rc = create_GenericSecretKey(session, key, key_len, &h_key);
+        rc = create_GenericSecretKey(session, CKK_GENERIC_SECRET,
+                                     key, key_len, &h_key);
         if (rc != CKR_OK) {
             if (rc == CKR_POLICY_VIOLATION) {
                 testcase_skip("generic secret key generation is not allowed by policy");
@@ -1225,7 +1231,8 @@ CK_RV do_SignVerify_HMAC(struct HMAC_TEST_SUITE_INFO * tsuite)
         memcpy(expected, tsuite->tv[i].mac, expected_len);
 
         /** create key object **/
-        rc = create_GenericSecretKey(session, key, key_len, &h_key);
+        rc = create_GenericSecretKey(session, CKK_GENERIC_SECRET,
+                                     key, key_len, &h_key);
         if (rc != CKR_OK) {
             if (rc == CKR_POLICY_VIOLATION) {
                 testcase_skip("generic secret key generation is not allowed by policy");
@@ -1378,7 +1385,8 @@ CK_RV do_SignVerify_HMAC_Update(struct HMAC_TEST_SUITE_INFO * tsuite)
         memcpy(expected, tsuite->tv[i].mac, expected_len);
 
         /** create key object **/
-        rc = create_GenericSecretKey(session, key, key_len, &h_key);
+        rc = create_GenericSecretKey(session, CKK_GENERIC_SECRET,
+                                     key, key_len, &h_key);
         if (rc != CKR_OK) {
             if (rc == CKR_POLICY_VIOLATION) {
                 testcase_skip("generic secret key generation is not allowed by policy");
@@ -1501,15 +1509,32 @@ testcase_cleanup:
     return rc;
 }
 
+static struct hmac_mech_info {
+    CK_MECHANISM keygen_mech;
+    CK_MECHANISM hmac_mech;
+    CK_ULONG key_len;
+    CK_RV exp_rc;
+} hmac_mechs[] = {
+    { { CKM_GENERIC_SECRET_KEY_GEN, 0, 0 }, { CKM_SHA_1_HMAC, 0, 0 }, 20, CKR_OK },
+    { { CKM_SHA_1_KEY_GEN, 0, 0 }, { CKM_SHA_1_HMAC, 0, 0 }, 20, CKR_OK },
+    { { CKM_SHA224_KEY_GEN, 0, 0 }, { CKM_SHA224_HMAC, 0, 0 }, 28, CKR_OK },
+    { { CKM_SHA256_KEY_GEN, 0, 0 }, { CKM_SHA256_HMAC, 0, 0 }, 32, CKR_OK },
+    { { CKM_SHA384_KEY_GEN, 0, 0 }, { CKM_SHA384_HMAC, 0, 0 }, 48, CKR_OK },
+    { { CKM_SHA512_KEY_GEN, 0, 0 }, { CKM_SHA512_HMAC, 0, 0 }, 64, CKR_OK },
+    { { CKM_SHA512_224_KEY_GEN, 0, 0 }, { CKM_SHA512_224_HMAC, 0, 0 }, 28, CKR_OK },
+    { { CKM_SHA512_256_KEY_GEN, 0, 0 }, { CKM_SHA512_256_HMAC, 0, 0 }, 32, CKR_OK },
+    { { CKM_SHA3_224_KEY_GEN, 0, 0 }, { CKM_SHA3_224_HMAC, 0, 0 }, 28, CKR_OK },
+    { { CKM_SHA3_256_KEY_GEN, 0, 0 }, { CKM_SHA3_256_HMAC, 0, 0 }, 32, CKR_OK },
+    { { CKM_SHA3_384_KEY_GEN, 0, 0 }, { CKM_SHA3_384_HMAC, 0, 0 }, 48, CKR_OK },
+    { { CKM_SHA3_512_KEY_GEN, 0, 0 }, { CKM_SHA3_512_HMAC, 0, 0 }, 64, CKR_OK },
+    { { CKM_SHA_1_KEY_GEN, 0, 0 }, { CKM_SHA256_HMAC, 0, 0 }, 20, CKR_KEY_TYPE_INCONSISTENT },
+};
 
 /* This function tests generating a generic secret key to be used
  * with hmac sign and verify.
  */
 CK_RV do_HMAC_SignVerify_WithGenKey(void)
 {
-    CK_MECHANISM secret_mech = { CKM_GENERIC_SECRET_KEY_GEN, 0, 0 };
-    CK_MECHANISM hash_mech = { CKM_SHA_1_HMAC, 0, 0 };
-    CK_ULONG key_len = 20;
     CK_BYTE data[] = { "Hi There" };
     CK_ULONG data_len = 8;
     CK_BYTE actual[MAX_HASH_SIZE];
@@ -1518,86 +1543,108 @@ CK_RV do_HMAC_SignVerify_WithGenKey(void)
     CK_SLOT_ID slot_id = SLOT_ID;
     CK_ULONG flags;
     CK_RV rc;
-    CK_OBJECT_HANDLE h_key;
+    CK_OBJECT_HANDLE h_key = CK_INVALID_HANDLE;
     CK_BYTE user_pin[PKCS11_MAX_PIN_LEN];
     CK_ULONG user_pin_len;
+    CK_ULONG i;
 
     /** begin test **/
     testsuite_begin("do_HMAC_SignVerify_WithGenKey");
-    testcase_begin("Generate Generic Secret Key And Sign/Verify with it.");
     testcase_rw_session();
     testcase_user_login();
 
-    rc = CKR_OK;                // set rc
+    for (i = 0; i < sizeof(hmac_mechs) / sizeof(struct hmac_mech_info); i++) {
+        testcase_begin("Generate HMAC Key with %s (0x%lx) and Sign/Verify "
+                       "with %s (0x%lx).",
+                       mech_to_str(hmac_mechs[i].keygen_mech.mechanism),
+                       hmac_mechs[i].keygen_mech.mechanism,
+                       mech_to_str(hmac_mechs[i].hmac_mech.mechanism),
+                       hmac_mechs[i].hmac_mech.mechanism);
 
-    /* skip test if mech is not supported with this slot,
-     * checking for generic secret key mechanism
-     * and also sha1-hmac mechanism
-     */
-    if (!mech_supported(SLOT_ID, secret_mech.mechanism)) {
-        testsuite_skip(1, "mechanism %lu not supported with slot %lu",
-                       secret_mech.mechanism, slot_id);
-        goto testcase_cleanup;
-    }
-    if (!mech_supported(SLOT_ID, hash_mech.mechanism)) {
-        testsuite_skip(1, "mechanism %lu not supported with slot %lu",
-                       hash_mech.mechanism, slot_id);
-        goto testcase_cleanup;
-    }
+        rc = CKR_OK;
 
-    /** clear buffers **/
-    memset(actual, 0, sizeof(actual));
-
-    /** get test vector info **/
-    actual_len = sizeof(actual);
-
-    /** generate key object **/
-    rc = generate_SecretKey(session, key_len, &secret_mech, &h_key);
-    if (rc != CKR_OK) {
-        if (rc == CKR_POLICY_VIOLATION) {
-            testsuite_skip(1, "generic secret key generation is not allowed by policy");
-            goto testcase_cleanup;
+        /* skip test if mech is not supported with this slot,
+         * checking for generic secret key mechanism
+         * and also sha1-hmac mechanism
+         */
+        if (!mech_supported(SLOT_ID, hmac_mechs[i].keygen_mech.mechanism)) {
+            testcase_skip("mechanism %s (0x%lx) is not supported with slot %lu",
+                          mech_to_str(hmac_mechs[i].keygen_mech.mechanism),
+                          hmac_mechs[i].keygen_mech.mechanism, slot_id);
+            goto error;
+        }
+        if (!mech_supported(SLOT_ID, hmac_mechs[i].hmac_mech.mechanism)) {
+            testcase_skip("mechanism %s (0x%lx) is not supported with slot %lu",
+                          mech_to_str(hmac_mechs[i].hmac_mech.mechanism),
+                          hmac_mechs[i].hmac_mech.mechanism, slot_id);
+            goto error;
         }
 
-        testcase_error("generate_SecretKey rc=%s", p11_get_ckr(rc));
-        goto testcase_cleanup;
-    }
+        /** clear buffers **/
+        memset(actual, 0, sizeof(actual));
 
-    /** initialize signing **/
-    rc = funcs->C_SignInit(session, &hash_mech, h_key);
-    if (rc != CKR_OK) {
-        testcase_error("C_SignInit rc=%s", p11_get_ckr(rc));
-        goto error;
-    }
+        /** get test vector info **/
+        actual_len = sizeof(actual);
 
-    /** do signing  **/
-    rc = funcs->C_Sign(session, data, data_len, actual, &actual_len);
-    if (rc != CKR_OK) {
-        testcase_error("C_Sign rc=%s", p11_get_ckr(rc));
-        goto error;
-    }
+        /** generate key object **/
+        rc = generate_SecretKey(session, hmac_mechs[i].key_len,
+                                &hmac_mechs[i].keygen_mech, &h_key);
+        if (rc != CKR_OK) {
+            if (rc == CKR_POLICY_VIOLATION) {
+                testcase_skip("generic secret key generation is not allowed by "
+                              "policy");
+                goto error;
+            }
 
-    /* Ensure the generated key can verify what it signed */
-    testcase_new_assertion();
+            testcase_error("generate_SecretKey rc=%s", p11_get_ckr(rc));
+            goto error;
+        }
 
-    /** initilaize verification **/
-    rc = funcs->C_VerifyInit(session, &hash_mech, h_key);
-    if (rc != CKR_OK) {
-        testcase_error("C_VerifyInit rc=%s", p11_get_ckr(rc));
-        goto error;
-    }
+        /** initialize signing **/
+        rc = funcs->C_SignInit(session, &hmac_mechs[i].hmac_mech, h_key);
+        if (rc != hmac_mechs[i].exp_rc) {
+            testcase_error("C_SignInit rc=%s (expected: %s)", p11_get_ckr(rc),
+                           p11_get_ckr(hmac_mechs[i].exp_rc));
+            goto error;
+        }
+        if (rc != CKR_OK)
+            goto error;
 
-    /** do verification **/
-    rc = funcs->C_Verify(session, data, data_len, actual, actual_len);
-    if (rc != CKR_OK)
-        testcase_fail("C_Verify rc=%s", p11_get_ckr(rc));
-    else
-        testcase_pass("Sign Verify with generated generic secret key "
-                      "passed.");
+        /** do signing  **/
+        rc = funcs->C_Sign(session, data, data_len, actual, &actual_len);
+        if (rc != CKR_OK) {
+            testcase_error("C_Sign rc=%s", p11_get_ckr(rc));
+            goto error;
+        }
+
+        /* Ensure the generated key can verify what it signed */
+        testcase_new_assertion();
+
+        /** initilaize verification **/
+        rc = funcs->C_VerifyInit(session, &hmac_mechs[i].hmac_mech, h_key);
+        if (rc != CKR_OK) {
+            testcase_error("C_VerifyInit rc=%s", p11_get_ckr(rc));
+            goto error;
+        }
+
+        /** do verification **/
+        rc = funcs->C_Verify(session, data, data_len, actual, actual_len);
+        if (rc != CKR_OK)
+            testcase_fail("C_Verify rc=%s", p11_get_ckr(rc));
+        else
+            testcase_pass("Generate HMAC Key with %s (0x%lx) and Sign/Verify "
+                          "with %s (0x%lx) passed.",
+                          mech_to_str(hmac_mechs[i].keygen_mech.mechanism),
+                          hmac_mechs[i].keygen_mech.mechanism,
+                          mech_to_str(hmac_mechs[i].hmac_mech.mechanism),
+                          hmac_mechs[i].hmac_mech.mechanism);
 
 error:
-    if (funcs->C_DestroyObject(session, h_key) != CKR_OK)
-        testcase_error("C_DestroyObject rc=%s.", p11_get_ckr(rc));
+        if (h_key != CK_INVALID_HANDLE &&
+            funcs->C_DestroyObject(session, h_key) != CKR_OK)
+            testcase_error("C_DestroyObject rc=%s.", p11_get_ckr(rc));
+        h_key = CK_INVALID_HANDLE;
+    }
 
 testcase_cleanup:
     testcase_user_logout();

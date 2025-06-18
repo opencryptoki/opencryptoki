@@ -21,6 +21,7 @@
 #include "pkcs11types.h"
 #include "ec_curves.h"
 #include "mechtable.h"
+#include "mech_to_str.h"
 
 #include "regress.h"
 #include "common.c"
@@ -236,7 +237,7 @@ out:
 }
 
 static CK_RV import_gen_sec_key(CK_SESSION_HANDLE session,
-                                const char *label,
+                                const char *label, CK_KEY_TYPE keyType,
                                 CK_BYTE *blob, CK_ULONG bloblen,
                                 unsigned int keybitsize,
                                 CK_OBJECT_HANDLE *handle,
@@ -244,7 +245,6 @@ static CK_RV import_gen_sec_key(CK_SESSION_HANDLE session,
 {
     CK_RV rc;
     CK_OBJECT_CLASS keyClass = CKO_SECRET_KEY;
-    CK_KEY_TYPE keyType = CKK_GENERIC_SECRET;
     CK_BYTE value[512];
     CK_BBOOL true = TRUE;
     CK_BBOOL false = FALSE;
@@ -1101,126 +1101,162 @@ static CK_RV generic_secret_export_import_tests(void)
     CK_ULONG user_pin_len;
     CK_BYTE key[512] = { 0x00 };
     CK_OBJECT_HANDLE hkey = CK_INVALID_HANDLE, hikey = CK_INVALID_HANDLE;
-    CK_MECHANISM mech = { CKM_SHA_1_HMAC, 0, 0 };
     CK_BYTE data[4096], mac1[4096], mac2[4096];
     CK_BYTE *opaquekey = NULL;
     CK_ULONG mac1len, mac2len, opaquekeylen;
-    unsigned int i, keybits[] = { 80, 160, 320, 640, 1024, 2048, 0 };
+    unsigned int i, k, keybits[] = { 80, 160, 320, 640, 1024, 2048, 0 };
     char label[80];
     int is_cca = is_cca_token(SLOT_ID);
 
+    static struct hmac_mech_info {
+        const char *name;
+        CK_KEY_TYPE keytype;
+        CK_MECHANISM_TYPE keygen_mech;
+        CK_ULONG min_key_size;
+        CK_MECHANISM hmac_mech;
+    } hmac_mechs[] = {
+        { "generic secret", CKK_GENERIC_SECRET, CKM_GENERIC_SECRET_KEY_GEN, 20,
+          { CKM_SHA_1_HMAC, 0, 0 } },
+        { "sha-1-hmac",     CKK_SHA_1_HMAC,     CKM_SHA_1_KEY_GEN, 20,
+          { CKM_SHA_1_HMAC, 0, 0 } },
+        { "sha256-hmac",     CKK_SHA256_HMAC,   CKM_SHA256_KEY_GEN, 32,
+          { CKM_SHA256_HMAC, 0, 0 } },
+        { "sha3-256-hmac",   CKK_SHA3_256_HMAC, CKM_SHA3_256_KEY_GEN, 32,
+          { CKM_SHA3_256_HMAC, 0, 0 } },
+    };
+
     if (!is_cca && !is_ep11_token(SLOT_ID)) {
         testcase_skip("this slot is not a CCA or EP11 token");
-        goto out;
-    }
-    if (!mech_supported(SLOT_ID, CKM_SHA_1_HMAC)) {
-        testcase_skip("this slot does not support CKM_SHA_1_HMAC");
         goto out;
     }
 
     testcase_rw_session();
     testcase_user_login();
 
-    for (i = 0; keybits[i]; i++) {
+    for (k = 0; k < sizeof(hmac_mechs) / sizeof(struct hmac_mech_info); k++) {
+        for (i = 0; keybits[i]; i++) {
 
-        testcase_begin("CCA/EP11 export/import test with generic secret key %u",
-                       keybits[i]);
+            if (keybits[i] < hmac_mechs[k].min_key_size * 8)
+                continue;
 
-        // create hmac key
+            if (!mech_supported(SLOT_ID, hmac_mechs[k].hmac_mech.mechanism)) {
+                testcase_skip("this slot does not support %s",
+                              mech_to_str(hmac_mechs[k].hmac_mech.mechanism));
+                continue;
+            }
+            if (!mech_supported(SLOT_ID, hmac_mechs[k].keygen_mech)) {
+                testcase_skip("this slot does not support %s",
+                              mech_to_str(hmac_mechs[k].keygen_mech));
+                continue;
+            }
 
-        rc = create_GenericSecretKey(session, key, keybits[i] / 8, &hkey);
-        if (rc != CKR_OK) {
-        if (rc == CKR_POLICY_VIOLATION) {
-            testcase_skip("Generic Secret key import is not allowed by policy");
-            continue;
-        }
+            testcase_begin("CCA/EP11 export/import test with %s key %u",
+                           hmac_mechs[k].name, keybits[i]);
 
-            testcase_error("create_GenericSecretKey() rc=%s", p11_get_ckr(rc));
-            goto error;
-        }
+            // create hmac key
 
-        // sign data with original hmac key
-
-        rc = funcs->C_SignInit(session, &mech, hkey);
-        if (rc != CKR_OK) {
-            testcase_error("C_SignInit rc=%s", p11_get_ckr(rc));
-            goto error;
-        }
-        mac1len = sizeof(mac1);
-        rc = funcs->C_Sign(session, data, sizeof(data), mac1, &mac1len);
-        if (rc != CKR_OK) {
-            testcase_error("C_Sign rc=%s", p11_get_ckr(rc));
-            goto error;
-        }
-
-        testcase_new_assertion();
-
-        // export this key's CCA/EP11 blob
-
-        rc = export_ibm_opaque(session, hkey, &opaquekey, &opaquekeylen);
-        if (rc != CKR_OK) {
-            testcase_fail("export_ibm_opaque rc=%s", p11_get_ckr(rc));
-            goto error;
-        }
-
-        if (is_cca) {
-            /* Set extractable to FALSE */
-            rc = extract_restrict(session, hkey);
+            rc = create_GenericSecretKey(session, hmac_mechs[k].keytype,
+                                         key, keybits[i] / 8, &hkey);
             if (rc != CKR_OK) {
-                testcase_fail("extract_restrict rc=%s", p11_get_ckr(rc));
+            if (rc == CKR_POLICY_VIOLATION) {
+                testcase_skip("%s key import is not allowed by policy",
+                              hmac_mechs[k].name);
+                continue;
+            }
+
+                testcase_error("create_GenericSecretKey() rc=%s",
+                               p11_get_ckr(rc));
                 goto error;
             }
-        }
 
-        // re-import this CCA/EP11 blob as a new key object
+            // sign data with original hmac key
 
-        snprintf(label, sizeof(label), "re-imported_hmac%u_key", keybits[i]);
-        rc = import_gen_sec_key(session, label,
-                                opaquekey, opaquekeylen, keybits[i],
-                                &hikey, is_cca);
-        if (rc != CKR_OK) {
-            testcase_fail("import_gen_sec_key rc=%s", p11_get_ckr(rc));
-            goto error;
-        }
+            rc = funcs->C_SignInit(session, &hmac_mechs[k].hmac_mech, hkey);
+            if (rc != CKR_OK) {
+                testcase_error("C_SignInit rc=%s", p11_get_ckr(rc));
+                goto error;
+            }
+            mac1len = sizeof(mac1);
+            rc = funcs->C_Sign(session, data, sizeof(data), mac1, &mac1len);
+            if (rc != CKR_OK) {
+                testcase_error("C_Sign rc=%s", p11_get_ckr(rc));
+                goto error;
+            }
 
-        // sign data with re-imported hmac key
+            testcase_new_assertion();
 
-        rc = funcs->C_SignInit(session, &mech, hikey);
-        if (rc != CKR_OK) {
-            testcase_error("C_SignInit with re-imported key failed, rc=%s", p11_get_ckr(rc));
-            goto error;
-        }
-        mac2len = sizeof(mac2);
-        rc = funcs->C_Sign(session, data, sizeof(data), mac2, &mac2len);
-        if (rc != CKR_OK) {
-            testcase_error("C_Sign with re-imported key failed, rc=%s", p11_get_ckr(rc));
-            goto error;
-        }
+            // export this key's CCA/EP11 blob
 
-        // compare the two signatures
+            rc = export_ibm_opaque(session, hkey, &opaquekey, &opaquekeylen);
+            if (rc != CKR_OK) {
+                testcase_fail("export_ibm_opaque rc=%s", p11_get_ckr(rc));
+                goto error;
+            }
 
-        if (mac1len != mac2len) {
-            testcase_fail("mac len with orig key %lu differs from mac len with re-imported key %lu",
-                          mac1len, mac2len);
-            goto error;
-        }
-        if (memcmp(mac1, mac2, mac1len) != 0) {
-            testcase_fail("signature with orig key differs from signature with re-imported key");
-            goto error;
-        }
+            if (is_cca) {
+                /* Set extractable to FALSE */
+                rc = extract_restrict(session, hkey);
+                if (rc != CKR_OK) {
+                    testcase_fail("extract_restrict rc=%s", p11_get_ckr(rc));
+                    goto error;
+                }
+            }
 
-        testcase_pass("CCA/EP11 export/import test with generic secret key %u: ok", keybits[i]);
+            // re-import this CCA/EP11 blob as a new key object
+
+            snprintf(label, sizeof(label), "re-imported_hmac%u_key",
+                     keybits[i]);
+            rc = import_gen_sec_key(session, label, hmac_mechs[k].keytype,
+                                    opaquekey, opaquekeylen, keybits[i],
+                                    &hikey, is_cca);
+            if (rc != CKR_OK) {
+                testcase_fail("import_gen_sec_key rc=%s", p11_get_ckr(rc));
+                goto error;
+            }
+
+            // sign data with re-imported hmac key
+
+            rc = funcs->C_SignInit(session, &hmac_mechs[k].hmac_mech, hikey);
+            if (rc != CKR_OK) {
+                testcase_error("C_SignInit with re-imported key failed, rc=%s",
+                               p11_get_ckr(rc));
+                goto error;
+            }
+            mac2len = sizeof(mac2);
+            rc = funcs->C_Sign(session, data, sizeof(data), mac2, &mac2len);
+            if (rc != CKR_OK) {
+                testcase_error("C_Sign with re-imported key failed, rc=%s",
+                               p11_get_ckr(rc));
+                goto error;
+            }
+
+            // compare the two signatures
+
+            if (mac1len != mac2len) {
+                testcase_fail("mac len with orig key %lu differs from mac len "
+                              "with re-imported key %lu", mac1len, mac2len);
+                goto error;
+            }
+            if (memcmp(mac1, mac2, mac1len) != 0) {
+                testcase_fail("signature with orig key differs from signature "
+                              "with re-imported key");
+                goto error;
+            }
+
+            testcase_pass("CCA/EP11 export/import test with %st key %u: ok",
+                          hmac_mechs[k].name, keybits[i]);
 
 error:
-        free(opaquekey);
-        opaquekey = NULL;
-        if (hkey != CK_INVALID_HANDLE) {
-            funcs->C_DestroyObject(session, hkey);
-            hkey = CK_INVALID_HANDLE;
-        }
-        if (hikey != CK_INVALID_HANDLE) {
-            funcs->C_DestroyObject(session, hikey);
-            hikey = CK_INVALID_HANDLE;
+            free(opaquekey);
+            opaquekey = NULL;
+            if (hkey != CK_INVALID_HANDLE) {
+                funcs->C_DestroyObject(session, hkey);
+                hkey = CK_INVALID_HANDLE;
+            }
+            if (hikey != CK_INVALID_HANDLE) {
+                funcs->C_DestroyObject(session, hikey);
+                hikey = CK_INVALID_HANDLE;
+            }
         }
     }
 
