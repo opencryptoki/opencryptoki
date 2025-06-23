@@ -1395,7 +1395,7 @@ static CK_RV policy_update_mech_info(policy_t p, CK_MECHANISM_TYPE mech,
             info->flags &= ~(CKF_SIGN | CKF_SIGN_RECOVER |
                              CKF_VERIFY | CKF_VERIFY_RECOVER);
             if ((info->flags &
-                    ~(CKF_HW|CKF_EC_F_P|CKF_EC_NAMEDCURVE|CKF_EC_UNCOMPRESS)) == 0) {
+                    ~(CKF_HW|CKF_EC_F_P|CKF_EC_OID|CKF_EC_UNCOMPRESS)) == 0) {
                 TRACE_DEVEL("Mechanism %s (0x%lx) does not provide any feature after policy adjustment!\n",
                             row ? row->string : "UNKNOWN", mech);
                 return CKR_MECHANISM_INVALID;
