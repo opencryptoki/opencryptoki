@@ -277,28 +277,28 @@ static const MECH_LIST_ELEMENT cca_mech_list[] = {
     {CKM_SHA_1_HMAC_GENERAL, {80, 2048, CKF_SIGN | CKF_VERIFY}},
     {CKM_MD5, {0, 0, CKF_DIGEST}},
     {CKM_EC_KEY_PAIR_GEN, {160, 521, CKF_HW | CKF_GENERATE_KEY_PAIR |
-                           CKF_EC_NAMEDCURVE | CKF_EC_F_P}},
-    {CKM_ECDSA, {160, 521, CKF_HW | CKF_SIGN | CKF_VERIFY | CKF_EC_NAMEDCURVE |
+                           CKF_EC_OID | CKF_EC_F_P}},
+    {CKM_ECDSA, {160, 521, CKF_HW | CKF_SIGN | CKF_VERIFY | CKF_EC_OID |
                  CKF_EC_F_P}},
     {CKM_ECDSA_SHA1, {160, 521, CKF_HW | CKF_SIGN | CKF_VERIFY |
-                      CKF_EC_NAMEDCURVE | CKF_EC_F_P}},
+                      CKF_EC_OID | CKF_EC_F_P}},
     {CKM_ECDSA_SHA224, {160, 521, CKF_HW | CKF_SIGN | CKF_VERIFY |
-                        CKF_EC_NAMEDCURVE | CKF_EC_F_P}},
+                        CKF_EC_OID | CKF_EC_F_P}},
     {CKM_ECDSA_SHA256, {160, 521, CKF_HW | CKF_SIGN | CKF_VERIFY |
-                        CKF_EC_NAMEDCURVE | CKF_EC_F_P}},
+                        CKF_EC_OID | CKF_EC_F_P}},
     {CKM_ECDSA_SHA384, {160, 521, CKF_HW | CKF_SIGN | CKF_VERIFY |
-                        CKF_EC_NAMEDCURVE | CKF_EC_F_P}},
+                        CKF_EC_OID | CKF_EC_F_P}},
     {CKM_ECDSA_SHA512, {160, 521, CKF_HW | CKF_SIGN | CKF_VERIFY |
-                        CKF_EC_NAMEDCURVE | CKF_EC_F_P}},
+                        CKF_EC_OID | CKF_EC_F_P}},
     {CKM_ECDSA_SHA3_224, {160, 521, CKF_HW | CKF_SIGN | CKF_VERIFY |
-                        CKF_EC_NAMEDCURVE | CKF_EC_F_P}},
+                        CKF_EC_OID | CKF_EC_F_P}},
     {CKM_ECDSA_SHA3_256, {160, 521, CKF_HW | CKF_SIGN | CKF_VERIFY |
-                        CKF_EC_NAMEDCURVE | CKF_EC_F_P}},
+                        CKF_EC_OID | CKF_EC_F_P}},
     {CKM_ECDSA_SHA3_384, {160, 521, CKF_HW | CKF_SIGN | CKF_VERIFY |
-                        CKF_EC_NAMEDCURVE | CKF_EC_F_P}},
+                        CKF_EC_OID | CKF_EC_F_P}},
     {CKM_ECDSA_SHA3_512, {160, 521, CKF_HW | CKF_SIGN | CKF_VERIFY |
-                        CKF_EC_NAMEDCURVE | CKF_EC_F_P}},
-    {CKM_ECDH1_DERIVE, {160, 521, CKF_DERIVE | CKF_EC_NAMEDCURVE | CKF_EC_F_P}},
+                        CKF_EC_OID | CKF_EC_F_P}},
+    {CKM_ECDH1_DERIVE, {160, 521, CKF_DERIVE | CKF_EC_OID | CKF_EC_F_P}},
     {CKM_GENERIC_SECRET_KEY_GEN, {80, 2048, CKF_HW | CKF_GENERATE}},
     {CKM_SHA_1_KEY_GEN, {80, 2048, CKF_HW | CKF_GENERATE}},
     {CKM_SHA224_KEY_GEN, {80, 2048, CKF_HW | CKF_GENERATE}},
