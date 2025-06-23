@@ -14177,6 +14177,15 @@ CK_RV ep11tok_get_mechanism_info(STDLL_TokData_t * tokdata,
     }
 #endif                          /* DEFENSIVE_MECHLIST */
 
+    /*
+     * EP11 only supports uncompressed EC public keys, but the EP11 token
+     * also supports compressed EC public keys, by uncompressing them before
+     * passing them to EP11. Thus, for all mechanisms that have the
+     * CKF_EC_UNCOMPRESS flag set, also set CKF_EC_COMPRESS.
+     */
+    if (pInfo->flags & CKF_EC_UNCOMPRESS)
+        pInfo->flags |= CKF_EC_COMPRESS;
+
     return tokdata->policy->update_mech_info(tokdata->policy, type, pInfo);
 }
 
