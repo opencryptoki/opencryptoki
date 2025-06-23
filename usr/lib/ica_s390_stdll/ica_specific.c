@@ -2122,55 +2122,60 @@ static ica_rsa_key_crt_t *rsa_convert_crt_key(CK_ATTRIBUTE *modulus,
         /* FIXME: if individual components lengths are bigger then
          * what we support in libICA then we're in trouble,
          * but maybe explicitly checking them is being over-zealous? */
-        if ((prime1->ulValueLen > (crtkey->key_length / 2)) ||
-            (prime2->ulValueLen > (crtkey->key_length / 2)) ||
-            (exp1->ulValueLen > (crtkey->key_length / 2)) ||
-            (exp2->ulValueLen > (crtkey->key_length / 2)) ||
-            (coeff->ulValueLen > (crtkey->key_length / 2))) {
+        if ((prime1->ulValueLen > ((crtkey->key_length + 1) / 2)) ||
+            (prime2->ulValueLen > ((crtkey->key_length + 1) / 2)) ||
+            (exp1->ulValueLen > ((crtkey->key_length + 1) / 2)) ||
+            (exp2->ulValueLen > ((crtkey->key_length + 1) / 2)) ||
+            (coeff->ulValueLen > ((crtkey->key_length + 1) / 2))) {
             TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
             goto err_crtkey;
         }
-        crtkey->p = (unsigned char *) calloc(1, (crtkey->key_length / 2) + 8);
+        crtkey->p = (unsigned char *)
+                                calloc(1, ((crtkey->key_length + 1) / 2) + 8);
         if (crtkey->p == NULL) {
             TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
             goto err_crtkey;
         }
-        ptr = crtkey->p + (crtkey->key_length / 2) + 8 - prime1->ulValueLen;
+        ptr = crtkey->p + ((crtkey->key_length + 1) / 2) + 8 -
+                                            prime1->ulValueLen;
         memcpy(ptr, prime1->pValue, prime1->ulValueLen);
 
-        crtkey->q = (unsigned char *) calloc(1, crtkey->key_length / 2);
+        crtkey->q = (unsigned char *) calloc(1, (crtkey->key_length + 1) / 2);
 
         if (crtkey->q == NULL) {
             TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
             goto err_crtkey;
         }
-        ptr = crtkey->q + (crtkey->key_length / 2) - prime2->ulValueLen;
+        ptr = crtkey->q + ((crtkey->key_length + 1) / 2) - prime2->ulValueLen;
         memcpy(ptr, prime2->pValue, prime2->ulValueLen);
 
-        crtkey->dp = (unsigned char *) calloc(1, (crtkey->key_length / 2) + 8);
+        crtkey->dp = (unsigned char *)
+                                calloc(1, ((crtkey->key_length + 1) / 2) + 8);
         if (crtkey->dp == NULL) {
             TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
             goto err_crtkey;
         }
-        ptr = crtkey->dp + (crtkey->key_length / 2) + 8 - exp1->ulValueLen;
+        ptr = crtkey->dp + ((crtkey->key_length + 1) / 2) + 8 -
+                                            exp1->ulValueLen;
         memcpy(ptr, exp1->pValue, exp1->ulValueLen);
 
-        crtkey->dq = (unsigned char *) calloc(1, crtkey->key_length / 2);
+        crtkey->dq = (unsigned char *) calloc(1, (crtkey->key_length + 1) / 2);
         if (crtkey->dq == NULL) {
             TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
             goto err_crtkey;
         }
-        ptr = crtkey->dq + (crtkey->key_length / 2) - exp2->ulValueLen;
+        ptr = crtkey->dq + ((crtkey->key_length + 1) / 2) - exp2->ulValueLen;
         memcpy(ptr, exp2->pValue, exp2->ulValueLen);
 
         crtkey->qInverse =
-            (unsigned char *) calloc(1, (crtkey->key_length / 2) + 8);
+            (unsigned char *) calloc(1, ((crtkey->key_length + 1) / 2) + 8);
         if (crtkey->qInverse == NULL) {
             TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
             goto err_crtkey;
         }
         ptr =
-            crtkey->qInverse + (crtkey->key_length / 2) + 8 - coeff->ulValueLen;
+            crtkey->qInverse + ((crtkey->key_length + 1) / 2) + 8 -
+                                            coeff->ulValueLen;
         memcpy(ptr, coeff->pValue, coeff->ulValueLen);
 
         /* If p < q, swap and recalculate now */
@@ -2390,28 +2395,30 @@ static CK_RV ica_specific_rsa_keygen(STDLL_TokData_t *tokdata,
     /* modexpo and crt key lengths are always the same */
     privKey->key_length = publKey->key_length;
 
-    privKey->p = (unsigned char *) calloc(1, (privKey->key_length / 2) + 8);
+    privKey->p = (unsigned char *)
+                            calloc(1, ((privKey->key_length + 1) / 2) + 8);
     if (privKey->p == NULL) {
         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
         rc = CKR_HOST_MEMORY;
         goto privkey_cleanup;
     }
 
-    privKey->q = (unsigned char *) calloc(1, privKey->key_length / 2);
+    privKey->q = (unsigned char *) calloc(1, (privKey->key_length + 1) / 2);
     if (privKey->q == NULL) {
         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
         rc = CKR_HOST_MEMORY;
         goto privkey_cleanup;
     }
 
-    privKey->dp = (unsigned char *) calloc(1, (privKey->key_length / 2) + 8);
+    privKey->dp = (unsigned char *)
+                            calloc(1, ((privKey->key_length + 1) / 2) + 8);
     if (privKey->dp == NULL) {
         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
         rc = CKR_HOST_MEMORY;
         goto privkey_cleanup;
     }
 
-    privKey->dq = (unsigned char *) calloc(1, privKey->key_length / 2);
+    privKey->dq = (unsigned char *) calloc(1, (privKey->key_length + 1) / 2);
     if (privKey->dq == NULL) {
         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
         rc = CKR_HOST_MEMORY;
@@ -2419,7 +2426,7 @@ static CK_RV ica_specific_rsa_keygen(STDLL_TokData_t *tokdata,
     }
 
     privKey->qInverse =
-        (unsigned char *) calloc(1, (privKey->key_length / 2) + 8);
+        (unsigned char *) calloc(1, ((privKey->key_length + 1) / 2) + 8);
     if (privKey->qInverse == NULL) {
         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
         rc = CKR_HOST_MEMORY;
@@ -2564,7 +2571,7 @@ retry:
 
     // exponent 1: d mod(p-1)
     //
-    tmpsize = privKey->key_length / 2;
+    tmpsize = (privKey->key_length + 1) / 2;
     ptr = p11_bigint_trim(privKey->dp + 8, &tmpsize);
     rc = build_attribute(CKA_EXPONENT_1, ptr, tmpsize, &attr);
     if (rc != CKR_OK) {
@@ -2580,7 +2587,7 @@ retry:
 
     // exponent 2: d mod(q-1)
     //
-    tmpsize = privKey->key_length / 2;
+    tmpsize = (privKey->key_length + 1) / 2;
     ptr = p11_bigint_trim(privKey->dq, &tmpsize);
     rc = build_attribute(CKA_EXPONENT_2, ptr, tmpsize, &attr);
     if (rc != CKR_OK) {
@@ -2596,7 +2603,7 @@ retry:
 
     // prime #1: p
     //
-    tmpsize = privKey->key_length / 2;
+    tmpsize = (privKey->key_length + 1) / 2;
     ptr = p11_bigint_trim(privKey->p + 8, &tmpsize);
     rc = build_attribute(CKA_PRIME_1, ptr, tmpsize, &attr);
     if (rc != CKR_OK) {
@@ -2612,7 +2619,7 @@ retry:
 
     // prime #2: q
     //
-    tmpsize = privKey->key_length / 2;
+    tmpsize = (privKey->key_length + 1) / 2;
     ptr = p11_bigint_trim(privKey->q, &tmpsize);
     rc = build_attribute(CKA_PRIME_2, ptr, tmpsize, &attr);
     if (rc != CKR_OK) {
@@ -2628,7 +2635,7 @@ retry:
 
     // CRT coefficient:  q_inverse mod(p)
     //
-    tmpsize = privKey->key_length / 2;
+    tmpsize = (privKey->key_length + 1) / 2;
     ptr = p11_bigint_trim(privKey->qInverse + 8, &tmpsize);
     rc = build_attribute(CKA_COEFFICIENT, ptr, tmpsize, &attr);
     if (rc != CKR_OK) {
