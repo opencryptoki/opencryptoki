@@ -435,10 +435,12 @@ CK_BBOOL pkey_op_ec_curve_supported_by_cpacf(TEMPLATE *tmpl)
  * Returns true if the protected key operation implied by the given mechanism
  * is supported by CPACF, false otherwise.
  */
-CK_BBOOL pkey_op_supported_by_cpacf(int msa_level, CK_MECHANISM_TYPE type,
+CK_BBOOL pkey_op_supported_by_cpacf(int msa_level, CK_MECHANISM *mech,
                                     TEMPLATE *tmpl)
 {
-    switch (type) {
+    CK_EDDSA_PARAMS *eddsa_params;
+
+    switch (mech->mechanism) {
     case CKM_AES_ECB:
     case CKM_AES_CBC:
     case CKM_AES_CBC_PAD:
@@ -451,6 +453,15 @@ CK_BBOOL pkey_op_supported_by_cpacf(int msa_level, CK_MECHANISM_TYPE type,
         if (msa_level > 3)
             return CK_TRUE;
         break;
+    case CKM_EDDSA:
+        /* EDDSA is only supported with no prehashing and no context */
+        if (mech->ulParameterLen == sizeof(CK_EDDSA_PARAMS) &&
+            mech->pParameter != NULL) {
+            eddsa_params = mech->pParameter;
+            if (eddsa_params->phFlag || eddsa_params->ulContextDataLen > 0)
+                return CK_FALSE;
+        }
+        /* Fall through */
     case CKM_ECDSA:
     case CKM_ECDSA_SHA1:
     case CKM_ECDSA_SHA224:
@@ -1391,15 +1402,15 @@ done:
 
 /**
  * Sign the given input message via CPACF using the given protected private key.
- * This routine only supports the two IBM specific Edwards curves ED25519 and
- * ED448.
+ * This routine only supports the two Edwards curves ED25519 and ED448.
  * Note: The original input message is passed to CPACF without being
- * pre-hashed. Hashing is done internally in CPACF.
+ * pre-hashed. Hashing is done internally in CPACF. Also no context is
+ * supported.
  */
-CK_RV pkey_ibm_ed_sign(STDLL_TokData_t *tokdata, SESSION *session,
-                       OBJECT *privkey, CK_BYTE *msg, CK_ULONG msg_len,
-                       CK_BYTE *sig, CK_ULONG *sig_len,
-                       convert_key_t convert_key)
+CK_RV pkey_ed_sign(STDLL_TokData_t *tokdata, SESSION *session,
+                  OBJECT *privkey, CK_BYTE *msg, CK_ULONG msg_len,
+                  CK_BYTE *sig, CK_ULONG *sig_len,
+                  convert_key_t convert_key)
 {
 #define DEF_EDPARAM(curve, size)      \
     struct {                          \
@@ -1712,13 +1723,13 @@ done:
 
 /**
  * Verify the given signature via CPACF using the given public key.
- * This routine only supports the two IBM specific Edwards curves ED25519 and
- * ED448.
+ * This routine only supports the two Edwards curves ED25519 and ED448.
  * Note: The original input message is passed to CPACF without being
- * pre-hashed. Hashing is done internally in CPACF.
+ * pre-hashed. Hashing is done internally in CPACF. Also no context is
+ * supported.
  */
-CK_RV pkey_ibm_ed_verify(OBJECT *pubkey, CK_BYTE *msg, CK_ULONG msg_len,
-                         CK_BYTE *sig, CK_ULONG sig_len)
+CK_RV pkey_ed_verify(OBJECT *pubkey, CK_BYTE *msg, CK_ULONG msg_len,
+                     CK_BYTE *sig, CK_ULONG sig_len, CK_KEY_TYPE key_type)
 {
 #define DEF_EDPARAM(curve, size)    \
 struct {                            \
@@ -1751,13 +1762,24 @@ struct {                            \
         goto done;
     }
 
-    /* CKA_EC_POINT is an BER encoded OCTET STRING. Extract it. */
-    rc = ber_decode_OCTET_STRING(pub_attr->pValue, &ecpoint,
-                                 &ecpoint_len, &field_len);
-    if (rc != CKR_OK || pub_attr->ulValueLen != field_len) {
-        TRACE_ERROR("%s: ber_decode_OCTET_STRING failed\n", __func__);
-        ret = CKR_ATTRIBUTE_VALUE_INVALID;
-        goto done;
+    switch (key_type) {
+    case CKK_EC:
+        /* CKA_EC_POINT is an BER encoded OCTET STRING. Extract it. */
+        rc = ber_decode_OCTET_STRING(pub_attr->pValue, &ecpoint,
+                                     &ecpoint_len, &field_len);
+        if (rc != CKR_OK || pub_attr->ulValueLen != field_len) {
+            TRACE_ERROR("%s: ber_decode_OCTET_STRING failed\n", __func__);
+            ret = CKR_ATTRIBUTE_VALUE_INVALID;
+            goto done;
+        }
+        break;
+    case CKK_EC_EDWARDS:
+        /* CKA_EC_POINT is the public key directly */
+        ecpoint = pub_attr->pValue;
+        ecpoint_len = pub_attr->ulValueLen;
+        break;
+    default:
+        return CKR_KEY_TYPE_INCONSISTENT;
     }
 
     /* Setup parmblock and function code */

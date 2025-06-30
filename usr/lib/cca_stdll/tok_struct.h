@@ -85,7 +85,11 @@ token_spec_t token_specific = {
     // Elliptic Curve
     &token_specific_ec_sign,
     &token_specific_ec_verify,
+    NULL,                       // ec_edwards_sign
+    NULL,                       // ec_edwards_verify
     &token_specific_ec_generate_keypair,
+    NULL,                       // ec_edwards_generate_keypair
+    NULL,                       // ec_montgomery_generate_keypair
     NULL,                       // ecdh_derive
     &token_specific_ecdh_pkcs_derive_kdf,
     NULL,                       // dh_pkcs_derive

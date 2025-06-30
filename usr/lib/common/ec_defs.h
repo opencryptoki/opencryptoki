@@ -29,6 +29,7 @@
 #define CURVE160        0x00A0
 #define CURVE192        0x00C0
 #define CURVE224        0x00E0
+#define CURVE255        0x00FF
 #define CURVE256        0x0100
 #define CURVE320        0x0140
 #define CURVE384        0x0180

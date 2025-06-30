@@ -154,7 +154,8 @@ static void policy_check_ec_allowed(struct policy_private *pp,
 
 static CK_RV policy_get_curve_args(get_attr_val_f getattr, void *d,
                                    free_attr_f free_attr, CK_ULONG *size,
-                                   const CK_BYTE **oid, CK_ULONG *oidlen)
+                                   const CK_BYTE **oid, CK_ULONG *oidlen,
+                                   uint8_t curve_type)
 {
     CK_ATTRIBUTE *ec_params = NULL;
     CK_RV rv;
@@ -172,7 +173,9 @@ static CK_RV policy_get_curve_args(get_attr_val_f getattr, void *d,
         for (i = 0; i < NUMEC; ++i) {
             if (der_ec_supported[i].data_size == ec_params->ulValueLen &&
                 memcmp(ec_params->pValue, der_ec_supported[i].data,
-                       ec_params->ulValueLen) == 0) {
+                       ec_params->ulValueLen) == 0 &&
+                (curve_type == (uint8_t)-1 ||
+                 der_ec_supported[i].curve_type == curve_type)) {
                 *size = der_ec_supported[i].prime_bits;
                 *oid = der_ec_supported[i].data;
                 *oidlen = der_ec_supported[i].data_size;
@@ -312,7 +315,20 @@ static CK_RV policy_extract_key_data(get_attr_val_f getattr, void *d,
         *comptarget = COMPARE_MODEXP;
         break;
     case CKK_EC:
-        rv = policy_get_curve_args(getattr, d, free_attr, size, oid, oidlen);
+        rv = policy_get_curve_args(getattr, d, free_attr, size, oid, oidlen,
+                                   (uint8_t)-1);
+        *siglen = *size * 2;
+        *comptarget = COMPARE_ECC;
+        break;
+    case CKK_EC_EDWARDS:
+        rv = policy_get_curve_args(getattr, d, free_attr, size, oid, oidlen,
+                                   EDWARDS_CURVE);
+        *siglen = *size * 2;
+        *comptarget = COMPARE_ECC;
+        break;
+    case CKK_EC_MONTGOMERY:
+        rv = policy_get_curve_args(getattr, d, free_attr, size, oid, oidlen,
+                                   MONTGOMERY_CURVE);
         *siglen = *size * 2;
         *comptarget = COMPARE_ECC;
         break;
@@ -444,6 +460,8 @@ static CK_RV policy_get_sig_size(CK_MECHANISM_PTR mech, struct objstrength *s,
         case CKM_RSA_X9_31:
             /* Fallthrough */
         case CKM_IBM_ED448_SHA3:
+            /* Fallthrough */
+        case CKM_EDDSA:
             /* Fallthrough */
         case CKM_IBM_DILITHIUM:
             /* Fallthrough */
@@ -754,6 +772,8 @@ static CK_RV policy_check_signature_size(struct policy_private *pp,
                 siglen = 2u * 256u;
                 break;
             case CKM_ECDSA:
+                /* Fallthrough */
+            case CKM_EDDSA:
                 /* Fallthrough */
             case CKM_ECDSA_SHA1:
                 /* Fallthrough */
@@ -1329,7 +1349,9 @@ static CK_RV policy_update_mech_info(policy_t p, CK_MECHANISM_TYPE mech,
             break;
         case CKM_ECDH1_DERIVE:
         case CKM_ECDSA:
-        case CKM_ECDSA_KEY_PAIR_GEN:
+        case CKM_EC_KEY_PAIR_GEN:
+        case CKM_EC_EDWARDS_KEY_PAIR_GEN:
+        case CKM_EC_MONTGOMERY_KEY_PAIR_GEN:
         case CKM_ECDSA_SHA1:
         case CKM_ECDSA_SHA224:
         case CKM_ECDSA_SHA256:
@@ -1347,6 +1369,7 @@ static CK_RV policy_update_mech_info(policy_t p, CK_MECHANISM_TYPE mech,
         case CKM_IBM_BTC_DERIVE:
         case CKM_ECDH_AES_KEY_WRAP:
         case CKM_IBM_EC_AGGREGATE:
+        case CKM_EDDSA:
             if (policy_update_ec(pp, info) != CKR_OK) {
                 TRACE_DEVEL("Mechanism 0x%lx blocked by policy!\n", mech);
                 return CKR_MECHANISM_INVALID;

@@ -237,6 +237,45 @@ CK_RV sign_mgr_init(STDLL_TokData_t *tokdata,
             memset(ctx->context, 0x0, sizeof(RSA_DIGEST_CONTEXT));
         }
         break;
+    case CKM_EDDSA:
+        /* Mechanism parameter CK_EDDSA_PARAMS is optional */
+        if (mech->ulParameterLen != 0 &&
+            mech->ulParameterLen != sizeof(CK_EDDSA_PARAMS)) {
+            TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
+            rc = CKR_MECHANISM_PARAM_INVALID;
+            goto done;
+        }
+        rc = template_attribute_get_ulong(key_obj->template, CKA_KEY_TYPE,
+                                          &keytype);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("Could not find CKA_KEY_TYPE for the key.\n");
+            goto done;
+        }
+
+        if (keytype != CKK_EC_EDWARDS) {
+            TRACE_ERROR("%s\n", ock_err(ERR_KEY_TYPE_INCONSISTENT));
+            rc = CKR_KEY_TYPE_INCONSISTENT;
+            goto done;
+        }
+
+        // must be a PRIVATE key
+        //
+        rc = template_attribute_get_ulong(key_obj->template, CKA_CLASS,
+                                          &class);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("Could not find CKA_CLASS for the key.\n");
+            goto done;
+        }
+
+        if (class != CKO_PRIVATE_KEY) {
+            TRACE_ERROR("This operation requires a private key.\n");
+            rc = CKR_KEY_FUNCTION_NOT_PERMITTED;
+            goto done;
+        }
+
+        ctx->context_len = 0;
+        ctx->context = NULL;
+        break;
 #if  !(NOMD2)
     case CKM_MD2_RSA_PKCS:
 #endif
@@ -1135,6 +1174,7 @@ CK_RV sign_mgr_sign(STDLL_TokData_t *tokdata,
         return ec_hash_sign(tokdata, sess, length_only, ctx,
                             in_data, in_data_len, out_data, out_data_len);
     case CKM_ECDSA:
+    case CKM_EDDSA:
         return ec_sign(tokdata, sess, length_only, ctx,
                        in_data, in_data_len, out_data, out_data_len);
     case CKM_DES3_MAC:

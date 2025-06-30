@@ -2507,19 +2507,19 @@ CK_RV der_encode_ECPrivateKey(CK_BBOOL length_only,
                               CK_BYTE **data,
                               CK_ULONG *data_len,
                               CK_ATTRIBUTE *params,
-                              CK_ATTRIBUTE *point,
-                              CK_ATTRIBUTE *pubkey)
+                              CK_ATTRIBUTE *privkey,
+                              CK_ATTRIBUTE *pubkey,
+                              CK_KEY_TYPE key_type)
 {
     CK_BYTE *buf = NULL;
     CK_BYTE *buf2 = NULL;
+    CK_BYTE *buf3 = NULL;
     CK_ULONG len, offset = 0;
     CK_BYTE version[] = { 1 };  // ecPrivkeyVer1
     CK_BYTE der_AlgIdEC[der_AlgIdECBaseLen + params->ulValueLen];
     CK_ULONG der_AlgIdECLen = sizeof(der_AlgIdEC);
     CK_BYTE *ecpoint;
     CK_ULONG ecpoint_len, field_len;
-    BerElement *ber;
-    BerValue *val = NULL;
     CK_RV rc = 0;
 
     /* Calculate BER encoding length
@@ -2533,7 +2533,7 @@ CK_RV der_encode_ECPrivateKey(CK_BBOOL length_only,
 
     // private key octet
     rc |= ber_encode_OCTET_STRING(TRUE, NULL, &len, NULL,
-                                  point->ulValueLen);
+                                  privkey->ulValueLen);
     offset += len;
     if (rc != CKR_OK) {
         TRACE_DEVEL("der encoding failed\n");
@@ -2541,36 +2541,41 @@ CK_RV der_encode_ECPrivateKey(CK_BBOOL length_only,
     }
     // public key bit string
     if (pubkey && pubkey->pValue) {
-        rc = ber_decode_OCTET_STRING(pubkey->pValue, &ecpoint, &ecpoint_len,
-                                     &field_len);
-        if (rc != CKR_OK || pubkey->ulValueLen != field_len) {
-            TRACE_DEVEL("ber decoding of public key failed\n");
+        switch (key_type) {
+        case CKK_EC:
+            rc = ber_decode_OCTET_STRING(pubkey->pValue, &ecpoint, &ecpoint_len,
+                                         &field_len);
+            if (rc != CKR_OK || pubkey->ulValueLen != field_len) {
+                TRACE_DEVEL("ber decoding of public key failed\n");
+                return CKR_ATTRIBUTE_VALUE_INVALID;
+            }
+            break;
+        case CKK_EC_EDWARDS:
+        case CKK_EC_MONTGOMERY:
+            /* Edwards/Montgomery keys have raw CKA_EC_POINT */
+            ecpoint = pubkey->pValue;
+            ecpoint_len = pubkey->ulValueLen;
+            break;
+        default:
+            TRACE_DEVEL("Key type 0x%lx not supported.\n", key_type);
+            return CKR_KEY_TYPE_INCONSISTENT;
+        }
+
+        rc = ber_encode_BIT_STRING(FALSE, &buf3, &len, ecpoint, ecpoint_len, 0);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("ber_encode_BIT_STRING failed\n");
             return CKR_ATTRIBUTE_VALUE_INVALID;
         }
 
-        ber = ber_alloc_t(LBER_USE_DER);
-        rc = (ber_put_bitstring(ber, (char *)ecpoint, ecpoint_len * 8, 0x03)
-                                                            <= 0 ? 1 : 0);
-        rc |= ber_flatten(ber, &val);
-        if (rc != 0) {
-            TRACE_DEVEL("ber_put_bitstring/ber_flatten failed\n");
-            ber_free(ber, 1);
-            ber_bvfree(val);
-            return CKR_FUNCTION_FAILED;
-       }
-
-        rc = ber_encode_CHOICE(TRUE, 1, &buf2, &len, (CK_BYTE *)val->bv_val,
-                               val->bv_len, TRUE);
+        rc = ber_encode_CHOICE(TRUE, 1, &buf2, &len, buf3, len, TRUE);
+        free(buf3);
+        buf3 = NULL;
         if (rc != 0) {
             TRACE_DEVEL("ber_encode_CHOICE failed\n");
-            ber_free(ber, 1);
-            ber_bvfree(val);
             return CKR_FUNCTION_FAILED;
        }
 
         offset += len;
-        ber_free(ber, 1);
-        ber_bvfree(val);
     }
 
     if (length_only == TRUE) {
@@ -2579,6 +2584,20 @@ CK_RV der_encode_ECPrivateKey(CK_BBOOL length_only,
             TRACE_DEVEL("ber_encode_SEQUENCE failed\n");
             return rc;
         }
+
+        switch (key_type) {
+        case CKK_EC:
+            break;
+        case CKK_EC_EDWARDS:
+        case CKK_EC_MONTGOMERY:
+            /* ALgID itself is curve OID */
+            der_AlgIdECLen = 2 + params->ulValueLen;
+            break;
+        default:
+            TRACE_DEVEL("Key type 0x%lx not supported.\n", key_type);
+            return CKR_KEY_TYPE_INCONSISTENT;
+        }
+
         rc = ber_encode_PrivateKeyInfo(TRUE, NULL, data_len, NULL,
                                        der_AlgIdECLen, NULL, len);
         if (rc != CKR_OK) {
@@ -2609,8 +2628,8 @@ CK_RV der_encode_ECPrivateKey(CK_BBOOL length_only,
     }
 
     rc = ber_encode_OCTET_STRING(FALSE, &buf2, &len,
-                                 (CK_BYTE *) point +
-                                 sizeof(CK_ATTRIBUTE), point->ulValueLen);
+                                 (CK_BYTE *)privkey +
+                                 sizeof(CK_ATTRIBUTE), privkey->ulValueLen);
     if (rc != CKR_OK) {
         TRACE_DEVEL("ber_encode_INTEGER failed\n");
         goto error;
@@ -2624,32 +2643,38 @@ CK_RV der_encode_ECPrivateKey(CK_BBOOL length_only,
 
     /* generate optional bit-string of public key */
     if (pubkey && pubkey->pValue) {
-        rc = ber_decode_OCTET_STRING(pubkey->pValue, &ecpoint, &ecpoint_len,
-                                     &field_len);
-        if (rc != CKR_OK || pubkey->ulValueLen != field_len) {
-            TRACE_DEVEL("ber decoding of public key failed\n");
-            rc = CKR_ATTRIBUTE_VALUE_INVALID;
+        switch (key_type) {
+        case CKK_EC:
+            rc = ber_decode_OCTET_STRING(pubkey->pValue, &ecpoint, &ecpoint_len,
+                                         &field_len);
+            if (rc != CKR_OK || pubkey->ulValueLen != field_len) {
+                TRACE_DEVEL("ber decoding of public key failed\n");
+                rc = CKR_ATTRIBUTE_VALUE_INVALID;
+                goto error;
+            }
+            break;
+        case CKK_EC_EDWARDS:
+        case CKK_EC_MONTGOMERY:
+            /* Edwards/Montgomery keys have raw CKA_EC_POINT */
+            ecpoint = pubkey->pValue;
+            ecpoint_len = pubkey->ulValueLen;
+            break;
+        default:
+            TRACE_DEVEL("Key type 0x%lx not supported.\n", key_type);
+            rc = CKR_KEY_TYPE_INCONSISTENT;
             goto error;
         }
 
-        ber = ber_alloc_t(LBER_USE_DER);
-        rc = (ber_put_bitstring(ber, (char *)ecpoint, ecpoint_len * 8, 0x03)
-                                                                <= 0 ? 1 : 0);
-        rc |= ber_flatten(ber, &val);
-        if (rc != 0) {
-            TRACE_DEVEL("ber_put_bitstring/ber_flatten failed\n");
-            ber_free(ber, 1);
-            ber_bvfree(val);
-            rc = CKR_FUNCTION_FAILED;
-            goto error;
-       }
+        rc = ber_encode_BIT_STRING(FALSE, &buf3, &len, ecpoint, ecpoint_len, 0);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("ber_encode_BIT_STRING failed\n");
+            return CKR_ATTRIBUTE_VALUE_INVALID;
+        }
 
-        rc = ber_encode_CHOICE(FALSE, 1, &buf2, &len, (CK_BYTE *)val->bv_val,
-                               val->bv_len, TRUE);
+        rc = ber_encode_CHOICE(FALSE, 1, &buf2, &len, buf3, len, TRUE);
+        free(buf3);
         if (rc != CKR_OK) {
             TRACE_DEVEL("ber_encode_CHOICE failed\n");
-            ber_free(ber, 1);
-            ber_bvfree(val);
             goto error;
         }
 
@@ -2657,8 +2682,6 @@ CK_RV der_encode_ECPrivateKey(CK_BBOOL length_only,
         offset += len;
         free(buf2);
         buf2 = NULL;
-        ber_free(ber, 1);
-        ber_bvfree(val);
     }
 
     rc = ber_encode_SEQUENCE(FALSE, &buf2, &len, buf, offset);
@@ -2667,12 +2690,29 @@ CK_RV der_encode_ECPrivateKey(CK_BBOOL length_only,
         goto error;
     }
 
-    /* concatenate EC algorithm-id + specific curve id */
-    memcpy(der_AlgIdEC, der_AlgIdECBase, der_AlgIdECBaseLen);
-    memcpy(der_AlgIdEC + der_AlgIdECBaseLen, params->pValue,
-           params->ulValueLen);
-    /* adjust length field */
-    der_AlgIdEC[1] = der_AlgIdEC[1] + params->ulValueLen;
+    switch (key_type) {
+    case CKK_EC:
+        /* AlgID param is curve OID. */
+        /* concatenate EC algorithm-id + specific curve id */
+        memcpy(der_AlgIdEC, der_AlgIdECBase, der_AlgIdECBaseLen);
+        memcpy(der_AlgIdEC + der_AlgIdECBaseLen, params->pValue,
+               params->ulValueLen);
+        /* adjust length field */
+        der_AlgIdEC[1] = der_AlgIdEC[1] + params->ulValueLen;
+        break;
+    case CKK_EC_EDWARDS:
+    case CKK_EC_MONTGOMERY:
+        /* ALgID itself is curve OID */
+        memcpy(der_AlgIdEC, der_AlgIdECBase, 2); /* Only SEQUENCE */
+        memcpy(der_AlgIdEC + 2, params->pValue, params->ulValueLen);
+        der_AlgIdECLen = 2 + params->ulValueLen;
+        /* adjust length field */
+        der_AlgIdEC[1] = params->ulValueLen;
+        break;
+    default:
+        TRACE_DEVEL("Key type 0x%lx not supported.\n", key_type);
+        return CKR_KEY_TYPE_INCONSISTENT;
+    }
 
     rc = ber_encode_PrivateKeyInfo(FALSE, data, data_len, der_AlgIdEC,
                                    der_AlgIdECLen, buf2, len);
@@ -2703,7 +2743,8 @@ CK_RV der_decode_ECPrivateKey(CK_BYTE *data,
                               CK_ULONG data_len,
                               CK_ATTRIBUTE **params,
                               CK_ATTRIBUTE **pub_key,
-                              CK_ATTRIBUTE **priv_key)
+                              CK_ATTRIBUTE **priv_key,
+                              CK_KEY_TYPE key_type)
 {
     CK_ATTRIBUTE *pub_attr = NULL;
     CK_ATTRIBUTE *priv_attr = NULL;
@@ -2721,6 +2762,7 @@ CK_RV der_decode_ECPrivateKey(CK_BYTE *data,
     CK_ULONG pubkey_available = 0;
     CK_BYTE *ecpoint = NULL;
     CK_ULONG ecpoint_len;
+    CK_BBOOL ecpoint_allocated = FALSE;
     CK_RV rc;
 
     /*
@@ -2749,10 +2791,21 @@ CK_RV der_decode_ECPrivateKey(CK_BYTE *data,
         return rc;
     }
 
-    /* Check OBJECT IDENTIFIER to make sure this is an EC key */
-    if (memcmp(alg, ber_idEC, ber_idECLen) != 0) {
-        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
-        return CKR_FUNCTION_FAILED;
+    switch (key_type) {
+    case CKK_EC:
+        /* Check OBJECT IDENTIFIER to make sure this is an EC key */
+        if (memcmp(alg, ber_idEC, ber_idECLen) != 0) {
+            TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
+            return CKR_FUNCTION_FAILED;
+        }
+        break;
+    case CKK_EC_EDWARDS:
+    case CKK_EC_MONTGOMERY:
+        /* ALgID itself is curve OID */
+        break;
+    default:
+        TRACE_DEVEL("Key type 0x%lx not supported.\n", key_type);
+        return CKR_KEY_TYPE_INCONSISTENT;
     }
 
     /* Decode the ecdhkey into buf */
@@ -2820,22 +2873,52 @@ CK_RV der_decode_ECPrivateKey(CK_BYTE *data,
         }
     }
 
-    /* Now build attribute for CKA_ECDSA_PARAMS */
-    parm_buf = alg + ber_idECLen;
-    parm_len = alg_len - ber_idECLen;
-    rc = build_attribute(CKA_ECDSA_PARAMS, parm_buf, parm_len, &parm_attr);
+    /* Now build attribute for CKA_EC_PARAMS */
+    switch (key_type) {
+    case CKK_EC:
+        /* AlgID param is curve OID */
+        parm_buf = alg + ber_idECLen;
+        parm_len = alg_len - ber_idECLen;
+        break;
+    case CKK_EC_EDWARDS:
+    case CKK_EC_MONTGOMERY:
+        /* ALgID itself is curve OID */
+        parm_buf = alg;
+        parm_len = alg_len;
+        break;
+    default:
+        TRACE_DEVEL("Key type 0x%lx not supported.\n", key_type);
+        return CKR_KEY_TYPE_INCONSISTENT;
+    }
+
+    rc = build_attribute(CKA_EC_PARAMS, parm_buf, parm_len, &parm_attr);
     if (rc != CKR_OK) {
-        TRACE_DEVEL("build_attribute for CKA_ECDSA_PARAMS failed\n");
+        TRACE_DEVEL("build_attribute for CKA_EC_PARAMS failed\n");
         goto cleanup;
     }
 
     /* Build attr for public key as BER encoded OCTET STRING */
     if (pubkey_available) {
-        rc = ber_encode_OCTET_STRING(FALSE, &ecpoint, &ecpoint_len,
-                                     pub_buf, pub_len);
-        if (rc != CKR_OK) {
-            TRACE_DEVEL("ber_encode_OCTET_STRING failed\n");
-            goto cleanup;
+        switch (key_type) {
+        case CKK_EC:
+            rc = ber_encode_OCTET_STRING(FALSE, &ecpoint, &ecpoint_len,
+                                         pub_buf, pub_len);
+            if (rc != CKR_OK) {
+                TRACE_DEVEL("ber_encode_OCTET_STRING failed\n");
+                goto cleanup;
+            }
+
+            ecpoint_allocated = TRUE;
+            break;
+        case CKK_EC_EDWARDS:
+        case CKK_EC_MONTGOMERY:
+            /* Edwards/Montgomery keys have raw CKA_EC_POINT */
+            ecpoint = pub_buf;
+            ecpoint_len = pub_len;
+            break;
+        default:
+            TRACE_DEVEL("Key type 0x%lx not supported.\n", key_type);
+            return CKR_KEY_TYPE_INCONSISTENT;
         }
 
         rc = build_attribute(CKA_EC_POINT, ecpoint, ecpoint_len, &pub_attr);
@@ -2855,7 +2938,7 @@ CK_RV der_decode_ECPrivateKey(CK_BYTE *data,
     *pub_key = pub_attr;        // may be NULL if no BIT_STRING available
     *priv_key = priv_attr;
     *params = parm_attr;
-    if (ecpoint)
+    if (ecpoint_allocated && ecpoint)
         free(ecpoint);
 
     return CKR_OK;
@@ -2875,23 +2958,46 @@ cleanup:
 
 CK_RV ber_encode_ECPublicKey(CK_BBOOL length_only, CK_BYTE **data,
                              CK_ULONG *data_len, CK_ATTRIBUTE *params,
-                             CK_ATTRIBUTE *point)
+                             CK_ATTRIBUTE *point, CK_KEY_TYPE key_type)
 {
-    CK_ULONG len, total;
-    CK_ULONG algid_len = der_AlgIdECBaseLen + params->ulValueLen;
+    CK_ULONG len, len2, total, ofs;
+    CK_ULONG algid_len;
     CK_RV rc = 0;
-    CK_BYTE *buf = NULL;
-    BerValue *val = NULL;
-    BerElement *ber;
+    CK_BYTE *buf = NULL, *buf2 = NULL;
     CK_BYTE *ecpoint;
     CK_ULONG ecpoint_len, field_len;
 
-    /* CKA_EC_POINT is an BER encoded OCTET STRING. Extract it. */
-    rc = ber_decode_OCTET_STRING((CK_BYTE *)point->pValue, &ecpoint,
-                                 &ecpoint_len, &field_len);
-    if (rc != CKR_OK || point->ulValueLen != field_len) {
-        TRACE_DEVEL("%s ber_decode_OCTET_STRING failed\n", __func__);
-        return CKR_ATTRIBUTE_VALUE_INVALID;
+    switch (key_type) {
+    case CKK_EC:
+        /* CKA_EC_POINT is a BER encoded OCTET STRING. Extract it. */
+        rc = ber_decode_OCTET_STRING((CK_BYTE *)point->pValue, &ecpoint,
+                                     &ecpoint_len, &field_len);
+        if (rc != CKR_OK || point->ulValueLen != field_len) {
+            TRACE_DEVEL("%s ber_decode_OCTET_STRING failed\n", __func__);
+            return CKR_ATTRIBUTE_VALUE_INVALID;
+        }
+
+        /* AlgID param is curve OID. */
+        algid_len = der_AlgIdECBaseLen + params->ulValueLen;
+        break;
+    case CKK_EC_EDWARDS:
+    case CKK_EC_MONTGOMERY:
+        /* Edwards/Montgomery keys have raw CKA_EC_POINT */
+        ecpoint = point->pValue;
+        ecpoint_len = point->ulValueLen;
+
+        /* ALgID itself is curve OID */
+        rc = ber_encode_SEQUENCE(TRUE, NULL, &algid_len, NULL,
+                                 params->ulValueLen);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("%s der_encode_sequence failed with rc=0x%lx\n",
+                        __func__, rc);
+            return rc;
+        }
+        break;
+    default:
+        TRACE_DEVEL("Key type 0x%lx not supported.\n", key_type);
+        return CKR_KEY_TYPE_INCONSISTENT;
     }
 
     /* Calculate the BER container length
@@ -2912,20 +3018,14 @@ CK_RV ber_encode_ECPublicKey(CK_BBOOL length_only, CK_BYTE **data,
     }
 
     /* public key */
-    ber = ber_alloc_t(LBER_USE_DER);
-    rc = (ber_put_bitstring(ber, (char *)ecpoint, ecpoint_len * 8, 0x03)
-                                                            <= 0 ? 1 : 0);
-    rc |= ber_flatten(ber, &val);
+    rc = ber_encode_BIT_STRING(TRUE, NULL, &len2, NULL, ecpoint_len, 0);
     if (rc != CKR_OK) {
-        TRACE_DEVEL("%s ber_put_bitstring/ber_flatten failed\n", __func__);
-        ber_free(ber, 1);
-        ber_bvfree(val);
-        return CKR_FUNCTION_FAILED;
+        TRACE_DEVEL("%s ber_encode_BIT_STRING failed with rc=0x%lx\n",
+                    __func__, rc);
+        return rc;
     }
 
-    rc = ber_encode_SEQUENCE(TRUE, NULL, &total, NULL, len + val->bv_len);
-    ber_free(ber, 1);
-    ber_bvfree(val);
+    rc = ber_encode_SEQUENCE(TRUE, NULL, &total, NULL, len + len2);
     if (rc != CKR_OK) {
         TRACE_DEVEL("%s der_encode_sequence failed with rc=0x%lx\n",
                     __func__, rc);
@@ -2944,31 +3044,49 @@ CK_RV ber_encode_ECPublicKey(CK_BBOOL length_only, CK_BYTE **data,
         return CKR_HOST_MEMORY;
     }
 
-    memcpy(buf, der_AlgIdECBase, der_AlgIdECBaseLen);
-    memcpy(buf + der_AlgIdECBaseLen, params->pValue, params->ulValueLen);
-    buf[1] += params->ulValueLen;
-
-    /* generate bitstring */
-    ber = ber_alloc_t(LBER_USE_DER);
-    rc = (ber_put_bitstring(ber, (char *)ecpoint, ecpoint_len * 8, 0x03)
-                                                            <= 0 ? 1 : 0);
-    rc |= ber_flatten(ber, &val);
-    if (rc != CKR_OK) {
-        TRACE_DEVEL("%s ber_put_bitstring/ber_flatten failed\n", __func__);
-        ber_free(ber, 1);
-        ber_bvfree(val);
+    switch (key_type) {
+    case CKK_EC:
+        /* AlgID param is curve OID. */
+        memcpy(buf, der_AlgIdECBase, der_AlgIdECBaseLen);
+        memcpy(buf + der_AlgIdECBaseLen, params->pValue, params->ulValueLen);
+        buf[1] += params->ulValueLen;
+        ofs = der_AlgIdECBaseLen + params->ulValueLen;
+        break;
+    case CKK_EC_EDWARDS:
+    case CKK_EC_MONTGOMERY:
+        /* ALgID itself is curve OID */
+        rc = ber_encode_SEQUENCE(FALSE, &buf2, &len, params->pValue,
+                                 params->ulValueLen);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("%s der_encode_sequence failed with rc=0x%lx\n",
+                        __func__, rc);
+            free(buf);
+            return rc;
+        }
+        memcpy(buf, buf2, len);
+        free(buf2);
+        buf2 = NULL;
+        ofs = len;
+        break;
+    default:
+        TRACE_DEVEL("Key type 0x%lx not supported.\n", key_type);
         free(buf);
-        return CKR_FUNCTION_FAILED;
+        return CKR_KEY_TYPE_INCONSISTENT;
     }
 
-    memcpy(buf + der_AlgIdECBaseLen + params->ulValueLen, val->bv_val,
-           val->bv_len);
-    ber_free(ber, 1);
+    /* generate bitstring */
+    rc = ber_encode_BIT_STRING(FALSE, &buf2, &len2, ecpoint, ecpoint_len, 0);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("%s ber_encode_BIT_STRING failed with rc=0x%lx\n",
+                    __func__, rc);
+        free(buf);
+        return rc;
+    }
 
-    rc = ber_encode_SEQUENCE(FALSE, data, data_len, buf,
-                             der_AlgIdECBaseLen +
-                             params->ulValueLen + val->bv_len);
-    ber_bvfree(val);
+    memcpy(buf + ofs, buf2, len2);
+    free(buf2);
+
+    rc = ber_encode_SEQUENCE(FALSE, data, data_len, buf, algid_len + len2);
     if (rc != CKR_OK) {
         TRACE_DEVEL("%s der_encode_Seq failed with rc=0x%lx\n", __func__, rc);
         free(buf);
@@ -3001,7 +3119,8 @@ CK_RV ber_encode_ECPublicKey(CK_BBOOL length_only, CK_BYTE **data,
 CK_RV der_decode_ECPublicKey(CK_BYTE *data,
                              CK_ULONG data_len,
                              CK_ATTRIBUTE **ec_params,
-                             CK_ATTRIBUTE **ec_point)
+                             CK_ATTRIBUTE **ec_point,
+                             CK_KEY_TYPE key_type)
 {
     CK_ATTRIBUTE *params_attr = NULL;
     CK_ATTRIBUTE *point_attr = NULL;
@@ -3016,6 +3135,7 @@ CK_RV der_decode_ECPublicKey(CK_BYTE *data,
     CK_BYTE *ecpoint = NULL;
     CK_ULONG ecpoint_len;
     CK_ULONG field_len, len;
+    CK_BBOOL ecpoint_allocated = FALSE;
     CK_RV rc;
 
     UNUSED(data_len); // XXX can this parameter be removed ?
@@ -3027,21 +3147,36 @@ CK_RV der_decode_ECPublicKey(CK_BYTE *data,
        return rc;
     }
 
-    /*
-     * Make sure we're dealing with an EC key.
-     * Extract base alg-id of DER encoded EC byte string
-     * and compare against the decoded alg-id from the inner sequence
-     */
-    rc = ber_decode_SEQUENCE((CK_BYTE *)der_AlgIdECBase, &algid_ECBase, &len,
-                             &field_len);
-    if (rc != CKR_OK) {
-        TRACE_DEVEL("ber_decode_SEQUENCE failed\n");
-        return rc;
-    }
+    switch (key_type) {
+    case CKK_EC:
+        /* AlgID param is curve OID.
+         * Make sure we're dealing with an EC key.
+         * Extract base alg-id of DER encoded EC byte string
+         * and compare against the decoded alg-id from the inner sequence
+         */
+        rc = ber_decode_SEQUENCE((CK_BYTE *)der_AlgIdECBase, &algid_ECBase,
+                                 &len, &field_len);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("ber_decode_SEQUENCE failed\n");
+            return rc;
+        }
 
-    if (memcmp(algid, algid_ECBase, len) != 0) {
-        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
-        return CKR_FUNCTION_FAILED;
+        if (memcmp(algid, algid_ECBase, len) != 0) {
+            TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
+            return CKR_FUNCTION_FAILED;
+        }
+        break;
+
+    case CKK_EC_EDWARDS:
+    case CKK_EC_MONTGOMERY:
+        /* ALgID itself is curve OID */
+        param = algid;
+        param_len = algid_len;
+        break;
+
+    default:
+        TRACE_DEVEL("Key type 0x%lx not supported.\n", key_type);
+        return CKR_KEY_TYPE_INCONSISTENT;
     }
 
     // build ec-parameter attribute
@@ -3050,13 +3185,32 @@ CK_RV der_decode_ECPublicKey(CK_BYTE *data,
         TRACE_DEVEL("build_attribute failed\n");
         goto cleanup;
     }
-    /* build ec-point attribute as BER encoded OCTET STRING */
-    rc = ber_encode_OCTET_STRING(FALSE, &ecpoint, &ecpoint_len,
-                                 point, point_len);
-    if (rc != CKR_OK) {
-        TRACE_DEVEL("ber_encode_OCTET_STRING failed\n");
-        goto cleanup;
+
+    switch (key_type) {
+    case CKK_EC:
+        /* build ec-point attribute as BER encoded OCTET STRING */
+        rc = ber_encode_OCTET_STRING(FALSE, &ecpoint, &ecpoint_len,
+                                     point, point_len);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("ber_encode_OCTET_STRING failed\n");
+            goto cleanup;
+        }
+
+        ecpoint_allocated = TRUE;
+        break;
+
+    case CKK_EC_EDWARDS:
+    case CKK_EC_MONTGOMERY:
+        /* Edwards/Montgomery keys have raw CKA_EC_POINT */
+        ecpoint = point;
+        ecpoint_len = point_len;
+        break;
+
+    default:
+        TRACE_DEVEL("Key type 0x%lx not supported.\n", key_type);
+        return CKR_KEY_TYPE_INCONSISTENT;
     }
+
     rc = build_attribute(CKA_EC_POINT, ecpoint, ecpoint_len, &point_attr);
     if (rc != CKR_OK) {
         TRACE_DEVEL("build_attribute failed\n");
@@ -3073,7 +3227,7 @@ cleanup:
         free(params_attr);
     if (point_attr)
         free(point_attr);
-    if (ecpoint)
+    if (ecpoint_allocated && ecpoint)
         free(ecpoint);
 
     return rc;
