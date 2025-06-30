@@ -447,6 +447,9 @@ typedef CK_ULONG CK_KEY_TYPE;
 #define CKK_SHA3_512_HMAC   0x00000039
 #define CKK_SHA512_224_HMAC 0x00000043
 #define CKK_SHA512_256_HMAC 0x00000044
+/* new for v3.0 */
+#define CKK_EC_EDWARDS      0x00000040
+#define CKK_EC_MONTGOMERY   0x00000041
 
 #define CKK_VENDOR_DEFINED  0x80000000
 
@@ -1136,6 +1139,11 @@ typedef CK_ULONG CK_MECHANISM_TYPE;
 #define CKM_SHA512_224_KEY_GEN         0x00004008
 #define CKM_SHA512_256_KEY_GEN         0x00004009
 
+/* new for v3.0 */
+#define CKM_EC_EDWARDS_KEY_PAIR_GEN    0x00001055
+#define CKM_EC_MONTGOMERY_KEY_PAIR_GEN 0x00001056
+#define CKM_EDDSA                      0x00001057
+
 #define CKM_VENDOR_DEFINED             0x80000000
 
 #ifndef OCK_NO_EP11_DEFINES
@@ -1778,6 +1786,15 @@ typedef struct CK_ECDH_AES_KEY_WRAP_PARAMS {
 } CK_ECDH_AES_KEY_WRAP_PARAMS;
 
 typedef CK_ECDH_AES_KEY_WRAP_PARAMS CK_PTR CK_ECDH_AES_KEY_WRAP_PARAMS_PTR;
+
+/* EDDSA */
+typedef struct CK_EDDSA_PARAMS {
+    CK_BBOOL            phFlag;
+    CK_ULONG            ulContextDataLen;
+    CK_BYTE_PTR         pContextData;
+} CK_EDDSA_PARAMS;
+
+typedef CK_EDDSA_PARAMS CK_PTR CK_EDDSA_PARAMS_PTR;
 
 /* Attribute bound wrapping mechanism */
 typedef struct CK_IBM_ATTRIBUTEBOUND_WRAP {
