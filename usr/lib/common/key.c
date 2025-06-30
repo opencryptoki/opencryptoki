@@ -40,11 +40,11 @@
 //    dsa_priv_validate_attribute
 //    dsa_priv_check_exportability
 //
-//    ecdsa_publ_check_required_attributes
-//    ecdsa_publ_validate_attribute
-//    ecdsa_priv_checK_required_attributes
-//    ecdsa_priv_validate_attribute
-//    ecdsa_priv_check_exportability
+//    ec_publ_check_required_attributes
+//    ec_publ_validate_attribute
+//    ec_priv_check_required_attributes
+//    ec_priv_validate_attribute
+//    ec_priv_check_exportability
 //
 //    dh_publ_check_required_attributes
 //    dh_publ_validate_attribute
@@ -82,6 +82,7 @@
 #include "attributes.h"
 #include "trace.h"
 #include "pqc_defs.h"
+#include "ec_defs.h"
 
 #include "tok_spec_struct.h"
 
@@ -788,7 +789,9 @@ CK_RV publ_key_get_spki(TEMPLATE *tmpl, CK_ULONG keytype, CK_BBOOL length_only,
         rc = dh_publ_get_spki(tmpl, length_only, data, data_len);
         break;
     case CKK_EC:
-        rc = ec_publ_get_spki(tmpl, length_only, data, data_len);
+    case CKK_EC_EDWARDS:
+    case CKK_EC_MONTGOMERY:
+        rc = ec_publ_get_spki(tmpl, length_only, data, data_len, keytype);
         break;
     case CKK_IBM_PQC_DILITHIUM:
         rc = ibm_ml_dsa_publ_get_spki(tmpl, length_only, data, data_len,
@@ -1132,7 +1135,9 @@ CK_RV priv_key_unwrap(TEMPLATE *tmpl,
         rc = dh_priv_unwrap(tmpl, data, data_len);
         break;
     case CKK_EC:
-        rc = ec_priv_unwrap(tmpl, data, data_len);
+    case CKK_EC_EDWARDS:
+    case CKK_EC_MONTGOMERY:
+        rc = ec_priv_unwrap(tmpl, data, data_len, keytype);
         break;
     case CKK_IBM_PQC_DILITHIUM:
         rc = ibm_ml_dsa_priv_unwrap(tmpl, data, data_len, TRUE,
@@ -4263,9 +4268,9 @@ error:
 }
 
 
-// ecdsa_publ_check_required_attributes()
+// ec_publ_check_required_attributes()
 //
-CK_RV ecdsa_publ_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode)
+CK_RV ec_publ_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode)
 {
     CK_ATTRIBUTE *attr = NULL;
     CK_RV rc;
@@ -4280,10 +4285,10 @@ CK_RV ecdsa_publ_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode)
         return publ_key_check_required_attributes(tmpl, mode);
     }
 
-    rc = template_attribute_get_non_empty(tmpl, CKA_ECDSA_PARAMS, &attr);
+    rc = template_attribute_get_non_empty(tmpl, CKA_EC_PARAMS, &attr);
     if (rc != CKR_OK) {
         if (mode == MODE_CREATE || mode == MODE_KEYGEN) {
-            TRACE_ERROR("Could not find CKA_ECDSA_PARAMS\n");
+            TRACE_ERROR("Could not find CKA_EC_PARAMS\n");
             return rc;
         }
     }
@@ -4300,9 +4305,10 @@ CK_RV ecdsa_publ_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode)
 }
 
 
-//  ecdsa_publ_set_default_attributes()
+//  ec_publ_set_default_attributes()
 //
-CK_RV ecdsa_publ_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
+CK_RV ec_publ_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode,
+                                     CK_KEY_TYPE key_type)
 {
     CK_ATTRIBUTE *params_attr = NULL;
     CK_ATTRIBUTE *ec_point_attr = NULL;
@@ -4322,7 +4328,7 @@ CK_RV ecdsa_publ_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
         goto error;
     }
 
-    params_attr->type = CKA_ECDSA_PARAMS;
+    params_attr->type = CKA_EC_PARAMS;
     params_attr->ulValueLen = 0;
     params_attr->pValue = NULL;
 
@@ -4333,7 +4339,7 @@ CK_RV ecdsa_publ_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     type_attr->type = CKA_KEY_TYPE;
     type_attr->ulValueLen = sizeof(CK_KEY_TYPE);
     type_attr->pValue = (CK_BYTE *) type_attr + sizeof(CK_ATTRIBUTE);
-    *(CK_KEY_TYPE *) type_attr->pValue = CKK_ECDSA;
+    *(CK_KEY_TYPE *) type_attr->pValue = key_type;
 
     rc = template_update_attribute(tmpl, type_attr);
     if (rc != CKR_OK) {
@@ -4368,13 +4374,13 @@ error:
 }
 
 
-// ecdsa_publ_validate_attributes()
+// ec_publ_validate_attributes()
 //
-CK_RV ecdsa_publ_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
-                                    CK_ATTRIBUTE *attr, CK_ULONG mode)
+CK_RV ec_publ_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
+                                 CK_ATTRIBUTE *attr, CK_ULONG mode)
 {
     switch (attr->type) {
-    case CKA_ECDSA_PARAMS:
+    case CKA_EC_PARAMS:
         if (mode == MODE_CREATE || mode == MODE_KEYGEN || mode == MODE_DERIVE)
             return CKR_OK;
 
@@ -4395,7 +4401,8 @@ CK_RV ecdsa_publ_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
  * Extract the SubjectPublicKeyInfo from the EC public key
  */
 CK_RV ec_publ_get_spki(TEMPLATE *tmpl, CK_BBOOL length_only,
-                       CK_BYTE **data, CK_ULONG *data_len)
+                       CK_BYTE **data, CK_ULONG *data_len,
+                       CK_KEY_TYPE key_type)
 {
     CK_ATTRIBUTE *ec_parms = NULL;
     CK_ATTRIBUTE *ec_point = NULL;
@@ -4404,6 +4411,7 @@ CK_RV ec_publ_get_spki(TEMPLATE *tmpl, CK_BBOOL length_only,
     CK_ULONG buf_len = 0;
     CK_ATTRIBUTE point = { .type = CKA_EC_POINT,
                            .pValue = NULL, .ulValueLen = 0 };
+    int i, curve_type = -1;
     CK_RV rc;
 
     rc = template_attribute_get_non_empty(tmpl, CKA_EC_PARAMS, &ec_parms);
@@ -4411,6 +4419,20 @@ CK_RV ec_publ_get_spki(TEMPLATE *tmpl, CK_BBOOL length_only,
         TRACE_ERROR("Could not find CKA_EC_PARAMS for the key.\n");
         return rc;
     }
+
+    for (i = 0; i < NUMEC; i++) {
+        if (der_ec_supported[i].data_size == ec_parms->ulValueLen &&
+            memcmp(der_ec_supported[i].data, ec_parms->pValue,
+                   ec_parms->ulValueLen) == 0) {
+            curve_type = der_ec_supported[i].curve_type;
+            break;
+        }
+    }
+    if (curve_type == -1) {
+        TRACE_ERROR("Could not find a curve type\n");
+        return CKR_CURVE_NOT_SUPPORTED;
+    }
+
     /* CKA_EC_POINT is optional in EC private keys */
     rc = template_attribute_get_non_empty(tmpl, CKA_EC_POINT, &ec_point);
     if (rc != CKR_OK) {
@@ -4441,17 +4463,25 @@ CK_RV ec_publ_get_spki(TEMPLATE *tmpl, CK_BBOOL length_only,
             return rc;
         }
 
-        rc = ber_encode_OCTET_STRING(FALSE, (CK_BYTE **)&point.pValue,
-                                     &point.ulValueLen, buf, buf_len);
-        if (rc != CKR_OK) {
-            TRACE_DEVEL("ber_encode_OCTET_STRING failed\n");
-            goto out;
+        if (curve_type != EDWARDS_CURVE && curve_type != MONTGOMERY_CURVE) {
+            rc = ber_encode_OCTET_STRING(FALSE, (CK_BYTE **)&point.pValue,
+                                         &point.ulValueLen, buf, buf_len);
+            if (rc != CKR_OK) {
+                TRACE_DEVEL("ber_encode_OCTET_STRING failed\n");
+                goto out;
+            }
+        } else {
+            /* Edwards/Montgomery keys have raw CKA_EC_POINT */
+            point.pValue = buf;
+            point.ulValueLen = buf_len;
+            buf = NULL;
         }
 
         ec_point = &point;
     }
 
-    rc = ber_encode_ECPublicKey(length_only, data,data_len, ec_parms, ec_point);
+    rc = ber_encode_ECPublicKey(length_only, data,data_len, ec_parms,
+                                ec_point, key_type);
     if (rc != CKR_OK) {
         TRACE_ERROR("ber_encode_ECPublicKey failed.\n");
         goto out;
@@ -4466,9 +4496,9 @@ out:
     return rc;
 }
 
-// ecdsa_priv_check_required_attributes()
+// ec_priv_check_required_attributes()
 //
-CK_RV ecdsa_priv_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode)
+CK_RV ec_priv_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode)
 {
     CK_ATTRIBUTE *attr = NULL;
     CK_RV rc;
@@ -4483,10 +4513,10 @@ CK_RV ecdsa_priv_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode)
         return priv_key_check_required_attributes(tmpl, mode);
     }
 
-    rc = template_attribute_get_non_empty(tmpl, CKA_ECDSA_PARAMS, &attr);
+    rc = template_attribute_get_non_empty(tmpl, CKA_EC_PARAMS, &attr);
     if (rc != CKR_OK) {
         if (mode == MODE_CREATE) {
-            TRACE_ERROR("Could not find CKA_ECDSA_PARAMS\n");
+            TRACE_ERROR("Could not find CKA_EC_PARAMS\n");
             return rc;
         }
     }
@@ -4503,9 +4533,10 @@ CK_RV ecdsa_priv_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode)
 }
 
 
-//  ecdsa_priv_set_default_attributes()
+//  ec_priv_set_default_attributes()
 //
-CK_RV ecdsa_priv_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
+CK_RV ec_priv_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode,
+                                     CK_KEY_TYPE key_type)
 {
     CK_ATTRIBUTE *params_attr = NULL;
     CK_ATTRIBUTE *value_attr = NULL;
@@ -4531,7 +4562,7 @@ CK_RV ecdsa_priv_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
         return CKR_HOST_MEMORY;
     }
 
-    params_attr->type = CKA_ECDSA_PARAMS;
+    params_attr->type = CKA_EC_PARAMS;
     params_attr->ulValueLen = 0;
     params_attr->pValue = NULL;
 
@@ -4542,7 +4573,7 @@ CK_RV ecdsa_priv_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     type_attr->type = CKA_KEY_TYPE;
     type_attr->ulValueLen = sizeof(CK_KEY_TYPE);
     type_attr->pValue = (CK_BYTE *) type_attr + sizeof(CK_ATTRIBUTE);
-    *(CK_KEY_TYPE *) type_attr->pValue = CKK_ECDSA;
+    *(CK_KEY_TYPE *) type_attr->pValue = key_type;
 
     rc = template_update_attribute(tmpl, type_attr);
     if (rc != CKR_OK) {
@@ -4577,13 +4608,14 @@ error:
 }
 
 
-// ecdsa_priv_validate_attributes()
+// ec_priv_validate_attribute()
 //
-CK_RV ecdsa_priv_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
-                                    CK_ATTRIBUTE *attr, CK_ULONG mode)
+CK_RV ec_priv_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
+                                 CK_ATTRIBUTE *attr, CK_ULONG mode,
+                                 CK_KEY_TYPE key_type)
 {
     switch (attr->type) {
-    case CKA_ECDSA_PARAMS:
+    case CKA_EC_PARAMS:
         if (mode == MODE_CREATE || mode == MODE_DERIVE)
             return CKR_OK;
 
@@ -4591,7 +4623,8 @@ CK_RV ecdsa_priv_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
         return CKR_ATTRIBUTE_READ_ONLY;
     case CKA_VALUE:
         if (mode == MODE_CREATE) {
-            p11_attribute_trim(attr);
+            if (key_type == CKK_EC)
+                p11_attribute_trim(attr);
             return CKR_OK;
         }
         TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_READ_ONLY));
@@ -4608,9 +4641,9 @@ CK_RV ecdsa_priv_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
 }
 
 
-// ecdsa_priv_check_exportability()
+// ec_priv_check_exportability()
 //
-CK_BBOOL ecdsa_priv_check_exportability(CK_ATTRIBUTE_TYPE type)
+CK_BBOOL ec_priv_check_exportability(CK_ATTRIBUTE_TYPE type)
 {
     switch (type) {
     case CKA_VALUE:
@@ -4642,12 +4675,12 @@ CK_BBOOL ecdsa_priv_check_exportability(CK_ATTRIBUTE_TYPE type)
  *   publicKey  [1] BIT STRING (OPTIONAL)
  * }
  */
-CK_RV ecdsa_priv_wrap_get_data(TEMPLATE *tmpl,
-                               CK_BBOOL length_only,
-                               CK_BYTE **data, CK_ULONG *data_len)
+CK_RV ec_priv_wrap_get_data(TEMPLATE *tmpl, CK_BBOOL length_only,
+                            CK_BYTE **data, CK_ULONG *data_len,
+                            CK_KEY_TYPE key_type)
 {
     CK_ATTRIBUTE *params = NULL;
-    CK_ATTRIBUTE *point = NULL;
+    CK_ATTRIBUTE *privkey = NULL;
     CK_ATTRIBUTE *pubkey = NULL;
     CK_RV rc;
 
@@ -4658,7 +4691,7 @@ CK_RV ecdsa_priv_wrap_get_data(TEMPLATE *tmpl,
         TRACE_ERROR("Could not find CKA_EC_PARAMS for the key.\n");
         return rc;
     }
-    rc = template_attribute_get_non_empty(tmpl, CKA_VALUE, &point);
+    rc = template_attribute_get_non_empty(tmpl, CKA_VALUE, &privkey);
     if (rc != CKR_OK) {
         TRACE_ERROR("Could not find CKA_VALUE for the key.\n");
         return rc;
@@ -4668,7 +4701,7 @@ CK_RV ecdsa_priv_wrap_get_data(TEMPLATE *tmpl,
     template_attribute_get_non_empty(tmpl, CKA_EC_POINT, &pubkey);
 
     rc = der_encode_ECPrivateKey(length_only, data, data_len, params,
-                                 point, pubkey);
+                                 privkey, pubkey, key_type);
     if (rc != CKR_OK) {
         TRACE_DEVEL("der_encode_ECPrivateKey failed\n");
     }
@@ -4676,16 +4709,15 @@ CK_RV ecdsa_priv_wrap_get_data(TEMPLATE *tmpl,
     return rc;
 }
 
-CK_RV ecdsa_priv_unwrap_get_data(TEMPLATE *tmpl,
-                                 CK_BYTE *data, CK_ULONG total_length,
-                                 CK_BBOOL is_public)
+CK_RV ec_priv_unwrap_get_data(TEMPLATE *tmpl, CK_BYTE *data,
+                              CK_ULONG total_length, CK_BBOOL is_public,
+                              CK_KEY_TYPE key_type)
 {
     CK_ATTRIBUTE *params = NULL;
     CK_ATTRIBUTE *point = NULL;
     CK_RV rc;
 
-    rc = der_decode_ECPublicKey(data, total_length, &params, &point);
-
+    rc = der_decode_ECPublicKey(data, total_length, &params, &point, key_type);
     if (rc != CKR_OK) {
         TRACE_DEVEL("der_decode_ECPublicKey failed\n");
         return rc;
@@ -4722,7 +4754,8 @@ error:
 
 //
 //
-CK_RV ec_priv_unwrap(TEMPLATE *tmpl, CK_BYTE *data, CK_ULONG total_length)
+CK_RV ec_priv_unwrap(TEMPLATE *tmpl, CK_BYTE *data, CK_ULONG total_length,
+                     CK_KEY_TYPE key_type)
 {
     CK_ATTRIBUTE *pubkey = NULL;
     CK_ATTRIBUTE *privkey = NULL;
@@ -4730,13 +4763,14 @@ CK_RV ec_priv_unwrap(TEMPLATE *tmpl, CK_BYTE *data, CK_ULONG total_length)
     CK_RV rc;
 
     rc = der_decode_ECPrivateKey(data, total_length, &ecparam,
-                                 &pubkey, &privkey);
+                                 &pubkey, &privkey, key_type);
 
     if (rc != CKR_OK) {
         TRACE_DEVEL("der_decode_ECPrivateKey failed\n");
         return rc;
     }
-    p11_attribute_trim(privkey);
+    if (key_type == CKK_EC)
+        p11_attribute_trim(privkey);
 
     if (pubkey) {
         rc = template_update_attribute(tmpl, pubkey);

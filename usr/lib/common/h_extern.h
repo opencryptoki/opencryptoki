@@ -1855,12 +1855,19 @@ CK_RV md5_init(STDLL_TokData_t *tokdata, SESSION *sess, DIGEST_CONTEXT *ctx,
 CK_RV ckm_ec_key_pair_gen(STDLL_TokData_t *tokdata, TEMPLATE *publ_tmpl,
                           TEMPLATE *priv_tmpl);
 
+CK_RV ckm_ec_edwards_key_pair_gen(STDLL_TokData_t *tokdata, TEMPLATE *publ_tmpl,
+                                  TEMPLATE *priv_tmpl);
+
+CK_RV ckm_ec_montgomery_key_pair_gen(STDLL_TokData_t *tokdata,
+                                     TEMPLATE *publ_tmpl, TEMPLATE *priv_tmpl);
+
 CK_RV ckm_ec_sign(STDLL_TokData_t *tokdata,
                   SESSION *sess,
                   CK_BYTE *in_data,
                   CK_ULONG in_data_len,
                   CK_BYTE *out_data,
-                  CK_ULONG *out_data_len, OBJECT *key_obj);
+                  CK_ULONG *out_data_len, OBJECT *key_obj,
+                  CK_MECHANISM *mech);
 
 CK_RV ec_sign(STDLL_TokData_t *tokdata,
               SESSION *sess,
@@ -1875,7 +1882,8 @@ CK_RV ckm_ec_verify(STDLL_TokData_t *tokdata,
                     CK_BYTE *in_data,
                     CK_ULONG in_data_len,
                     CK_BYTE *out_data,
-                    CK_ULONG out_data_len, OBJECT *key_obj);
+                    CK_ULONG out_data_len, OBJECT *key_obj,
+                    CK_MECHANISM *mech);
 
 CK_RV ec_verify(STDLL_TokData_t *tokdata,
                 SESSION *sess,
@@ -2735,22 +2743,29 @@ CK_RV dsa_priv_unwrap_get_data(TEMPLATE *tmpl,
 
 // ecdsa routines
 //
-CK_RV ecdsa_publ_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode);
-CK_RV ecdsa_publ_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode);
-CK_RV ecdsa_publ_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
-                                    CK_ATTRIBUTE *attr, CK_ULONG mode);
+CK_RV ec_publ_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode);
+CK_RV ec_publ_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode,
+                                     CK_KEY_TYPE key_type);
+CK_RV ec_publ_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
+                                 CK_ATTRIBUTE *attr, CK_ULONG mode);
 CK_RV ec_publ_get_spki(TEMPLATE *tmpl, CK_BBOOL length_only,
-                       CK_BYTE **data, CK_ULONG *data_len);
-CK_BBOOL ecdsa_priv_check_exportability(CK_ATTRIBUTE_TYPE type);
-CK_RV ecdsa_priv_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode);
-CK_RV ecdsa_priv_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode);
-CK_RV ecdsa_priv_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
-                                    CK_ATTRIBUTE *attr, CK_ULONG mode);
-CK_RV ecdsa_priv_wrap_get_data(TEMPLATE *tmpl, CK_BBOOL length_only,
-                               CK_BYTE **data, CK_ULONG *data_len);
-CK_RV ecdsa_priv_unwrap_get_data(TEMPLATE *tmpl, CK_BYTE *data,
-                                 CK_ULONG data_len, CK_BBOOL is_public);
-CK_RV ec_priv_unwrap(TEMPLATE *tmpl, CK_BYTE *data, CK_ULONG data_len);
+                       CK_BYTE **data, CK_ULONG *data_len,
+                       CK_KEY_TYPE key_type);
+CK_BBOOL ec_priv_check_exportability(CK_ATTRIBUTE_TYPE type);
+CK_RV ec_priv_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode);
+CK_RV ec_priv_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode,
+                                     CK_KEY_TYPE key_type);
+CK_RV ec_priv_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
+                                 CK_ATTRIBUTE *attr, CK_ULONG mode,
+                                 CK_KEY_TYPE key_type);
+CK_RV ec_priv_wrap_get_data(TEMPLATE *tmpl, CK_BBOOL length_only,
+                            CK_BYTE **data, CK_ULONG *data_len,
+                            CK_KEY_TYPE key_type);
+CK_RV ec_priv_unwrap_get_data(TEMPLATE *tmpl, CK_BYTE *data,
+                              CK_ULONG data_len, CK_BBOOL is_public,
+                              CK_KEY_TYPE key_type);
+CK_RV ec_priv_unwrap(TEMPLATE *tmpl, CK_BYTE *data, CK_ULONG data_len,
+                     CK_KEY_TYPE key_type);
 
 // IBM ML-DSA and Dilithium routines
 //
@@ -3020,21 +3035,24 @@ CK_RV der_encode_ECPrivateKey(CK_BBOOL length_only,
                               CK_ULONG *data_len,
                               CK_ATTRIBUTE *params,
                               CK_ATTRIBUTE *point,
-                              CK_ATTRIBUTE *pubkey);
+                              CK_ATTRIBUTE *pubkey,
+                              CK_KEY_TYPE key_type);
 
 CK_RV der_decode_ECPrivateKey(CK_BYTE *data,
                               CK_ULONG data_len,
                               CK_ATTRIBUTE **params,
                               CK_ATTRIBUTE **pub_key,
-                              CK_ATTRIBUTE **priv_key);
+                              CK_ATTRIBUTE **priv_key,
+                              CK_KEY_TYPE key_type);
 
 CK_RV ber_encode_ECPublicKey(CK_BBOOL length_only, CK_BYTE **data,
                              CK_ULONG *data_len, CK_ATTRIBUTE *params,
-                             CK_ATTRIBUTE *point);
+                             CK_ATTRIBUTE *point, CK_KEY_TYPE key_type);
 
 CK_RV der_decode_ECPublicKey(CK_BYTE *data,
                              CK_ULONG data_len,
-                             CK_ATTRIBUTE **params, CK_ATTRIBUTE **point);
+                             CK_ATTRIBUTE **params, CK_ATTRIBUTE **point,
+                             CK_KEY_TYPE key_type);
 
 CK_RV ber_encode_DSAPrivateKey(CK_BBOOL length_only,
                                CK_BYTE **data,

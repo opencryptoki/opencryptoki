@@ -36,6 +36,7 @@
 #include "tok_spec_struct.h"
 #include "trace.h"
 #include "pqc_defs.h"
+#include "ec_defs.h"
 
 #include "../api/policy.h"
 #include "../api/statistics.h"
@@ -584,6 +585,22 @@ CK_RV key_mgr_generate_key_pair(STDLL_TokData_t *tokdata,
 
         subclass = CKK_EC;
         break;
+    case CKM_EC_EDWARDS_KEY_PAIR_GEN:
+        if (subclass != 0 && subclass != CKK_EC_EDWARDS) {
+            TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCONSISTENT));
+            return CKR_TEMPLATE_INCONSISTENT;
+        }
+
+        subclass = CKK_EC_EDWARDS;
+        break;
+    case CKM_EC_MONTGOMERY_KEY_PAIR_GEN:
+        if (subclass != 0 && subclass != CKK_EC_MONTGOMERY) {
+            TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCONSISTENT));
+            return CKR_TEMPLATE_INCONSISTENT;
+        }
+
+        subclass = CKK_EC_MONTGOMERY;
+        break;
 #if !(NODSA)
     case CKM_DSA_KEY_PAIR_GEN:
         if (subclass != 0 && subclass != CKK_DSA) {
@@ -667,6 +684,14 @@ CK_RV key_mgr_generate_key_pair(STDLL_TokData_t *tokdata,
     case CKM_EC_KEY_PAIR_GEN:
         rc = ckm_ec_key_pair_gen(tokdata, publ_key_obj->template,
                                  priv_key_obj->template);
+        break;
+    case CKM_EC_EDWARDS_KEY_PAIR_GEN:
+        rc = ckm_ec_edwards_key_pair_gen(tokdata, publ_key_obj->template,
+                                         priv_key_obj->template);
+        break;
+    case CKM_EC_MONTGOMERY_KEY_PAIR_GEN:
+        rc = ckm_ec_montgomery_key_pair_gen(tokdata, publ_key_obj->template,
+                                            priv_key_obj->template);
         break;
 #if !(NODSA)
     case CKM_DSA_KEY_PAIR_GEN:
@@ -1128,10 +1153,12 @@ CK_RV key_mgr_wrap_key(STDLL_TokData_t *tokdata,
         }
         break;
     case CKK_EC:
-        rc = ecdsa_priv_wrap_get_data(key_obj->template, FALSE, &data,
-                                      &data_len);
+    case CKK_EC_EDWARDS:
+    case CKK_EC_MONTGOMERY:
+        rc = ec_priv_wrap_get_data(key_obj->template, FALSE, &data,
+                                   &data_len, keytype);
         if (rc != CKR_OK) {
-            TRACE_DEVEL("ecdsa_priv_wrap_get_data failed.\n");
+            TRACE_DEVEL("ec_priv_wrap_get_data failed.\n");
             goto done;
         }
         break;
@@ -1685,6 +1712,28 @@ CK_RV key_mgr_get_private_key_type(CK_BYTE *keydata,
     if (alg_len >= der_AlgIdECBaseLen) {
         if (memcmp(alg, ber_idEC, ber_idECLen) == 0) {
             *keytype = CKK_EC;
+            return CKR_OK;
+        }
+    }
+    // Check only the OBJECT IDENTIFIERs for Edwards
+    //
+    for (i = 0; i < NUMEC; i++) {
+        if (der_ec_supported[i].curve_type == EDWARDS_CURVE &&
+            alg_len >= der_ec_supported[i].data_size &&
+            memcmp(alg, der_ec_supported[i].data,
+                   der_ec_supported[i].data_size) == 0) {
+            *keytype = CKK_EC_EDWARDS;
+            return CKR_OK;
+        }
+    }
+    // Check only the OBJECT IDENTIFIERs for Montgomery
+    //
+    for (i = 0; i < NUMEC; i++) {
+        if (der_ec_supported[i].curve_type == MONTGOMERY_CURVE &&
+            alg_len >= der_ec_supported[i].data_size &&
+            memcmp(alg, der_ec_supported[i].data,
+                   der_ec_supported[i].data_size) == 0) {
+            *keytype = CKK_EC_MONTGOMERY;
             return CKR_OK;
         }
     }

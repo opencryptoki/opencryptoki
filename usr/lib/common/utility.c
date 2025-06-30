@@ -981,6 +981,12 @@ CK_RV pkcsget_keytype_for_mech(CK_MECHANISM_TYPE mech, CK_KEY_TYPE *keytype,
     case CKM_EC_KEY_PAIR_GEN:
         *keytype = CKK_EC;
         break;
+    case CKM_EC_EDWARDS_KEY_PAIR_GEN:
+        *keytype = CKK_EC_EDWARDS;
+        break;
+    case CKM_EC_MONTGOMERY_KEY_PAIR_GEN:
+        *keytype = CKK_EC_MONTGOMERY;
+        break;
     case CKM_DSA_KEY_PAIR_GEN:
         *keytype = CKK_DSA;
         break;

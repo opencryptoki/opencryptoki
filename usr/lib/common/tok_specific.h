@@ -161,6 +161,14 @@ CK_RV token_specific_ec_verify(STDLL_TokData_t *,
                                CK_BYTE *,
                                CK_ULONG, CK_BYTE *, CK_ULONG, OBJECT *);
 
+CK_RV token_specific_ec_edwards_sign(STDLL_TokData_t *, SESSION *, CK_BYTE *,
+                                     CK_ULONG, CK_BYTE *, CK_ULONG *, OBJECT *,
+                                     CK_MECHANISM *);
+
+CK_RV token_specific_ec_edwards_verify(STDLL_TokData_t *, SESSION *, CK_BYTE *,
+                                       CK_ULONG, CK_BYTE *, CK_ULONG, OBJECT *,
+                                       CK_MECHANISM *);
+
 CK_RV token_specific_ecdh_pkcs_derive(STDLL_TokData_t *tokdata, CK_BYTE *,
                                       CK_ULONG, CK_BYTE *, CK_ULONG, CK_BYTE *,
                                       CK_ULONG *, CK_BYTE *, CK_ULONG);
@@ -176,6 +184,12 @@ CK_RV token_specific_copy_object(SESSION *, CK_ATTRIBUTE_PTR, CK_ULONG,
 
 CK_RV token_specific_ec_generate_keypair(STDLL_TokData_t *, TEMPLATE *,
                                          TEMPLATE *);
+
+CK_RV token_specific_ec_edwards_generate_keypair(STDLL_TokData_t *, TEMPLATE *,
+                                                 TEMPLATE *);
+
+CK_RV token_specific_ec_montgomery_generate_keypair(STDLL_TokData_t *,
+                                                    TEMPLATE *, TEMPLATE *);
 
 CK_RV token_specific_create_object(SESSION *, CK_ATTRIBUTE_PTR, CK_ULONG,
                                    CK_OBJECT_HANDLE_PTR);

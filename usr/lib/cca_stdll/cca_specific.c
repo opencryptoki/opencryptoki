@@ -3062,7 +3062,7 @@ static CK_RV ccatok_pkey_check(STDLL_TokData_t *tokdata, SESSION *session,
     CK_RV ret = CKR_FUNCTION_NOT_SUPPORTED;
 
     /* Check if CPACF supports the operation implied by this key and mech */
-    if (!pkey_op_supported_by_cpacf(cca_data->msa_level, mech->mechanism,
+    if (!pkey_op_supported_by_cpacf(cca_data->msa_level, mech,
                                     key_obj->template)) {
         goto done;
     }
@@ -3274,6 +3274,7 @@ CK_RV token_specific_set_attrs_for_new_object(STDLL_TokData_t *tokdata,
 #ifndef NO_PKEY
     CK_ATTRIBUTE *pkey_attr = NULL, *ecp_attr = NULL;
     CK_BBOOL add_pkey_extractable = CK_FALSE, bfalse = CK_FALSE;
+    CK_MECHANISM mech = { CKM_ECDSA, NULL, 0 };
 #endif
     CK_BBOOL sensitive;
     CK_BBOOL btrue = CK_TRUE;
@@ -3326,7 +3327,7 @@ CK_RV token_specific_set_attrs_for_new_object(STDLL_TokData_t *tokdata,
         switch (class) {
         case CKO_PUBLIC_KEY:
             if (template_attribute_get_non_empty(tmpl, CKA_EC_PARAMS, &ecp_attr) == CKR_OK &&
-                pkey_op_supported_by_cpacf(cca_data->msa_level, CKM_ECDSA, tmpl))
+                pkey_op_supported_by_cpacf(cca_data->msa_level, &mech, tmpl))
                 add_pkey_extractable = CK_TRUE;
                 /*
                  * Note that the explicit parm CKM_ECDSA just tells the

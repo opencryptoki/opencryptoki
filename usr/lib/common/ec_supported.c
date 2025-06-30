@@ -111,14 +111,14 @@ const struct _ec der_ec_supported[NUMEC] = {
             sizeof(secp521r1), &secp521r1},
     {KOBLITZ_CURVE, CURVE256, CURVE256, NID_secp256k1, CK_FALSE,
             sizeof(secp256k1), &secp256k1},
-    {MONTGOMERY_CURVE, CURVE256, CURVE256, NID_X25519, CK_FALSE,
+    {MONTGOMERY_CURVE, CURVE256, CURVE255, NID_X25519, CK_FALSE,
             sizeof(curve25519), &curve25519},
-    {MONTGOMERY_CURVE, CURVE456, CURVE448, NID_X448, CK_FALSE,
-            sizeof(curve448), &curve448},
-    {EDWARDS_CURVE, CURVE256, CURVE256, NID_ED25519, CK_FALSE,
+    {MONTGOMERY_CURVE, CURVE448, CURVE448, NID_X448, CK_FALSE,
+            sizeof(curve448), &curve448}, /* Curve448: 56 bytes ! */
+    {EDWARDS_CURVE, CURVE256, CURVE255, NID_ED25519, CK_FALSE,
             sizeof(ed25519), &ed25519},
     {EDWARDS_CURVE, CURVE456, CURVE448, NID_ED448, CK_FALSE,
-            sizeof(ed448), &ed448},
+            sizeof(ed448), &ed448}, /* Ed448: 57 bytes ! */
     {BLS12_381_CURVE, CURVE384, CURVE384, NID_undef, CK_TRUE,
             sizeof(bls12_381), &bls12_381},
 };
