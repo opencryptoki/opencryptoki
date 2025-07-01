@@ -265,7 +265,8 @@ CK_RV ecdh_derive_secret(CK_SESSION_HANDLE session, CK_ULONG secret_key_len,
         return CKR_FUNCTION_NOT_SUPPORTED;
     }
 
-    rc = generate_EC_KeyPair(session, (CK_BYTE *)prime256v1, sizeof(prime256v1),
+    rc = generate_EC_KeyPair(session, CKM_EC_KEY_PAIR_GEN,
+                             (CK_BYTE *)prime256v1, sizeof(prime256v1),
                              &publ_key, &priv_key, CK_FALSE);
     if (rc != CKR_OK) {
         testcase_notice("generate_EC_KeyPair rc=%s", p11_get_ckr(rc));
@@ -567,7 +568,8 @@ CK_RV run_EnDecapsulateMLKEMwithECDH(CK_SESSION_HANDLE session,
         }
     }
 
-    rc = generate_EC_KeyPair(session, (CK_BYTE *)prime256v1, sizeof(prime256v1),
+    rc = generate_EC_KeyPair(session, CKM_EC_KEY_PAIR_GEN,
+                             (CK_BYTE *)prime256v1, sizeof(prime256v1),
                              &ec_pub_key, &ec_priv_key, CK_FALSE);
     if (rc != CKR_OK) {
         testcase_notice("generate_EC_KeyPair rc=%s", p11_get_ckr(rc));

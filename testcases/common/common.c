@@ -629,13 +629,14 @@ void free_rsa_key_cache(CK_SESSION_HANDLE session)
 
 /** Generate an EC key pair **/
 CK_RV generate_EC_KeyPair(CK_SESSION_HANDLE session,
+                          CK_MECHANISM_TYPE keygen_mech,
                           CK_BYTE* ec_params, CK_ULONG ec_params_len,
                           CK_OBJECT_HANDLE * publ_key,
                           CK_OBJECT_HANDLE * priv_key,
                           CK_BBOOL extractable)
 {
     CK_RV rc;
-    CK_MECHANISM mech = { CKM_EC_KEY_PAIR_GEN, NULL, 0 };
+    CK_MECHANISM mech = { keygen_mech, NULL, 0 };
     CK_BBOOL pkeyextractable = !extractable;
     CK_BYTE subject[] = {0};
     CK_BYTE id[] = { 123 };
@@ -684,6 +685,7 @@ CK_RV generate_EC_KeyPair(CK_SESSION_HANDLE session,
 /** Create an EC private key using private value 'd'
     and ec parameter values (alg id of curve) **/
 CK_RV create_ECPrivateKey(CK_SESSION_HANDLE session,
+                          CK_KEY_TYPE key_type,
                           CK_BYTE params[],
                           CK_ULONG params_len,
                           CK_BYTE privatekey[],
@@ -695,7 +697,6 @@ CK_RV create_ECPrivateKey(CK_SESSION_HANDLE session,
 
     CK_OBJECT_CLASS class = CKO_PRIVATE_KEY;
     CK_BBOOL pkeyextractable = !extractable;
-    CK_KEY_TYPE keyType = CKK_EC;
     CK_UTF8CHAR label[] = "An EC private key object";
     CK_BYTE subject[] = {0};
     CK_BYTE id[] = { 123 };
@@ -704,7 +705,7 @@ CK_RV create_ECPrivateKey(CK_SESSION_HANDLE session,
     CK_BBOOL true = TRUE;
     CK_ATTRIBUTE template[] = {
         {CKA_CLASS, &class, sizeof(class)},
-        {CKA_KEY_TYPE, &keyType, sizeof(keyType)},
+        {CKA_KEY_TYPE, &key_type, sizeof(key_type)},
         {CKA_TOKEN, &true, sizeof(true)},
         {CKA_PRIVATE, &true, sizeof(true)},
         {CKA_LABEL, label, sizeof(label)},
@@ -735,6 +736,7 @@ CK_RV create_ECPrivateKey(CK_SESSION_HANDLE session,
 
 /** Create an EC public key using  ec params and point 'Q' **/
 CK_RV create_ECPublicKey(CK_SESSION_HANDLE session,
+                         CK_KEY_TYPE key_type,
                          CK_BYTE params[],
                          CK_ULONG params_len,
                          CK_BYTE pointq[],
@@ -744,12 +746,11 @@ CK_RV create_ECPublicKey(CK_SESSION_HANDLE session,
     CK_RV rc;
     CK_OBJECT_CLASS class = CKO_PUBLIC_KEY;
     CK_BBOOL pkeyextractable = !extractable;
-    CK_KEY_TYPE keyType = CKK_EC;
     CK_UTF8CHAR label[] = "An EC public key object";
     CK_BBOOL true = TRUE;
     CK_ATTRIBUTE template[] = {
         {CKA_CLASS, &class, sizeof(class)},
-        {CKA_KEY_TYPE, &keyType, sizeof(keyType)},
+        {CKA_KEY_TYPE, &key_type, sizeof(key_type)},
         {CKA_TOKEN, &true, sizeof(true)},
         {CKA_LABEL, label, sizeof(label)},
         {CKA_VERIFY, &true, sizeof(true)},
