@@ -1132,6 +1132,41 @@ static const struct p11tool_objtype p11sak_ec_keytype = {
     .export_asym_pkey = p11sak_export_ec_pkey,
 };
 
+static const struct p11tool_objtype p11sak_ec_edwards_keytype = {
+    .obj_typestr = "key", .obj_liststr = "Key",
+    .name = "EC-Edwards",  .type = CKK_EC_EDWARDS, .ck_name = "CKK_EC_EDWARDS",
+    .keygen_mech = { .mechanism = CKM_EC_EDWARDS_KEY_PAIR_GEN, },
+    .is_asymmetric = true,
+    .keygen_get_key_size = ec_get_key_size,
+    .keygen_add_public_attrs = ec_add_public_attrs,
+    .sign_verify = true, .encrypt_decrypt = false,
+    .wrap_unwrap = false, .derive = false,
+    .filter_attr = CKA_KEY_TYPE, .filter_value = CKK_EC_EDWARDS,
+    .keysize_attr = (CK_ATTRIBUTE_TYPE)-1,
+    .public_attrs = p11sak_public_ec_attrs,
+    .private_attrs = p11sak_private_ec_attrs,
+    .import_asym_pkey = p11sak_import_ec_pkey,
+    .export_asym_pkey = p11sak_export_ec_pkey,
+};
+
+static const struct p11tool_objtype p11sak_ec_montgomery_keytype = {
+    .obj_typestr = "key", .obj_liststr = "Key",
+    .name = "EC-Montgomery",  .type = CKK_EC_MONTGOMERY,
+    .ck_name = "CKK_EC_MONTGOMERY",
+    .keygen_mech = { .mechanism = CKM_EC_MONTGOMERY_KEY_PAIR_GEN, },
+    .is_asymmetric = true,
+    .keygen_get_key_size = ec_get_key_size,
+    .keygen_add_public_attrs = ec_add_public_attrs,
+    .sign_verify = true, .encrypt_decrypt = false,
+    .wrap_unwrap = false, .derive = true,
+    .filter_attr = CKA_KEY_TYPE, .filter_value = CKK_EC_MONTGOMERY,
+    .keysize_attr = (CK_ATTRIBUTE_TYPE)-1,
+    .public_attrs = p11sak_public_ec_attrs,
+    .private_attrs = p11sak_private_ec_attrs,
+    .import_asym_pkey = p11sak_import_ec_pkey,
+    .export_asym_pkey = p11sak_export_ec_pkey,
+};
+
 static const struct p11tool_objtype p11sak_ibm_dilithium_keytype = {
     .obj_typestr = "key", .obj_liststr = "Key",
     .name = "IBM-Dilithium",  .type = CKK_IBM_PQC_DILITHIUM,
@@ -1265,6 +1300,8 @@ const struct p11tool_objtype *p11sak_keytypes[] = {
     &p11sak_dh_keytype,
     &p11sak_dsa_keytype,
     &p11sak_ec_keytype,
+    &p11sak_ec_edwards_keytype,
+    &p11sak_ec_montgomery_keytype,
     &p11sak_ibm_dilithium_keytype,
     &p11sak_ibm_kyber_keytype,
     &p11sak_ibm_ml_dsa_keytype,
@@ -1419,6 +1456,10 @@ static const struct p11tool_opt p11sak_generic_opts[] = {
       .private = { .ptr = &p11sak_dsa_keytype }, },                            \
     { .value = "ec", .args = args_prefix##_ec_args,                            \
       .private = { .ptr = &p11sak_ec_keytype }, },                             \
+    { .value = "ec-edwards", .args = args_prefix##_ec_edwards_args,            \
+      .private = { .ptr = &p11sak_ec_edwards_keytype }, },                     \
+    { .value = "ec-montgomery", .args = args_prefix##_ec_montgomery_args,      \
+      .private = { .ptr = &p11sak_ec_montgomery_keytype }, },                  \
     { .value = "ibm-dilithium", .args = args_prefix##_ibm_dilithium_args,      \
       .private = { .ptr = &p11sak_ibm_dilithium_keytype }, },                  \
     { .value = "ibm-kyber", .args = args_prefix##_ibm_kyber_args,              \
@@ -1653,9 +1694,37 @@ static const struct p11tool_enum_value p11sak_ec_curves[] = {
     { .value = NULL, },
 };
 
+static const struct p11tool_enum_value p11sak_ec_edwards_curves[] = {
+    DECLARE_CURVE_VALUE(ed25519),
+    DECLARE_CURVE_VALUE(ed448),
+    { .value = NULL, },
+};
+
+static const struct p11tool_enum_value p11sak_ec_montgomery_curves[] = {
+    DECLARE_CURVE_VALUE(curve25519),
+    DECLARE_CURVE_VALUE(curve448),
+    { .value = NULL, },
+};
+
 static const struct p11tool_arg p11sak_generate_ec_args[] = {
     { .name = "CURVE", .type = ARG_TYPE_ENUM, .required = true,
       .enum_values = p11sak_ec_curves,
+      .value.enum_value = &opt_curve,
+      .description = "The curve name. One of the following:", },
+    { .name = NULL, },
+};
+
+static const struct p11tool_arg p11sak_generate_ec_edwards_args[] = {
+    { .name = "CURVE", .type = ARG_TYPE_ENUM, .required = true,
+      .enum_values = p11sak_ec_edwards_curves,
+      .value.enum_value = &opt_curve,
+      .description = "The curve name. One of the following:", },
+    { .name = NULL, },
+};
+
+static const struct p11tool_arg p11sak_generate_ec_montgomery_args[] = {
+    { .name = "CURVE", .type = ARG_TYPE_ENUM, .required = true,
+      .enum_values = p11sak_ec_montgomery_curves,
       .value.enum_value = &opt_curve,
       .description = "The curve name. One of the following:", },
     { .name = NULL, },
@@ -1784,6 +1853,8 @@ static const struct p11tool_opt p11sak_list_cert_opts[] = {
 #define null_dh_args                NULL
 #define null_dsa_args               NULL
 #define null_ec_args                NULL
+#define null_ec_edwards_args        NULL
+#define null_ec_montgomery_args     NULL
 #define null_ibm_dilithium_args     NULL
 #define null_ibm_kyber_args         NULL
 #define null_ibm_ml_dsa_args        NULL
@@ -1805,6 +1876,10 @@ static const struct p11tool_enum_value p11sak_private_key_keytypes[] = {
       .private = { .ptr = &p11sak_dsa_keytype }, },
     { .value = "ec", .args = NULL,
       .private = { .ptr = &p11sak_ec_keytype }, },
+    { .value = "ec-edwards", .args = NULL,
+      .private = { .ptr = &p11sak_ec_edwards_keytype }, },
+    { .value = "ec-montgomery", .args = NULL,
+      .private = { .ptr = &p11sak_ec_montgomery_keytype }, },
     { .value = "ibm-dilithium", .args = NULL,
       .private = { .ptr = &p11sak_ibm_dilithium_keytype }, },
     { .value = "ibm-kyber", .args = NULL,
@@ -2201,6 +2276,10 @@ static const struct p11tool_arg p11sak_import_asym_args[] = {
       .private = { .ptr = &p11sak_dsa_keytype }, },                            \
     { .value = "ec", .args = asym_args,                                        \
       .private = { .ptr = &p11sak_ec_keytype }, },                             \
+    { .value = "ec-edwards", .args = asym_args,                                \
+      .private = { .ptr = &p11sak_ec_edwards_keytype }, },                     \
+    { .value = "ec-montgomery", .args = asym_args,                             \
+      .private = { .ptr = &p11sak_ec_montgomery_keytype }, },                  \
     { .value = "ibm-dilithium", .args = asym_args,                             \
       .private = { .ptr = &p11sak_ibm_dilithium_keytype }, },                  \
     { .value = "ibm-kyber", .args = asym_args,                                 \
@@ -3745,8 +3824,24 @@ static const struct p11tool_objtype *find_keytype_by_pkey(int pkey_type)
         return NULL;
 
     for (kt = p11sak_keytypes; *kt != NULL; kt++) {
-        if ((*kt)->pkey_type == pkey_type)
-            return *kt;
+        switch (pkey_type) {
+#if OPENSSL_VERSION_PREREQ(3, 0)
+        case EVP_PKEY_ED25519:
+        case EVP_PKEY_ED448:
+            if ((*kt)->type == CKK_EC_EDWARDS)
+                return *kt;
+            break;
+        case EVP_PKEY_X25519:
+        case EVP_PKEY_X448:
+            if ((*kt)->type == CKK_EC_MONTGOMERY)
+                return *kt;
+            break;
+#endif
+        default:
+            if ((*kt)->pkey_type == pkey_type)
+                return *kt;
+            break;
+        }
     }
 
     return NULL;
@@ -6728,22 +6823,27 @@ static CK_RV p11sak_import_ecx_pkey(const struct p11tool_objtype *keytype,
         if (rc != CKR_OK)
            goto done;
     } else {
-        /* CKA_EC_POINT needs DER encoded EC point */
-        if (point_len < 0x80) {
-            point[1] = 0x04; /* OCTET-STRING */
-            point[2] = point_len & 0x7f;
-            point_len += 2;
-            point_ptr = &point[1];
-        } else if (point_len < 0x0100) {
-            point[0] = 0x04; /* OCTET-STRING */
-            point[1] = 0x81; /* 1 byte length field */
-            point[2] = point_len & 0xff;
-            point_len += 3;
-            point_ptr = &point[0];
+        if (keytype->type == CKK_EC) {
+            /* EC: CKA_EC_POINT needs DER encoded EC point */
+            if (point_len < 0x80) {
+                point[1] = 0x04; /* OCTET-STRING */
+                point[2] = point_len & 0x7f;
+                point_len += 2;
+                point_ptr = &point[1];
+            } else if (point_len < 0x0100) {
+                point[0] = 0x04; /* OCTET-STRING */
+                point[1] = 0x81; /* 1 byte length field */
+                point[2] = point_len & 0xff;
+                point_len += 3;
+                point_ptr = &point[0];
+            } else {
+                warnx("EC point is too long.");
+                rc = CKR_FUNCTION_FAILED;
+                goto done;
+            }
         } else {
-            warnx("EC point is too long.");
-            rc = CKR_FUNCTION_FAILED;
-            goto done;
+            /* Edwards/Montgomery use raw EC point */
+            point_ptr = &point[3];
         }
 
         rc = p11tool_add_attribute(CKA_EC_POINT, point_ptr, point_len,
@@ -6793,12 +6893,32 @@ static CK_RV p11sak_import_ec_pkey(const struct p11tool_objtype *keytype,
     type = EVP_PKEY_base_id(pkey);
     switch (type) {
     case EVP_PKEY_EC:
+        if (keytype->type != CKK_EC) {
+            warnx("PEM file '%s' contains an EC %s key, but a %s %s key is "
+                  "expected.", opt_file, private ? "private" : "public",
+                  keytype->name, private ? "private" : "public");
+            return CKR_ARGUMENTS_BAD;
+        }
         break;
 #if OPENSSL_VERSION_PREREQ(3, 0)
-    case EVP_PKEY_X25519:
     case EVP_PKEY_ED25519:
-    case EVP_PKEY_X448:
     case EVP_PKEY_ED448:
+        if (keytype->type != CKK_EC && keytype->type != CKK_EC_EDWARDS) {
+            warnx("PEM file '%s' contains an EC-Edwards %s key, but a %s %s "
+                  "key is expected.", opt_file, private ? "private" : "public",
+                  keytype->name, private ? "private" : "public");
+            return CKR_ARGUMENTS_BAD;
+        }
+        return p11sak_import_ecx_pkey(keytype, type, pkey, private,
+                                      attrs, num_attrs);
+    case EVP_PKEY_X25519:
+    case EVP_PKEY_X448:
+        if (keytype->type != CKK_EC && keytype->type != CKK_EC_MONTGOMERY) {
+            warnx("PEM file '%s' contains an EC-Montgomery %s key, but a %s %s "
+                  "key is expected.", opt_file, private ? "private" : "public",
+                  keytype->name, private ? "private" : "public");
+            return CKR_ARGUMENTS_BAD;
+        }
         return p11sak_import_ecx_pkey(keytype, type, pkey, private,
                                       attrs, num_attrs);
 #endif
@@ -8345,15 +8465,18 @@ static CK_RV p11sak_export_ecx_pkey(const struct p11tool_objtype *keytype,
             goto done;
         }
 
-        /* remove octet string BER encoding */
         ecpoint = (CK_BYTE*)ecpoint_attr.pValue;
         ecpoint_len = ecpoint_attr.ulValueLen;
-        if ((ecpoint[1] & 0x80) == 0) {
-            ecpoint += 2;
-            ecpoint_len -= 2;
-        } else {
-            ecpoint += 2 + (ecpoint[1] & 0x7f);
-            ecpoint_len -= 3 + (ecpoint[1] & 0x7f);
+
+        if (keytype->type == CKK_EC) {
+            /* remove octet string BER encoding */
+            if ((ecpoint[1] & 0x80) == 0) {
+                ecpoint += 2;
+                ecpoint_len -= 2;
+            } else {
+                ecpoint += 2 + (ecpoint[1] & 0x7f);
+                ecpoint_len -= 3 + (ecpoint[1] & 0x7f);
+            }
         }
     }
 
