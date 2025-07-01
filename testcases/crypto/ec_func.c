@@ -185,7 +185,7 @@ const _ec_struct der_ec_supported[NUMEC] = {
     {&curve25519, sizeof(curve25519), CK_FALSE, CURVE_MONTGOMERY,
      CURVE256_LENGTH, "curve25519"},
     {&curve448, sizeof(curve448), CK_FALSE, CURVE_MONTGOMERY,
-     CURVE456_LENGTH, "curve448"},
+     CURVE448_LENGTH, "curve448"},
     {&ed25519, sizeof(ed25519), CK_FALSE, CURVE_EDWARDS,
      CURVE256_LENGTH, "ed25519"},
     {&ed448, sizeof(ed448), CK_FALSE, CURVE_EDWARDS,
@@ -223,6 +223,7 @@ typedef struct signVerifyParam {
                                  * >0 means process in n chunks via
                                  * C_SignUpdate/C_SignFinal
                                  */
+    const char *name;
 } _signVerifyParam;
 
 CK_IBM_ECDSA_OTHER_PARAMS other_rand = { .submechanism = CKM_IBM_ECSDSA_RAND };
@@ -232,51 +233,51 @@ CK_IBM_ECDSA_OTHER_PARAMS other_bls =
                                 { .submechanism = CKM_IBM_BLS };
 
 _signVerifyParam signVerifyInput[] = {
-    {{CKM_ECDSA, NULL, 0}, 20, 0},
-    {{CKM_ECDSA, NULL, 0}, 32, 0},
-    {{CKM_ECDSA, NULL, 0}, 48, 0},
-    {{CKM_ECDSA, NULL, 0}, 64, 0},
-    {{CKM_ECDSA_SHA1, NULL, 0}, 100, 0},
-    {{CKM_ECDSA_SHA1, NULL, 0}, 100, 4},
-    {{CKM_ECDSA_SHA1, NULL, 0}, 0, 0}, /* Empty Message via C_Sign */
-    {{CKM_ECDSA_SHA1, NULL, 0}, 0, 1}, /* Empty Message via C_SignInit+C_SignFinal */
-    {{CKM_ECDSA_SHA224, NULL, 0}, 100, 0},
-    {{CKM_ECDSA_SHA224, NULL, 0}, 100, 4},
-    {{CKM_ECDSA_SHA224, NULL, 0}, 0, 0}, /* Empty Message via C_Sign */
-    {{CKM_ECDSA_SHA224, NULL, 0}, 0, 1}, /* Empty Message via C_SignInit+C_SignFinal */
-    {{CKM_ECDSA_SHA256, NULL, 0}, 100, 0},
-    {{CKM_ECDSA_SHA256, NULL, 0}, 100, 4},
-    {{CKM_ECDSA_SHA256, NULL, 0}, 0, 0}, /* Empty Message via C_Sign */
-    {{CKM_ECDSA_SHA256, NULL, 0}, 0, 1}, /* Empty Message via C_SignInit+C_SignFinal */
-    {{CKM_ECDSA_SHA384, NULL, 0}, 100, 0},
-    {{CKM_ECDSA_SHA384, NULL, 0}, 100, 4},
-    {{CKM_ECDSA_SHA384, NULL, 0}, 0, 0}, /* Empty Message via C_Sign */
-    {{CKM_ECDSA_SHA384, NULL, 0}, 0, 1}, /* Empty Message via C_SignInit+C_SignFinal */
-    {{CKM_ECDSA_SHA512, NULL, 0}, 100, 0},
-    {{CKM_ECDSA_SHA512, NULL, 0}, 100, 4},
-    {{CKM_ECDSA_SHA512, NULL, 0}, 0, 0}, /* Empty Message via C_Sign */
-    {{CKM_ECDSA_SHA512, NULL, 0}, 0, 1}, /* Empty Message via C_SignInit+C_SignFinal */
-    {{CKM_ECDSA_SHA3_224, NULL, 0}, 100, 0},
-    {{CKM_ECDSA_SHA3_224, NULL, 0}, 100, 4},
-    {{CKM_ECDSA_SHA3_224, NULL, 0}, 0, 0}, /* Empty Message via C_Sign */
-    {{CKM_ECDSA_SHA3_224, NULL, 0}, 0, 1}, /* Empty Message via C_SignInit+C_SignFinal */
-    {{CKM_ECDSA_SHA3_256, NULL, 0}, 100, 0},
-    {{CKM_ECDSA_SHA3_256, NULL, 0}, 100, 4},
-    {{CKM_ECDSA_SHA3_256, NULL, 0}, 0, 0}, /* Empty Message via C_Sign */
-    {{CKM_ECDSA_SHA3_256, NULL, 0}, 0, 1}, /* Empty Message via C_SignInit+C_SignFinal */
-    {{CKM_ECDSA_SHA3_384, NULL, 0}, 100, 0},
-    {{CKM_ECDSA_SHA3_384, NULL, 0}, 100, 4},
-    {{CKM_ECDSA_SHA3_384, NULL, 0}, 0, 0}, /* Empty Message via C_Sign */
-    {{CKM_ECDSA_SHA3_384, NULL, 0}, 0, 1}, /* Empty Message via C_SignInit+C_SignFinal */
-    {{CKM_ECDSA_SHA3_512, NULL, 0}, 100, 0},
-    {{CKM_ECDSA_SHA3_512, NULL, 0}, 100, 4},
-    {{CKM_ECDSA_SHA3_512, NULL, 0}, 0, 0}, /* Empty Message via C_Sign */
-    {{CKM_ECDSA_SHA3_512, NULL, 0}, 0, 1}, /* Empty Message via C_SignInit+C_SignFinal */
-    {{CKM_IBM_ED25519_SHA512, NULL, 0}, 100, 0},
-    {{CKM_IBM_ED448_SHA3, NULL, 0}, 100, 0},
-    {{CKM_IBM_ECDSA_OTHER, &other_rand, sizeof(other_rand)}, 20, 0},
-    {{CKM_IBM_ECDSA_OTHER, &other_compr_multi, sizeof(other_compr_multi)}, 20, 0},
-    {{CKM_IBM_ECDSA_OTHER, &other_bls, sizeof(other_bls)}, 20, 0},
+    {{CKM_ECDSA, NULL, 0}, 20, 0, ""},
+    {{CKM_ECDSA, NULL, 0}, 32, 0, ""},
+    {{CKM_ECDSA, NULL, 0}, 48, 0, ""},
+    {{CKM_ECDSA, NULL, 0}, 64, 0, ""},
+    {{CKM_ECDSA_SHA1, NULL, 0}, 100, 0, ""},
+    {{CKM_ECDSA_SHA1, NULL, 0}, 100, 4, ""},
+    {{CKM_ECDSA_SHA1, NULL, 0}, 0, 0, ""}, /* Empty Message via C_Sign */
+    {{CKM_ECDSA_SHA1, NULL, 0}, 0, 1, ""}, /* Empty Message via C_SignInit+C_SignFinal */
+    {{CKM_ECDSA_SHA224, NULL, 0}, 100, 0, ""},
+    {{CKM_ECDSA_SHA224, NULL, 0}, 100, 4, ""},
+    {{CKM_ECDSA_SHA224, NULL, 0}, 0, 0, ""}, /* Empty Message via C_Sign */
+    {{CKM_ECDSA_SHA224, NULL, 0}, 0, 1, ""}, /* Empty Message via C_SignInit+C_SignFinal */
+    {{CKM_ECDSA_SHA256, NULL, 0}, 100, 0, ""},
+    {{CKM_ECDSA_SHA256, NULL, 0}, 100, 4, ""},
+    {{CKM_ECDSA_SHA256, NULL, 0}, 0, 0, ""}, /* Empty Message via C_Sign */
+    {{CKM_ECDSA_SHA256, NULL, 0}, 0, 1, ""}, /* Empty Message via C_SignInit+C_SignFinal */
+    {{CKM_ECDSA_SHA384, NULL, 0}, 100, 0, ""},
+    {{CKM_ECDSA_SHA384, NULL, 0}, 100, 4, ""},
+    {{CKM_ECDSA_SHA384, NULL, 0}, 0, 0, ""}, /* Empty Message via C_Sign */
+    {{CKM_ECDSA_SHA384, NULL, 0}, 0, 1, ""}, /* Empty Message via C_SignInit+C_SignFinal */
+    {{CKM_ECDSA_SHA512, NULL, 0}, 100, 0, ""},
+    {{CKM_ECDSA_SHA512, NULL, 0}, 100, 4, ""},
+    {{CKM_ECDSA_SHA512, NULL, 0}, 0, 0, ""}, /* Empty Message via C_Sign */
+    {{CKM_ECDSA_SHA512, NULL, 0}, 0, 1, ""}, /* Empty Message via C_SignInit+C_SignFinal */
+    {{CKM_ECDSA_SHA3_224, NULL, 0}, 100, 0, ""},
+    {{CKM_ECDSA_SHA3_224, NULL, 0}, 100, 4, ""},
+    {{CKM_ECDSA_SHA3_224, NULL, 0}, 0, 0, ""}, /* Empty Message via C_Sign */
+    {{CKM_ECDSA_SHA3_224, NULL, 0}, 0, 1, ""}, /* Empty Message via C_SignInit+C_SignFinal */
+    {{CKM_ECDSA_SHA3_256, NULL, 0}, 100, 0, ""},
+    {{CKM_ECDSA_SHA3_256, NULL, 0}, 100, 4, ""},
+    {{CKM_ECDSA_SHA3_256, NULL, 0}, 0, 0, ""}, /* Empty Message via C_Sign */
+    {{CKM_ECDSA_SHA3_256, NULL, 0}, 0, 1, ""}, /* Empty Message via C_SignInit+C_SignFinal */
+    {{CKM_ECDSA_SHA3_384, NULL, 0}, 100, 0, ""},
+    {{CKM_ECDSA_SHA3_384, NULL, 0}, 100, 4, ""},
+    {{CKM_ECDSA_SHA3_384, NULL, 0}, 0, 0, ""}, /* Empty Message via C_Sign */
+    {{CKM_ECDSA_SHA3_384, NULL, 0}, 0, 1, ""}, /* Empty Message via C_SignInit+C_SignFinal */
+    {{CKM_ECDSA_SHA3_512, NULL, 0}, 100, 0, ""},
+    {{CKM_ECDSA_SHA3_512, NULL, 0}, 100, 4, ""},
+    {{CKM_ECDSA_SHA3_512, NULL, 0}, 0, 0, ""}, /* Empty Message via C_Sign */
+    {{CKM_ECDSA_SHA3_512, NULL, 0}, 0, 1, ""}, /* Empty Message via C_SignInit+C_SignFinal */
+    {{CKM_IBM_ED25519_SHA512, NULL, 0}, 100, 0, ""},
+    {{CKM_IBM_ED448_SHA3, NULL, 0}, 100, 0, ""},
+    {{CKM_IBM_ECDSA_OTHER, &other_rand, sizeof(other_rand)}, 20, 0, ""},
+    {{CKM_IBM_ECDSA_OTHER, &other_compr_multi, sizeof(other_compr_multi)}, 20, 0, ""},
+    {{CKM_IBM_ECDSA_OTHER, &other_bls, sizeof(other_bls)}, 20, 0, ""},
 };
 
 #define NUM_KDFS sizeof(kdfs)/sizeof(CK_EC_KDF_TYPE)
@@ -1375,7 +1376,7 @@ CK_RV run_DeriveECDHKeyKAT(void)
         }
 
         // First, import the EC key pair for party A
-        rc = create_ECPrivateKey(session,
+        rc = create_ECPrivateKey(session, CKK_EC,
                                  ecdh_tv[i].params, ecdh_tv[i].params_len,
                                  ecdh_tv[i].privkeyA, ecdh_tv[i].privkey_len,
                                  &priv_keyA, !pkey, CK_TRUE);
@@ -1395,7 +1396,7 @@ CK_RV run_DeriveECDHKeyKAT(void)
             goto testcase_cleanup;
         }
 
-        rc = create_ECPublicKey(session,
+        rc = create_ECPublicKey(session, CKK_EC,
                                 ecdh_tv[i].params, ecdh_tv[i].params_len,
                                 ecdh_tv[i].pubkeyA, ecdh_tv[i].pubkey_len,
                                 &publ_keyA, !pkey);
@@ -1417,7 +1418,7 @@ CK_RV run_DeriveECDHKeyKAT(void)
         }
 
         // Now import the EC key pair for party B
-        rc = create_ECPrivateKey(session,
+        rc = create_ECPrivateKey(session, CKK_EC,
                                  ecdh_tv[i].params, ecdh_tv[i].params_len,
                                  ecdh_tv[i].privkeyB, ecdh_tv[i].privkey_len,
                                  &priv_keyB, !pkey, CK_TRUE);
@@ -1433,7 +1434,7 @@ CK_RV run_DeriveECDHKeyKAT(void)
             goto testcase_cleanup;
         }
 
-        rc = create_ECPublicKey(session,
+        rc = create_ECPublicKey(session, CKK_EC,
                                 ecdh_tv[i].params, ecdh_tv[i].params_len,
                                 ecdh_tv[i].pubkeyB, ecdh_tv[i].pubkey_len,
                                 &publ_keyB, !pkey);
@@ -1765,9 +1766,23 @@ CK_RV run_GenerateSignVerifyECC(CK_SESSION_HANDLE session,
         /* ECDSA_OTHER: Non-BLS curve can not be used with CKM_IBM_BLS sub mech, skip */
         rc = CKR_OK;
         goto testcase_cleanup;
+    } else if (mech->mechanism == CKM_EDDSA) {
+        if (curve_type != CURVE_EDWARDS) {
+            /* Mechanism does not match to curve type, skip */
+            rc = CKR_OK;
+            goto testcase_cleanup;
+        }
+
+        if (memcmp(params, ed448, MIN(params_len, sizeof(ed448))) == 0 &&
+            mech->pParameter == NULL) {
+            /* Ed448 requires a mechanism parameter, skip */
+            rc = CKR_OK;
+            goto testcase_cleanup;
+        }
     } else if (mech->mechanism != CKM_IBM_ED25519_SHA512 &&
                mech->mechanism != CKM_IBM_ED448_SHA3 &&
-               mech->mechanism != CKM_IBM_ECDSA_OTHER) {
+               mech->mechanism != CKM_IBM_ECDSA_OTHER &&
+               mech->mechanism != CKM_EDDSA) {
         if (curve_type == CURVE_EDWARDS || curve_type == CURVE_MONTGOMERY ||
             curve_type == CURVE_BLS12_381) {
             /* Mechanism does not match to curve type, skip */
@@ -1811,6 +1826,13 @@ CK_RV run_GenerateSignVerifyECC(CK_SESSION_HANDLE session,
 
     rc = funcs->C_SignInit(session, mech, priv_key);
     if (rc != CKR_OK) {
+        if (mech->mechanism == CKM_EDDSA && rc == CKR_MECHANISM_PARAM_INVALID) {
+            testcase_skip("EdDSA mechanism parameter combination is not "
+                          "supported");
+            rc = CKR_OK;
+            goto testcase_cleanup;
+        }
+
         testcase_error("C_SignInit rc=%s", p11_get_ckr(rc));
         goto testcase_cleanup;
     }
@@ -1842,6 +1864,14 @@ CK_RV run_GenerateSignVerifyECC(CK_SESSION_HANDLE session,
         rc = funcs->C_Sign(session, data != NULL ? data : (CK_BYTE *)"",
                            inputlen, NULL, &signaturelen);
         if (rc != CKR_OK) {
+            if (mech->mechanism == CKM_EDDSA &&
+                rc == CKR_MECHANISM_PARAM_INVALID) {
+                testcase_skip("EdDSA mechanism parameter combination is not "
+                              "supported");
+                rc = CKR_OK;
+                goto testcase_cleanup;
+            }
+
             testcase_error("C_Sign rc=%s", p11_get_ckr(rc));
             goto testcase_cleanup;
         }
@@ -1865,6 +1895,14 @@ CK_RV run_GenerateSignVerifyECC(CK_SESSION_HANDLE session,
         rc = funcs->C_Sign(session, data != NULL ? data : (CK_BYTE *)"",
                            inputlen, signature, &signaturelen);
         if (rc != CKR_OK) {
+            if (mech->mechanism == CKM_EDDSA &&
+                rc == CKR_MECHANISM_PARAM_INVALID) {
+                testcase_skip("EdDSA mechanism parameter combination is not "
+                              "supported");
+                rc = CKR_OK;
+                goto testcase_cleanup;
+            }
+
             testcase_error("C_Sign rc=%s", p11_get_ckr(rc));
             goto testcase_cleanup;
         }
@@ -2036,7 +2074,8 @@ CK_RV run_GenerateECCKeyPairSignVerify(void)
             }
         }
 
-        rc = generate_EC_KeyPair(session, (CK_BYTE *)der_ec_supported[i].curve,
+        rc = generate_EC_KeyPair(session, CKM_EC_KEY_PAIR_GEN,
+                                 (CK_BYTE *)der_ec_supported[i].curve,
                                  der_ec_supported[i].size,
                                  &publ_key, &priv_key, !pkey);
 
@@ -2089,7 +2128,8 @@ CK_RV run_GenerateECCKeyPairSignVerify(void)
     }
 
     for (i = 0; i < NUMECINVAL; i++) {
-        rc = generate_EC_KeyPair(session, (CK_BYTE *)der_ec_notsupported[i].curve,
+        rc = generate_EC_KeyPair(session, CKM_EC_KEY_PAIR_GEN,
+                                 (CK_BYTE *)der_ec_notsupported[i].curve,
                                  der_ec_notsupported[i].size,
                                  &publ_key, &priv_key, !pkey);
         testcase_new_assertion();
@@ -2111,6 +2151,7 @@ testcase_cleanup:
     if (priv_key != CK_INVALID_HANDLE)
         funcs->C_DestroyObject(session, priv_key);
 
+    testcase_user_logout();
     testcase_close_session();
 
     return rc;
@@ -2167,7 +2208,35 @@ CK_RV run_ImportECCKeyPairSignVerify(void)
             }
         }
 
-        rc = create_ECPrivateKey(session, ec_tv[i].params, ec_tv[i].params_len,
+        if (ec_tv[i].curve_type == CURVE_MONTGOMERY) {
+            /* Sign/verify not supported for the curve. */
+            continue;
+        }
+
+        if (ec_tv[i].curve_type == CURVE_EDWARDS) {
+            if (memcmp(ec_tv[i].name, "ed25519", 7) == 0) {
+                if (!mech_supported(SLOT_ID, CKM_IBM_ED25519_SHA512)) {
+                    testcase_skip("Slot %u doesn't support CKM_IBM_ED25519_SHA512\n",
+                                  (unsigned int) SLOT_ID);
+                    continue;
+                }
+            } else if (memcmp(ec_tv[i].name, "ed448", 5) == 0) {
+                if (!mech_supported(SLOT_ID, CKM_IBM_ED448_SHA3)) {
+                    testcase_skip("Slot %u doesn't support CKM_IBM_ED448_SHA3\n",
+                                  (unsigned int) SLOT_ID);
+                    continue;
+                }
+            }
+        } else {
+            if (!mech_supported(SLOT_ID, CKM_ECDSA)) {
+                testcase_skip("Slot %u doesn't support CKM_ECDSA\n",
+                              (unsigned int) SLOT_ID);
+                continue;
+            }
+        }
+
+        rc = create_ECPrivateKey(session, CKK_EC,
+                                 ec_tv[i].params, ec_tv[i].params_len,
                                  ec_tv[i].privkey, ec_tv[i].privkey_len,
                                  &priv_key, !pkey, CK_FALSE);
         if (rc != CKR_OK) {
@@ -2199,7 +2268,8 @@ CK_RV run_ImportECCKeyPairSignVerify(void)
         testcase_pass("*Import EC private key (%s) index=%lu passed.",
                       ec_tv[i].name, i);
 
-        rc = create_ECPublicKey(session, ec_tv[i].params, ec_tv[i].params_len,
+        rc = create_ECPublicKey(session, CKK_EC,
+                                ec_tv[i].params, ec_tv[i].params_len,
                                 ec_tv[i].pubkey, ec_tv[i].pubkey_len,
                                 &publ_key, !pkey);
         if (rc != CKR_OK) {
@@ -2375,7 +2445,35 @@ CK_RV run_TransferECCKeyPairSignVerify(void)
             }
         }
 
-        rc = create_ECPrivateKey(session, ec_tv[i].params, ec_tv[i].params_len,
+        if (ec_tv[i].curve_type == CURVE_MONTGOMERY) {
+            /* Sign/verify not supported for the curve. */
+            continue;
+        }
+
+        if (ec_tv[i].curve_type == CURVE_EDWARDS) {
+            if (memcmp(ec_tv[i].name, "ed25519", 7) == 0) {
+                if (!mech_supported(SLOT_ID, CKM_IBM_ED25519_SHA512)) {
+                    testcase_skip("Slot %u doesn't support CKM_IBM_ED25519_SHA512\n",
+                                  (unsigned int) SLOT_ID);
+                    continue;
+                }
+            } else if (memcmp(ec_tv[i].name, "ed448", 5) == 0) {
+                if (!mech_supported(SLOT_ID, CKM_IBM_ED448_SHA3)) {
+                    testcase_skip("Slot %u doesn't support CKM_IBM_ED448_SHA3\n",
+                                  (unsigned int) SLOT_ID);
+                    continue;
+                }
+            }
+        } else {
+            if (!mech_supported(SLOT_ID, CKM_ECDSA)) {
+                testcase_skip("Slot %u doesn't support CKM_ECDSA\n",
+                              (unsigned int) SLOT_ID);
+                continue;
+            }
+        }
+
+        rc = create_ECPrivateKey(session, CKK_EC,
+                                 ec_tv[i].params, ec_tv[i].params_len,
                                  ec_tv[i].privkey, ec_tv[i].privkey_len,
                                  &priv_key, CK_TRUE, // key to be wrapped must be extractable
                                  CK_FALSE);
@@ -2410,7 +2508,8 @@ CK_RV run_TransferECCKeyPairSignVerify(void)
         testcase_pass("*Import EC private key (%s) index=%lu passed.",
                       ec_tv[i].name, i);
 
-        rc = create_ECPublicKey(session, ec_tv[i].params, ec_tv[i].params_len,
+        rc = create_ECPublicKey(session, CKK_EC,
+                                ec_tv[i].params, ec_tv[i].params_len,
                                 ec_tv[i].pubkey, ec_tv[i].pubkey_len,
                                 &publ_key, !pkey);
         if (rc != CKR_OK) {
@@ -2696,12 +2795,34 @@ CK_RV run_ImportSignVerify_Pkey(void)
             {CKA_IBM_PROTKEY_EXTRACTABLE, &pkey_extr_pub, sizeof(CK_BBOOL)},
         };
 
-        for (j = 0; j < 2; j++) {
+        if (ec_tv[i].curve_type == CURVE_MONTGOMERY) {
+            /* Sign/verify not supported for the curve. */
+            continue;
+        }
 
-            if (ec_tv[i].curve_type == CURVE_MONTGOMERY) {
-                /* Sign/verify not supported for the curve. */
+        if (ec_tv[i].curve_type == CURVE_EDWARDS) {
+            if (memcmp(ec_tv[i].name, "ed25519", 7) == 0) {
+                if (!mech_supported(SLOT_ID, CKM_IBM_ED25519_SHA512)) {
+                    testcase_skip("Slot %u doesn't support CKM_IBM_ED25519_SHA512\n",
+                                  (unsigned int) SLOT_ID);
+                    continue;
+                }
+            } else if (memcmp(ec_tv[i].name, "ed448", 5) == 0) {
+                if (!mech_supported(SLOT_ID, CKM_IBM_ED448_SHA3)) {
+                    testcase_skip("Slot %u doesn't support CKM_IBM_ED448_SHA3\n",
+                                  (unsigned int) SLOT_ID);
+                    continue;
+                }
+            }
+        } else {
+            if (!mech_supported(SLOT_ID, CKM_ECDSA)) {
+                testcase_skip("Slot %u doesn't support CKM_ECDSA\n",
+                              (unsigned int) SLOT_ID);
                 continue;
             }
+        }
+
+        for (j = 0; j < 2; j++) {
 
             if (ec_tv[i].curve_type == CURVE_BLS12_381) {
                 /* BLS does not use protected keys, skip */
@@ -3203,7 +3324,7 @@ _ec_struct bls_test = {&bls12_381, sizeof(bls12_381), CK_TRUE, CURVE_BLS12_381,
      CURVE384_LENGTH, "bls12_381"};
 
 _signVerifyParam bls_test_input = {{CKM_IBM_ECDSA_OTHER, &other_bls,
-                                   sizeof(other_bls)}, 20, 0};
+                                   sizeof(other_bls)}, 20, 0, ""};
 /*
  * BLS test for Sign and derive
  */
@@ -3267,8 +3388,8 @@ CK_RV run_BLSAggregation(void)
         testcase_new_assertion();
         testcase_begin("Generate key pair with for index %lu", k);
 
-        rc = generate_EC_KeyPair(session, (CK_BYTE *)bls_test.curve,
-                                 bls_test.size,
+        rc = generate_EC_KeyPair(session, CKM_EC_KEY_PAIR_GEN,
+                                 (CK_BYTE *)bls_test.curve, bls_test.size,
                                  &pub_key[k], &priv_key[k], !pkey);
 
         if (rc != CKR_OK) {
@@ -3434,6 +3555,1102 @@ testcase_cleanup:
     return rc;
 }
 
+#define NUMED       4
+
+const _ec_struct der_ec_edwards_supported[NUMED] = {
+    {&curve25519, sizeof(curve25519), CK_FALSE, CURVE_MONTGOMERY,
+     CURVE256_LENGTH, "curve25519"},
+    {&curve448, sizeof(curve448), CK_FALSE, CURVE_MONTGOMERY,
+     CURVE448_LENGTH, "curve448"},
+    {&ed25519, sizeof(ed25519), CK_FALSE, CURVE_EDWARDS,
+     CURVE256_LENGTH, "ed25519"},
+    {&ed448, sizeof(ed448), CK_FALSE, CURVE_EDWARDS,
+     CURVE456_LENGTH, "ed448"},
+};
+
+CK_BYTE eddsa_ctx_data[] = { 0x01, 0x23, 0x45, 0x67, 0x89 };
+
+CK_EDDSA_PARAMS eddsa_none = { FALSE, 0, NULL };
+CK_EDDSA_PARAMS eddsa_ph = { TRUE, 0, NULL };
+CK_EDDSA_PARAMS eddsa_ctx = { FALSE, sizeof(eddsa_ctx_data), eddsa_ctx_data };
+CK_EDDSA_PARAMS eddsa_ph_ctx = { TRUE, sizeof(eddsa_ctx_data), eddsa_ctx_data };
+
+_signVerifyParam edwardsSignVerifyInput[] = {
+    {{CKM_EDDSA, NULL, 0}, 20, 0, ""},
+    {{CKM_EDDSA, NULL, 0}, 32, 0, ""},
+    {{CKM_EDDSA, NULL, 0}, 48, 0, ""},
+    {{CKM_EDDSA, NULL, 0}, 64, 0, ""},
+    {{CKM_EDDSA, &eddsa_none, sizeof(eddsa_none)}, 64, 0,
+     "Neither Pre-Hash nor Context"},
+    {{CKM_EDDSA, &eddsa_ph, sizeof(eddsa_ph)}, 64, 0, "Pre-Hash"},
+    {{CKM_EDDSA, &eddsa_ctx, sizeof(eddsa_ctx)}, 64, 0, "Context"},
+    {{CKM_EDDSA, &eddsa_ph_ctx, sizeof(eddsa_ph_ctx)}, 64, 0,
+      "Pre-Hash & Context"},
+};
+
+CK_RV run_GenerateEdwardsKeyPairSignVerify(void)
+{
+    CK_MECHANISM mech;
+    CK_OBJECT_HANDLE publ_key = CK_INVALID_HANDLE, priv_key = CK_INVALID_HANDLE;
+    CK_SESSION_HANDLE session;
+    CK_BYTE user_pin[PKCS11_MAX_PIN_LEN];
+    CK_ULONG user_pin_len, i = 0, j;
+    CK_FLAGS flags;
+    CK_MECHANISM_INFO mech_info;
+    CK_RV rc;
+
+    testcase_begin("Starting Edwards generate key pair with pkey=%X ...", pkey);
+
+    testcase_rw_session();
+    testcase_user_login();
+
+    /* Skip tests if pkey = true, but the slot doesn't support protected keys*/
+    if (pkey && !is_ep11_token(SLOT_ID) && !is_cca_token(SLOT_ID)) {
+        testcase_skip("pkey test option is true, but slot %u doesn't support "
+                      "protected keys", (unsigned int) SLOT_ID);
+        goto done;
+    }
+
+    mech.mechanism = CKM_EC_EDWARDS_KEY_PAIR_GEN;
+    mech.ulParameterLen = 0;
+    mech.pParameter = NULL;
+
+    /* query the slot, check if this mech is supported */
+    rc = funcs->C_GetMechanismInfo(SLOT_ID, mech.mechanism, &mech_info);
+    if (rc != CKR_OK) {
+        if (rc == CKR_MECHANISM_INVALID) {
+            /* no support for EC key gen? skip */
+            testcase_skip("Slot %u doesn't support CKM_EC_EDWARDS_KEY_PAIR_GEN",
+                          (unsigned int) SLOT_ID);
+            rc = CKR_OK;
+            goto done;
+        } else {
+            testcase_error("C_GetMechanismInfo() rc = %s", p11_get_ckr(rc));
+            goto done;
+        }
+    }
+
+    for (i = 0; i < NUMED; i++) {
+        if (der_ec_edwards_supported[i].type != CURVE_EDWARDS)
+            continue;
+
+        rc = generate_EC_KeyPair(session, CKM_EC_EDWARDS_KEY_PAIR_GEN,
+                                 (CK_BYTE *)der_ec_edwards_supported[i].curve,
+                                 der_ec_edwards_supported[i].size,
+                                 &publ_key, &priv_key, !pkey);
+
+        if (rc != CKR_OK) {
+            if (is_rejected_by_policy(rc, session)) {
+                testcase_skip("EC key generation is not allowed by policy");
+                continue;
+            }
+            if (rc == CKR_MECHANISM_PARAM_INVALID ||
+                rc == CKR_ATTRIBUTE_VALUE_INVALID ||
+                rc == CKR_CURVE_NOT_SUPPORTED) {
+                testcase_skip("Slot %u doesn't support this curve: %s",
+                              (unsigned int) SLOT_ID,
+                              der_ec_edwards_supported[i].name);
+                continue;
+            }
+            testcase_fail
+                ("generate_EC_KeyPair with valid input failed at i=%lu (%s), "
+                 "rc=%s", i, der_ec_edwards_supported[i].name, p11_get_ckr(rc));
+            goto testcase_cleanup;
+        }
+        testcase_new_assertion();
+        testcase_pass("*Generate supported key pair index=%lu (%s) passed.", i,
+                der_ec_edwards_supported[i].name);
+
+        for (j = 0;
+             j < (sizeof(edwardsSignVerifyInput) / sizeof(_signVerifyParam));
+             j++) {
+
+            if (memcmp(der_ec_edwards_supported[i].curve, ed448,
+                       MIN(der_ec_edwards_supported[i].size,
+                           sizeof(ed448))) == 0 &&
+                edwardsSignVerifyInput[j].mech.pParameter == NULL) {
+                /* Ed448 requires a mechanism parameter, skip */
+                continue;
+            }
+
+            testcase_new_assertion();
+            rc = run_GenerateSignVerifyECC(session,
+                                           &edwardsSignVerifyInput[j].mech,
+                                           edwardsSignVerifyInput[j].inputlen,
+                                           edwardsSignVerifyInput[j].parts,
+                                           priv_key, publ_key,
+                                           der_ec_edwards_supported[i].type,
+                                           (CK_BYTE *)der_ec_edwards_supported[i].curve,
+                                           der_ec_edwards_supported[i].size);
+            if (rc != 0) {
+                testcase_fail("run_GenerateSignVerifyECC failed index=%lu (%s).",
+                              j, edwardsSignVerifyInput[j].name);
+                goto testcase_cleanup;
+            }
+            testcase_pass("*Sign & verify %s i=%lu (%s), j=%lu passed.",
+                          edwardsSignVerifyInput[j].name, i,
+                          der_ec_edwards_supported[i].name, j);
+        }
+
+testcase_cleanup:
+        if (publ_key != CK_INVALID_HANDLE)
+            funcs->C_DestroyObject(session, publ_key);
+        publ_key = CK_INVALID_HANDLE;
+        if (priv_key != CK_INVALID_HANDLE)
+            funcs->C_DestroyObject(session, priv_key);
+        priv_key = CK_INVALID_HANDLE;
+    }
+
+    rc = CKR_OK;
+
+    if (publ_key != CK_INVALID_HANDLE)
+        funcs->C_DestroyObject(session, publ_key);
+    if (priv_key != CK_INVALID_HANDLE)
+        funcs->C_DestroyObject(session, priv_key);
+
+done:
+    testcase_user_logout();
+    testcase_close_session();
+
+    return rc;
+}
+
+CK_RV run_ImportEdwardsKeyPairSignVerifyKAT(void)
+{
+    CK_MECHANISM mech;
+    CK_OBJECT_HANDLE publ_key = CK_INVALID_HANDLE, priv_key = CK_INVALID_HANDLE;
+    CK_SESSION_HANDLE session;
+    CK_BYTE user_pin[PKCS11_MAX_PIN_LEN];
+    CK_ULONG user_pin_len, i = 0, signaturelen;
+    CK_FLAGS flags;
+    CK_MECHANISM_INFO mech_info;
+    CK_EDDSA_PARAMS eddsa_param;
+    CK_BYTE signature[128];
+    CK_RV rc;
+
+    testcase_begin("Starting Edwards import key pair with pkey=%X ...", pkey);
+
+    testcase_rw_session();
+    testcase_user_login();
+
+    /* Skip tests if pkey = true, but the slot doesn't support protected keys*/
+    if (pkey && !is_ep11_token(SLOT_ID) && !is_cca_token(SLOT_ID)) {
+        testcase_skip("pkey test option is true, but slot %u doesn't support "
+                      "protected keys", (unsigned int) SLOT_ID);
+        goto done;
+    }
+
+    mech.mechanism = CKM_EDDSA;
+    mech.ulParameterLen = 0;
+    mech.pParameter = NULL;
+
+    /* query the slot, check if this mech is supported */
+    rc = funcs->C_GetMechanismInfo(SLOT_ID, mech.mechanism, &mech_info);
+    if (rc != CKR_OK) {
+        if (rc == CKR_MECHANISM_INVALID) {
+            /* no support for EC key gen? skip */
+            testcase_skip("Slot %u doesn't support CKM_EDDSA",
+                          (unsigned int) SLOT_ID);
+            goto done;
+        } else {
+            testcase_error("C_GetMechanismInfo() rc = %s", p11_get_ckr(rc));
+            goto done;
+        }
+    }
+
+    for (i = 0; i < ED_TV_NUM; i++) {
+        rc = create_ECPrivateKey(session, CKK_EC_EDWARDS,
+                                 ed_tv[i].params, ed_tv[i].params_len,
+                                 ed_tv[i].privkey, ed_tv[i].privkey_len,
+                                 &priv_key, !pkey, CK_FALSE);
+        if (rc != CKR_OK) {
+            if (rc == CKR_POLICY_VIOLATION) {
+                testcase_skip("EC-Edwards key import is not allowed by policy");
+                continue;
+            }
+            if (rc == CKR_CURVE_NOT_SUPPORTED) {
+                testcase_skip("Slot %u doesn't support this curve: %s",
+                              (unsigned int) SLOT_ID, ed_tv[i].name);
+                continue;
+            }
+
+            testcase_fail("C_CreateObject (EC-Edwards Private Key) failed at "
+                          "i=%lu (%s), rc=%s", i, ed_tv[i].name,
+                          p11_get_ckr(rc));
+            goto testcase_cleanup;
+        }
+        testcase_new_assertion();
+        testcase_pass("*Import EC-Edwards private key (%s) index=%lu passed.",
+                      ed_tv[i].name, i);
+
+        rc = create_ECPublicKey(session, CKK_EC_EDWARDS,
+                                ed_tv[i].params, ed_tv[i].params_len,
+                                ed_tv[i].pubkey, ed_tv[i].pubkey_len,
+                                &publ_key, !pkey);
+        if (rc != CKR_OK) {
+            if (rc == CKR_POLICY_VIOLATION) {
+                testcase_skip("EC-Edwards key import is not allowed by policy");
+                funcs->C_DestroyObject(session, priv_key);
+                continue;
+            }
+            if (rc == CKR_CURVE_NOT_SUPPORTED) {
+                testcase_skip("Slot %u doesn't support this curve: %s",
+                              (unsigned int) SLOT_ID, ed_tv[i].name);
+                funcs->C_DestroyObject(session, priv_key);
+                continue;
+            }
+
+            testcase_fail("C_CreateObject (EC-Edwards Public Key) failed at "
+                          "i=%lu (%s), rc=%s", i, ed_tv[i].name,
+                          p11_get_ckr(rc));
+            goto testcase_cleanup;
+        }
+        testcase_new_assertion();
+        testcase_pass("*Import EC-Edwards public key (%s) index=%lu passed.",
+                      ed_tv[i].name, i);
+
+        if (ed_tv[i].mech_param) {
+            eddsa_param.phFlag = ed_tv[i].prehash;
+            eddsa_param.pContextData = ed_tv[i].ctx;
+            eddsa_param.ulContextDataLen = ed_tv[i].ctx_len;
+
+            mech.pParameter = &eddsa_param;
+            mech.ulParameterLen = sizeof(eddsa_param);
+        } else {
+            mech.pParameter = NULL;
+            mech.ulParameterLen = 0;
+        }
+
+        /* create signature with private key */
+        rc = funcs->C_SignInit(session, &mech, priv_key);
+        if (rc != CKR_OK) {
+            if (rc == CKR_MECHANISM_PARAM_INVALID) {
+                testcase_skip("EdDSA mechanism parameter combination is not "
+                              "supported (%s)", ed_tv[i].name);
+                rc = CKR_OK;
+                goto testcase_cleanup;
+            }
+
+            testcase_error("C_SignInit rc=%s", p11_get_ckr(rc));
+            goto testcase_cleanup;
+        }
+
+        memset(signature, 0, sizeof(signature));
+
+        signaturelen = sizeof(signature);
+        rc = funcs->C_Sign(session, ed_tv[i].msg, ed_tv[i].msg_len,
+                           signature, &signaturelen);
+        if (rc != CKR_OK) {
+            if (rc == CKR_MECHANISM_PARAM_INVALID) {
+                testcase_skip("EdDSA mechanism parameter combination is not "
+                              "supported (%s)", ed_tv[i].name);
+                rc = CKR_OK;
+                goto testcase_cleanup;
+            }
+
+            testcase_error("C_Sign rc=%s", p11_get_ckr(rc));
+            goto testcase_cleanup;
+        }
+
+        /* Verify signature with public key */
+        rc = funcs->C_VerifyInit(session, &mech, publ_key);
+        if (rc != CKR_OK) {
+            testcase_error("C_VerifyInit rc=%s", p11_get_ckr(rc));
+            goto testcase_cleanup;
+        }
+
+        rc = funcs->C_Verify(session, ed_tv[i].msg, ed_tv[i].msg_len,
+                             signature, signaturelen);
+        if (rc != CKR_OK) {
+            testcase_error("C_Verify rc=%s", p11_get_ckr(rc));
+            goto testcase_cleanup;
+        }
+
+        if (signaturelen != ed_tv[i].signature_len ||
+            memcmp(signature, ed_tv[i].signature, signaturelen) != 0) {
+            testcase_fail("Signature is not the expected one at "
+                          "i=%lu (%s)", i, ed_tv[i].name);
+            goto testcase_cleanup;
+        }
+
+        testcase_new_assertion();
+        testcase_pass("*Sign & Verify with expected result (%s) index=%lu passed.",
+                      ed_tv[i].name, i);
+
+        // clean up
+testcase_cleanup:
+        if (publ_key != CK_INVALID_HANDLE)
+            funcs->C_DestroyObject(session, publ_key);
+        publ_key = CK_INVALID_HANDLE;
+        if (priv_key != CK_INVALID_HANDLE)
+            funcs->C_DestroyObject(session, priv_key);
+        priv_key = CK_INVALID_HANDLE;
+    }
+
+    if (publ_key != CK_INVALID_HANDLE)
+        funcs->C_DestroyObject(session, publ_key);
+    if (priv_key != CK_INVALID_HANDLE)
+        funcs->C_DestroyObject(session, priv_key);
+
+done:
+    testcase_user_logout();
+    testcase_close_session();
+
+    return rc;
+}
+
+CK_RV run_TransferEdwardsMontgomeryKeyPair(void)
+{
+    CK_MECHANISM mech;
+    CK_OBJECT_HANDLE publ_key = CK_INVALID_HANDLE, priv_key = CK_INVALID_HANDLE;
+    CK_SESSION_HANDLE session;
+    CK_BYTE user_pin[PKCS11_MAX_PIN_LEN];
+    CK_ULONG user_pin_len, i = 0;
+    CK_FLAGS flags;
+    CK_MECHANISM_INFO mech_info;
+    CK_RV rc;
+    CK_MECHANISM aes_keygen_mech;
+    CK_OBJECT_HANDLE secret_key = CK_INVALID_HANDLE;
+    CK_BYTE_PTR wrapped_key = NULL;
+    CK_ULONG wrapped_keylen;
+    CK_OBJECT_HANDLE unwrapped_key = CK_INVALID_HANDLE;
+    CK_MECHANISM wrap_mech;
+
+    testcase_begin("Starting Edwards/Montgomery transfer key pair with "
+                   "pkey=%X ...", pkey);
+
+    testcase_rw_session();
+    testcase_user_login();
+
+    /* Skip tests if pkey = true, but the slot doesn't support protected keys*/
+    if (pkey && !is_ep11_token(SLOT_ID) && !is_cca_token(SLOT_ID)) {
+        testcase_skip("pkey test option is true, but slot %u doesn't support "
+                      "protected keys", (unsigned int) SLOT_ID);
+        goto done;
+    }
+
+    rc = funcs->C_GetMechanismInfo(SLOT_ID, CKM_AES_KEY_GEN, &mech_info);
+    if (rc != CKR_OK) {
+        if (rc == CKR_MECHANISM_INVALID) {
+            /* no support for AES key gen? skip */
+            testcase_skip("Slot %u doesn't support CKM_AES_KEY_GEN",
+                          (unsigned int) SLOT_ID);
+            goto done;
+        } else {
+            testcase_error("C_GetMechanismInfo() rc = %s", p11_get_ckr(rc));
+            goto done;
+        }
+    }
+
+    rc = funcs->C_GetMechanismInfo(SLOT_ID, CKM_AES_CBC_PAD, &mech_info);
+    if (rc != CKR_OK) {
+        if (rc == CKR_MECHANISM_INVALID) {
+            /* no support for AES CBC wrap? skip */
+            testcase_skip("Slot %u doesn't support CKM_AES_CBC_PAD",
+                          (unsigned int) SLOT_ID);
+            goto done;
+        } else {
+            testcase_error("C_GetMechanismInfo() rc = %s", p11_get_ckr(rc));
+            goto done;
+        }
+    }
+    if ((mech_info.flags & CKF_WRAP) == 0 ||
+        (mech_info.flags & CKF_UNWRAP) == 0) {
+        /* no support for AES CBC wrap? skip */
+        testcase_skip("Slot %u doesn't support CKM_AES_CBC_PAD for wrapping "
+                      "keys", (unsigned int) SLOT_ID);
+        goto done;
+    }
+
+    for (i = 0; i < NUMED; i++) {
+        if (der_ec_edwards_supported[i].type == CURVE_EDWARDS)
+            mech.mechanism = CKM_EC_EDWARDS_KEY_PAIR_GEN;
+        else if (der_ec_edwards_supported[i].type == CURVE_MONTGOMERY)
+            mech.mechanism = CKM_EC_MONTGOMERY_KEY_PAIR_GEN;
+        else
+            continue;
+
+        /* query the slot, check if this mech is supported */
+        rc = funcs->C_GetMechanismInfo(SLOT_ID, mech.mechanism, &mech_info);
+        if (rc != CKR_OK) {
+            if (rc == CKR_MECHANISM_INVALID) {
+                /* no support for EC key gen? skip */
+                testcase_skip("Slot %u doesn't support %s",
+                              (unsigned int) SLOT_ID,
+                              p11_get_ckm(&mechtable_funcs, mech.mechanism));
+                goto testcase_cleanup;
+            } else {
+                testcase_error("C_GetMechanismInfo() rc = %s", p11_get_ckr(rc));
+                goto testcase_cleanup;
+            }
+        }
+
+        rc = generate_EC_KeyPair(session, mech.mechanism,
+                                 (CK_BYTE *)der_ec_edwards_supported[i].curve,
+                                 der_ec_edwards_supported[i].size,
+                                 &publ_key, &priv_key, !pkey);
+
+        if (rc != CKR_OK) {
+            if (is_rejected_by_policy(rc, session)) {
+                testcase_skip("EC key generation is not allowed by policy");
+                continue;
+            }
+            if (rc == CKR_MECHANISM_PARAM_INVALID ||
+                rc == CKR_ATTRIBUTE_VALUE_INVALID ||
+                rc == CKR_CURVE_NOT_SUPPORTED) {
+                testcase_skip("Slot %u doesn't support this curve: %s",
+                              (unsigned int) SLOT_ID,
+                              der_ec_edwards_supported[i].name);
+                continue;
+            }
+            testcase_fail
+                ("generate_EC_KeyPair with valid input failed at i=%lu (%s), "
+                 "rc=%s", i, der_ec_edwards_supported[i].name, p11_get_ckr(rc));
+            goto testcase_cleanup;
+        }
+        testcase_new_assertion();
+        testcase_pass("*Generate supported key pair index=%lu (%s) passed.", i,
+                der_ec_edwards_supported[i].name);
+
+        /* create wrapping key (secret key) */
+        aes_keygen_mech.mechanism = CKM_AES_KEY_GEN;
+
+        CK_OBJECT_CLASS wkclass = CKO_SECRET_KEY;
+        CK_ULONG keylen = 32;
+        CK_BBOOL true = TRUE;
+        CK_BBOOL false = FALSE;
+        CK_BBOOL sign = TRUE;
+        CK_BBOOL derive = TRUE;
+        CK_BYTE wrap_key_label[] = "Wrap_Key";
+        CK_OBJECT_CLASS wclass = CKO_PRIVATE_KEY;
+        CK_KEY_TYPE keyType = (mech.mechanism == CKM_EC_EDWARDS_KEY_PAIR_GEN ?
+                                        CKK_EC_EDWARDS : CKK_EC_MONTGOMERY);
+        CK_ATTRIBUTE cka_wrap_tmpl[] = {
+            {CKA_PRIVATE, &true, sizeof(true)},
+            {CKA_CLASS, &wclass, sizeof(wclass)},
+            {CKA_KEY_TYPE, &keyType, sizeof(keyType)},
+        };
+        CK_ATTRIBUTE cka_unwrap_tmpl[] = {
+            {CKA_DECRYPT, &true, sizeof(true)},
+            {CKA_SIGN, &sign, sizeof(sign)},
+            {CKA_DERIVE, &derive, sizeof(derive)},
+            {CKA_PRIVATE, &true, sizeof(true)},
+            {CKA_IBM_PROTKEY_EXTRACTABLE, &true, sizeof(true)},
+            {CKA_EXTRACTABLE, &false, sizeof(false)},
+        };
+        CK_ATTRIBUTE secret_tmpl[] = {
+            {CKA_CLASS, &wkclass, sizeof(wkclass)},
+            {CKA_VALUE_LEN, &keylen, sizeof(keylen)},
+            {CKA_LABEL, &wrap_key_label, sizeof(wrap_key_label)},
+            {CKA_TOKEN, &true, sizeof(true)},
+            {CKA_WRAP, &true, sizeof(true)},
+            {CKA_UNWRAP, &true, sizeof(true)},
+            {CKA_WRAP_TEMPLATE, &cka_wrap_tmpl, sizeof(cka_wrap_tmpl)},
+            {CKA_UNWRAP_TEMPLATE, &cka_unwrap_tmpl, sizeof(cka_unwrap_tmpl)},
+        };
+        CK_ULONG secret_tmpl_len = sizeof(secret_tmpl) / sizeof(CK_ATTRIBUTE);
+
+        if (der_ec_edwards_supported[i].type == CURVE_EDWARDS)
+            derive = FALSE;
+        if (der_ec_edwards_supported[i].type == CURVE_MONTGOMERY)
+            sign = FALSE;
+
+        if (is_icsf_token(SLOT_ID))
+            secret_tmpl_len -= 2; /* ICSF does not support array-attributes */
+
+        rc = funcs->C_GenerateKey(session, &aes_keygen_mech, secret_tmpl,
+                                  secret_tmpl_len, &secret_key);
+        if (rc != CKR_OK) {
+            testcase_error("C_GenerateKey, rc=%s", p11_get_ckr(rc));
+            goto testcase_cleanup;
+        }
+
+        /* wrap/unwrap private and public Edwards key with a transport key */
+        wrap_mech.mechanism = CKM_AES_CBC_PAD;
+        wrap_mech.pParameter = "0123456789abcdef";
+        wrap_mech.ulParameterLen = 16;
+        rc = funcs->C_WrapKey(session, &wrap_mech, secret_key, priv_key,
+                              NULL, &wrapped_keylen);
+        if (rc != CKR_OK) {
+            if (rc == CKR_KEY_NOT_WRAPPABLE) {
+                testcase_skip("Slot %u doesn't support this to wrap keys of "
+                              "type 0x%lx", (unsigned int) SLOT_ID, keyType);
+            } else {
+                testcase_error("C_WrapKey(), rc=%s.", p11_get_ckr(rc));
+            }
+            goto testcase_cleanup;
+        }
+
+        wrapped_key = calloc(wrapped_keylen, sizeof(CK_BYTE));
+        if (wrapped_key == NULL) {
+            testcase_error("Can't allocate memory for %lu bytes.",
+                           sizeof(CK_BYTE) * wrapped_keylen);
+            rc = CKR_HOST_MEMORY;
+            goto testcase_cleanup;
+        }
+
+        rc = funcs->C_WrapKey(session, &wrap_mech, secret_key, priv_key,
+                              wrapped_key, &wrapped_keylen);
+        if (rc != CKR_OK) {
+            if (rc == CKR_KEY_NOT_WRAPPABLE) {
+                testcase_skip("Slot %u doesn't support this to wrap keys of "
+                              "type 0x%lx", (unsigned int) SLOT_ID, keyType);
+            } else {
+                testcase_error("C_WrapKey(), rc=%s.", p11_get_ckr(rc));
+            }
+            goto testcase_cleanup;
+        }
+
+        CK_OBJECT_CLASS class = CKO_PRIVATE_KEY;
+        CK_KEY_TYPE key_type = (mech.mechanism == CKM_EC_EDWARDS_KEY_PAIR_GEN ?
+                                            CKK_EC_EDWARDS : CKK_EC_MONTGOMERY);
+        CK_BYTE unwrap_label[] = "unwrapped_private_EC_Key";
+        CK_BYTE id[] = { 123 };
+
+        CK_ATTRIBUTE unwrap_tmpl[] = {
+            {CKA_CLASS, &class, sizeof(class)},
+            {CKA_KEY_TYPE, &key_type, sizeof(key_type)},
+            {CKA_TOKEN, &true, sizeof(true)},
+            {CKA_LABEL, &unwrap_label, sizeof(unwrap_label)},
+            {CKA_ID, id, sizeof(id)},
+            {CKA_SENSITIVE, &true, sizeof(true)},
+            {CKA_DERIVE, &derive, sizeof(derive)},
+            {CKA_SIGN, &sign, sizeof(sign)},
+            {CKA_EXTRACTABLE, &false, sizeof(false)},
+            {CKA_IBM_PROTKEY_EXTRACTABLE, &true, sizeof(true)},
+        };
+        CK_ULONG unwrap_tmpl_len = sizeof(unwrap_tmpl) / sizeof(CK_ATTRIBUTE);
+
+        if (is_icsf_token(SLOT_ID))
+            unwrap_tmpl_len -= 1; /* ICSF does not supp. CKA_IBM_PROTKEY_... */
+
+        rc = funcs->C_UnwrapKey(session, &wrap_mech, secret_key,
+                                wrapped_key, wrapped_keylen,
+                                unwrap_tmpl, unwrap_tmpl_len,
+                                &unwrapped_key);
+        if (rc != CKR_OK) {
+            testcase_fail("C_UnwrapKey, rc=%s", p11_get_ckr(rc));
+            goto testcase_cleanup;
+        }
+
+        if (wrapped_key) {
+            free(wrapped_key);
+            wrapped_key = NULL;
+        }
+
+        if (mech.mechanism == CKM_EC_EDWARDS_KEY_PAIR_GEN) {
+            /*
+             * create signature with unwrapped private key and verify with
+             * public key
+             */
+            testcase_new_assertion();
+
+            rc = run_GenerateSignVerifyECC(session,
+                                           &edwardsSignVerifyInput[0].mech,
+                                           edwardsSignVerifyInput[0].inputlen,
+                                           edwardsSignVerifyInput[0].parts,
+                                           unwrapped_key, publ_key,
+                                           der_ec_edwards_supported[i].type,
+                                           (CK_BYTE *)der_ec_edwards_supported[i].curve,
+                                           der_ec_edwards_supported[i].size);
+             if (rc != 0) {
+                 testcase_fail("run_GenerateSignVerifyECC failed index=0 (%s).",
+                               edwardsSignVerifyInput[0].name);
+                 goto testcase_cleanup;
+             }
+             testcase_pass("*Sign & verify %s i=%lu (%s), passed.",
+                           edwardsSignVerifyInput[0].name, i,
+                           der_ec_edwards_supported[i].name);
+        } else {
+            CK_OBJECT_HANDLE secret_key = CK_INVALID_HANDLE;
+            CK_ECDH1_DERIVE_PARAMS ecdh_parm;
+            CK_BYTE ec_point[64];
+            CK_ATTRIBUTE ec_point_attr =
+                            { CKA_EC_POINT, ec_point, sizeof(ec_point) };
+            CK_BBOOL extractable = !pkey;
+            CK_KEY_TYPE secret_key_type = CKK_GENERIC_SECRET;
+            CK_ULONG secret_key_len =
+                        (der_ec_edwards_supported[i].bit_len + 7) / 8;
+            CK_OBJECT_CLASS secret_key_class = CKO_SECRET_KEY;
+            CK_ATTRIBUTE  derive_tmpl[] = {
+                {CKA_CLASS, &secret_key_class, sizeof(secret_key_class)},
+                {CKA_KEY_TYPE, &secret_key_type, sizeof(secret_key_type)},
+                {CKA_VALUE_LEN, &secret_key_len, sizeof(secret_key_len)},
+                {CKA_SENSITIVE, &false, sizeof(false)},
+                {CKA_EXTRACTABLE, &extractable, sizeof(CK_BBOOL)},
+                {CKA_IBM_PROTKEY_EXTRACTABLE, &pkey, sizeof(CK_BBOOL)},
+            };
+            CK_ULONG derive_tmpl_len = sizeof(derive_tmpl) / sizeof(CK_ATTRIBUTE);
+
+            testcase_new_assertion();
+
+            /* Perform ECDH with unwrapped private key and public key */
+            rc = funcs->C_GetAttributeValue(session, publ_key,
+                                            &ec_point_attr, 1);
+            if (rc != CKR_OK) {
+                testcase_fail("C_GetAttributeValue: rc = %s", p11_get_ckr(rc));
+                goto testcase_cleanup;
+            }
+
+            ecdh_parm.kdf = CKD_NULL;
+            ecdh_parm.pPublicData = ec_point_attr.pValue;
+            ecdh_parm.ulPublicDataLen = ec_point_attr.ulValueLen;
+            ecdh_parm.pSharedData = NULL;
+            ecdh_parm.ulSharedDataLen = 0;
+
+            mech.mechanism  = CKM_ECDH1_DERIVE;
+            mech.ulParameterLen = sizeof(CK_ECDH1_DERIVE_PARAMS);
+            mech.pParameter = &ecdh_parm;
+
+            rc = funcs->C_DeriveKey(session, &mech,
+                                    unwrapped_key, derive_tmpl,
+                                    derive_tmpl_len, &secret_key);
+            if (rc != CKR_OK) {
+                if (rc == CKR_CURVE_NOT_SUPPORTED) {
+                    testcase_skip("Slot %u doesn't support this curve: %s",
+                                  (unsigned int) SLOT_ID,
+                                  montgomery_ecdh_tv[i].name);
+                    goto testcase_cleanup;
+                }
+
+                testcase_fail("C_DeriveKey: rc = %s", p11_get_ckr(rc));
+                goto testcase_cleanup;
+            }
+
+            rc = funcs->C_DestroyObject(session, secret_key);
+            if (rc != CKR_OK) {
+                testcase_error("C_DestroyObject(), rc=%s.", p11_get_ckr(rc));
+            }
+
+            testcase_pass("*ECDH i=%lu (%s), passed.", i,
+                          der_ec_edwards_supported[i].name);
+        }
+
+testcase_cleanup:
+        if (publ_key != CK_INVALID_HANDLE)
+            funcs->C_DestroyObject(session, publ_key);
+        publ_key = CK_INVALID_HANDLE;
+        if (priv_key != CK_INVALID_HANDLE)
+            funcs->C_DestroyObject(session, priv_key);
+        priv_key = CK_INVALID_HANDLE;
+        if (secret_key != CK_INVALID_HANDLE)
+            funcs->C_DestroyObject(session, secret_key);
+        secret_key = CK_INVALID_HANDLE;
+        if (unwrapped_key != CK_INVALID_HANDLE)
+            funcs->C_DestroyObject(session, unwrapped_key);
+        unwrapped_key = CK_INVALID_HANDLE;
+    }
+
+    if (publ_key != CK_INVALID_HANDLE)
+        funcs->C_DestroyObject(session, publ_key);
+    if (priv_key != CK_INVALID_HANDLE)
+        funcs->C_DestroyObject(session, priv_key);
+    if (secret_key != CK_INVALID_HANDLE)
+        funcs->C_DestroyObject(session, secret_key);
+    if (unwrapped_key != CK_INVALID_HANDLE)
+        funcs->C_DestroyObject(session, unwrapped_key);
+
+    if (wrapped_key)
+        free(wrapped_key);
+
+done:
+    testcase_user_logout();
+    testcase_close_session();
+
+    return rc;
+}
+
+CK_RV run_MontgomeryECDHKeyKAT(void)
+{
+    CK_SESSION_HANDLE session;
+    CK_MECHANISM mech;
+    CK_FLAGS flags;
+    CK_OBJECT_HANDLE publ_keyA = CK_INVALID_HANDLE,
+                     priv_keyA = CK_INVALID_HANDLE;
+    CK_OBJECT_HANDLE publ_keyB = CK_INVALID_HANDLE,
+                     priv_keyB = CK_INVALID_HANDLE;
+    CK_OBJECT_HANDLE secret_keyA = CK_INVALID_HANDLE,
+                     secret_keyB = CK_INVALID_HANDLE;
+    CK_BYTE user_pin[PKCS11_MAX_PIN_LEN];
+    CK_KEY_TYPE secret_key_type = CKK_GENERIC_SECRET;
+    CK_OBJECT_CLASS class = CKO_SECRET_KEY;
+    CK_ECDH1_DERIVE_PARAMS ecdh_parmA, ecdh_parmB;
+    CK_BBOOL false = CK_FALSE;
+    CK_ULONG user_pin_len;
+    CK_RV rc = CKR_OK;
+    CK_BYTE secretA_value[1000] = { 0 }; // enough space for key lengths in ecdh_tv[]
+    CK_BYTE secretB_value[1000] = { 0 };
+    CK_BYTE mac1[SHA1_HASH_SIZE] = { 0 };
+    CK_ULONG mac1_len = sizeof(mac1);
+    CK_BYTE mac2[SHA1_HASH_SIZE] = { 0 };
+    CK_ULONG mac2_len = sizeof(mac2);
+    CK_BYTE macexpected[SHA1_HASH_SIZE] = { 0 };
+    CK_ULONG macexpected_len = sizeof(macexpected);
+    CK_ULONG i;
+
+    testcase_begin("starting run_MontgomeryECDHKeyKAT with pkey=%X ...", pkey);
+    testcase_rw_session();
+    testcase_user_login();
+
+    /* Skip tests if pkey = true, but the slot doesn't support protected keys*/
+    if (pkey && !is_ep11_token(SLOT_ID) && !is_cca_token(SLOT_ID)) {
+        testcase_skip("pkey test option is true, but slot %u doesn't support "
+                      "protected keys",
+                      (unsigned int) SLOT_ID);
+        goto testcase_cleanup;
+    }
+
+    if (!mech_supported(SLOT_ID, CKM_EC_MONTGOMERY_KEY_PAIR_GEN)) {
+        testcase_skip("Slot %u doesn't support CKM_EC_MONTGOMERY_KEY_PAIR_GEN\n",
+                      (unsigned int) SLOT_ID);
+        goto testcase_cleanup;
+    }
+
+    if (!mech_supported(SLOT_ID, CKM_ECDH1_DERIVE)) {
+        testcase_skip("Slot %u doesn't support CKM_ECDH1_DERIVE\n",
+                      (unsigned int) SLOT_ID);
+        goto testcase_cleanup;
+    }
+
+    if ((is_ep11_token(SLOT_ID) || is_cca_token(SLOT_ID)) &&
+        !mech_supported(SLOT_ID, CKM_SHA_1_HMAC)) {
+        testcase_skip("Slot %u doesn't support CKM_SHA_1_HMAC, correctness "
+                      "of derived keys can not be verified\n",
+                      (unsigned int) SLOT_ID);
+        goto testcase_cleanup;
+    }
+
+    if (is_cca_token(SLOT_ID)) {
+        testcase_skip("The CCA token in slot %u doesn't support ECDH with EC "
+                      "keys imported from clear, only with randomly generated "
+                      "keys. KATs not possible because of that\n",
+                      (unsigned int) SLOT_ID);
+        goto testcase_cleanup;
+    }
+
+    for (i=0; i< MONTGOMERY_ECDH_TV_NUM; i++) {
+
+        testcase_begin("Starting with shared secret i=%lu (%s), pkey=%X",
+                       i, montgomery_ecdh_tv[i].name, pkey);
+
+        if ((is_ep11_token(SLOT_ID) || is_cca_token(SLOT_ID)) &&
+            !check_supp_keysize(SLOT_ID, CKM_SHA_1_HMAC,
+                                montgomery_ecdh_tv[i].derived_key_len * 8)) {
+            testcase_skip("Mechanism CKM_SHA_1_HMAC can not be used with "
+                          "keys of size %lu. Correctness of derived key "
+                          "can not be verified.",
+                          montgomery_ecdh_tv[i].derived_key_len);
+            continue;
+        }
+
+        // First, import the EC-Montgomery key pair for party A
+        rc = create_ECPrivateKey(session, CKK_EC_MONTGOMERY,
+                                 montgomery_ecdh_tv[i].params,
+                                 montgomery_ecdh_tv[i].params_len,
+                                 montgomery_ecdh_tv[i].privkeyA,
+                                 montgomery_ecdh_tv[i].privkey_len,
+                                 &priv_keyA, !pkey, CK_TRUE);
+        if (rc != CKR_OK) {
+            if (rc == CKR_POLICY_VIOLATION) {
+                testcase_skip("EC key import is not allowed by policy");
+                continue;
+            }
+            if (rc == CKR_CURVE_NOT_SUPPORTED) {
+                testcase_skip("Slot %u doesn't support this curve: %s",
+                              (unsigned int) SLOT_ID,
+                              montgomery_ecdh_tv[i].name);
+                goto testcase_next;
+            }
+
+            testcase_fail("C_CreateObject (EC Private Key) failed at i=%lu, "
+                          "rc=%s", i, p11_get_ckr(rc));
+            goto testcase_next;
+        }
+
+        rc = create_ECPublicKey(session, CKK_EC_MONTGOMERY,
+                                montgomery_ecdh_tv[i].params,
+                                montgomery_ecdh_tv[i].params_len,
+                                montgomery_ecdh_tv[i].pubkeyA,
+                                montgomery_ecdh_tv[i].pubkey_len,
+                                &publ_keyA, !pkey);
+        if (rc != CKR_OK) {
+            if (rc == CKR_POLICY_VIOLATION) {
+                testcase_skip("EC key import is not allowed by policy");
+                funcs->C_DestroyObject(session, priv_keyA);
+                continue;
+            }
+            if (rc == CKR_CURVE_NOT_SUPPORTED) {
+                testcase_skip("Slot %u doesn't support this curve: %s",
+                              (unsigned int) SLOT_ID,
+                              montgomery_ecdh_tv[i].name);
+                goto testcase_next;
+            }
+
+            testcase_fail("C_CreateObject (EC Public Key) failed at i=%lu, "
+                          "rc=%s", i, p11_get_ckr(rc));
+            goto testcase_next;
+        }
+
+        // Now import the EC key pair for party B
+        rc = create_ECPrivateKey(session, CKK_EC_MONTGOMERY,
+                                 montgomery_ecdh_tv[i].params,
+                                 montgomery_ecdh_tv[i].params_len,
+                                 montgomery_ecdh_tv[i].privkeyB,
+                                 montgomery_ecdh_tv[i].privkey_len,
+                                 &priv_keyB, !pkey, CK_TRUE);
+        if (rc != CKR_OK) {
+            if (rc == CKR_CURVE_NOT_SUPPORTED) {
+                testcase_skip("Slot %u doesn't support this curve: %s",
+                              (unsigned int) SLOT_ID,
+                              montgomery_ecdh_tv[i].name);
+                goto testcase_next;
+            }
+
+            testcase_fail("C_CreateObject (EC Private Key) failed at i=%lu, "
+                          "rc=%s", i, p11_get_ckr(rc));
+            goto testcase_next;
+        }
+
+        rc = create_ECPublicKey(session, CKK_EC_MONTGOMERY,
+                                montgomery_ecdh_tv[i].params,
+                                montgomery_ecdh_tv[i].params_len,
+                                montgomery_ecdh_tv[i].pubkeyB,
+                                montgomery_ecdh_tv[i].pubkey_len,
+                                &publ_keyB, !pkey);
+        if (rc != CKR_OK) {
+            if (rc == CKR_CURVE_NOT_SUPPORTED) {
+                testcase_skip("Slot %u doesn't support this curve: %s",
+                              (unsigned int) SLOT_ID,
+                              montgomery_ecdh_tv[i].name);
+                goto testcase_next;
+            }
+
+            testcase_fail("C_CreateObject (EC Public Key) failed at i=%lu, "
+                          "rc=%s", i, p11_get_ckr(rc));
+            goto testcase_next;
+        }
+
+        // Now derive the secrets...
+
+        CK_ATTRIBUTE  secretA_tmpl[] = {
+            {CKA_VALUE, secretA_value, sizeof(secretA_value)}
+        };
+        CK_ULONG secretA_tmpl_len = sizeof(secretA_tmpl) / sizeof(CK_ATTRIBUTE);
+
+        CK_ATTRIBUTE  secretB_tmpl[] = {
+            {CKA_VALUE, secretB_value, sizeof(secretB_value)}
+        };
+        CK_ULONG secretB_tmpl_len = sizeof(secretB_tmpl) / sizeof(CK_ATTRIBUTE);
+
+        CK_BBOOL extractable = !pkey;
+        CK_ATTRIBUTE  derive_tmpl[] = {
+            {CKA_CLASS, &class, sizeof(class)},
+            {CKA_KEY_TYPE, &secret_key_type, sizeof(secret_key_type)},
+            {CKA_VALUE_LEN, &(montgomery_ecdh_tv[i].derived_key_len), sizeof(CK_ULONG)},
+            {CKA_SENSITIVE, &false, sizeof(false)},
+            {CKA_EXTRACTABLE, &extractable, sizeof(CK_BBOOL)},
+            {CKA_IBM_PROTKEY_EXTRACTABLE, &pkey, sizeof(CK_BBOOL)},
+        };
+        CK_ULONG derive_tmpl_len = sizeof(derive_tmpl) / sizeof(CK_ATTRIBUTE);
+
+        // Now, derive a generic secret key using party A's private key
+        // and B's public key
+        ecdh_parmA.kdf = montgomery_ecdh_tv[i].kdf;
+        ecdh_parmA.pPublicData = montgomery_ecdh_tv[i].pubkeyB;
+        ecdh_parmA.ulPublicDataLen = montgomery_ecdh_tv[i].pubkey_len;
+        ecdh_parmA.pSharedData = NULL;
+        ecdh_parmA.ulSharedDataLen = 0;
+
+        mech.mechanism  = CKM_ECDH1_DERIVE;
+        mech.ulParameterLen = sizeof(CK_ECDH1_DERIVE_PARAMS);
+        mech.pParameter = &ecdh_parmA;
+
+        rc = funcs->C_DeriveKey(session, &mech,
+                                priv_keyA, derive_tmpl,
+                                derive_tmpl_len, &secret_keyA);
+        if (rc != CKR_OK) {
+            if (rc == CKR_CURVE_NOT_SUPPORTED) {
+                testcase_skip("Slot %u doesn't support this curve: %s",
+                              (unsigned int) SLOT_ID,
+                              montgomery_ecdh_tv[i].name);
+                goto testcase_next;
+            }
+
+            testcase_fail("C_DeriveKey #1: rc = %s", p11_get_ckr(rc));
+            goto testcase_next;
+        }
+
+        // Now, derive a generic secret key using B's private key and
+        // A's public key
+        ecdh_parmB.kdf = montgomery_ecdh_tv[i].kdf;
+        ecdh_parmB.pPublicData = montgomery_ecdh_tv[i].pubkeyA;
+        ecdh_parmB.ulPublicDataLen = montgomery_ecdh_tv[i].pubkey_len;
+        ecdh_parmB.pSharedData = NULL;
+        ecdh_parmB.ulSharedDataLen = 0;
+
+        mech.mechanism = CKM_ECDH1_DERIVE;
+        mech.ulParameterLen = sizeof(CK_ECDH1_DERIVE_PARAMS);
+        mech.pParameter = &ecdh_parmB;
+
+        rc = funcs->C_DeriveKey(session, &mech,
+                                priv_keyB, derive_tmpl,
+                                derive_tmpl_len, &secret_keyB);
+        if (rc != CKR_OK) {
+            testcase_fail("C_DeriveKey #2: rc = %s", p11_get_ckr(rc));
+            goto testcase_next;
+        }
+
+        testcase_new_assertion();
+
+        /* A secure key token won't reveal the key value in clear */
+        if (!is_ep11_token(SLOT_ID) && !is_cca_token(SLOT_ID)) {
+            // Extract the derived secret A
+            rc = funcs->C_GetAttributeValue(session, secret_keyA,
+                                            secretA_tmpl, secretA_tmpl_len);
+            if (rc != CKR_OK) {
+                testcase_error("C_GetAttributeValue #3:rc = %s",
+                               p11_get_ckr(rc));
+                goto testcase_next;
+            }
+
+            // Compare lengths of derived secret from key object
+            if (montgomery_ecdh_tv[i].derived_key_len !=
+                                        secretA_tmpl[0].ulValueLen) {
+                testcase_fail("ERROR: derived key #1 length = %lu, "
+                              "derived key #2 length = %lu",
+                              montgomery_ecdh_tv[i].derived_key_len,
+                              secretA_tmpl[0].ulValueLen);
+                goto testcase_next;
+            }
+
+            // Compare with known value
+            if (memcmp(secretA_tmpl[0].pValue,
+                       montgomery_ecdh_tv[i].derived_key,
+                       montgomery_ecdh_tv[i].derived_key_len) != 0) {
+                testcase_fail("ERROR: derived key mismatch, i=%lu",i);
+                goto testcase_next;
+            }
+
+            // Extract the derived secret B
+            rc = funcs->C_GetAttributeValue(session, secret_keyB,
+                                            secretB_tmpl, secretB_tmpl_len);
+            if (rc != CKR_OK) {
+                testcase_error("C_GetAttributeValue #4:rc = %s",
+                               p11_get_ckr(rc));
+                goto testcase_next;
+            }
+
+            // Compare lengths of derived secret from key object
+            if (montgomery_ecdh_tv[i].derived_key_len !=
+                                    secretB_tmpl[0].ulValueLen) {
+                testcase_fail("ERROR: derived key #1 length = %lu, "
+                              "derived key #2 length = %lu",
+                              montgomery_ecdh_tv[i].derived_key_len,
+                              secretB_tmpl[0].ulValueLen);
+                goto testcase_next;
+            }
+
+            // Compare with known value
+            if (memcmp(secretB_tmpl[0].pValue,
+                       montgomery_ecdh_tv[i].derived_key,
+                       montgomery_ecdh_tv[i].derived_key_len) != 0) {
+                testcase_fail("ERROR: derived key mismatch, i=%lu",i);
+                goto testcase_next;
+            }
+        } else {
+            /* Secure key:
+             * Calculate HMAC with derived keys and expected key and compare
+             * the MAC.
+             */
+            rc = run_HMACSign_OpenSSL(montgomery_ecdh_tv[i].derived_key,
+                                      montgomery_ecdh_tv[i].derived_key_len,
+                                      CKM_SHA_1_HMAC,
+                                      macexpected, &macexpected_len);
+            if (rc != CKR_OK) {
+                testcase_fail("HMAC for expected key failed: %s",
+                              p11_get_ckr(rc));
+                goto testcase_next;
+            }
+
+            rc = run_HMACSign(session, secret_keyA,
+                              montgomery_ecdh_tv[i].derived_key_len,
+                              CKM_SHA_1_HMAC, mac1, &mac1_len);
+            if (rc != CKR_OK) {
+                testcase_fail("HMAC for derived key #1 failed: %s",
+                              p11_get_ckr(rc));
+                goto testcase_next;
+            }
+
+            if (mac1_len != 0 && /* skip check if mac can't be calculated */
+                (mac1_len != macexpected_len ||
+                 memcmp(mac1, macexpected, mac1_len) != 0)) {
+                testcase_fail("ERROR: derived key #1 does not produce the "
+                              "expected HMAC");
+                goto testcase_next;
+            }
+
+            rc = run_HMACSign(session, secret_keyB,
+                              montgomery_ecdh_tv[i].derived_key_len,
+                              CKM_SHA_1_HMAC, mac2, &mac2_len);
+            if (rc != CKR_OK) {
+                testcase_fail("HMAC for derived key #2 failed: %s",
+                              p11_get_ckr(rc));
+                goto testcase_next;
+            }
+
+            if (mac2_len != 0 && /* skip check if mac can't be calculated */
+                (mac2_len != macexpected_len ||
+                 memcmp(mac2, macexpected, mac2_len) != 0)) {
+                testcase_fail("ERROR: derived key #2 does not produce the "
+                              "expected HMAC");
+                goto testcase_next;
+            }
+        }
+
+        testcase_pass("*Derive shared secret i=%lu (%s) passed.", i,
+                      montgomery_ecdh_tv[i].name);
+
+testcase_next:
+        if (priv_keyA != CK_INVALID_HANDLE)
+            funcs->C_DestroyObject(session, priv_keyA);
+        priv_keyA = CK_INVALID_HANDLE;
+        if (publ_keyA != CK_INVALID_HANDLE)
+            funcs->C_DestroyObject(session, publ_keyA);
+        publ_keyA = CK_INVALID_HANDLE;
+        if (priv_keyB != CK_INVALID_HANDLE)
+            funcs->C_DestroyObject(session, priv_keyB);
+        priv_keyB = CK_INVALID_HANDLE;
+        if (publ_keyB != CK_INVALID_HANDLE)
+            funcs->C_DestroyObject(session, publ_keyB);
+        publ_keyB = CK_INVALID_HANDLE;
+        if (secret_keyA != CK_INVALID_HANDLE)
+            funcs->C_DestroyObject(session, secret_keyA);
+        secret_keyA = CK_INVALID_HANDLE;
+        if (secret_keyB != CK_INVALID_HANDLE)
+            funcs->C_DestroyObject(session, secret_keyB);
+        secret_keyB = CK_INVALID_HANDLE;
+    }
+
+testcase_cleanup:
+    if (priv_keyA != CK_INVALID_HANDLE)
+        funcs->C_DestroyObject(session, priv_keyA);
+    if (publ_keyA != CK_INVALID_HANDLE)
+        funcs->C_DestroyObject(session, publ_keyA);
+    if (priv_keyB != CK_INVALID_HANDLE)
+        funcs->C_DestroyObject(session, priv_keyB);
+    if (publ_keyB != CK_INVALID_HANDLE)
+        funcs->C_DestroyObject(session, publ_keyB);
+    if (secret_keyA != CK_INVALID_HANDLE)
+        funcs->C_DestroyObject(session, secret_keyA);
+    if (secret_keyB != CK_INVALID_HANDLE)
+        funcs->C_DestroyObject(session, secret_keyB);
+
+    testcase_user_logout();
+    testcase_close_session();
+
+    return rc;
+}
+
 int main(int argc, char **argv)
 {
     CK_C_INITIALIZE_ARGS cinit_args;
@@ -3488,6 +4705,10 @@ int main(int argc, char **argv)
     rv += run_DeriveECDHKeyKAT();
     rv += run_DeriveBTC();
     rv += run_BLSAggregation();
+    rv += run_GenerateEdwardsKeyPairSignVerify();
+    rv += run_ImportEdwardsKeyPairSignVerifyKAT();
+    rv += run_TransferEdwardsMontgomeryKeyPair();
+    rv += run_MontgomeryECDHKeyKAT();
 
 #ifndef NO_PKEY
     if (is_ep11_token(SLOT_ID) || is_cca_token(SLOT_ID)) {
@@ -3498,6 +4719,10 @@ int main(int argc, char **argv)
         rv += run_DeriveECDHKey();
         rv += run_DeriveECDHKeyKAT();
         rv += run_ImportSignVerify_Pkey();
+        rv += run_GenerateEdwardsKeyPairSignVerify();
+        rv += run_ImportEdwardsKeyPairSignVerifyKAT();
+        rv += run_TransferEdwardsMontgomeryKeyPair();
+        rv += run_MontgomeryECDHKeyKAT();
     }
 #endif
 

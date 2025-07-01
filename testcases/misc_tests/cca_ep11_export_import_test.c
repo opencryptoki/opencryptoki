@@ -1672,7 +1672,7 @@ static CK_RV ecc_export_import_tests(void)
             goto error;
         }
 
-        rc = generate_EC_KeyPair(session,
+        rc = generate_EC_KeyPair(session, CKM_EC_KEY_PAIR_GEN,
                                  ec_curves[i].curve, ec_curves[i].size,
                                  &publ_key, &priv_key, CK_FALSE);
         if (rc == CKR_CURVE_NOT_SUPPORTED) {
