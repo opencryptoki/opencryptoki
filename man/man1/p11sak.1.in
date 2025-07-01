@@ -21,15 +21,15 @@ p11sak \- Manage token keys in a PKCS\~#11 token repository.
 .
 .SH DESCRIPTION
 The \fBp11sak\fP tool can be used to manage token keys and certificates in a
-PKCS\~#11 token repository. The utility provides a flexible key management tool 
-to generate, list, remove, update, copy, import, and export symmetric (DES, 
+PKCS\~#11 token repository. The utility provides a flexible key management tool
+to generate, list, remove, update, copy, import, and export symmetric (DES,
 3DES, generic, SHA\-HMAC, AES, AES\-XTS) and asymmetric (RSA, DH, DSA, EC,
-IBM Dilithium, IBM Kyber, IBM ML\-DSA, IBM ML\-KEM) keys. This tool is also
-capable of listing the keys with their PKCS\~#11 attributes and their values
-(not all attributes may be displayed if a key is sensitive). It also supports
-the import, export, copy, and listing of certificates. Public keys inside
-certificates and private keys can be extracted and added to the token
-repository as new public key objects.
+EC\-Edwards, EC\-Montgomery, IBM Dilithium, IBM Kyber, IBM ML\-DSA,
+IBM ML\-KEM) keys. This tool is also capable of listing the keys with their
+PKCS\~#11 attributes and their values (not all attributes may be displayed if
+a key is sensitive). It also supports the import, export, copy, and listing
+of certificates. Public keys inside certificates and private keys can be
+extracted and added to the token repository as new public key objects.
 
 .PP
 .B Note:
@@ -74,7 +74,8 @@ argument are:
 sha256\-hmac |\: sha384\-hmac |\: sha512\-hmac |\: sha512/224\-hmac |\: \
 sha512/256\-hmac |\: sha3\-224\-hmac |\: sha3\-256\-hmac |\: sha3\-384\-hmac \
 |\: sha3\-512\-hmac |\: aes |\: aes\-xts |\: rsa |\: dh |\: dsa |\: ec |\: \
-ibm\-dilithium |\: ibm\-kyber |\: ibm\-ml\-dsa |\: ibm\-ml\-kem .
+ec\-edwards |\: ec\-montgomery |\: ibm\-dilithium |\: ibm\-kyber |\: \
+ibm\-ml\-dsa |\: ibm\-ml\-kem .
 See below for a detailed description of the arguments and options. The
 .BR \-\-help | \-h
 option also shows the arguments and options available.
@@ -529,6 +530,124 @@ brainpoolP192t1 |\: brainpoolP224r1 |\: brainpoolP224t1 |\: brainpoolP256r1 \
 |\: brainpoolP256t1 |\: brainpoolP320r1 |\: brainpoolP320t1 |\: \
 brainpoolP384r1 |\: brainpoolP384t1 |\: brainpoolP512r1 |\: brainpoolP512t1 \
 |\: curve25519 |\: curve448 |\: ed25519 |\: ed448 |\: bls12-381
+Note that using an Edwards or Montgomery curve for the EC key type only works
+for the EP11 token and produces a non-PKCS#11-standard EC key.
+.PP
+.B Note:
+Not all curves will be supported by all tokens and key generation will fail
+when the specified
+.I CURVE
+is not supported.
+.PP
+The
+.BR \-\-label | \-L
+.IR LABEL | PUB\-LABEL : PRIV\-LABEL
+option sets the
+.B CKA_LABEL
+attribute of the key and the
+.BR \-\-attr | \-a
+.IR ATTRS | PUB\-ATTRS : PRIV\-ATTRS
+option can be used to set the boolean attributes of the key (see below for
+detailed description of the attributes).
+Optionally, set individual key attributes for public and private key separated
+by a colon (\fB:\fP). The
+.BR \-\-id | \-i
+.I ID
+option can be used to set the value of the
+.B CKA_ID
+attribute of the key.
+.
+.PP
+.SS "Generating EC\-Edwards keys"
+.
+.B p11sak
+.BR generate\-key | gen\-key | gen
+.BR ec\-edwards
+.I CURVE
+.BR \-\-slot | \-s
+.I SLOTID
+.RB [ \-\-pin | \-p
+.IR PIN ]
+.RB [ \-\-force\-pin\-prompt ]
+.RB [ \-\-no\-login | \-N ]
+.RB [ \-\-so ]
+.BR \-\-label | \-L
+.IR LABEL | PUB\-LABEL : PRIV\-LABEL
+.BR \-\-attr | \-a
+.IR ATTRS | PUB\-ATTRS : PRIV\-ATTRS
+.RB [ \-\-id | \-i
+.IR ID ]
+.RB [ \-\-help | \-h ]
+.PP
+Use the
+.BR generate\-key | gen\-key | gen
+.B ec\-edwards
+.I CURVE
+command and
+.I KEYTYPE
+argument to generate an EC\-Edwards key (\fBCKK_EC_EDWARDS\fP), where
+.I CURVE
+specifies the edwards curve used to create the EC-Edwards key. The following
+arguments can be used for respective curves:
+.BR ed25519 |\: ed448 .
+.PP
+.B Note:
+Not all curves will be supported by all tokens and key generation will fail
+when the specified
+.I CURVE
+is not supported.
+.PP
+The
+.BR \-\-label | \-L
+.IR LABEL | PUB\-LABEL : PRIV\-LABEL
+option sets the
+.B CKA_LABEL
+attribute of the key and the
+.BR \-\-attr | \-a
+.IR ATTRS | PUB\-ATTRS : PRIV\-ATTRS
+option can be used to set the boolean attributes of the key (see below for
+detailed description of the attributes).
+Optionally, set individual key attributes for public and private key separated
+by a colon (\fB:\fP). The
+.BR \-\-id | \-i
+.I ID
+option can be used to set the value of the
+.B CKA_ID
+attribute of the key.
+.
+.PP
+.SS "Generating EC\-Montgomery keys"
+.
+.B p11sak
+.BR generate\-key | gen\-key | gen
+.BR ec\-montgomery
+.I CURVE
+.BR \-\-slot | \-s
+.I SLOTID
+.RB [ \-\-pin | \-p
+.IR PIN ]
+.RB [ \-\-force\-pin\-prompt ]
+.RB [ \-\-no\-login | \-N ]
+.RB [ \-\-so ]
+.BR \-\-label | \-L
+.IR LABEL | PUB\-LABEL : PRIV\-LABEL
+.BR \-\-attr | \-a
+.IR ATTRS | PUB\-ATTRS : PRIV\-ATTRS
+.RB [ \-\-id | \-i
+.IR ID ]
+.RB [ \-\-help | \-h ]
+.PP
+Use the
+.BR generate\-key | gen\-key | gen
+.B ec\-montgomery
+.I CURVE
+command and
+.I KEYTYPE
+argument to generate an EC\-Montgomery key (\fBCKK_EC_MONTGOMERY\fP), where
+.I CURVE
+specifies the montgomery curve used to create the EC\-Montgomery key. The
+following arguments can be used for respective curves:
+.BR curve25519 |\: curve448 .
 .PP
 .B Note:
 Not all curves are supported by all tokens and key generation fails
@@ -827,8 +946,8 @@ argument are:
 sha256\-hmac |\: sha384\-hmac |\: sha512\-hmac |\: sha512/224\-hmac |\: \
 sha512/256\-hmac |\: sha3\-224\-hmac |\: sha3\-256\-hmac |\: sha3\-384\-hmac \
 |\: sha3\-512\-hmac |\: aes |\: aes\-xts |\: rsa |\: dh |\: dsa |\: ec |\: \
-ibm\-dilithium |\: ibm\-kyber |\: ibm\-ml\-dsa |\: ibm\-ml\-kem |\: public \
-|\: private |\: secret |\: all .
+ec\-edwards |\: ec\-montgomery |\: ibm\-dilithium |\: ibm\-kyber |\: \
+ibm\-ml\-dsa |\: ibm\-ml\-kem |\: public |\: private |\: secret |\: all .
 If
 .I KEYTYPE
 is omitted, then all key types are listed.
@@ -920,8 +1039,8 @@ argument are:
 sha256\-hmac |\: sha384\-hmac |\: sha512\-hmac |\: sha512/224\-hmac |\: \
 sha512/256\-hmac |\: sha3\-224\-hmac |\: sha3\-256\-hmac |\: sha3\-384\-hmac \
 |\: sha3\-512\-hmac |\: aes |\: aes\-xts |\: rsa |\: dh |\: dsa |\: ec |\: \
-ibm\-dilithium |\: ibm\-kyber |\: ibm\-ml\-dsa |\: ibm\-ml\-kem |\: public \
-|\: private |\: secret |\: all .
+ec\-edwards |\: ec\-montgomery |\: ibm\-dilithium |\: ibm\-kyber |\: \
+ibm\-ml\-dsa |\: ibm\-ml\-kem |\: public |\: private |\: secret |\: all .
 If
 .I KEYTYPE
 is omitted, then all key types are selected for removal.
@@ -994,8 +1113,8 @@ argument are:
 sha256\-hmac |\: sha384\-hmac |\: sha512\-hmac |\: sha512/224\-hmac |\: \
 sha512/256\-hmac |\: sha3\-224\-hmac |\: sha3\-256\-hmac |\: sha3\-384\-hmac \
 |\: sha3\-512\-hmac |\: aes |\: aes\-xts |\: rsa |\: dh |\: dsa |\: ec |\: \
-ibm\-dilithium |\: ibm\-kyber |\: ibm\-ml\-dsa |\: ibm\-ml\-kem |\: public \
-|\: private |\: secret |\: all .
+ec\-edwards |\: ec\-montgomery |\: ibm\-dilithium |\: ibm\-kyber |\: \
+ibm\-ml\-dsa |\: ibm\-ml\-kem |\: public |\: private |\: secret |\: all .
 If
 .I KEYTYPE
 is omitted, then all key types are selected for updating.
@@ -1090,8 +1209,8 @@ argument are:
 sha256\-hmac |\: sha384\-hmac |\: sha512\-hmac |\: sha512/224\-hmac |\: \
 sha512/256\-hmac |\: sha3\-224\-hmac |\: sha3\-256\-hmac |\: sha3\-384\-hmac \
 |\: sha3\-512\-hmac |\: aes |\: aes\-xts |\: rsa |\: dh |\: dsa |\: ec |\: \
-ibm\-dilithium |\: ibm\-kyber |\: ibm\-ml\-dsa |\: ibm\-ml\-kem |\: public \
-|\: private |\: secret |\: all .
+ec\-edwards |\: ec\-montgomery |\: ibm\-dilithium |\: ibm\-kyber |\: \
+ibm\-ml\-dsa |\: ibm\-ml\-kem |\: public |\: private |\: secret |\: all .
 If
 .I KEYTYPE
 is omitted, then all key types are selected for copying.
@@ -1184,8 +1303,8 @@ argument are:
 sha256\-hmac |\: sha384\-hmac |\: sha512\-hmac |\: sha512/224\-hmac |\: \
 sha512/256\-hmac |\: sha3\-224\-hmac |\: sha3\-256\-hmac |\: sha3\-384\-hmac \
 |\: sha3\-512\-hmac |\: aes |\: aes\-xts |\: rsa |\: dh |\: dsa |\: ec |\: \
-ibm\-dilithium |\: ibm\-kyber |\: ibm\-ml\-dsa |\: ibm\-ml\-kem |\: public \
-|\: private |\: secret |\: all .
+ec\-edwards |\: ec\-montgomery |\: ibm\-dilithium |\: ibm\-kyber |\: \
+ibm\-ml\-dsa |\: ibm\-ml\-kem |\: public |\: private |\: secret |\: all .
 .PP
 The
 .BR \-\-label | \-L
@@ -1287,8 +1406,8 @@ argument are:
 sha256\-hmac |\: sha384\-hmac |\: sha512\-hmac |\: sha512/224\-hmac |\: \
 sha512/256\-hmac |\: sha3\-224\-hmac |\: sha3\-256\-hmac |\: sha3\-384\-hmac \
 |\: sha3\-512\-hmac |\: aes |\: aes\-xts |\: rsa |\: dh |\: dsa |\: ec |\: \
-ibm\-dilithium |\: ibm\-kyber |\: ibm\-ml\-dsa |\: ibm\-ml\-kem |\: public \
-|\: private |\: secret |\: all .
+ec\-edwards |\: ec\-montgomery |\: ibm\-dilithium |\: ibm\-kyber |\: \
+ibm\-ml\-dsa |\: ibm\-ml\-kem |\: public |\: private |\: secret |\: all .
 If
 .I KEYTYPE
 is omitted, then all key types are selected for export.
@@ -1459,8 +1578,9 @@ as new token object.
 Possible values for the
 .I KEYTYPE
 argument are:
-.BR rsa |\: dh |\: dsa |\: ec |\: ibm\-dilithium |\: ibm\-kyber |\: \
-ibm\-ml\-dsa |\: ibm\-ml\-kem |\: private |\: all .
+.BR rsa |\: dh |\: dsa |\: ec |\: ec\-edwards |\: ec\-montgomery |\: \
+ibm\-dilithium |\: ibm\-kyber |\: ibm\-ml\-dsa |\: ibm\-ml\-kem |\: private \
+|\: all .
 If
 .I KEYTYPE
 is omitted, then all private key types are selected for export.
@@ -1557,8 +1677,8 @@ argument are:
 sha256\-hmac |\: sha384\-hmac |\: sha512\-hmac |\: sha512/224\-hmac |\: \
 sha512/256\-hmac |\: sha3\-224\-hmac |\: sha3\-256\-hmac |\: sha3\-384\-hmac \
 |\: sha3\-512\-hmac |\: aes |\: aes\-xts |\: rsa |\: dh |\: dsa |\: ec |\: \
-ibm\-dilithium |\: ibm\-kyber |\: ibm\-ml\-dsa |\: ibm\-ml\-kem |\: private \
-|\: secret |\: all .
+ec\-edwards |\: ec\-montgomery |\: ibm\-dilithium |\: ibm\-kyber |\: \
+ibm\-ml\-dsa |\: ibm\-ml\-kem |\: private |\: secret |\: all .
 If
 .I KEYTYPE
 is omitted, then all key types are selected for wrapping.
@@ -1873,7 +1993,8 @@ argument are:
 sha256\-hmac |\: sha384\-hmac |\: sha512\-hmac |\: sha512/224\-hmac |\: \
 sha512/256\-hmac |\: sha3\-224\-hmac |\: sha3\-256\-hmac |\: sha3\-384\-hmac \
 |\: sha3\-512\-hmac |\: aes |\: aes\-xts |\: rsa |\: dh |\: dsa |\: ec |\: \
-ibm\-dilithium |\: ibm\-kyber |\: ibm\-ml\-dsa |\: ibm\-ml\-kem .
+ec\-edwards |\: ec\-montgomery |\: ibm\-dilithium |\: ibm\-kyber |\: \
+ibm\-ml\-dsa |\: ibm\-ml\-kem .
 .PP
 Specify the
 .BR \-\-kek\-label | \-K
@@ -2523,8 +2644,8 @@ selected. Possible values are:
 sha256\-hmac |\: sha384\-hmac |\: sha512\-hmac |\: sha512/224\-hmac |\: \
 sha512/256\-hmac |\: sha3\-224\-hmac |\: sha3\-256\-hmac |\: sha3\-384\-hmac \
 |\: sha3\-512\-hmac |\: aes |\: aes\-xts |\: rsa |\: dh |\: dsa |\: ec |\: \
-ibm\-dilithium |\: ibm\-kyber |\: ibm\-ml\-dsa |\: ibm\-ml\-kem |\: public \
-|\: private |\: secret |\: all .
+ec\-edwards |\: ec\-montgomery |\: ibm\-dilithium |\: ibm\-kyber |\: \
+ibm\-ml\-dsa |\: ibm\-ml\-kem |\: public |\: private |\: secret |\: all .
 The
 .BR public |\: private |\: secret |\: all
 argument can only be used with commands that use the
@@ -2616,13 +2737,20 @@ details about this command.
 .
 .SS "CURVE"
 .
-Specifies the curve for an EC key. Possible values are:
+Specifies the curve for an EC, EC-Edwards, or EC-Montgomery key. 
+For the EC key type possible values are:
 .BR prime256v1 |\: prime192 |\: secp224 |\: secp384r1 |\: secp521r1 |\: \
 secp265k1 |\: brainpoolP160r1 |\: brainpoolP160t1 |\: brainpoolP192r1 |\: \
 brainpoolP192t1 |\: brainpoolP224r1 |\: brainpoolP224t1 |\: brainpoolP256r1 \
 |\: brainpoolP256t1 |\: brainpoolP320r1 |\: brainpoolP320t1 |\: \
 brainpoolP384r1 |\: brainpoolP384t1 |\: brainpoolP512r1 |\: brainpoolP512t1 \
 |\: curve25519 |\: curve448 |\: ed25519 |\: ed448 |\: bls12-381 .
+Note that using an Edwards or Montgomery curve for the EC key type only works
+for the EP11 token and produces a non-PKCS#11-standard EC key.
+For the EC-Edwards key type possible values are:
+.BR ed25519 |\: ed448 .
+For the EC-Montgomery key type possible values are:
+.BR curve25519 |\: curve448 .
 .PP
 .
 .SS "VERSION"
