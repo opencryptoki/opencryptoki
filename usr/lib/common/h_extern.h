@@ -3257,7 +3257,14 @@ CK_RV openssl_specific_rsa_oaep_decrypt(STDLL_TokData_t *, ENCR_DECR_CONTEXT *,
 CK_RV openssl_make_ec_key_from_template(TEMPLATE *template, EVP_PKEY **pkey);
 CK_RV openssl_specific_ec_generate_keypair(STDLL_TokData_t *tokdata,
                                            TEMPLATE *publ_tmpl,
-                                           TEMPLATE *priv_tmpl);
+                                           TEMPLATE *priv_tmpl,
+                                           CK_MECHANISM_TYPE mech);
+#if OPENSSL_VERSION_PREREQ(3, 0)
+CK_RV openssl_ec_edwards_point_from_priv_key(CK_BYTE *parms, CK_ULONG parms_len,
+                                             CK_BYTE *priv, CK_ULONG priv_len,
+                                             CK_BYTE **point,
+                                             CK_ULONG *point_len);
+#endif
 CK_RV openssl_specific_ec_sign(STDLL_TokData_t *tokdata,  SESSION *sess,
                                CK_BYTE *in_data, CK_ULONG in_data_len,
                                CK_BYTE *out_data, CK_ULONG *out_data_len,
@@ -3268,6 +3275,17 @@ CK_RV openssl_specific_ec_verify(STDLL_TokData_t *tokdata,
                                  CK_ULONG in_data_len,
                                  CK_BYTE *signature,
                                  CK_ULONG signature_len, OBJECT *key_obj);
+CK_RV openssl_specific_ec_edwards_sign(STDLL_TokData_t *tokdata,  SESSION *sess,
+                                       CK_BYTE *in_data, CK_ULONG in_data_len,
+                                       CK_BYTE *out_data,
+                                       CK_ULONG *out_data_len,
+                                       OBJECT *key_obj, CK_MECHANISM *mech);
+CK_RV openssl_specific_ec_edwards_verify(STDLL_TokData_t *tokdata,
+                                         SESSION *sess,
+                                         CK_BYTE *in_data, CK_ULONG in_data_len,
+                                         CK_BYTE *signature,
+                                         CK_ULONG signature_len,
+                                         OBJECT *key_obj, CK_MECHANISM *mech);
 CK_RV openssl_specific_ecdh_pkcs_derive(STDLL_TokData_t *tokdata,
                                         CK_BYTE *priv_bytes,
                                         CK_ULONG priv_length,

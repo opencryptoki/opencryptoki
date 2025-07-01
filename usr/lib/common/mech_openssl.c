@@ -37,6 +37,12 @@
 #include <openssl/core_names.h>
 #include <openssl/param_build.h>
 
+#define SN_Ed25519    "Ed25519"
+#define SN_Ed25519ph  "Ed25519ph"
+#define SN_Ed25519ctx "Ed25519ctx"
+#define SN_Ed448      "Ed448"
+#define SN_Ed448ph    "Ed448ph"
+
 #ifndef OSSL_PKEY_PARAM_ML_DSA_SEED
     #define OSSL_PKEY_PARAM_ML_DSA_SEED "seed"
 #endif
@@ -1875,6 +1881,16 @@ static int curve_nid_from_params(const CK_BYTE *params, CK_ULONG params_len)
     nid = OBJ_obj2nid(obj);
     ASN1_OBJECT_free(obj);
 
+#if OPENSSL_VERSION_PREREQ(3, 0)
+    switch (nid) {
+    case NID_ED25519:
+    case NID_X25519:
+    case NID_ED448:
+    case NID_X448:
+        return nid;
+    }
+#endif
+
     grp = EC_GROUP_new_by_curve_name(nid);
     if (grp == NULL) {
         TRACE_ERROR("curve not supported by OpenSSL.\n");
@@ -1890,6 +1906,17 @@ static int ec_prime_len_from_nid(int nid)
 {
     EC_GROUP *group;
     int primelen;
+
+#if OPENSSL_VERSION_PREREQ(3, 0)
+    switch (nid) {
+    case NID_ED25519:
+    case NID_X25519:
+        return (CURVE256 + 7) / 8;
+    case NID_ED448:
+    case NID_X448:
+        return (CURVE448 + 7) / 8;
+    }
+#endif
 
     group = EC_GROUP_new_by_curve_name(nid);
     if (group == NULL)
@@ -1957,8 +1984,8 @@ out:
 #endif
 
 #if OPENSSL_VERSION_PREREQ(3, 0)
-static CK_RV build_pkey_from_params(OSSL_PARAM_BLD *tmpl, int selection,
-                                    EVP_PKEY **pkey)
+static CK_RV build_pkey_from_params(OSSL_PARAM_BLD *tmpl, int pkey_type,
+                                    int selection, EVP_PKEY **pkey)
 {
 
     OSSL_PARAM *params = NULL;
@@ -1972,7 +1999,7 @@ static CK_RV build_pkey_from_params(OSSL_PARAM_BLD *tmpl, int selection,
         goto out;
     }
 
-    pctx = EVP_PKEY_CTX_new_id(EVP_PKEY_EC, NULL);
+    pctx = EVP_PKEY_CTX_new_id(pkey_type, NULL);
     if (pctx == NULL) {
         TRACE_ERROR("EVP_PKEY_CTX_new_id failed\n");
         rc = CKR_FUNCTION_FAILED;
@@ -2037,22 +2064,44 @@ static CK_RV fill_ec_key_from_pubkey(OSSL_PARAM_BLD *tmpl, const CK_BYTE *data,
     CK_ULONG ecpoint_len, privlen;
     CK_BBOOL allocated = FALSE;
     int len;
-
+#if OPENSSL_VERSION_PREREQ(3, 0)
+    int pkey_type;
+#endif
     CK_RV rc;
 
-    len = ec_prime_len_from_nid(nid);
-    if (len <= 0) {
-        TRACE_ERROR("ec_prime_len_from_nid failed\n");
-        rc = CKR_CURVE_NOT_SUPPORTED;
-        goto out;
-    }
-    privlen = len;
+    switch (nid) {
+#if OPENSSL_VERSION_PREREQ(3, 0)
+    case NID_ED25519:
+    case NID_ED448:
+    case NID_X25519:
+    case NID_X448:
+        /* Edwards/Montgomery is always raw  */
+        ecpoint = (CK_BYTE *)data;
+        ecpoint_len = data_len;
 
-    rc = ec_point_from_public_data(data, data_len, privlen, allow_raw,
-                                   &allocated, &ecpoint, &ecpoint_len);
-    if (rc != CKR_OK) {
-        TRACE_DEVEL("ec_point_from_public_data failed\n");
-        goto out;
+        pkey_type = nid;
+        break;
+#endif
+    default:
+        len = ec_prime_len_from_nid(nid);
+        if (len <= 0) {
+            TRACE_ERROR("ec_prime_len_from_nid failed\n");
+            rc = CKR_CURVE_NOT_SUPPORTED;
+            goto out;
+        }
+        privlen = len;
+
+        rc = ec_point_from_public_data(data, data_len, privlen, allow_raw,
+                                       &allocated, &ecpoint, &ecpoint_len);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("ec_point_from_public_data failed\n");
+            goto out;
+        }
+
+#if OPENSSL_VERSION_PREREQ(3, 0)
+        pkey_type = EVP_PKEY_EC;
+#endif
+        break;
     }
 
 #if !OPENSSL_VERSION_PREREQ(3, 0)
@@ -2089,7 +2138,7 @@ static CK_RV fill_ec_key_from_pubkey(OSSL_PARAM_BLD *tmpl, const CK_BYTE *data,
         goto out;
     }
 
-    rc = build_pkey_from_params(tmpl, EVP_PKEY_PUBLIC_KEY, ec_pkey);
+    rc = build_pkey_from_params(tmpl, pkey_type, EVP_PKEY_PUBLIC_KEY, ec_pkey);
     if (rc != CKR_OK) {
         TRACE_ERROR("build_pkey_from_params failed\n");
         goto out;
@@ -2119,6 +2168,7 @@ static CK_RV fill_ec_key_from_privkey(OSSL_PARAM_BLD *tmpl, const CK_BYTE *data,
     unsigned char *pub_key = NULL;
     unsigned int pub_key_len;
     point_conversion_form_t form;
+    int pkey_type;
 #endif
     CK_RV rc = CKR_OK;
 
@@ -2168,55 +2218,76 @@ static CK_RV fill_ec_key_from_privkey(OSSL_PARAM_BLD *tmpl, const CK_BYTE *data,
         goto out;
     }
 #else
-    group = EC_GROUP_new_by_curve_name(nid);
-    if (group == NULL) {
-        TRACE_ERROR("EC_GROUP_new_by_curve_name failed\n");
-        rc = CKR_CURVE_NOT_SUPPORTED;
-        goto out;
+    switch (nid) {
+    case NID_ED25519:
+    case NID_ED448:
+    case NID_X25519:
+    case NID_X448:
+        /* Edwards/Montgomery: private key is a octet string */
+        if (!OSSL_PARAM_BLD_push_octet_string(tmpl, OSSL_PKEY_PARAM_PRIV_KEY,
+                                              data, data_len)) {
+            TRACE_ERROR("OSSL_PARAM_BLD_push_octet_string failed\n");
+            rc = CKR_FUNCTION_FAILED;
+            goto out;
+        }
+
+        pkey_type = nid;
+        break;
+    default:
+        /* EC: private key is a bignum */
+        group = EC_GROUP_new_by_curve_name(nid);
+        if (group == NULL) {
+            TRACE_ERROR("EC_GROUP_new_by_curve_name failed\n");
+            rc = CKR_CURVE_NOT_SUPPORTED;
+            goto out;
+        }
+
+        point = EC_POINT_new(group);
+        if (point == NULL) {
+            TRACE_ERROR("EC_POINT_new failed\n");
+            rc = CKR_FUNCTION_FAILED;
+            goto out;
+        }
+
+        bn_priv = BN_bin2bn(data, data_len, NULL);
+        if (bn_priv == NULL) {
+            rc = CKR_FUNCTION_FAILED;
+            goto out;
+        }
+
+        if (!EC_POINT_mul(group, point, bn_priv, NULL, NULL, NULL)) {
+            TRACE_ERROR("EC_POINT_mul failed\n");
+            rc = CKR_FUNCTION_FAILED;
+            goto out;
+        }
+
+        form = EC_GROUP_get_point_conversion_form(group);
+        pub_key_len = EC_POINT_point2buf(group, point, form, &pub_key,
+                                         NULL);
+        if (pub_key_len == 0) {
+            TRACE_ERROR("EC_POINT_point2buf failed\n");
+            rc = CKR_FUNCTION_FAILED;
+            goto out;
+        }
+
+        if (!OSSL_PARAM_BLD_push_octet_string(tmpl, OSSL_PKEY_PARAM_PUB_KEY,
+                                              pub_key, pub_key_len)) {
+            TRACE_ERROR("OSSL_PARAM_BLD_push_octet_string failed\n");
+            rc = CKR_FUNCTION_FAILED;
+            goto out;
+        }
+
+        if (!OSSL_PARAM_BLD_push_BN(tmpl, OSSL_PKEY_PARAM_PRIV_KEY, bn_priv)) {
+            TRACE_ERROR("OSSL_PARAM_BLD_push_BN failed\n");
+            rc = CKR_FUNCTION_FAILED;
+            goto out;
+        }
+
+        pkey_type = EVP_PKEY_EC;
+        break;
     }
 
-    point = EC_POINT_new(group);
-    if (point == NULL) {
-        TRACE_ERROR("EC_POINT_new failed\n");
-        rc = CKR_FUNCTION_FAILED;
-        goto out;
-    }
-
-    bn_priv = BN_bin2bn(data, data_len, NULL);
-    if (bn_priv == NULL) {
-        rc = CKR_FUNCTION_FAILED;
-        goto out;
-    }
-
-    if (!EC_POINT_mul(group, point, bn_priv, NULL, NULL, NULL)) {
-        TRACE_ERROR("EC_POINT_mul failed\n");
-        rc = CKR_FUNCTION_FAILED;
-        goto out;
-    }
-
-    form = EC_GROUP_get_point_conversion_form(group);
-    pub_key_len = EC_POINT_point2buf(group, point, form, &pub_key,
-                                     NULL);
-    if (pub_key_len == 0) {
-        TRACE_ERROR("EC_POINT_point2buf failed\n");
-        rc = CKR_FUNCTION_FAILED;
-        goto out;
-    }
-
-    if (!OSSL_PARAM_BLD_push_octet_string(tmpl, OSSL_PKEY_PARAM_PUB_KEY,
-                                          pub_key, pub_key_len)) {
-        TRACE_ERROR("OSSL_PARAM_BLD_push_octet_string failed\n");
-        rc = CKR_FUNCTION_FAILED;
-        goto out;
-    }
-
-    if (!OSSL_PARAM_BLD_push_BN(tmpl, OSSL_PKEY_PARAM_PRIV_KEY, bn_priv)) {
-        TRACE_ERROR("OSSL_PARAM_BLD_push_BN failed\n");
-        rc = CKR_FUNCTION_FAILED;
-        goto out;
-    }
-
-    rc = build_pkey_from_params(tmpl, EVP_PKEY_KEYPAIR, ec_pkey);
+    rc = build_pkey_from_params(tmpl, pkey_type, EVP_PKEY_KEYPAIR, ec_pkey);
     if (rc != CKR_OK) {
         TRACE_ERROR("build_pkey_from_params failed\n");
         goto out;
@@ -2242,6 +2313,7 @@ CK_RV openssl_make_ec_key_from_template(TEMPLATE *template, EVP_PKEY **pkey)
 {
     CK_ATTRIBUTE *attr = NULL;
     CK_OBJECT_CLASS keyclass;
+    CK_KEY_TYPE keytype;
     EVP_PKEY *ec_pkey = NULL;
     int nid;
 #if !OPENSSL_VERSION_PREREQ(3, 0)
@@ -2257,9 +2329,15 @@ CK_RV openssl_make_ec_key_from_template(TEMPLATE *template, EVP_PKEY **pkey)
         goto out;
     }
 
-    rc = template_attribute_get_non_empty(template, CKA_ECDSA_PARAMS, &attr);
+    rc = template_attribute_get_ulong(template, CKA_KEY_TYPE, &keytype);
     if (rc != CKR_OK) {
-        TRACE_ERROR("Could not find CKA_ECDSA_PARAMS in the template\n");
+        TRACE_ERROR("Could not find CKA_CLASS in the template\n");
+        goto out;
+    }
+
+    rc = template_attribute_get_non_empty(template, CKA_EC_PARAMS, &attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_EC_PARAMS in the template\n");
         goto out;
     }
 
@@ -2268,6 +2346,34 @@ CK_RV openssl_make_ec_key_from_template(TEMPLATE *template, EVP_PKEY **pkey)
         TRACE_ERROR("curve not supported by OpenSSL.\n");
         rc = CKR_CURVE_NOT_SUPPORTED;
         goto out;
+    }
+
+    switch (nid) {
+    case NID_ED25519:
+    case NID_ED448:
+        if (keytype != CKK_EC_EDWARDS) {
+            TRACE_ERROR("Edwards curve only supported with CKK_EC_EDWARDS "
+                        "key type.\n");
+            rc = CKR_CURVE_NOT_SUPPORTED;
+            goto out;
+        }
+        break;
+    case NID_X25519:
+    case NID_X448:
+        if (keytype != CKK_EC_MONTGOMERY) {
+            TRACE_ERROR("Montgomery curve only supported with "
+                        "CKK_EC_MONTGOMERY key type.\n");
+            rc = CKR_CURVE_NOT_SUPPORTED;
+            goto out;
+        }
+        break;
+    default:
+        if (keytype != CKK_EC) {
+            TRACE_ERROR("EC curve only supported with CKK_EC key type.\n");
+            rc = CKR_CURVE_NOT_SUPPORTED;
+            goto out;
+        }
+        break;
     }
 
 #if !OPENSSL_VERSION_PREREQ(3, 0)
@@ -2365,9 +2471,89 @@ out:
     return CKR_OK;
 }
 
+#if OPENSSL_VERSION_PREREQ(3, 0)
+/*
+ * Calculate the EC-Edwards public key (ECPoint) from the EC-Edwards private key.
+ */
+CK_RV openssl_ec_edwards_point_from_priv_key(CK_BYTE *parms, CK_ULONG parms_len,
+                                             CK_BYTE *priv, CK_ULONG priv_len,
+                                             CK_BYTE **point,
+                                             CK_ULONG *point_len)
+{
+    OSSL_PARAM_BLD *tmpl = NULL;
+    EVP_PKEY *ed_pkey = NULL;
+    CK_RV rc;
+    size_t pub_len = 0;
+    CK_BYTE *pub = NULL;
+    int nid;
+
+    nid = curve_nid_from_params(parms, parms_len);
+    if (nid == NID_undef) {
+        TRACE_ERROR("curve not supported by OpenSSL.\n");
+        rc = CKR_CURVE_NOT_SUPPORTED;
+        goto out;
+    }
+
+    tmpl = OSSL_PARAM_BLD_new();
+    if (tmpl == NULL) {
+        TRACE_ERROR("OSSL_PARAM_BLD_new failed\n");
+        rc = CKR_HOST_MEMORY;
+        goto out;
+    }
+
+    if (!OSSL_PARAM_BLD_push_utf8_string(tmpl, OSSL_PKEY_PARAM_GROUP_NAME,
+                                         OBJ_nid2sn(nid), 0)) {
+        TRACE_ERROR("OSSL_PARAM_BLD_push_utf8_string failed\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+
+    rc = fill_ec_key_from_privkey(tmpl, priv, priv_len, nid, &ed_pkey);
+     if (rc != CKR_OK) {
+         TRACE_DEVEL("fill_ec_key_from_privkey failed\n");
+         goto out;
+     }
+
+     if (EVP_PKEY_get_octet_string_param(ed_pkey, OSSL_PKEY_PARAM_PUB_KEY,
+                                         NULL, 0, &pub_len) != 1) {
+         TRACE_DEVEL("EVP_PKEY_get_octet_string_param failed\n");
+         goto out;
+     }
+
+     pub = malloc(pub_len);
+     if (pub == NULL) {
+         rc = CKR_HOST_MEMORY;
+         goto out;
+     }
+
+     if (EVP_PKEY_get_octet_string_param(ed_pkey, OSSL_PKEY_PARAM_PUB_KEY,
+                                         pub, pub_len, &pub_len) != 1) {
+         TRACE_DEVEL("EVP_PKEY_get_octet_string_param failed\n");
+         goto out;
+     }
+
+     *point = pub;
+     *point_len = pub_len;
+     pub = NULL;
+
+out:
+    if (tmpl != NULL)
+        OSSL_PARAM_BLD_free(tmpl);
+
+    if (ed_pkey != NULL)
+        EVP_PKEY_free(ed_pkey);
+
+    if (pub != NULL)
+        free(pub);
+
+    return rc;
+}
+#endif
+
 CK_RV openssl_specific_ec_generate_keypair(STDLL_TokData_t *tokdata,
                                            TEMPLATE *publ_tmpl,
-                                           TEMPLATE *priv_tmpl)
+                                           TEMPLATE *priv_tmpl,
+                                           CK_MECHANISM_TYPE mech)
 {
 
     CK_ATTRIBUTE *attr = NULL, *ec_point_attr, *value_attr, *parms_attr;
@@ -2383,12 +2569,12 @@ CK_RV openssl_specific_ec_generate_keypair(STDLL_TokData_t *tokdata,
     size_t ecpoint_len;
     EVP_PKEY_CTX *ctx = NULL;
     EVP_PKEY *ec_pkey = NULL;
-    int nid;
+    int nid, pkey_type;
     CK_RV rc;
 
     UNUSED(tokdata);
 
-    rc = template_attribute_get_non_empty(publ_tmpl, CKA_ECDSA_PARAMS, &attr);
+    rc = template_attribute_get_non_empty(publ_tmpl, CKA_EC_PARAMS, &attr);
     if (rc != CKR_OK)
         goto out;
 
@@ -2399,7 +2585,40 @@ CK_RV openssl_specific_ec_generate_keypair(STDLL_TokData_t *tokdata,
         goto out;
     }
 
-    ctx = EVP_PKEY_CTX_new_id(EVP_PKEY_EC, NULL);
+    switch (nid) {
+#if OPENSSL_VERSION_PREREQ(3, 0)
+    case NID_ED25519:
+    case NID_ED448:
+        if (mech != CKM_EC_EDWARDS_KEY_PAIR_GEN) {
+            TRACE_ERROR("Edwards curve only supported with "
+                        "CKM_EC_EDWARDS_KEY_PAIR_GEN.\n");
+            rc = CKR_CURVE_NOT_SUPPORTED;
+            goto out;
+        }
+        pkey_type = nid;
+        break;
+    case NID_X25519:
+    case NID_X448:
+        if (mech != CKM_EC_MONTGOMERY_KEY_PAIR_GEN) {
+            TRACE_ERROR("Montgomery curve only supported with "
+                        "CKM_EC_MONTGOMERY_KEY_PAIR_GEN.\n");
+            rc = CKR_CURVE_NOT_SUPPORTED;
+            goto out;
+        }
+        pkey_type = nid;
+        break;
+#endif
+    default:
+        if (mech != CKM_EC_KEY_PAIR_GEN) {
+            TRACE_ERROR("curve only supported with CKM_EC_KEY_PAIR_GEN.\n");
+            rc = CKR_CURVE_NOT_SUPPORTED;
+            goto out;
+        }
+        pkey_type = EVP_PKEY_EC;
+        break;
+    }
+
+    ctx = EVP_PKEY_CTX_new_id(pkey_type, NULL);
     if (ctx == NULL) {
         TRACE_ERROR("EVP_PKEY_CTX_new failed\n");
         rc = CKR_FUNCTION_FAILED;
@@ -2412,10 +2631,12 @@ CK_RV openssl_specific_ec_generate_keypair(STDLL_TokData_t *tokdata,
         goto out;
     }
 
-    if (EVP_PKEY_CTX_set_ec_paramgen_curve_nid(ctx, nid) <= 0) {
-        TRACE_ERROR("EVP_PKEY_CTX_set_ec_paramgen_curve_nid failed\n");
-        rc = CKR_CURVE_NOT_SUPPORTED;
-        goto out;
+    if (pkey_type == EVP_PKEY_EC) {
+        if (EVP_PKEY_CTX_set_ec_paramgen_curve_nid(ctx, nid) <= 0) {
+            TRACE_ERROR("EVP_PKEY_CTX_set_ec_paramgen_curve_nid failed\n");
+            rc = CKR_CURVE_NOT_SUPPORTED;
+            goto out;
+        }
     }
 
     if (EVP_PKEY_keygen(ctx, &ec_pkey) <= 0) {
@@ -2450,7 +2671,9 @@ CK_RV openssl_specific_ec_generate_keypair(STDLL_TokData_t *tokdata,
     }
 #else
     if (!EVP_PKEY_get_octet_string_param(ec_pkey,
-                                         OSSL_PKEY_PARAM_ENCODED_PUBLIC_KEY,
+                                         pkey_type == EVP_PKEY_EC ?
+                                            OSSL_PKEY_PARAM_ENCODED_PUBLIC_KEY :
+                                            OSSL_PKEY_PARAM_PUB_KEY,
                                          NULL, 0, &ecpoint_len)) {
         TRACE_ERROR("EVP_PKEY_get_octet_string_param failed\n");
         rc = CKR_FUNCTION_FAILED;
@@ -2465,7 +2688,9 @@ CK_RV openssl_specific_ec_generate_keypair(STDLL_TokData_t *tokdata,
     }
 
     if (!EVP_PKEY_get_octet_string_param(ec_pkey,
-                                         OSSL_PKEY_PARAM_ENCODED_PUBLIC_KEY,
+                                         pkey_type == EVP_PKEY_EC ?
+                                            OSSL_PKEY_PARAM_ENCODED_PUBLIC_KEY :
+                                            OSSL_PKEY_PARAM_PUB_KEY,
                                          ecpoint, ecpoint_len, &ecpoint_len)) {
         TRACE_ERROR("EVP_PKEY_get_octet_string_param failed\n");
         rc = CKR_FUNCTION_FAILED;
@@ -2473,18 +2698,28 @@ CK_RV openssl_specific_ec_generate_keypair(STDLL_TokData_t *tokdata,
     }
 #endif
 
-    rc = ber_encode_OCTET_STRING(FALSE, &enc_ecpoint, &enc_ecpoint_len,
-                                 ecpoint, ecpoint_len);
-    if (rc != CKR_OK) {
-        TRACE_DEVEL("ber_encode_OCTET_STRING failed\n");
-        goto out;
-    }
+    if (pkey_type == EVP_PKEY_EC) {
+        rc = ber_encode_OCTET_STRING(FALSE, &enc_ecpoint, &enc_ecpoint_len,
+                                     ecpoint, ecpoint_len);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("ber_encode_OCTET_STRING failed\n");
+            goto out;
+        }
 
-    rc = build_attribute(CKA_EC_POINT, enc_ecpoint, enc_ecpoint_len,
-                         &ec_point_attr);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("build_attribute for CKA_EC_POINT failed rc=0x%lx\n", rc);
-        goto out;
+        rc = build_attribute(CKA_EC_POINT, enc_ecpoint, enc_ecpoint_len,
+                             &ec_point_attr);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("build_attribute for CKA_EC_POINT failed rc=0x%lx\n", rc);
+            goto out;
+        }
+    } else {
+        /* Edwards/Montgomery keys have raw CKA_EC_POINT */
+        rc = build_attribute(CKA_EC_POINT, ecpoint, ecpoint_len,
+                             &ec_point_attr);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("build_attribute for CKA_EC_POINT failed rc=0x%lx\n", rc);
+            goto out;
+        }
     }
     rc = template_update_attribute(publ_tmpl, ec_point_attr);
     if (rc != CKR_OK) {
@@ -2501,27 +2736,52 @@ CK_RV openssl_specific_ec_generate_keypair(STDLL_TokData_t *tokdata,
         goto out;
     }
 #else
-    if (!EVP_PKEY_get_bn_param(ec_pkey, OSSL_PKEY_PARAM_PRIV_KEY, &bn_d)) {
-        TRACE_ERROR("EVP_PKEY_get_bn_param failed\n");
-        rc = CKR_FUNCTION_FAILED;
-        goto out;
-    }
+    if (pkey_type == EVP_PKEY_EC) {
+        /* EC: private key is a bignum */
+        if (!EVP_PKEY_get_bn_param(ec_pkey, OSSL_PKEY_PARAM_PRIV_KEY, &bn_d)) {
+            TRACE_ERROR("EVP_PKEY_get_bn_param failed\n");
+            rc = CKR_FUNCTION_FAILED;
+            goto out;
+        }
 
-    len = ec_prime_len_from_nid(nid);
-    if (len <= 0) {
-        TRACE_ERROR("ec_prime_len_from_nid failed\n");
-        rc = CKR_CURVE_NOT_SUPPORTED;
-        goto out;
-    }
-    d_len = len;
-    d = OPENSSL_zalloc(d_len);
-    if (d == NULL) {
-        TRACE_ERROR("OPENSSL_zalloc failed\n");
-        rc = CKR_HOST_MEMORY;
-        goto out;
-    }
+        len = ec_prime_len_from_nid(nid);
+        if (len <= 0) {
+            TRACE_ERROR("ec_prime_len_from_nid failed\n");
+            rc = CKR_CURVE_NOT_SUPPORTED;
+            goto out;
+        }
+        d_len = len;
+        d = OPENSSL_zalloc(d_len);
+        if (d == NULL) {
+            TRACE_ERROR("OPENSSL_zalloc failed\n");
+            rc = CKR_HOST_MEMORY;
+            goto out;
+        }
 
-    BN_bn2binpad(bn_d, d, d_len);
+        BN_bn2binpad(bn_d, d, d_len);
+    } else {
+        /* Edwards/Montgomery: private key is a octet string */
+        if (!EVP_PKEY_get_octet_string_param(ec_pkey, OSSL_PKEY_PARAM_PRIV_KEY,
+                                             d, 0, &d_len)) {
+            TRACE_ERROR("EVP_PKEY_get_octet_string_param failed\n");
+            rc = CKR_FUNCTION_FAILED;
+            goto out;
+        }
+
+        d = OPENSSL_zalloc(d_len);
+        if (d == NULL) {
+            TRACE_ERROR("OPENSSL_zalloc failed\n");
+            rc = CKR_HOST_MEMORY;
+            goto out;
+        }
+
+        if (!EVP_PKEY_get_octet_string_param(ec_pkey, OSSL_PKEY_PARAM_PRIV_KEY,
+                                             d, d_len, &d_len)) {
+            TRACE_ERROR("EVP_PKEY_get_octet_string_param failed\n");
+            rc = CKR_FUNCTION_FAILED;
+            goto out;
+        }
+    }
 #endif
 
     rc = build_attribute(CKA_VALUE, d, d_len, &value_attr);
@@ -2536,12 +2796,11 @@ CK_RV openssl_specific_ec_generate_keypair(STDLL_TokData_t *tokdata,
         goto out;
     }
 
-
-    /* Add CKA_ECDSA_PARAMS to private template also */
-    rc = build_attribute(CKA_ECDSA_PARAMS, attr->pValue, attr->ulValueLen,
+    /* Add CKA_EC_PARAMS to private template also */
+    rc = build_attribute(CKA_EC_PARAMS, attr->pValue, attr->ulValueLen,
                          &parms_attr);
     if (rc != CKR_OK) {
-        TRACE_ERROR("build_attribute for CKA_ECDSA_PARAMS failed, rc=0x%lx\n",
+        TRACE_ERROR("build_attribute for CKA_EC_PARAMS failed, rc=0x%lx\n",
                      rc);
         goto out;
     }
@@ -2814,6 +3073,293 @@ out:
     object_ex_data_unlock(key_obj);
 
     return rc;
+}
+
+#if OPENSSL_VERSION_PREREQ(3, 0)
+static CK_RV build_edwards_params(CK_MECHANISM *mech, EVP_PKEY *ed_key,
+                                  OSSL_PARAM params[3])
+{
+    CK_EDDSA_PARAMS* eddsa_params;
+    int i = 0;
+
+    if (mech->ulParameterLen == sizeof(CK_EDDSA_PARAMS) &&
+        mech->pParameter != NULL) {
+        eddsa_params = mech->pParameter;
+
+        if (eddsa_params->ulContextDataLen != 0 &&
+            eddsa_params->pContextData == NULL) {
+            TRACE_ERROR("Invalid mechanism parameter contents\n");
+            return CKR_MECHANISM_PARAM_INVALID;
+        }
+
+        if (eddsa_params->phFlag) {
+#ifdef OSSL_SIGNATURE_PARAM_INSTANCE
+            if (EVP_PKEY_is_a(ed_key, "Ed25519"))
+                params[i++] = OSSL_PARAM_construct_utf8_string(
+                                        OSSL_SIGNATURE_PARAM_INSTANCE,
+                                        SN_Ed25519ph, strlen(SN_Ed25519ph));
+            else
+                params[i++] = OSSL_PARAM_construct_utf8_string(
+                                        OSSL_SIGNATURE_PARAM_INSTANCE,
+                                        SN_Ed448ph, strlen(SN_Ed448ph));
+#else
+            TRACE_ERROR("OpenSSL does not support the Edwards Instance "
+                        "parameter\n");
+            return CKR_MECHANISM_PARAM_INVALID;
+#endif
+        } else {
+            if (EVP_PKEY_is_a(ed_key, "Ed25519")) {
+                if (eddsa_params->pContextData != NULL &&
+                    eddsa_params->ulContextDataLen > 0) {
+#ifdef OSSL_SIGNATURE_PARAM_INSTANCE
+                    params[i++] = OSSL_PARAM_construct_utf8_string(
+                                        OSSL_SIGNATURE_PARAM_INSTANCE,
+                                        SN_Ed25519ctx, strlen(SN_Ed25519ctx));
+#else
+                    TRACE_ERROR("OpenSSL does not support the Edwards Instance "
+                                "parameter\n");
+                    return CKR_MECHANISM_PARAM_INVALID;
+#endif
+                } else {
+#ifdef OSSL_SIGNATURE_PARAM_INSTANCE
+                    params[i++] = OSSL_PARAM_construct_utf8_string(
+                                        OSSL_SIGNATURE_PARAM_INSTANCE,
+                                        SN_Ed25519, strlen(SN_Ed25519));
+#endif
+                }
+            } else {
+#ifdef OSSL_SIGNATURE_PARAM_INSTANCE
+                params[i++] = OSSL_PARAM_construct_utf8_string(
+                                        OSSL_SIGNATURE_PARAM_INSTANCE,
+                                        SN_Ed448, strlen(SN_Ed448));
+#endif
+            }
+        }
+
+        if (eddsa_params->pContextData != NULL &&
+            eddsa_params->ulContextDataLen > 0) {
+
+            if (eddsa_params->ulContextDataLen > 255) {
+                TRACE_ERROR("Max context size is 255 bytes\n");
+                return CKR_MECHANISM_PARAM_INVALID;
+            }
+
+#ifdef OSSL_SIGNATURE_PARAM_CONTEXT_STRING
+            params[i++] = OSSL_PARAM_construct_octet_string(
+                                    OSSL_SIGNATURE_PARAM_CONTEXT_STRING,
+                                    eddsa_params->pContextData,
+                                    eddsa_params->ulContextDataLen);
+#else
+            TRACE_ERROR("OpenSSL does not support Edwards Context parameter\n");
+            return CKR_MECHANISM_PARAM_INVALID;
+#endif
+        }
+    } else {
+        if (EVP_PKEY_is_a(ed_key, "Ed25519")) {
+#ifdef OSSL_SIGNATURE_PARAM_INSTANCE
+            params[i++] = OSSL_PARAM_construct_utf8_string(
+                                    OSSL_SIGNATURE_PARAM_INSTANCE,
+                                    SN_Ed25519, strlen(SN_Ed25519));
+#endif
+        } else {
+            TRACE_ERROR("Mechanism parameter is required for Ed448\n");
+            return CKR_MECHANISM_PARAM_INVALID;
+        }
+    }
+    params[i++] = OSSL_PARAM_construct_end();
+
+
+    return CKR_OK;
+}
+#endif
+
+CK_RV openssl_specific_ec_edwards_sign(STDLL_TokData_t *tokdata,  SESSION *sess,
+                                       CK_BYTE *in_data, CK_ULONG in_data_len,
+                                       CK_BYTE *out_data,
+                                       CK_ULONG *out_data_len,
+                                       OBJECT *key_obj, CK_MECHANISM *mech)
+{
+#if OPENSSL_VERSION_PREREQ(3, 0)
+    struct openssl_ex_data *ex_data = NULL;
+    EVP_PKEY *ed_key = NULL;
+    EVP_MD_CTX *md_ctx = NULL;
+    OSSL_PARAM params[3];
+    CK_RV rc = CKR_OK;
+    size_t siglen;
+
+    UNUSED(tokdata);
+    UNUSED(sess);
+
+    rc = openssl_get_ex_data(key_obj, (void **)&ex_data,
+                             sizeof(struct openssl_ex_data),
+                             openssl_need_wr_lock, NULL);
+    if (rc != CKR_OK)
+        return rc;
+
+    if (ex_data->pkey == NULL) {
+        rc = openssl_make_ec_key_from_template(key_obj->template,
+                                               &ex_data->pkey);
+        if (rc != CKR_OK)
+            goto out;
+    }
+
+    ed_key = ex_data->pkey;
+    if (EVP_PKEY_up_ref(ed_key) != 1) {
+        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+
+    md_ctx = EVP_MD_CTX_new();
+    if (md_ctx == NULL) {
+        TRACE_ERROR("EVP_MD_CTX_new failed\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+
+    rc = build_edwards_params(mech, ed_key, params);
+    if (rc != CKR_OK)
+        goto out;
+
+    if (EVP_DigestSignInit_ex(md_ctx, NULL, NULL, NULL, NULL,
+                              ed_key, params) != 1) {
+        TRACE_ERROR("EVP_DigestSignInit_ex failed\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+
+    if (EVP_DigestSign(md_ctx, NULL, &siglen, in_data, in_data_len) <= 0) {
+        TRACE_ERROR("EVP_DigestSign failed\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+
+    if (*out_data_len < siglen) {
+        TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
+        rc = CKR_BUFFER_TOO_SMALL;
+        goto out;
+    }
+
+    if (EVP_DigestSign(md_ctx, out_data, &siglen, in_data, in_data_len) <= 0) {
+        TRACE_ERROR("EVP_DigestSign failed\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+
+    *out_data_len = siglen;
+
+out:
+    if (ed_key != NULL)
+        EVP_PKEY_free(ed_key);
+    if (md_ctx != NULL)
+        EVP_MD_CTX_free(md_ctx);
+    object_ex_data_unlock(key_obj);
+
+    return rc;
+#else
+    UNUSED(tokdata);
+    UNUSED(sess);
+    UNUSED(in_data);
+    UNUSED(in_data_len);
+    UNUSED(out_data);
+    UNUSED(out_data_len);
+    UNUSED(key_obj);
+    UNUSED(mech);
+
+    return CKR_MECHANISM_INVALID;
+#endif
+}
+
+CK_RV openssl_specific_ec_edwards_verify(STDLL_TokData_t *tokdata,
+                                         SESSION *sess,
+                                         CK_BYTE *in_data, CK_ULONG in_data_len,
+                                         CK_BYTE *signature,
+                                         CK_ULONG signature_len,
+                                         OBJECT *key_obj, CK_MECHANISM *mech)
+{
+#if OPENSSL_VERSION_PREREQ(3, 0)
+    struct openssl_ex_data *ex_data = NULL;
+    EVP_PKEY *ed_key = NULL;
+    EVP_MD_CTX *md_ctx = NULL;
+    OSSL_PARAM params[3];
+    CK_RV rc = CKR_OK;
+
+    UNUSED(tokdata);
+    UNUSED(sess);
+
+    rc = openssl_get_ex_data(key_obj, (void **)&ex_data,
+                             sizeof(struct openssl_ex_data),
+                             openssl_need_wr_lock, NULL);
+    if (rc != CKR_OK)
+        return rc;
+
+    if (ex_data->pkey == NULL) {
+        rc = openssl_make_ec_key_from_template(key_obj->template,
+                                               &ex_data->pkey);
+        if (rc != CKR_OK)
+            goto out;
+    }
+
+    ed_key = ex_data->pkey;
+    if (EVP_PKEY_up_ref(ed_key) != 1) {
+        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+
+    md_ctx = EVP_MD_CTX_new();
+    if (md_ctx == NULL) {
+        TRACE_ERROR("EVP_MD_CTX_new failed\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+
+    rc = build_edwards_params(mech, ed_key, params);
+    if (rc != CKR_OK)
+        goto out;
+
+    if (EVP_DigestVerifyInit_ex(md_ctx, NULL, NULL, NULL, NULL,
+                                ed_key, params) != 1) {
+        TRACE_ERROR("EVP_DigestVerifyInit_ex failed\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+
+    rc = EVP_DigestVerify(md_ctx, signature, signature_len,
+                          in_data, in_data_len);
+    switch (rc) {
+    case 0:
+        rc = CKR_SIGNATURE_INVALID;
+        break;
+    case 1:
+        rc = CKR_OK;
+        break;
+    default:
+        TRACE_ERROR("EVP_DigestVerify failed\n");
+        rc = CKR_FUNCTION_FAILED;
+        break;
+    }
+
+out:
+    if (ed_key != NULL)
+        EVP_PKEY_free(ed_key);
+    if (md_ctx != NULL)
+        EVP_MD_CTX_free(md_ctx);
+    object_ex_data_unlock(key_obj);
+
+    return rc;
+#else
+    UNUSED(tokdata);
+    UNUSED(sess);
+    UNUSED(in_data);
+    UNUSED(in_data_len);
+    UNUSED(signature);
+    UNUSED(signature_len);
+    UNUSED(key_obj);
+    UNUSED(mech);
+
+    return CKR_MECHANISM_INVALID;
+#endif
 }
 
 CK_RV openssl_specific_ecdh_pkcs_derive(STDLL_TokData_t *tokdata,
