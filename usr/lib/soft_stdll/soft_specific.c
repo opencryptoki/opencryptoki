@@ -310,6 +310,13 @@ static const MECH_LIST_ELEMENT soft_mech_list[] = {
                              CKF_EC_COMPRESS}},
 #endif
 #if OPENSSL_VERSION_PREREQ(3, 0)
+    {CKM_EC_EDWARDS_KEY_PAIR_GEN, {255, 448, CKF_GENERATE_KEY_PAIR |
+                                   CKF_EC_OID | CKF_EC_F_P | CKF_EC_COMPRESS}},
+    {CKM_EC_MONTGOMERY_KEY_PAIR_GEN, {255, 448, CKF_GENERATE_KEY_PAIR |
+                                      CKF_EC_OID | CKF_EC_F_P |
+                                      CKF_EC_COMPRESS}},
+    {CKM_EDDSA, {255, 448, CKF_SIGN | CKF_VERIFY | CKF_EC_OID | CKF_EC_F_P |
+                                      CKF_EC_COMPRESS}},
     {CKM_IBM_DILITHIUM, {256, 256, CKF_GENERATE_KEY_PAIR |
                                    CKF_SIGN | CKF_VERIFY}},
     {CKM_IBM_ML_DSA_KEY_PAIR_GEN, {1312, 2592, CKF_GENERATE_KEY_PAIR}},
@@ -1484,7 +1491,26 @@ CK_RV token_specific_ec_generate_keypair(STDLL_TokData_t *tokdata,
                                          TEMPLATE *publ_tmpl,
                                          TEMPLATE *priv_tmpl)
 {
-    return openssl_specific_ec_generate_keypair(tokdata, publ_tmpl, priv_tmpl);
+    return openssl_specific_ec_generate_keypair(tokdata, publ_tmpl, priv_tmpl,
+                                                CKM_EC_KEY_PAIR_GEN);
+}
+
+CK_RV token_specific_ec_edwards_generate_keypair(STDLL_TokData_t *tokdata,
+                                                 TEMPLATE *publ_tmpl,
+                                                 TEMPLATE *priv_tmpl)
+{
+    return openssl_specific_ec_generate_keypair(tokdata, publ_tmpl,
+                                                priv_tmpl,
+                                                CKM_EC_EDWARDS_KEY_PAIR_GEN);
+}
+
+CK_RV token_specific_ec_montgomery_generate_keypair(STDLL_TokData_t *tokdata,
+                                                    TEMPLATE *publ_tmpl,
+                                                    TEMPLATE *priv_tmpl)
+{
+    return openssl_specific_ec_generate_keypair(tokdata, publ_tmpl,
+                                                priv_tmpl,
+                                                CKM_EC_MONTGOMERY_KEY_PAIR_GEN);
 }
 
 CK_RV token_specific_ec_sign(STDLL_TokData_t *tokdata,  SESSION *sess,
@@ -1505,6 +1531,26 @@ CK_RV token_specific_ec_verify(STDLL_TokData_t *tokdata,
 {
     return openssl_specific_ec_verify(tokdata, sess, in_data, in_data_len,
                                       signature, signature_len, key_obj);
+}
+
+CK_RV token_specific_ec_edwards_sign(STDLL_TokData_t *tokdata,  SESSION *sess,
+                                     CK_BYTE *in_data, CK_ULONG in_data_len,
+                                     CK_BYTE *out_data, CK_ULONG *out_data_len,
+                                     OBJECT *key_obj, CK_MECHANISM *mech)
+{
+    return openssl_specific_ec_edwards_sign(tokdata, sess, in_data, in_data_len,
+                                            out_data, out_data_len, key_obj, mech);
+}
+
+CK_RV token_specific_ec_edwards_verify(STDLL_TokData_t *tokdata, SESSION *sess,
+                                       CK_BYTE *in_data, CK_ULONG in_data_len,
+                                       CK_BYTE *signature,
+                                       CK_ULONG signature_len, OBJECT *key_obj,
+                                       CK_MECHANISM * mech)
+{
+    return openssl_specific_ec_edwards_verify(tokdata, sess, in_data,
+                                              in_data_len, signature,
+                                              signature_len, key_obj, mech);
 }
 
 CK_RV token_specific_ecdh_pkcs_derive(STDLL_TokData_t *tokdata,
@@ -1698,6 +1744,8 @@ CK_RV token_specific_object_add(STDLL_TokData_t * tokdata, SESSION * sess,
     switch (keytype) {
 #ifndef NO_EC
     case CKK_EC:
+    case CKK_EC_EDWARDS:
+    case CKK_EC_MONTGOMERY:
         /* Check if OpenSSL supports the curve */
         rc = openssl_make_ec_key_from_template(obj->template, &ec_key);
         if (ec_key != NULL)
@@ -1784,6 +1832,8 @@ CK_RV token_specific_set_attrs_for_new_object(STDLL_TokData_t *tokdata,
 
 #ifndef NO_EC
     case CKK_EC:
+    case CKK_EC_EDWARDS:
+    case CKK_EC_MONTGOMERY:
         /* Check if OpenSSL supports the curve */
         rc = openssl_make_ec_key_from_template(tmpl, &pkey);
         if (pkey != NULL)

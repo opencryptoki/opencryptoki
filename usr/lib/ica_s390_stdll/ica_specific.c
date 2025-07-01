@@ -5970,7 +5970,9 @@ CK_RV token_specific_ec_generate_keypair(STDLL_TokData_t *tokdata,
     }
 
     if (!ica_data->ica_ec_keygen_available)
-        rc = openssl_specific_ec_generate_keypair(tokdata, publ_tmpl, priv_tmpl);
+        rc = openssl_specific_ec_generate_keypair(tokdata, publ_tmpl,
+                                                  priv_tmpl,
+                                                  CKM_EC_KEY_PAIR_GEN);
 
     return rc;
 }

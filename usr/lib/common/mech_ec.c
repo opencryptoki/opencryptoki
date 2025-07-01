@@ -1478,6 +1478,18 @@ CK_RV ec_point_from_priv_key(CK_BYTE *parms, CK_ULONG parms_len,
     if (nid == -1)
         return CKR_CURVE_NOT_SUPPORTED;
 
+#if OPENSSL_VERSION_PREREQ(3, 0)
+    switch (nid) {
+    case NID_ED25519:
+    case NID_ED448:
+    case NID_X25519:
+    case NID_X448:
+        return openssl_ec_edwards_point_from_priv_key(parms, parms_len,
+                                                      d, d_len,
+                                                      point, point_len);
+    }
+#endif
+
     bn_d = BN_secure_new();
     if (bn_d == NULL) {
         rc = CKR_FUNCTION_FAILED;
