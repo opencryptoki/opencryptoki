@@ -323,6 +323,10 @@ static const MECH_LIST_ELEMENT cca_mech_list[] = {
     {CKM_IBM_ML_KEM_KEY_PAIR_GEN, {800, 1568, CKF_HW | CKF_GENERATE_KEY_PAIR}},
     {CKM_IBM_ML_KEM_WITH_ECDH, {800, 1568, CKF_HW | CKF_DERIVE}},
     {CKM_RSA_AES_KEY_WRAP, {2048, 4096, CKF_HW | CKF_WRAP | CKF_UNWRAP}},
+    {CKM_EC_EDWARDS_KEY_PAIR_GEN, {255, 448, CKF_HW | CKF_GENERATE_KEY_PAIR |
+                                   CKF_EC_OID | CKF_EC_F_P | CKF_EC_COMPRESS}},
+    {CKM_EDDSA, {255, 448, CKF_HW | CKF_SIGN | CKF_VERIFY | CKF_EC_OID |
+                 CKF_EC_F_P | CKF_EC_COMPRESS}},
 };
 
 static const CK_ULONG cca_mech_list_len =
@@ -2344,6 +2348,7 @@ static CK_BBOOL ccatok_pkey_attr_applicable(STDLL_TokData_t *tokdata,
         }
         break;
     case CKK_EC:
+    case CKK_EC_EDWARDS:
         /*
          * There is currently only one attribute with a corresponding rule
          * array keyword.
@@ -7670,14 +7675,21 @@ static CK_RV curve_supported(STDLL_TokData_t *tokdata,
     struct cca_private_data *cca_private = tokdata->private_data;
     const struct cca_version cca_v7_2 = { .ver = 7, .rel = 2, .mod = 0 };
     CK_ATTRIBUTE *attr = NULL;
+    CK_KEY_TYPE key_type;
     unsigned int i;
     int ret;
     CK_RV rc;
 
-    /* Check if curve supported */
-    rc = template_attribute_get_non_empty(templ, CKA_ECDSA_PARAMS, &attr);
+    rc = template_attribute_get_ulong(templ, CKA_KEY_TYPE, &key_type);
     if (rc != CKR_OK) {
-        TRACE_ERROR("Could not find CKA_ECDSA_PARAMS for the key.\n");
+        TRACE_ERROR("Could not find CKA_KEY_TYPE for the key.\n");
+        return rc;
+    }
+
+    /* Check if curve supported */
+    rc = template_attribute_get_non_empty(templ, CKA_EC_PARAMS, &attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_EC_PARAMS for the key.\n");
         return rc;
     }
 
@@ -7687,8 +7699,30 @@ static CK_RV curve_supported(STDLL_TokData_t *tokdata,
                     attr->ulValueLen) == 0) &&
             (der_ec_supported[i].curve_type == PRIME_CURVE ||
              der_ec_supported[i].curve_type == KOBLITZ_CURVE ||
-             der_ec_supported[i].curve_type == BRAINPOOL_CURVE) &&
+             der_ec_supported[i].curve_type == BRAINPOOL_CURVE ||
+             der_ec_supported[i].curve_type == EDWARDS_CURVE) &&
              der_ec_supported[i].twisted == CK_FALSE) {
+
+            /* Check if the curves fits to the key type */
+            switch (key_type) {
+            case CKK_EC:
+                if (der_ec_supported[i].curve_type == EDWARDS_CURVE) {
+                    TRACE_ERROR("Edwards curves are not supported for key "
+                                "type CKK_EC.\n");
+                    return CKR_CURVE_NOT_SUPPORTED;
+                }
+                break;
+            case CKK_EC_EDWARDS:
+                if (der_ec_supported[i].curve_type != EDWARDS_CURVE) {
+                    TRACE_ERROR("Only Edwards curves are supported for key "
+                                "type CKK_EC_EDWARDS.\n");
+                    return CKR_CURVE_NOT_SUPPORTED;
+                }
+                break;
+            default:
+                TRACE_ERROR("Only EC or Edwards keys are supported.\n");
+                return CKR_KEY_TYPE_INCONSISTENT;
+            }
 
             if (der_ec_supported[i].curve_type == KOBLITZ_CURVE) {
                 /*
@@ -7721,7 +7755,7 @@ static CK_RV curve_supported(STDLL_TokData_t *tokdata,
             }
 
             *curve_type = der_ec_supported[i].curve_type;
-            *curve_bitlen = der_ec_supported[i].len_bits;
+            *curve_bitlen = der_ec_supported[i].prime_bits;
             *curve_nid = der_ec_supported[i].nid;
             return CKR_OK;
         }
@@ -7786,6 +7820,7 @@ struct cca_key_derivation_data *cca_ec_ecc_key_derivation_info(CK_BYTE *tok)
 
 CK_RV token_create_ec_keypair(TEMPLATE * publ_tmpl,
                               TEMPLATE * priv_tmpl,
+                              uint8_t curve_type,
                               CK_ULONG priv_tok_len, CK_BYTE *priv_tok,
                               CK_ULONG publ_tok_len, CK_BYTE *publ_tok)
 {
@@ -7804,7 +7839,7 @@ CK_RV token_create_ec_keypair(TEMPLATE * publ_tmpl,
      */
 
     /* The pkcs#11v2.20:
-     * CKA_ECDSA_PARAMS must be in public key's template when
+     * CKA_EC_PARAMS must be in public key's template when
      * generating key pair and added to private key template.
      * CKA_EC_POINT added to public key when key is generated.
      */
@@ -7827,10 +7862,15 @@ CK_RV token_create_ec_keypair(TEMPLATE * publ_tmpl,
     q_offset = pubkey_offset + CCA_EC_INTTOK_PUBKEY_Q_OFFSET;
     memcpy(q, &priv_tok[q_offset], (size_t) q_len);
 
-    rv = ber_encode_OCTET_STRING(FALSE, &ecpoint, &ecpoint_len, q, q_len);
-    if (rv != CKR_OK) {
-        TRACE_DEVEL("ber_encode_OCTET_STRING failed\n");
-        return rv;
+    if (curve_type != EDWARDS_CURVE) {
+        rv = ber_encode_OCTET_STRING(FALSE, &ecpoint, &ecpoint_len, q, q_len);
+        if (rv != CKR_OK) {
+            TRACE_DEVEL("ber_encode_OCTET_STRING failed\n");
+            return rv;
+        }
+    } else {
+        ecpoint = q;
+        ecpoint_len = q_len;
     }
 
     if ((rv = build_update_attribute(publ_tmpl, CKA_EC_POINT,
@@ -7839,16 +7879,17 @@ CK_RV token_create_ec_keypair(TEMPLATE * publ_tmpl,
         free(ecpoint);
         return rv;
     }
-    free(ecpoint);
+    if (curve_type != EDWARDS_CURVE)
+        free(ecpoint);
 
     /* Add ec params to private key */
-    rv = template_attribute_get_non_empty(publ_tmpl, CKA_ECDSA_PARAMS, &attr);
+    rv = template_attribute_get_non_empty(publ_tmpl, CKA_EC_PARAMS, &attr);
     if (rv != CKR_OK) {
-        TRACE_ERROR("Could not find CKA_ECDSA_PARAMS for the key.\n");
+        TRACE_ERROR("Could not find CKA_EC_PARAMS for the key.\n");
         return rv;
     }
 
-    if ((rv = build_update_attribute(priv_tmpl, CKA_ECDSA_PARAMS,
+    if ((rv = build_update_attribute(priv_tmpl, CKA_EC_PARAMS,
                                      attr->pValue, attr->ulValueLen))) {
         TRACE_DEVEL("build_update_attribute for der data failed "
                     "rv=0x%lx\n", rv);
@@ -8128,7 +8169,7 @@ CK_RV token_specific_ec_generate_keypair(STDLL_TokData_t * tokdata,
     unsigned char priv_key_token[CCA_KEY_TOKEN_SIZE] = { 0, };
     unsigned char publ_key_token[CCA_KEY_TOKEN_SIZE] = { 0, };
     struct cca_key_derivation_data deriv_data;
-    long deriv_data_size;
+    long deriv_data_size = 0;
     CK_RV rv;
     long param1 = 0;
     unsigned char *param2 = NULL;
@@ -8164,31 +8205,42 @@ CK_RV token_specific_ec_generate_keypair(STDLL_TokData_t * tokdata,
     key_value_structure_length = CCA_EC_KEY_VALUE_STRUCT_SIZE;
 
     /* Enable ECDH key derivation with keys generated by the CCA token */
-    rule_array_count = 3;
-    memcpy(rule_array, "ECC-PAIRKEY-MGMTECC-VER1", 3 * CCA_KEYWORD_SIZE);
+    if (curve_type != EDWARDS_CURVE) {
+        rule_array_count = 3;
+        memcpy(rule_array, "ECC-PAIRKEY-MGMTECC-VER1", 3 * CCA_KEYWORD_SIZE);
+    } else {
+        rule_array_count = 2;
+        memcpy(rule_array, "ECC-PAIRSIG-ONLY", 2 * CCA_KEYWORD_SIZE);
+    }
 
 #ifndef NO_PKEY
     /* Add protected key related attributes to the rule array */
-    rv = ccatok_pkey_add_attrs(tokdata, priv_tmpl, CKK_EC, curve_type,
-                               curve_bitlen, 0, rule_array, sizeof(rule_array),
+    rv = ccatok_pkey_add_attrs(tokdata, priv_tmpl, curve_type == EDWARDS_CURVE ?
+                                                        CKK_EC_EDWARDS : CKK_EC,
+                               curve_type, curve_bitlen, 0,
+                               rule_array, sizeof(rule_array),
                                (CK_ULONG *)&rule_array_count);
     if (rv != CKR_OK) {
-        TRACE_ERROR("%s ccatok_pkey_add_attrs failed with rc=0x%lx\n", __func__, rv);
+        TRACE_ERROR("%s ccatok_pkey_add_attrs failed with rc=0x%lx\n",
+                    __func__, rv);
         return rv;
     }
 #endif /* NO_PKEY */
 
     private_key_name_length = 0;
 
-    /* Enable the ECC private key to derive keys */
-    rv = ccatok_build_ec_derive_info(tokdata, priv_tmpl, &deriv_data);
-    if (rv != CKR_OK) {
-        TRACE_ERROR("%s ccatok_build_derive_info failed with rc=0x%lx\n",
-                    __func__, rv);
-        return rv;
+    if (curve_type != EDWARDS_CURVE) {
+        /* Enable the ECC private key to derive keys */
+        rv = ccatok_build_ec_derive_info(tokdata, priv_tmpl, &deriv_data);
+        if (rv != CKR_OK) {
+            TRACE_ERROR("%s ccatok_build_derive_info failed with rc=0x%lx\n",
+                        __func__, rv);
+            return rv;
+        }
+
+        deriv_data_size = sizeof(deriv_data);
     }
 
-    deriv_data_size = sizeof(deriv_data);
     key_token_length = CCA_KEY_TOKEN_SIZE;
 
     USE_CCA_ADAPTER_START(tokdata, return_code, reason_code)
@@ -8205,7 +8257,8 @@ CK_RV token_specific_ec_generate_keypair(STDLL_TokData_t * tokdata,
                     &param1,
                     param2,
                     &deriv_data_size,
-                    (unsigned char *)&deriv_data,
+                    curve_type != EDWARDS_CURVE ?
+                            (unsigned char *)&deriv_data : NULL,
                     &param1,
                     param2,
                     &param1, param2,
@@ -8294,7 +8347,7 @@ CK_RV token_specific_ec_generate_keypair(STDLL_TokData_t * tokdata,
     TRACE_DEVEL("ECC secure public key token generated. size: %ld\n",
                 publ_key_token_length);
 
-    rv = token_create_ec_keypair(publ_tmpl, priv_tmpl,
+    rv = token_create_ec_keypair(publ_tmpl, priv_tmpl, curve_type,
                                  priv_key_token_length, priv_key_token,
                                  publ_key_token_length, publ_key_token);
     if (rv != CKR_OK) {
@@ -8310,21 +8363,16 @@ CK_RV token_specific_ec_generate_keypair(STDLL_TokData_t * tokdata,
     return rv;
 }
 
-CK_RV token_specific_ec_sign(STDLL_TokData_t * tokdata,
-                             SESSION * sess,
-                             CK_BYTE * in_data,
-                             CK_ULONG in_data_len,
-                             CK_BYTE * out_data,
-                             CK_ULONG * out_data_len, OBJECT * key_obj)
+static CK_RV cca_ec_sign(STDLL_TokData_t *tokdata, SESSION *sess,
+                         CK_BYTE *in_data, CK_ULONG in_data_len,
+                         CK_BYTE *out_data, CK_ULONG *out_data_len,
+                         OBJECT * key_obj, CK_MECHANISM *mech)
 {
     long return_code, reason_code, rule_array_count;
     unsigned char rule_array[CCA_RULE_ARRAY_SIZE] = { 0, };
     long signature_bit_length;
     CK_ATTRIBUTE *attr;
     CK_RV rc;
-#ifndef NO_PKEY
-    CK_MECHANISM mech = { CKM_ECDSA, NULL, 0 };
-#endif
 
 #ifdef NO_PKEY
     UNUSED(sess);
@@ -8345,13 +8393,24 @@ CK_RV token_specific_ec_sign(STDLL_TokData_t * tokdata,
 
 #ifndef NO_PKEY
     /* CCA token protected key option: perform the function via CPACF */
-    rc = ccatok_pkey_check(tokdata, sess, key_obj, &mech);
+    rc = ccatok_pkey_check(tokdata, sess, key_obj, mech);
     switch (rc) {
     case CKR_OK:
-        rc = pkey_ec_sign(tokdata, sess, key_obj, in_data, in_data_len,
-                          out_data, out_data_len, NULL,
-                          ccatok_pkey_convert_key);
-        goto done;
+        switch (mech->mechanism) {
+        case CKM_ECDSA:
+            rc = pkey_ec_sign(tokdata, sess, key_obj, in_data, in_data_len,
+                              out_data, out_data_len, NULL,
+                              ccatok_pkey_convert_key);
+            goto done;
+        case CKM_EDDSA:
+            rc = pkey_ed_sign(tokdata, sess, key_obj, in_data, in_data_len,
+                              out_data, out_data_len, ccatok_pkey_convert_key);
+            goto done;
+        default:
+            rc = CKR_MECHANISM_INVALID;
+            goto done;
+        }
+        break;
     case CKR_FUNCTION_NOT_SUPPORTED:
         /* fallback */
         break;
@@ -8361,9 +8420,21 @@ CK_RV token_specific_ec_sign(STDLL_TokData_t * tokdata,
 #endif /* NO_PKEY */
 
     /* Fallback: Perform the function via the CCA card */
-    rule_array_count = 1;
-    memcpy(rule_array, "ECDSA   ", CCA_KEYWORD_SIZE);
-    *out_data_len = *out_data_len > 132 ? 132 : *out_data_len;
+    switch (mech->mechanism) {
+    case CKM_ECDSA:
+        rule_array_count = 1;
+        memcpy(rule_array, "ECDSA   ", CCA_KEYWORD_SIZE);
+        *out_data_len = *out_data_len > 132 ? 132 : *out_data_len;
+        break;
+    case CKM_EDDSA:
+        rule_array_count = 3;
+        memcpy(rule_array, "EDDSA   ED-HASH MESSAGE ", 3 * CCA_KEYWORD_SIZE);
+        *out_data_len = *out_data_len > 144 ? 144 : *out_data_len;
+        break;
+    default:
+        rc = CKR_MECHANISM_INVALID;
+        goto done;
+    }
 
     USE_CCA_ADAPTER_START(tokdata, return_code, reason_code)
     RETRY_NEW_MK_BLOB_START()
@@ -8395,27 +8466,20 @@ CK_RV token_specific_ec_sign(STDLL_TokData_t * tokdata,
 
     rc = CKR_OK;
 
-#ifndef NO_PKEY
 done:
-#endif
 
     return rc;
 }
 
-CK_RV token_specific_ec_verify(STDLL_TokData_t * tokdata,
-                               SESSION * sess,
-                               CK_BYTE * in_data,
-                               CK_ULONG in_data_len,
-                               CK_BYTE * out_data,
-                               CK_ULONG out_data_len, OBJECT * key_obj)
+static CK_RV cca_ec_verify(STDLL_TokData_t *tokdata, SESSION *sess,
+                           CK_BYTE *in_data, CK_ULONG in_data_len,
+                           CK_BYTE *out_data, CK_ULONG out_data_len,
+                           OBJECT *key_obj, CK_MECHANISM *mech)
 {
     long return_code, reason_code, rule_array_count;
     unsigned char rule_array[CCA_RULE_ARRAY_SIZE] = { 0, };
     CK_ATTRIBUTE *attr;
     CK_RV rc;
-#ifndef NO_PKEY
-    CK_MECHANISM mech = { CKM_ECDSA, NULL, 0 };
-#endif
 
 #ifdef NO_PKEY
     UNUSED(sess);
@@ -8436,12 +8500,23 @@ CK_RV token_specific_ec_verify(STDLL_TokData_t * tokdata,
 
 #ifndef NO_PKEY
     /* CCA token protected key option: perform the function via CPACF */
-    rc = ccatok_pkey_check(tokdata, sess, key_obj, &mech);
+    rc = ccatok_pkey_check(tokdata, sess, key_obj, mech);
     switch (rc) {
     case CKR_OK:
-        rc = pkey_ec_verify(key_obj, in_data, in_data_len,
-                            out_data, out_data_len);
-        goto done;
+        switch (mech->mechanism) {
+        case CKM_ECDSA:
+            rc = pkey_ec_verify(key_obj, in_data, in_data_len,
+                                out_data, out_data_len);
+            goto done;
+        case CKM_EDDSA:
+            rc = pkey_ed_verify(key_obj, in_data, in_data_len,
+                                out_data, out_data_len, CKK_EC_EDWARDS);
+            goto done;
+        default:
+            rc = CKR_MECHANISM_INVALID;
+            goto done;
+        }
+        break;
     case CKR_FUNCTION_NOT_SUPPORTED:
         /* fallback */
         break;
@@ -8451,8 +8526,19 @@ CK_RV token_specific_ec_verify(STDLL_TokData_t * tokdata,
 #endif /* NO_PKEY */
 
     /* Fallback: Perform the function via the CCA card */
-    rule_array_count = 1;
-    memcpy(rule_array, "ECDSA   ", CCA_KEYWORD_SIZE);
+    switch (mech->mechanism) {
+    case CKM_ECDSA:
+        rule_array_count = 1;
+        memcpy(rule_array, "ECDSA   ", CCA_KEYWORD_SIZE);
+        break;
+    case CKM_EDDSA:
+        rule_array_count = 3;
+        memcpy(rule_array, "EDDSA   ED-HASH MESSAGE ", 3 * CCA_KEYWORD_SIZE);
+        break;
+    default:
+        rc = CKR_MECHANISM_INVALID;
+        goto done;
+    }
 
     USE_CCA_ADAPTER_START(tokdata, return_code, reason_code)
     RETRY_NEW_MK_BLOB_START()
@@ -8487,11 +8573,122 @@ CK_RV token_specific_ec_verify(STDLL_TokData_t * tokdata,
 
     rc = CKR_OK;
 
-#ifndef NO_PKEY
 done:
-#endif
 
     return rc;
+}
+
+CK_RV token_specific_ec_sign(STDLL_TokData_t *tokdata, SESSION *sess,
+                             CK_BYTE *in_data, CK_ULONG in_data_len,
+                             CK_BYTE *out_data, CK_ULONG *out_data_len,
+                             OBJECT *key_obj)
+{
+    CK_MECHANISM mech = { CKM_ECDSA, NULL, 0 };
+
+    return cca_ec_sign(tokdata, sess, in_data, in_data_len,
+                       out_data, out_data_len, key_obj, &mech);
+}
+
+CK_RV token_specific_ec_verify(STDLL_TokData_t *tokdata,
+                               SESSION *sess,
+                               CK_BYTE *in_data,
+                               CK_ULONG in_data_len,
+                               CK_BYTE *out_data,
+                               CK_ULONG out_data_len, OBJECT *key_obj)
+{
+    CK_MECHANISM mech = { CKM_ECDSA, NULL, 0 };
+
+    return cca_ec_verify(tokdata, sess, in_data, in_data_len,
+                         out_data, out_data_len, key_obj, &mech);
+}
+
+CK_RV token_specific_ec_edwards_generate_keypair(STDLL_TokData_t *tokdata,
+                                                 TEMPLATE *publ_tmpl,
+                                                 TEMPLATE *priv_tmpl)
+{
+    return token_specific_ec_generate_keypair(tokdata, publ_tmpl, priv_tmpl);
+}
+
+static CK_RV cca_check_ec_edwards_mech_param(STDLL_TokData_t *tokdata,
+                                             OBJECT *key_obj,
+                                             CK_MECHANISM *mech)
+{
+    CK_EDDSA_PARAMS* eddsa_params = NULL;
+    uint8_t curve_type;
+    uint16_t curve_bitlen;
+    int curve_nid;
+    CK_RV rc;
+
+    if (mech->ulParameterLen == sizeof(CK_EDDSA_PARAMS) &&
+        mech->pParameter != NULL) {
+        eddsa_params = mech->pParameter;
+
+        if (eddsa_params->ulContextDataLen != 0 ||
+            eddsa_params->pContextData != NULL) {
+            TRACE_ERROR("CCA does not support a non-empty context\n");
+            return CKR_MECHANISM_PARAM_INVALID;
+        }
+
+        if (eddsa_params->phFlag) {
+            TRACE_ERROR("CCA does not support pre-hash\n");
+            return CKR_MECHANISM_PARAM_INVALID;
+        }
+    }
+
+    /* Check if curve supported and determine curve type and bitlen */
+    rc = curve_supported(tokdata, key_obj->template, &curve_type, &curve_bitlen,
+                         &curve_nid);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Curve not supported by this token.\n");
+        return rc;
+    }
+
+    switch (curve_nid) {
+    case NID_ED25519:
+        break;
+    case NID_ED448:
+        if (eddsa_params == NULL) {
+            TRACE_ERROR("Mechanism parameter is required for Ed448\n");
+            return CKR_MECHANISM_PARAM_INVALID;
+        }
+        break;
+    default:
+        TRACE_ERROR("Not an edwards curve.\n");
+        return CKR_CURVE_NOT_SUPPORTED;
+    }
+
+    return CKR_OK;
+}
+
+CK_RV token_specific_ec_edwards_sign(STDLL_TokData_t *tokdata,  SESSION *sess,
+                                     CK_BYTE *in_data, CK_ULONG in_data_len,
+                                     CK_BYTE *out_data, CK_ULONG *out_data_len,
+                                     OBJECT *key_obj, CK_MECHANISM *mech)
+{
+    CK_RV rc;
+
+    rc = cca_check_ec_edwards_mech_param(tokdata, key_obj, mech);
+    if (rc != CKR_OK)
+        return rc;
+
+    return cca_ec_sign(tokdata, sess, in_data, in_data_len,
+                       out_data, out_data_len, key_obj, mech);
+}
+
+CK_RV token_specific_ec_edwards_verify(STDLL_TokData_t *tokdata, SESSION *sess,
+                                       CK_BYTE *in_data, CK_ULONG in_data_len,
+                                       CK_BYTE *signature,
+                                       CK_ULONG signature_len, OBJECT *key_obj,
+                                       CK_MECHANISM * mech)
+{
+    CK_RV rc;
+
+    rc = cca_check_ec_edwards_mech_param(tokdata, key_obj, mech);
+    if (rc != CKR_OK)
+        return rc;
+
+    return cca_ec_verify(tokdata, sess, in_data, in_data_len,
+                         signature, signature_len, key_obj, mech);
 }
 
 static CK_BBOOL cca_is_sha3_mech(CK_MECHANISM *mech)
@@ -11805,7 +12002,13 @@ static CK_RV build_private_EC_key_value_structure(CK_BYTE *privkey, CK_ULONG pri
 
     /* Adjust public key if necessary: there may be an indication if the public
      * key is compressed, uncompressed, or hybrid. */
-    if (publen == 2 * privlen + 1) {
+    if (curve_type == EDWARDS_CURVE) {
+        ecc_pair.q_length = htobe16(publen);
+        memcpy(key_value_structure, &ecc_pair, sizeof(ECC_PAIR));
+        memcpy(key_value_structure + sizeof(ECC_PAIR), privkey, privlen);
+        memcpy(key_value_structure + sizeof(ECC_PAIR) + privlen, pubkey, publen);
+        *key_value_structure_length = sizeof(ECC_PAIR) + privlen + publen;
+    } else if (publen == 2 * privlen + 1) {
         if (pubkey[0] == POINT_CONVERSION_UNCOMPRESSED ||
             pubkey[0] == POINT_CONVERSION_HYBRID ||
             pubkey[0] == POINT_CONVERSION_HYBRID+1) {
@@ -11860,7 +12063,12 @@ static CK_RV build_public_EC_key_value_structure(CK_BYTE *pubkey, CK_ULONG puble
     ecc_publ.reserved = 0x00;
     ecc_publ.p_bitlen = htobe16(curve_bitlen);
 
-    if (publen == 2 * bitlen2bytelen(curve_bitlen) + 1) {
+    if (curve_type == EDWARDS_CURVE) {
+        ecc_publ.q_length = htobe16(publen);
+        memcpy(key_value_structure, &ecc_publ, sizeof(ECC_PUBL));
+        memcpy(key_value_structure + sizeof(ECC_PUBL), pubkey, publen);
+        *key_value_structure_length = sizeof(ECC_PUBL) + publen;
+    } else  if (publen == 2 * bitlen2bytelen(curve_bitlen) + 1) {
         if (pubkey[0] == POINT_CONVERSION_UNCOMPRESSED ||
             pubkey[0] == POINT_CONVERSION_HYBRID ||
             pubkey[0] == POINT_CONVERSION_HYBRID+1) {
@@ -11976,18 +12184,48 @@ done:
 /* helper function, check cca ec type, keybits and add the CKA_EC_PARAMS attribute */
 static CK_RV check_cca_ec_type_and_add_params(uint8_t cca_ec_type,
                                               uint16_t cca_ec_bits,
-                                              TEMPLATE *templ)
+                                              TEMPLATE *templ,
+                                              uint8_t *curve_type)
 {
     CK_RV rc;
     CK_ULONG i;
+    CK_KEY_TYPE key_type;
 
     for (i = 0; i < NUMEC; i++) {
         if ((der_ec_supported[i].curve_type == PRIME_CURVE ||
              der_ec_supported[i].curve_type == BRAINPOOL_CURVE ||
-             der_ec_supported[i].curve_type == KOBLITZ_CURVE) &&
+             der_ec_supported[i].curve_type == KOBLITZ_CURVE ||
+             der_ec_supported[i].curve_type == EDWARDS_CURVE) &&
             !der_ec_supported[i].twisted &&
             der_ec_supported[i].curve_type == cca_ec_type &&
             der_ec_supported[i].prime_bits == cca_ec_bits) {
+            /* Check if the curves fits to the key type */
+            rc = template_attribute_get_ulong(templ, CKA_KEY_TYPE, &key_type);
+            if (rc != CKR_OK) {
+                TRACE_ERROR("Could not find CKA_KEY_TYPE for the key.\n");
+                return rc;
+            }
+
+            switch (key_type) {
+            case CKK_EC:
+                if (der_ec_supported[i].curve_type == EDWARDS_CURVE) {
+                    TRACE_ERROR("Edwards curves are not supported for key "
+                                "type CKK_EC.\n");
+                    return CKR_CURVE_NOT_SUPPORTED;
+                }
+                break;
+            case CKK_EC_EDWARDS:
+                if (der_ec_supported[i].curve_type != EDWARDS_CURVE) {
+                    TRACE_ERROR("Only Edwards curves are supported for key "
+                                "type CKK_EC_EDWARDS.\n");
+                    return CKR_CURVE_NOT_SUPPORTED;
+                }
+                break;
+            default:
+                TRACE_ERROR("Only EC or Edwards keys are supported.\n");
+                return CKR_KEY_TYPE_INCONSISTENT;
+            }
+
             rc = build_update_attribute(templ, CKA_EC_PARAMS,
                                         (CK_BYTE *)der_ec_supported[i].data,
                                         der_ec_supported[i].data_size);
@@ -11996,6 +12234,7 @@ static CK_RV check_cca_ec_type_and_add_params(uint8_t cca_ec_type,
                 return rc;
             }
 
+            *curve_type = der_ec_supported[i].curve_type;
             return CKR_OK;
         }
     }
@@ -12028,6 +12267,7 @@ static CK_RV import_ec_privkey(STDLL_TokData_t *tokdata, TEMPLATE *priv_templ)
         CK_BYTE *t;
         struct cca_key_derivation_data *ecc_info;
         uint16_t priv_offset;
+        uint8_t curve_type;
 
         if (analyse_cca_key_token(opaque_attr->pValue, opaque_attr->ulValueLen,
                                   &token_type, &token_keybitsize, &mkvp) != TRUE) {
@@ -12035,7 +12275,8 @@ static CK_RV import_ec_privkey(STDLL_TokData_t *tokdata, TEMPLATE *priv_templ)
             return CKR_ATTRIBUTE_VALUE_INVALID;
         }
         if (token_type != sec_ecc_priv_key) {
-            TRACE_ERROR("CCA token type in CKA_IBM_OPAQUE does not match to keytype CKK_EC\n");
+            TRACE_ERROR("CCA token type in CKA_IBM_OPAQUE does not match to "
+                        "keytype CKK_EC/CKK_EC_EDWARDS\n");
             return CKR_TEMPLATE_INCONSISTENT;
         }
 
@@ -12118,7 +12359,8 @@ static CK_RV import_ec_privkey(STDLL_TokData_t *tokdata, TEMPLATE *priv_templ)
 
         /* check curve and add CKA_EC_PARAMS attribute */
         t = opaque_attr->pValue;
-        rc = check_cca_ec_type_and_add_params(t[8+9], token_keybitsize, priv_templ);
+        rc = check_cca_ec_type_and_add_params(t[8+9], token_keybitsize,
+                                              priv_templ, &curve_type);
         if (rc != CKR_OK)
             return rc;
 
@@ -12184,10 +12426,10 @@ static CK_RV import_ec_privkey(STDLL_TokData_t *tokdata, TEMPLATE *priv_templ)
         privkey = attr->pValue;
 
         /* calculate the public key from the private key */
-        rc = template_attribute_get_non_empty(priv_templ, CKA_ECDSA_PARAMS,
+        rc = template_attribute_get_non_empty(priv_templ, CKA_EC_PARAMS,
                                               &attr);
         if (rc != CKR_OK) {
-            TRACE_ERROR("Could not find CKA_ECDSA_PARAMS for the key.\n");
+            TRACE_ERROR("Could not find CKA_EC_PARAMS for the key.\n");
             return rc;
         }
 
@@ -12223,11 +12465,15 @@ static CK_RV import_ec_privkey(STDLL_TokData_t *tokdata, TEMPLATE *priv_templ)
 
 #ifndef NO_PKEY
         /* Add protected key related attributes to the rule array */
-        rc = ccatok_pkey_add_attrs(tokdata, priv_templ, CKK_EC, curve_type,
-                                   curve_bitlen, 0, rule_array, sizeof(rule_array),
+        rc = ccatok_pkey_add_attrs(tokdata, priv_templ,
+                                   curve_type == EDWARDS_CURVE ?
+                                               CKK_EC_EDWARDS : CKK_EC,
+                                   curve_type, curve_bitlen, 0,
+                                   rule_array, sizeof(rule_array),
                                    (CK_ULONG *)&rule_array_count);
         if (rc != CKR_OK) {
-            TRACE_ERROR("%s ccatok_pkey_add_attrs failed with rc=0x%lx\n", __func__, rc);
+            TRACE_ERROR("%s ccatok_pkey_add_attrs failed with rc=0x%lx\n",
+                        __func__, rc);
             return rc;
         }
 #endif /* NO_PKEY */
@@ -12330,6 +12576,7 @@ static CK_RV import_ec_pubkey(STDLL_TokData_t *tokdata, TEMPLATE *pub_templ)
         uint16_t q_len;
         CK_BYTE *ecpoint = NULL;
         CK_ULONG ecpoint_len;
+        uint8_t curve_type;
 
         if (analyse_cca_key_token(opaque_attr->pValue, opaque_attr->ulValueLen,
                                   &token_type, &token_keybitsize, &mkvp) != TRUE) {
@@ -12337,13 +12584,15 @@ static CK_RV import_ec_pubkey(STDLL_TokData_t *tokdata, TEMPLATE *pub_templ)
             return CKR_ATTRIBUTE_VALUE_INVALID;
         }
         if (token_type != sec_ecc_publ_key) {
-            TRACE_ERROR("CCA token type in CKA_IBM_OPAQUE does not match to keytype CKK_EC\n");
+            TRACE_ERROR("CCA token type in CKA_IBM_OPAQUE does not match to "
+                        "keytype CKK_EC/CKK_EC_EDWARDS\n");
             return CKR_TEMPLATE_INCONSISTENT;
         }
 
         /* check curve and add CKA_EC_PARAMS attribute */
         t = opaque_attr->pValue;
-        rc = check_cca_ec_type_and_add_params(t[8+8], token_keybitsize, pub_templ);
+        rc = check_cca_ec_type_and_add_params(t[8+8], token_keybitsize,
+                                              pub_templ, &curve_type);
         if (rc != CKR_OK)
             return rc;
 
@@ -12354,13 +12603,22 @@ static CK_RV import_ec_pubkey(STDLL_TokData_t *tokdata, TEMPLATE *pub_templ)
             TRACE_ERROR("Invalid Q len %hu\n", q_len);
             return CKR_ATTRIBUTE_VALUE_INVALID;
         }
-        rc = ber_encode_OCTET_STRING(FALSE, &ecpoint, &ecpoint_len, q, q_len);
-        if (rc != CKR_OK) {
-            TRACE_DEVEL("ber_encode_OCTET_STRING failed\n");
-            return rc;
+
+        if (curve_type != EDWARDS_CURVE) {
+            rc = ber_encode_OCTET_STRING(FALSE, &ecpoint, &ecpoint_len,
+                                         q, q_len);
+            if (rc != CKR_OK) {
+                TRACE_DEVEL("ber_encode_OCTET_STRING failed\n");
+                return rc;
+            }
+        } else {
+            ecpoint = q;
+            ecpoint_len = q_len;
         }
-        rc = build_update_attribute(pub_templ, CKA_EC_POINT, ecpoint, ecpoint_len);
-        free(ecpoint);
+        rc = build_update_attribute(pub_templ, CKA_EC_POINT,
+                                    ecpoint, ecpoint_len);
+        if (curve_type != EDWARDS_CURVE)
+            free(ecpoint);
         if (rc != CKR_OK) {
             TRACE_DEVEL("build_update_attribute(CKA_EC_POINT) failed\n");
             return rc;
@@ -12405,11 +12663,16 @@ static CK_RV import_ec_pubkey(STDLL_TokData_t *tokdata, TEMPLATE *pub_templ)
             return rc;
         }
 
-        rc = ber_decode_OCTET_STRING(attr->pValue, &pubkey, &publen,
-                                     &field_len);
-        if (rc != CKR_OK || attr->ulValueLen != field_len) {
-            TRACE_DEVEL("ber decoding of public key failed\n");
-            return CKR_ATTRIBUTE_VALUE_INVALID;
+        if (curve_type != EDWARDS_CURVE) {
+            rc = ber_decode_OCTET_STRING(attr->pValue, &pubkey, &publen,
+                                         &field_len);
+            if (rc != CKR_OK || attr->ulValueLen != field_len) {
+                TRACE_DEVEL("ber decoding of public key failed\n");
+                return CKR_ATTRIBUTE_VALUE_INVALID;
+            }
+        } else {
+            pubkey = attr->pValue;
+            publen = attr->ulValueLen;
         }
 
         /* Build key_value_structure */
@@ -13729,6 +13992,7 @@ CK_RV token_specific_object_add(STDLL_TokData_t *tokdata, SESSION *sess, OBJECT 
                    " imported\n", attr != NULL ? attr->ulValueLen : 0);
         break;
     case CKK_EC:
+    case CKK_EC_EDWARDS:
         switch (keyclass) {
         case CKO_PUBLIC_KEY:
             // do import public key and create opaque object
@@ -15713,6 +15977,8 @@ CK_RV token_specific_set_attribute_values(STDLL_TokData_t *tokdata,
         if (class != CKO_PRIVATE_KEY)
             return CKR_OK;
         return ccatok_check_ec_derive_info(tokdata, obj, new_tmpl);
+    case CKK_EC_EDWARDS:
+        return CKR_OK;
     default:
         /* Not an AES or HMAC key, nothing to do */
         return CKR_OK;
