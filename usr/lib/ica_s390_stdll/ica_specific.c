@@ -49,7 +49,7 @@
 #include <openssl/crypto.h>
 #include <openssl/bn.h>
 
-#define ICA_MAX_MECH_LIST_ENTRIES       150
+#define ICA_MAX_MECH_LIST_ENTRIES       153
 
 typedef struct {
     void *libica_dso;
@@ -58,6 +58,12 @@ typedef struct {
     int ica_ec_keygen_available;
     int ica_ec_signverify_available;
     int ica_ec_derive_available;
+    int ica_ec_edwards_support_available;
+    int ica_ec_edwards_keygen_available;
+    int ica_ec_edwards_signverify_available;
+    int ica_ec_montgomery_support_available;
+    int ica_ec_montgomery_keygen_available;
+    int ica_ec_montgomery_derive_available;
     int ica_rsa_keygen_available;
     int ica_rsa_endecrypt_available;
     int ica_rsa_no_small_pub_exp;
@@ -144,6 +150,79 @@ typedef void (*ica_allow_external_gcm_iv_in_fips_mode_t)(int allow);
 
 typedef int (*ica_fips_status_t)(void);
 
+#ifndef NO_EC
+#ifndef NID_X25519
+#define NID_X25519                      1034
+#define NID_X448                        1035
+#endif
+#ifndef NID_ED25519
+#define NID_ED25519                     1087
+#define NID_ED448                       1088
+#endif
+
+#ifndef X25519_KEYGEN
+typedef struct ica_x25519_ctx ICA_X25519_CTX;
+typedef struct ica_x448_ctx ICA_X448_CTX;
+typedef struct ica_ed25519_ctx ICA_ED25519_CTX;
+typedef struct ica_ed448_ctx ICA_ED448_CTX;
+#endif
+
+typedef int (*ica_x25519_ctx_new_t)(ICA_X25519_CTX **ctx);
+typedef int (*ica_x448_ctx_new_t)(ICA_X448_CTX **ctx);
+typedef int (*ica_ed25519_ctx_new_t)(ICA_ED25519_CTX **ctx);
+typedef int (*ica_ed448_ctx_new_t)(ICA_ED448_CTX **ctx);
+typedef int (*ica_x25519_key_set_t)(ICA_X25519_CTX *ctx,
+                                    const unsigned char priv[32],
+                                    const unsigned char pub[32]);
+typedef int (*ica_x448_key_set_t)(ICA_X448_CTX *ctx,
+                                  const unsigned char priv[56],
+                                  const unsigned char pub[56]);
+typedef int (*ica_ed25519_key_set_t)(ICA_ED25519_CTX *ctx,
+                                     const unsigned char priv[32],
+                                     const unsigned char pub[32]);
+typedef int (*ica_ed448_key_set_t)(ICA_ED448_CTX *ctx,
+                                   const unsigned char priv[57],
+                                   const unsigned char pub[57]);
+typedef int (*ica_x25519_key_get_t)(ICA_X25519_CTX *ctx,
+                                    unsigned char priv[32],
+                                    unsigned char pub[32]);
+typedef int (*ica_x448_key_get_t)(ICA_X448_CTX *ctx,
+                                  unsigned char priv[56],
+                                  unsigned char pub[56]);
+typedef int (*ica_ed25519_key_get_t)(ICA_ED25519_CTX *ctx,
+                                     unsigned char priv[32],
+                                     unsigned char pub[32]);
+typedef int (*ica_ed448_key_get_t)(ICA_ED448_CTX *ctx,
+                                   unsigned char priv[57],
+                                   unsigned char pub[57]);
+typedef int (*ica_x25519_key_gen_t)(ICA_X25519_CTX *ctx);
+typedef int (*ica_x448_key_gen_t)(ICA_X448_CTX *ctx);
+typedef int (*ica_ed25519_key_gen_t)(ICA_ED25519_CTX *ctx);
+typedef int (*ica_ed448_key_gen_t)(ICA_ED448_CTX *ctx);
+typedef int (*ica_x25519_derive_t)(ICA_X25519_CTX *ctx,
+                                   unsigned char shared_secret[32],
+                                   const unsigned char peer_pub[32]);
+typedef int (*ica_x448_derive_t)(ICA_X448_CTX *ctx,
+                                 unsigned char shared_secret[56],
+                                 const unsigned char peer_pub[56]);
+typedef int (*ica_ed25519_sign_t)(ICA_ED25519_CTX *ctx,
+                                  unsigned char sig[64],
+                                  const unsigned char *msg, size_t msglen);
+typedef int (*ica_ed448_sign_t)(ICA_ED448_CTX *ctx,
+                                unsigned char sig[114],
+                                const unsigned char *msg, size_t msglen);
+typedef int (*ica_ed25519_verify_t)(ICA_ED25519_CTX *ctx,
+                                    const unsigned char sig[64],
+                                    const unsigned char *msg, size_t msglen);
+typedef int (*ica_ed448_verify_t)(ICA_ED448_CTX *ctx,
+                                  const unsigned char sig[114],
+                                  const unsigned char *msg, size_t msglen);
+typedef int (*ica_x25519_ctx_del_t)(ICA_X25519_CTX **ctx);
+typedef int (*ica_x448_ctx_del_t)(ICA_X448_CTX **ctx);
+typedef int (*ica_ed25519_ctx_del_t)(ICA_ED25519_CTX **ctx);
+typedef int (*ica_ed448_ctx_del_t)(ICA_ED448_CTX **ctx);
+#endif
+
 /*
  * These symbols loaded from libica via dlsym() can be static, even if
  * multiple instances of the ICA token are used. The libica library loaded
@@ -170,6 +249,35 @@ static ica_allow_external_gcm_iv_in_fips_mode_t
                                        p_ica_allow_external_gcm_iv_in_fips_mode;
 static ica_fips_status_t               p_ica_fips_status;
 
+#ifndef NO_EC
+static ica_x25519_ctx_new_t            p_ica_x25519_ctx_new;
+static ica_x448_ctx_new_t              p_ica_x448_ctx_new;
+static ica_ed25519_ctx_new_t           p_ica_ed25519_ctx_new;
+static ica_ed448_ctx_new_t             p_ica_ed448_ctx_new;
+static ica_x25519_key_set_t            p_ica_x25519_key_set;
+static ica_x448_key_set_t              p_ica_x448_key_set;
+static ica_ed25519_key_set_t           p_ica_ed25519_key_set;
+static ica_ed448_key_set_t             p_ica_ed448_key_set;
+static ica_x25519_key_get_t            p_ica_x25519_key_get;
+static ica_x448_key_get_t              p_ica_x448_key_get;
+static ica_ed25519_key_get_t           p_ica_ed25519_key_get;
+static ica_ed448_key_get_t             p_ica_ed448_key_get;
+static ica_x25519_key_gen_t            p_ica_x25519_key_gen;
+static ica_x448_key_gen_t              p_ica_x448_key_gen;
+static ica_ed25519_key_gen_t           p_ica_ed25519_key_gen;
+static ica_ed448_key_gen_t             p_ica_ed448_key_gen;
+static ica_x25519_derive_t             p_ica_x25519_derive;
+static ica_x448_derive_t               p_ica_x448_derive;
+static ica_ed25519_sign_t              p_ica_ed25519_sign;
+static ica_ed448_sign_t                p_ica_ed448_sign;
+static ica_ed25519_verify_t            p_ica_ed25519_verify;
+static ica_ed448_verify_t              p_ica_ed448_verify;
+static ica_x25519_ctx_del_t            p_ica_x25519_ctx_del;
+static ica_x448_ctx_del_t              p_ica_x448_ctx_del;
+static ica_ed25519_ctx_del_t           p_ica_ed25519_ctx_del;
+static ica_ed448_ctx_del_t             p_ica_ed448_ctx_del;
+#endif
+
 static CK_RV mech_list_ica_initialize(STDLL_TokData_t *tokdata);
 
 #ifndef NO_EC
@@ -181,17 +289,83 @@ static CK_RV mech_list_ica_initialize(STDLL_TokData_t *tokdata);
 static CK_RV ecc_support_in_libica_available(void)
 {
     if (p_ica_ec_key_new != NULL &&
-        p_ica_ec_key_init  != NULL &&
-        p_ica_ec_key_generate  != NULL &&
-        p_ica_ecdh_derive_secret  != NULL &&
-        p_ica_ecdsa_sign  != NULL &&
-        p_ica_ecdsa_verify  != NULL &&
-        p_ica_ec_key_get_public_key  != NULL &&
-        p_ica_ec_key_get_private_key  != NULL &&
+        p_ica_ec_key_init != NULL &&
+        p_ica_ec_key_generate != NULL &&
+        p_ica_ecdh_derive_secret != NULL &&
+        p_ica_ecdsa_sign != NULL &&
+        p_ica_ecdsa_verify != NULL &&
+        p_ica_ec_key_get_public_key != NULL &&
+        p_ica_ec_key_get_private_key != NULL &&
         p_ica_ec_key_free != NULL)
         return 1;
 
     return 0;
+}
+
+static CK_RV ecc_edwards_25519_support_in_libica_available(void)
+{
+    if (p_ica_ed25519_ctx_new != NULL &&
+        p_ica_ed25519_key_set != NULL &&
+        p_ica_ed25519_key_get != NULL &&
+        p_ica_ed25519_key_gen != NULL &&
+        p_ica_ed25519_sign != NULL &&
+        p_ica_ed25519_verify != NULL &&
+        p_ica_ed25519_ctx_del != NULL)
+        return 1;
+
+    return 0;
+}
+
+static CK_RV ecc_edwards_448_support_in_libica_available(void)
+{
+    if (p_ica_ed448_ctx_new != NULL &&
+        p_ica_ed448_key_set != NULL &&
+        p_ica_ed448_key_get != NULL &&
+        p_ica_ed448_key_gen != NULL &&
+        p_ica_ed448_sign != NULL &&
+        p_ica_ed448_verify != NULL &&
+        p_ica_ed448_ctx_del != NULL)
+        return 1;
+
+    return 0;
+}
+
+static CK_RV ecc_montgomery_25519_support_in_libica_available(void)
+{
+    if (p_ica_x25519_ctx_new != NULL &&
+        p_ica_x25519_key_set != NULL &&
+        p_ica_x25519_key_get != NULL &&
+        p_ica_x25519_key_gen != NULL &&
+        p_ica_x25519_derive != NULL &&
+        p_ica_x25519_ctx_del != NULL)
+        return 1;
+
+    return 0;
+}
+
+static CK_RV ecc_montgomery_448_support_in_libica_available(void)
+{
+    if (p_ica_x448_ctx_new != NULL &&
+        p_ica_x448_key_set != NULL &&
+        p_ica_x448_key_get != NULL &&
+        p_ica_x448_key_gen != NULL &&
+        p_ica_x448_derive != NULL &&
+        p_ica_x448_ctx_del != NULL)
+        return 1;
+
+    return 0;
+}
+
+static CK_RV ecc_edwards_support_in_libica_available(void)
+{
+    return ecc_edwards_25519_support_in_libica_available() &&
+           ecc_edwards_448_support_in_libica_available();
+}
+
+static CK_RV ecc_montgomery_support_in_libica_available(void)
+{
+    return ecc_montgomery_25519_support_in_libica_available() &&
+           ecc_montgomery_448_support_in_libica_available();
 }
 #endif
 
@@ -380,6 +554,35 @@ static CK_RV load_libica(ica_private_data_t *ica_data)
 
     BIND(ica_data->libica_dso, ica_fips_status);
 
+#ifndef NO_EC
+    BIND(ica_data->libica_dso, ica_x25519_ctx_new);
+    BIND(ica_data->libica_dso, ica_x448_ctx_new);
+    BIND(ica_data->libica_dso, ica_ed25519_ctx_new);
+    BIND(ica_data->libica_dso, ica_ed448_ctx_new);
+    BIND(ica_data->libica_dso, ica_x25519_key_set);
+    BIND(ica_data->libica_dso, ica_x448_key_set);
+    BIND(ica_data->libica_dso, ica_ed25519_key_set);
+    BIND(ica_data->libica_dso, ica_ed448_key_set);
+    BIND(ica_data->libica_dso, ica_x25519_key_get);
+    BIND(ica_data->libica_dso, ica_x448_key_get);
+    BIND(ica_data->libica_dso, ica_ed25519_key_get);
+    BIND(ica_data->libica_dso, ica_ed448_key_get);
+    BIND(ica_data->libica_dso, ica_x25519_key_gen);
+    BIND(ica_data->libica_dso, ica_x448_key_gen);
+    BIND(ica_data->libica_dso, ica_ed25519_key_gen);
+    BIND(ica_data->libica_dso, ica_ed448_key_gen);
+    BIND(ica_data->libica_dso, ica_x25519_derive);
+    BIND(ica_data->libica_dso, ica_x448_derive);
+    BIND(ica_data->libica_dso, ica_ed25519_sign);
+    BIND(ica_data->libica_dso, ica_ed448_sign);
+    BIND(ica_data->libica_dso, ica_ed25519_verify);
+    BIND(ica_data->libica_dso, ica_ed448_verify);
+    BIND(ica_data->libica_dso, ica_x25519_ctx_del);
+    BIND(ica_data->libica_dso, ica_x448_ctx_del);
+    BIND(ica_data->libica_dso, ica_ed25519_ctx_del);
+    BIND(ica_data->libica_dso, ica_ed448_ctx_del);
+#endif
+
     return CKR_OK;
 }
 
@@ -425,6 +628,11 @@ CK_RV token_specific_init(STDLL_TokData_t *tokdata, CK_SLOT_ID SlotNumber,
 
 #ifndef NO_EC
     ica_data->ica_ec_support_available = ecc_support_in_libica_available();
+
+    ica_data->ica_ec_edwards_support_available =
+                                  ecc_edwards_support_in_libica_available();
+    ica_data->ica_ec_montgomery_support_available =
+                                  ecc_montgomery_support_in_libica_available();
 #endif
 
     rc = mech_list_ica_initialize(tokdata);
@@ -485,6 +693,8 @@ typedef struct {
     ica_rsa_key_crt_t *crtKey;
     ICA_EC_KEY *eckey;
     unsigned int ec_privlen;
+    void *ed_x_ctx;
+    int ed_x_nid;
     BN_BLINDING *blinding;
     BN_MONT_CTX *blinding_mont_ctx;
 #ifndef HAVE_ALT_FIX_FOR_CVE2022_4304
@@ -5015,8 +5225,27 @@ static const REF_MECH_LIST_ELEMENT ref_mech_list[] = {
     {EC_DH, CKM_ECDH_AES_KEY_WRAP, {160, 521, CKF_WRAP | CKF_UNWRAP |
                                     CKF_EC_OID | CKF_EC_F_P |
                                     CKF_EC_UNCOMPRESS | CKF_EC_COMPRESS}},
+#if OPENSSL_VERSION_PREREQ(3, 0)
+#if defined ED25519_KEYGEN && ED448_KEYGEN
+    {ED25519_KEYGEN, CKM_EC_EDWARDS_KEY_PAIR_GEN,
+     {255, 448, CKF_GENERATE_KEY_PAIR | CKF_EC_OID | CKF_EC_F_P |
+                CKF_EC_COMPRESS}
+    },
 #endif
-
+#if defined X25519_KEYGEN && X448_KEYGEN
+    {X25519_KEYGEN, CKM_EC_MONTGOMERY_KEY_PAIR_GEN,
+     {255, 448, CKF_GENERATE_KEY_PAIR | CKF_EC_OID | CKF_EC_F_P |
+                CKF_EC_COMPRESS}
+    },
+#endif
+#if defined ED25519_SIGN && ED448_SIGN
+    {ED25519_SIGN, CKM_EDDSA,
+     {255, 448, CKF_SIGN | CKF_VERIFY | CKF_EC_OID | CKF_EC_F_P |
+                CKF_EC_COMPRESS}
+    },
+#endif
+#endif
+#endif
 };
 
 static const CK_ULONG ref_mech_list_len =
@@ -5336,6 +5565,19 @@ static CK_RV mech_list_ica_initialize(STDLL_TokData_t *tokdata)
                 ica_data->ica_ec_signverify_available = TRUE;
             if (libica_func_list[i].mech_mode_id == EC_DH)
                 ica_data->ica_ec_derive_available = TRUE;
+        }
+
+        if (ica_data->ica_ec_edwards_support_available) {
+            if (libica_func_list[i].mech_mode_id == ED25519_KEYGEN)
+                ica_data->ica_ec_edwards_keygen_available = TRUE;
+            if (libica_func_list[i].mech_mode_id == ED25519_SIGN)
+                ica_data->ica_ec_edwards_signverify_available = TRUE;
+        }
+        if (ica_data->ica_ec_montgomery_support_available) {
+            if (libica_func_list[i].mech_mode_id == X25519_KEYGEN)
+                ica_data->ica_ec_montgomery_keygen_available = TRUE;
+            if (libica_func_list[i].mech_mode_id == X25519_DERIVE)
+                ica_data->ica_ec_montgomery_derive_available = TRUE;
         }
 #endif
 
@@ -5790,6 +6032,10 @@ static int nid_from_oid(CK_BYTE *oid, CK_ULONG oid_length)
         { 0x06, 0x08, 0x2A, 0x86, 0x48, 0xCE, 0x3D, 0x03, 0x01, 0x07 };
     static const CK_BYTE secp384[] = { 0x06, 0x05, 0x2B, 0x81, 0x04, 0x00, 0x22 };
     static const CK_BYTE secp521[] = { 0x06, 0x05, 0x2B, 0x81, 0x04, 0x00, 0x23 };
+    static const CK_BYTE curve25519[] = { 0x06, 0x03, 0x2B, 0x65, 0x6E };
+    static const CK_BYTE curve448[] = { 0x06, 0x03, 0x2B, 0x65, 0x6F };
+    static const CK_BYTE ed25519[] = { 0x06, 0x03, 0x2B, 0x65, 0x70 };
+    static const CK_BYTE ed448[] = { 0x06, 0x03, 0x2B, 0x65, 0x71 };
 
     if (is_equal
         (oid, oid_length, (unsigned char *) &prime192, sizeof(prime192)))
@@ -5834,6 +6080,22 @@ static int nid_from_oid(CK_BYTE *oid, CK_ULONG oid_length)
                       (unsigned char *) &brainpoolP512r1,
                       sizeof(brainpoolP512r1)))
         return NID_brainpoolP512r1;
+    else if (is_equal(oid, oid_length,
+                      (unsigned char *) &curve25519,
+                      sizeof(curve25519)))
+        return NID_X25519;
+    else if (is_equal(oid, oid_length,
+                      (unsigned char *) &curve448,
+                      sizeof(curve448)))
+        return NID_X448;
+    else if (is_equal(oid, oid_length,
+                      (unsigned char *) &ed25519,
+                      sizeof(ed25519)))
+        return NID_ED25519;
+    else if (is_equal(oid, oid_length,
+                      (unsigned char *) &ed448,
+                      sizeof(ed448)))
+        return NID_ED448;
 
     return -1;
 }
@@ -5858,7 +6120,7 @@ static CK_RV ica_specific_ec_generate_keypair(STDLL_TokData_t *tokdata,
         return CKR_FUNCTION_NOT_SUPPORTED;
     }
 
-    ret = template_attribute_get_non_empty(publ_tmpl, CKA_ECDSA_PARAMS, &attr);
+    ret = template_attribute_get_non_empty(publ_tmpl, CKA_EC_PARAMS, &attr);
     if (ret != CKR_OK) {
         TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCOMPLETE));
         return CKR_TEMPLATE_INCOMPLETE;
@@ -5937,11 +6199,11 @@ static CK_RV ica_specific_ec_generate_keypair(STDLL_TokData_t *tokdata,
         goto end;
     }
 
-    /* Add CKA_ECDSA_PARAMS to private template also */
-    ret = build_update_attribute(priv_tmpl, CKA_ECDSA_PARAMS, attr->pValue,
+    /* Add CKA_EC_PARAMS to private template also */
+    ret = build_update_attribute(priv_tmpl, CKA_EC_PARAMS, attr->pValue,
                                  attr->ulValueLen);
     if (ret != 0) {
-        TRACE_ERROR("build_update_attribute for CKA_ECDSA_PARAMS failed, "
+        TRACE_ERROR("build_update_attribute for CKA_EC_PARAMS failed, "
                     "rc=0x%lx\n", ret);
         goto end;
     }
@@ -5973,6 +6235,330 @@ CK_RV token_specific_ec_generate_keypair(STDLL_TokData_t *tokdata,
         rc = openssl_specific_ec_generate_keypair(tokdata, publ_tmpl,
                                                   priv_tmpl,
                                                   CKM_EC_KEY_PAIR_GEN);
+
+    return rc;
+}
+
+static int ica_ed_x_ctx_new(int nid, void **ctx)
+{
+    switch (nid) {
+    case NID_ED25519:
+        return p_ica_ed25519_ctx_new((ICA_ED25519_CTX**)ctx);
+    case NID_ED448:
+        return p_ica_ed448_ctx_new((ICA_ED448_CTX**)ctx);
+    case NID_X25519:
+        return p_ica_x25519_ctx_new((ICA_X25519_CTX**)ctx);
+    case NID_X448:
+        return p_ica_x448_ctx_new((ICA_X448_CTX**)ctx);
+    default:
+        TRACE_ERROR("Not an Edwards or Montgomery curve.\n");
+        return EPERM;
+    }
+}
+
+static int ica_ed_x_ctx_del(int nid, void **ctx)
+{
+    switch (nid) {
+    case NID_ED25519:
+        return p_ica_ed25519_ctx_del((ICA_ED25519_CTX**)ctx);
+    case NID_ED448:
+        return p_ica_ed448_ctx_del((ICA_ED448_CTX**)ctx);
+    case NID_X25519:
+        return p_ica_x25519_ctx_del((ICA_X25519_CTX**)ctx);
+    case NID_X448:
+        return p_ica_x448_ctx_del((ICA_X448_CTX**)ctx);
+    default:
+        TRACE_ERROR("Not an Edwards or Montgomery curve.\n");
+        return EPERM;
+    }
+}
+
+static int ica_ed_x_key_gen(int nid, void *ctx)
+{
+    switch (nid) {
+    case NID_ED25519:
+        return p_ica_ed25519_key_gen((ICA_ED25519_CTX*)ctx);
+    case NID_ED448:
+        return p_ica_ed448_key_gen((ICA_ED448_CTX*)ctx);
+    case NID_X25519:
+        return p_ica_x25519_key_gen((ICA_X25519_CTX*)ctx);
+    case NID_X448:
+        return p_ica_x448_key_gen((ICA_X448_CTX*)ctx);
+    default:
+        TRACE_ERROR("Not an Edwards or Montgomery curve.\n");
+        return EPERM;
+    }
+}
+
+static int ica_ed_x_key_get(int nid, void *ctx, CK_BYTE* priv,
+                            CK_BYTE *pub, CK_ULONG *len)
+{
+    switch (nid) {
+    case NID_ED25519:
+        if (*len < 32)
+            return EINVAL;
+        *len = 32;
+        return p_ica_ed25519_key_get((ICA_ED25519_CTX*)ctx, priv, pub);
+    case NID_ED448:
+        if (*len < 57)
+            return EINVAL;
+        *len = 57;
+        return p_ica_ed448_key_get((ICA_ED448_CTX*)ctx, priv, pub);
+    case NID_X25519:
+        if (*len < 32)
+            return EINVAL;
+        *len = 32;
+        return p_ica_x25519_key_get((ICA_X25519_CTX*)ctx, priv, pub);
+    case NID_X448:
+        if (*len < 56)
+            return EINVAL;
+        *len = 56;
+        return p_ica_x448_key_get((ICA_X448_CTX*)ctx, priv, pub);
+    default:
+        TRACE_ERROR("Not an Edwards or Montgomery curve.\n");
+        return EPERM;
+    }
+}
+
+static int ica_ed_x_key_set(int nid, void *ctx, CK_BYTE* priv,
+                            CK_BYTE *pub, CK_ULONG len)
+{
+    switch (nid) {
+    case NID_ED25519:
+        if (len != 32)
+            return EINVAL;
+        return p_ica_ed25519_key_set((ICA_ED25519_CTX*)ctx, priv, pub);
+    case NID_ED448:
+        if (len != 57)
+            return EINVAL;
+        return p_ica_ed448_key_set((ICA_ED448_CTX*)ctx, priv, pub);
+    case NID_X25519:
+        if (len != 32)
+            return EINVAL;
+        return p_ica_x25519_key_set((ICA_X25519_CTX*)ctx, priv, pub);
+    case NID_X448:
+        if (len != 56)
+            return EINVAL;
+        return p_ica_x448_key_set((ICA_X448_CTX*)ctx, priv, pub);
+    default:
+        TRACE_ERROR("Not an Edwards or Montgomery curve.\n");
+        return EPERM;
+    }
+}
+
+static int ica_eddsa_sign(int nid, void *ctx, CK_BYTE *sig, CK_ULONG *sig_len,
+                          CK_BYTE *msg, CK_ULONG msg_len)
+{
+    switch (nid) {
+    case NID_ED25519:
+        if (*sig_len < 64)
+            return EINVAL;
+        *sig_len = 64;
+        return p_ica_ed25519_sign((ICA_ED25519_CTX*)ctx, sig, msg, msg_len);
+    case NID_ED448:
+        if (*sig_len < 114)
+            return EINVAL;
+        *sig_len = 114;
+        return p_ica_ed448_sign((ICA_ED448_CTX*)ctx, sig, msg, msg_len);
+    default:
+        TRACE_ERROR("Not an Edwards or Montgomery curve.\n");
+        return EPERM;
+    }
+}
+
+static int ica_eddsa_verify(int nid, void *ctx, CK_BYTE *sig, CK_ULONG sig_len,
+                            CK_BYTE *msg, CK_ULONG msg_len)
+{
+    switch (nid) {
+    case NID_ED25519:
+        if (sig_len != 64)
+            return EINVAL;
+        return p_ica_ed25519_verify((ICA_ED25519_CTX*)ctx, sig, msg, msg_len);
+    case NID_ED448:
+        if (sig_len != 114)
+            return EINVAL;
+        return p_ica_ed448_verify((ICA_ED448_CTX*)ctx, sig, msg, msg_len);
+    default:
+        TRACE_ERROR("Not an Edwards or Montgomery curve.\n");
+        return EPERM;
+    }
+}
+
+static int ica_x_derive(int nid, void *ctx, CK_BYTE *shared_secret,
+                        CK_BYTE *peer_pubkey, CK_ULONG key_len)
+{
+    switch (nid) {
+    case NID_X25519:
+        if (key_len != 32)
+            return EINVAL;
+        return p_ica_x25519_derive((ICA_X25519_CTX*)ctx, shared_secret,
+                                   peer_pubkey);
+    case NID_X448:
+        if (key_len != 56)
+            return EINVAL;
+        return p_ica_x448_derive((ICA_X448_CTX*)ctx, shared_secret,
+                                 peer_pubkey);
+        break;
+    default:
+        TRACE_ERROR("Not an Edwards or Montgomery curve.\n");
+        return EPERM;
+    }
+}
+
+static CK_RV ica_specific_ec_edwards_montgomery_generate_keypair(
+                                                      STDLL_TokData_t *tokdata,
+                                                      TEMPLATE *publ_tmpl,
+                                                      TEMPLATE *priv_tmpl,
+                                                      CK_MECHANISM_TYPE mech)
+{
+    ica_private_data_t *ica_data = (ica_private_data_t *)tokdata->private_data;
+    CK_RV ret = CKR_OK;
+    CK_ATTRIBUTE *attr = NULL;
+    void *ctx = NULL;
+    CK_BYTE priv[57], pub [57];
+    CK_ULONG key_len = sizeof(priv);
+    int rc, nid;
+
+    ret = template_attribute_get_non_empty(publ_tmpl, CKA_EC_PARAMS, &attr);
+    if (ret != CKR_OK) {
+        TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCOMPLETE));
+        return CKR_TEMPLATE_INCOMPLETE;
+    }
+
+    /* Determine curve nid */
+    nid = nid_from_oid(attr->pValue, attr->ulValueLen);
+    if (nid < 0) {
+        TRACE_ERROR("curve not supported by icatoken.\n");
+        return CKR_CURVE_NOT_SUPPORTED;
+    }
+
+    switch (nid) {
+    case NID_ED25519:
+    case NID_ED448:
+        if (mech != CKM_EC_EDWARDS_KEY_PAIR_GEN) {
+            TRACE_ERROR("Edwards curve only supported with "
+                        "CKM_EC_EDWARDS_KEY_PAIR_GEN.\n");
+            return CKR_CURVE_NOT_SUPPORTED;
+        }
+        if (!ica_data->ica_ec_edwards_keygen_available) {
+            TRACE_ERROR("EC-Edwards support is not available in Libica\n");
+            return CKR_FUNCTION_NOT_SUPPORTED;
+        }
+        break;
+    case NID_X25519:
+    case NID_X448:
+        if (mech != CKM_EC_MONTGOMERY_KEY_PAIR_GEN) {
+            TRACE_ERROR("Montgomery curve only supported with "
+                        "CKM_EC_MONTGOMERY_KEY_PAIR_GEN.\n");
+            return CKR_CURVE_NOT_SUPPORTED;
+        }
+        if (!ica_data->ica_ec_montgomery_keygen_available) {
+            TRACE_ERROR("EC-Montgomery support is not available in Libica\n");
+            return CKR_FUNCTION_NOT_SUPPORTED;
+        }
+        break;
+    default:
+        TRACE_ERROR("Not an Edwards or Montgomery curve.\n");
+        return CKR_CURVE_NOT_SUPPORTED;
+    }
+
+    /* Create ICA_ED/Xxxx_CTX object */
+    rc = ica_ed_x_ctx_new(nid, &ctx);
+    if (rc != 0) {
+        TRACE_ERROR("ica_ed_x_ctx_new failed.\n");
+        return CKR_FUNCTION_FAILED;
+    }
+
+    /* Generate key data for this key object */
+    rc = ica_ed_x_key_gen(nid, ctx);
+    if (rc != 0) {
+        TRACE_ERROR("ica_ed_x_key_gen() failed with rc = %d \n", rc);
+        ret = CKR_FUNCTION_FAILED;
+        goto end;
+    }
+
+    /* Get the key material */
+    rc = ica_ed_x_key_get(nid, ctx, priv, pub, &key_len);
+    if (rc != 0) {
+        TRACE_ERROR("ica_ed_x_key_get failed with rc=%d.\n", rc);
+        ret = CKR_FUNCTION_FAILED;
+        goto end;
+    }
+
+    /* Return public key (X, Y) via CKA_EC_POINT */
+    ret = build_update_attribute(publ_tmpl, CKA_EC_POINT, pub, key_len);
+    if (ret != 0) {
+        TRACE_ERROR("build_update_attribute for (X,Y) failed rc=0x%lx\n", ret);
+        goto end;
+    }
+
+    /* Return private key (D) via CKA_VALUE */
+    ret = build_update_attribute(priv_tmpl, CKA_VALUE, priv, key_len);
+    if (ret != 0) {
+        TRACE_ERROR("build_update_attribute for (D) failed, rc=0x%lx\n", ret);
+        goto end;
+    }
+
+    /* Add CKA_EC_PARAMS to private template also */
+    ret = build_update_attribute(priv_tmpl, CKA_EC_PARAMS, attr->pValue,
+                                 attr->ulValueLen);
+    if (ret != 0) {
+        TRACE_ERROR("build_update_attribute for CKA_EC_PARAMS failed, "
+                    "rc=0x%lx\n", ret);
+        goto end;
+    }
+
+    ret = CKR_OK;
+
+end:
+    ica_ed_x_ctx_del(nid, &ctx);
+
+    return ret;
+
+}
+
+CK_RV token_specific_ec_edwards_generate_keypair(STDLL_TokData_t *tokdata,
+                                                 TEMPLATE *publ_tmpl,
+                                                 TEMPLATE *priv_tmpl)
+{
+    ica_private_data_t *ica_data = (ica_private_data_t *)tokdata->private_data;
+    CK_RV rc = CKR_FUNCTION_FAILED;
+
+    if (ica_data->ica_ec_edwards_keygen_available) {
+        rc = ica_specific_ec_edwards_montgomery_generate_keypair(
+                                            tokdata, publ_tmpl, priv_tmpl,
+                                            CKM_EC_EDWARDS_KEY_PAIR_GEN);
+        if (rc == CKR_FUNCTION_NOT_SUPPORTED)
+            ica_data->ica_ec_edwards_keygen_available = FALSE;
+    }
+
+    if (!ica_data->ica_ec_edwards_keygen_available)
+        rc = openssl_specific_ec_generate_keypair(tokdata, publ_tmpl,
+                                                  priv_tmpl,
+                                                  CKM_EC_EDWARDS_KEY_PAIR_GEN);
+
+    return rc;
+}
+
+CK_RV token_specific_ec_montgomery_generate_keypair(STDLL_TokData_t *tokdata,
+                                                    TEMPLATE *publ_tmpl,
+                                                    TEMPLATE *priv_tmpl)
+{
+    ica_private_data_t *ica_data = (ica_private_data_t *)tokdata->private_data;
+    CK_RV rc = CKR_FUNCTION_FAILED;
+
+    if (ica_data->ica_ec_montgomery_keygen_available) {
+        rc = ica_specific_ec_edwards_montgomery_generate_keypair(
+                                                tokdata, publ_tmpl, priv_tmpl,
+                                                CKM_EC_MONTGOMERY_KEY_PAIR_GEN);
+        if (rc == CKR_FUNCTION_NOT_SUPPORTED)
+            ica_data->ica_ec_montgomery_keygen_available = FALSE;
+    }
+
+    if (!ica_data->ica_ec_montgomery_keygen_available)
+        rc = openssl_specific_ec_generate_keypair(tokdata, publ_tmpl,
+                                                  priv_tmpl,
+                                                  CKM_EC_MONTGOMERY_KEY_PAIR_GEN);
 
     return rc;
 }
@@ -6118,8 +6704,8 @@ static CK_RV ica_prepare_ec_key(OBJECT *key_obj, ICA_EC_KEY **eckey,
     CK_RV ret = CKR_OK;
     CK_ATTRIBUTE *attr;
 
-    /* Get CKA_ECDSA_PARAMS from template */
-    ret = template_attribute_get_non_empty(key_obj->template, CKA_ECDSA_PARAMS,
+    /* Get CKA_EC_PARAMS from template */
+    ret = template_attribute_get_non_empty(key_obj->template, CKA_EC_PARAMS,
                                            &attr);
     if (ret != CKR_OK) {
         TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCOMPLETE));
@@ -6482,6 +7068,448 @@ CK_RV token_specific_ec_verify(STDLL_TokData_t *tokdata,
     return rc;
 }
 
+static CK_RV ica_prepare_ec_edwards_montgomery_ctx(OBJECT *key_obj,
+                                                   void **ed_x_ctx,
+                                                   int *nid)
+{
+    CK_RV ret = CKR_OK;
+    CK_ATTRIBUTE *attr;
+    int rc;
+
+    /* Get CKA_EC_PARAMS from template */
+    ret = template_attribute_get_non_empty(key_obj->template, CKA_EC_PARAMS,
+                                           &attr);
+    if (ret != CKR_OK) {
+        TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCOMPLETE));
+        return CKR_TEMPLATE_INCOMPLETE;
+    }
+
+    /* Determine curve nid */
+    *nid = nid_from_oid(attr->pValue, attr->ulValueLen);
+    if (*nid < 0) {
+        TRACE_ERROR("Cannot determine curve nid. \n");
+        return CKR_CURVE_NOT_SUPPORTED;
+    }
+
+    switch (*nid) {
+    case NID_ED25519:
+    case NID_ED448:
+    case NID_X25519:
+    case NID_X448:
+        break;
+    default:
+        TRACE_ERROR("Must be an Edwards or Montgomery curve.\n");
+        return CKR_CURVE_NOT_SUPPORTED;
+    }
+
+    /* Create Ed/X context object */
+    rc = ica_ed_x_ctx_new(*nid, ed_x_ctx);
+    if (rc != 0) {
+        TRACE_ERROR("ica_ed_x_ctx_new() failed for curve %i.\n", *nid);
+        return CKR_FUNCTION_FAILED;
+    }
+
+    return CKR_OK;
+}
+
+static CK_RV ica_build_ec_edwards_montgomery_priv_ctx(OBJECT *key_obj,
+                                                      void **ed_x_ctx,
+                                                      int *nid)
+{
+    CK_RV ret = CKR_OK;
+    CK_ATTRIBUTE *attr;
+    int rc;
+
+    /* Prepare the ICA context */
+    ret = ica_prepare_ec_edwards_montgomery_ctx(key_obj, ed_x_ctx, nid);
+    if (ret != CKR_OK) {
+        TRACE_ERROR("ica_prepare_ec_edwards_montgomery_ctx() failed with "
+                    "rc = 0x%lx. \n", ret);
+        return ret;
+    }
+
+    /* Get private key from template via CKA_VALUE */
+    ret = template_attribute_get_non_empty(key_obj->template, CKA_VALUE,
+                                           &attr);
+    if (ret != CKR_OK) {
+        TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCOMPLETE));
+        ret = CKR_TEMPLATE_INCOMPLETE;
+        goto end;
+    }
+
+    /* Initialize Ed/X with private key (D) */
+    rc = ica_ed_x_key_set(*nid, *ed_x_ctx, attr->pValue, NULL,
+                          attr->ulValueLen);
+    if (rc != 0) {
+        TRACE_ERROR("ica_ed_x_key_set() failed with rc = %d \n", rc);
+        ret = CKR_FUNCTION_FAILED;
+        goto end;
+    }
+
+end:
+    if (ret != CKR_OK) {
+        ica_ed_x_ctx_del(*nid, ed_x_ctx);
+        *ed_x_ctx = NULL;
+        *nid = NID_undef;
+    }
+
+    return ret;
+}
+
+static CK_RV ica_build_ec_edwards_montgomery_pub_ctx(OBJECT *key_obj,
+                                                     void **ed_x_ctx,
+                                                     int *nid)
+{
+    CK_RV ret = CKR_OK;
+    CK_ATTRIBUTE *attr;
+    int rc;
+
+    /* Prepare the ICA context */
+    ret = ica_prepare_ec_edwards_montgomery_ctx(key_obj, ed_x_ctx, nid);
+    if (ret != CKR_OK) {
+        TRACE_ERROR("ica_prepare_ec_edwards_montgomery_ctx() failed with "
+                    "rc = 0x%lx. \n", ret);
+        return ret;
+    }
+
+    /* Get public key from template via CKA_EC_POINT */
+    ret = template_attribute_get_non_empty(key_obj->template, CKA_EC_POINT,
+                                           &attr);
+    if (ret != CKR_OK) {
+        TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCOMPLETE));
+        ret = CKR_TEMPLATE_INCOMPLETE;
+        goto end;
+    }
+
+    /* Initialize Ed/X with public key (X, Y) */
+    rc = ica_ed_x_key_set(*nid, *ed_x_ctx, NULL, attr->pValue,
+                          attr->ulValueLen);
+    if (rc != 0) {
+        TRACE_ERROR("ica_ed_x_key_set() failed with rc = %d \n", rc);
+        ret = CKR_FUNCTION_FAILED;
+        goto end;
+    }
+
+end:
+    if (ret != CKR_OK) {
+        ica_ed_x_ctx_del(*nid, ed_x_ctx);
+        *ed_x_ctx = NULL;
+        *nid = NID_undef;
+    }
+
+    return ret;
+}
+
+static CK_RV ica_check_ec_edwards_mech_param(OBJECT *key_obj,
+                                             CK_MECHANISM *mech)
+{
+    CK_EDDSA_PARAMS* eddsa_params = NULL;
+    CK_ATTRIBUTE *attr;
+    CK_RV ret;
+    int nid;
+
+    if (mech->ulParameterLen == sizeof(CK_EDDSA_PARAMS) &&
+         mech->pParameter != NULL) {
+        eddsa_params = mech->pParameter;
+
+        if (eddsa_params->ulContextDataLen != 0 ||
+            eddsa_params->pContextData != NULL) {
+            TRACE_ERROR("ICA does not support a non-empty context\n");
+            return CKR_MECHANISM_PARAM_INVALID;
+        }
+
+        if (eddsa_params->phFlag) {
+            TRACE_ERROR("ICA does not support pre-hash\n");
+            return CKR_MECHANISM_PARAM_INVALID;
+        }
+    }
+
+    /* Get CKA_EC_PARAMS from template */
+    ret = template_attribute_get_non_empty(key_obj->template, CKA_EC_PARAMS,
+                                           &attr);
+    if (ret != CKR_OK) {
+        TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCOMPLETE));
+        return CKR_TEMPLATE_INCOMPLETE;
+    }
+
+    /* Determine curve nid */
+    nid = nid_from_oid(attr->pValue, attr->ulValueLen);
+    if (nid < 0) {
+        TRACE_ERROR("Cannot determine curve nid. \n");
+        return CKR_CURVE_NOT_SUPPORTED;
+    }
+
+    switch (nid) {
+    case NID_ED25519:
+        break;
+    case NID_ED448:
+        if (eddsa_params == NULL) {
+            TRACE_ERROR("Mechanism parameter is required for Ed448\n");
+            return CKR_MECHANISM_PARAM_INVALID;
+        }
+        break;
+    default:
+        TRACE_ERROR("Not an edwards curve.\n");
+        return CKR_CURVE_NOT_SUPPORTED;
+    }
+
+    return CKR_OK;
+}
+
+static CK_RV ica_specific_ec_edwards_sign(STDLL_TokData_t *tokdata,
+                                          SESSION *sess, CK_BYTE *in_data,
+                                          CK_ULONG in_data_len,
+                                          CK_BYTE *out_data,
+                                          CK_ULONG *out_data_len,
+                                          OBJECT *key_obj,
+                                          CK_MECHANISM *mech)
+{
+    ica_private_data_t *ica_data = (ica_private_data_t *)tokdata->private_data;
+    ica_ex_data_t *ex_data = NULL;
+    CK_RV ret = CKR_OK;
+    int rc;
+
+    UNUSED(sess);
+    UNUSED(mech);
+
+    if (!ica_data->ica_ec_edwards_support_available) {
+        TRACE_ERROR("EC-Edwards support is not available in Libica\n");
+        return CKR_FUNCTION_NOT_SUPPORTED;
+    }
+
+    rc = openssl_get_ex_data(key_obj, (void **)&ex_data,
+                             sizeof(ica_ex_data_t),
+                             ica_need_wr_lock_ec_key, ica_free_ex_data);
+    if (rc != CKR_OK)
+        return rc;
+
+    if (ex_data->ed_x_ctx == NULL) {
+        /* Get the private key */
+        ret = ica_build_ec_edwards_montgomery_priv_ctx(key_obj,
+                                                       &ex_data->ed_x_ctx,
+                                                       &ex_data->ed_x_nid);
+        if (ret != CKR_OK) {
+            TRACE_ERROR("ica_build_ec_edwards_montgomery_priv_ctx() failed "
+                        "with rc = 0x%lx. \n", ret);
+            goto end;
+        }
+    }
+
+    /* Create signature */
+    rc = ica_eddsa_sign(ex_data->ed_x_nid, ex_data->ed_x_ctx,
+                        out_data, out_data_len, in_data, in_data_len);
+    if (rc != 0) {
+        switch (rc) {
+        case ENODEV:
+            TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
+            ret = CKR_FUNCTION_NOT_SUPPORTED;
+            break;
+        default:
+            TRACE_ERROR("ica_eddsa_sign() failed with rc = %d. \n", rc);
+            ret = CKR_FUNCTION_FAILED;
+            break;
+        }
+        goto end;
+    }
+
+    ret = CKR_OK;
+
+end:
+    object_ex_data_unlock(key_obj);
+
+    return ret;
+}
+
+CK_RV token_specific_ec_edwards_sign(STDLL_TokData_t *tokdata,  SESSION *sess,
+                                     CK_BYTE *in_data, CK_ULONG in_data_len,
+                                     CK_BYTE *out_data, CK_ULONG *out_data_len,
+                                     OBJECT *key_obj, CK_MECHANISM *mech)
+{
+    ica_private_data_t *ica_data = (ica_private_data_t *)tokdata->private_data;
+    CK_RV rc;
+
+    rc = ica_check_ec_edwards_mech_param(key_obj, mech);
+    if (rc != CKR_OK)
+        return rc;
+
+    if (ica_data->ica_ec_edwards_signverify_available) {
+        rc = ica_specific_ec_edwards_sign(tokdata, sess, in_data, in_data_len,
+                                          out_data, out_data_len, key_obj,
+                                          mech);
+        if (rc == CKR_FUNCTION_NOT_SUPPORTED)
+            ica_data->ica_ec_edwards_signverify_available = FALSE;
+    }
+
+    if (!ica_data->ica_ec_edwards_signverify_available)
+        rc = openssl_specific_ec_edwards_sign(tokdata, sess,
+                                              in_data, in_data_len,
+                                              out_data, out_data_len,
+                                              key_obj, mech);
+
+    return rc;
+}
+
+static CK_RV ica_specific_ec_edwards_verify(STDLL_TokData_t *tokdata,
+                                            SESSION *sess, CK_BYTE *in_data,
+                                            CK_ULONG in_data_len,
+                                            CK_BYTE *signature,
+                                            CK_ULONG signature_len,
+                                            OBJECT *key_obj,
+                                            CK_MECHANISM *mech)
+{
+    ica_private_data_t *ica_data = (ica_private_data_t *)tokdata->private_data;
+    ica_ex_data_t *ex_data = NULL;
+    CK_RV ret = CKR_OK;
+    int rc;
+
+    UNUSED(sess);
+    UNUSED(mech);
+
+    if (!ica_data->ica_ec_support_available) {
+        TRACE_ERROR("ECC support is not available in Libica\n");
+        return CKR_FUNCTION_NOT_SUPPORTED;
+    }
+
+    rc = openssl_get_ex_data(key_obj, (void **)&ex_data,
+                             sizeof(ica_ex_data_t),
+                             ica_need_wr_lock_ec_key, ica_free_ex_data);
+    if (rc != CKR_OK)
+        return rc;
+
+    if (ex_data->ed_x_ctx == NULL) {
+        /* Get the public key */
+        ret = ica_build_ec_edwards_montgomery_pub_ctx(key_obj,
+                                                      &ex_data->ed_x_ctx,
+                                                      &ex_data->ed_x_nid);
+        if (ret != CKR_OK) {
+            TRACE_ERROR("ica_build_ec_edwards_montgomery_pub_ctx() failed with "
+                        "rc = 0x%lx. \n", ret);
+            goto end;
+        }
+    }
+
+    /* Verify signature */
+    rc = ica_eddsa_verify(ex_data->ed_x_nid, ex_data->ed_x_ctx,
+                          signature, signature_len, in_data, in_data_len);
+    switch (rc) {
+    case 0:
+        ret = CKR_OK;
+        break;
+    case ENODEV:
+        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
+        ret = CKR_FUNCTION_NOT_SUPPORTED;
+        break;
+    default:
+        TRACE_ERROR("ica_eddsa_verify() returned invalid signature, "
+                    "rc = %d. \n", rc);
+        ret = CKR_SIGNATURE_INVALID;
+        break;
+    }
+
+end:
+    object_ex_data_unlock(key_obj);
+
+    return ret;
+}
+
+CK_RV token_specific_ec_edwards_verify(STDLL_TokData_t *tokdata, SESSION *sess,
+                                       CK_BYTE *in_data, CK_ULONG in_data_len,
+                                       CK_BYTE *signature,
+                                       CK_ULONG signature_len, OBJECT *key_obj,
+                                       CK_MECHANISM *mech)
+{
+    ica_private_data_t *ica_data = (ica_private_data_t *)tokdata->private_data;
+    CK_RV rc;
+
+    rc = ica_check_ec_edwards_mech_param(key_obj, mech);
+    if (rc != CKR_OK)
+        return rc;
+
+    if (ica_data->ica_ec_edwards_signverify_available) {
+        rc = ica_specific_ec_edwards_verify(tokdata, sess, in_data, in_data_len,
+                                            signature, signature_len, key_obj,
+                                            mech);
+        if (rc == CKR_FUNCTION_NOT_SUPPORTED)
+            ica_data->ica_ec_edwards_signverify_available = FALSE;
+    }
+
+    if (!ica_data->ica_ec_edwards_signverify_available)
+        rc = openssl_specific_ec_edwards_verify(tokdata, sess,
+                                                in_data, in_data_len,
+                                                signature, signature_len,
+                                                key_obj, mech);
+
+    return rc;
+}
+
+static CK_RV ica_specific_montgomery_ecdh_pkcs_derive(STDLL_TokData_t *tokdata,
+                                                      CK_BYTE *priv_bytes,
+                                                      CK_ULONG priv_length,
+                                                      CK_BYTE *pub_bytes,
+                                                      CK_ULONG pub_length,
+                                                      CK_BYTE *secret_value,
+                                                      CK_ULONG *secret_value_len,
+                                                      int nid)
+{
+    ica_private_data_t *ica_data = (ica_private_data_t *)tokdata->private_data;
+    CK_RV ret = CKR_OK;
+    void *ctx = NULL;
+    int rc;
+
+    UNUSED(tokdata);
+
+    *secret_value_len = 0;
+
+    if (!ica_data->ica_ec_montgomery_support_available) {
+        TRACE_ERROR("EC-Montgomery support is not available in Libica\n");
+        return CKR_FUNCTION_NOT_SUPPORTED;
+    }
+
+    /* Create ICA object with private key */
+    rc = ica_ed_x_ctx_new(nid, &ctx);
+    if (rc != 0) {
+        TRACE_ERROR("ica_ed_x_ctx_new() failed for curve %i.\n", nid);
+        return CKR_FUNCTION_FAILED;
+    }
+
+    rc = ica_ed_x_key_set(nid, ctx, priv_bytes, NULL, priv_length);
+    if (rc != 0) {
+        TRACE_ERROR("ica_ed_x_key_set() failed with rc = %d \n", rc);
+        ret = CKR_FUNCTION_FAILED;
+        goto end;
+    }
+
+    /* Calculate shared secret z */
+    rc = ica_x_derive(nid, ctx, secret_value, pub_bytes, pub_length);
+    if (rc != 0) {
+        switch (rc) {
+        case ENODEV:
+            TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
+            ret = CKR_FUNCTION_NOT_SUPPORTED;
+            break;
+        case EPERM:
+            TRACE_ERROR("ica_x_derive() failed with rc=EPERM, probably curve "
+                        "not supported by openssl.\n");
+            ret = CKR_CURVE_NOT_SUPPORTED;
+            break;
+        default:
+            TRACE_ERROR("ica_x_derive() failed with rc = %d. \n", rc);
+            ret = CKR_FUNCTION_FAILED;
+            break;
+        }
+        goto end;
+    }
+
+    *secret_value_len = priv_length;
+    ret = CKR_OK;
+
+end:
+    ica_ed_x_ctx_del(nid, &ctx);
+
+    return ret;
+}
+
+
 static CK_RV ica_specific_ecdh_pkcs_derive(STDLL_TokData_t *tokdata,
                                            CK_BYTE *priv_bytes,
                                            CK_ULONG priv_length,
@@ -6503,20 +7531,34 @@ static CK_RV ica_specific_ecdh_pkcs_derive(STDLL_TokData_t *tokdata,
     CK_ULONG ecpoint_len;
     CK_BBOOL allocated = FALSE;
 
-    UNUSED(tokdata);
+    /* Get nid from oid */
+    nid = nid_from_oid(oid, oid_length);
+    if (nid < 0) {
+        TRACE_ERROR("curve not supported by icatoken.\n");
+        return CKR_CURVE_NOT_SUPPORTED;
+    }
+
+    switch (nid) {
+    case NID_X25519:
+    case NID_X448:
+        return ica_specific_montgomery_ecdh_pkcs_derive(tokdata, priv_bytes,
+                                                        priv_length, pub_bytes,
+                                                        pub_length,
+                                                        secret_value,
+                                                        secret_value_len,
+                                                        nid);
+    case NID_ED25519:
+    case NID_ED448:
+        return CKR_CURVE_NOT_SUPPORTED;
+    default:
+        break;
+    }
 
     *secret_value_len = 0;
 
     if (!ica_data->ica_ec_support_available) {
         TRACE_ERROR("ECC support is not available in Libica\n");
         return CKR_FUNCTION_NOT_SUPPORTED;
-    }
-
-    /* Get nid from oid */
-    nid = nid_from_oid(oid, oid_length);
-    if (nid < 0) {
-        TRACE_ERROR("curve not supported by icatoken.\n");
-        return CKR_CURVE_NOT_SUPPORTED;
     }
 
     /* Create ICA_EC_KEY object with public key */
@@ -6648,6 +7690,8 @@ CK_RV token_specific_object_add(STDLL_TokData_t *tokdata, SESSION *sess,
 #ifndef NO_EC
     ICA_EC_KEY *ica_eckey = NULL;
     unsigned int privlen;
+    void *ctx = NULL;
+    int nid = NID_undef;
     EVP_PKEY *ossl_eckey = NULL;
 #endif
     CK_RV rc;
@@ -6683,6 +7727,60 @@ CK_RV token_specific_object_add(STDLL_TokData_t *tokdata, SESSION *sess,
                 return rc;
             default:
                 return CKR_KEY_TYPE_INCONSISTENT;
+            }
+        } else {
+            /* Check if OpenSSL supports the curve */
+            rc = openssl_make_ec_key_from_template(obj->template, &ossl_eckey);
+            if (ossl_eckey != NULL)
+                    EVP_PKEY_free(ossl_eckey);
+            return rc;
+        }
+        return CKR_OK;
+    case CKK_EC_EDWARDS:
+    case CKK_EC_MONTGOMERY:
+        if ((keytype == CKK_EC_EDWARDS &&
+             ica_data->ica_ec_edwards_keygen_available) ||
+            (keytype == CKK_EC_MONTGOMERY &&
+             ica_data->ica_ec_montgomery_keygen_available)) {
+            /* Check if libica supports Edwards/Montgomery */
+            switch (class) {
+            case CKO_PRIVATE_KEY:
+                rc = ica_build_ec_edwards_montgomery_priv_ctx(obj, &ctx, &nid);
+                if (ctx != NULL)
+                    ica_ed_x_ctx_del(nid, &ctx);
+                if (rc != CKR_OK)
+                    return rc;
+                break;
+            case CKO_PUBLIC_KEY:
+                rc = ica_build_ec_edwards_montgomery_pub_ctx(obj, &ctx, &nid);
+                if (ctx != NULL)
+                    ica_ed_x_ctx_del(nid, &ctx);
+                if (rc != CKR_OK)
+                    return rc;
+                break;
+            default:
+                return CKR_KEY_TYPE_INCONSISTENT;
+            }
+
+            switch (nid) {
+            case NID_ED25519:
+            case NID_ED448:
+                if (keytype != CKK_EC_EDWARDS) {
+                    TRACE_ERROR("Edwards curve only supported with "
+                                "CKK_EC_EDWARDS key type.\n");
+                    return CKR_CURVE_NOT_SUPPORTED;
+                }
+                break;
+            case NID_X25519:
+            case NID_X448:
+                if (keytype != CKK_EC_MONTGOMERY) {
+                    TRACE_ERROR("Montgomery curve only supported with "
+                                "CKK_EC_MONTGOMERY key type.\n");
+                    return CKR_CURVE_NOT_SUPPORTED;
+                }
+                break;
+            default:
+                return CKR_CURVE_NOT_SUPPORTED;
             }
         } else {
             /* Check if OpenSSL supports the curve */
