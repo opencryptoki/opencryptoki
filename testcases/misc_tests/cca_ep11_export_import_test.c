@@ -353,13 +353,12 @@ static CK_RV import_rsa_publ_key(CK_SESSION_HANDLE session,
 }
 
 static CK_RV import_ecc_priv_key(CK_SESSION_HANDLE session,
-                                 const char *label,
+                                 CK_KEY_TYPE keyType,const char *label,
                                  CK_BYTE *blob, CK_ULONG bloblen,
                                  CK_OBJECT_HANDLE *handle)
 {
     CK_RV rc;
     CK_OBJECT_CLASS keyClass = CKO_PRIVATE_KEY;
-    CK_KEY_TYPE keyType = CKK_EC;
     CK_BBOOL true = TRUE;
     CK_ATTRIBUTE template[] = {
         {CKA_CLASS, &keyClass, sizeof(keyClass)},
@@ -381,13 +380,12 @@ static CK_RV import_ecc_priv_key(CK_SESSION_HANDLE session,
 }
 
 static CK_RV import_ecc_publ_key(CK_SESSION_HANDLE session,
-                                 const char *label,
+                                 CK_KEY_TYPE keyType, const char *label,
                                  CK_BYTE *blob, CK_ULONG bloblen,
                                  CK_OBJECT_HANDLE *handle)
 {
     CK_RV rc;
     CK_OBJECT_CLASS keyClass = CKO_PUBLIC_KEY;
-    CK_KEY_TYPE keyType = CKK_EC;
     CK_BBOOL true = TRUE;
     CK_BBOOL false = FALSE;
     CK_ATTRIBUTE template[] = {
@@ -1589,34 +1587,69 @@ static CK_BYTE secp256k1[] = OCK_SECP256K1;
 static CK_BYTE ed25519[] = OCK_ED25519;
 static CK_BYTE ed448[] = OCK_ED448;
 
+static CK_EDDSA_PARAMS eddsa_params = { FALSE, 0, NULL };
+
 static struct {
     CK_BYTE *curve;
     CK_ULONG size;
     const char *name;
+    CK_MECHANISM keygen_mech;
+    CK_MECHANISM sign_mech;
+    CK_KEY_TYPE key_type;
 } ec_curves[] = {
-    {brainpoolP160r1, sizeof(brainpoolP160r1), "brainpoolP160r1"},
-    {brainpoolP160t1, sizeof(brainpoolP160t1), "brainpoolP160t1"},
-    {brainpoolP192r1, sizeof(brainpoolP192r1), "brainpoolP192r1"},
-    {brainpoolP192t1, sizeof(brainpoolP192t1), "brainpoolP192t1"},
-    {brainpoolP224r1, sizeof(brainpoolP224r1), "brainpoolP224r1"},
-    {brainpoolP224t1, sizeof(brainpoolP224t1), "brainpoolP224t1"},
-    {brainpoolP256r1, sizeof(brainpoolP256r1), "brainpoolP256r1"},
-    {brainpoolP256t1, sizeof(brainpoolP256t1), "brainpoolP256t1"},
-    {brainpoolP320r1, sizeof(brainpoolP320r1), "brainpoolP320r1"},
-    {brainpoolP320t1, sizeof(brainpoolP320t1), "brainpoolP320t1"},
-    {brainpoolP384r1, sizeof(brainpoolP384r1), "brainpoolP384r1"},
-    {brainpoolP384t1, sizeof(brainpoolP384t1), "brainpoolP384t1"},
-    {brainpoolP512r1, sizeof(brainpoolP512r1), "brainpoolP512r1"},
-    {brainpoolP512t1, sizeof(brainpoolP512t1), "brainpoolP512t1"},
-    {prime192v1, sizeof(prime192v1), "prime192v1"},
-    {secp224r1, sizeof(secp224r1), "secp224r1"},
-    {prime256v1, sizeof(prime256v1), "prime256v1"},
-    {secp384r1, sizeof(secp384r1), "secp384r1"},
-    {secp521r1, sizeof(secp521r1), "secp521r1"},
-    {secp256k1, sizeof(secp256k1), "secp256k1"},
-    {ed25519, sizeof(ed25519), "ed25519"},
-    {ed448, sizeof(ed448), "ed448"},
-    {0, 0, 0}
+    {brainpoolP160r1, sizeof(brainpoolP160r1), "brainpoolP160r1",
+            {CKM_EC_KEY_PAIR_GEN, NULL, 0}, {CKM_ECDSA, NULL, 0}, CKK_EC},
+    {brainpoolP160t1, sizeof(brainpoolP160t1), "brainpoolP160t1",
+            {CKM_EC_KEY_PAIR_GEN, NULL, 0}, {CKM_ECDSA, NULL, 0}, CKK_EC},
+    {brainpoolP192r1, sizeof(brainpoolP192r1), "brainpoolP192r1",
+            {CKM_EC_KEY_PAIR_GEN, NULL, 0}, {CKM_ECDSA, NULL, 0}, CKK_EC},
+    {brainpoolP192t1, sizeof(brainpoolP192t1), "brainpoolP192t1",
+            {CKM_EC_KEY_PAIR_GEN, NULL, 0}, {CKM_ECDSA, NULL, 0}, CKK_EC},
+    {brainpoolP224r1, sizeof(brainpoolP224r1), "brainpoolP224r1",
+            {CKM_EC_KEY_PAIR_GEN, NULL, 0}, {CKM_ECDSA, NULL, 0}, CKK_EC},
+    {brainpoolP224t1, sizeof(brainpoolP224t1), "brainpoolP224t1",
+            {CKM_EC_KEY_PAIR_GEN, NULL, 0}, {CKM_ECDSA, NULL, 0}, CKK_EC},
+    {brainpoolP256r1, sizeof(brainpoolP256r1), "brainpoolP256r1",
+            {CKM_EC_KEY_PAIR_GEN, NULL, 0}, {CKM_ECDSA, NULL, 0}, CKK_EC},
+    {brainpoolP256t1, sizeof(brainpoolP256t1), "brainpoolP256t1",
+            {CKM_EC_KEY_PAIR_GEN, NULL, 0}, {CKM_ECDSA, NULL, 0}, CKK_EC},
+    {brainpoolP320r1, sizeof(brainpoolP320r1), "brainpoolP320r1",
+            {CKM_EC_KEY_PAIR_GEN, NULL, 0}, {CKM_ECDSA, NULL, 0}, CKK_EC},
+    {brainpoolP320t1, sizeof(brainpoolP320t1), "brainpoolP320t1",
+            {CKM_EC_KEY_PAIR_GEN, NULL, 0}, {CKM_ECDSA, NULL, 0}, CKK_EC},
+    {brainpoolP384r1, sizeof(brainpoolP384r1), "brainpoolP384r1",
+            {CKM_EC_KEY_PAIR_GEN, NULL, 0}, {CKM_ECDSA, NULL, 0}, CKK_EC},
+    {brainpoolP384t1, sizeof(brainpoolP384t1), "brainpoolP384t1",
+            {CKM_EC_KEY_PAIR_GEN, NULL, 0}, {CKM_ECDSA, NULL, 0}, CKK_EC},
+    {brainpoolP512r1, sizeof(brainpoolP512r1), "brainpoolP512r1",
+            {CKM_EC_KEY_PAIR_GEN, NULL, 0}, {CKM_ECDSA, NULL, 0}, CKK_EC},
+    {brainpoolP512t1, sizeof(brainpoolP512t1), "brainpoolP512t1",
+            {CKM_EC_KEY_PAIR_GEN, NULL, 0}, {CKM_ECDSA, NULL, 0}, CKK_EC},
+    {prime192v1, sizeof(prime192v1), "prime192v1",
+            {CKM_EC_KEY_PAIR_GEN, NULL, 0}, {CKM_ECDSA, NULL, 0}, CKK_EC},
+    {secp224r1, sizeof(secp224r1), "secp224r1",
+            {CKM_EC_KEY_PAIR_GEN, NULL, 0}, {CKM_ECDSA, NULL, 0}, CKK_EC},
+    {prime256v1, sizeof(prime256v1), "prime256v1",
+            {CKM_EC_KEY_PAIR_GEN, NULL, 0}, {CKM_ECDSA, NULL, 0}, CKK_EC},
+    {secp384r1, sizeof(secp384r1), "secp384r1",
+            {CKM_EC_KEY_PAIR_GEN, NULL, 0}, {CKM_ECDSA, NULL, 0}, CKK_EC},
+    {secp521r1, sizeof(secp521r1), "secp521r1",
+            {CKM_EC_KEY_PAIR_GEN, NULL, 0}, {CKM_ECDSA, NULL, 0}, CKK_EC},
+    {secp256k1, sizeof(secp256k1), "secp256k1",
+            {CKM_EC_KEY_PAIR_GEN, NULL, 0}, {CKM_ECDSA, NULL, 0}, CKK_EC},
+    {ed25519, sizeof(ed25519), "ed25519",
+            {CKM_EC_KEY_PAIR_GEN, NULL, 0}, {CKM_IBM_ED25519_SHA512, NULL, 0},
+            CKK_EC},
+    {ed448, sizeof(ed448), "ed448",
+            {CKM_EC_KEY_PAIR_GEN, NULL, 0}, {CKM_IBM_ED448_SHA3, NULL, 0},
+            CKK_EC}, 
+    {ed25519, sizeof(ed25519), "ed25519",
+            {CKM_EC_EDWARDS_KEY_PAIR_GEN, NULL, 0},
+            {CKM_EDDSA, &eddsa_params, sizeof(eddsa_params)}, CKK_EC_EDWARDS},
+    {ed448, sizeof(ed448), "ed448",
+            {CKM_EC_EDWARDS_KEY_PAIR_GEN, NULL, 0},
+            {CKM_EDDSA, &eddsa_params, sizeof(eddsa_params)}, CKK_EC_EDWARDS},
+    {0, 0, 0, {0, NULL, 0}, {0, NULL, 0}, 0}
 };
 
 static CK_RV ecc_export_import_tests(void)
@@ -1630,7 +1663,6 @@ static CK_RV ecc_export_import_tests(void)
     CK_OBJECT_HANDLE imp_priv_key = CK_INVALID_HANDLE, imp_publ_key = CK_INVALID_HANDLE;
     CK_BYTE msg[32], sig[256];
     CK_ULONG msglen, siglen;
-    CK_MECHANISM mech = { CKM_ECDSA, 0, 0};
     CK_BYTE *priv_opaquekey = NULL, *publ_opaquekey = NULL;
     CK_ULONG priv_opaquekeylen, publ_opaquekeylen;
     CK_BBOOL ck_true = TRUE;
@@ -1646,33 +1678,32 @@ static CK_RV ecc_export_import_tests(void)
         testcase_skip("this slot is not a CCA or EP11 token");
         goto out;
     }
-    if (!mech_supported(SLOT_ID, CKM_EC_KEY_PAIR_GEN)) {
-        testcase_skip("this slot does not support CKM_EC_KEY_PAIR_GEN");
-        goto out;
-    }
 
     testcase_rw_session();
     testcase_user_login();
 
     for (i = 0; ec_curves[i].curve; i++) {
 
-        testcase_begin("CCA/EP11 export/import test with public/private ECC curve %s keys",
-                       ec_curves[i].name);
+        testcase_begin("CCA/EP11 export/import test with public/private ECC "
+                       "curve %s keys and %s", ec_curves[i].name,
+                       p11_get_ckm(&mechtable_funcs,
+                                   ec_curves[i].sign_mech.mechanism));
 
-        if (strcmp(ec_curves[i].name, "ed25519") == 0)
-            mech.mechanism = CKM_IBM_ED25519_SHA512;
-        else if (strcmp(ec_curves[i].name, "ed448") == 0)
-            mech.mechanism = CKM_IBM_ED448_SHA3;
-        else
-            mech.mechanism = CKM_ECDSA;
 
-        if (!mech_supported(SLOT_ID, mech.mechanism)) {
+        if (!mech_supported(SLOT_ID, ec_curves[i].keygen_mech.mechanism)) {
             testcase_skip("this slot does not support %s",
-                          p11_get_ckm(&mechtable_funcs, mech.mechanism));
+                          p11_get_ckm(&mechtable_funcs,
+                                  ec_curves[i].keygen_mech.mechanism));
+            goto error;
+        }
+        if (!mech_supported(SLOT_ID, ec_curves[i].sign_mech.mechanism)) {
+            testcase_skip("this slot does not support %s",
+                          p11_get_ckm(&mechtable_funcs,
+                                  ec_curves[i].sign_mech.mechanism));
             goto error;
         }
 
-        rc = generate_EC_KeyPair(session, CKM_EC_KEY_PAIR_GEN,
+        rc = generate_EC_KeyPair(session, ec_curves[i].keygen_mech.mechanism,
                                  ec_curves[i].curve, ec_curves[i].size,
                                  &publ_key, &priv_key, CK_FALSE);
         if (rc == CKR_CURVE_NOT_SUPPORTED) {
@@ -1694,7 +1725,7 @@ static CK_RV ecc_export_import_tests(void)
 
         // sign with original private key
 
-        rc = funcs->C_SignInit(session, &mech, priv_key);
+        rc = funcs->C_SignInit(session, &ec_curves[i].sign_mech, priv_key);
         if (rc != CKR_OK) {
             testcase_error("C_SignInit() rc=%s", p11_get_ckr(rc));
             goto error;
@@ -1709,7 +1740,7 @@ static CK_RV ecc_export_import_tests(void)
 
         // verify with original public key
 
-        rc = funcs->C_VerifyInit(session, &mech, publ_key);
+        rc = funcs->C_VerifyInit(session, &ec_curves[i].sign_mech, publ_key);
         if (rc != CKR_OK) {
             testcase_error("C_VerifyInit() rc=%s", p11_get_ckr(rc));
             goto error;
@@ -1736,7 +1767,8 @@ static CK_RV ecc_export_import_tests(void)
         // re-import this CCA/EP11 public ecc key blob as new public ecc key
 
         snprintf(label, sizeof(label), "re-imported_ecc_%s_public_key", ec_curves[i].name);
-        rc = import_ecc_publ_key(session, label, publ_opaquekey, publ_opaquekeylen, &imp_publ_key);
+        rc = import_ecc_publ_key(session, ec_curves[i].key_type, label,
+                                 publ_opaquekey, publ_opaquekeylen, &imp_publ_key);
         if (rc != CKR_OK) {
             if (rc == CKR_PUBLIC_KEY_INVALID && is_ep11_token(SLOT_ID)) {
                 testcase_skip("import_ecc_publ_key on exported CCA/EP11 ecc key blob failed due to missing EP11 FW fix");
@@ -1758,7 +1790,8 @@ static CK_RV ecc_export_import_tests(void)
         // re-import this CCA/EP11 private ecc key blob as new private ecc key
 
         snprintf(label, sizeof(label), "re-imported_ecc_%s_private_key", ec_curves[i].name);
-        rc = import_ecc_priv_key(session, label, priv_opaquekey, priv_opaquekeylen, &imp_priv_key);
+        rc = import_ecc_priv_key(session, ec_curves[i].key_type, label,
+                                 priv_opaquekey, priv_opaquekeylen, &imp_priv_key);
         if (rc != CKR_OK) {
             if (rc == CKR_PUBLIC_KEY_INVALID && is_ep11_token(SLOT_ID)) {
                 testcase_skip("import_ecc_priv_key on exported CCA/EP11 ecc key blob failed due to missing EP11 FW fix");
@@ -1771,7 +1804,7 @@ static CK_RV ecc_export_import_tests(void)
 
         // sign with re-imported private key
 
-        rc = funcs->C_SignInit(session, &mech, imp_priv_key);
+        rc = funcs->C_SignInit(session, &ec_curves[i].sign_mech, imp_priv_key);
         if (rc != CKR_OK) {
             testcase_error("C_SignInit() with re-imported priv key failed, rc=%s",
                            p11_get_ckr(rc));
@@ -1788,7 +1821,7 @@ static CK_RV ecc_export_import_tests(void)
 
         // verify with original public key
 
-        rc = funcs->C_VerifyInit(session, &mech, publ_key);
+        rc = funcs->C_VerifyInit(session, &ec_curves[i].sign_mech, publ_key);
         if (rc != CKR_OK) {
             testcase_error("C_VerifyInit() rc=%s", p11_get_ckr(rc));
             goto error;
@@ -1808,7 +1841,7 @@ static CK_RV ecc_export_import_tests(void)
 
         // sign with original private key
 
-        rc = funcs->C_SignInit(session, &mech, priv_key);
+        rc = funcs->C_SignInit(session, &ec_curves[i].sign_mech, priv_key);
         if (rc != CKR_OK) {
             testcase_error("C_SignInit() rc=%s", p11_get_ckr(rc));
             goto error;
@@ -1823,7 +1856,7 @@ static CK_RV ecc_export_import_tests(void)
 
         // verify with re-imported public key
 
-        rc = funcs->C_VerifyInit(session, &mech, imp_publ_key);
+        rc = funcs->C_VerifyInit(session, &ec_curves[i].sign_mech, imp_publ_key);
         if (rc != CKR_OK) {
             testcase_error("C_VerifyInit() with re-imported pub key failed, rc=%s",
                            p11_get_ckr(rc));
@@ -1852,8 +1885,10 @@ static CK_RV ecc_export_import_tests(void)
             }
         }
 
-        testcase_pass("CCA/EP11 export/import test with public/private ECC curve %s keys: ok",
-                      ec_curves[i].name);
+        testcase_pass("CCA/EP11 export/import test with public/private ECC "
+                      "curve %s keys and %s: ok", ec_curves[i].name,
+                      p11_get_ckm(&mechtable_funcs,
+                                  ec_curves[i].sign_mech.mechanism));
 
 error:
         free(priv_opaquekey);
