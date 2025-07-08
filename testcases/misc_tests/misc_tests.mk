@@ -18,6 +18,12 @@ EXTRA_DIST += testcases/misc_tests/dh-key.pem				\
 	testcases/misc_tests/ec-key-secp521r1.pem			\
 	testcases/misc_tests/ed25519-private-key.pem			\
 	testcases/misc_tests/ed25519-public-key.pem			\
+	testcases/misc_tests/ed448-private-key.pem			\
+	testcases/misc_tests/ed448-public-key.pem			\
+	testcases/misc_tests/x25519-private-key.pem			\
+	testcases/misc_tests/x25519-public-key.pem			\
+	testcases/misc_tests/x448-private-key.pem			\
+	testcases/misc_tests/x448-public-key.pem			\
 	testcases/misc_tests/ibm-dilithium-r2-65-key.pem		\
 	testcases/misc_tests/ibm-dilithium-r3-65-key.pem		\
 	testcases/misc_tests/ibm-kyber-r2-768-key.pem			\
@@ -28,6 +34,8 @@ EXTRA_DIST += testcases/misc_tests/dh-key.pem				\
 	testcases/misc_tests/p11sak_ecp521cert.pem			\
 	testcases/misc_tests/p11sak_rsa2048cert.pem			\
 	testcases/misc_tests/p11sak_rsa4096cert.pem			\
+	testcases/misc_tests/p11sak_ed25519cert.pem			\
+	testcases/misc_tests/p11sak_ed448cert.pem			\
 	testcases/misc_tests/rsa-key.pem				\
 	testcases/misc_tests/aes.key					\
 	testcases/misc_tests/p11sak_dsa3072cert.crt			\
@@ -37,6 +45,8 @@ EXTRA_DIST += testcases/misc_tests/dh-key.pem				\
 	testcases/misc_tests/p11sak_ecp521cert.crt			\
 	testcases/misc_tests/p11sak_rsa2048cert.crt			\
 	testcases/misc_tests/p11sak_rsa4096cert.crt			\
+	testcases/misc_tests/p11sak_ed25519cert.crt			\
+	testcases/misc_tests/p11sak_ed448cert.crt			\
 	testcases/misc_tests/migration.sh				\
 	testcases/misc_tests/p11sak_test.sh				\
 	testcases/misc_tests/pkcsconf_test.sh				\

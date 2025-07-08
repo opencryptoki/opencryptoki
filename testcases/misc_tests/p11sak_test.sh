@@ -48,6 +48,12 @@ P11SAK_DSA_POST=p11sak-dsa-post.out
 P11SAK_EC_PRE=p11sak-ec-pre.out
 P11SAK_EC_LONG=p11sak-ec-long.out
 P11SAK_EC_POST=p11sak-ec-post.out
+P11SAK_EC_EDWARDS_PRE=p11sak-ec-edwards-pre.out
+P11SAK_EC_EDWARDS_LONG=p11sak-ec-edwards-long.out
+P11SAK_EC_EDWARDS_POST=p11sak-ec-edwards-post.out
+P11SAK_EC_MONTGOMERY_PRE=p11sak-ec-montgomery-pre.out
+P11SAK_EC_MONTGOMERY_LONG=p11sak-ec-montgomery-long.out
+P11SAK_EC_MONTGOMERY_POST=p11sak-ec-montgomery-post.out
 P11SAK_IBM_DILITHIUM_PRE=p11sak-ibm-dilithium-pre.out
 P11SAK_IBM_DILITHIUM_LONG=p11sak-ibm-dilithium-long.out
 P11SAK_IBM_DILITHIUM_POST=p11sak-ibm-dilithium-post.out
@@ -170,6 +176,24 @@ ${P11SAK} generate-key ec secp384r1 --slot $SLOT --pin $PKCS11_USER_PIN --label 
 RC_P11SAK_GENERATE=$((RC_P11SAK_GENERATE + $?))
 ${P11SAK} generate-key ec secp521r1 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-ec-secp521r1"
 RC_P11SAK_GENERATE=$((RC_P11SAK_GENERATE + $?))
+# ec-edwards [ed25519 | ed448]
+if [[ -n $( ${PKCSCONF} -m -c $SLOT | grep CKM_EC_EDWARDS_KEY_PAIR_GEN) ]]; then
+	${P11SAK} generate-key ec-edwards ed25519 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-ec-edwards-ed25519"
+	RC_P11SAK_GENERATE=$((RC_P11SAK_GENERATE + $?))
+	${P11SAK} generate-key ec-edwards ed448 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-ec-edwards-ed448"
+	RC_P11SAK_GENERATE=$((RC_P11SAK_GENERATE + $?))
+else
+	echo "Skip generating ec-edwards keys, slot does not support CKM_EC_EDWARDS_KEY_PAIR_GEN"
+fi
+# ec-montgomery [curve25519 | curve448]
+if [[ -n $( ${PKCSCONF} -m -c $SLOT | grep CKM_EC_MONTGOMERY_KEY_PAIR_GEN) ]]; then
+	${P11SAK} generate-key ec-montgomery curve25519 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-ec-montgomery-x25519"
+	RC_P11SAK_GENERATE=$((RC_P11SAK_GENERATE + $?))
+	${P11SAK} generate-key ec-montgomery curve448 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-ec-montgomery-x448"
+	RC_P11SAK_GENERATE=$((RC_P11SAK_GENERATE + $?))
+else
+	echo "Skip generating ec-montgomery keys, slot does not support CKM_EC_MONTGOMERY_KEY_PAIR_GEN"
+fi
 # ibm-dilithium
 if [[ -n $( ${PKCSCONF} -m -c $SLOT | grep CKM_IBM_DILITHIUM) ]]; then
 	if [[ -z $( ${PKCSCONF} -t -c $SLOT | grep "Model: Soft") ]]; then
@@ -227,6 +251,10 @@ ${P11SAK} list-key dsa --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-dsa*"
 RC_P11SAK_LIST=$((RC_P11SAK_LIST + $?))
 ${P11SAK} list-key ec --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-ec-*" &> $P11SAK_EC_PRE
 RC_P11SAK_LIST=$((RC_P11SAK_LIST + $?))
+${P11SAK} list-key ec-edwards --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-ec-edwards-*" &> $P11SAK_EC_EDWARDS_PRE
+RC_P11SAK_LIST=$((RC_P11SAK_LIST + $?))
+${P11SAK} list-key ec-montgomery --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-ec-*" &> $P11SAK_EC_MONTGOMERY_PRE
+RC_P11SAK_LIST=$((RC_P11SAK_LIST + $?))
 ${P11SAK} list-key ibm-dilithium --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-ibm-dilithium*" &> $P11SAK_IBM_DILITHIUM_PRE
 RC_P11SAK_LIST=$((RC_P11SAK_LIST + $?))
 ${P11SAK} list-key ibm-kyber --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-ibm-kyber*" &> $P11SAK_IBM_KYBER_PRE
@@ -254,6 +282,10 @@ RC_P11SAK_LIST_LONG=$((RC_P11SAK_LIST_LONG + $?))
 ${P11SAK} list-key dsa --slot $SLOT --pin $PKCS11_USER_PIN --long --label "p11sak-dsa*" &> $P11SAK_DSA_LONG
 RC_P11SAK_LIST_LONG=$((RC_P11SAK_LIST_LONG + $?))
 ${P11SAK} list-key ec --slot $SLOT --pin $PKCS11_USER_PIN --long --label "p11sak-ec-*" &> $P11SAK_EC_LONG
+RC_P11SAK_LIST_LONG=$((RC_P11SAK_LIST_LONG + $?))
+${P11SAK} list-key ec-edwards --slot $SLOT --pin $PKCS11_USER_PIN --long --label "p11sak-ec-edwards*" &> $P11SAK_EC_EDWARDS_LONG
+RC_P11SAK_LIST_LONG=$((RC_P11SAK_LIST_LONG + $?))
+${P11SAK} list-key ec-montgomery --slot $SLOT --pin $PKCS11_USER_PIN --long --label "p11sak-ec-montgomery*" &> $P11SAK_EC_MONTGOMERY_LONG
 RC_P11SAK_LIST_LONG=$((RC_P11SAK_LIST_LONG + $?))
 ${P11SAK} list-key ibm-dilithium --slot $SLOT --pin $PKCS11_USER_PIN --long --label "p11sak-ibm-dilithium*" &> $P11SAK_IBM_DILITHIUM_LONG
 RC_P11SAK_LIST_LONG=$((RC_P11SAK_LIST_LONG + $?))
@@ -307,6 +339,10 @@ RC_P11SAK_KEY_EXTRACT=$((RC_P11SAK_KEY_EXTRACT + $?))
 ${P11SAK} extract-pubkey private --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-dsa*" --new-label "p11sak-pubkey-extracted" --force
 RC_P11SAK_KEY_EXTRACT=$((RC_P11SAK_KEY_EXTRACT + $?))
 ${P11SAK} extract-pubkey private --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-ec-prime256v1*" --new-label "p11sak-pubkey-extracted" --force
+RC_P11SAK_KEY_EXTRACT=$((RC_P11SAK_KEY_EXTRACT + $?))
+${P11SAK} extract-pubkey private --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-ec-edwards-ed25519*" --new-label "p11sak-pubkey-extracted" --force
+RC_P11SAK_KEY_EXTRACT=$((RC_P11SAK_KEY_EXTRACT + $?))
+${P11SAK} extract-pubkey private --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-ec-montgomery-curve448*" --new-label "p11sak-pubkey-extracted" --force
 RC_P11SAK_KEY_EXTRACT=$((RC_P11SAK_KEY_EXTRACT + $?))
 ${P11SAK} extract-pubkey private --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-ibm-dilithium*" --new-label "p11sak-pubkey-extracted" --force
 RC_P11SAK_KEY_EXTRACT=$((RC_P11SAK_KEY_EXTRACT + $?))
@@ -365,7 +401,32 @@ if [[ -n $(openssl version | grep "OpenSSL 3.") && -n $( ${PKCSCONF} -t -c $SLOT
 else
 	echo "Skip importing edwards/montgomery keys, OpenSSL version not supporting it or not EP11 token"
 fi
-
+# ec-edwards
+if [[ -n $(openssl version | grep "OpenSSL 3.") && -n $( ${PKCSCONF} -m -c $SLOT | grep CKM_EC_EDWARDS_KEY_PAIR_GEN) ]]; then
+	${P11SAK} import-key ec-edwards private --slot $SLOT --pin $PKCS11_USER_PIN --label "import-ec-edwards-ed25519-private" --file $DIR/ed25519-private-key.pem --attr sX
+	RC_P11SAK_IMPORT=$((RC_P11SAK_IMPORT + $?))
+	${P11SAK} import-key ec-edwards public --slot $SLOT --pin $PKCS11_USER_PIN --label "import-ec-edwards-ed25519-public" --file $DIR/ed25519-public-key.pem --attr sX
+	RC_P11SAK_IMPORT=$((RC_P11SAK_IMPORT + $?))
+	${P11SAK} import-key ec-edwards private --slot $SLOT --pin $PKCS11_USER_PIN --label "import-ec-edwards-ed448-private" --file $DIR/ed448-private-key.pem --attr sX
+	RC_P11SAK_IMPORT=$((RC_P11SAK_IMPORT + $?))
+	${P11SAK} import-key ec-edwards public --slot $SLOT --pin $PKCS11_USER_PIN --label "import-ec-edwards-ed448-public" --file $DIR/ed448-public-key.pem --attr sX
+	RC_P11SAK_IMPORT=$((RC_P11SAK_IMPORT + $?))
+else
+	echo "Skip importing ec-edwards keys, OpenSSL version not supporting it or the token does nt support it"
+fi
+# ec-montgomery
+if [[ -n $(openssl version | grep "OpenSSL 3.") && -n $( ${PKCSCONF} -m -c $SLOT | grep CKM_EC_MONTGOMERY_KEY_PAIR_GEN) ]]; then
+	${P11SAK} import-key ec-montgomery private --slot $SLOT --pin $PKCS11_USER_PIN --label "import-ec-montgomery-x25519-private" --file $DIR/x25519-private-key.pem --attr sX
+	RC_P11SAK_IMPORT=$((RC_P11SAK_IMPORT + $?))
+	${P11SAK} import-key ec-montgomery public --slot $SLOT --pin $PKCS11_USER_PIN --label "import-ec-montgomery-x25519-public" --file $DIR/x25519-public-key.pem --attr sX
+	RC_P11SAK_IMPORT=$((RC_P11SAK_IMPORT + $?))
+	${P11SAK} import-key ec-montgomery private --slot $SLOT --pin $PKCS11_USER_PIN --label "import-ec-montgomery-x448-private" --file $DIR/x448-private-key.pem --attr sX
+	RC_P11SAK_IMPORT=$((RC_P11SAK_IMPORT + $?))
+	${P11SAK} import-key ec-montgomery public --slot $SLOT --pin $PKCS11_USER_PIN --label "import-ec-montgomery-x448-public" --file $DIR/x448-public-key.pem --attr sX
+	RC_P11SAK_IMPORT=$((RC_P11SAK_IMPORT + $?))
+else
+	echo "Skip importing ec-montgomery keys, OpenSSL version not supporting it or the token does nt support it"
+fi
 # ibm-dilithium
 if [[ -n $( ${PKCSCONF} -m -c $SLOT | grep CKM_IBM_DILITHIUM) ]]; then
 	if [[ -z $( ${PKCSCONF} -t -c $SLOT | grep "Model: Soft") ]]; then
@@ -537,6 +598,62 @@ RC_P11SAK_EXPORT=$((RC_P11SAK_EXPORT + $?))
 if [[ -n $(openssl version | grep "OpenSSL 3.") && -n $( ${PKCSCONF} -t -c $SLOT | grep "Model: EP11") ]]; then
 	openssl pkey -in export-ec-ed25519-key.pem -pubin -text > /dev/null
 	RC_P11SAK_EXPORT=$((RC_P11SAK_EXPORT + $?))
+fi
+# ec-edwards
+if [[ -n $(openssl version | grep "OpenSSL 3.") && -n $( ${PKCSCONF} -m -c $SLOT | grep CKM_EC_EDWARDS_KEY_PAIR_GEN) ]]; then
+	if [[ -n $( ${PKCSCONF} -t -c $SLOT | grep "Model: EP11") || -n $( ${PKCSCONF} -t -c $SLOT | grep "Model: CCA") ]]; then
+		${P11SAK} export-key ec-edwards --slot $SLOT --pin $PKCS11_USER_PIN --label "import-ec-edwards-ed25519-public" --file export-ec-edwards-ed25519-key.pem --force
+		RC_P11SAK_EXPORT=$((RC_P11SAK_EXPORT + $?))
+		${P11SAK} export-key ec-edwards --slot $SLOT --pin $PKCS11_USER_PIN --label "import-ec-edwards-ed25519-private" --file export-ec-edwards-ed25519-key.opaque --force --opaque
+		RC_P11SAK_EXPORT=$((RC_P11SAK_EXPORT + $?))
+		${P11SAK} export-key ec-edwards --slot $SLOT --pin $PKCS11_USER_PIN --label "import-ec-edwards-ed448-public" --file export-ec-edwards-ed448-key.pem --force
+		RC_P11SAK_EXPORT=$((RC_P11SAK_EXPORT + $?))
+		${P11SAK} export-key ec-edwards --slot $SLOT --pin $PKCS11_USER_PIN --label "import-ec-edwards-ed448-private" --file export-ec-edwards-ed448-key.opaque --force --opaque
+		RC_P11SAK_EXPORT=$((RC_P11SAK_EXPORT + $?))
+	else
+		${P11SAK} export-key ec-edwards --slot $SLOT --pin $PKCS11_USER_PIN --label "import-ec-edwards-ed25519-*" --file export-ec-edwards-ed25519-key.pem --force
+		RC_P11SAK_EXPORT=$((RC_P11SAK_EXPORT + $?))
+		openssl pkey -in export-ec-edwards-ed25519-key.pem -check -text > /dev/null
+		RC_P11SAK_EXPORT=$((RC_P11SAK_EXPORT + $?))
+		${P11SAK} export-key ec-edwards --slot $SLOT --pin $PKCS11_USER_PIN --label "import-ec-edwards-ed448-*" --file export-ec-edwards-ed448-key.pem --force
+		RC_P11SAK_EXPORT=$((RC_P11SAK_EXPORT + $?))
+		openssl pkey -in export-ec-edwards-ed448-key.pem -check -text > /dev/null
+		RC_P11SAK_EXPORT=$((RC_P11SAK_EXPORT + $?))
+	fi
+	openssl pkey -in export-ec-edwards-ed25519-key.pem -pubin -text > /dev/null
+	RC_P11SAK_EXPORT=$((RC_P11SAK_EXPORT + $?))
+	openssl pkey -in export-ec-edwards-ed448-key.pem -pubin -text > /dev/null
+	RC_P11SAK_EXPORT=$((RC_P11SAK_EXPORT + $?))
+else
+	echo "Skip exporting ec-edwards keys, OpenSSL version not supporting it or token does not support it"
+fi
+# ec-montgomery
+if [[ -n $(openssl version | grep "OpenSSL 3.") && -n $( ${PKCSCONF} -m -c $SLOT | grep CKM_EC_MONTGOMERY_KEY_PAIR_GEN) ]]; then
+	if [[ -n $( ${PKCSCONF} -t -c $SLOT | grep "Model: EP11") || -n $( ${PKCSCONF} -t -c $SLOT | grep "Model: CCA") ]]; then
+		${P11SAK} export-key ec-montgomery --slot $SLOT --pin $PKCS11_USER_PIN --label "import-ec-montgomery-x25519-public" --file export-ec-montgomery-x25519-key.pem --force
+		RC_P11SAK_EXPORT=$((RC_P11SAK_EXPORT + $?))
+		${P11SAK} export-key ec-montgomery --slot $SLOT --pin $PKCS11_USER_PIN --label "import-ec-montgomery-x25519-private" --file export-ec-montgomery-x25519-key.opaque --force --opaque
+		RC_P11SAK_EXPORT=$((RC_P11SAK_EXPORT + $?))
+		${P11SAK} export-key ec-montgomery --slot $SLOT --pin $PKCS11_USER_PIN --label "import-ec-montgomery-x448-public" --file export-ec-montgomery-x448-key.pem --force
+		RC_P11SAK_EXPORT=$((RC_P11SAK_EXPORT + $?))
+		${P11SAK} export-key ec-montgomery --slot $SLOT --pin $PKCS11_USER_PIN --label "import-ec-montgomery-x448-private" --file export-ec-montgomery-x448-key.opaque --force --opaque
+		RC_P11SAK_EXPORT=$((RC_P11SAK_EXPORT + $?))
+	else
+		${P11SAK} export-key ec-montgomery --slot $SLOT --pin $PKCS11_USER_PIN --label "import-ec-montgomery-x25519-*" --file export-ec-montgomery-x25519-key.pem --force
+		RC_P11SAK_EXPORT=$((RC_P11SAK_EXPORT + $?))
+		openssl pkey -in export-ec-montgomery-x25519-key.pem -check -text > /dev/null
+		RC_P11SAK_EXPORT=$((RC_P11SAK_EXPORT + $?))
+		${P11SAK} export-key ec-montgomery --slot $SLOT --pin $PKCS11_USER_PIN --label "import-ec-montgomery-x448-*" --file export-ec-montgomery-x448-key.pem --force
+		RC_P11SAK_EXPORT=$((RC_P11SAK_EXPORT + $?))
+		openssl pkey -in export-ec-montgomery-x448-key.pem -check -text > /dev/null
+		RC_P11SAK_EXPORT=$((RC_P11SAK_EXPORT + $?))
+	fi
+	openssl pkey -in export-ec-montgomery-x25519-key.pem -pubin -text > /dev/null
+	RC_P11SAK_EXPORT=$((RC_P11SAK_EXPORT + $?))
+	openssl pkey -in export-ec-montgomery-x448-key.pem -pubin -text > /dev/null
+	RC_P11SAK_EXPORT=$((RC_P11SAK_EXPORT + $?))
+else
+	echo "Skip exporting ec-montgomery keys, OpenSSL version not supporting it or token does not support it"
 fi
 # ibm-dilithium
 if [[ -n $( ${PKCSCONF} -m -c $SLOT | grep CKM_IBM_DILITHIUM) ]]; then
@@ -730,6 +847,28 @@ ${P11SAK} remove-key ec --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-ec-s
 RC_P11SAK_REMOVE=$((RC_P11SAK_REMOVE + $?))
 ${P11SAK} remove-key ec --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-ec-secp521r1:prv" -f
 RC_P11SAK_REMOVE=$((RC_P11SAK_REMOVE + $?))
+# ec-edwards [ed25519 | ed448]
+#remove public key
+${P11SAK} remove-key ec-edwards --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-ec-edwards-ed25519:pub" -f
+RC_P11SAK_REMOVE=$((RC_P11SAK_REMOVE + $?))
+${P11SAK} remove-key ec-edwards --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-ec-edwards-ed448:pub" -f
+RC_P11SAK_REMOVE=$((RC_P11SAK_REMOVE + $?))
+# remove private key
+${P11SAK} remove-key ec-edwards --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-ec-edwards-ed25519:prv" -f
+RC_P11SAK_REMOVE=$((RC_P11SAK_REMOVE + $?))
+${P11SAK} remove-key ec-edwards --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-ec-edwards-ed448:prv" -f
+RC_P11SAK_REMOVE=$((RC_P11SAK_REMOVE + $?))
+# ec-montgomery [curve25519 | curve448]
+#remove public key
+${P11SAK} remove-key ec-montgomery --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-ec-montgomery-x25519:pub" -f
+RC_P11SAK_REMOVE=$((RC_P11SAK_REMOVE + $?))
+${P11SAK} remove-key ec-montgomery --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-ec-montgomery-x448:pub" -f
+RC_P11SAK_REMOVE=$((RC_P11SAK_REMOVE + $?))
+# remove private key
+${P11SAK} remove-key ec-montgomery --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-ec-montgomery-x25519:prv" -f
+RC_P11SAK_REMOVE=$((RC_P11SAK_REMOVE + $?))
+${P11SAK} remove-key ec-montgomery --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-ec-montgomery-x448:prv" -f
+RC_P11SAK_REMOVE=$((RC_P11SAK_REMOVE + $?))
 # remove ibm-dilithium keys
 ${P11SAK} remove-key ibm-dilithium --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-ibm-dilithium:pub" -f
 RC_P11SAK_REMOVE=$((RC_P11SAK_REMOVE + $?))
@@ -780,6 +919,10 @@ RC_P11SAK_LIST_POST=$((RC_P11SAK_LIST_POST + $?))
 ${P11SAK} list-key dsa --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-dsa*" &> $P11SAK_DSA_POST
 RC_P11SAK_LIST_POST=$((RC_P11SAK_LIST_POST + $?))
 ${P11SAK} list-key ec --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-ec-*" &> $P11SAK_EC_POST
+RC_P11SAK_LIST_POST=$((RC_P11SAK_LIST_POST + $?))
+${P11SAK} list-key ec-edwards --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-ec-edwards-*" &> $P11SAK_EC_EDWARDS_POST
+RC_P11SAK_LIST_POST=$((RC_P11SAK_LIST_POST + $?))
+${P11SAK} list-key ec-montgomery --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-ec-montgomery-*" &> $P11SAK_EC_MONTGOMERY_POST
 RC_P11SAK_LIST_POST=$((RC_P11SAK_LIST_POST + $?))
 ${P11SAK} list-key ibm-dilithium --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-ibm-dilithium*" &> $P11SAK_IBM_DILITHIUM_POST
 RC_P11SAK_LIST_POST=$((RC_P11SAK_LIST_POST + $?))
@@ -1553,8 +1696,236 @@ else
 	echo "* TESTCASE list-key ec FAIL list ec public key pkcs#11 URI"
 	status=1
 fi
+if [[ -n $( ${PKCSCONF} -m -c $SLOT | grep CKM_EC_EDWARDS_KEY_PAIR_GEN) ]]; then
+	# check ec-edwards ed25519 public key
+	grep -q "p11sak-ec-edwards-ed25519:pub" $P11SAK_EC_EDWARDS_PRE
+	rc=$?
+	if [ $rc = 0 ]; then
+		echo "* TESTCASE generate-key ec-edwards ed25519 PASS Generated random ec-edwards ed25519 public key"
+	else
+		echo "* TESTCASE generate-key ec-edwards ed25519 FAIL Failed to generate ec-edwards ed25519 public key"
+		status=1
+	fi
+	grep -v -q "p11sak-ec-edwards-ed25519:pub" $P11SAK_EC_EDWARDS_POST
+	rc=$?
+	if [ $rc = 0 ]; then
+		echo "* TESTCASE remove-key ec-edwards ed25519 PASS Delete generated ec-edwards ed25519 public key"
+	else
+		echo "* TESTCASE remove-key ec-edwards ed25519 FAIL Failed to delete generated ec-edwards ed25519 public key"
+		status=1
+	fi
 
+	# check ec-edwards ed448 public key
+	grep -q "p11sak-ec-edwards-ed448:pub" $P11SAK_EC_EDWARDS_PRE
+	rc=$?
+	if [ $rc = 0 ]; then
+		echo "* TESTCASE generate-key ec-edwards ed448 PASS Generated random ec-edwards ed448 public key"
+	else
+		echo "* TESTCASE generate-key ec-edwards ed448 FAIL Failed to generate ec-edwards ed448 public key"
+		status=1
+	fi
+	grep -v -q "p11sak-ec-edwards-ed448:pub" $P11SAK_EC_EDWARDS_POST
+	rc=$?
+	if [ $rc = 0 ]; then
+		echo "* TESTCASE remove-key ec-edwards ed448 PASS Delete generated ec-edwards ed448 public key"
+	else
+		echo "* TESTCASE remove-key ec-edwards ed448 FAIL Failed to delete generated ec-edwards ed448 public key"
+		status=1
+	fi
 
+	# check ec-edwards ed25519 private key
+	grep -q "p11sak-ec-edwards-ed25519:prv" $P11SAK_EC_EDWARDS_PRE
+	rc=$?
+	if [ $rc = 0 ]; then
+		echo "* TESTCASE generate-key ec-edwards ed25519 PASS Generated random ec-edwards ed25519 private key"
+	else
+		echo "* TESTCASE generate-key ec-edwards ed25519 FAIL Failed to generate ec-edwards ed25519 private key"
+		status=1
+	fi
+	grep -v -q "p11sak-ec-edwards-ed25519:prv" $P11SAK_EC_EDWARDS_POST
+	rc=$?
+	if [ $rc = 0 ]; then
+		echo "* TESTCASE remove-key ec-edwards ed25519 PASS Delete generated ec-edwards ed25519 private key"
+	else
+		echo "* TESTCASE remove-key ec-edwards ed25519 FAIL Failed to delete generated ec-edwards ed25519 private key"
+		status=1
+	fi
+
+	# check ec-edwards ed448 private key
+	grep -q "p11sak-ec-edwards-ed448:prv" $P11SAK_EC_EDWARDS_PRE
+	rc=$?
+	if [ $rc = 0 ]; then
+		echo "* TESTCASE generate-key ec-edwards ed448 PASS Generated random ec-edwards ed448 private key"
+	else
+		echo "* TESTCASE generate-key ec-edwards ed448 FAIL Failed to generate ec-edwards ed448 private key"
+		status=1
+	fi
+	grep -v -q "p11sak-ec-edwards-ed448:prv" $P11SAK_EC_EDWARDS_POST
+	rc=$?
+	if [ $rc = 0 ]; then
+		echo "* TESTCASE remove-key ec-edwards ed448 PASS Delete generated ec-edwards ed448 private key"
+	else
+		echo "* TESTCASE remove-key ec-edwards ed448 FAIL Failed to delete generated ec-edwards ed448 private key"
+		status=1
+	fi
+
+	# CK_BBOOL
+	if [[ $(grep -c "CKA_MODIFIABLE: CK_TRUE" $P11SAK_EC_EDWARDS_LONG) == "4" ]]; then
+		echo "* TESTCASE list-key ec-edwards PASS Listed random ec-edwards keys CK_BBOOL attribute"
+	else
+		echo "* TESTCASE list-key ec-edwards FAIL Failed to list ec-edwards keys CK_BBOOL attribute"
+		status=1
+	fi
+	# CK_ULONG
+	if [[ $(grep -c "CKA_MODULUS_BITS:" $P11SAK_EC_EDWARDS_LONG) == "0" ]]; then
+		echo "* TESTCASE list-key ec-edwards PASS Listed random ec-edwards keys CK_ULONG attribute"
+	else
+		echo "* TESTCASE list-key ec-edwards FAIL Failed to list ec-edwards keys CK_ULONG attribute"
+		status=1
+	fi
+	# CK_BYTE
+	if [[ $(grep -c "CKA_EC_POINT:" $P11SAK_EC_EDWARDS_LONG) == "2" ]]; then
+		echo "* TESTCASE list-key ec-edwards PASS Listed random ec-edwards keys CK_BYTE attribute"
+	else
+		echo "* TESTCASE list-key ec-edwards FAIL Failed to list ec-edwards keys CK_BYTE attribute"
+		status=1
+	fi
+	# URI
+	if [[ $(grep -c "URI: pkcs11:.*type=public" $P11SAK_EC_EDWARDS_LONG) == "2" ]]; then
+		echo "* TESTCASE list-key ec-edwards PASS list ec-edwards public key pkcs#11 URI"
+	else
+		echo "* TESTCASE list-key ec-edwards FAIL list ec-edwards public key pkcs#11 URI"
+		status=1
+	fi
+else
+	echo "* TESTCASE generate-key ec-edwards ed25519 SKIP Generated random ec-edwards ed25519 public key"
+	echo "* TESTCASE remove-key ec-edwards ed25519 SKIP Delete generated ec-edwards ed25519 public key"
+	echo "* TESTCASE generate-key ec-edwards ed448 SKIP Generated random ec-edwards ed448 public key"
+	echo "* TESTCASE remove-key ec-edwards ed448 SKIP Delete generated ec-edwards ed448 public key"
+	echo "* TESTCASE generate-key ec-edwards ed25519 SKIP Generated random ec-edwards ed25519 private key"
+	echo "* TESTCASE remove-key ec-edwards ed25519 SKIP Delete generated ec-edwards ed25519 private key"
+	echo "* TESTCASE generate-key ec-edwards ed448 SKIP Generated random ec-edwards ed448 private key"
+	echo "* TESTCASE remove-key ec-edwards ed448 SKIP Delete generated ec-edwards ed448 private key"
+	echo "* TESTCASE list-key ec-edwards SKIP Listed random ec-edwards keys CK_BBOOL attribute"
+	echo "* TESTCASE list-key ec-edwards SKIP Listed random ec-edwards keys CK_ULONG attribute"
+	echo "* TESTCASE list-key ec-edwards SKIP Listed random ec-edwards keys CK_BYTE attribute"
+	echo "* TESTCASE list-key ec-edwards SKIP Listed random ec-edwards public key pkcs#11 URI"
+fi
+if [[ -n $( ${PKCSCONF} -m -c $SLOT | grep CKM_EC_MONTGOMERY_KEY_PAIR_GEN) ]]; then
+	# check ec-montgomery x25519 public key
+	grep -q "p11sak-ec-montgomery-x25519:pub" $P11SAK_EC_MONTGOMERY_PRE
+	rc=$?
+	if [ $rc = 0 ]; then
+		echo "* TESTCASE generate-key ec-montgomery x25519 PASS Generated random ec-montgomery x25519 public key"
+	else
+		echo "* TESTCASE generate-key ec-montgomery x25519 FAIL Failed to generate ec-montgomery x25519 public key"
+		status=1
+	fi
+	grep -v -q "p11sak-ec-montgomery-x25519:pub" $P11SAK_EC_MONTGOMERY_POST
+	rc=$?
+	if [ $rc = 0 ]; then
+		echo "* TESTCASE remove-key ec-montgomery x25519 PASS Delete generated ec-montgomery x25519 public key"
+	else
+		echo "* TESTCASE remove-key ec-montgomery x25519 FAIL Failed to delete generated ec-montgomery x25519 public key"
+		status=1
+	fi
+
+	# check ec-montgomery x448 public key
+	grep -q "p11sak-ec-montgomery-x448:pub" $P11SAK_EC_MONTGOMERY_PRE
+	rc=$?
+	if [ $rc = 0 ]; then
+		echo "* TESTCASE generate-key ec-montgomery x448 PASS Generated random ec-montgomery x448 public key"
+	else
+		echo "* TESTCASE generate-key ec-montgomery x448 FAIL Failed to generate ec-montgomery x448 public key"
+		status=1
+	fi
+	grep -v -q "p11sak-ec-montgomery-x448:pub" $P11SAK_EC_MONTGOMERY_POST
+	rc=$?
+	if [ $rc = 0 ]; then
+		echo "* TESTCASE remove-key ec-montgomery x448 PASS Delete generated ec-montgomery x448 public key"
+	else
+		echo "* TESTCASE remove-key ec-montgomery x448 FAIL Failed to delete generated ec-montgomery x448 public key"
+		status=1
+	fi
+
+	# check ec-montgomery x25519 private key
+	grep -q "p11sak-ec-montgomery-x25519:prv" $P11SAK_EC_MONTGOMERY_PRE
+	rc=$?
+	if [ $rc = 0 ]; then
+		echo "* TESTCASE generate-key ec-montgomery x25519 PASS Generated random ec-montgomery x25519 private key"
+	else
+		echo "* TESTCASE generate-key ec-montgomery x25519 FAIL Failed to generate ec-montgomery x25519 private key"
+		status=1
+	fi
+	grep -v -q "p11sak-ec-montgomery-x25519:prv" $P11SAK_EC_MONTGOMERY_POST
+	rc=$?
+	if [ $rc = 0 ]; then
+		echo "* TESTCASE remove-key ec-montgomery x25519 PASS Delete generated ec-montgomery x25519 private key"
+	else
+		echo "* TESTCASE remove-key ec-montgomery x25519 FAIL Failed to delete generated ec-montgomery x25519 private key"
+		status=1
+	fi
+
+	# check ec-montgomery x448 private key
+	grep -q "p11sak-ec-montgomery-x448:prv" $P11SAK_EC_MONTGOMERY_PRE
+	rc=$?
+	if [ $rc = 0 ]; then
+		echo "* TESTCASE generate-key ec-montgomery x448 PASS Generated random ec-montgomery x448 private key"
+	else
+		echo "* TESTCASE generate-key ec-montgomery x448 FAIL Failed to generate ec-montgomery x448 private key"
+		status=1
+	fi
+	grep -v -q "p11sak-ec-montgomery-x448:prv" $P11SAK_EC_MONTGOMERY_POST
+	rc=$?
+	if [ $rc = 0 ]; then
+		echo "* TESTCASE remove-key ec-montgomery x448 PASS Delete generated ec-montgomery x448 private key"
+	else
+		echo "* TESTCASE remove-key ec-montgomery x448 FAIL Failed to delete generated ec-montgomery x448 private key"
+		status=1
+	fi
+
+	# CK_BBOOL
+	if [[ $(grep -c "CKA_MODIFIABLE: CK_TRUE" $P11SAK_EC_MONTGOMERY_LONG) == "4" ]]; then
+		echo "* TESTCASE list-key ec-montgomery PASS Listed random ec-montgomery keys CK_BBOOL attribute"
+	else
+		echo "* TESTCASE list-key ec-montgomery FAIL Failed to list ec-montgomery keys CK_BBOOL attribute"
+		status=1
+	fi
+	# CK_ULONG
+	if [[ $(grep -c "CKA_MODULUS_BITS:" $P11SAK_EC_MONTGOMERY_LONG) == "0" ]]; then
+		echo "* TESTCASE list-key ec-montgomery PASS Listed random ec-montgomery keys CK_ULONG attribute"
+	else
+		echo "* TESTCASE list-key ec-montgomery FAIL Failed to list ec-montgomery keys CK_ULONG attribute"
+		status=1
+	fi
+	# CK_BYTE
+	if [[ $(grep -c "CKA_EC_POINT:" $P11SAK_EC_MONTGOMERY_LONG) == "2" ]]; then
+		echo "* TESTCASE list-key ec-montgomery PASS Listed random ec-montgomery keys CK_BYTE attribute"
+	else
+		echo "* TESTCASE list-key ec-montgomery FAIL Failed to list ec-montgomery keys CK_BYTE attribute"
+		status=1
+	fi
+	# URI
+	if [[ $(grep -c "URI: pkcs11:.*type=public" $P11SAK_EC_MONTGOMERY_LONG) == "2" ]]; then
+		echo "* TESTCASE list-key ec-montgomery PASS list ec-montgomery public key pkcs#11 URI"
+	else
+		echo "* TESTCASE list-key ec-montgomery FAIL list ec-montgomery public key pkcs#11 URI"
+		status=1
+	fi
+else
+	echo "* TESTCASE generate-key ec-montgomery x25519 SKIP Generated random ec-montgomery x25519 public key"
+	echo "* TESTCASE remove-key ec-montgomery x25519 SKIP Delete generated ec-montgomery x25519 public key"
+	echo "* TESTCASE generate-key ec-montgomery x448 SKIP Generated random ec-montgomery x448 public key"
+	echo "* TESTCASE remove-key ec-montgomery x448 SKIP Delete generated ec-montgomery x448 public key"
+	echo "* TESTCASE generate-key ec-montgomery x25519 SKIP Generated random ec-montgomery x25519 private key"
+	echo "* TESTCASE remove-key ec-montgomery x25519 SKIP Delete generated ec-montgomery x25519 private key"
+	echo "* TESTCASE generate-key ec-montgomery x448 SKIP Generated random ec-montgomery x448 private key"
+	echo "* TESTCASE remove-key ec-montgomery x448 SKIP Delete generated ec-montgomery x448 private key"
+	echo "* TESTCASE list-key ec-montgomery SKIP Listed random ec-montgomery keys CK_BBOOL attribute"
+	echo "* TESTCASE list-key ec-montgomery SKIP Listed random ec-montgomery keys CK_ULONG attribute"
+	echo "* TESTCASE list-key ec-montgomery SKIP Listed random ec-montgomery keys CK_BYTE attribute"
+	echo "* TESTCASE list-key ec-montgomery SKIP Listed random ec-montgomery public key pkcs#11 URI"
+fi
 if [[ -n $( ${PKCSCONF} -m -c $SLOT | grep CKM_IBM_DILITHIUM) ]]; then
 	# CK_BBOOL
 	if [[ $(grep -c "CKA_MODIFIABLE: CK_TRUE" $P11SAK_IBM_DILITHIUM_LONG) == "2" ]]; then
@@ -1692,6 +2063,18 @@ ${P11SAK} import-cert x509 --slot $SLOT --pin $PKCS11_USER_PIN --id 789 --label 
 RC_P11SAK_X509_IMPORT=$((RC_P11SAK_X509_IMPORT + $?))
 ${P11SAK} import-cert x509 --slot $SLOT --pin $PKCS11_USER_PIN --id 89A --label "p11sak-x509-ecp521pem" --file $DIR/p11sak_ecp521cert.pem
 RC_P11SAK_X509_IMPORT=$((RC_P11SAK_X509_IMPORT + $?))
+if [[ -n $( ${PKCSCONF} -m -c $SLOT | grep CKM_EDDSA) ]]; then
+	${P11SAK} import-cert x509 --slot $SLOT --pin $PKCS11_USER_PIN --id 9AB --label "p11sak-x509-ed25519crt" --file $DIR/p11sak_ed25519cert.crt
+	RC_P11SAK_X509_IMPORT=$((RC_P11SAK_X509_IMPORT + $?))
+	${P11SAK} import-cert x509 --slot $SLOT --pin $PKCS11_USER_PIN --id ABC --label "p11sak-x509-ed25519pem" --file $DIR/p11sak_ed25519cert.pem
+	RC_P11SAK_X509_IMPORT=$((RC_P11SAK_X509_IMPORT + $?))
+	${P11SAK} import-cert x509 --slot $SLOT --pin $PKCS11_USER_PIN --id 9AB --label "p11sak-x509-ed448crt" --file $DIR/p11sak_ed448cert.crt
+	RC_P11SAK_X509_IMPORT=$((RC_P11SAK_X509_IMPORT + $?))
+	${P11SAK} import-cert x509 --slot $SLOT --pin $PKCS11_USER_PIN --id ABC --label "p11sak-x509-ed448pem" --file $DIR/p11sak_ed448cert.pem
+	RC_P11SAK_X509_IMPORT=$((RC_P11SAK_X509_IMPORT + $?))
+else
+	echo "Skip importing x.509 certs with ec-edwards key, slot does not support CKM_EDDSA"
+fi
 if [[ -n $( ${PKCSCONF} -m -c $SLOT | grep CKM_DSA) ]]; then
 	${P11SAK} import-cert x509 --slot $SLOT --pin $PKCS11_USER_PIN --id 9AB --label "p11sak-x509-dsa3072crt" --file $DIR/p11sak_dsa3072cert.crt
 	RC_P11SAK_X509_IMPORT=$((RC_P11SAK_X509_IMPORT + $?))
@@ -1756,6 +2139,18 @@ ${P11SAK} export-cert x509 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-x
 RC_P11SAK_X509_EXPORT=$((RC_P11SAK_X509_EXPORT + $?))
 ${P11SAK} export-cert x509 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-x509-ecp521pem" --file p11sak_ecp521cert_exported.pem --force
 RC_P11SAK_X509_EXPORT=$((RC_P11SAK_X509_EXPORT + $?))
+if [[ -n $( ${PKCSCONF} -m -c $SLOT | grep CKM_EDDSA) ]]; then
+	${P11SAK} export-cert x509 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-x509-ed25519crt" --file p11sak_ed25519cert_exported.crt --der --force
+	RC_P11SAK_X509_EXPORT=$((RC_P11SAK_X509_EXPORT + $?))
+	${P11SAK} export-cert x509 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-x509-ed25519pem" --file p11sak_ed25519cert_exported.pem --force
+	RC_P11SAK_X509_EXPORT=$((RC_P11SAK_X509_EXPORT + $?))
+	${P11SAK} export-cert x509 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-x509-ed448crt" --file p11sak_ed448cert_exported.crt --der --force
+	RC_P11SAK_X509_EXPORT=$((RC_P11SAK_X509_EXPORT + $?))
+	${P11SAK} export-cert x509 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-x509-ed448pem" --file p11sak_ed448cert_exported.pem --force
+	RC_P11SAK_X509_EXPORT=$((RC_P11SAK_X509_EXPORT + $?))
+else
+	echo "Skip exporting x.509 certs with ec-edwards key, slot does not support CKM_EDDSA"
+fi
 if [[ -n $( ${PKCSCONF} -m -c $SLOT | grep CKM_DSA) ]]; then
 	${P11SAK} export-cert x509 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-x509-dsa3072crt" --file p11sak_dsa3072cert_exported.crt --der --force
 	RC_P11SAK_X509_EXPORT=$((RC_P11SAK_X509_EXPORT + $?))
@@ -1821,6 +2216,18 @@ ${P11SAK} extract-cert-pubkey x509 --slot $SLOT --pin $PKCS11_USER_PIN --label "
 RC_P11SAK_X509_EXTRACT=$((RC_P11SAK_X509_EXTRACT + $?))
 ${P11SAK} extract-cert-pubkey x509 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-x509-ecp521pem" --force
 RC_P11SAK_X509_EXTRACT=$((RC_P11SAK_X509_EXTRACT + $?))
+if [[ -n $( ${PKCSCONF} -m -c $SLOT | grep CKM_EDDSA) ]]; then
+	${P11SAK} extract-cert-pubkey x509 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-x509-ed25519crt" --force
+	RC_P11SAK_X509_EXTRACT=$((RC_P11SAK_X509_EXTRACT + $?))
+	${P11SAK} extract-cert-pubkey x509 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-x509-ed25519pem" --force
+	RC_P11SAK_X509_EXTRACT=$((RC_P11SAK_X509_EXTRACT + $?))
+	${P11SAK} extract-cert-pubkey x509 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-x509-ed448crt" --force
+	RC_P11SAK_X509_EXTRACT=$((RC_P11SAK_X509_EXTRACT + $?))
+	${P11SAK} extract-cert-pubkey x509 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-x509-ed448pem" --force
+	RC_P11SAK_X509_EXTRACT=$((RC_P11SAK_X509_EXTRACT + $?))
+else
+	echo "Skip extracting pubkeys from x.509 certs with ec-edwards key, slot does not support CKM_EDDSA"
+fi
 if [[ -n $( ${PKCSCONF} -m -c $SLOT | grep CKM_DSA) ]]; then
 	${P11SAK} extract-cert-pubkey x509 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-x509-dsa3072crt" --force
 	RC_P11SAK_X509_EXTRACT=$((RC_P11SAK_X509_EXTRACT + $?))
@@ -1916,6 +2323,18 @@ diff $DIR/p11sak_ecp521cert.crt p11sak_ecp521cert_exported.crt > /dev/null
 RC_P11SAK_X509_DIFF=$((RC_P11SAK_X509_DIFF + $?))
 diff $DIR/p11sak_ecp521cert.pem p11sak_ecp521cert_exported.pem > /dev/null
 RC_P11SAK_X509_DIFF=$((RC_P11SAK_X509_DIFF + $?))
+if [[ -n $( ${PKCSCONF} -m -c $SLOT | grep CKM_EDDSA) ]]; then
+	diff $DIR/p11sak_ed25519cert.crt p11sak_ed25519cert_exported.crt > /dev/null
+	RC_P11SAK_X509_DIFF=$((RC_P11SAK_X509_DIFF + $?))
+	diff $DIR/p11sak_ed25519cert.pem p11sak_ed25519cert_exported.pem > /dev/null
+	RC_P11SAK_X509_DIFF=$((RC_P11SAK_X509_DIFF + $?))
+	diff $DIR/p11sak_ed448cert.crt p11sak_ed448cert_exported.crt > /dev/null
+	RC_P11SAK_X509_DIFF=$((RC_P11SAK_X509_DIFF + $?))
+	diff $DIR/p11sak_ed448cert.pem p11sak_ed448cert_exported.pem > /dev/null
+	RC_P11SAK_X509_DIFF=$((RC_P11SAK_X509_DIFF + $?))
+else
+	echo "Skip comparing exported ec-edwards x.509 certs with original certs, slot does not support CKM_EDDSA"
+fi
 if [[ -n $( ${PKCSCONF} -m -c $SLOT | grep CKM_DSA) ]]; then
 	diff $DIR/p11sak_dsa3072cert.crt p11sak_dsa3072cert_exported.crt > /dev/null
 	RC_P11SAK_X509_DIFF=$((RC_P11SAK_X509_DIFF + $?))
@@ -1926,7 +2345,7 @@ if [[ -n $( ${PKCSCONF} -m -c $SLOT | grep CKM_DSA) ]]; then
 	diff $DIR/p11sak_dsa4096cert.pem p11sak_dsa4096cert_exported.pem > /dev/null
 	RC_P11SAK_X509_DIFF=$((RC_P11SAK_X509_DIFF + $?))
 else
-	echo "Skip comparing exported x.509 certs with original certs, slot does not support CKM_DSA"
+	echo "Skip comparing exported DSA x.509 certs with original certs, slot does not support CKM_DSA"
 fi
 
 # check X509 certificate listings for completeness
@@ -2120,6 +2539,86 @@ if [ $rc = 0 ]; then
 else
 	echo "* TESTCASE remove-cert x509 FAIL Failed to delete imported base64-encoded x509 cert with EC-p521 public key"
 	status=1
+fi
+
+# ec-edwards
+if [[ -n $( ${PKCSCONF} -m -c $SLOT | grep CKM_EDDSA) ]]; then
+	grep -q "p11sak-x509-ed25519crt" $P11SAK_X509_PRE
+	rc=$?
+	if [ $rc = 0 ]; then
+		echo "* TESTCASE import-cert x509 PASS Imported binary x509 cert with random ed25519 key"
+	else
+		echo "* TESTCASE import-cert x509 FAIL Failed to import binary x509 certs with random ed25519 key"
+		status=1
+	fi
+	grep -v -q "p11sak-x509-ed25519crt" $P11SAK_X509_POST
+	rc=$?
+	if [ $rc = 0 ]; then
+		echo "* TESTCASE remove-cert x509 PASS Deleted imported binary x509 cert with ed25519 public key"
+	else
+		echo "* TESTCASE remove-cert x509 FAIL Failed to delete imported binary x509 cert with ed25519 public key"
+		status=1
+	fi
+	
+	grep -q "p11sak-x509-ed25519pem" $P11SAK_X509_PRE
+	rc=$?
+	if [ $rc = 0 ]; then
+		echo "* TESTCASE import-cert x509 PASS Imported base64-encoded x509 cert with random ed255192 key"
+	else
+		echo "* TESTCASE import-cert x509 FAIL Failed to import base64-encoded x509 certs with random ed25519 key"
+		status=1
+	fi
+	grep -v -q "p11sak-x509-ed25519pem" $P11SAK_X509_POST
+	rc=$?
+	if [ $rc = 0 ]; then
+		echo "* TESTCASE remove-cert x509 PASS Deleted imported base64-encoded x509 cert with ed25519 public key"
+	else
+		echo "* TESTCASE remove-cert x509 FAIL Failed to delete imported base64-encoded x509 cert with ed25519 public key"
+		status=1
+	fi
+	
+	grep -q "p11sak-x509-ed448crt" $P11SAK_X509_PRE
+	rc=$?
+	if [ $rc = 0 ]; then
+		echo "* TESTCASE import-cert x509 PASS Imported binary x509 cert with random ed448 key"
+	else
+		echo "* TESTCASE import-cert x509 FAIL Failed to import binary x509 certs with random ed448 key"
+		status=1
+	fi
+	grep -v -q "p11sak-x509-ed448crt" $P11SAK_X509_POST
+	rc=$?
+	if [ $rc = 0 ]; then
+		echo "* TESTCASE remove-cert x509 PASS Deleted imported binary x509 cert with ed448 public key"
+	else
+		echo "* TESTCASE remove-cert x509 FAIL Failed to delete imported binary x509 cert with ed448 public key"
+		status=1
+	fi
+	
+	grep -q "p11sak-x509-ed448pem" $P11SAK_X509_PRE
+	rc=$?
+	if [ $rc = 0 ]; then
+		echo "* TESTCASE import-cert x509 PASS Imported base64-encoded x509 cert with random ed4482 key"
+	else
+		echo "* TESTCASE import-cert x509 FAIL Failed to import base64-encoded x509 certs with random ed448 key"
+		status=1
+	fi
+	grep -v -q "p11sak-x509-ed448pem" $P11SAK_X509_POST
+	rc=$?
+	if [ $rc = 0 ]; then
+		echo "* TESTCASE remove-cert x509 PASS Deleted imported base64-encoded x509 cert with ed448 public key"
+	else
+		echo "* TESTCASE remove-cert x509 FAIL Failed to delete imported base64-encoded x509 cert with ed448 public key"
+		status=1
+	fi
+else
+	echo "* TESTCASE import-cert x509 SKIP Import binary x509 cert with random ed25519 key. Slot does not support EdDSA."
+	echo "* TESTCASE remove-cert x509 SKIP Delete imported binary x509 cert with ed25519 public key. Slot does not support EdDSA."
+	echo "* TESTCASE import-cert x509 SKIP Import base64-encoded x509 cert with random ed25519 key. Slot does not support EdDSA."
+	echo "* TESTCASE remove-cert x509 SKIP Delete imported base64-encoded x509 cert with ed25519 public key. Slot does not support EdDSA."
+	echo "* TESTCASE import-cert x509 SKIP Import binary x509 cert with random ed448 key. Slot does not support EdDSA."
+	echo "* TESTCASE remove-cert x509 SKIP Delete imported binary x509 cert with ed448 public key. Slot does not support EdDSA."
+	echo "* TESTCASE import-cert x509 SKIP Import base64-encoded x509 cert with random ed448 key. Slot does not support EdDSA."
+	echo "* TESTCASE remove-cert x509 SKIP Delete imported base64-encoded x509 cert with ed448 public key. Slot does not support EdDSA."
 fi
 
 # DSA-3072
@@ -2433,6 +2932,12 @@ rm -f $P11SAK_DSA_POST
 rm -f $P11SAK_EC_PRE
 rm -f $P11SAK_EC_LONG
 rm -f $P11SAK_EC_POST
+rm -f $P11SAK_EC_EDWARDS_PRE
+rm -f $P11SAK_EC_EDWARDS_LONG
+rm -f $P11SAK_EC_EDWARDS_POST
+rm -f $P11SAK_EC_MONTGOMERY_PRE
+rm -f $P11SAK_EC_MONTGOMERY_LONG
+rm -f $P11SAK_EC_MONTGOMERY_POST
 rm -f $P11SAK_IBM_DILITHIUM_PRE
 rm -f $P11SAK_IBM_DILITHIUM_LONG
 rm -f $P11SAK_IBM_DILITHIUM_POST
