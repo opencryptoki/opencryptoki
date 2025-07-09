@@ -1854,6 +1854,7 @@ static int curve_nid_from_params(const CK_BYTE *params, CK_ULONG params_len)
 {
     const unsigned char *oid;
     ASN1_OBJECT *obj = NULL;
+    EC_GROUP *grp;
     int nid;
 
     oid = params;
@@ -1865,6 +1866,14 @@ static int curve_nid_from_params(const CK_BYTE *params, CK_ULONG params_len)
 
     nid = OBJ_obj2nid(obj);
     ASN1_OBJECT_free(obj);
+
+    grp = EC_GROUP_new_by_curve_name(nid);
+    if (grp == NULL) {
+        TRACE_ERROR("curve not supported by OpenSSL.\n");
+        return NID_undef;
+    }
+
+    EC_GROUP_free(grp);
 
     return nid;
 }
