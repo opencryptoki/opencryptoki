@@ -567,6 +567,11 @@ static void p11tool_print_options_help(const struct p11tool_opt *opts,
         else
             len = snprintf(tmp, sizeof(tmp),"-%c", opt->short_opt);
 
+        if (len >= (int)sizeof(tmp) || len < 0) {
+            warnx("Error formatting option string. Skipping.\n");
+            continue;
+        }
+
         if (opt->arg.type != ARG_TYPE_PLAIN) {
             if (opt->arg.required)
                 snprintf(&tmp[len], sizeof(tmp) - len, " %s", opt->arg.name);
