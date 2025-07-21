@@ -4561,6 +4561,11 @@ static CK_RV aeskw_wrap_pad(STDLL_TokData_t *tokdata, SESSION *sess,
          * contains exactly eight octets, then prepend the AIV and encrypt
          * the resulting 128-bit block using AES in ECB mode.
          */
+        if (in_data_len > AES_KEY_WRAP_BLOCK_SIZE) {
+            TRACE_ERROR("%s\n", ock_err(ERR_DATA_LEN_RANGE));
+            return CKR_DATA_LEN_RANGE;
+        }
+
         memmove(buff + AES_KEY_WRAP_BLOCK_SIZE, in_data, in_data_len);
         memcpy(buff, aiv, AES_KEY_WRAP_IV_SIZE);
         memset(buff + AES_KEY_WRAP_IV_SIZE + in_data_len, 0, padding_len);
