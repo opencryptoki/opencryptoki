@@ -46,6 +46,7 @@ static int get_curve_index(const char *str)
             { "CURVE448",         21 },
             { "ED25519",          22 },
             { "ED448",            23 },
+            { "BLS12_381",        24 },
     };
     size_t i;
 

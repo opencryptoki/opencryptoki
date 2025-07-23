@@ -195,6 +195,8 @@ static CK_RV statistics_increment(struct statistics *statistics,
             if (rc != CKR_OK)
                 return rc;
             break;
+        case CKM_IBM_BLS:
+            break;
         }
         break;
     case CKM_IBM_BTC_DERIVE:

@@ -303,6 +303,18 @@ static const version_req_t ibm_ecdsa_other_req_versions[] = {
 #define NUM_ECDSA_OTHER_REQ (sizeof(ibm_ecdsa_other_req_versions) / \
                                             sizeof(version_req_t))
 
+static const CK_VERSION ibm_cex7p_bls_support = { .major = 7, .minor = 39 };
+static const CK_VERSION ibm_cex8p_bls_support = { .major = 8, .minor = 31 };
+
+static const version_req_t ibm_bls_req_versions[] = {
+        { .card_type = 7, .min_firmware_version =
+                                            &ibm_cex7p_bls_support },
+        { .card_type = 8, .min_firmware_version =
+                                            &ibm_cex8p_bls_support }
+};
+#define NUM_BLS_REQ (sizeof(ibm_bls_req_versions) / \
+                                            sizeof(version_req_t))
+
 static CK_RV update_ep11_attrs_from_blob(STDLL_TokData_t *tokdata,
                                          SESSION *session, OBJECT *key_obj,
                                          CK_BBOOL aes_xts);
@@ -6554,6 +6566,7 @@ static CK_BBOOL ep11tok_ec_curve_supported2(STDLL_TokData_t *tokdata,
     CK_ATTRIBUTE *attr = NULL;
     int i, status;
     const CK_VERSION ver3 = { .major = 3, .minor = 0 };
+    const CK_VERSION ver4_1 = { .major = 4, .minor = 1 };
 
     *curve = NULL;
 
@@ -6582,6 +6595,22 @@ static CK_BBOOL ep11tok_ec_curve_supported2(STDLL_TokData_t *tokdata,
     case PRIME_CURVE:
     case BRAINPOOL_CURVE:
     case KOBLITZ_CURVE:
+        break;
+    case BLS12_381_CURVE:
+        if (compare_ck_version(&ep11_data->ep11_lib_version, &ver4_1) < 0) {
+            TRACE_INFO("%s Curve requires host library version 4.1 or later\n",
+                       __func__);
+            return CK_FALSE;
+        }
+
+        status = check_required_versions(tokdata, ibm_bls_req_versions,
+                                         NUM_BLS_REQ);
+        if (status != 1) {
+            TRACE_INFO("%s Curve not supported due to mixed firmware versions\n",
+                       __func__);
+            return CK_FALSE;
+        }
+
         break;
 
     case MONTGOMERY_CURVE:
@@ -10659,6 +10688,9 @@ static CK_RV ep11tok_ecdsa_other_mech_adjust(CK_MECHANISM *mech,
     case CKM_IBM_ECSDSA_COMPR_MULTI:
         mech_ep11->param = ECSG_IBM_ECSDSA_COMPR_MULTI;
         break;
+    case CKM_IBM_BLS:
+        mech_ep11->param = ECSG_IBM_BLS;
+        break;
     default:
        TRACE_ERROR("%s Invalid sub mechanism for CKM_IBM_ECDSA_OTHER: %lu\n",
                    __func__, param->submechanism);
@@ -11140,8 +11172,6 @@ CK_RV ep11tok_sign_single(STDLL_TokData_t *tokdata, SESSION *session,
     size_t useblobsize;
     CK_MECHANISM ep11_mech;
 
-    UNUSED(length_only);
-
     rc = h_opaque_2_blob(tokdata, key, &keyblob, &keyblobsize, &key_obj,
                          READ_LOCK);
     if (rc != CKR_OK) {
@@ -11212,6 +11242,13 @@ CK_RV ep11tok_sign_single(STDLL_TokData_t *tokdata, SESSION *session,
         TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
     } else {
         TRACE_INFO("%s rc=0x%lx\n", __func__, rc);
+    }
+    /* Currently EP11 is returning 96 bytes as the BLS signature length,
+     * but this needs to be updated to 192 bytes. */
+    if (length_only && mech->mechanism == CKM_IBM_ECDSA_OTHER) {
+        if (mech_ep11.param == ECSG_IBM_BLS &&
+            *sig_len == CK_IBM_BLS12_381_SIGN_LEN / 2)
+            *sig_len = CK_IBM_BLS12_381_SIGN_LEN;
     }
 
 done:

@@ -22,6 +22,7 @@
 #define EDWARDS_CURVE       0x02
 #define KOBLITZ_CURVE       0x03
 #define MONTGOMERY_CURVE    0x04 /* Not used by CCA */
+#define BLS12_381_CURVE     0x05 /* Not used by CCA */
 
 // Elliptic Curve length in bits
 //
@@ -37,7 +38,7 @@
 #define CURVE521        0x0209
 
 /* Supported Elliptic Curves */
-#define NUMEC           24      /* number of supported curves */
+#define NUMEC           25      /* number of supported curves */
 extern const CK_BYTE brainpoolP160r1[];
 extern const CK_BYTE brainpoolP160t1[];
 extern const CK_BYTE brainpoolP192r1[];
@@ -62,6 +63,7 @@ extern const CK_BYTE curve25519[];
 extern const CK_BYTE curve448[];
 extern const CK_BYTE ed25519[];
 extern const CK_BYTE ed448[];
+extern const CK_BYTE bls12_381[];
 
 
 // structure of supported Elliptic Curves

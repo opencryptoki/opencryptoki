@@ -70,7 +70,8 @@ int main(void)
     puts("        CURVE25519,");
     puts("        CURVE448,");
     puts("        ED25519,");
-    puts("        ED448");
+    puts("        ED448,");
+    puts("        BLS12_381");
     puts("        # No comma after last element!");
     puts(")");
     puts("");
