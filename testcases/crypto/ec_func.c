@@ -24,6 +24,7 @@
 #include "defs.h"
 #include "ec_curves.h"
 #include "mechtable.h"
+#include "mech_to_str.h"
 
 /*
  * Below is a list for the OIDs and DER encodings of the brainpool.
@@ -113,7 +114,7 @@ typedef struct ec_struct {
 } _ec_struct;
 
 /* Supported Elliptic Curves */
-#define NUMEC		24
+#define NUMEC        25
 const CK_BYTE brainpoolP160r1[] = OCK_BRAINPOOL_P160R1;
 const CK_BYTE brainpoolP160t1[] = OCK_BRAINPOOL_P160T1;
 const CK_BYTE brainpoolP192r1[] = OCK_BRAINPOOL_P192R1;
@@ -138,6 +139,7 @@ const CK_BYTE curve25519[] = OCK_CURVE25519;
 const CK_BYTE curve448[] = OCK_CURVE448;
 const CK_BYTE ed25519[] = OCK_ED25519;
 const CK_BYTE ed448[] = OCK_ED448;
+const CK_BYTE bls12_381[] = OCK_BLS12_381;
 
 const _ec_struct der_ec_supported[NUMEC] = {
     {&brainpoolP160r1, sizeof(brainpoolP160r1), CK_FALSE, CURVE_BRAINPOOL,
@@ -188,6 +190,8 @@ const _ec_struct der_ec_supported[NUMEC] = {
      CURVE256_LENGTH, "ed25519"},
     {&ed448, sizeof(ed448), CK_FALSE, CURVE_EDWARDS,
      CURVE456_LENGTH, "ed448"},
+    {&bls12_381, sizeof(bls12_381), CK_TRUE, CURVE_BLS12_381,
+     CURVE384_LENGTH, "bls12_381"},
 };
 
 /* Invalid curves */
@@ -224,6 +228,8 @@ typedef struct signVerifyParam {
 CK_IBM_ECDSA_OTHER_PARAMS other_rand = { .submechanism = CKM_IBM_ECSDSA_RAND };
 CK_IBM_ECDSA_OTHER_PARAMS other_compr_multi =
                                 { .submechanism = CKM_IBM_ECSDSA_COMPR_MULTI };
+CK_IBM_ECDSA_OTHER_PARAMS other_bls =
+                                { .submechanism = CKM_IBM_BLS };
 
 _signVerifyParam signVerifyInput[] = {
     {{CKM_ECDSA, NULL, 0}, 20, 0},
@@ -270,6 +276,7 @@ _signVerifyParam signVerifyInput[] = {
     {{CKM_IBM_ED448_SHA3, NULL, 0}, 100, 0},
     {{CKM_IBM_ECDSA_OTHER, &other_rand, sizeof(other_rand)}, 20, 0},
     {{CKM_IBM_ECDSA_OTHER, &other_compr_multi, sizeof(other_compr_multi)}, 20, 0},
+    {{CKM_IBM_ECDSA_OTHER, &other_bls, sizeof(other_bls)}, 20, 0},
 };
 
 #define NUM_KDFS sizeof(kdfs)/sizeof(CK_EC_KDF_TYPE)
@@ -621,8 +628,9 @@ CK_RV run_DeriveECDHKey(void)
         };
         CK_ULONG extr2_tmpl_len = sizeof(extr2_tmpl)/sizeof(CK_ATTRIBUTE);
 
-        if (der_ec_supported[i].type == CURVE_EDWARDS) {
-            /* Edwards curves can not be used for ECDH derive */
+        if (der_ec_supported[i].type == CURVE_EDWARDS||
+            der_ec_supported[i].type == CURVE_BLS12_381) {
+            /* Edwards/BLS curves can not be used for ECDH derive */
             continue;
         }
 
@@ -847,6 +855,12 @@ CK_RV run_DeriveECDHKey(void)
                     /*
                      * Curve can not be used without the derived key size
                      * specified in CKA_VALUE_LEN.
+                     */
+                    continue;
+                }
+                if (der_ec_supported[i].type == CURVE_BLS12_381) {
+                    /*
+                     * Skipping BLS 12 381 curve.
                      */
                     continue;
                 }
@@ -1730,12 +1744,32 @@ CK_RV run_GenerateSignVerifyECC(CK_SESSION_HANDLE session,
                memcmp(params, secp256k1, MIN(params_len, sizeof(secp256k1))) != 0 &&
                memcmp(params, prime256v1, MIN(params_len, sizeof(prime256v1))) != 0 &&
                memcmp(params, brainpoolP256r1, MIN(params_len, sizeof(brainpoolP256r1))) != 0 &&
-               memcmp(params, brainpoolP256t1, MIN(params_len, sizeof(brainpoolP256t1)))) {
-        /* CKM_IBM_ECDSA_OTHER can only be used with 256-bit EC curves, skip */
+               memcmp(params, brainpoolP256t1, MIN(params_len, sizeof(brainpoolP256t1))) != 0 &&
+               memcmp(params, bls12_381, MIN(params_len, sizeof(bls12_381))) != 0) {
+        /* CKM_IBM_ECDSA_OTHER can only be used with 256-bit or BLS EC curves, skip */
         rc = CKR_OK;
         goto testcase_cleanup;
-    } else {
-        if (curve_type == CURVE_EDWARDS || curve_type == CURVE_MONTGOMERY) {
+    } else if (mech->mechanism == CKM_IBM_ECDSA_OTHER &&
+               memcmp(params, bls12_381, MIN(params_len, sizeof(bls12_381))) == 0 &&
+               mech->pParameter != NULL &&
+               mech->ulParameterLen == sizeof(CK_IBM_ECDSA_OTHER_PARAMS) &&
+               ((CK_IBM_ECDSA_OTHER_PARAMS *)mech->pParameter)->submechanism != CKM_IBM_BLS) {
+        /* ECDSA_OTHER: BLS curve can only be used with CKM_IBM_BLS sub mech, skip */
+        rc = CKR_OK;
+        goto testcase_cleanup;
+    } else if (mech->mechanism == CKM_IBM_ECDSA_OTHER &&
+               memcmp(params, bls12_381, MIN(params_len, sizeof(bls12_381))) != 0 &&
+               mech->pParameter != NULL &&
+               mech->ulParameterLen == sizeof(CK_IBM_ECDSA_OTHER_PARAMS) &&
+               ((CK_IBM_ECDSA_OTHER_PARAMS *)mech->pParameter)->submechanism == CKM_IBM_BLS) {
+        /* ECDSA_OTHER: Non-BLS curve can not be used with CKM_IBM_BLS sub mech, skip */
+        rc = CKR_OK;
+        goto testcase_cleanup;
+    } else if (mech->mechanism != CKM_IBM_ED25519_SHA512 &&
+               mech->mechanism != CKM_IBM_ED448_SHA3 &&
+               mech->mechanism != CKM_IBM_ECDSA_OTHER) {
+        if (curve_type == CURVE_EDWARDS || curve_type == CURVE_MONTGOMERY ||
+            curve_type == CURVE_BLS12_381) {
             /* Mechanism does not match to curve type, skip */
             rc = CKR_OK;
             goto testcase_cleanup;
@@ -2039,7 +2073,7 @@ CK_RV run_GenerateECCKeyPairSignVerify(void)
                                            (CK_BYTE *)der_ec_supported[i].curve,
                                            der_ec_supported[i].size);
             if (rc != 0) {
-                testcase_fail("run_GenerateSignVerifyECC failed index=%lu.", j);
+                testcase_fail("run_GenerateSignVerifyECC failed index=%lu. i=%lu.", j, i);
                 goto testcase_cleanup;
             }
             testcase_pass("*Sign & verify i=%lu (%s), j=%lu passed.", i,
@@ -2453,6 +2487,10 @@ CK_RV run_TransferECCKeyPairSignVerify(void)
             derive = FALSE;
         if (ec_tv[i].curve_type == CURVE_MONTGOMERY)
             sign = FALSE;
+        if (ec_tv[i].curve_type == CURVE_BLS12_381) {
+            sign = TRUE;
+            derive = TRUE;
+        }
 
         if (is_icsf_token(SLOT_ID))
             secret_tmpl_len -= 2; /* ICSF does not support array-attributes */
@@ -2662,6 +2700,11 @@ CK_RV run_ImportSignVerify_Pkey(void)
 
             if (ec_tv[i].curve_type == CURVE_MONTGOMERY) {
                 /* Sign/verify not supported for the curve. */
+                continue;
+            }
+
+            if (ec_tv[i].curve_type == CURVE_BLS12_381) {
+                /* BLS does not use protected keys, skip */
                 continue;
             }
 
@@ -3156,6 +3199,241 @@ testcase_cleanup:
     return rc;
 } /* end run_DeriveBTC() */
 
+_ec_struct bls_test = {&bls12_381, sizeof(bls12_381), CK_TRUE, CURVE_BLS12_381,
+     CURVE384_LENGTH, "bls12_381"};
+
+_signVerifyParam bls_test_input = {{CKM_IBM_ECDSA_OTHER, &other_bls,
+                                   sizeof(other_bls)}, 20, 0};
+/*
+ * BLS test for Sign and derive
+ */
+CK_RV run_BLSAggregation(void)
+{
+    CK_MECHANISM mech;
+    CK_OBJECT_HANDLE priv_key[CK_IBM_BLS_MAX_AGGREGATIONS],
+                     pub_key[CK_IBM_BLS_MAX_AGGREGATIONS];
+    CK_IBM_ECDSA_OTHER_BLS_PARAMS blsparam1, blsparam2;
+    CK_OBJECT_HANDLE aggpubkey = CK_INVALID_HANDLE;
+    CK_ULONG signatlen = CK_IBM_BLS12_381_SIGN_LEN;
+    CK_BYTE aggsignature[1000];
+    CK_BYTE signature[CK_IBM_BLS_MAX_AGGREGATIONS][CK_IBM_BLS12_381_SIGN_LEN];
+    CK_ULONG aggsignaturelen = CK_IBM_BLS12_381_SIGN_LEN;
+    CK_SESSION_HANDLE session;
+    CK_BYTE user_pin[PKCS11_MAX_PIN_LEN];
+    CK_ULONG user_pin_len, k, numElements = 10;
+    CK_FLAGS flags;
+    CK_RV rc;
+    CK_BYTE message[32];
+    CK_BBOOL lotrue = CK_TRUE;
+    CK_IBM_ECDSA_OTHER_PARAMS *param;
+
+    CK_ATTRIBUTE publicKeyTemplate[] = {
+        { CKA_EC_PARAMS,       (CK_BYTE *)bls_test.curve, bls_test.size },
+        { CKA_VERIFY,          &lotrue, sizeof(lotrue) },
+        { CKA_DERIVE,          &lotrue, sizeof(lotrue) },
+    };
+    CK_ULONG pub_derive_tmpl_len = sizeof(publicKeyTemplate)
+                                   / sizeof(CK_ATTRIBUTE);
+
+    testsuite_begin("Starting run_BLSAggregation");
+    testcase_rw_session();
+    testcase_user_login();
+
+    /* Skip tests if not EP11 token*/
+    if (!is_ep11_token(SLOT_ID)) {
+        testcase_skip("Slot %u doesn't support BLS aggregation",
+                      (unsigned int) SLOT_ID);
+        goto testcase_cleanup;
+    }
+
+    if (!mech_supported(SLOT_ID, bls_test_input.mech.mechanism)) {
+        testcase_skip("Slot %u doesn't support %s\n",
+                      (unsigned int) SLOT_ID,
+                      mech_to_str(bls_test_input.mech.mechanism));
+        rc = CKR_OK;
+        goto testcase_cleanup;
+    }
+
+    if (!mech_supported(SLOT_ID, CKM_IBM_EC_AGGREGATE)) {
+        testcase_skip("Slot %u doesn't support %s\n",
+                      (unsigned int) SLOT_ID,
+                      mech_to_str(CKM_IBM_EC_AGGREGATE));
+        rc = CKR_OK;
+        goto testcase_cleanup;
+    }
+
+    for (k = 0; k < numElements; k++) {
+
+        testcase_new_assertion();
+        testcase_begin("Generate key pair with for index %lu", k);
+
+        rc = generate_EC_KeyPair(session, (CK_BYTE *)bls_test.curve,
+                                 bls_test.size,
+                                 &pub_key[k], &priv_key[k], !pkey);
+
+        if (rc != CKR_OK) {
+            if (is_rejected_by_policy(rc, session)) {
+                testcase_skip("EC key generation is not allowed by policy");
+                goto testcase_cleanup;;
+            }
+            if (rc == CKR_MECHANISM_PARAM_INVALID ||
+                rc == CKR_ATTRIBUTE_VALUE_INVALID ||
+                rc == CKR_CURVE_NOT_SUPPORTED) {
+                testcase_skip("Slot %u doesn't support this curve: %s",
+                              (unsigned int) SLOT_ID, bls_test.name);
+                goto testcase_cleanup;;
+            }
+            testcase_fail("generate_EC_KeyPair with valid input failed (%s), "
+                          "rc=%s", bls_test.name, p11_get_ckr(rc));
+            goto testcase_cleanup;
+        }
+
+        testcase_pass("*Generate supported key pair (%s) passed.",
+                      bls_test.name);
+
+        blsparam1.pAggrElements[k] = (CK_OBJECT_HANDLE_PTR)&(pub_key[k]);
+    }
+
+    blsparam1.numElements = numElements;
+    blsparam1.elementSize = sizeof(CK_OBJECT_HANDLE_PTR);
+    blsparam2.numElements = numElements;
+    blsparam2.elementSize = CK_IBM_BLS12_381_SIGN_LEN;
+
+    for (k = 0; k < bls_test_input.inputlen; k++) {
+        message[k] = (k + 1) % 255;
+    }
+
+    for (k = 0; k < blsparam1.numElements; k++) {
+        testcase_new_assertion();
+
+        testcase_begin("Starting sign/verify with mechtype='%s', inputlen=%lu "
+                       "parts=%lu, index=%lu",
+                       p11_get_ckm(&mechtable_funcs,
+                                   bls_test_input.mech.mechanism),
+                       bls_test_input.inputlen, bls_test_input.parts, k);
+
+        param = (CK_IBM_ECDSA_OTHER_PARAMS *)bls_test_input.mech.pParameter;
+        if (param->submechanism != CKM_IBM_BLS) {
+            goto testcase_cleanup;
+        }
+
+        /****** Sign *******/
+        rc = funcs->C_SignInit(session, &bls_test_input.mech, priv_key[k]);
+        if (rc != CKR_OK) {
+            testcase_error("C_SignInit rc=%s", p11_get_ckr(rc));
+            goto testcase_cleanup;
+        }
+
+        rc = funcs->C_Sign(session, message, bls_test_input.inputlen,
+                           signature[k], &signatlen);
+
+        if (rc != 0) {
+            testcase_fail("C_Sign failed index=%lu.", k);
+            goto testcase_cleanup;
+        }
+
+        /****** Verify *******/
+        rc = funcs->C_VerifyInit(session, &bls_test_input.mech,
+                                 *(CK_OBJECT_HANDLE_PTR)
+                                 blsparam1.pAggrElements[k]);
+        if (rc != CKR_OK) {
+            testcase_error("C_VerifyInit rc=%s", p11_get_ckr(rc));
+            goto testcase_cleanup;
+        }
+
+        rc = funcs->C_Verify(session, message, bls_test_input.inputlen,
+                             signature[k], signatlen);
+        if (rc != CKR_OK) {
+            testcase_error("C_Verify rc=%s", p11_get_ckr(rc));
+            goto testcase_cleanup;
+        }
+
+        testcase_pass("*Sign & verify k=%lu, passed.", k);
+
+        blsparam2.pAggrElements[k] = (CK_BYTE_PTR)&(signature[k][0]);
+    }
+
+    mech.mechanism = CKM_IBM_EC_AGGREGATE;
+    mech.pParameter = &blsparam2;
+    mech.ulParameterLen = sizeof(blsparam2);
+
+    testcase_new_assertion();
+
+    testcase_begin("Starting BLS signature aggregation ");
+    rc = funcs->C_SignInit(session, &mech, CK_INVALID_HANDLE);
+    if (rc != CKR_OK) {
+        testcase_error("C_SignInit rc=%s", p11_get_ckr(rc));
+        goto testcase_cleanup;
+    }
+
+    rc = funcs->C_Sign(session, NULL, 0, NULL, &aggsignaturelen);
+    if (rc != CKR_OK) {
+        testcase_error("C_Sign rc=%s", p11_get_ckr(rc));
+        goto testcase_cleanup;
+    }
+
+    rc = funcs->C_Sign(session, NULL,
+                       0, aggsignature, &aggsignaturelen);
+    if (rc != CKR_OK) {
+        testcase_error("C_Sign rc=%s", p11_get_ckr(rc));
+        goto testcase_cleanup;
+    }
+
+    testcase_pass("*BLS signature aggregation passed.");
+
+    testcase_new_assertion();
+
+    testcase_begin("Starting BLS public key aggregation ");
+    mech.mechanism = CKM_IBM_EC_AGGREGATE;
+    mech.pParameter = &blsparam1;
+    mech.ulParameterLen = sizeof(blsparam1);
+
+    rc = funcs->C_DeriveKey(session, &mech, CK_INVALID_HANDLE,
+                            publicKeyTemplate, pub_derive_tmpl_len,
+                            &aggpubkey);
+    if (rc != CKR_OK) {
+        testcase_error("C_Derive rc=%s", p11_get_ckr(rc));
+        goto testcase_cleanup;
+    }
+
+    testcase_pass("*BLS Public key aggregation passed.");
+
+    testcase_new_assertion();
+
+    testcase_begin("Starting BLS aggregation verification");
+
+    rc = funcs->C_VerifyInit(session, &bls_test_input.mech, aggpubkey);
+    if (rc != CKR_OK) {
+        testcase_error("C_VerifyInit rc=%s", p11_get_ckr(rc));
+        goto testcase_cleanup;
+    }
+
+    rc = funcs->C_Verify(session, message, bls_test_input.inputlen,
+                         &(aggsignature[0]), aggsignaturelen);
+    if (rc != CKR_OK) {
+        testcase_error("C_Verify rc=%s", p11_get_ckr(rc));
+        goto testcase_cleanup;
+    }
+
+    testcase_pass("*Verification aggregation passed.");
+
+testcase_cleanup:
+
+    for (k = 0; k < numElements; k++) {
+        if (pub_key[k] != CK_INVALID_HANDLE)
+            funcs->C_DestroyObject(session, pub_key[k]);
+        if (priv_key[k] != CK_INVALID_HANDLE)
+            funcs->C_DestroyObject(session, priv_key[k]);
+    }
+
+    if (aggpubkey != CK_INVALID_HANDLE)
+        funcs->C_DestroyObject(session, aggpubkey);
+
+    testcase_user_logout();
+    testcase_close_session();
+    return rc;
+}
+
 int main(int argc, char **argv)
 {
     CK_C_INITIALIZE_ARGS cinit_args;
@@ -3209,6 +3487,7 @@ int main(int argc, char **argv)
     rv += run_DeriveECDHKey();
     rv += run_DeriveECDHKeyKAT();
     rv += run_DeriveBTC();
+    rv += run_BLSAggregation();
 
 #ifndef NO_PKEY
     if (is_ep11_token(SLOT_ID) || is_cca_token(SLOT_ID)) {
