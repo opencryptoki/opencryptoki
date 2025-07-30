@@ -16,6 +16,7 @@
 #include "pkcs11types.h"
 #include "regress.h"
 #include "platform.h"
+#include "ec_curves.h"
 
 #define UNUSED(var)            ((void)(var))
 
@@ -639,10 +640,16 @@ CK_RV generate_EC_KeyPair(CK_SESSION_HANDLE session,
     CK_BYTE subject[] = {0};
     CK_BYTE id[] = { 123 };
     CK_BBOOL true = TRUE;
+    CK_BBOOL false = FALSE;
+    const CK_BYTE bls12_381[] = OCK_BLS12_381;
     CK_ATTRIBUTE publicKeyTemplate[] = {
         {CKA_VERIFY, &true, sizeof(true)},
         {CKA_EC_PARAMS, ec_params, ec_params_len},
         {CKA_IBM_PROTKEY_EXTRACTABLE, &pkeyextractable, sizeof(CK_BBOOL)},
+        {CKA_DERIVE, (ec_params_len == sizeof(bls12_381) &&
+                      memcmp(ec_params, bls12_381, sizeof(bls12_381)) == 0) ?
+                          &true : &false,
+         sizeof(CK_BBOOL)},
     };
     CK_ATTRIBUTE privateKeyTemplate[] = {
         {CKA_TOKEN, &true, sizeof(true)},
