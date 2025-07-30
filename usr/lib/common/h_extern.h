@@ -1940,6 +1940,9 @@ int ec_point_uncompressed_from_public_data(const CK_BYTE *data,
                                            CK_BBOOL *allocated,
                                            CK_BYTE **ec_point,
                                            CK_ULONG *ec_point_len);
+CK_RV ec_agg_dup_param(CK_IBM_ECDSA_OTHER_BLS_PARAMS *from,
+                       CK_IBM_ECDSA_OTHER_BLS_PARAMS *to);
+CK_RV ec_agg_free_param(CK_IBM_ECDSA_OTHER_BLS_PARAMS *params);
 
 CK_RV attach_shm(STDLL_TokData_t *tokdata, CK_SLOT_ID slot_id);
 CK_RV detach_shm(STDLL_TokData_t *tokdata, CK_BBOOL ignore_ref_count);

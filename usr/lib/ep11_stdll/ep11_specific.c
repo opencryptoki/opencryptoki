@@ -7636,6 +7636,205 @@ static CK_RV ep11tok_kyber_mech_post_process(STDLL_TokData_t *tokdata,
     return CKR_OK;
 }
 
+struct EP11_BLS12_MECH {
+    CK_MECHANISM mech;
+    struct XCP_EC_AGGREGATE_PARAMS param;
+};
+
+static CK_RV ep11tok_bls_mech_pre_process(STDLL_TokData_t *tokdata,
+                                          CK_MECHANISM *mech,
+                                          struct EP11_BLS12_MECH *mech_ep11,
+                                          void** pAggrElements,
+                                          SESSION *session,
+                                          CK_BBOOL use_reenc_blob)
+{
+    CK_IBM_ECDSA_OTHER_BLS_PARAMS *param;
+    CK_RV rc;
+    CK_ULONG i;
+    CK_BYTE *concat_pubkey_spki = NULL;
+    CK_BYTE *keyblob_temp = NULL;
+    size_t keyblobsize_temp = 0, size_comp = 0;
+    OBJECT *temp_obj = NULL;
+    CK_ULONG keytype, class;
+    int curve_type;
+
+    if (mech->ulParameterLen != sizeof(CK_IBM_ECDSA_OTHER_BLS_PARAMS)) {
+        TRACE_ERROR("Mechanism parameter length not as expected\n");
+        return CKR_MECHANISM_PARAM_INVALID;
+    }
+
+    mech_ep11->mech.mechanism = mech->mechanism;
+    mech_ep11->mech.pParameter = &mech_ep11->param;
+    mech_ep11->mech.ulParameterLen = sizeof(mech_ep11->param);
+
+    memset(&mech_ep11->param, 0, sizeof(mech_ep11->param));
+    mech_ep11->param.version = 0;
+    mech_ep11->param.mode = CK_IBM_EC_AGG_BLS12_381_PKEY;
+    param = (CK_IBM_ECDSA_OTHER_BLS_PARAMS *)mech->pParameter;
+
+    if (param->elementSize != sizeof(CK_OBJECT_HANDLE_PTR)) {
+        TRACE_ERROR("Invalid element size %lu\n", param->elementSize);
+        return CKR_MECHANISM_PARAM_INVALID;
+    }
+
+    if (param->numElements > CK_IBM_BLS_MAX_AGGREGATIONS) {
+        TRACE_ERROR("Invalid number of elements %lu\n", param->numElements);
+        return CKR_MECHANISM_PARAM_INVALID;
+    }
+
+    if (param->numElements > 0) {
+        rc = h_opaque_2_blob(tokdata,
+                             *(CK_OBJECT_HANDLE_PTR)param->pAggrElements[0],
+                             &keyblob_temp, &keyblobsize_temp,
+                             &temp_obj, READ_LOCK);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s h_opaque_2_blob failed for pub key index 0\n",
+                        __func__);
+            rc = CKR_MECHANISM_PARAM_INVALID;
+            goto error;
+        }
+
+        rc = tokdata->policy->is_key_allowed(tokdata->policy,
+                                             &temp_obj->strength, session);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("POLICY VIOLATION: aggregate with index 0\n");
+            rc = CKR_MECHANISM_PARAM_INVALID;
+            goto error;
+        }
+        size_comp = keyblobsize_temp;
+
+        rc = template_attribute_get_ulong(temp_obj->template,
+                                          CKA_KEY_TYPE, &keytype);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("Invalid key type attribute with index 0 \n");
+            rc = CKR_MECHANISM_PARAM_INVALID;
+            goto error;
+        }
+
+        rc = template_attribute_get_ulong(temp_obj->template, CKA_CLASS,
+                                          &class);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("Could not find CKA_CLASS for the key with index 0.\n");
+            rc = CKR_MECHANISM_PARAM_INVALID;
+            goto error;
+        }
+
+        curve_type = get_curve_type_from_template(temp_obj->template);
+        if (keytype != CKK_EC ||
+            curve_type != BLS12_381_CURVE ||
+            class != CKO_PUBLIC_KEY) {
+            TRACE_ERROR("Incorrect Key type or Curve or Public key index 0.\n");
+            rc = CKR_MECHANISM_PARAM_INVALID;
+            goto error;
+        }
+
+        if (use_reenc_blob) {
+            rc = obj_opaque_2_reenc_blob(tokdata, temp_obj,
+                                         &keyblob_temp, &keyblobsize_temp);
+            if (rc != CKR_OK && rc != CKR_TEMPLATE_INCOMPLETE) {
+                TRACE_ERROR("obj_opaque_2_reenc_blob failed pub_key index 0\n");
+                goto error;
+            }
+        }
+
+        concat_pubkey_spki = malloc(param->numElements * keyblobsize_temp);
+        if (concat_pubkey_spki == NULL) {
+            TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+            rc = CKR_HOST_MEMORY;
+            goto error;
+        }
+
+        memcpy(concat_pubkey_spki, keyblob_temp, keyblobsize_temp);
+        object_put(tokdata, temp_obj, TRUE);
+        temp_obj = NULL;
+
+        for (i = 1; i < param->numElements; i++) {
+            rc = h_opaque_2_blob(tokdata,
+                                 *(CK_OBJECT_HANDLE_PTR)param->pAggrElements[i],
+                                 &keyblob_temp, &keyblobsize_temp,
+                                 &temp_obj, READ_LOCK);
+            if (rc != CKR_OK) {
+                TRACE_ERROR("%s h_opaque_2_blob failed pub_key index = 0%lu\n",
+                            __func__, i);
+                rc = CKR_MECHANISM_PARAM_INVALID;
+                goto error;
+            }
+
+            rc = tokdata->policy->is_key_allowed(tokdata->policy,
+                                                 &temp_obj->strength, session);
+            if (rc != CKR_OK) {
+                TRACE_ERROR("POLICY VIOLATION: aggregate with index = 0%lu\n",
+                            i);
+                rc = CKR_MECHANISM_PARAM_INVALID;
+                goto error;
+            }
+            if (size_comp != keyblobsize_temp) {
+                TRACE_ERROR("Blob size not matching with index = 0%lu\n", i);
+                rc = CKR_MECHANISM_PARAM_INVALID;
+                goto error;
+            }
+
+            rc = template_attribute_get_ulong(temp_obj->template,
+                                              CKA_KEY_TYPE, &keytype);
+            if (rc != CKR_OK) {
+                TRACE_ERROR("Invalid key type attribute with index = 0%lu\n",
+                            i);
+                rc = CKR_MECHANISM_PARAM_INVALID;
+                goto error;
+            }
+
+            rc = template_attribute_get_ulong(temp_obj->template, CKA_CLASS,
+                                              &class);
+            if (rc != CKR_OK) {
+                TRACE_ERROR("Could not find CKA_CLASS for the key with "
+                            "index = 0%lu\n", i);
+                rc = CKR_MECHANISM_PARAM_INVALID;
+                goto error;
+            }
+
+            curve_type = get_curve_type_from_template(temp_obj->template);
+            if (keytype != CKK_EC ||
+                curve_type != BLS12_381_CURVE ||
+                class != CKO_PUBLIC_KEY) {
+                TRACE_ERROR("Incorrect Key type or Curve or Public key with "
+                            "index = 0%lu\n", i);
+                rc = CKR_MECHANISM_PARAM_INVALID;
+                goto error;
+            }
+
+            if (use_reenc_blob) {
+                rc = obj_opaque_2_reenc_blob(tokdata, temp_obj,
+                                             &keyblob_temp, &keyblobsize_temp);
+                if (rc != CKR_OK && rc != CKR_TEMPLATE_INCOMPLETE) {
+                    TRACE_ERROR("obj_opaque_2_reenc_blob failed for pub key "
+                                "index = 0x%lx\n",
+                                *(CK_OBJECT_HANDLE_PTR)param->pAggrElements[0]);
+                    goto error;
+                }
+            }
+
+            memcpy(concat_pubkey_spki + i * keyblobsize_temp, keyblob_temp,
+                   keyblobsize_temp);
+            object_put(tokdata, temp_obj, TRUE);
+            temp_obj = NULL;
+       }
+    }
+
+    mech_ep11->param.perElementSize = keyblobsize_temp;
+    mech_ep11->param.pElements = concat_pubkey_spki;
+    mech_ep11->param.ulElementsLen = (param->numElements * keyblobsize_temp);
+    *pAggrElements = mech_ep11->param.pElements;
+
+    return CKR_OK;
+
+error:
+    object_put(tokdata, temp_obj, TRUE);
+    temp_obj = NULL;
+    if (concat_pubkey_spki != NULL)
+        free(concat_pubkey_spki);
+    return rc;
+}
+
 static CK_RV ep11tok_btc_mech_pre_process(STDLL_TokData_t *tokdata,
                                           OBJECT *key_obj,
                                           CK_ATTRIBUTE **new_attrs,
@@ -8002,6 +8201,11 @@ static CK_RV ep11tok_sha_key_derive_mech_pre_process(STDLL_TokData_t *tokdata,
     return CKR_OK;
 }
 
+CK_RV is_ec_aggregate_mechanism(CK_MECHANISM_PTR pMechanism)
+{
+    return (pMechanism->mechanism == CKM_IBM_EC_AGGREGATE);
+}
+
 CK_RV ep11tok_derive_key(STDLL_TokData_t *tokdata, SESSION *session,
                          CK_MECHANISM_PTR mech, CK_OBJECT_HANDLE hBaseKey,
                          CK_OBJECT_HANDLE_PTR handle, CK_ATTRIBUTE_PTR attrs,
@@ -8040,10 +8244,13 @@ CK_RV ep11tok_derive_key(STDLL_TokData_t *tokdata, SESSION *session,
     CK_ULONG used_firmware_API_version;
     CK_MECHANISM_PTR mech_orig = mech;
     struct EP11_KYBER_MECH mech_ep11;
+    struct EP11_BLS12_MECH mech_bls = { 0 };
+    void *pAggrElements = NULL;
+    struct objstrength objstrength;
     OBJECT *kyber_secret_obj = NULL;
     CK_KEY_TYPE keytype;
-    CK_BYTE *useblob;
-    size_t useblobsize;
+    CK_BYTE *useblob = NULL;
+    size_t useblobsize = 0;
     int retry_mech_param_blob = 0;
 
     memset(newblob, 0, sizeof(newblob));
@@ -8182,52 +8389,71 @@ CK_RV ep11tok_derive_key(STDLL_TokData_t *tokdata, SESSION *session,
         }
     }
 
-    rc = h_opaque_2_blob(tokdata, hBaseKey, &keyblob, &keyblobsize,
-                         &base_key_obj, READ_LOCK);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("%s failedL hBaseKey=0x%lx\n", __func__, hBaseKey);
-        goto error;
-    }
+    if (!is_ec_aggregate_mechanism(mech)) {
+        rc = h_opaque_2_blob(tokdata, hBaseKey, &keyblob, &keyblobsize,
+                             &base_key_obj, READ_LOCK);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s failedL hBaseKey=0x%lx\n", __func__, hBaseKey);
+            goto error;
+        }
 
-    rc = template_attribute_get_ulong(base_key_obj->template, CKA_KEY_TYPE, &keytype);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("Invalid key type attribute\n");
-        goto error;
-    }
+        rc = template_attribute_get_ulong(base_key_obj->template, CKA_KEY_TYPE,
+                                          &keytype);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("Invalid key type attribute\n");
+            goto error;
+        }
 
-    if (mech->mechanism == CKM_AES_XTS || keytype == CKK_AES_XTS) {
-        TRACE_ERROR("%s Key derive with AES-XTS is not supported\n", __func__);
-        rc = CKR_KEY_TYPE_INCONSISTENT;
-        goto error;
-    }
+        if (mech->mechanism == CKM_AES_XTS || keytype == CKK_AES_XTS) {
+            TRACE_ERROR("%s Key derive with AES-XTS is not supported\n",
+                        __func__);
+            rc = CKR_KEY_TYPE_INCONSISTENT;
+            goto error;
+        }
 
-    rc = tokdata->policy->is_mech_allowed(tokdata->policy, mech_orig,
-                                          &base_key_obj->strength,
-                                          POLICY_CHECK_DERIVE,
-                                          session);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("POLICY VIOLATION: derive key\n");
-        goto error;
-    }
+        rc = tokdata->policy->is_mech_allowed(tokdata->policy, mech_orig,
+                                              &base_key_obj->strength,
+                                              POLICY_CHECK_DERIVE,
+                                              session);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("POLICY VIOLATION: derive key\n");
+            goto error;
+        }
 
-    if (!key_object_is_mechanism_allowed(base_key_obj->template,
-                                         mech->mechanism)) {
-        TRACE_ERROR("Mechanism not allowed per CKA_ALLOWED_MECHANISMS.\n");
-        rc = CKR_MECHANISM_INVALID;
-        goto error;
-    }
+        if (!key_object_is_mechanism_allowed(base_key_obj->template,
+                                             mech->mechanism)) {
+            TRACE_ERROR("Mechanism not allowed per CKA_ALLOWED_MECHANISMS.\n");
+            rc = CKR_MECHANISM_INVALID;
+            goto error;
+        }
 
-    /* Get the keytype to use when creating the key object */
-    rc = pkcs_get_keytype(attrs, attrs_len, mech, &ktype, &class);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("%s get_subclass failed with rc=0x%lx\n", __func__, rc);
-        goto error;
-    }
+        /* Get the keytype to use when creating the key object */
+        rc = pkcs_get_keytype(attrs, attrs_len, mech, &ktype, &class);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s get_subclass failed with rc=0x%lx\n", __func__, rc);
+            goto error;
+        }
 
-    if (ktype == CKK_AES_XTS) {
-        TRACE_ERROR("%s Deriving an AES-XTS key is not supported\n", __func__);
-        rc = CKR_KEY_TYPE_INCONSISTENT;
-        goto error;
+        if (ktype == CKK_AES_XTS) {
+            TRACE_ERROR("%s Deriving an AES-XTS key is not supported\n",
+                        __func__);
+            rc = CKR_KEY_TYPE_INCONSISTENT;
+            goto error;
+        }
+    } else {
+        ktype = CKK_EC;
+        class = CKO_PUBLIC_KEY;
+        objstrength.strength = POLICY_STRENGTH_IDX_192;
+        objstrength.siglen = CK_IBM_BLS12_381_SIGN_LEN * 8;
+        objstrength.allowed = CK_TRUE;
+        rc = tokdata->policy->is_mech_allowed(tokdata->policy, mech_orig,
+                                              &objstrength,
+                                              POLICY_CHECK_DERIVE,
+                                              session);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("POLICY VIOLATION: derive key\n");
+            goto error;
+        }
     }
 
     rc = check_key_attributes(tokdata, ktype, class, attrs, attrs_len,
@@ -8237,15 +8463,15 @@ CK_RV ep11tok_derive_key(STDLL_TokData_t *tokdata, SESSION *session,
                     "rc=0x%lx\n", __func__, rc);
         goto error;
     }
-
-    rc = check_ab_derive_attributes(tokdata, base_key_obj->template,
-                                    &new_attrs, &new_attrs_len);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("%s Attribute bound attribute violation on derive key: rc=0x%lx\n",
-                    __func__, rc);
-        goto error;
+    if (!is_ec_aggregate_mechanism(mech)) {
+        rc = check_ab_derive_attributes(tokdata, base_key_obj->template,
+                                        &new_attrs, &new_attrs_len);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s Attribute bound attribute violation on derive key: "
+                        "rc=0x%lx\n", __func__, rc);
+            goto error;
+        }
     }
-
     if (mech->mechanism == CKM_ECDH1_DERIVE ||
         mech->mechanism == CKM_IBM_EC_X25519 ||
         mech->mechanism == CKM_IBM_EC_X448) {
@@ -8284,20 +8510,23 @@ CK_RV ep11tok_derive_key(STDLL_TokData_t *tokdata, SESSION *session,
         }
     }
 
-    rc = force_ab_sensitive(&new_attrs, &new_attrs_len, ktype);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("%s force attribute bound key sensitive failed: rc=0x%lx\n",
-                    __func__, rc);
-        goto error;
-    }
 
-    rc = key_object_apply_template_attr(base_key_obj->template,
-                                        CKA_DERIVE_TEMPLATE,
-                                        new_attrs, new_attrs_len,
-                                        &new_attrs1, &new_attrs1_len);
-    if (rc != CKR_OK) {
-        TRACE_DEVEL("key_object_apply_template_attr failed.\n");
-        goto error;
+    if (!is_ec_aggregate_mechanism(mech)) {
+        rc = force_ab_sensitive(&new_attrs, &new_attrs_len, ktype);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s force attribute bound key sensitive failed: "
+                        "rc=0x%lx\n",__func__, rc);
+            goto error;
+        }
+
+        rc = key_object_apply_template_attr(base_key_obj->template,
+                                            CKA_DERIVE_TEMPLATE,
+                                            new_attrs, new_attrs_len,
+                                            &new_attrs1, &new_attrs1_len);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("key_object_apply_template_attr failed.\n");
+            goto error;
+        }
     }
 
 #ifndef NO_PKEY
@@ -8308,7 +8537,11 @@ CK_RV ep11tok_derive_key(STDLL_TokData_t *tokdata, SESSION *session,
 #endif /* NO_PKEY */
 
     /* Start creating the key object */
-    rc = object_mgr_create_skel(tokdata, session, new_attrs1, new_attrs1_len,
+    rc = object_mgr_create_skel(tokdata, session,
+                                !is_ec_aggregate_mechanism(mech) ?
+                                    new_attrs1 : new_attrs,
+                                !is_ec_aggregate_mechanism(mech) ?
+                                    new_attrs1_len : new_attrs_len,
                                 MODE_DERIVE, class, ktype, &key_obj);
     if (rc != CKR_OK) {
         TRACE_ERROR("%s object_mgr_create_skel failed with rc=0x%lx\n",
@@ -8344,6 +8577,14 @@ CK_RV ep11tok_derive_key(STDLL_TokData_t *tokdata, SESSION *session,
 
 do_retry:
     switch (mech_orig->mechanism) {
+    case CKM_IBM_EC_AGGREGATE:
+        rc = ep11tok_bls_mech_pre_process(tokdata, mech_orig, &mech_bls,
+                                          &pAggrElements, session,
+                                          retry_mech_param_blob != 0);
+        if (rc != CKR_OK)
+            goto error;
+        mech = &mech_bls.mech;
+        break;
     case CKM_IBM_BTC_DERIVE:
         rc = ep11tok_btc_mech_pre_process(tokdata, key_obj, &new_attrs2,
                                           &new_attrs2_len);
@@ -8393,7 +8634,8 @@ do_retry:
          * whole operation including preprocessing. This will then cause the
          * blob in the mech param to be the reenciphered one.
          */
-        if (rc == CKR_IBM_WKID_MISMATCH && mech == &mech_ep11.mech &&
+        if (rc == CKR_IBM_WKID_MISMATCH &&
+            (mech == &mech_ep11.mech || mech == &mech_bls.mech) &&
             ep11_data->mk_change_active) {
             TRACE_DEVEL("Blob in mech param and WKID mismatch -> retry\n");
             retry_mech_param_blob++;
@@ -8509,14 +8751,15 @@ do_retry:
     }
 
     INC_COUNTER(tokdata, session, mech_orig, base_key_obj,
-                POLICY_STRENGTH_IDX_0);
+                is_ec_aggregate_mechanism(mech) ?
+                    POLICY_STRENGTH_IDX_192  : POLICY_STRENGTH_IDX_0);
 
     goto out;
 error:
     if (key_obj)
         object_free(key_obj);
     *handle = 0;
- out:
+out:
     if (opaque_attr != NULL)
         free(opaque_attr);
     if (chk_attr != NULL)
@@ -8529,6 +8772,8 @@ error:
         free_attribute_array(new_attrs2, new_attrs2_len);
     if (allocated && ecpoint != NULL)
         free(ecpoint);
+    if (pAggrElements != NULL)
+        free(pAggrElements);
 
     object_put(tokdata, base_key_obj, TRUE);
     base_key_obj = NULL;
@@ -10700,6 +10945,57 @@ static CK_RV ep11tok_ecdsa_other_mech_adjust(CK_MECHANISM *mech,
     return CKR_OK;
 }
 
+static CK_RV ep11tok_bls_mech_pre_process_signsingle(
+                                            CK_MECHANISM *mech,
+                                            struct EP11_BLS12_MECH *mech_ep11,
+                                            void ** pAggrElemets)
+{
+    CK_IBM_ECDSA_OTHER_BLS_PARAMS *param;
+    CK_ULONG i;
+    CK_BYTE *aggrsignature = NULL;
+
+    if (mech->ulParameterLen != sizeof(CK_IBM_ECDSA_OTHER_BLS_PARAMS)) {
+        TRACE_ERROR("Mechanism parameter length not as expected\n");
+        return CKR_MECHANISM_PARAM_INVALID;
+    }
+
+    param = (CK_IBM_ECDSA_OTHER_BLS_PARAMS *)mech->pParameter;
+    if (param->elementSize != CK_IBM_BLS12_381_SIGN_LEN) {
+        TRACE_ERROR("Invalid element size %lu\n", param->elementSize);
+        return CKR_MECHANISM_PARAM_INVALID;
+    }
+
+    if (param->numElements > CK_IBM_BLS_MAX_AGGREGATIONS) {
+        TRACE_ERROR("Invalid number of elements %lu\n", param->numElements);
+        return CKR_MECHANISM_PARAM_INVALID;
+    }
+
+    mech_ep11->mech.mechanism = mech->mechanism;
+    mech_ep11->mech.pParameter = &mech_ep11->param;
+    mech_ep11->mech.ulParameterLen = sizeof(mech_ep11->param);
+
+    memset(&mech_ep11->param, 0, sizeof(mech_ep11->param));
+
+    mech_ep11->param.version = 0;
+    mech_ep11->param.mode = CK_IBM_EC_AGG_BLS12_381_SIGN;
+    mech_ep11->param.perElementSize = param->elementSize;
+    mech_ep11->param.ulElementsLen = param->elementSize * param->numElements;
+
+    aggrsignature = malloc(param->elementSize * param->numElements);
+    if (aggrsignature == NULL) {
+        TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+        return CKR_HOST_MEMORY;
+    }
+    for (i = 0; i < param->numElements ; i++) {
+         memcpy(aggrsignature + i * mech_ep11->param.perElementSize,
+                (CK_BYTE_PTR)param->pAggrElements[i],
+                mech_ep11->param.perElementSize);
+    }
+    mech_ep11->param.pElements = aggrsignature;
+    *pAggrElemets = mech_ep11->param.pElements;
+    return CKR_OK;
+}
+
 struct RSA_OAEP_MECH_PARAM {
     CK_MECHANISM mech;
     CK_RSA_PKCS_OAEP_PARAMS param;
@@ -10746,6 +11042,7 @@ CK_BOOL ep11tok_mech_single_only(CK_MECHANISM *mech)
     case CKM_IBM_ED25519_SHA512:
     case CKM_IBM_ED448_SHA3:
     case CKM_IBM_DILITHIUM:
+    case CKM_IBM_EC_AGGREGATE:
         return CK_TRUE;
     default:
         return CK_FALSE;
@@ -11168,29 +11465,34 @@ CK_RV ep11tok_sign_single(STDLL_TokData_t *tokdata, SESSION *session,
     CK_BYTE *keyblob;
     OBJECT *key_obj = NULL;
     struct ECDSA_OTHER_MECH_PARAM mech_ep11;
+    struct EP11_BLS12_MECH mech_bls;
+    void *pAggrElements = NULL;
     CK_BYTE *useblob;
     size_t useblobsize;
     CK_MECHANISM ep11_mech;
 
-    rc = h_opaque_2_blob(tokdata, key, &keyblob, &keyblobsize, &key_obj,
-                         READ_LOCK);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("%s no blob rc=0x%lx\n", __func__, rc);
-        return rc;
-    }
-    rc = tokdata->policy->is_mech_allowed(tokdata->policy, mech,
-                                          &key_obj->strength,
-                                          POLICY_CHECK_SIGNATURE,
-                                          session);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("POLICY VIOLATION: Sign single\n");
-        goto done;
-    }
+    if (!is_ec_aggregate_mechanism(mech)) {
+        rc = h_opaque_2_blob(tokdata, key, &keyblob, &keyblobsize, &key_obj,
+                             READ_LOCK);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s no blob rc=0x%lx\n", __func__, rc);
+            return rc;
+        }
+        rc = tokdata->policy->is_mech_allowed(tokdata->policy, mech,
+                                              &key_obj->strength,
+                                              POLICY_CHECK_SIGNATURE,
+                                              session);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("POLICY VIOLATION: Sign single\n");
+            goto done;
+        }
 
-    if (!key_object_is_mechanism_allowed(key_obj->template, mech->mechanism)) {
-        TRACE_ERROR("Mechanism not allowed per CKA_ALLOWED_MECHANISMS.\n");
-        rc = CKR_MECHANISM_INVALID;
-        goto done;
+        if (!key_object_is_mechanism_allowed(key_obj->template,
+                                             mech->mechanism)) {
+            TRACE_ERROR("Mechanism not allowed per CKA_ALLOWED_MECHANISMS.\n");
+            rc = CKR_MECHANISM_INVALID;
+            goto done;
+        }
     }
 
     switch (mech->mechanism) {
@@ -11218,6 +11520,13 @@ CK_RV ep11tok_sign_single(STDLL_TokData_t *tokdata, SESSION *session,
         rc = ep11tok_hmac_mech_check_keytype(mech->mechanism, key_obj);
         if (rc != CKR_OK)
             goto done;
+        break;
+    case CKM_IBM_EC_AGGREGATE:
+        rc = ep11tok_bls_mech_pre_process_signsingle(mech, &mech_bls,
+                                                     &pAggrElements);
+        if (rc != CKR_OK)
+            goto done;
+        mech = &mech_bls.mech;
         break;
     }
 
@@ -11255,6 +11564,8 @@ done:
     object_put(tokdata, key_obj, TRUE);
     key_obj = NULL;
 
+    if (pAggrElements != NULL)
+        free(pAggrElements);
     return rc;
 }
 
@@ -13289,6 +13600,7 @@ static const CK_MECHANISM_TYPE ep11_supported_mech_list[] = {
     CKM_IBM_ATTRIBUTEBOUND_WRAP,
     CKM_IBM_ECDSA_OTHER,
     CKM_IBM_BTC_DERIVE,
+    CKM_IBM_EC_AGGREGATE,
 };
 
 static const CK_ULONG supported_mech_list_len =

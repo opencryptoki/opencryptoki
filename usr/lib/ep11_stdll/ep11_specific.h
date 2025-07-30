@@ -472,6 +472,8 @@ CK_RV ep11tok_generate_key(STDLL_TokData_t * tokdata, SESSION * session,
                            CK_MECHANISM_PTR mech, CK_ATTRIBUTE_PTR attrs,
                            CK_ULONG attrs_len, CK_OBJECT_HANDLE_PTR handle);
 
+CK_RV is_ec_aggregate_mechanism(CK_MECHANISM_PTR pMechanism);
+
 CK_RV ep11tok_derive_key(STDLL_TokData_t * tokdata, SESSION * session,
                          CK_MECHANISM_PTR mech, CK_OBJECT_HANDLE hBaseKey,
                          CK_OBJECT_HANDLE_PTR handle, CK_ATTRIBUTE_PTR attrs,
@@ -800,16 +802,19 @@ CK_RV ep11tok_extract_blob_info(CK_BYTE *blob, CK_ULONG blob_len, CK_BBOOL *is_s
                             /* New WK is set on single APQN */           \
                             TRACE_DEVEL("%s single APQN has new WK\n",   \
                                         __func__);                       \
-                            (rc) = obj_opaque_2_reenc_blob((tokdata),    \
-                                                   (obj1), &(useblob1),  \
-                                                   &(useblobsize1));     \
-                            if ((rc) == CKR_TEMPLATE_INCOMPLETE) {       \
-                                (useblob1) = (blob1);                    \
-                                (useblobsize1) = (blobsize1);            \
-                            } else if ((rc) != CKR_OK) {                 \
-                                TRACE_ERROR("%s reenc blob1 invalid\n",  \
+                            if (obj1 != NULL) {                          \
+                                (rc) = obj_opaque_2_reenc_blob((tokdata),\
+                                                     (obj1), &(useblob1),\
+                                                     &(useblobsize1));   \
+                                if ((rc) == CKR_TEMPLATE_INCOMPLETE) {   \
+                                    (useblob1) = (blob1);                \
+                                    (useblobsize1) = (blobsize1);        \
+                                } else if ((rc) != CKR_OK) {             \
+                                    TRACE_ERROR(                         \
+                                            "%s reenc blob1 invalid\n",  \
                                             __func__);                   \
-                                break;                                   \
+                                    break;                               \
+                                }                                        \
                             }                                            \
                             if (obj2 != NULL) {                          \
                                 (rc) = obj_opaque_2_reenc_blob((tokdata),\
@@ -841,8 +846,10 @@ CK_RV ep11tok_extract_blob_info(CK_BYTE *blob, CK_ULONG blob_len, CK_BBOOL *is_s
                             }                                            \
                             retry = 1;                                   \
                         }  else {                                        \
-                            (useblob1) = (blob1);                        \
-                            (useblobsize1) = (blobsize1);                \
+                            if (obj1 != NULL) {                          \
+                                (useblob1) = (blob1);                    \
+                                (useblobsize1) = (blobsize1);            \
+                            }                                            \
                             if (obj2 != NULL) {                          \
                                 (useblob2) = (blob2);                    \
                                 (useblobsize2) = (blobsize2);            \
@@ -860,8 +867,9 @@ CK_RV ep11tok_extract_blob_info(CK_BYTE *blob, CK_ULONG blob_len, CK_BBOOL *is_s
                                       private_data)->mk_change_active && \
                             retry == 0 &&                                \
                             (rc) == CKR_IBM_WKID_MISMATCH) {             \
-                            if (ep11tok_is_blob_new_wkid((tokdata),      \
-                                          (useblob1), (useblobsize1)) || \
+                            if ((useblob1 != NULL &&                     \
+                                 ep11tok_is_blob_new_wkid((tokdata),     \
+                                         (useblob1), (useblobsize1))) || \
                                 (useblob2 != NULL &&                     \
                                  ep11tok_is_blob_new_wkid((tokdata),     \
                                          (useblob2), (useblobsize2))) || \

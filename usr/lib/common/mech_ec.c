@@ -2057,3 +2057,53 @@ done:
 
     return rc;
 }
+
+CK_RV ec_agg_dup_param(CK_IBM_ECDSA_OTHER_BLS_PARAMS *from,
+                       CK_IBM_ECDSA_OTHER_BLS_PARAMS *to)
+{
+    CK_ULONG i;
+
+    if (from == NULL || to == NULL)
+        return CKR_ARGUMENTS_BAD;
+
+    if (from->numElements != 0 && from->elementSize > 0) {
+        for (i = 0; i < CK_IBM_BLS_MAX_AGGREGATIONS; i++) {
+            if (i < from->numElements) {
+                to->pAggrElements[i] = (CK_BYTE*)malloc(from->elementSize);
+                if (to->pAggrElements[i] == NULL) {
+                    TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+                    ec_agg_free_param(to);
+                    return CKR_HOST_MEMORY;
+                }
+                memcpy(to->pAggrElements[i], from->pAggrElements[i],
+                       from->elementSize);
+            } else {
+                to->pAggrElements[i] = NULL;
+            }
+        }
+        to->numElements = from->numElements;
+        to->elementSize = from->elementSize;
+    } else {
+        to->numElements = 0;
+        to->elementSize = 0;
+        memset(to->pAggrElements, 0, sizeof(to->pAggrElements));
+    }
+    return CKR_OK;
+}
+
+CK_RV ec_agg_free_param(CK_IBM_ECDSA_OTHER_BLS_PARAMS *params)
+{
+    CK_ULONG i;
+
+    if (params == NULL)
+        return CKR_ARGUMENTS_BAD;
+
+    for (i = 0; i < CK_IBM_BLS_MAX_AGGREGATIONS; i++) {
+        free(params->pAggrElements[i]);
+        params->pAggrElements[i] = NULL;
+    }
+
+    params->numElements = 0;
+    params->elementSize = 0;
+    return CKR_OK;
+}

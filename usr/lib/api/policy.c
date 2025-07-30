@@ -523,6 +523,9 @@ static CK_RV policy_get_sig_size(CK_MECHANISM_PTR mech, struct objstrength *s,
                 return CKR_FUNCTION_FAILED;
             }
             break;
+        case CKM_IBM_EC_AGGREGATE:
+            *ssize = MIN(s->siglen, CK_IBM_BLS12_381_SIGN_LEN * 8);
+            break;
         default:
             return CKR_FUNCTION_FAILED;
         }
@@ -1293,6 +1296,7 @@ static CK_RV policy_update_mech_info(policy_t p, CK_MECHANISM_TYPE mech,
         case CKM_IBM_ECDSA_OTHER:
         case CKM_IBM_BTC_DERIVE:
         case CKM_ECDH_AES_KEY_WRAP:
+        case CKM_IBM_EC_AGGREGATE:
             if (policy_update_ec(pp, info) != CKR_OK) {
                 TRACE_DEVEL("Mechanism 0x%lx blocked by policy!\n", mech);
                 return CKR_MECHANISM_INVALID;

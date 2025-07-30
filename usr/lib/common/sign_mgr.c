@@ -894,8 +894,6 @@ CK_RV sign_mgr_cleanup(STDLL_TokData_t *tokdata, SESSION *sess,
         return CKR_FUNCTION_FAILED;
     }
     ctx->key = 0;
-    ctx->mech.ulParameterLen = 0;
-    ctx->mech.mechanism = 0;
     ctx->multi_init = FALSE;
     ctx->multi = FALSE;
     ctx->active = FALSE;
@@ -907,9 +905,21 @@ CK_RV sign_mgr_cleanup(STDLL_TokData_t *tokdata, SESSION *sess,
     ctx->auth_required = FALSE;
 
     if (ctx->mech.pParameter) {
+        /* Deep free mechanism parameter, if required */
+        switch (ctx->mech.mechanism)
+        {
+        case CKM_IBM_EC_AGGREGATE:
+            ec_agg_free_param((CK_IBM_ECDSA_OTHER_BLS_PARAMS *)ctx->mech.pParameter);
+            break;
+        default:
+            break;
+        }
+
         free(ctx->mech.pParameter);
         ctx->mech.pParameter = NULL;
     }
+    ctx->mech.mechanism = 0;
+    ctx->mech.ulParameterLen = 0;
 
     if (ctx->context) {
         if (ctx->context_free_func != NULL)
