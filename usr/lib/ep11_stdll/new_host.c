@@ -3102,6 +3102,7 @@ CK_RV SC_SignInit(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
 {
     SESSION *sess = NULL;
     CK_RV rc = CKR_OK;
+    struct objstrength objstrength;
 
     if (tokdata->initialized == FALSE) {
         TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
@@ -3152,11 +3153,15 @@ CK_RV SC_SignInit(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
     sess->sign_ctx.multi_init = FALSE;
     sess->sign_ctx.multi = FALSE;
 
-    rc = ep11tok_pkey_usage_ok(tokdata, sess, hKey, pMechanism);
-    if (rc != CKR_OK && rc != CKR_FUNCTION_NOT_SUPPORTED) {
-        /* CKR_FUNCTION_NOT_SUPPORTED indicates pkey support is not available,
-           but the ep11 fallback can be tried */
-        goto done;
+    if (!is_ec_aggregate_mechanism(pMechanism)) {
+        rc = ep11tok_pkey_usage_ok(tokdata, sess, hKey, pMechanism);
+        if (rc != CKR_OK && rc != CKR_FUNCTION_NOT_SUPPORTED) {
+            /* CKR_FUNCTION_NOT_SUPPORTED indicates pkey support is not available,
+               but the ep11 fallback can be tried */
+            goto done;
+        }
+    } else { /* No pkey support for aggregate mechs */
+        rc = CKR_FUNCTION_NOT_SUPPORTED;
     }
     if ((ep11tok_optimize_single_ops(tokdata) ||
          ep11tok_mech_single_only(pMechanism)) &&
@@ -3166,15 +3171,37 @@ CK_RV SC_SignInit(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
          * In case of multi-part operations we are doing the SignInit when
          * SignUpdate comes into play.
          */
-        rc = ep11tok_check_single_mech_key(tokdata, sess, pMechanism, hKey,
-                                           OP_SIGN_INIT,
-                                           &sess->sign_ctx.auth_required);
-        if (rc != CKR_OK)
-            goto done;
+        if (!is_ec_aggregate_mechanism(pMechanism)) {
+            rc = ep11tok_check_single_mech_key(tokdata, sess, pMechanism, hKey,
+                                               OP_SIGN_INIT,
+                                               &sess->sign_ctx.auth_required);
+            if (rc != CKR_OK)
+                goto done;
+        } else { /* resetting rc to OK */
+            rc = CKR_OK;
+            sess->sign_ctx.key = CK_INVALID_HANDLE;
 
+            objstrength.strength = POLICY_STRENGTH_IDX_192;
+            objstrength.siglen = CK_IBM_BLS12_381_SIGN_LEN * 8;
+            objstrength.allowed = CK_TRUE;
+            rc = tokdata->policy->is_mech_allowed(tokdata->policy, pMechanism,
+                                                  &objstrength,
+                                                  POLICY_CHECK_SIGNATURE,
+                                                  sess);
+            if (rc != CKR_OK) {
+                TRACE_ERROR("POLICY_VIOLATION on sign initialization\n");
+                goto done;
+            }
+
+            INC_COUNTER(tokdata, sess, pMechanism, NULL,
+                        POLICY_STRENGTH_IDX_192);
+        }
         sess->sign_ctx.init_pending = TRUE;
         sess->sign_ctx.active = TRUE;
-        sess->sign_ctx.key = hKey;
+        if (!is_ec_aggregate_mechanism(pMechanism))
+            sess->sign_ctx.key = hKey;
+        else
+            sess->sign_ctx.key = CK_INVALID_HANDLE;
 
         sess->sign_ctx.mech.mechanism = pMechanism->mechanism;
         if (pMechanism->pParameter && pMechanism->ulParameterLen > 0) {
@@ -3192,6 +3219,17 @@ CK_RV SC_SignInit(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
         } else {
             sess->sign_ctx.mech.pParameter = NULL;
             sess->sign_ctx.mech.ulParameterLen = 0;
+        }
+
+        switch (pMechanism->mechanism) {
+        case CKM_IBM_EC_AGGREGATE:
+             rc = ec_agg_dup_param((CK_IBM_ECDSA_OTHER_BLS_PARAMS *)pMechanism->pParameter,
+                                   (CK_IBM_ECDSA_OTHER_BLS_PARAMS *)sess->sign_ctx.mech.pParameter);
+             if (rc != CKR_OK) {
+                 TRACE_ERROR("ec_agg_dup_param failed\n");
+                 goto done;
+             }
+             break;
         }
     } else {
         rc = ep11tok_sign_init(tokdata, sess, pMechanism, FALSE, hKey, TRUE);
@@ -3232,10 +3270,12 @@ CK_RV SC_Sign(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
         goto done;
     }
 
-    if (!pData || !pulSignatureLen) {
-        TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
-        rc = CKR_ARGUMENTS_BAD;
-        goto done;
+    if (!is_ec_aggregate_mechanism(&sess->sign_ctx.mech)) {
+        if (!pData || !pulSignatureLen) {
+            TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
+            rc = CKR_ARGUMENTS_BAD;
+            goto done;
+        }
     }
 
     if (sess->sign_ctx.active == FALSE) {
@@ -3273,12 +3313,16 @@ CK_RV SC_Sign(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
         goto done;
     }
 
-    rc = ep11tok_pkey_usage_ok(tokdata, sess, sess->sign_ctx.key,
-                               &sess->sign_ctx.mech);
-    if (rc != CKR_OK && rc != CKR_FUNCTION_NOT_SUPPORTED) {
-        /* CKR_FUNCTION_NOT_SUPPORTED indicates pkey support is not available,
-           but the ep11 fallback can be tried */
-        goto done;
+    if (!is_ec_aggregate_mechanism(&sess->sign_ctx.mech)) {
+        rc = ep11tok_pkey_usage_ok(tokdata, sess, sess->sign_ctx.key,
+                                   &sess->sign_ctx.mech);
+        if (rc != CKR_OK && rc != CKR_FUNCTION_NOT_SUPPORTED) {
+            /* CKR_FUNCTION_NOT_SUPPORTED indicates pkey support is not available,
+               but the ep11 fallback can be tried */
+            goto done;
+        }
+    } else {
+        rc = CKR_FUNCTION_NOT_SUPPORTED;
     }
     if ((ep11tok_optimize_single_ops(tokdata) ||
          ep11tok_mech_single_only(&sess->sign_ctx.mech)) &&

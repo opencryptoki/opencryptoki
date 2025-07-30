@@ -320,6 +320,7 @@ typedef enum {
 } ECSG_Var_t;
 
 
+#define  CKM_IBM_EC_AGGREGATE  (CKM_VENDOR_DEFINED +0x10034)
 
 typedef enum {
 	EC_AGG_BLS12_381_SIGN = 1, // size of signature is sufficient indicator
