@@ -3970,7 +3970,7 @@ CK_RV openssl_specific_aes_ctr(STDLL_TokData_t *tokdata,
 
     UNUSED(tokdata);
 
-    if (counter_width > AES_BLOCK_SIZE || counter_width == 0) {
+    if (counter_width > AES_BLOCK_SIZE * 8 || counter_width == 0) {
         TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
         return CKR_ARGUMENTS_BAD;
     }
