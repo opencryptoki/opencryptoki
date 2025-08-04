@@ -626,13 +626,21 @@ static void p11tool_print_arguments_help(const struct p11tool_cmd *cmd,
 
             newline = true;
 
-            printf("%*s        %s", indent, "", val->value);
+            width = indent_pos - 9 - indent;
+            if (width < (int)strlen(val->value))
+                width = (int)strlen(val->value);
+
+            printf("%*s        %-*.*s ", indent, "", width, width, val->value);
+            if (val->description) {
+                p11tool_print_indented(val->description, indent_pos);
+                newline = false;
+            }
 
             if (val->args != NULL) {
                 p11tool_print_arguments_help(cmd, val->args, indent + 8,
                                              indent_pos);
                 newline = false;
-            } else {
+            } else if (val->description == NULL) {
                 printf("\n");
             }
         }

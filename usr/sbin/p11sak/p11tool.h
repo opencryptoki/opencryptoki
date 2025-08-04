@@ -39,6 +39,7 @@ enum p11tool_arg_type {
 
 struct p11tool_enum_value {
     const char *value;
+    const char *description;
     const struct p11tool_arg *args;
     union {
         const void *ptr;
