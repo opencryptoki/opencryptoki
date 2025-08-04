@@ -77,6 +77,8 @@ const struct p11tool_enum_value p11tool_ibm_kyber_versions[] = {
     { .value = NULL, },
 };
 
+static bool p11tool_argument_is_set(const struct p11tool_arg *arg);
+
 const struct p11tool_cmd *p11tool_find_command(const struct p11tool_cmd *cmds,
                                                const char *cmd)
 {
@@ -155,8 +157,76 @@ static CK_RV p11tool_build_opts(const struct p11tool_opt *opts,
     return CKR_OK;
 }
 
+static void p11tool_count_arg_opts(const struct p11tool_arg *args,
+                                   unsigned int *optstring_len,
+                                   unsigned int *longopts_count)
+{
+    const struct p11tool_arg *arg;
+    const struct p11tool_enum_value *val;
+
+    for (arg = args; arg->name != NULL; arg++) {
+        if (!p11tool_argument_is_set(arg))
+            continue;
+
+        if (arg->type != ARG_TYPE_ENUM)
+            continue;
+
+        for (val = arg->enum_values; val->value != NULL; val++) {
+            if (val->opts == NULL)
+                continue;
+
+            if (*arg->value.enum_value != val)
+                continue;
+
+            p11tool_count_opts(val->opts, optstring_len, longopts_count);
+
+            if (val->args != NULL)
+                p11tool_count_arg_opts(val->args, optstring_len,
+                                      longopts_count);
+        }
+    }
+}
+
+static CK_RV p11tool_build_arg_opts(const struct p11tool_arg *args,
+                                    char *optstring,
+                                    struct option *longopts)
+{
+    const struct p11tool_arg *arg;
+    const struct p11tool_enum_value *val;
+    CK_RV rc;
+
+    for (arg = args; arg->name != NULL; arg++) {
+        if (!p11tool_argument_is_set(arg))
+            continue;
+
+        if (arg->type != ARG_TYPE_ENUM)
+            continue;
+
+        for (val = arg->enum_values; val->value != NULL; val++) {
+            if (val->opts == NULL)
+                continue;
+
+            if (*arg->value.enum_value != val)
+                continue;
+
+            rc = p11tool_build_opts(val->opts, optstring, longopts);
+            if (rc != CKR_OK)
+                return rc;
+
+            if (val->args != NULL) {
+                rc = p11tool_build_arg_opts(val->args, optstring, longopts);
+                if (rc != CKR_OK)
+                    return rc;
+            }
+        }
+    }
+
+    return CKR_OK;
+}
+
 static CK_RV p11tool_build_cmd_opts(const struct p11tool_opt *cmd_opts,
                                     const struct p11tool_opt *generic_opts,
+                                    const struct p11tool_arg *cmd_args,
                                     char **optstring, struct option **longopts)
 {
     unsigned int optstring_len = 0, longopts_count = 0;
@@ -165,6 +235,8 @@ static CK_RV p11tool_build_cmd_opts(const struct p11tool_opt *cmd_opts,
     p11tool_count_opts(generic_opts, &optstring_len, &longopts_count);
     if (cmd_opts != NULL)
         p11tool_count_opts(cmd_opts, &optstring_len, &longopts_count);
+    if (cmd_args != NULL)
+        p11tool_count_arg_opts(cmd_args, &optstring_len, &longopts_count);
 
     *optstring = calloc(1 + optstring_len + 1, 1);
     *longopts = calloc(longopts_count + 1, sizeof(struct option));
@@ -181,6 +253,12 @@ static CK_RV p11tool_build_cmd_opts(const struct p11tool_opt *cmd_opts,
 
     if (cmd_opts != NULL) {
         rc = p11tool_build_opts(cmd_opts, *optstring, *longopts);
+        if (rc != CKR_OK)
+            goto error;
+    }
+
+    if (cmd_args != NULL) {
+        rc = p11tool_build_arg_opts(cmd_args, *optstring, *longopts);
         if (rc != CKR_OK)
             goto error;
     }
@@ -337,7 +415,44 @@ static CK_RV p11tool_process_option(const struct p11tool_opt *opts,
     return CKR_ARGUMENTS_BAD;
 }
 
+static CK_RV p11tool_process_arg_option(const struct p11tool_arg *args,
+                                        int ch, char *value)
+{
+    const struct p11tool_arg *arg;
+    const struct p11tool_enum_value *val;
+    CK_RV rc;
+
+    for (arg = args; arg->name != NULL; arg++) {
+        if (!p11tool_argument_is_set(arg))
+            continue;
+
+        if (arg->type != ARG_TYPE_ENUM)
+            continue;
+
+        for (val = arg->enum_values; val->value != NULL; val++) {
+            if (val->opts == NULL)
+                continue;
+
+            if (*arg->value.enum_value != val)
+                continue;
+
+            rc = p11tool_process_option(val->opts, ch, value);
+            if (rc != CKR_OK)
+                return rc;
+
+            if (val->args != NULL) {
+                rc = p11tool_process_arg_option(val->args, ch, value);
+                if (rc != CKR_OK)
+                    return rc;
+            }
+        }
+    }
+
+    return CKR_OK;
+}
+
 static CK_RV p11tool_process_cmd_option(const struct p11tool_opt *cmd_opts,
+                                        const struct p11tool_arg *cmd_args,
                                         const struct p11tool_opt *generic_opts,
                                         int opt, char *arg)
 {
@@ -349,6 +464,12 @@ static CK_RV p11tool_process_cmd_option(const struct p11tool_opt *cmd_opts,
 
     if (cmd_opts != NULL) {
         rc = p11tool_process_option(cmd_opts, opt, arg);
+        if (rc == CKR_OK)
+            return CKR_OK;
+    }
+
+    if (cmd_args != NULL) {
+        rc = p11tool_process_arg_option(cmd_args, opt, arg);
         if (rc == CKR_OK)
             return CKR_OK;
     }
@@ -373,22 +494,64 @@ static CK_RV p11tool_check_required_opts(const struct p11tool_opt *opts)
     return rc;
 }
 
+static CK_RV p11tool_check_required_arg_opts(const struct p11tool_arg *args)
+{
+    const struct p11tool_arg *arg;
+    const struct p11tool_enum_value *val;
+    CK_RV rc;
+
+    for (arg = args; arg->name != NULL; arg++) {
+        if (!p11tool_argument_is_set(arg))
+            continue;
+
+        if (arg->type != ARG_TYPE_ENUM)
+            continue;
+
+        for (val = arg->enum_values; val->value != NULL; val++) {
+            if (val->opts == NULL)
+                continue;
+
+            if (*arg->value.enum_value != val)
+                continue;
+
+            rc = p11tool_check_required_opts(val->opts);
+            if (rc != CKR_OK)
+                return rc;
+
+            if (val->args != NULL) {
+                rc = p11tool_check_required_arg_opts(val->args);
+                if (rc != CKR_OK)
+                    return rc;
+            }
+        }
+    }
+
+    return CKR_OK;
+}
+
 CK_RV p11tool_check_required_cmd_opts(const struct p11tool_opt *cmd_opts,
+                                      const struct p11tool_arg *cmd_args,
                                       const struct p11tool_opt *generic_opts)
 {
-    CK_RV rc;
+    CK_RV rc, rc2;
 
     rc = p11tool_check_required_opts(generic_opts);
     if (rc != CKR_OK)
         return rc;
 
     if (cmd_opts != NULL) {
-        rc = p11tool_check_required_opts(cmd_opts);
-        if (rc != CKR_OK)
-            return rc;
+        rc2 = p11tool_check_required_opts(cmd_opts);
+        if (rc == CKR_OK)
+            rc = rc2;
     }
 
-    return CKR_OK;
+    if (cmd_args != NULL) {
+        rc2 = p11tool_check_required_arg_opts(cmd_args);
+        if (rc == CKR_OK)
+            rc = rc2;
+    }
+
+    return rc;
 }
 
 CK_RV p11tool_parse_cmd_options(const struct p11tool_cmd *cmd,
@@ -401,6 +564,7 @@ CK_RV p11tool_parse_cmd_options(const struct p11tool_cmd *cmd,
     int c;
 
     rc = p11tool_build_cmd_opts(cmd != NULL ? cmd->opts : NULL, generic_opts,
+                                cmd != NULL ? cmd->args : NULL,
                                 &optstring, &longopts);
     if (rc != CKR_OK)
         goto done;
@@ -427,6 +591,7 @@ CK_RV p11tool_parse_cmd_options(const struct p11tool_cmd *cmd,
 
         default:
             rc = p11tool_process_cmd_option(cmd != NULL ? cmd->opts : NULL,
+                                            cmd != NULL ? cmd->args : NULL,
                                             generic_opts, c, optarg);
             if (rc != CKR_OK)
                 goto done;
@@ -650,6 +815,34 @@ static void p11tool_print_arguments_help(const struct p11tool_cmd *cmd,
         printf("\n");
 }
 
+static void p11tool_print_argument_options_help(const struct p11tool_arg *args,
+                                                int indent_pos)
+{
+    const struct p11tool_arg *arg;
+    const struct p11tool_enum_value *val;
+
+    for (arg = args; arg->name != NULL; arg++) {
+        if (arg->type != ARG_TYPE_ENUM)
+            continue;
+
+        for (val = arg->enum_values; val->value != NULL; val++) {
+            if (val->opts == NULL)
+                continue;
+
+            if (p11tool_argument_is_set(arg) && *arg->value.enum_value != val)
+                continue;
+
+            printf("\nOPTIONS FOR ARGUMENT '%s' VALUE '%s':\n",
+                   arg->name, val->value);
+
+            p11tool_print_options_help(val->opts, indent_pos);
+
+            if (val->args != NULL)
+                p11tool_print_argument_options_help(val->args, indent_pos);
+        }
+    }
+}
+
 void p11tool_print_help(const char *name,
                         const struct p11tool_cmd *commands,
                         const struct p11tool_opt *generic_opts,
@@ -686,6 +879,7 @@ void p11tool_print_command_help(const char *name,
     printf("OPTIONS:\n");
     p11tool_print_options_help(cmd->opts, indent_pos);
     p11tool_print_options_help(generic_opts, indent_pos);
+    p11tool_print_argument_options_help(cmd->args, indent_pos);
     printf("\n");
     if (cmd->help != NULL)
         cmd->help();

@@ -41,6 +41,7 @@ struct p11tool_enum_value {
     const char *value;
     const char *description;
     const struct p11tool_arg *args;
+    const struct p11tool_opt *opts;
     union {
         const void *ptr;
         CK_ULONG num;
@@ -247,6 +248,7 @@ CK_RV p11tool_parse_cmd_options(const struct p11tool_cmd *cmd,
                                 int argc, char *argv[]);
 CK_RV p11tool_check_required_args(const struct p11tool_arg *args);
 CK_RV p11tool_check_required_cmd_opts(const struct p11tool_opt *cmd_opts,
+                                      const struct p11tool_arg *cmd_args,
                                       const struct p11tool_opt *generic_opts);
 void p11tool_print_indented(const char *str, int indent);
 void p11tool_print_help(const char *name,
