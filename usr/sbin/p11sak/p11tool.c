@@ -1594,13 +1594,14 @@ CK_RV p11tool_add_attributes(const struct p11tool_objtype *objtype,
     return CKR_OK;
 }
 
-CK_RV p11tool_parse_id(const char *id_string, CK_ATTRIBUTE **attrs,
-                       CK_ULONG *num_attrs)
+CK_RV p11tool_parse_hex(const char *id_string, CK_BYTE **buf, CK_ULONG *buflen)
 {
-    unsigned char *buf = NULL;
+    CK_RV rc = CKR_OK;
     BIGNUM *b = NULL;
     int len;
-    CK_RV rc = CKR_OK;
+
+    *buflen = 0;
+    *buf = NULL;
 
     len = BN_hex2bn(&b, id_string);
     if (len < (int)strlen(id_string) || len == 0 || b == NULL) {
@@ -1610,18 +1611,42 @@ CK_RV p11tool_parse_id(const char *id_string, CK_ATTRIBUTE **attrs,
     }
 
     len = len / 2 + (len % 2 > 0 ? 1 : 0);
-    buf = calloc(1, len);
-    if (buf == NULL) {
-        warnx("Failed to allocate memory for CKA_ID attribute");
+    *buf = calloc(1, len);
+    if (*buf == NULL) {
+        warnx("Failed to allocate memory for buffer");
         rc = CKR_HOST_MEMORY;
         goto done;
     }
 
-    if (BN_bn2binpad(b, buf, len) != len) {
+    if (BN_bn2binpad(b, *buf, len) != len) {
         warnx("Failed to prepare the value for CKA_ID attribute");
         rc = CKR_FUNCTION_FAILED;
         goto done;
     }
+
+    *buflen = len;
+
+done:
+    if (rc != CKR_OK && *buf != NULL) {
+        free(*buf);
+        *buf = NULL;
+    }
+    if (b != NULL)
+        BN_free(b);
+
+    return rc;
+}
+
+CK_RV p11tool_parse_id(const char *id_string, CK_ATTRIBUTE **attrs,
+                       CK_ULONG *num_attrs)
+{
+    CK_BYTE *buf = NULL;
+    CK_ULONG len;
+    CK_RV rc;
+
+    rc = p11tool_parse_hex(id_string, &buf, &len);
+    if (rc != CKR_OK)
+        return rc;
 
     rc = p11tool_add_attribute(CKA_ID, buf, len, attrs, num_attrs);
     if (rc != CKR_OK) {
@@ -1632,8 +1657,6 @@ CK_RV p11tool_parse_id(const char *id_string, CK_ATTRIBUTE **attrs,
 done:
     if (buf != NULL)
         free(buf);
-    if (b != NULL)
-        BN_free(b);
 
     return rc;
 }
@@ -2399,6 +2422,35 @@ bool p11tool_is_rejected_by_policy(CK_RV ret_code, CK_SESSION_HANDLE session)
     return (info.ulDeviceError == CKR_POLICY_VIOLATION);
 }
 
+CK_RV p11tool_check_wrap_mech_supported(CK_SLOT_ID slot,
+                                        CK_MECHANISM_TYPE mechanism,
+                                        CK_BBOOL wrap, CK_BBOOL unwrap)
+{
+    CK_MECHANISM_INFO mech_info;
+    CK_RV rc;
+
+    rc = p11tool_pkcs11_funcs->C_GetMechanismInfo(slot, mechanism, &mech_info);
+    if (rc != CKR_OK) {
+        warnx("Token in slot %lu does not support mechanism %s", slot,
+              p11_get_ckm(&mechtable_funcs, mechanism));
+        return rc;
+    }
+
+    if (wrap && (mech_info.flags & CKF_WRAP) == 0) {
+        warnx("Mechanism %s does not support to wrap keys",
+              p11_get_ckm(&mechtable_funcs, mechanism));
+        return CKR_MECHANISM_INVALID;
+    }
+
+    if (unwrap && (mech_info.flags & CKF_UNWRAP) == 0) {
+        warnx("Mechanism %s does not support to unwrap keys",
+              p11_get_ckm(&mechtable_funcs, mechanism));
+        return CKR_MECHANISM_INVALID;
+    }
+
+    return CKR_OK;
+}
+
 CK_RV p11tool_check_keygen_mech_supported(CK_SLOT_ID slot,
                                           CK_MECHANISM_TYPE mechanism,
                                           bool is_asymmetric, CK_ULONG keysize)
@@ -2592,6 +2644,83 @@ CK_RV p11tool_prepare_uri(CK_OBJECT_HANDLE key, CK_OBJECT_CLASS *class,
     }
 
     *uri = u;
+
+    return CKR_OK;
+}
+
+CK_RV p11tool_bio_readall(BIO *bio, CK_BYTE **buffer, CK_ULONG *read_len)
+{
+    CK_ULONG ofs = 0, buf_len = 0;
+    CK_BYTE *buf = NULL, *tmp;
+    size_t read, left = 0;
+    int ret;
+
+    *buffer = NULL;
+    *read_len = 0;
+
+    do {
+        if (left == 0) {
+            buf_len += 1024;
+
+            tmp = OPENSSL_realloc(buf, buf_len);
+            if (tmp == NULL) {
+                warnx("Failed to allocate a buffer for reading a file");
+                free(buf);
+                return CKR_HOST_MEMORY;
+            }
+            buf = tmp;
+            left = 1024;
+        }
+
+        ret = BIO_read_ex(bio, buf + ofs, left, &read);
+        if (ret != 1)
+            break;
+
+        ofs += read;
+        left -= read;
+    } while(1);
+
+    if (ofs == 0) {
+        free(buf);
+        return CKR_FUNCTION_FAILED;
+    }
+
+    *buffer = buf;
+    *read_len = ofs;
+
+    return CKR_OK;
+}
+
+CK_RV p11tool_split_by_delim(char *str, char *delim, char ***list)
+{
+    char **l = NULL, **tmp;
+    CK_ULONG num = 0, left = 0, ofs = 0;
+    char *tok;
+    char *save = NULL;
+
+    do {
+        tok = strtok_r(save == NULL ? str : NULL, delim, &save);
+
+        if (left == 0) {
+            num += 16;
+
+            tmp = realloc(l, num * sizeof(char *));
+            if (tmp == NULL) {
+                warnx("Failed to allocate a buffer for reading a file");
+                free(l);
+                return CKR_HOST_MEMORY;
+            }
+
+            l = tmp;
+            left = 16;
+        }
+
+        l[ofs] = tok;
+        ofs++;
+        left--;
+    } while(tok != NULL);
+
+    *list = l;
 
     return CKR_OK;
 }

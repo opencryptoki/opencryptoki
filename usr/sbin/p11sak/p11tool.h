@@ -21,6 +21,8 @@
 #include "defs.h"
 #include "uri.h"
 
+#include <openssl/evp.h>
+
 #define UNUSED(var)             ((void)(var))
 
 #define P11TOOL_DEFAULT_PKCS11_LIB           OCK_API_LIBNAME;
@@ -324,6 +326,7 @@ CK_RV p11tool_add_attributes(const struct p11tool_objtype *objtype,
                              bool (*attr_applicable)(
                                      const struct p11tool_objtype *objtype,
                                      const struct p11tool_attr *attr));
+CK_RV p11tool_parse_hex(const char *id_string, CK_BYTE **buf, CK_ULONG *buflen);
 CK_RV p11tool_parse_id(const char *id_string, CK_ATTRIBUTE **attrs,
                        CK_ULONG *num_attrs);
 const struct p11tool_attr *p11tool_find_attr_by_letter(
@@ -377,8 +380,12 @@ CK_RV p11tool_init_pkcs11(const struct p11tool_cmd *command, bool no_login,
                           const struct p11tool_token_info *known_tokens);
 void p11tool_term_pkcs11(void);
 bool p11tool_is_rejected_by_policy(CK_RV ret_code, CK_SESSION_HANDLE session);
-CK_RV p11tool_check_keygen_mech_supported(CK_SLOT_ID slot, CK_MECHANISM_TYPE mechanism,
-                                   bool is_asymmetric, CK_ULONG keysize);
+CK_RV p11tool_check_wrap_mech_supported(CK_SLOT_ID slot,
+                                        CK_MECHANISM_TYPE mechanism,
+                                        CK_BBOOL wrap, CK_BBOOL unwrap);
+CK_RV p11tool_check_keygen_mech_supported(CK_SLOT_ID slot,
+                                          CK_MECHANISM_TYPE mechanism,
+                                          bool is_asymmetric, CK_ULONG keysize);
 
 char p11tool_prompt_user(const char *message, char* allowed_chars);
 
@@ -402,5 +409,9 @@ CK_RV p11tool_prepare_uri(CK_OBJECT_HANDLE key, CK_OBJECT_CLASS *class,
                           const char *typestr, const char* label,
                           bool detailed_uri, CK_SLOT_ID slot,
                           struct p11_uri **uri);
+
+CK_RV p11tool_bio_readall(BIO *bio, CK_BYTE **buffer, CK_ULONG *read_len);
+
+CK_RV p11tool_split_by_delim(char *str, char *delim, char ***list);
 
 #endif

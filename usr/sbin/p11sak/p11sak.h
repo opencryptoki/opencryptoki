@@ -39,6 +39,12 @@
 #define OPT_URI_PIN_VALUE       260
 #define OPT_URI_PIN_SOURCE      261
 #define OPT_OQSPROVIDER_PEM     262
+#define OPT_OAEP_HASH_ALG       263
+#define OPT_OAEP_MGF_ALG        264
+#define OPT_OAEP_SOURCE_DATA    265
+#define OPT_AESKW_KEY_SIZE      266
+#define OPT_ECDH_KDF_ALG        267
+#define OPT_ECDH_SHARED_DATA    268
 
 #define PRINT_INDENT_POS        35
 
@@ -170,5 +176,105 @@ struct cca_token_header {
     unsigned char version;
     unsigned char reserved2[3];
 };
+
+extern const struct p11tool_attr p11sak_bool_attrs[];
+
+const struct p11tool_objtype *find_keytype(CK_KEY_TYPE ktype);
+
+CK_RV iterate_objects(const struct p11tool_objtype *objtype,
+                      const char *label_filter,
+                      const char *id_filter,
+                      const char *attr_filter,
+                      enum p11tool_objclass objclass,
+                      CK_RV (*compare_obj)(CK_OBJECT_HANDLE obj1,
+                                           CK_OBJECT_HANDLE obj2,
+                                           int *result,
+                                           void *private),
+                      CK_RV (*handle_obj)(CK_OBJECT_HANDLE obj,
+                                          CK_OBJECT_CLASS class,
+                                          const struct p11tool_objtype *objtype,
+                                          CK_ULONG keysize,
+                                          const char *typestr,
+                                          const char* label,
+                                          const char *common_name,
+                                          void *private),
+                      void *private);
+
+struct p11sak_select_kek_data {
+    CK_BBOOL prompt;
+    CK_OBJECT_CLASS kek_class;
+    CK_BBOOL cancel;
+    CK_ULONG count;
+    CK_OBJECT_HANDLE kek_handle;
+};
+
+struct p11sak_wrap_data {
+    unsigned long num_wrapped;
+    unsigned long num_skipped;
+    unsigned long num_failed;
+    bool wrap_all;
+    bool skip_all;
+    const struct p11sak_wrap_mech *wrap_mech;
+    CK_OBJECT_HANDLE kek_handle;
+    CK_MECHANISM mech;
+    char *pem_header;
+};
+
+struct p11sak_wrap_mech {
+    const char *name;
+    CK_MECHANISM_TYPE mech;
+    CK_ULONG mech_param_size;
+    CK_BBOOL mech_param_optional;
+    CK_OBJECT_CLASS wrap_class;
+    CK_OBJECT_CLASS unwrap_class;
+    CK_KEY_TYPE key_type;
+    CK_RV (*prepare_mech_param_from_opts)(
+                                const struct p11sak_wrap_mech *wrap_mech,
+                                CK_MECHANISM *mech);
+    CK_RV (*prepare_mech_param_from_pem)(
+                                const struct p11sak_wrap_mech *wrap_mech,
+                                CK_MECHANISM *mech, char **pem_headers);
+    void (*cleanup_mech_param)(const struct p11sak_wrap_mech *wrap_mech,
+                               CK_MECHANISM *mech);
+    CK_RV (*prepare_pem_header)(const struct p11sak_wrap_mech *wrap_mech,
+                                char **pem_header);
+};
+
+#define P11SAK_WRAP_PEM_NAME                  "P11SAK WRAPPED KEY"
+#define P11SAK_WRAP_PEM_HDR_ALG               "WRAP-ALG"
+#define P11SAK_WRAP_PEM_HDR_KEY_TYPE          "KEY-TYPE"
+#define P11SAK_WRAP_PEM_HDR_IV                "IV"
+#define P11SAK_WRAP_PEM_HDR_IV_ZERO           "00000000000000000000000000000000"
+#define P11SAK_WRAP_PEM_HDR_IV_DEFAULT        "[default]"
+#define P11SAK_WRAP_PEM_HDR_OAEP_HASH_ALG     "HASH-ALG"
+#define P11SAK_WRAP_PEM_HDR_OAEP_MGF_ALG      "MGF-ALG"
+#define P11SAK_WRAP_PEM_HDR_OAEP_SOURCE       "SOURCE-DATA"
+#define P11SAK_WRAP_PEM_HDR_OAEP_SOURCE_NONE  "[none]"
+#define P11SAK_WRAP_PEM_HDR_AES_KEY_SIZE      "AES-KEY-SIZE"
+#define P11SAK_WRAP_PEM_HDR_ECDH_KDF_ALG      "KDF-ALG"
+#define P11SAK_WRAP_PEM_HDR_ECDH_SHARED       "SHARED-DATA"
+#define P11SAK_WRAP_PEM_HDR_ECDH_SHARED_NONE  "[none]"
+
+extern CK_SLOT_ID opt_slot;
+extern bool opt_so;
+extern bool opt_force;
+extern char *opt_label;
+extern char *opt_attr;
+extern char *opt_id;
+extern char *opt_file;
+extern char *opt_kek_label;
+extern char *opt_kek_id;
+extern bool opt_raw;
+extern struct p11tool_enum_value *opt_wrap_mech;
+extern struct p11tool_enum_value *opt_keytype;
+
+extern const struct p11tool_enum_value p11sak_wrap_mech_values[];
+extern const struct p11tool_objtype *p11sak_keytypes[];
+
+CK_RV p11sak_wrap_key(void);
+CK_RV p11sak_unwrap_key(void);
+
+void print_wrap_key_help(void);
+void print_unwrap_key_help(void);
 
 #endif
