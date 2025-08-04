@@ -82,12 +82,12 @@ static struct ConfigBaseNode *p11sak_cfg = NULL;
 
 static bool opt_help = false;
 static bool opt_version = false;
-static CK_SLOT_ID opt_slot = (CK_SLOT_ID)-1;
+CK_SLOT_ID opt_slot = (CK_SLOT_ID)-1;
 static char *opt_pin = NULL;
 static bool opt_force_pin_prompt = false;
 static bool opt_no_login = false;
-static bool opt_so = false;
-static struct p11tool_enum_value *opt_keytype = NULL;
+bool opt_so = false;
+struct p11tool_enum_value *opt_keytype = NULL;
 static struct p11tool_enum_value *opt_certtype = NULL;
 static CK_ULONG opt_keybits_num = 0;
 static struct p11tool_enum_value *opt_keybits = NULL;
@@ -95,18 +95,18 @@ static struct p11tool_enum_value *opt_group = NULL;
 static char *opt_pem_file = NULL;
 static struct p11tool_enum_value *opt_curve = NULL;
 static struct p11tool_enum_value *opt_pqc_version = NULL;
-static char *opt_label = NULL;
-static bool opt_force = false;
+char *opt_label = NULL;
+bool opt_force = false;
 static CK_ULONG opt_exponent = 0;
-static char *opt_attr = NULL;
-static char *opt_id = NULL;
+char *opt_attr = NULL;
+char *opt_id = NULL;
 static bool opt_long = false;
 static bool opt_detailed_uri = false;
 static char *opt_sort = NULL;
 static char *opt_new_attr = NULL;
 static char *opt_new_label = NULL;
 static char *opt_new_id = NULL;
-static char *opt_file = NULL;
+char *opt_file = NULL;
 static char *opt_pem_password = NULL;
 static bool opt_force_pem_pwd_prompt = false;
 static bool opt_opaque = false;
@@ -119,6 +119,10 @@ static bool opt_uri_pin_value = false;
 static char *opt_uri_pin_source = NULL;
 static bool opt_oqsprovider_pem = false;
 static bool opt_hsm_mkvp = false;
+char *opt_kek_label = NULL;
+char *opt_kek_id = NULL;
+bool opt_raw = false;
+struct p11tool_enum_value *opt_wrap_mech = NULL;
 
 static bool opt_slot_is_set(const struct p11tool_arg *arg);
 static CK_RV generic_get_key_size(const struct p11tool_objtype *keytype,
@@ -1090,7 +1094,7 @@ static const struct p11tool_objtype p11sak_x509_certtype = {
     .extract_x509_pubkey = p11sak_extract_x509_pk,
 };
 
-static const struct p11tool_objtype *p11sak_keytypes[] = {
+const struct p11tool_objtype *p11sak_keytypes[] = {
     &p11sak_des_keytype,
     &p11sak_3des_keytype,
     &p11sak_generic_keytype,
@@ -1969,7 +1973,7 @@ static const struct p11tool_arg p11sak_import_asym_args[] = {
     { .name = NULL, },
 };
 
-#define IMPORT_KEYTYPES                                                        \
+#define IMPORT_KEYTYPES(asym_args)                                             \
     { .value = "des", .args = NULL,                                            \
       .private = { .ptr = &p11sak_des_keytype, }, },                           \
     { .value = "3des", .args = NULL,                                           \
@@ -2002,21 +2006,21 @@ static const struct p11tool_arg p11sak_import_asym_args[] = {
       .private = { .ptr = &p11sak_aes_keytype }, },                            \
     { .value = "aes-xts", .args = NULL,                                        \
       .private = { .ptr = &p11sak_aes_xts_keytype }, },                        \
-    { .value = "rsa", .args = p11sak_import_asym_args,                         \
+    { .value = "rsa", .args = asym_args,                                       \
       .private = { .ptr = &p11sak_rsa_keytype }, },                            \
-    { .value = "dh", .args = p11sak_import_asym_args,                          \
+    { .value = "dh", .args = asym_args,                                        \
       .private = { .ptr = &p11sak_dh_keytype }, },                             \
-    { .value = "dsa", .args = p11sak_import_asym_args,                         \
+    { .value = "dsa", .args = asym_args,                                       \
       .private = { .ptr = &p11sak_dsa_keytype }, },                            \
-    { .value = "ec", .args = p11sak_import_asym_args,                          \
+    { .value = "ec", .args = asym_args,                                        \
       .private = { .ptr = &p11sak_ec_keytype }, },                             \
-    { .value = "ibm-dilithium", .args = p11sak_import_asym_args,               \
+    { .value = "ibm-dilithium", .args = asym_args,                             \
       .private = { .ptr = &p11sak_ibm_dilithium_keytype }, },                  \
-    { .value = "ibm-kyber", .args = p11sak_import_asym_args,                   \
+    { .value = "ibm-kyber", .args = asym_args,                                 \
       .private = { .ptr = &p11sak_ibm_kyber_keytype }, }
 
 static const struct p11tool_enum_value p11sak_import_key_keytypes[] = {
-    IMPORT_KEYTYPES,
+    IMPORT_KEYTYPES(p11sak_import_asym_args),
     { .value = NULL, },
 };
 
@@ -2294,6 +2298,152 @@ static const struct p11tool_arg p11sak_extract_cert_pubkey_args[] = {
     { .name = NULL },
 };
 
+#define KEK_SELECT_OPTS                                                        \
+    { .short_opt = 'K', .long_opt = "kek-label", .required = false,            \
+      .arg =  { .type = ARG_TYPE_STRING, .required = true,                     \
+                .value.string = &opt_kek_label, .name = "LABEL", },            \
+      .description = "Select the key encrypting key (KEK) by label. Only keys "\
+                     "with the right object class and key type that fit to "   \
+                     "the wrapping mechanism are selected. You can use "       \
+                     "wildcards ('*' and '?') in the kek-label specification. "\
+                     "To specify a wildcard character that should not be "     \
+                     "treated as a wildcard, it must be escaped using a "      \
+                     "backslash ('\\*' or '\\?'). Also, a backslash character "\
+                     "that should not be treated a an escape character must "  \
+                     "be escaped ('\\\\'). If multiple key objects match then "\
+                     "you are prompted to confirm to use the desired key "     \
+                     "object.", },                                             \
+    { .short_opt = 'k', .long_opt = "kek-id", .required = false,               \
+      .arg =  { .type = ARG_TYPE_STRING, .required = true,                     \
+                .value.string = &opt_kek_id, .name = "ID", },                  \
+      .description = "Select the key encrypting key (KEK) by ID. Only keys "   \
+                     "with the right object class and key type that fit to "   \
+                     "the wrapping mechanism are selected. Specify a hex "     \
+                     "string (not prefixed with 0x) of any number of bytes. "  \
+                     "If multiple key objects match then you are prompted to " \
+                     "confirm to use the desired key object.", }
+
+static const struct p11tool_opt p11sak_wrap_key_opts[] = {
+    PKCS11_OPTS,
+    KEK_SELECT_OPTS,
+    KEY_FILTER_OPTS,
+    { .short_opt = 'f', .long_opt = "force", .required = false,
+      .arg =  { .type = ARG_TYPE_PLAIN, .required = false,
+                .value.plain = &opt_force, },
+      .description = "Do not prompt for a confirmation to use a key as KEK or "
+                     "to wrap a key. Use with care, all keys matching the "
+                     "filter are wrapped!", },
+    { .short_opt = 'F', .long_opt = "file", .required = true,
+      .arg =  { .type = ARG_TYPE_STRING, .required = true,
+                .value.string = &opt_file, .name = "FILENAME", },
+      .description = "The file name of the file to which the wrapped key "
+                     "material is written to. By default this is a PEM file "
+                     "using a p11sak-specific type and a header that contains "
+                     "information about the wrapping mechanism and mechanism "
+                     "parameters (if any). If option '-R'/'--raw' is specified "
+                     "then the file is a raw binary file and the raw wrapped "
+                     "key material is written to it.", },
+    { .short_opt = 'R', .long_opt = "raw", .required = false,
+      .arg = { .type = ARG_TYPE_PLAIN, .required = false,
+               .value.plain = &opt_raw, },
+      .description = "Store the wrapped key material as raw bytes into the "
+                     "file specified with the '-F'/'--file' option.", },
+    { .short_opt = 0, .long_opt = NULL, },
+};
+
+static const struct p11tool_enum_value p11sak_wrap_key_keytypes[] = {
+    KEYGEN_KEYTYPES(null),
+    { .value = "private", .args = NULL,
+      .private = { .ptr = &p11sak_private_keytype }, },
+    { .value = "secret", .args = NULL,
+      .private = { .ptr = &p11sak_secret_keytype }, },
+    { .value = "all", .args = NULL,
+      .private = { .ptr = &p11sak_all_keytype }, },
+    { .value = NULL, },
+};
+
+static const struct p11tool_arg p11sak_wrap_key_args[] = {
+    { .name = "WRAP-MECH", .type = ARG_TYPE_ENUM, .required = true,
+      .enum_values = p11sak_wrap_mech_values,
+      .value.enum_value = &opt_wrap_mech,
+      .description = "The key wrapping mechanism to use for wrapping the key. "
+                     "Dependent on the key wrapping mechanism, additional "
+                     "options may be supported to specify mechanism "
+                     "parameters.", },
+    { .name = "KEYTYPE", .type = ARG_TYPE_ENUM, .required = false,
+      .enum_values = p11sak_wrap_key_keytypes,
+      .value.enum_value = &opt_keytype,
+      .description = "The type of the keys to select for wrapping (optional). "
+                     "If no key type is specified, all key types are "
+                     "selected.", },
+    { .name = NULL },
+};
+
+static const struct p11tool_opt p11sak_unwrap_key_opts[] = {
+    PKCS11_OPTS,
+    KEK_SELECT_OPTS,
+    { .short_opt = 'f', .long_opt = "force", .required = false,
+      .arg =  { .type = ARG_TYPE_PLAIN, .required = false,
+                .value.plain = &opt_force, },
+      .description = "Do not prompt for a confirmation to use a key as KEK.", },
+    { .short_opt = 'L', .long_opt = "label", .required = true,
+      .arg =  { .type = ARG_TYPE_STRING, .required = true,
+                .value.string = &opt_label, .name = "LABEL", },
+      .description = "The label of the unwrapped key.", },
+    { .short_opt = 'a', .long_opt = "attr", .required = false,
+      .arg =  { .type = ARG_TYPE_STRING, .required = true,
+                .value.string = &opt_attr, .name = "ATTRS", },
+      .description = "The boolean attributes to set for the unwrapped key:\n"
+                     "P M B Y R E D G C V O W U S X T I H K (optional). "
+                     "Specify a set of these letters without any blanks in "
+                     "between. See below for the meaning of the attribute "
+                     "letters.", },
+    { .short_opt = 'i', .long_opt = "id", .required = false,
+      .arg =  { .type = ARG_TYPE_STRING, .required = true,
+                .value.string = &opt_id, .name = "ID", },
+      .description = "The ID of the unwrapped key. Specify a hex string "
+                     "(not prefixed with 0x) of any number of bytes.", },
+    { .short_opt = 'F', .long_opt = "file", .required = true,
+      .arg =  { .type = ARG_TYPE_STRING, .required = true,
+                .value.string = &opt_file, .name = "FILENAME", },
+      .description = "The file name of the file containing the wrapped key "
+                     "material. By default this is a PEM file using a p11sak-"
+                     "specific type and a header that contains information "
+                     "about the wrapping mechanism and mechanism parameters "
+                     "(if any). If option '-R'/'--raw' is specified then the "
+                     "file is a raw binary file and the raw wrapped key "
+                     "material is contained.", },
+    { .short_opt = 'R', .long_opt = "raw", .required = false,
+      .arg = { .type = ARG_TYPE_PLAIN, .required = false,
+               .value.plain = &opt_raw, },
+      .description = "Read the wrapped key material as raw bytes from the file "
+                     "specified with the '-F'/'--file' option.", },
+    { .short_opt = 0, .long_opt = NULL, },
+};
+
+static const struct p11tool_enum_value p11sak_unwrap_key_keytypes[] = {
+    IMPORT_KEYTYPES(NULL),
+    { .value = NULL, },
+};
+
+static const struct p11tool_arg p11sak_unwrap_key_args[] = {
+    { .name = "WRAP-MECH", .type = ARG_TYPE_ENUM, .required = false,
+      .enum_values = p11sak_wrap_mech_values,
+      .value.enum_value = &opt_wrap_mech,
+      .description = "The key wrapping mechanism to use for unwrapping the "
+                     "key. This argument is only required when option "
+                     "'-R'/'--raw' is specified. Dependent on the key wrapping "
+                     "mechanism, additional options may be supported to "
+                     "specify mechanism parameters.", },
+    { .name = "KEYTYPE", .type = ARG_TYPE_ENUM, .required = false,
+      .enum_values = p11sak_unwrap_key_keytypes,
+      .value.enum_value = &opt_keytype,
+      .description = "The type of the key. This argument is only required when "
+                     "option '-R'/'--raw' is specified. One of the "
+                     "following:", },
+    { .name = NULL },
+};
+
 static const struct p11tool_cmd p11sak_commands[] = {
     { .cmd = "generate-key", .cmd_short1 = "gen-key", .cmd_short2 = "gen",
       .func = p11sak_generate_key,
@@ -2381,10 +2531,24 @@ static const struct p11tool_cmd p11sak_commands[] = {
       .description = "Extract the public key from certificates in the repository.",
       .help = print_extract_cert_pubkey_help,
       .session_flags = CKF_SERIAL_SESSION | CKF_RW_SESSION, },
+    { .cmd = "wrap-key", .cmd_short1 = "wrap",
+      .func = p11sak_wrap_key,
+      .opts = p11sak_wrap_key_opts, .args = p11sak_wrap_key_args,
+      .description = "Export a key by wrapping it with a key encrypting key. "
+                     "Only private and secret keys can be wrapped.",
+      .help = print_wrap_key_help,
+      .session_flags = CKF_SERIAL_SESSION | CKF_RW_SESSION, },
+    { .cmd = "unwrap-key", .cmd_short1 = "unwrap",
+      .func = p11sak_unwrap_key,
+      .opts = p11sak_unwrap_key_opts, .args = p11sak_unwrap_key_args,
+      .description = "Import a key by unwrapping it with a key encrypting key. "
+                     "Only private and secret keys can be unwrapped.",
+      .help = print_unwrap_key_help,
+       .session_flags = CKF_SERIAL_SESSION | CKF_RW_SESSION, },
     { .cmd = NULL, .func = NULL },
 };
 
-static const struct p11tool_attr p11sak_bool_attrs[] = {
+const struct p11tool_attr p11sak_bool_attrs[] = {
     DECLARE_BOOL_ATTR(CKA_PRIVATE,           'P', true,  true,  true,  true),
     DECLARE_BOOL_ATTR(CKA_LOCAL,             'L', true,  true,  true,  false),
     DECLARE_BOOL_ATTR(CKA_MODIFIABLE,        'M', true,  true,  true,  true),
@@ -3325,7 +3489,7 @@ static CK_RV parse_key_pair_attrs(const char *attrs, char **pub_attrs,
     return CKR_OK;
 }
 
-static const struct p11tool_objtype *find_keytype(CK_KEY_TYPE ktype)
+const struct p11tool_objtype *find_keytype(CK_KEY_TYPE ktype)
 {
     const struct p11tool_objtype **kt;
 
@@ -3539,24 +3703,24 @@ static int iterate_compare_aix(const void *a, const void *b)
 }
 #endif
 
-static CK_RV iterate_objects(const struct p11tool_objtype *objtype,
-                             const char *label_filter,
-                             const char *id_filter,
-                             const char *attr_filter,
-                             enum p11tool_objclass objclass,
-                             CK_RV (*compare_obj)(CK_OBJECT_HANDLE obj1,
-                                                  CK_OBJECT_HANDLE obj2,
-                                                  int *result,
-                                                  void *private),
-                             CK_RV (*handle_obj)(CK_OBJECT_HANDLE obj,
-                                                 CK_OBJECT_CLASS class,
-                                                 const struct p11tool_objtype *objtype,
-                                                 CK_ULONG keysize,
-                                                 const char *typestr,
-                                                 const char* label,
-                                                 const char *common_name,
-                                                 void *private),
-                             void *private)
+CK_RV iterate_objects(const struct p11tool_objtype *objtype,
+                      const char *label_filter,
+                      const char *id_filter,
+                      const char *attr_filter,
+                      enum p11tool_objclass objclass,
+                      CK_RV (*compare_obj)(CK_OBJECT_HANDLE obj1,
+                                           CK_OBJECT_HANDLE obj2,
+                                           int *result,
+                                           void *private),
+                      CK_RV (*handle_obj)(CK_OBJECT_HANDLE obj,
+                                          CK_OBJECT_CLASS class,
+                                          const struct p11tool_objtype *objtype,
+                                          CK_ULONG keysize,
+                                          const char *typestr,
+                                          const char* label,
+                                          const char *common_name,
+                                          void *private),
+                      void *private)
 {
     CK_RV rc, rc2;
     CK_ATTRIBUTE *attrs = NULL;

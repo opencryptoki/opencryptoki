@@ -24,7 +24,7 @@ usr_sbin_p11sak_p11sak_SOURCES = usr/lib/common/p11util.c		\
 	usr/lib/config/configuration.c usr/lib/common/uri.c		\
 	usr/lib/common/buffer.c	 usr/lib/common/pqc_supported.c		\
 	usr/lib/config/cfgparse.y usr/lib/config/cfglex.l		\
-	usr/sbin/p11sak/p11tool.c
+	usr/sbin/p11sak/p11tool.c usr/sbin/p11sak/p11sak_keywrap.c
 	
 
 if AIX
