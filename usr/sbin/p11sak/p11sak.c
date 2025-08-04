@@ -9677,7 +9677,8 @@ int main(int argc, char *argv[])
     if (rc != CKR_OK)
         goto done;
 
-    rc = p11tool_check_required_cmd_opts(command->opts, p11sak_generic_opts);
+    rc = p11tool_check_required_cmd_opts(command->opts, command->args,
+                                         p11sak_generic_opts);
     if (rc != CKR_OK)
         goto done;
 
