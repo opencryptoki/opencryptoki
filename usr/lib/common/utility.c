@@ -975,6 +975,7 @@ CK_RV pkcsget_keytype_for_mech(CK_MECHANISM_TYPE mech, CK_KEY_TYPE *keytype,
         *alt_keytype = CKK_SHA3_512_HMAC;
         break;
     case CKM_RSA_PKCS_KEY_PAIR_GEN:
+    case CKM_RSA_X9_31_KEY_PAIR_GEN:
         *keytype = CKK_RSA;
         break;
     case CKM_EC_KEY_PAIR_GEN:
