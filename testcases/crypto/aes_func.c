@@ -513,6 +513,7 @@ CK_RV do_EncryptAES(struct published_test_suite_info * tsuite)
     CK_FLAGS flags;
     CK_SLOT_ID slot_id = SLOT_ID;
     CK_GCM_PARAMS *gcm_param;
+    CK_AES_CTR_PARAMS ctr_param;
 
     /** begin testsuite **/
     testsuite_begin("%s Encryption.", tsuite->name);
@@ -583,6 +584,12 @@ CK_RV do_EncryptAES(struct published_test_suite_info * tsuite)
         } else if (mech.mechanism == CKM_AES_XTS) {
             mech.pParameter = tsuite->tv[i].iv;
             mech.ulParameterLen = tsuite->tv[i].ivlen;
+        } else if (mech.mechanism == CKM_AES_CTR) {
+            memset(&ctr_param, 0, sizeof(ctr_param));
+            ctr_param.ulCounterBits = tsuite->tv[i].counterbits;
+            memcpy(ctr_param.cb, tsuite->tv[i].counter, tsuite->tv[i].counterlen);
+            mech.pParameter = &ctr_param;
+            mech.ulParameterLen = sizeof(ctr_param);
         }
 
         /** clear buffers **/
@@ -688,6 +695,7 @@ CK_RV do_EncryptUpdateAES(struct published_test_suite_info * tsuite)
     CK_FLAGS flags;
     CK_SLOT_ID slot_id = SLOT_ID;
     CK_GCM_PARAMS *gcm_param;
+    CK_AES_CTR_PARAMS ctr_param;
 
     testsuite_begin("%s Multipart Encryption.", tsuite->name);
     testcase_rw_session();
@@ -774,6 +782,12 @@ CK_RV do_EncryptUpdateAES(struct published_test_suite_info * tsuite)
         } else if (mech.mechanism == CKM_AES_XTS) {
             mech.pParameter = tsuite->tv[i].iv;
             mech.ulParameterLen = tsuite->tv[i].ivlen;
+        } else if (mech.mechanism == CKM_AES_CTR) {
+            memset(&ctr_param, 0, sizeof(ctr_param));
+            ctr_param.ulCounterBits = tsuite->tv[i].counterbits;
+            memcpy(ctr_param.cb, tsuite->tv[i].counter, tsuite->tv[i].counterlen);
+            mech.pParameter = &ctr_param;
+            mech.ulParameterLen = sizeof(ctr_param);
         }
 
         /** clear buffers **/
@@ -920,6 +934,7 @@ CK_RV do_DecryptAES(struct published_test_suite_info * tsuite)
     CK_FLAGS flags;
     CK_SLOT_ID slot_id = SLOT_ID;
     CK_GCM_PARAMS *gcm_param;
+    CK_AES_CTR_PARAMS ctr_param;
 
     testsuite_begin("%s Decryption.", tsuite->name);
     testcase_rw_session();
@@ -975,8 +990,8 @@ CK_RV do_DecryptAES(struct published_test_suite_info * tsuite)
             testcase_error("C_CreateObject rc=%s", p11_get_ckr(rc));
             goto error;
         }
-               
-	if (mech.mechanism == CKM_AES_GCM) {
+
+        if (mech.mechanism == CKM_AES_GCM) {
             gcm_param = ((CK_GCM_PARAMS *) mech.pParameter);
             gcm_param->ulTagBits = tsuite->tv[i].taglen;
             rc = alloc_gcm_param(gcm_param,
@@ -991,6 +1006,12 @@ CK_RV do_DecryptAES(struct published_test_suite_info * tsuite)
         } else if (mech.mechanism == CKM_AES_XTS) {
             mech.pParameter = tsuite->tv[i].iv;
             mech.ulParameterLen = tsuite->tv[i].ivlen;
+        } else if (mech.mechanism == CKM_AES_CTR) {
+            memset(&ctr_param, 0, sizeof(ctr_param));
+            ctr_param.ulCounterBits = tsuite->tv[i].counterbits;
+            memcpy(ctr_param.cb, tsuite->tv[i].counter, tsuite->tv[i].counterlen);
+            mech.pParameter = &ctr_param;
+            mech.ulParameterLen = sizeof(ctr_param);
         }
 
         /** clear buffers **/
@@ -1095,6 +1116,7 @@ CK_RV do_DecryptUpdateAES(struct published_test_suite_info * tsuite)
     CK_FLAGS flags;
     CK_SLOT_ID slot_id = SLOT_ID;
     CK_GCM_PARAMS *gcm_param;
+    CK_AES_CTR_PARAMS ctr_param;
 
     testsuite_begin("%s Multipart Decryption.", tsuite->name);
     testcase_rw_session();
@@ -1184,6 +1206,12 @@ CK_RV do_DecryptUpdateAES(struct published_test_suite_info * tsuite)
         } else if (mech.mechanism == CKM_AES_XTS) {
             mech.pParameter = tsuite->tv[i].iv;
             mech.ulParameterLen = tsuite->tv[i].ivlen;
+        } else if (mech.mechanism == CKM_AES_CTR) {
+            memset(&ctr_param, 0, sizeof(ctr_param));
+            ctr_param.ulCounterBits = tsuite->tv[i].counterbits;
+            memcpy(ctr_param.cb, tsuite->tv[i].counter, tsuite->tv[i].counterlen);
+            mech.pParameter = &ctr_param;
+            mech.ulParameterLen = sizeof(ctr_param);
         }
 
         /** clear buffers **/
