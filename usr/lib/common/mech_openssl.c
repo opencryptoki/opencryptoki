@@ -3976,16 +3976,16 @@ CK_RV openssl_specific_aes_ctr(STDLL_TokData_t *tokdata,
     }
 
     memset(init_v, 0, sizeof(init_v));
-    memcpy(init_v, counterblock + AES_BLOCK_SIZE - counter_width,
-           counter_width);
+    memcpy(init_v, counterblock + AES_BLOCK_SIZE - (counter_width / 8),
+           counter_width / 8);
 
     rc = openssl_cipher_perform(key, CKM_AES_CTR, in_data, in_data_len,
                                   out_data, out_data_len, init_v, init_v,
                                   encrypt);
 
     if (rc == CKR_OK)
-        memcpy(counterblock, init_v + AES_BLOCK_SIZE - counter_width,
-               counter_width);
+        memcpy(counterblock, init_v + AES_BLOCK_SIZE - (counter_width / 8),
+               counter_width / 8);
 
     return rc;
 }
