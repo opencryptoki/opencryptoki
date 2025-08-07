@@ -867,7 +867,8 @@ CK_RV do_wrap_key_test(struct wrapped_mech_info *tsuite,
             }
         }
 
-        rc = generate_RSA_PKCS_KeyPair(session1, tsuite->rsa_modbits,
+        rc = generate_RSA_PKCS_KeyPair(session1, CKM_RSA_PKCS_KEY_PAIR_GEN,
+                                       tsuite->rsa_modbits,
                                        tsuite->rsa_publ_exp,
                                        tsuite->rsa_publ_exp_len,
                                        &publ_key, &priv_key);
@@ -1342,7 +1343,8 @@ CK_RV do_wrapping_test(struct wrapping_mech_info *tsuite)
                 goto testcase_cleanup;
             }
         }
-        rc = generate_RSA_PKCS_KeyPair(session2, tsuite->rsa_modbits,
+        rc = generate_RSA_PKCS_KeyPair(session2, CKM_RSA_PKCS_KEY_PAIR_GEN,
+                                       tsuite->rsa_modbits,
                                        tsuite->rsa_publ_exp,
                                        tsuite->rsa_publ_exp_len,
                                        &publ_wrap_key2, &priv_wrap_key2);

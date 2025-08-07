@@ -83,6 +83,14 @@ CK_RV do_EncryptDecryptRSA(struct GENERATED_TEST_SUITE_INFO *tsuite)
                        (unsigned int) tsuite->mech.mechanism);
         goto testcase_cleanup;
     }
+    if (!mech_supported(slot_id, tsuite->keygen_mech.mechanism)) {
+        testsuite_skip(tsuite->tvcount,
+                       "Slot %u doesn't support %s (0x%x)",
+                       (unsigned int) slot_id,
+                       mech_to_str(tsuite->keygen_mech.mechanism),
+                       (unsigned int) tsuite->keygen_mech.mechanism);
+        goto testcase_cleanup;
+    }
     // iterate over test vectors
     for (i = 0; i < tsuite->tvcount; i++) {
 
@@ -214,6 +222,7 @@ CK_RV do_EncryptDecryptRSA(struct GENERATED_TEST_SUITE_INFO *tsuite)
 
         // generate key pair
         rc = generate_RSA_PKCS_KeyPair_cached(session,
+                                              tsuite->keygen_mech.mechanism,
                                               tsuite->tv[i].modbits,
                                               tsuite->tv[i].publ_exp,
                                               tsuite->tv[i].publ_exp_len,
@@ -812,6 +821,14 @@ CK_RV do_SignVerifyRSA(struct GENERATED_TEST_SUITE_INFO * tsuite,
                        (unsigned int) tsuite->mech.mechanism);
         goto testcase_cleanup;
     }
+    if (!mech_supported(slot_id, tsuite->keygen_mech.mechanism)) {
+        testsuite_skip(tsuite->tvcount,
+                       "Slot %u doesn't support %s (0x%x)",
+                       (unsigned int) slot_id,
+                       mech_to_str(tsuite->keygen_mech.mechanism),
+                       (unsigned int) tsuite->keygen_mech.mechanism);
+        goto testcase_cleanup;
+    }
     if (recover_mode) {
         if (!mech_supported_flags(slot_id, tsuite->mech.mechanism,
                                   CKF_SIGN_RECOVER | CKF_VERIFY_RECOVER)) {
@@ -928,6 +945,7 @@ CK_RV do_SignVerifyRSA(struct GENERATED_TEST_SUITE_INFO * tsuite,
 
         // generate key pair
         rc = generate_RSA_PKCS_KeyPair_cached(session,
+                                              tsuite->keygen_mech.mechanism,
                                               tsuite->tv[i].modbits,
                                               tsuite->tv[i].publ_exp,
                                               tsuite->tv[i].publ_exp_len,
@@ -1091,6 +1109,14 @@ CK_RV do_SignVerify_RSAPSS(struct GENERATED_TEST_SUITE_INFO * tsuite)
                        (unsigned int) tsuite->mech.mechanism);
         goto testcase_cleanup;
     }
+    if (!mech_supported(slot_id, tsuite->keygen_mech.mechanism)) {
+        testsuite_skip(tsuite->tvcount,
+                       "Slot %u doesn't support %s (0x%x)",
+                       (unsigned int) slot_id,
+                       mech_to_str(tsuite->keygen_mech.mechanism),
+                       (unsigned int) tsuite->keygen_mech.mechanism);
+        goto testcase_cleanup;
+    }
     // iterate over test vectors
     for (i = 0; i < tsuite->tvcount; i++) {
 
@@ -1149,7 +1175,9 @@ CK_RV do_SignVerify_RSAPSS(struct GENERATED_TEST_SUITE_INFO * tsuite)
         message_len = tsuite->tv[i].inputlen;
 
         // generate key pair
-        rc = generate_RSA_PKCS_KeyPair_cached(session, tsuite->tv[i].modbits,
+        rc = generate_RSA_PKCS_KeyPair_cached(session,
+                                              tsuite->keygen_mech.mechanism,
+                                              tsuite->tv[i].modbits,
                                               tsuite->tv[i].publ_exp,
                                               tsuite->tv[i].publ_exp_len,
                                               &publ_key, &priv_key);
@@ -1315,6 +1343,14 @@ CK_RV do_WrapUnwrapRSA(struct GENERATED_TEST_SUITE_INFO * tsuite)
         testsuite_skip(tsuite->tvcount,
                        "Slot %u doesn't support key wrapping",
                        (unsigned int) slot_id);
+        goto testcase_cleanup;
+    }
+    if (!mech_supported(slot_id, tsuite->keygen_mech.mechanism)) {
+        testsuite_skip(tsuite->tvcount,
+                       "Slot %u doesn't support %s (0x%x)",
+                       (unsigned int) slot_id,
+                       mech_to_str(tsuite->keygen_mech.mechanism),
+                       (unsigned int) tsuite->keygen_mech.mechanism);
         goto testcase_cleanup;
     }
 
@@ -1496,7 +1532,9 @@ CK_RV do_WrapUnwrapRSA(struct GENERATED_TEST_SUITE_INFO * tsuite)
         wrapped_keylen = 0;
 
         // generate RSA key pair
-        rc = generate_RSA_PKCS_KeyPair_cached(session, tsuite->tv[i].modbits,
+        rc = generate_RSA_PKCS_KeyPair_cached(session,
+                                              tsuite->keygen_mech.mechanism,
+                                              tsuite->tv[i].modbits,
                                               tsuite->tv[i].publ_exp,
                                               tsuite->tv[i].publ_exp_len,
                                               &publ_key, &priv_key);

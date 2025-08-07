@@ -403,7 +403,8 @@ CK_RV do_reencrypt(struct mech_info *mech1, struct mech_info *mech2)
                 goto testcase_cleanup;
             }
         }
-        rc = generate_RSA_PKCS_KeyPair(session, mech2->rsa_modbits,
+        rc = generate_RSA_PKCS_KeyPair(session, CKM_RSA_PKCS_KEY_PAIR_GEN,
+                                       mech2->rsa_modbits,
                                        mech2->rsa_publ_exp,
                                        mech2->rsa_publ_exp_len,
                                        &publ_key2, &priv_key2);
@@ -657,7 +658,8 @@ CK_RV do_encrypt_reencrypt(struct mech_info *mech1)
                 goto testcase_cleanup;
             }
         }
-        rc = generate_RSA_PKCS_KeyPair(session, mech1->rsa_modbits,
+        rc = generate_RSA_PKCS_KeyPair(session, CKM_RSA_PKCS_KEY_PAIR_GEN,
+                                       mech1->rsa_modbits,
                                        mech1->rsa_publ_exp,
                                        mech1->rsa_publ_exp_len,
                                        &publ_key1, &priv_key1);

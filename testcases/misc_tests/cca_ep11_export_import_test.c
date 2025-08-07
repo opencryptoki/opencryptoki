@@ -1307,8 +1307,8 @@ static CK_RV rsa_export_import_tests(void)
 
         // create ock rsa keypair
 
-        rc = generate_RSA_PKCS_KeyPair(session, keybitlen,
-                                       exp, sizeof(exp),
+        rc = generate_RSA_PKCS_KeyPair(session, CKM_RSA_PKCS_KEY_PAIR_GEN,
+                                       keybitlen, exp, sizeof(exp),
                                        &publ_key, &priv_key);
         if (rc != CKR_OK) {
             if (rc == CKR_KEY_SIZE_RANGE) {

@@ -51,6 +51,7 @@ struct GENERATED_TEST_SUITE_INFO {
     unsigned int tvcount;
     struct RSA_GENERATED_TEST_VECTOR *tv;
     CK_MECHANISM mech;
+    CK_MECHANISM keygen_mech;
 };
 
 struct RSA_GENERATED_TEST_VECTOR rsa_oaep_generated_tv[] = {
@@ -340,12 +341,14 @@ struct GENERATED_TEST_SUITE_INFO generated_oaep_test_suites[] = {
         .tvcount = 29,
         .tv = rsa_oaep_generated_tv,
         .mech = {CKM_RSA_PKCS_OAEP, 0, 0},
+        .keygen_mech = {CKM_RSA_PKCS_KEY_PAIR_GEN, 0, 0},
     },
     {
         .name = "RSA AES KEY WRAP",
         .tvcount = 29,
         .tv = rsa_oaep_generated_tv,
         .mech = {CKM_RSA_AES_KEY_WRAP, 0, 0},
+        .keygen_mech = {CKM_RSA_PKCS_KEY_PAIR_GEN, 0, 0},
     }
 };
 
@@ -822,60 +825,70 @@ struct GENERATED_TEST_SUITE_INFO generated_pss_test_suites[] = {
         .tvcount = 16,
         .tv = rsa_pss_generated_tv,
         .mech = {CKM_RSA_PKCS_PSS, 0, 0},
+        .keygen_mech = {CKM_RSA_PKCS_KEY_PAIR_GEN, 0, 0},
     },
     {
         .name = "SHA1 RSA PKCS PSS",
         .tvcount = 4,
         .tv = sha1_rsa_pss_generated_tv,
         .mech = {CKM_SHA1_RSA_PKCS_PSS, 0, 0},
+        .keygen_mech = {CKM_RSA_PKCS_KEY_PAIR_GEN, 0, 0},
     },
     {
         .name = "SHA224 RSA PKCS PSS",
         .tvcount = 4,
         .tv = sha224_rsa_pss_generated_tv,
         .mech = {CKM_SHA224_RSA_PKCS_PSS, 0, 0},
+        .keygen_mech = {CKM_RSA_PKCS_KEY_PAIR_GEN, 0, 0},
     },
     {
         .name = "SHA256 RSA PKCS PSS",
         .tvcount = 4,
         .tv = sha256_rsa_pss_generated_tv,
         .mech = {CKM_SHA256_RSA_PKCS_PSS, 0, 0},
+        .keygen_mech = {CKM_RSA_PKCS_KEY_PAIR_GEN, 0, 0},
     },
     {
         .name = "SHA384 RSA PKCS PSS",
         .tvcount = 4,
         .tv = sha384_rsa_pss_generated_tv,
         .mech = {CKM_SHA384_RSA_PKCS_PSS, 0, 0},
+        .keygen_mech = {CKM_RSA_PKCS_KEY_PAIR_GEN, 0, 0},
     },
     {
         .name = "SHA512 RSA PKCS PSS",
         .tvcount = 4,
         .tv = sha512_rsa_pss_generated_tv,
         .mech = {CKM_SHA512_RSA_PKCS_PSS, 0, 0},
+        .keygen_mech = {CKM_RSA_PKCS_KEY_PAIR_GEN, 0, 0},
     },
     {
         .name = "SHA3-224 RSA PKCS PSS",
         .tvcount = 4,
         .tv = sha3_224_rsa_pss_generated_tv,
         .mech = {CKM_SHA3_224_RSA_PKCS_PSS, 0, 0},
+        .keygen_mech = {CKM_RSA_PKCS_KEY_PAIR_GEN, 0, 0},
     },
     {
         .name = "SHA3-256 RSA PKCS PSS",
         .tvcount = 4,
         .tv = sha3_256_rsa_pss_generated_tv,
         .mech = {CKM_SHA3_256_RSA_PKCS_PSS, 0, 0},
+        .keygen_mech = {CKM_RSA_PKCS_KEY_PAIR_GEN, 0, 0},
     },
     {
         .name = "SHA3-384 RSA PKCS PSS",
         .tvcount = 4,
         .tv = sha3_384_rsa_pss_generated_tv,
         .mech = {CKM_SHA3_384_RSA_PKCS_PSS, 0, 0},
+        .keygen_mech = {CKM_RSA_PKCS_KEY_PAIR_GEN, 0, 0},
     },
     {
         .name = "SHA3-512 RSA PKCS PSS",
         .tvcount = 4,
         .tv = sha3_512_rsa_pss_generated_tv,
         .mech = {CKM_SHA3_512_RSA_PKCS_PSS, 0, 0},
+        .keygen_mech = {CKM_RSA_PKCS_KEY_PAIR_GEN, 0, 0},
     }
 };
 
@@ -887,30 +900,35 @@ struct GENERATED_TEST_SUITE_INFO generated_pss_update_test_suites[] = {
         .tvcount = 4,
         .tv = sha1_rsa_pss_generated_tv,
         .mech = {CKM_SHA1_RSA_PKCS_PSS, 0, 0},
+        .keygen_mech = {CKM_RSA_PKCS_KEY_PAIR_GEN, 0, 0},
     },
     {
         .name = "SHA224 RSA PKCS PSS",
         .tvcount = 4,
         .tv = sha224_rsa_pss_generated_tv,
         .mech = {CKM_SHA224_RSA_PKCS_PSS, 0, 0},
+        .keygen_mech = {CKM_RSA_PKCS_KEY_PAIR_GEN, 0, 0},
     },
     {
         .name = "SHA256 RSA PKCS PSS",
         .tvcount = 4,
         .tv = sha256_rsa_pss_generated_tv,
         .mech = {CKM_SHA256_RSA_PKCS_PSS, 0, 0},
+        .keygen_mech = {CKM_RSA_PKCS_KEY_PAIR_GEN, 0, 0},
     },
     {
         .name = "SHA384 RSA PKCS PSS",
         .tvcount = 4,
         .tv = sha384_rsa_pss_generated_tv,
         .mech = {CKM_SHA384_RSA_PKCS_PSS, 0, 0},
+        .keygen_mech = {CKM_RSA_PKCS_KEY_PAIR_GEN, 0, 0},
     },
     {
         .name = "SHA512 RSA PKCS PSS",
         .tvcount = 4,
         .tv = sha512_rsa_pss_generated_tv,
         .mech = {CKM_SHA512_RSA_PKCS_PSS, 0, 0},
+        .keygen_mech = {CKM_RSA_PKCS_KEY_PAIR_GEN, 0, 0},
     }
 };
 
@@ -1842,12 +1860,14 @@ struct GENERATED_TEST_SUITE_INFO generated_keywrap_test_suites[] = {
         .tvcount = 74,
         .tv = rsa_keywrap_generated_tv,
         .mech = {CKM_RSA_PKCS, 0, 0},
+        .keygen_mech = {CKM_RSA_PKCS_KEY_PAIR_GEN, 0, 0},
     },
     {
         .name = "RSA X.509",
         .tvcount = 74,
         .tv = rsa_keywrap_generated_tv,
         .mech = {CKM_RSA_X_509, 0, 0},
+        .keygen_mech = {CKM_RSA_PKCS_KEY_PAIR_GEN, 0, 0},
     }
 };
 
@@ -1859,78 +1879,91 @@ struct GENERATED_TEST_SUITE_INFO generated_sigver_test_suites[] = {
         .tvcount = 30,
         .tv = rsa_generated_tv,
         .mech = {CKM_RSA_PKCS, 0, 0},
+        .keygen_mech = {CKM_RSA_PKCS_KEY_PAIR_GEN, 0, 0},
     },
     {
         .name = "RSA SHA1 PKCS",
         .tvcount = 30,
         .tv = rsa_generated_tv,
         .mech = {CKM_SHA1_RSA_PKCS, 0, 0},
+        .keygen_mech = {CKM_RSA_PKCS_KEY_PAIR_GEN, 0, 0},
     },
     {
         .name = "RSA SHA224 PKCS",
         .tvcount = 30,
         .tv = rsa_generated_tv,
         .mech = {CKM_SHA224_RSA_PKCS, 0, 0},
+        .keygen_mech = {CKM_RSA_PKCS_KEY_PAIR_GEN, 0, 0},
     },
     {
         .name = "RSA SHA256 PKCS",
         .tvcount = 30,
         .tv = rsa_generated_tv,
         .mech = {CKM_SHA256_RSA_PKCS, 0, 0},
+        .keygen_mech = {CKM_RSA_PKCS_KEY_PAIR_GEN, 0, 0},
     },
     {
         .name = "RSA SHA384 PKCS",
         .tvcount = 30,
         .tv = rsa_generated_tv,
         .mech = {CKM_SHA384_RSA_PKCS, 0, 0},
+        .keygen_mech = {CKM_RSA_PKCS_KEY_PAIR_GEN, 0, 0},
     },
     {
         .name = "RSA SHA512 PKCS",
         .tvcount = 30,
         .tv = rsa_generated_tv,
         .mech = {CKM_SHA512_RSA_PKCS, 0, 0},
+        .keygen_mech = {CKM_RSA_PKCS_KEY_PAIR_GEN, 0, 0},
     },
     {
         .name = "RSA SHA3-224 PKCS",
         .tvcount = 30,
         .tv = rsa_generated_tv,
         .mech = {CKM_SHA3_224_RSA_PKCS, 0, 0},
+        .keygen_mech = {CKM_RSA_PKCS_KEY_PAIR_GEN, 0, 0},
     },
     {
         .name = "RSA SHA3-256 PKCS",
         .tvcount = 30,
         .tv = rsa_generated_tv,
         .mech = {CKM_SHA3_256_RSA_PKCS, 0, 0},
+        .keygen_mech = {CKM_RSA_PKCS_KEY_PAIR_GEN, 0, 0},
     },
     {
         .name = "RSA SHA3-384 PKCS",
         .tvcount = 30,
         .tv = rsa_generated_tv,
         .mech = {CKM_SHA3_384_RSA_PKCS, 0, 0},
+        .keygen_mech = {CKM_RSA_PKCS_KEY_PAIR_GEN, 0, 0},
     },
     {
         .name = "RSA SHA3-512 PKCS",
         .tvcount = 30,
         .tv = rsa_generated_tv,
         .mech = {CKM_SHA3_512_RSA_PKCS, 0, 0},
+        .keygen_mech = {CKM_RSA_PKCS_KEY_PAIR_GEN, 0, 0},
     },
     {
         .name = "RSA MD2 PKCS",
         .tvcount = 30,
         .tv = rsa_generated_tv,
         .mech = {CKM_MD2_RSA_PKCS, 0, 0},
+        .keygen_mech = {CKM_RSA_PKCS_KEY_PAIR_GEN, 0, 0},
     },
     {
         .name = "RSA MD5 PKCS",
         .tvcount = 30,
         .tv = rsa_generated_tv,
         .mech = {CKM_MD5_RSA_PKCS, 0, 0},
+        .keygen_mech = {CKM_RSA_PKCS_KEY_PAIR_GEN, 0, 0},
     },
     {
         .name = "RSA X.509",
         .tvcount = 30,
         .tv = rsa_x509_generated_tv,
         .mech = {CKM_RSA_X_509, 0, 0},
+        .keygen_mech = {CKM_RSA_PKCS_KEY_PAIR_GEN, 0, 0},
     }
 };
 
@@ -1942,47 +1975,61 @@ struct GENERATED_TEST_SUITE_INFO generated_sigver_update_test_suites[] = {
         .tvcount = 30,
         .tv = rsa_generated_tv,
         .mech = {CKM_SHA1_RSA_PKCS, 0, 0},
+        .keygen_mech = {CKM_RSA_PKCS_KEY_PAIR_GEN, 0, 0},
     },
     {
         .name = "RSA SHA224 PKCS",
         .tvcount = 30,
         .tv = rsa_generated_tv,
         .mech = {CKM_SHA224_RSA_PKCS, 0, 0},
+        .keygen_mech = {CKM_RSA_PKCS_KEY_PAIR_GEN, 0, 0},
     },
     {
         .name = "RSA SHA256 PKCS",
         .tvcount = 30,
         .tv = rsa_generated_tv,
         .mech = {CKM_SHA256_RSA_PKCS, 0, 0},
+        .keygen_mech = {CKM_RSA_PKCS_KEY_PAIR_GEN, 0, 0},
     },
     {
         .name = "RSA MD2 PKCS",
         .tvcount = 30,
         .tv = rsa_generated_tv,
         .mech = {CKM_MD2_RSA_PKCS, 0, 0},
+        .keygen_mech = {CKM_RSA_PKCS_KEY_PAIR_GEN, 0, 0},
     },
     {
         .name = "RSA MD5 PKCS",
         .tvcount = 30,
         .tv = rsa_generated_tv,
         .mech = {CKM_MD5_RSA_PKCS, 0, 0},
+        .keygen_mech = {CKM_RSA_PKCS_KEY_PAIR_GEN, 0, 0},
     }
 };
 
-#define NUM_OF_GENERATED_CRYPTO_TESTSUITES 2
+#define NUM_OF_GENERATED_CRYPTO_TESTSUITES 3
 struct GENERATED_TEST_SUITE_INFO generated_crypto_test_suites[] = {
     {
         .name = "RSA PKCS",
         .tvcount = 30 - 4, /* Last 4: zero bytes data, not poss. for encrypt */
         .tv = rsa_generated_tv,
         .mech = {CKM_RSA_PKCS, 0, 0},
+        .keygen_mech = {CKM_RSA_PKCS_KEY_PAIR_GEN, 0, 0},
     },
     {
         .name = "RSA X.509",
         .tvcount = 30 - 4, /* Last 4: zero bytes data, not poss. for encrypt */
         .tv = rsa_x509_generated_tv,
         .mech = {CKM_RSA_X_509, 0, 0},
-    }
+        .keygen_mech = {CKM_RSA_PKCS_KEY_PAIR_GEN, 0, 0},
+    },
+    {
+        .name = "RSA PKCS (X9.31 KeyGen)",
+        .tvcount = 30 - 4, /* Last 4: zero bytes data, not poss. for encrypt */
+        .tv = rsa_generated_tv,
+        .mech = {CKM_RSA_PKCS, 0, 0},
+        .keygen_mech = {CKM_RSA_X9_31_KEY_PAIR_GEN, 0, 0},
+    },
 };
 
 struct RSA_PUBLISHED_TEST_VECTOR {
