@@ -474,6 +474,7 @@ CK_RV create_RSAPublicKey(CK_SESSION_HANDLE session,
 
 /** Generate an RSA (PKCS) key pair **/
 CK_RV generate_RSA_PKCS_KeyPair(CK_SESSION_HANDLE session,
+                                CK_MECHANISM_TYPE mech_type,
                                 CK_ULONG modulusBits,
                                 CK_BYTE publicExponent[],
                                 CK_ULONG publicExponent_len,
@@ -481,7 +482,7 @@ CK_RV generate_RSA_PKCS_KeyPair(CK_SESSION_HANDLE session,
                                 CK_OBJECT_HANDLE * priv_key)
 {
     CK_RV rc;
-    CK_MECHANISM mech = { CKM_RSA_PKCS_KEY_PAIR_GEN, NULL, 0 };
+    CK_MECHANISM mech = { mech_type, NULL, 0 };
     CK_BYTE subject[] = {0};
     CK_BYTE id[] = { 123 };
     CK_BBOOL true = TRUE;
@@ -521,6 +522,7 @@ CK_RV generate_RSA_PKCS_KeyPair(CK_SESSION_HANDLE session,
 
 struct rsa_key_cache_entry {
     CK_SESSION_HANDLE session;
+    CK_MECHANISM_TYPE keygen_mech_type;
     CK_ULONG modulusBits;
     CK_BYTE *publicExponent;
     CK_ULONG publicExponent_len;
@@ -532,6 +534,7 @@ struct rsa_key_cache_entry *rsa_key_cache = NULL;
 CK_ULONG rsa_key_cache_size = 0;
 
 CK_RV generate_RSA_PKCS_KeyPair_cached(CK_SESSION_HANDLE session,
+                                       CK_MECHANISM_TYPE mech_type,
                                        CK_ULONG modulusBits,
                                        CK_BYTE publicExponent[],
                                        CK_ULONG publicExponent_len,
@@ -544,6 +547,7 @@ CK_RV generate_RSA_PKCS_KeyPair_cached(CK_SESSION_HANDLE session,
 
     for (i = 0; i < rsa_key_cache_size; i++) {
         if (rsa_key_cache[i].session == session &&
+            rsa_key_cache[i].keygen_mech_type == mech_type &&
             rsa_key_cache[i].modulusBits == modulusBits &&
             rsa_key_cache[i].publicExponent_len == publicExponent_len &&
             memcmp(rsa_key_cache[i].publicExponent, publicExponent,
@@ -558,7 +562,8 @@ CK_RV generate_RSA_PKCS_KeyPair_cached(CK_SESSION_HANDLE session,
             free = &rsa_key_cache[i];
     }
 
-    rc = generate_RSA_PKCS_KeyPair(session, modulusBits, publicExponent,
+    rc = generate_RSA_PKCS_KeyPair(session, mech_type,
+                                   modulusBits, publicExponent,
                                    publicExponent_len, publ_key, priv_key);
     if (rc != CKR_OK)
         return rc;
@@ -579,6 +584,7 @@ CK_RV generate_RSA_PKCS_KeyPair_cached(CK_SESSION_HANDLE session,
     }
 
     free->session = session;
+    free->keygen_mech_type = mech_type;
     free->modulusBits = modulusBits;
     free->publicExponent_len = publicExponent_len;
     free->publicExponent = malloc(publicExponent_len);

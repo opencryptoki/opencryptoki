@@ -77,6 +77,14 @@ CK_RV do_SignVerifyUpdateRSA(struct GENERATED_TEST_SUITE_INFO *tsuite)
                        (unsigned int) tsuite->mech.mechanism);
         goto testcase_cleanup;
     }
+    if (!mech_supported(slot_id, tsuite->keygen_mech.mechanism)) {
+        testsuite_skip(tsuite->tvcount,
+                       "Slot %u doesn't support %s (0x%x)",
+                       (unsigned int) slot_id,
+                       mech_to_str(tsuite->keygen_mech.mechanism),
+                       (unsigned int) tsuite->keygen_mech.mechanism);
+        goto testcase_cleanup;
+    }
 
     // iterate over test vectors
     for (i = 0; i < tsuite->tvcount; i++) {
@@ -182,6 +190,7 @@ CK_RV do_SignVerifyUpdateRSA(struct GENERATED_TEST_SUITE_INFO *tsuite)
 
         // generate key pair
         rc = generate_RSA_PKCS_KeyPair_cached(session,
+                                              tsuite->keygen_mech.mechanism,
                                               tsuite->tv[i].modbits,
                                               tsuite->tv[i].publ_exp,
                                               tsuite->tv[i].publ_exp_len,
@@ -364,6 +373,14 @@ CK_RV do_SignVerifyUpdate_RSAPSS(struct GENERATED_TEST_SUITE_INFO * tsuite)
                        (unsigned int) tsuite->mech.mechanism);
         goto testcase_cleanup;
     }
+    if (!mech_supported(slot_id, tsuite->keygen_mech.mechanism)) {
+        testsuite_skip(tsuite->tvcount,
+                       "Slot %u doesn't support %s (0x%x)",
+                       (unsigned int) slot_id,
+                       mech_to_str(tsuite->keygen_mech.mechanism),
+                       (unsigned int) tsuite->keygen_mech.mechanism);
+        goto testcase_cleanup;
+    }
     // iterate over test vectors
     for (i = 0; i < tsuite->tvcount; i++) {
 
@@ -435,6 +452,7 @@ CK_RV do_SignVerifyUpdate_RSAPSS(struct GENERATED_TEST_SUITE_INFO * tsuite)
 
         // generate key pair
         rc = generate_RSA_PKCS_KeyPair_cached(session,
+                                              tsuite->keygen_mech.mechanism,
                                               tsuite->tv[i].modbits,
                                               tsuite->tv[i].publ_exp,
                                               tsuite->tv[i].publ_exp_len,
