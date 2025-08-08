@@ -3273,7 +3273,7 @@ CK_RV ber_decode_DHPrivateKey(CK_BYTE *data,
     }
     // extract the parameter data into ATTRIBUTES
     //
-    rc = ber_decode_SEQUENCE(alg + ber_idDSALen, &buf, &buf_len, &field_len);
+    rc = ber_decode_SEQUENCE(alg + ber_idDHLen, &buf, &buf_len, &field_len);
     if (rc != CKR_OK) {
         TRACE_DEVEL("ber_decode_SEQUENCE failed\n");
         return rc;
