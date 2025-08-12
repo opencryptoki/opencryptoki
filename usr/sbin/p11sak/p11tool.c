@@ -719,6 +719,7 @@ void p11tool_print_indented(const char *str, int indent)
 static void p11tool_print_options_help(const struct p11tool_opt *opts,
                                        int indent_pos)
 {
+    const struct p11tool_enum_value *val;
     const struct p11tool_opt *opt;
     char tmp[200];
     int len;
@@ -748,6 +749,12 @@ static void p11tool_print_options_help(const struct p11tool_opt *opts,
 
         printf("    %-*.*s ", indent_pos - 5, indent_pos - 5, tmp);
         p11tool_print_indented(opt->description, indent_pos);
+
+        if (opt->arg.type == ARG_TYPE_ENUM) {
+            for (val = opt->arg.enum_values; val->value != NULL; val++) {
+                printf("%*s    %s\n", indent_pos, "", val->value);
+            }
+        }
     }
 }
 
