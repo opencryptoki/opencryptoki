@@ -527,6 +527,30 @@ if [[ $(cat pin1.txt) != $PKCS11_USER_PIN ]]; then
 fi
 
 
+echo "** Wrap/Unwrap tests - 'p11sak_test.sh'"
+RC_P11SAK_WRAP=0
+${P11SAK} generate-key RSA 2048 --slot $SLOT --pin $PKCS11_USER_PIN --id 123 --label "p11sak-keywrap-rsa-kek" --attr WU
+RC_P11SAK_WRAP=$((RC_P11SAK_WRAP + $?))
+${P11SAK} generate-key AES 256 --slot $SLOT --pin $PKCS11_USER_PIN --id 123 --label "p11sak-keywrap-aes-to-be-wrapped" --attr XS
+RC_P11SAK_WRAP=$((RC_P11SAK_WRAP + $?))
+if [[ -n $( ${PKCSCONF} -t -c $SLOT | grep "Model: CCA") && -n $( ${P11SAK} list-key AES --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-keywrap-aes-to-be-wrapped" --long | grep " CKA_IBM_CCA_AES_KEY_MODE: 1") ]]; then
+	# CCA can only wrap AES-DATA keys with RSA-PKCS. For AES-CIPHER keys RSA-AESKW must be used.
+	if [[ -n $( ${PKCSCONF} -m -c $SLOT | grep CKM_RSA_AES_KEY_WRAP) ]]; then
+		${P11SAK} wrap-key RSA-AESKW AES --aes-key-size 256 --hash-alg SHA-1 --mgf-alg SHA-1 --slot $SLOT --pin $PKCS11_USER_PIN --kek-label "p11sak-keywrap-rsa-kek:pub" --label "p11sak-keywrap-aes-to-be-wrapped" --file wrapped-key.pem --force
+		RC_P11SAK_WRAP=$((RC_P11SAK_WRAP + $?))
+		${P11SAK} unwrap-key --slot $SLOT --pin $PKCS11_USER_PIN --kek-label "p11sak-keywrap-rsa-kek:prv" --label "p11sak-keywrap-aes-unwrapped" --file wrapped-key.pem --force
+		RC_P11SAK_WRAP=$((RC_P11SAK_WRAP + $?))
+	else
+		echo "Skip wrapping AES-CIPHER keys with CCA token, slot does not support CKM_RSA_AES_KEY_WRAP"
+	fi
+else
+	${P11SAK} wrap-key RSA-PKCS AES --slot $SLOT --pin $PKCS11_USER_PIN --kek-label "p11sak-keywrap-rsa-kek:pub" --label "p11sak-keywrap-aes-to-be-wrapped" --file wrapped-key.pem --force
+	RC_P11SAK_WRAP=$((RC_P11SAK_WRAP + $?))
+	${P11SAK} unwrap-key --slot $SLOT --pin $PKCS11_USER_PIN --kek-label "p11sak-keywrap-rsa-kek:prv" --label "p11sak-keywrap-aes-unwrapped" --file wrapped-key.pem --force
+	RC_P11SAK_WRAP=$((RC_P11SAK_WRAP + $?))
+fi
+
+
 echo "** Now remove keys - 'p11sak_test.sh'"
 
 # remove objects
@@ -611,6 +635,8 @@ RC_P11SAK_REMOVE=$((RC_P11SAK_REMOVE + $?))
 ${P11SAK} remove-key --slot $SLOT --pin $PKCS11_USER_PIN --label "import*" -f
 RC_P11SAK_REMOVE=$((RC_P11SAK_REMOVE + $?))
 ${P11SAK} remove-key --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-pubkey-extracted" -f
+RC_P11SAK_REMOVE=$((RC_P11SAK_REMOVE + $?))
+${P11SAK} remove-key --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-keywrap*" -f
 RC_P11SAK_REMOVE=$((RC_P11SAK_REMOVE + $?))
 
 
@@ -2047,6 +2073,14 @@ else
 	status=1
 fi
 
+# check return codes from key wrap tests
+if [ $RC_P11SAK_WRAP = 0 ]; then
+	echo "* TESTCASE wrap-key PASS return code check"
+else
+	echo "* TESTCASE wrap-key FAIL return code check"
+	status=1
+fi
+
 # check return codes from certificate tests
 if [ $RC_P11SAK_X509_IMPORT = 0 ]; then
 	echo "* TESTCASE import-cert PASS return code check"
@@ -2215,6 +2249,7 @@ rm -f pin*.txt
 rm -f oqs-*.pem
 rm -f dilithium3_CA.*
 rm -f dilithium3_srv.*
+rm -f wrapped-key.pem
 
 echo "** Now remove temporary openssl files from x509 tests - "p11sak_test.sh""
 rm -f p11sak_*cert_exported.crt
