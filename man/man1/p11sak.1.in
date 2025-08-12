@@ -1362,6 +1362,430 @@ option.
 .PP
 .
 .
+.
+.SS "Exporting a key by wrapping it with a key encrypting key"
+.
+.B p11sak
+.BR wrap\-key | wrap
+.I WRAP\-MECH
+.RI [ KEYTYPE ]
+.BR \-\-slot | \-s
+.I SLOTID
+.RB [ \-\-pin | \-p
+.IR PIN ]
+.RB [ \-\-force\-pin\-prompt ]
+.RB [ \-\-no\-login | \-N ]
+.RB [ \-\-so ]
+.RB [ \-\-kek\-label | \-K
+.IR LABEL ]
+.RB [ \-\-kek\-id | \-k
+.IR ID ]
+.RB [ \-\-label | \-L
+.IR LABEL ]
+.RB [ \-\-id | \-i
+.IR ID ]
+.RB [ \-\-attr | \-a
+.IR ATTRS ]
+.RB [ \-\-force | \-f ]
+.BR \-\-file | \-F
+.I FILENAME
+.RB [ \-\-raw | \-R ]
+.RB [ "options specific for"
+.IR WRAP\-MECH ]
+.RB [ \-\-help | \-h ]
+.PP
+Use the
+.BR wrap\-key | wrap
+command and the
+.I WRAP\-MECH
+argument to export symmetric or asymmetric keys by wrapping it with a key
+encrypting key. Dependent on the key wrapping mechanism, additional options
+may be supported to specify mechanism parameters. The optional
+.I KEYTYPE
+argument can be used to filter the list of keys to export by key type.
+Only private and secret keys can be wrapped. Possible values for the
+.I KEYTYPE
+argument are:
+.BR des |\: 3des |\: generic |\: sha\-1\-hmac |\: sha224\-hmac |\: \
+sha256\-hmac |\: sha384\-hmac |\: sha512\-hmac |\: sha512/224\-hmac |\: \
+sha512/256\-hmac |\: sha3\-224\-hmac |\: sha3\-256\-hmac |\: sha3\-384\-hmac \
+|\: sha3\-512\-hmac |\: aes |\: aes\-xts |\: rsa |\: dh |\: dsa |\: ec |\: \
+ibm\-dilithium |\: ibm\-kyber |\: private |\: secret |\: all .
+If
+.I KEYTYPE
+is omitted, then all key types are selected for wrapping.
+.PP
+Possible values for the
+.I WRAP\-MECH
+argument are:
+.IP "\(bu" 2
+.BR aes\-cbc\-pad :
+Use mechanism
+.B CKM_AES_CBC_PAD
+for key wrapping. Wrapping and unwrapping is done with an AES key. Use the
+.BR \-\-iv | \-I
+.I IV
+option to specify the initialization vector (IV) for the AES-CBC operation.
+.IP "\(bu" 2
+.BR aeskw\-kwp :
+Use mechanism
+.B CKM_AES_KEY_WRAP_KWP
+for key wrapping. Wrapping and unwrapping is done with an AES key. Use the
+.BR \-\-iv | \-I
+.I IV
+option to specify the initialization vector (IV) for the AESKW-KWP operation.
+.IP "\(bu" 2
+.BR aeskw\-pkcs7 :
+Use mechanism
+.B CKM_AES_KEY_WRAP_PKCS7
+for key wrapping. Wrapping and unwrapping is done with an AES key. Use the
+.BR \-\-iv | \-I
+.I IV
+option to specify the initialization vector (IV) for the AESKW-PKCS7 operation.
+.IP "\(bu" 2
+.BR rsa\-pkcs :
+Use mechanism
+.B CKM_RSA_PKCS
+for key wrapping. Wrapping is done with an RSA public key, unwrapping is done
+with the corresponding RSA private key. Only keys whose key material size is
+up to the KEK's RSA modulus size minus 11 bytes can be wrapped with this
+mechanism.
+.IP "\(bu" 2
+.BR rsa\-oaep :
+Use mechanism
+.B CKM_RSA_PKCS_OAEP
+for key wrapping. Wrapping is done with an RSA public key, unwrapping is done
+with the corresponding RSA private key. Only keys whose key material size is
+up to the KEK's RSA modulus size minus 2 times the hash\-alg digest size bytes
+minus 2 bytes wrapped with this mechanism. Use the
+.BR \-\-hash\-alg
+.IR HASH\-ALG ,
+.BR \-\-mgf\-alg
+.IR MGF\-ALG ,
+and
+.B \-\-source\-data
+.IR SOURCE\-DATA ,
+options to specify the OAEP mechanism parameters.
+.IP "\(bu" 2
+.BR rsa\-aeskw :
+Use mechanism
+.B CKM_RSA_AES_KEY_WRAP
+for key wrapping. Wrapping is done with an RSA public key, unwrapping is done
+with the corresponding RSA private key. Use the
+.BR \-\-aes\-key\-size
+.I AES-KEYBITS
+option to specify the key size of the temporary AES key, and the
+.BR \-\-hash\-alg
+.IR HASH\-ALG ,
+.BR \-\-mgf\-alg
+.IR MGF\-ALG ,
+and
+.B \-\-source\-data
+.IR SOURCE\-DATA ,
+options to specify the OAEP mechanism parameters.
+.IP "\(bu" 2
+.BR ecdh\-aeskw :
+Use mechanism 
+.B CKM_ECDH_AES_KEY_WRAP
+for key wrapping. Wrapping is done with an EC public key, unwrapping is done
+with the corresponding EC private key. Use the
+Use the
+.BR \-\-aes\-key\-size
+.I AES-KEYBITS
+option to specify the key size of the temporary AES key, and the
+.BR \-\-kdf\-alg
+.IR KDF\-ALG ,
+and
+.B \-\-shared\-data
+.IR SHARED\-DATA ,
+options to specify the ECDH mechanism parameters.
+.PP
+Specify the
+.BR \-\-kek\-label | \-K
+.IR LABEL ,
+and/or the 
+.BR \-\-kek\-id | \-k
+.IR ID 
+option to select the key encrypting key (KEK). Only keys with the right object
+class and key type that fit to the wrapping mechanism are selected. If
+multiple key objects match, you are prompted to confirm to use the desired
+key object. If the
+.BR \-\-force | \-f
+option is specified, then the first matching key object is used.
+You can use wildcards (\fB*\fP and \fB?\fP) in the
+.I LABEL
+specification. To specify a wildcard character that should not be treated as a
+wildcard, it must be escaped using a backslash (\fB\e*\fP or \fB\e?\fP).
+Also, a backslash character that should not be treated as an escape character
+must be escaped (\fB\e\e\fP). The
+.B ID
+must be specified as hex string (not prefixed with 0x) of any number of bytes.
+.PP
+Specify the
+.BR \-\-label | \-L
+.IR LABEL ,
+the
+.BR \-\-id | \-i
+.IR ID ,
+and/or the
+.BR \-\-attr | \-a
+.I ATTRS
+options to filter the list of keys to wrap. You can use wildcards (\fB*\fP
+and \fB?\fP) in the
+.I LABEL
+specification. To specify a wildcard character that should not be treated as a
+wildcard, it must be escaped using a backslash (\fB\e*\fP or \fB\e?\fP).
+Also, a backslash character that should not be treated as an escape character
+must be escaped (\fB\e\e\fP).
+The
+.B ID
+must be specified as hex string (not prefixed with 0x) of any number of bytes.
+.PP
+The
+.BR \-\-file | \-F
+.I FILENAME
+option specifies the file name of the file to which the wrapped key material is
+written to. By default this is a PEM file using a p11sak-specific type and a
+header that contains information about the wrapping mechanism and mechanism
+parameters (if any). If option
+.BR \-\-raw | \-R
+is specified then the file is a raw binary file and the raw wrapped key
+material is written to it. If multiple keys match the filter, the keys are
+appended to the PEM file specified with the
+.BR \-\-file | \-F
+.I FILENAME
+option. If option
+.BR \-\-raw | \-R 
+is specified, and multiple keys match the filter, you are prompted to
+confirm to overwrite the previously created file, unless the
+.BR \-\-force | \-f
+option is specified.
+.PP
+.B Note:
+Not all keys can be wrapped, because its attribute setting may forbid
+to extract the key material. To allow exporting of a secret
+.RB ( CKO_SECRET_KEY )
+or private
+.RB ( CKO_PRIVATE_KEY )
+key, attribute
+.B CKA_EXTRACTABLE
+must be
+.BR CK_TRUE .
+A token may not support all wrapping mechanisms, nor all mechanism parameter
+combinations. Also, not all tokens may support to wrap all key types.
+Furthermore, a token might limit the support of wrapping a key with a weaker
+key encrypting key.
+.
+.
+.
+.SS "Importing a key by unwrapping it with a key encrypting key"
+.
+.B p11sak
+.BR unwrap\-key | unwrap
+.RI [ WRAP\-MECH ]
+.RI [ KEYTYPE ]
+.BR \-\-slot | \-s
+.I SLOTID
+.RB [ \-\-pin | \-p
+.IR PIN ]
+.RB [ \-\-force\-pin\-prompt ]
+.RB [ \-\-no\-login | \-N ]
+.RB [ \-\-so ]
+.RB [ \-\-kek\-label | \-K
+.IR LABEL ]
+.RB [ \-\-kek\-id | \-k
+.IR ID ]
+.RB [ \-\-label | \-L
+.IR LABEL ]
+.RB [ \-\-id | \-i
+.IR ID ]
+.RB [ \-\-attr | \-a
+.IR ATTRS ]
+.RB [ \-\-force | \-f ]
+.BR \-\-file | \-F
+.I FILENAME
+.RB [ \-\-raw | \-R ]
+.RB [ "options specific for"
+.IR WRAP\-MECH ]
+.RB [ \-\-help | \-h ]
+.PP
+Use the
+.BR unwrap\-key | unwrap
+command and the optional
+.I WRAP\-MECH
+and
+.I KEYTYPE
+arguments to import symmetric or asymmetric keys by unwrapping it with a key
+encrypting key. Dependent on the key wrapping mechanism, additional options
+may be supported to specify mechanism parameters. Only private and secret keys
+can be unwrapped.
+.PP
+Arguments 
+.I WRAP\-MECH
+and
+.IR KEYTYPE ,
+as well as wrapping mechanism specific options to specify mechanism parameters
+are only required if the
+.BR \-\-raw | \-R 
+option is specified. Otherwise this information is read from the PEM file
+specified with the 
+.BR \-\-file | \-F
+.I FILENAME
+option.
+.PP
+Possible values for the
+.I WRAP\-MECH
+argument are:
+.IP "\(bu" 2
+.BR aes\-cbc\-pad :
+Use mechanism
+.B CKM_AES_CBC_PAD
+for key wrapping. Wrapping and unwrapping is done with an AES key. Use the
+.BR \-\-iv | \-I
+.I IV
+option to specify the initialization vector (IV) for the AES-CBC operation.
+.IP "\(bu" 2
+.BR aeskw\-kwp :
+Use mechanism
+.B CKM_AES_KEY_WRAP_KWP
+for key wrapping. Wrapping and unwrapping is done with an AES key. Use the
+.BR \-\-iv | \-I
+.I IV
+option to specify the initialization vector (IV) for the AESKW-KWP operation.
+.IP "\(bu" 2
+.BR aeskw\-pkcs7 :
+Use mechanism
+.B CKM_AES_KEY_WRAP_PKCS7
+for key wrapping. Wrapping and unwrapping is done with an AES key. Use the
+.BR \-\-iv | \-I
+.I IV
+option to specify the initialization vector (IV) for the AESKW-PKCS7 operation.
+.IP "\(bu" 2
+.BR rsa\-pkcs :
+Use mechanism
+.B CKM_RSA_PKCS
+for key wrapping. Wrapping is done with an RSA public key, unwrapping is done
+with the corresponding RSA private key. Only keys whose key material size is
+up to the KEK's RSA modulus size minus 11 bytes can be wrapped with this
+mechanism.
+.IP "\(bu" 2
+.BR rsa\-oaep :
+Use mechanism
+.B CKM_RSA_PKCS_OAEP
+for key wrapping. Wrapping is done with an RSA public key, unwrapping is done
+with the corresponding RSA private key. Only keys whose key material size is
+up to the KEK's RSA modulus size minus 2 times the hash\-alg digest size bytes
+minus 2 bytes wrapped with this mechanism. Use the
+.BR \-\-hash\-alg
+.IR HASH\-ALG ,
+.BR \-\-mgf\-alg
+.IR MGF\-ALG ,
+and
+.B \-\-source\-data
+.IR SOURCE\-DATA ,
+options to specify the OAEP mechanism parameters.
+.IP "\(bu" 2
+.BR rsa\-aeskw :
+Use mechanism
+.B CKM_RSA_AES_KEY_WRAP
+for key wrapping. Wrapping is done with an RSA public key, unwrapping is done
+with the corresponding RSA private key. Use the
+.BR \-\-aes\-key\-size
+.I AES-KEYBITS
+option to specify the key size of the temporary AES key, and the
+.BR \-\-hash\-alg
+.IR HASH\-ALG ,
+.BR \-\-mgf\-alg
+.IR MGF\-ALG ,
+and
+.B \-\-source\-data
+.IR SOURCE\-DATA ,
+options to specify the OAEP mechanism parameters.
+.IP "\(bu" 2
+.BR ecdh\-aeskw :
+Use mechanism 
+.B CKM_ECDH_AES_KEY_WRAP
+for key wrapping. Wrapping is done with an EC public key, unwrapping is done
+with the corresponding EC private key. Use the
+Use the
+.BR \-\-aes\-key\-size
+.I AES-KEYBITS
+option to specify the key size of the temporary AES key, and the
+.BR \-\-kdf\-alg
+.IR KDF\-ALG ,
+and
+.B \-\-shared\-data
+.IR SHARED\-DATA ,
+options to specify the ECDH mechanism parameters.
+.PP
+Possible values for the
+.I KEYTYPE
+argument are:
+.BR des |\: 3des |\: generic |\: sha\-1\-hmac |\: sha224\-hmac |\: \
+sha256\-hmac |\: sha384\-hmac |\: sha512\-hmac |\: sha512/224\-hmac |\: \
+sha512/256\-hmac |\: sha3\-224\-hmac |\: sha3\-256\-hmac |\: sha3\-384\-hmac \
+|\: sha3\-512\-hmac |\: aes |\: aes\-xts |\: rsa |\: dh |\: dsa |\: ec |\: \
+ibm\-dilithium |\: ibm\-kyber .
+.PP
+Specify the
+.BR \-\-kek\-label | \-K
+.IR LABEL ,
+and/or the 
+.BR \-\-kek\-id | \-k
+.IR ID 
+option to select the key encrypting key (KEK). Only keys with the right object
+class and key type that fit to the wrapping mechanism are selected. If
+multiple key objects match, you are prompted to confirm to use the desired
+key object. If the
+.BR \-\-force | \-f
+option is specified, then the first matching key object is used.
+You can use wildcards (\fB*\fP and \fB?\fP) in the
+.I LABEL
+specification. To specify a wildcard character that should not be treated as a
+wildcard, it must be escaped using a backslash (\fB\e*\fP or \fB\e?\fP).
+Also, a backslash character that should not be treated as an escape character
+must be escaped (\fB\e\e\fP). The
+.B ID
+must be specified as hex string (not prefixed with 0x) of any number of bytes.
+.PP
+The
+.BR \-\-label | \-L
+.I LABEL
+option sets the
+.B CKA_LABEL
+attribute of the unwrapped key and the
+.BR \-\-attr | \-a
+.I ATTRS
+option can be used to set the boolean attributes of the unwrapped key (see
+below for detailed description of the attributes). The
+.BR \-\-id | \-i
+.I ID
+option can be used to set the value of the
+.B CKA_ID
+attribute of the unwrapped key.
+.PP
+The
+.BR \-\-file | \-F
+.I FILENAME
+option specifies the file name of the file containing the wrapped key material.
+By default this is a PEM file using a p11sak-specific type and a header that
+contains information about the wrapping mechanism and mechanism parameters
+(if any). If option
+.BR \-\-raw | \-R
+is specified then the file is a raw binary file and the raw wrapped key
+material is contained. In this case, arguments 
+.I WRAP\-MECH
+and
+.IR KEYTYPE ,
+as well as wrapping mechanism specific options to specify mechanism parameters
+are required.
+.PP
+.B Note:
+A token may not support all wrapping mechanisms, nor all mechanism parameter
+combinations. Also, not all tokens may support to unwrap all key types.
+.
+.
+.
 .PP
 .SS "Listing certificates"
 .
@@ -2071,6 +2495,22 @@ Specifies the kind of the asymmetric key to import. Possible values are
 .BR public | private .
 .PP
 .
+.SS "WRAP\-MECH"
+.
+Specifies the wrapping mechanism for use with exporting or importing a key by
+wrapping it with a key encrypting key. Possible values are
+.BR aes-cbc-pad |\: aeskw-kwp |\: aeskw-pkcs7 |\: rsa-pkcs |\: rsa-oaep |\:
+rsa-aeskw |\: ecdh-aeskw .
+Dependent on the key wrapping mechanism, additional options may be supported
+to specify mechanism parameters. See sections
+.B Exporting a key by wrapping it with a key encrypting key
+and
+.B Importing a key by unwrapping it with a key encrypting key
+under
+.B COMMANDS
+for a description of the wrapping mechanism and its mechanism parameter options.
+.PP
+.
 .
 .
 .SH OPTIONS
@@ -2153,8 +2593,10 @@ command, the
 .B remove\-key
 command, the
 .B set\-key\-attrs
-command, and the
+command, the
 .B export\-key
+command, and the
+.B wrap\-key
 command, specify the label to filter the list of keys to operate on. You can
 use wildcards (\fB*\fP and \fB?\fP) in the
 .I LABEL
@@ -2195,8 +2637,10 @@ command, the
 .B remove\-key
 command, the
 .B set\-key\-attrs
-command, and the
+command, the
 .B export\-key
+command, and the
+.B wrap\-key
 command, specify the key ID to filter the list of keys to operate on.
 .PP
 For generation of asymmetric keys, the same ID is set for both, the public and
@@ -2210,17 +2654,21 @@ the private key.
 .BR \-\-attr | \-a\~\fIATTRS\fP | \fIPUB\-ATTRS\fP : \fIPRIV\-ATTRS\fP
 For the
 .B generate\-key
-command the and
+command, the
 .B import\-key
-commands, specify the boolean attributes that are to be set for the new key(s).
+command, and the
+.B unwrap\-key
+command, specify the boolean attributes that are to be set for the new key(s).
 For commands such as the
 .B list\-key
 command, the
 .B remove\-key
 command, the
 .B set\-key\-attrs
-command, and the
+command, the
 .B export\-key
+command, and the
+.B wrap\-key
 command, specify the attribute values to filter the list of keys to operate on.
 .PP
 .RS 8
@@ -2473,6 +2921,12 @@ sorts by label in ascending order and then by key type in descending order.
 .BR \-\-force | \-f
 Suppress the prompt whether the user wants to remove, update, or export the keys
 matching the specified \fIKEYTYPE\fP, label, and ID filter (if specified).
+For the
+.B wrap\-key
+command and the
+command, and the
+.B unwrap\-key
+command, also supress the prompt for a confirmation to use a key as KEK.
 .RE
 .PP
 .
@@ -2507,6 +2961,35 @@ match the filter, you are prompted to confirm to overwrite the previously
 created file, unless the
 .BR \-\-force | \-f
 option is specified.
+.PP
+For the
+.B wrap\-key
+command, this option specifies the file name of the file to which the wrapped
+key material is written to. By default this is a PEM file using a p11sak
+specific type and a header that contains information about the wrapping
+mechanism and mechanism parameters (if any). If option
+.BR \-\-raw | \-R
+is specified then the file is a raw binary file and the raw wrapped key
+material is written to it. If multiple keys match the filter, the keys are
+appended to the PEM file specified with the
+.BR \-\-file | \-F
+.I FILENAME
+option. If option
+.BR \-\-raw | \-R 
+is specified, and multiple keys match the filter, you are prompted to
+confirm to overwrite the previously created file, unless the
+.BR \-\-force | \-f
+option is specified.
+.PP
+For the
+.B unwrap\-key
+command, this option specifies the file name of the file containing the wrapped
+key material. By default this is a PEM file using a p11sak-specific type and a
+header that contains information about the wrapping mechanism and mechanism
+parameters (if any). If option
+.BR \-\-raw | \-R
+is specified then the file is a raw binary file and the raw wrapped key
+material is contained.
 .RE
 .PP
 .
@@ -2638,6 +3121,39 @@ are not specified.
 .
 .
 .TP 8
+.BR \-\-kek\-label | \-K\~\fILABEL\fP
+Select the key encrypting key (KEK) by label. Only keys with the right object
+class and key type that fit to the wrapping mechanism are selected.
+If multiple key objects match, you are prompted to confirm to use the
+desired key object. If the
+.BR \-\-force | \-f
+option is specified, then the first matching key object is used.
+You can use wildcards (\fB*\fP and \fB?\fP) in the
+.I LABEL
+specification. To specify a wildcard character that should not be treated as a
+wildcard, it must be escaped using a backslash (\fB\e*\fP or \fB\e?\fP).
+Also, a backslash character that should not be treated as an escape character
+must be escaped (\fB\e\e\fP). 
+.RE
+.PP
+.
+.
+.
+.TP 8
+.BR \-\-kek\-id | \-k\~\fILABEL\fP
+Select the key encrypting key (KEK) by ID. Only keys with the right object
+class and key type that fit to the wrapping mechanism are selected.
+Specify a hex string (not prefixed with 0x) of any number of bytes.
+If multiple key objects match, you are prompted to confirm to use the
+desired key object. If the
+.BR \-\-force | \-f
+option is specified, then the first matching key object is used.
+.RE
+.PP
+.
+.
+.
+.TP 8
 .BR \-\-ca\-cert | \-C
 Flag the certificate as a Certificate Authority (CA) certificate.
 If the certificate has the \fBBasicConstraints CA\fP flag on, it is also flagged
@@ -2662,6 +3178,146 @@ tool and/or the respective command and then exits.
 Prints the version of the
 .B p11sak
 tool and then exits.
+.RE
+.PP
+.
+.
+.
+.SS OPTIONS FOR ARGUMENT \fIWRAP-MECH\fB VALUE aes\-cbc\-pad:
+.
+.TP 8
+.BR \-\-iv | \-I~\fIIV\fP
+The initialization vector (IV) for the AES\-CBC operation. Specify a hex
+string (not prefixed with 0x) of exactly 16 bytes. The default is to use 16
+all zero bytes.
+.RE
+.PP
+.
+.
+.
+.SS OPTIONS FOR ARGUMENT \fIWRAP-MECH\fB VALUE aeskw\-kwp:
+.
+.TP 8
+.BR \-\-iv | \-I~\fIIV\fP
+The initialization vector (IV) for the AESKW\-KWP operation. Specify a hex
+string (not prefixed with 0x) of exactly 4 bytes. If no IV is specified then
+the default IV as per AESKW\-KWP specification is used.
+.RE
+.PP
+.
+.
+.
+.SS OPTIONS FOR ARGUMENT \fIWRAP-MECH\fB VALUE aeskw\-pkcs7:
+.
+.TP 8
+.BR \-\-iv | \-I~\fIIV\fP
+The initialization vector (IV) for the AESKW\-PKCS7 operation. Specify a hex
+string (not prefixed with 0x) of exactly 8 bytes. If no IV is specified then
+the default IV as per AESKW\-PKCS7 specification is used.
+.RE
+.PP
+.
+.
+.
+.SS OPTIONS FOR ARGUMENT \fIWRAP-MECH\fB VALUE rsa\-oaep:
+.
+.TP 8
+.BR \-\-hash\-alg\~\fIHASH\-ALG\fP
+The message digest algorithm used to calculate the digest of the OAEP encoding
+parameter. The default is to use the samealgorithm as specified with option
+.BR \-\-mgf\-alg ,
+or SHA256 if neither is specified. Possible algorithms are:
+.BR SHA\-1 |\: SHA224 |\: SHA256 |\: SHA384 |\: SHA512 |\: SHA3\-224 |\: \
+SHA3\-256 |\: SHA3\-384 |\: SHA3\-512 .
+.
+.
+.
+.TP 8
+.BR \-\-mgf\-alg\~\fIMGF\-ALG\fP
+The mask generation function algorithm to use on the encoded block. The default
+is to use the same algorithm as specified with option
+.BR \-\-hash\-alg ,
+or SHA256 if neither is specified. Possible algorithms are:
+.BR SHA\-1 |\: SHA224 |\: SHA256 |\: SHA384 |\: SHA512 |\: SHA3\-224 |\: \
+SHA3\-256 |\: SHA3\-384 |\: SHA3\-512 .
+.
+.
+.
+.TP 8
+.BR \-\-source\-data\~\fISOURCE\-DATA\fP
+The source of the OAEP encoding parameter. Specify a hex string (not prefixed
+with 0x) of any number of bytes. The default is that no source data is used.
+.RE
+.PP
+.
+.
+.
+.SS OPTIONS FOR ARGUMENT \fIWRAP-MECH\fB VALUE rsa\-aeskw:
+.
+.TP 8
+.BR \-\-aes\-key\-size\~\fIAES\-KEYBITS\fP
+The size of the temporary AES key in bits. The default is 256 bits. Possible
+key sizes are:
+.BR 128 | 192 | 256 .
+.
+.
+.
+.TP 8
+.BR \-\-hash\-alg\~\fIHASH\-ALG\fP
+The message digest algorithm used to calculate the digest of the OAEP encoding
+parameter. The default is to use the samealgorithm as specified with option
+.BR \-\-mgf\-alg ,
+or SHA256 if neither is specified. Possible algorithms are:
+.BR SHA\-1 |\: SHA224 |\: SHA256 |\: SHA384 |\: SHA512 |\: SHA3\-224 |\: \
+SHA3\-256 |\: SHA3\-384 |\: SHA3\-512 .
+.
+.
+.
+.TP 8
+.BR \-\-mgf\-alg\~\fIMGF\-ALG\fP
+The mask generation function algorithm to use on the encoded block. The default
+is to use the same algorithm as specified with option
+.BR \-\-hash\-alg ,
+or SHA256 if neither is specified. Possible algorithms are:
+.BR SHA\-1 |\: SHA224 |\: SHA256 |\: SHA384 |\: SHA512 |\: SHA3\-224 |\: \
+SHA3\-256 |\: SHA3\-384 |\: SHA3\-512 .
+.
+.
+.
+.TP 8
+.BR \-\-source\-data\~\fISOURCE\-DATA\fP
+The source of the OAEP encoding parameter. Specify a hex string (not prefixed
+with 0x) of any number of bytes. The default is that no source data is used.
+.RE
+.PP
+.
+.
+.
+.SS OPTIONS FOR ARGUMENT \fIWRAP-MECH\fB VALUE ecdh\-aeskw:
+.
+.TP 8
+.BR \-\-aes\-key\-size\~\fIAES\-KEYBITS\fP
+The size of the temporary AES key in bits. The default is 256 bits. Possible
+key sizes are:
+.BR 128 | 192 | 256 .
+.
+.
+.
+.TP 8
+.BR \-\-kdf\-alg\~\fIKDF\-ALG\fP
+The key derivation function algorithm used on the shared secret value to
+generate the internal AES key. The default is SHA256. Possible algorithms are:
+.BR SHA\-1 |\: SHA224 |\: SHA256 |\: SHA384 |\: SHA512 |\: SHA3\-224 |\: \
+SHA3\-256 |\: SHA3\-384 |\: SHA3\-512 |\: SHA\-1\-SP800 |\: SHA224\-SP800 |\: \
+SHA256\-SP800 |\: SHA384\-SP800 |\: SHA512\-SP800 |\: SHA3\-224\-SP800 |\: \
+SHA3\-256\-SP800 |\: SHA3\-384\-SP800 |\: SHA3\-512\-SP800 .
+.
+.
+.
+.TP 8
+.BR \-\-shared\-data\~\fISHARED\-DATA\fP
+Some data shared between the two parties. Specify a hex string (not prefixed
+with 0x) of any number of bytes. The default is that no shared data is used.
 .RE
 .PP
 .
@@ -2778,6 +3434,23 @@ Allocating memory has failed.
 .
 .SS CKR_FUNCTION_FAILED (0x00000006):
 A subfunction or library call has failed.
+.PP
+.
+.
+.
+.SS CKR_KEY_UNEXTRACTABLE (0x0000006A):
+A key has attribute
+.B CKA_EXTRACTABLE
+set to
+.B CK_FALSE
+and can thus not be wrapped or extracted otherwise.
+.PP
+.
+.
+.
+.SS CKR_KEY_NOT_WRAPPABLE (0x00000069):
+A key can not be wrapped, because the token does not support to wrap that
+key type with the used wrapping mechanism.
 .PP
 .
 .
