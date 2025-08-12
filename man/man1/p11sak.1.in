@@ -76,7 +76,7 @@ sha512/256\-hmac |\: sha3\-224\-hmac |\: sha3\-256\-hmac |\: sha3\-384\-hmac \
 ibm\-dilithium |\: ibm\-kyber .
 See below for a detailed description of the arguments and options. The
 .BR \-\-help | \-h
-option will also show the arguments and options available.
+option also shows the arguments and options available.
 .
 .PP
 .SS "Generating DES/3DES keys"
@@ -399,7 +399,7 @@ The following arguments can be used for respective groups:
 modp1536 |\: modp2048 |\: modp3072 |\: modp4096 |\: modp6144 |\: modp8192
 .PP
 .B Note:
-Not all groups are supported by all tokens and key generation will fail
+Not all groups are supported by all tokens and key generation fails
 when the specified
 .I GROUP
 is not supported. Also, not all groups are supported by all OpenSSL versions.
@@ -530,7 +530,7 @@ brainpoolP384r1 |\: brainpoolP384t1 |\: brainpoolP512r1 |\: brainpoolP512t1 \
 |\: curve25519 |\: curve448 |\: ed25519 |\: ed448
 .PP
 .B Note:
-Not all curves will be supported by all tokens and key generation will fail
+Not all curves are supported by all tokens and key generation fails
 when the specified
 .I CURVE
 is not supported.
@@ -588,8 +588,8 @@ be used for respective keys:
 .BR r2_65 |\: r2_87 |\: r3_44 |\: r3_65 |\: r3_87
 .PP
 .B Note:
-Not all IBM Dilithium versions will be supported by all tokens and key
-generation will fail when the specified
+Not all IBM Dilithium versions are supported by all tokens and key
+generation fails when the specified
 .I VERSION
 is not supported.
 .PP
@@ -646,8 +646,8 @@ be used for respective keys:
 .BR r2_768 | r2_1024
 .PP
 .B Note:
-Not all IBM Kyber versions will be supported by all tokens and key
-generation will fail when the specified
+Not all IBM Kyber versions are supported by all tokens and key
+generation fails when the specified
 .I VERSION
 is not supported.
 .PP
@@ -822,7 +822,7 @@ The
 .B ID
 must be specified as hex string (not prefixed with 0x) of any number of bytes.
 .PP
-The user will be prompted to confirm the removal of the key. To suppress the
+The user is prompted to confirm the removal of the key. To suppress the
 prompt, use the
 .BR \-\-force | \-f
 option.
@@ -916,7 +916,7 @@ or
 .I ID
 options must be specified.
 .PP
-The user will be prompted to confirm the updating of the key. To suppress the
+The user is prompted to confirm the updating of the key. To suppress the
 prompt, use the
 .BR \-\-force | \-f
 option.
@@ -1003,7 +1003,7 @@ option to specify the new label, or the
 .I ID
 option to specify the new ID to set for the copied key.
 .PP
-The user will be prompted to confirm the copying of the key. To suppress the
+The user is prompted to confirm the copying of the key. To suppress the
 prompt, use the
 .BR \-\-force | \-f
 option.
@@ -1090,7 +1090,7 @@ with the
 option or environment variable
 .BR P11SAK_PEM_PASSWORD .
 If the PEM file is password protected, but no PEM password is specified, you
-will be prompted for the PEM password.
+are prompted for the PEM password.
 Specify the
 .BR \-\-opaque | \-o
 option to import an opaque secure key blob. Not all tokens support this.
@@ -1192,9 +1192,9 @@ filter, the keys are appended to the PEM file specified with the
 .BR \-\-file | \-F
 .I FILENAME
 option. If multiple symmetric keys or a mixture of asymmetric and symmetric keys
-match the filter, then you are prompted to confirm to overwrite the previously
+match the filter, you are prompted to confirm to overwrite the previously
 created file, unless the
-.RB [ \-\-force | \-f ]
+.BR \-\-force | \-f
 option is specified.
 .PP
 Specify the
@@ -1355,8 +1355,10 @@ Use the
 .I ID
 option to set an ID for the extracted public key object. 
 .PP
-The user will be prompted to confirm the extraction of the public key from the
-private key objects. To suppress the prompt, use the --force|-f option.
+The user is prompted to confirm the extraction of the public key from the
+private key objects. To suppress the prompt, use the
+.BR \-\-force | \-f
+option.
 .PP
 .
 .
@@ -1499,7 +1501,7 @@ The
 .B ID
 must be specified as hex string (not prefixed with 0x) of any number of bytes.
 .PP
-The user will be prompted to confirm the removal of the certificate. To suppress
+The user is prompted to confirm the removal of the certificate. To suppress
 the prompt, use the
 .BR \-\-force | \-f
 option.
@@ -1589,7 +1591,7 @@ or
 .I ID
 options must be specified.
 .PP
-The user will be prompted to confirm the updating of the certificate. To suppress
+The user is prompted to confirm the updating of the certificate. To suppress
 the prompt, use the
 .BR \-\-force | \-f
 option.
@@ -1671,7 +1673,7 @@ option to specify the new label, or the
 .I ID
 option to specify the new ID to set for the copied certificate.
 .PP
-The user will be prompted to confirm the copying of the certificate. To suppress
+The user is prompted to confirm the copying of the certificate. To suppress
 the prompt, use the
 .BR \-\-force | \-f
 option.
@@ -1814,10 +1816,10 @@ The
 option specifies the file name of the file to which the certificates to be 
 exported are written to. This can be an OpenSSL PEM file or binary (DER-encoded)
 file. If it's a PEM file, multiple certificates can be exported to the same 
-file. If it's a binary file, each subsequent export will overwrite the previous
+file. If it's a binary file, each subsequent export overwrites the previous
 data in the output file. You are prompted to confirm to overwrite the previously
 created file, unless the
-.RB [ \-\-force | \-f ]
+.BR \-\-force | \-f
 option is specified.
 .PP
 Specify the
@@ -1932,8 +1934,10 @@ Use the
 .I ID
 option to set an ID for the extracted public key object. 
 .PP
-The user will be prompted to confirm the extraction of the public key from the
-certificate. To suppress the prompt, use the --force|-f option.
+The user is prompted to confirm the extraction of the public key from the
+certificate. To suppress the prompt, use the
+.BR \-\-force | \-f
+option.
 .PP
 .
 .
@@ -2009,7 +2013,7 @@ Specifies the Diffie\-Hellman FFC group name for an DH key. Possible values are
 modp1536 |\: modp2048 |\: modp3072 |\: modp4096 |\: modp6144 |\: modp8192 .
 .PP
 .B Note:
-Not all groups are supported by all tokens and key generation will fail
+Not all groups are supported by all tokens and key generation fails
 when the specified
 .I GROUP
 is not supported. Also, not all groups are supported by all OpenSSL versions.
@@ -2126,7 +2130,7 @@ option is not specified, environment variable
 .B PKCS11_SO_PIN
 is used. If
 .B PKCS11_SO_PIN
-is not set, then you will be prompted for the SO PIN. SO can only access public
+is not set, you are prompted for the SO PIN. SO can only access public
 token objects
 .RB ( CKA_PRIVATE = FALSE ),
 but SO can set attribute
@@ -2222,7 +2226,7 @@ command, specify the attribute values to filter the list of keys to operate on.
 .RS 8
 .B Note:
 Not all boolean attributes are applicable to all key types and/or commands and
-will be silently ignored if not applicable.
+are silently ignored if not applicable.
 .PP
 The respective attributes are set to
 .B TRUE
@@ -2459,7 +2463,7 @@ and its corresponding letter:
 .PP
 Example:
 .B l:a,k:d
-will sort by label in ascending order and then by key type in descending order.
+sorts by label in ascending order and then by key type in descending order.
 .RE
 .PP
 .
@@ -2488,7 +2492,7 @@ protected. Specify the PEM password with the
 option or environment variable
 .BR P11SAK_PEM_PASSWORD .
 If the PEM file is password protected, but no PEM password is specified, you
-will be prompted for the PEM password.
+are prompted for the PEM password.
 .PP
 .RS 8
 For the
@@ -2499,9 +2503,9 @@ key material in clear is written to. For asymmetric keys, this is an OpenSSL
 PEM file where the public or private keys are written to. If multiple asymmetric
 keys match the filter, the keys are appended to the PEM file specified with this
 option. If multiple symmetric keys or a mixture of asymmetric and symmetric keys
-match the filter, then you are prompted to confirm to overwrite the previously
+match the filter, you are prompted to confirm to overwrite the previously
 created file, unless the
-.RB [ \-\-force | \-f ]
+.BR \-\-force | \-f
 option is specified.
 .RE
 .PP
@@ -2518,7 +2522,7 @@ option for the
 command. If the PEM file is password protected, but this option is not
 specified, nor environment variable
 .B P11SAK_PEM_PASSWORD
-is set, you will be prompted for the PEM password.
+is set, you are prompted for the PEM password.
 .RE
 .PP
 .
@@ -2699,7 +2703,7 @@ The token user PIN can be specified via the environment variable
 \fBPKCS11_USER_PIN\fP. If this environment variable is not set, and the option
 .BR \-\-pin | \-p
 .I PIN
-is not specified, p11sak will prompt for the token user PIN interactively.
+is not specified, p11sak prompts for the token user PIN interactively.
 .PP
 .
 .SS "PKCS11_SO_PIN"
@@ -2709,7 +2713,7 @@ is specified, the token SO PIN can be specified via the environment variable
 \fBPKCS11_SO_PIN\fP. If this environment variable is not set, and the option
 .BR \-\-pin | \-p
 .I PIN
-is not specified, p11sak will prompt for the token SO PIN interactively.
+is not specified, p11sak prompts for the token SO PIN interactively.
 .PP
 .
 .SS "PKCSLIB"
@@ -2725,7 +2729,7 @@ password can be specified via the environment variable
 option
 .BR \-\-pem\-password | \-P
 .I PASSWORD
-is not specified, p11sak will prompt for the PEM password interactively.
+is not specified, p11sak prompts for the PEM password interactively.
 .
 .
 .

@@ -1142,11 +1142,11 @@ static const struct p11tool_opt p11sak_generic_opts[] = {
     { .short_opt = 'p', .long_opt = "pin", .required = false,                  \
       .arg = { .type = ARG_TYPE_STRING, .required = true,                      \
                .value.string = &opt_pin, .name = "USER-PIN" },                 \
-      .description = "The PKCS#11 user pin. If this option is not specified, " \
+      .description = "The PKCS#11 user PIN. If this option is not specified, " \
                      "and environment variable PKCS11_USER_PIN is not set, "   \
-                     "then you will be prompted for the PIN. If the '--so' "   \
-                     "option is specified, specify the SO pin, or supply "     \
-                     "the SO pin via environment variable PKCS11_SO_PIN.", },  \
+                     "then you are prompted for the PIN. If the '--so' "   \
+                     "option is specified, specify the SO PIN, or supply "     \
+                     "the SO PIN via environment variable PKCS11_SO_PIN.", },  \
     { .short_opt = 0, .long_opt = "force-pin-prompt", .required = false,       \
       .long_opt_val = OPT_FORCE_PIN_PROMPT,                                    \
       .arg = { .type = ARG_TYPE_PLAIN, .required = false,                      \
@@ -1164,9 +1164,9 @@ static const struct p11tool_opt p11sak_generic_opts[] = {
       .arg = { .type = ARG_TYPE_PLAIN, .required = false,                      \
                .value.plain = &opt_so, },                                      \
       .description = "Login as SO (security officer). Option '-p'/'--pin' "    \
-                     "must specify the SO pin, or if the '-p'/'--pin' option " \
+                     "must specify the SO PIN, or if the '-p'/'--pin' option " \
                      "is not specified, environment variable PKCS11_SO_PIN "   \
-                     "is used. If PKCS11_SO_PIN is not set, then you will be " \
+                     "is used. If PKCS11_SO_PIN is not set, then you are " \
                      "prompted for the SO PIN. SO can only access public "     \
                      "token objects (CKA_PRIVATE=FALSE).", }
 
@@ -1558,7 +1558,7 @@ static const struct p11tool_opt p11sak_list_key_opts[] = {
                      " The sort order ('a' = ascending (default), 'd' = "
                      "descending) can be appended  to the  field designator by "
                      "a colon (':').\n"
-                     "Example: 'l:a,k:d' will sort by label in ascending order "
+                     "Example: 'l:a,k:d' sorts by label in ascending order "
                      "and then by key type in descending order.", },
     { .short_opt = 0, .long_opt = NULL, },
 };
@@ -1587,7 +1587,7 @@ static const struct p11tool_opt p11sak_list_cert_opts[] = {
                      "The sort order ('a' = ascending (default), 'd' = "
                      "descending) can be appended  to the  field designator by "
                      "a colon (':').\n"
-                     "Example: 'l:a,n:d' will sort by label in ascending order "
+                     "Example: 'l:a,n:d' sorts by label in ascending order "
                      "and then by common name in descending order.", },
     { .short_opt = 0, .long_opt = NULL, },
 };
@@ -1662,7 +1662,7 @@ static const struct p11tool_opt p11sak_remove_key_opts[] = {
       .arg =  { .type = ARG_TYPE_PLAIN, .required = false,
                 .value.plain = &opt_force, },
       .description = "Do not prompt for a confirmation to remove a key. "
-                     "Use with care, all keys matching the filter will be "
+                     "Use with care, all keys matching the filter are "
                      "removed!", },
     { .short_opt = 0, .long_opt = NULL, },
 };
@@ -1674,8 +1674,8 @@ static const struct p11tool_opt p11sak_remove_cert_opts[] = {
       .arg =  { .type = ARG_TYPE_PLAIN, .required = false,
                 .value.plain = &opt_force, },
       .description = "Do not prompt for a confirmation to remove a certificate. "
-                     "Use with care, all certificates matching the filter will "
-                     "be removed!", },
+                     "Use with care, all certificates matching the filter are "
+                     "removed!", },
     { .short_opt = 0, .long_opt = NULL, },
 };
 
@@ -1708,7 +1708,7 @@ static const struct p11tool_opt p11sak_set_key_attr_opts[] = {
                 .value.plain = &opt_force, },
       .description = "Do not prompt for a confirmation to set the attributes "
                      "of a key. Use with care, all keys matching the filter "
-                     "will be changed!", },
+                     "are changed!", },
     { .short_opt = 'A', .long_opt = "new-attr", .required = false,
       .arg =  { .type = ARG_TYPE_STRING, .required = true,
                 .value.string = &opt_new_attr, .name = "ATTRS", },
@@ -1736,7 +1736,7 @@ static const struct p11tool_opt p11sak_set_cert_attr_opts[] = {
                 .value.plain = &opt_force, },
       .description = "Do not prompt for a confirmation to set the attributes "
                      "of a certificate. Use with care, all certificates "
-                     "matching the filter will be changed!", },
+                     "matching the filter are changed!", },
     { .short_opt = 'A', .long_opt = "new-attr", .required = false,
       .arg =  { .type = ARG_TYPE_STRING, .required = true,
                 .value.string = &opt_new_attr, .name = "ATTRS", },
@@ -1784,7 +1784,7 @@ static const struct p11tool_opt p11sak_copy_key_opts[] = {
       .arg =  { .type = ARG_TYPE_PLAIN, .required = false,
                 .value.plain = &opt_force, },
       .description = "Do not prompt for a confirmation to copy a key. Use with "
-                     "care, all keys matching the filter will be copied!", },
+                     "care, all keys matching the filter are copied!", },
     { .short_opt = 'A', .long_opt = "new-attr", .required = false,
       .arg =  { .type = ARG_TYPE_STRING, .required = true,
                 .value.string = &opt_new_attr, .name = "ATTRS", },
@@ -1812,7 +1812,7 @@ static const struct p11tool_opt p11sak_copy_cert_opts[] = {
                 .value.plain = &opt_force, },
       .description = "Do not prompt for a confirmation to copy a certificate. "
                      "Use with care, all certificates matching the filter "
-                     "will be copied!", },
+                     "are copied!", },
     { .short_opt = 'A', .long_opt = "new-attr", .required = false,
       .arg =  { .type = ARG_TYPE_STRING, .required = true,
                 .value.string = &opt_new_attr, .name = "ATTRS", },
@@ -1884,7 +1884,7 @@ static const struct p11tool_opt p11sak_import_key_opts[] = {
                      "password protected. Specify the PEM password with the "
                      "'-P'/'--pem-password' option or environment variable "
                      "P11SAK_PEM_PASSWORD. If the PEM file is password "
-                     "protected, but no PEM password is specified, you will be "
+                     "protected, but no PEM password is specified, you are "
                      "prompted for the PEM password.", },
     { .short_opt = 'P', .long_opt = "pem-password", .required = false,
       .arg =  { .type = ARG_TYPE_STRING, .required = true,
@@ -1893,7 +1893,7 @@ static const struct p11tool_opt p11sak_import_key_opts[] = {
                      "'-F'/'--file' option. If the PEM file is password "
                      "protected, but this option is not specified, nor "
                      "environment variable P11SAK_PEM_PASSWORD is set, you "
-                     "will be prompted for the PEM password.", },
+                     "are prompted for the PEM password.", },
     { .short_opt = 0, .long_opt = "force-pem-pwd-prompt", .required = false,
       .long_opt_val = OPT_FORCE_PEM_PWD_PROMPT,
       .arg = { .type = ARG_TYPE_PLAIN, .required = false,
@@ -2052,7 +2052,7 @@ static const struct p11tool_opt p11sak_export_key_opts[] = {
       .arg =  { .type = ARG_TYPE_PLAIN, .required = false,
                 .value.plain = &opt_force, },
       .description = "Do not prompt for a confirmation to export a key. "
-                     "Use with care, all keys matching the filter will be "
+                     "Use with care, all keys matching the filter are "
                      "exported! See the description of the '-F'/'--file' "
                      "option about what happens when multiple keys match the "
                      "filter and are exported into the same file.", },
@@ -2096,9 +2096,9 @@ static const struct p11tool_opt p11sak_export_key_opts[] = {
       .arg = { .type = ARG_TYPE_PLAIN, .required = false,
                .value.plain = &opt_uri_pin_value, },
       .description = "When exporting the key's PKCS#11 URI in PEM form, "
-                     "include the PKCS#11 user pin value in the URI using "
+                     "include the PKCS#11 user PIN value in the URI using "
                      "the 'pin-value' query attribute. This reveals the "
-                     "PKCS#11 user pin in clear, use with care! "
+                     "PKCS#11 user PIN in clear, use with care! "
                      "This option can only be used together with the "
                      "'-u'/'--uri-pem' option, and when options "
                      "'-N'/'--no-login' and '--so' are not specified.", },
@@ -2109,9 +2109,9 @@ static const struct p11tool_opt p11sak_export_key_opts[] = {
       .description = "When exporting the key's PKCS#11 URI in PEM form, "
                      "include the 'pin-source' query attribute in the URI, "
                      "referencing the file name specified with this option. "
-                     "The PKCS#11 user pin value is written into that file as "
+                     "The PKCS#11 user PIN value is written into that file as "
                      "part of the export operation. This reveals the PKCS#11 "
-                     "user pin in clear, use with care! Adjust the file "
+                     "user PIN in clear, use with care! Adjust the file "
                      "permissions of the specified file so that it can only be "
                      "read by the desired user(s). "
                      "This option can only be used together with the "
@@ -2139,7 +2139,7 @@ static const struct p11tool_opt p11sak_extract_pubkey_opts[] = {
                 .value.plain = &opt_force, },
       .description = "Do not prompt for a confirmation to extract public keys. "
                      "Use with care, public keys of all private keys matching "
-                     "the filter will be extracted!", },
+                     "the filter are extracted!", },
     { .short_opt = 'A', .long_opt = "new-attr", .required = false,
       .arg =  { .type = ARG_TYPE_STRING, .required = true,
                 .value.string = &opt_new_attr, .name = "ATTRS", },
@@ -2168,10 +2168,10 @@ static const struct p11tool_opt p11sak_export_cert_opts[] = {
       .arg =  { .type = ARG_TYPE_PLAIN, .required = false,
                 .value.plain = &opt_force, },
       .description = "Do not prompt for a confirmation to export a certificate. "
-                     "Use with care, all certificates matching the filter will be "
+                     "Use with care, all certificates matching the filter are "
                      "exported! If it's a PEM file, multiple certificates can "
                      "be exported to the same file. If it's a binary file, "
-                     "each subsequent export will overwrite the previous data "
+                     "each subsequent export overwrites the previous data "
                      "in the output file. You are prompted to confirm to "
                      "overwrite the previously created file, unless the "
                      "[--force|-f] option is specified.", },
@@ -2198,9 +2198,9 @@ static const struct p11tool_opt p11sak_export_cert_opts[] = {
       .arg = { .type = ARG_TYPE_PLAIN, .required = false,
                .value.plain = &opt_uri_pin_value, },
       .description = "When exporting the certifcate's PKCS#11 URI in PEM form, "
-                     "include the PKCS#11 user pin value in the URI using "
+                     "include the PKCS#11 user PIN value in the URI using "
                      "the 'pin-value' query attribute. This reveals the "
-                     "PKCS#11 user pin in clear, use with care! "
+                     "PKCS#11 user PIN in clear, use with care! "
                      "This option can only be used together with the "
                      "'-u'/'--uri-pem' option, and when options "
                      "'-N'/'--no-login' and '--so' are not specified.", },
@@ -2211,9 +2211,9 @@ static const struct p11tool_opt p11sak_export_cert_opts[] = {
       .description = "When exporting the certifcate's PKCS#11 URI in PEM form, "
                      "include the 'pin-source' query attribute in the URI, "
                      "referencing the file name specified with this option. "
-                     "The PKCS#11 user pin value is written into that file as "
+                     "The PKCS#11 user PIN value is written into that file as "
                      "part of the export operation. This reveals the PKCS#11 "
-                     "user pin in clear, use with care! Adjust the file "
+                     "user PIN in clear, use with care! Adjust the file "
                      "permissions of the specified file so that it can only be "
                      "read by the desired user(s). "
                      "This option can only be used together with the "
@@ -2230,7 +2230,7 @@ static const struct p11tool_opt p11sak_extract_cert_pubkey_opts[] = {
                 .value.plain = &opt_force, },
       .description = "Do not prompt for a confirmation to extract public keys. "
                      "Use with care, public keys of all certificates matching "
-                     "the filter will be extracted!", },
+                     "the filter are extracted!", },
     { .short_opt = 'A', .long_opt = "new-attr", .required = false,
       .arg =  { .type = ARG_TYPE_STRING, .required = true,
                 .value.string = &opt_new_attr, .name = "ATTRS", },
