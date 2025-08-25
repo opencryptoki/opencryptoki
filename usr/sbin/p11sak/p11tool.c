@@ -2284,7 +2284,7 @@ static CK_RV p11tool_open_pkcs11_session(CK_SLOT_ID slot, CK_FLAGS flags,
     if (pin != NULL) {
         rc = p11tool_pkcs11_funcs->C_Login(p11tool_pkcs11_session, user_type,
                                            (CK_CHAR *)pin, strlen(pin));
-        if (rc != CKR_OK) {
+        if (rc != CKR_OK && rc != CKR_USER_ALREADY_LOGGED_IN) {
             warnx("Login failed: C_Login: 0x%lX: %s", rc, p11_get_ckr(rc));
             return rc;
         }
@@ -2358,7 +2358,7 @@ CK_RV p11tool_init_pkcs11(const struct p11tool_cmd *command, bool no_login,
         goto done;
 
     rc = p11tool_pkcs11_funcs->C_Initialize(NULL);
-    if (rc != CKR_OK) {
+    if (rc != CKR_OK && rc != CKR_CRYPTOKI_ALREADY_INITIALIZED) {
         warnx("C_Initialize failed: 0x%lX: %s", rc, p11_get_ckr(rc));
         goto done;
     }
