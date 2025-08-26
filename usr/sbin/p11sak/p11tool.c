@@ -2529,7 +2529,9 @@ int p11tool_pem_password_cb(char *buf, int size, int rwflag, void *userdata)
         pem_password = getenv(data->env_var_name);
 
     if (data->force_prompt || pem_password == NULL) {
-        if (asprintf(&msg, "Please enter PEM password for '%s': ",
+        if (asprintf(&msg, "Please enter %s for '%s': ",
+                     strncmp(data->pem_file_name, "pkcs11:", 7) == 0 ?
+                                     "PKCS#11 user PIN" : "PEM password",
                      data->pem_file_name) <= 0) {
             warnx("Failed to allocate memory for message");
             return -1;
