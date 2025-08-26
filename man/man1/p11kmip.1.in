@@ -22,8 +22,168 @@ p11kmip \- Transfer cryptographic keys between PKCS\~#11 and KMIP.
 The \fBp11kmip\fP tool can be used to transfer target keys between a PKCS\~#11
 key repository and a KMIP server. Target keys may be imported or exported, and
 are wrapped using public-key cryptography during transit. Keys used for
-wrapping may also be sent and recieved. Only AES keys are supported as
+wrapping may also be sent and received. Only AES keys are supported as
 target keys, and only RSA is supported for key wrapping.
+.PP
+.SS KMIP CLIENT AUTHENTICATION
+KMIP authenticates the users with the client certificate exchanged during TLS
+handshake. Thus, the client must generate a private RSA or EC key and a client
+certificate. The client certificate must be registered with the KMIP server.
+This is a KMIP server product-specific out-of-band process, which is not
+described here. The client certificate can be a self-signed certificate or a
+CA-signed certificate. In a production environment, use a CA-signed certificate.
+.PP
+The client private key identifies the client to the KMIP server, and thus
+must be kept secret. If the client private key gets stolen by an attacker
+then the attacker can identify itself at the KMIP server and thus gets access
+to the keys stored in the KMIP server.
+.PP
+.SS USING A CLEAR CLIENT KEY
+You can generate the client private key with OpenSSL command line tools. In
+this case, the private key is a clear key stored in a PEM file.
+For security reasons, store the client private key in a password-protected
+PEM file. See an example on how to create a password-protected client key and
+a self-signed certificate using OpenSSL commands:
+.PP
+\fB
+    openssl genpkey \-algorithm RSA \-pkeyopt rsa_keygen_bits:2048         \\
+                    \-out '/path_to_client_key/client.key' \-pass stdin    \\
+                    \-aes\-256\-cbc
+\fP
+.PP
+If you want to generate an EC key instead, use \fB\-algorithm EC\fP and
+\fB\-pkeyopt ec_paramgen_curve:<curve-name>\fP. Create a self-signed certificate
+with the just generated client key as follows:
+.PP
+\fB
+    openssl req \-x509 \-key '/path_to_client_key/client.key'              \\
+                \-out '/path_to_client_certificate/selfsigned_client.crt' \\
+                \-nodes \-days 3650                                        \\
+                \-subj '/CN=www.mydom.com/O=My Company Name LTD./C=US'
+\fP
+.PP
+When using a password-protected client key PEM file, then you are prompted
+for the PEM password. You are also prompted for further information for the
+certificate to create, unless these details are supplied via the OpenSSL config
+file. Refer to the man page of the \fBopenssl req\fP command for further
+details.
+.PP
+If you want to generate a CA-signed certificate instead, omit the \fB\-x509\fP
+option. Thus, the command generates a certificate signing request instead, that
+you pass to the CA. With this request, you let the CA sign the certificate and
+issue a CA-signed certificate for you.
+.PP
+.SS USING AN HSM-PROTECTED CLIENT KEY
+A more secure way to protect the client private key is to generate and store the
+client key inside a PKCS#11 token. If a secure key token, such as a CCA or
+EP11 token, is used then the client private key is HSM protected and can not be
+stolen. This requires the use of a PKCS#11 OpenSSL provider (with OpenSSL 3.0.0
+or later), that is, the \fBpkcs11\-provider\fP from 
+\fBhttps://github.com/latchset/pkcs11\-provider\fP. The PKCS#11 provider must
+be installed and configured properly to allow access to openCryptoki. Use an
+OpenSSL configuration file similar to the following:
+.PP
+\fB
+    [openssl_init]
+    providers = provider_sect
+
+    [provider_sect]
+    default = default_sect
+    pkcs11 = pkcs11_sect
+
+    [default_sect]
+    activate = 1
+
+    [pkcs11_sect]
+    pkcs11\-module\-path = /path/to/libopencryptoki.so 
+    activate = 1
+\fP
+.PP
+.PP
+Generate an RSA client key pair in a PKCS#11 token:
+.PP
+\fB
+    p11sak generate\-key rsa 2048 \-\-label '<name-of-client-key>' \-\-slot <n>
+\fP
+.PP
+If you want to generate an EC key instead, use:
+.PP
+\fB
+    p11sak generate\-key EC <curve-name> \-\-label '<name-of-client-key>' \-\-slot <n>
+\fP
+.PP
+Then export the private client key as a URI-PEM file. A URI-PEM file contains
+a PKCS#11 URI referencing the key in the PKCS#11 token, but no key material.
+By default, the PKCS#11 URI does not contain the PKCS#11 user PIN. Refer to the
+man page of \fBp11sak\fP(1) and option \fB\-\-uri\-pem\fP for details about how
+to include the PKCS#11 user PIN or a PIN source into the URI.
+.PP
+\fB
+    p11sak export\-key \-\-label '<name-of-client.key>:prv' \-\-uri\-pem      \\
+                       \-\-file '/path_to_client_key/client.key'          \\
+                       \-\-slot <n>>
+\fP
+.PP
+With that private client key as URI-PEM file you can create a self-signed
+certificate using the following OpenSSL command:
+.PP
+\fB
+    openssl req \-x509 \-key '/path_to_client_key/client.key'              \\
+                \-out '/path_to_client_certificate/selfsigned_client.crt' \\
+                \-nodes \-days 3650                                        \\
+                \-subj '/CN=www.mydom.com/O=My Company Name LTD./C=US'
+\fP
+.PP
+You are prompted for the PKCS#11 user PIN, unless the user PIN is contained in
+the PKCS#11 URI. You are also prompted for further information for the
+certificate to create, unless these details are supplied via the OpenSSL config
+file. Refer to the man page of the \fBopenssl req\fP command for further
+details.
+.PP
+If you want to generate a CA-signed certificate instead, omit the \fB\-x509\fP
+option. Thus, the command generates a certificate signing request instead, that
+you pass to the CA. With this request, you let the CA sign the certificate and
+issue a CA-signed certificate for you.
+.PP
+Instead of using an URI-PEM file, you can also use the PKCS#11 URI directly. Use
+the \fBp11sak list\-key\fP command with the \fB\-\-long\fP option to display
+the PKCS#11 URI of the client private key object. Then specify this URI as-is
+at the \fB\-key\fP option of the \fBopenssl req\fP command from above:
+.PP
+\fB
+    openssl req \-x509 \-key 'pkcs11:....;type=private'                    \\
+                \-out '/path_to_client_certificate/selfsigned_client.crt' \\
+                \-nodes \-days 3650                                        \\
+                \-subj '/CN=www.mydom.com/O=My Company Name LTD./C=US'
+\fP
+.PP
+There is no need to export the client private key as URI-PEM file in this case.
+.PP
+.SS USING THE CLIENT KEY AND CERTIFICATE WITH P11KMIP
+Use the private client key as URI-PEM (\fB'/path_to_client_key/client.key'\fP)
+or as PKCS#11 URI (\fB'pkcs11:....;type=private'\fP) and the client certificate
+(\fB'/path_to_client_certificate/selfsigned_client.crt'\fP)
+with the \fBp11kmip\fP commands described below. You can specify the client key
+and client certificate using options \fB\-\-kmip\-client\-key\fP and
+\fB\-\-kmip\-client\-cert\fP, or in the \fB/etc/opencryptoki/p11kmip.conf\fP
+configuration file, or via environment variables.
+.PP
+When using a URI-PEM file, or a password-protected PEM file as client key, then
+you are prompted for the PKCS#11 user PIN or the PEM password when the
+\fBp11kmip\fP tool reads the client key PEM file, unless the PEM password is
+specified using the \fB\-\-pem\-password\fP option. The prompt looks like this:
+.PP
+\fB
+    Please enter PEM password for '/path_to_client_key/client.key':
+\fP
+.PP
+Note that the prompt message is the same when using a URI-PEM file, and it is
+prompting for the PKCS#11 user PIN. For a URI-PEM file, the PEM password is the
+PKCS#11 user PIN required to access the PKCS#11 token that contains the key
+the URI is referring to.
+.PP
+If you specify a PKCS#11 URI directly as client private key, then you are
+explicitely prompted for the PKCS#11 user PIN for the specified URI.
 .
 .
 .
@@ -396,7 +556,7 @@ When none are set, an error occurs.
 .
 .
 .TP 8
-.BR \-\-kmip\-client\-cert\~\fICERT\-\PATH\fP
+.BR \-\-kmip\-client\-cert\~\fICERT\-PATH\fP
 A path to the TLS client certificate to use for the KMIP connection.
 .PP
 .RS 8
@@ -412,7 +572,7 @@ When none are set, an error occurs.
 .
 .
 .TP 8
-.BR \-\-kmip\-client\-key\~\fIKEY\-\PATH\fP
+.BR \-\-kmip\-client\-key\~\fIKEY\-PATH\fP
 A path to the TLS client private key to use for the KMIP connection.
 .PP
 .RS 8
@@ -428,7 +588,7 @@ When none are set, an error occurs.
 .
 .
 .TP 8
-.BR \-\-pem\-password\~\fIPEM\-\PASSWORD\fP
+.BR \-\-pem\-password\~\fIPEM\-PASSWORD\fP
 The password to use for the TLS client key PEM file, if it is password-protected.
 .PP
 .RS 8
@@ -578,14 +738,14 @@ configuration file.
 The path to the TLS client certificate to use for the KMIP connection can be
 specified using the \fBKMIP_CLIENT_CERT\fP environment variable.
 If this environment variable is not set, and the option
-.BR \-\-kmip\-client\-cert\~\fCERT\-\PATH\fP
+.BR \-\-kmip\-client\-cert\~\fCERT\-PATH\fP
 .PP
 .
 .SS "KMIP_CLIENT_KEY"
 The path to the TLS client key to use for the KMIP connection can be specified
 using the \fBKMIP_CLIENT_KEY\fP environment variable.
 If this environment variable is not set, and the option
-.BR \-\-kmip\-client\-key\~\fKEY\-\PATH\fP
+.BR \-\-kmip\-client\-key\~\fBKEY\-PATH\fP
 .PP
 .
 .SS "KMIP_PEM_PASSWORD"
@@ -593,7 +753,7 @@ The PEM file used for the TLS client key may be password protected. The PEM
 password can be specified via the environment variable
 \fBKMIP_PEM_PASSWORD\fP. If this environment variable is not set, and the
 option 
-.BR \-\-pem\-password\~\fPEM\-\PASSWORD\fP
+.BR \-\-pem\-password\~\fPEM\-PASSWORD\fP
 is not specified, p11kmip will prompt for the PEM password interactively.
 .
 .
@@ -651,4 +811,10 @@ A subfunction or library call has failed.
 .PD 0
 .TP
 \fBp11kmip.conf\fP(5)
+.TP
+\fBp11sak\fP(1)
+.TP
+\fBopenssl\-genpkey\fP(1)
+.TP
+\fBopenssl\-req\fP(1)
 .PD
