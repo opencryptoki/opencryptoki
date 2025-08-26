@@ -51,6 +51,8 @@
 #include <openssl/core_names.h>
 #include <openssl/decoder.h>
 #include <openssl/param_build.h>
+#include <openssl/store.h>
+#include <openssl/ui.h>
 #endif
 
 /*****************************************************************************/
@@ -737,6 +739,109 @@ static CK_RV parse_config_file(void)
 /* KMIP Connection Functions                                                 */
 /*****************************************************************************/
 
+#if OPENSSL_VERSION_PREREQ(3, 0)
+static int p11kmip_ui_read(UI *ui, UI_STRING *uis)
+{
+    char pem_password[500];
+    int len, rc = 0;
+
+    len = p11tool_pem_password_cb(pem_password, sizeof(pem_password), 0,
+                                  UI_get0_user_data(ui));
+    if (len > 0)
+        rc = (UI_set_result_ex(ui, uis, pem_password, len) == 0) ? 1 : 0;
+
+    OPENSSL_cleanse(pem_password, sizeof(pem_password));
+    return rc;
+}
+#endif
+
+static CK_RV read_client_key(const char *tls_client_key_path, EVP_PKEY **pkey)
+{
+    struct p11tool_pem_password_cb_data cb_data = { 0 };
+#if OPENSSL_VERSION_PREREQ(3, 0)
+    OSSL_STORE_CTX *sctx = NULL;
+    OSSL_STORE_INFO *info = NULL;
+    UI_METHOD *ui_method = NULL;
+    CK_RV rc = CKR_OK;
+#else
+    BIO *tls_client_key_bio = NULL;
+#endif
+
+    cb_data.pem_file_name = tls_client_key_path;
+    cb_data.pem_password = opt_pem_password;
+    cb_data.env_var_name = KMIP_PEM_PASSWORD_ENV_NAME;
+    cb_data.force_prompt = opt_force_pem_pwd_prompt;
+
+#if OPENSSL_VERSION_PREREQ(3, 0)
+    ui_method = UI_create_method("p11kmip-ui-method");
+    if (ui_method == NULL ||
+        UI_method_set_reader(ui_method, p11kmip_ui_read) != 0) {
+        warnx("Failed to setup a UI-Method");
+        ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+
+    sctx = OSSL_STORE_open(tls_client_key_path, ui_method, &cb_data,
+                           NULL, NULL);
+    if (sctx == NULL) {
+        warnx("Unable to open the store for '%s' for TLS client key",
+              tls_client_key_path);
+        ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+
+    while (!OSSL_STORE_eof(sctx)) {
+        info = OSSL_STORE_load(sctx);
+        if (info == NULL)
+            break;
+
+        if (OSSL_STORE_INFO_get_type(info) == OSSL_STORE_INFO_PKEY)
+            break;
+
+        OSSL_STORE_INFO_free(info);
+        info = NULL;
+    }
+
+    if (info == NULL) {
+        warnx("No key found for '%s'", tls_client_key_path);
+        ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+
+    *pkey = OSSL_STORE_INFO_get1_PKEY(info);
+
+done:
+    if (ui_method != NULL)
+        UI_destroy_method(ui_method);
+    if (info != NULL)
+        OSSL_STORE_INFO_free(info);
+    if (sctx != NULL)
+        OSSL_STORE_close(sctx);
+
+    return rc;
+#else
+    tls_client_key_bio = BIO_new_file(tls_client_key_path, "r");
+    if (tls_client_key_bio == NULL) {
+        warnx("Unable to open '%s' for TLS client key", tls_client_key_path);
+        ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
+        return CKR_FUNCTION_FAILED;
+    }
+
+    *pkey = PEM_read_bio_PrivateKey(tls_client_key_bio, NULL,
+                                    p11tool_pem_password_cb, &cb_data);
+    BIO_free(tls_client_key_bio);
+    if (*pkey == NULL) {
+        ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
+        return CKR_FUNCTION_FAILED;
+    }
+
+    return CKR_OK;
+#endif
+}
+
 /**
  * @brief Uses the contents of the config file and the
  * commandline arguments to construct the configuration
@@ -765,8 +870,6 @@ static CK_RV build_kmip_config(void)
     struct ConfigStructNode *structnode = NULL;
     bool found = false;
     char *tls_client_key_path = NULL;
-    BIO *tls_client_key_bio = NULL;
-    struct p11tool_pem_password_cb_data cb_data = { 0 };
 
     rc = CKR_OK;
 
@@ -1024,33 +1127,17 @@ static CK_RV build_kmip_config(void)
      * Now that we have the final path for the tls_client_key, 
      * read in the contents 
      */
-    tls_client_key_bio = BIO_new_file(tls_client_key_path, "r");
-
-    if (tls_client_key_bio == NULL) {
-        warnx("Unable to open '%s' for TLS client key", tls_client_key_path);
-        return CKR_FUNCTION_FAILED;
-    }
-
-    cb_data.pem_file_name = tls_client_key_path;
-    cb_data.pem_password = opt_pem_password;
-    cb_data.env_var_name = KMIP_PEM_PASSWORD_ENV_NAME;
-    cb_data.force_prompt = opt_force_pem_pwd_prompt;
-
-    kmip_conf->tls_client_key =
-        PEM_read_bio_PrivateKey(tls_client_key_bio, NULL,
-                                p11tool_pem_password_cb, &cb_data);
-
-    if (kmip_conf->tls_client_key == NULL) {
+    rc = read_client_key(tls_client_key_path, &kmip_conf->tls_client_key);
+    if (rc != CKR_OK) {
         warnx("Unable to extract TLS client key from '%s'",
               tls_client_key_path);
+        goto done;
     }
 
-    BIO_free(tls_client_key_bio);
-
-    if (kmip_conf->tls_client_key == NULL && 
+    if (kmip_conf->tls_client_key == NULL ||
         kmip_conf->tls_client_cert == NULL) {
         warnx("TLS client key or client certificate was not"
-              " provided through configuration or commandline options");
+              " provided through configuration or command line options");
         rc = CKR_FUNCTION_FAILED;
         goto done;
     }
