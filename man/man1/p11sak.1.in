@@ -167,7 +167,7 @@ option can be used to set the value of the
 attribute of the key.
 .
 .PP
-.SS "Generating SHA-HMAC keys"
+.SS "Generating SHA\-HMAC keys"
 .
 .B p11sak
 .BR generate\-key | gen\-key | gen
@@ -196,7 +196,7 @@ Use the
 .I KEYBITS
 command and
 .I KEYTYPE
-argument to generate a SHA-HMAC key (\fBCKK_SHAnnn_HMAC\fP) with the
+argument to generate a SHA\-HMAC key (\fBCKK_SHAnnn_HMAC\fP) with the
 key size in bits as specified by the
 .I KEYBITS
 argument. The
@@ -692,7 +692,7 @@ attribute of the key.
 .RB [ \-\-detailed\-uri ]
 .RB [ \-\-hsm\-mkvp | \-m ]
 .RB [ \-\-sort | \-S
-.IR SORT-SPEC ]
+.IR SORT\-SPEC ]
 .RB [ \-\-help | \-h ]
 .PP
 Use the
@@ -753,11 +753,11 @@ tokens.
 By default, the keys are displayed in the order as they are retrieved from the
 PKCS\~#11 implementation. To display the keys in a certain order, specify the
 .BR \-\-sort | \-S
-.I SORT-SPEC
+.I SORT\-SPEC
 option. You can sort the keys by label, key type, object class, and/or key size.
 For details, see the description of the
 .BR \-\-sort | \-S
-.I SORT-SPEC
+.I SORT\-SPEC
 option below.
 .
 .PP
@@ -1106,7 +1106,7 @@ keytype. PEM files in
 format are only supported when the
 .B oqsprovider
 from
-.B https://github.com/open-quantum-safe/oqs-provider
+.B https://github.com/open\-quantum\-safe/oqs\-provider
 has been configured with OpenSSL 3.0 or later.
 This is an experimental feature, it may change in an incompatible way in the
 future!
@@ -1220,7 +1220,7 @@ keytype. PEM files in
 format are only supported when the
 .B oqsprovider
 from
-.B https://github.com/open-quantum-safe/oqs-provider
+.B https://github.com/open\-quantum\-safe/oqs\-provider
 has been configured with OpenSSL 3.0 or later.
 This is an experimental feature, it may change in an incompatible way in the
 future!
@@ -1425,7 +1425,7 @@ Use mechanism
 for key wrapping. Wrapping and unwrapping is done with an AES key. Use the
 .BR \-\-iv | \-I
 .I IV
-option to specify the initialization vector (IV) for the AES-CBC operation.
+option to specify the initialization vector (IV) for the AES\-CBC operation.
 .IP "\(bu" 2
 .BR aeskw\-kwp :
 Use mechanism
@@ -1433,7 +1433,7 @@ Use mechanism
 for key wrapping. Wrapping and unwrapping is done with an AES key. Use the
 .BR \-\-iv | \-I
 .I IV
-option to specify the initialization vector (IV) for the AESKW-KWP operation.
+option to specify the initialization vector (IV) for the AESKW\-KWP operation.
 .IP "\(bu" 2
 .BR aeskw\-pkcs7 :
 Use mechanism
@@ -1441,7 +1441,7 @@ Use mechanism
 for key wrapping. Wrapping and unwrapping is done with an AES key. Use the
 .BR \-\-iv | \-I
 .I IV
-option to specify the initialization vector (IV) for the AESKW-PKCS7 operation.
+option to specify the initialization vector (IV) for the AESKW\-PKCS7 operation.
 .IP "\(bu" 2
 .BR rsa\-pkcs :
 Use mechanism
@@ -1473,7 +1473,7 @@ Use mechanism
 for key wrapping. Wrapping is done with an RSA public key, unwrapping is done
 with the corresponding RSA private key. Use the
 .BR \-\-aes\-key\-size
-.I AES-KEYBITS
+.I AES\-KEYBITS
 option to specify the key size of the temporary AES key, and the
 .BR \-\-hash\-alg
 .IR HASH\-ALG ,
@@ -1491,7 +1491,7 @@ for key wrapping. Wrapping is done with an EC public key, unwrapping is done
 with the corresponding EC private key. Use the
 Use the
 .BR \-\-aes\-key\-size
-.I AES-KEYBITS
+.I AES\-KEYBITS
 option to specify the key size of the temporary AES key, and the
 .BR \-\-kdf\-alg
 .IR KDF\-ALG ,
@@ -1643,7 +1643,7 @@ Use mechanism
 for key wrapping. Wrapping and unwrapping is done with an AES key. Use the
 .BR \-\-iv | \-I
 .I IV
-option to specify the initialization vector (IV) for the AES-CBC operation.
+option to specify the initialization vector (IV) for the AES\-CBC operation.
 .IP "\(bu" 2
 .BR aeskw\-kwp :
 Use mechanism
@@ -1651,7 +1651,7 @@ Use mechanism
 for key wrapping. Wrapping and unwrapping is done with an AES key. Use the
 .BR \-\-iv | \-I
 .I IV
-option to specify the initialization vector (IV) for the AESKW-KWP operation.
+option to specify the initialization vector (IV) for the AESKW\-KWP operation.
 .IP "\(bu" 2
 .BR aeskw\-pkcs7 :
 Use mechanism
@@ -1659,7 +1659,7 @@ Use mechanism
 for key wrapping. Wrapping and unwrapping is done with an AES key. Use the
 .BR \-\-iv | \-I
 .I IV
-option to specify the initialization vector (IV) for the AESKW-PKCS7 operation.
+option to specify the initialization vector (IV) for the AESKW\-PKCS7 operation.
 .IP "\(bu" 2
 .BR rsa\-pkcs :
 Use mechanism
@@ -1691,7 +1691,7 @@ Use mechanism
 for key wrapping. Wrapping is done with an RSA public key, unwrapping is done
 with the corresponding RSA private key. Use the
 .BR \-\-aes\-key\-size
-.I AES-KEYBITS
+.I AES\-KEYBITS
 option to specify the key size of the temporary AES key, and the
 .BR \-\-hash\-alg
 .IR HASH\-ALG ,
@@ -1709,7 +1709,7 @@ for key wrapping. Wrapping is done with an EC public key, unwrapping is done
 with the corresponding EC private key. Use the
 Use the
 .BR \-\-aes\-key\-size
-.I AES-KEYBITS
+.I AES\-KEYBITS
 option to specify the key size of the temporary AES key, and the
 .BR \-\-kdf\-alg
 .IR KDF\-ALG ,
@@ -1808,7 +1808,7 @@ combinations. Also, not all tokens may support to unwrap all key types.
 .RB [ \-\-long | \-l ]
 .RB [ \-\-detailed\-uri ]
 .RB [ \-\-sort | \-S
-.IR SORT-SPEC ]
+.IR SORT\-SPEC ]
 .RB [ \-\-help | \-h ]
 .PP
 Use the
@@ -1861,11 +1861,11 @@ By default, the certificates are displayed in the order as they are retrieved
 from the PKCS\~#11 implementation. To display the certificates in a certain 
 order, specify the
 .BR \-\-sort | \-S
-.I SORT-SPEC
+.I SORT\-SPEC
 option. You can sort the certificates by label and/or subject common name (CN).
 For details, see the description of the
 .BR \-\-sort | \-S
-.I SORT-SPEC
+.I SORT\-SPEC
 option below.
 .
 .PP
@@ -2499,8 +2499,8 @@ Specifies the kind of the asymmetric key to import. Possible values are
 .
 Specifies the wrapping mechanism for use with exporting or importing a key by
 wrapping it with a key encrypting key. Possible values are
-.BR aes-cbc-pad |\: aeskw-kwp |\: aeskw-pkcs7 |\: rsa-pkcs |\: rsa-oaep |\:
-rsa-aeskw |\: ecdh-aeskw .
+.BR aes\-cbc\-pad |\: aeskw\-kwp |\: aeskw\-pkcs7 |\: rsa\-pkcs |\: rsa\-oaep |\:
+rsa\-aeskw |\: ecdh\-aeskw .
 Dependent on the key wrapping mechanism, additional options may be supported
 to specify mechanism parameters. See sections
 .B Exporting a key by wrapping it with a key encrypting key
@@ -2870,7 +2870,7 @@ tokens.
 .
 .
 .TP 8
-.BR \-\-sort | \-S\~\fISORT-SPEC\fP
+.BR \-\-sort | \-S\~\fISORT\-SPEC\fP
 Sort the keys by label, key type, object class, and/or key size. Sort 
 certificates by label and/or subject common name (CN). Specify a sort
 selection of up to 4 fields, each field represented by its corresponding letter,
@@ -3047,7 +3047,7 @@ keytype. PEM files in
 format are only supported when the
 .B oqsprovider
 from
-.B https://github.com/open-quantum-safe/oqs-provider
+.B https://github.com/open\-quantum\-safe/oqs\-provider
 has been configured with OpenSSL 3.0 or later.
 .PP
 .RS 8
@@ -3103,7 +3103,7 @@ are not specified.
 .TP 8
 .BR \-\-uri\-pin\-source\~\fIFILENAME\fP
 When exporting the key's or certificate's PKCS#11 URI in PEM form, include the
-.B pin-source
+.B pin\-source
 query attribute in the URI, referencing the file name specified with this
 option. The PKCS#11 user pin value is written into that file as part of the
 export operation. This reveals the PKCS#11 user pin in clear, use with care!
@@ -3183,7 +3183,7 @@ tool and then exits.
 .
 .
 .
-.SS OPTIONS FOR ARGUMENT \fIWRAP-MECH\fB VALUE aes\-cbc\-pad:
+.SS OPTIONS FOR ARGUMENT \fIWRAP\-MECH\fB VALUE aes\-cbc\-pad:
 .
 .TP 8
 .BR \-\-iv | \-I~\fIIV\fP
@@ -3195,7 +3195,7 @@ all zero bytes.
 .
 .
 .
-.SS OPTIONS FOR ARGUMENT \fIWRAP-MECH\fB VALUE aeskw\-kwp:
+.SS OPTIONS FOR ARGUMENT \fIWRAP\-MECH\fB VALUE aeskw\-kwp:
 .
 .TP 8
 .BR \-\-iv | \-I~\fIIV\fP
@@ -3207,7 +3207,7 @@ the default IV as per AESKW\-KWP specification is used.
 .
 .
 .
-.SS OPTIONS FOR ARGUMENT \fIWRAP-MECH\fB VALUE aeskw\-pkcs7:
+.SS OPTIONS FOR ARGUMENT \fIWRAP\-MECH\fB VALUE aeskw\-pkcs7:
 .
 .TP 8
 .BR \-\-iv | \-I~\fIIV\fP
@@ -3219,7 +3219,7 @@ the default IV as per AESKW\-PKCS7 specification is used.
 .
 .
 .
-.SS OPTIONS FOR ARGUMENT \fIWRAP-MECH\fB VALUE rsa\-oaep:
+.SS OPTIONS FOR ARGUMENT \fIWRAP\-MECH\fB VALUE rsa\-oaep:
 .
 .TP 8
 .BR \-\-hash\-alg\~\fIHASH\-ALG\fP
@@ -3252,7 +3252,7 @@ with 0x) of any number of bytes. The default is that no source data is used.
 .
 .
 .
-.SS OPTIONS FOR ARGUMENT \fIWRAP-MECH\fB VALUE rsa\-aeskw:
+.SS OPTIONS FOR ARGUMENT \fIWRAP\-MECH\fB VALUE rsa\-aeskw:
 .
 .TP 8
 .BR \-\-aes\-key\-size\~\fIAES\-KEYBITS\fP
@@ -3293,7 +3293,7 @@ with 0x) of any number of bytes. The default is that no source data is used.
 .
 .
 .
-.SS OPTIONS FOR ARGUMENT \fIWRAP-MECH\fB VALUE ecdh\-aeskw:
+.SS OPTIONS FOR ARGUMENT \fIWRAP\-MECH\fB VALUE ecdh\-aeskw:
 .
 .TP 8
 .BR \-\-aes\-key\-size\~\fIAES\-KEYBITS\fP
