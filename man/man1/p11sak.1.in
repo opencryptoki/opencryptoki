@@ -1132,6 +1132,10 @@ future!
 .RB [ \-\-force | \-f ]
 .BR \-\-file | \-F
 .I FILENAME
+.RB [ \-\-encrypted\-pem | \-e ]
+.RB [ \-\-pem\-password | \-P
+.IR PASSWORD ]
+.RB [ \-\-force\-pem\-pwd\-prompt ]
 .RB [ \-\-opaque | \-o ]
 .RB [ \-\-spki | \-S ]
 .RB [ \-\-uri\-pem | \-u ]
@@ -1196,6 +1200,21 @@ match the filter, you are prompted to confirm to overwrite the previously
 created file, unless the
 .BR \-\-force | \-f
 option is specified.
+.PP
+Private keys in PEM files can optionally be password protected. Specify the 
+.BR \-\-encrypted\-pem | \-e
+option to encrypt the exported private keys using
+.B AES\-CBC
+and an
+.B AES 256
+bit key derived from a password via 
+.BR PBKDF2 . 
+Specify the PEM password with the
+.BR \-\-pem\-password | \-P
+.I PASSWORD
+option or environment variable
+.BR P11SAK_PEM_PASSWORD ,
+otherwise you are prompted for the PEM password.
 .PP
 Specify the
 .BR \-\-opaque | \-o
@@ -2996,13 +3015,37 @@ material is contained.
 .
 .
 .TP 8
+.BR \-\-encrypted\-pem
+Encrypt the PEM file using
+.B AES\-CBC
+with an 
+.B AES 256 
+bit key derived from a password via
+.BR PBKDF2 .
+The PEM password can be specified with the
+.BR \-\-pem\-password | \-P
+.I PASSWORD
+option, or environment variable
+.BR P11SAK_PEM_PASSWORD ,
+otherwise you are prompted for the PEM password.
+This option is only valid for exporting private keys. It is not allowed when
+exporting SPKIs, opaque secure key blobs, or URI-PEMs, and it is ignored when
+exporting public or secret keys.
+.RE
+.PP
+.
+.
+.
+.TP 8
 .BR \-\-pem\-password | \-P\~\fIPASSWORD\fP
 Specifies the password of the PEM file specified with the
 .BR \-\-file | \-F
 .I FILENAME
 option for the
 .B import\-key
-command. If the PEM file is password protected, but this option is not
+and 
+.B export\-key
+commands. If the PEM file is password protected, but this option is not
 specified, nor environment variable
 .B P11SAK_PEM_PASSWORD
 is set, you are prompted for the PEM password.

@@ -109,6 +109,7 @@ static char *opt_new_id = NULL;
 char *opt_file = NULL;
 static char *opt_pem_password = NULL;
 static bool opt_force_pem_pwd_prompt = false;
+static bool opt_encrypted_pem = false;
 static bool opt_opaque = false;
 static struct p11tool_enum_value *opt_asym_kind = NULL;
 static bool opt_spki = false;
@@ -2075,6 +2076,33 @@ static const struct p11tool_opt p11sak_export_key_opts[] = {
                      "filter, then you are prompted to confirm to overwrite "
                      "the previously created file, unless the '-f'\'--force' "
                      "option is specified.", },
+    { .short_opt = 'e', .long_opt = "encrypted-pem", .required = false,
+      .arg = { .type = ARG_TYPE_PLAIN, .required = false,
+               .value.plain = &opt_encrypted_pem, },
+      .description = "Encrypt the PEM file using AES-CBC with an AES 256 bit "
+                     "key derived from a password via PBKDF2. The PEM password "
+                     "can be specified with the '-P'/'--pem-password' option, "
+                     "or via environment variable P11SAK_PEM_PASSWORD, "
+                     "otherwise you are prompted for the PEM password. This "
+                     "option is only valid for exporting private keys. It is "
+                     "not allowed when exporting SPKIs, opaque secure key "
+                     "blobs, or URI-PEMs, and it is ignored when exporting "
+                     "public or secret keys.", },
+    { .short_opt = 'P', .long_opt = "pem-password", .required = false,
+      .arg =  { .type = ARG_TYPE_STRING, .required = true,
+                .value.string = &opt_pem_password, .name = "PASSWORD", },
+      .description = "The password used to to encrypt the PEM file specified "
+                     "with the '-F'/'--file' option. If PEM file is to be "
+                     "encrypted, but this option is not specified, nor "
+                     "environment variable P11SAK_PEM_PASSWORD is set, you "
+                     "are prompted for the PEM password.", },
+    { .short_opt = 0, .long_opt = "force-pem-pwd-prompt", .required = false,
+      .long_opt_val = OPT_FORCE_PEM_PWD_PROMPT,
+      .arg = { .type = ARG_TYPE_PLAIN, .required = false,
+               .value.plain = &opt_force_pem_pwd_prompt, },
+      .description = "Enforce PEM password prompt, even if environment "
+                     "variable P11SAK_PEM_PASSWORD is set, or the "
+                     "'-P'/'--pem-password' option is specified.", },
     { .short_opt = 'o', .long_opt = "opaque", .required = false,
       .arg = { .type = ARG_TYPE_PLAIN, .required = false,
                .value.plain = &opt_opaque, },
@@ -8659,6 +8687,7 @@ static CK_RV p11sak_export_asym_key(const struct p11tool_objtype *keytype,
                                     const char *typestr, const char* label,
                                     BIO* bio)
 {
+    struct p11tool_pem_password_cb_data cb_data = { 0 };
     EVP_PKEY *pkey = NULL;
     CK_BYTE *data = NULL;
     CK_ULONG data_len = 0;
@@ -8682,13 +8711,26 @@ static CK_RV p11sak_export_asym_key(const struct p11tool_objtype *keytype,
     if (keytype->export_asym_pkey != NULL &&
         (!keytype->supports_oqsprovider_pem ||
          (opt_oqsprovider_pem && keytype->supports_oqsprovider_pem))) {
+        if (opt_encrypted_pem && !private) {
+            warnx("Option '-e'/'--encrypted-pem' is specified but is ignored "
+                  "for exporting %s key \"%s\".", typestr, label);
+        }
+
         rc = keytype->export_asym_pkey(keytype, &pkey, private, key, label);
         if (rc != CKR_OK)
             goto done;
 
+        cb_data.pem_file_name = opt_file;
+        cb_data.pem_password = opt_pem_password;
+        cb_data.env_var_name = PKCS11_PEM_PASSWORD_ENV_NAME;
+        cb_data.force_prompt = opt_force_pem_pwd_prompt;
+
         if (private)
-            ret = PEM_write_bio_PrivateKey(bio, pkey, NULL, NULL, 0,
-                                           NULL, NULL);
+            ret = PEM_write_bio_PrivateKey(bio, pkey,
+                                           opt_encrypted_pem ?
+                                                   EVP_aes_256_cbc() : NULL,
+                                           NULL, 0,
+                                           p11tool_pem_password_cb, &cb_data);
         else
             ret = PEM_write_bio_PUBKEY(bio, pkey);
         if (ret != 1) {
@@ -8700,6 +8742,11 @@ static CK_RV p11sak_export_asym_key(const struct p11tool_objtype *keytype,
         }
 
     } else if (keytype->export_asym_pem_data != NULL) {
+        if (opt_encrypted_pem) {
+            warnx("Option '-e'/'--encrypted-pem' is specified but is ignored "
+                  "for exporting %s key \"%s\".", typestr, label);
+        }
+
         rc = keytype->export_asym_pem_data(keytype, &data, &data_len,
                                            private, key, label);
         if (rc != CKR_OK)
@@ -8742,6 +8789,11 @@ static CK_RV p11sak_export_sym_key(const struct p11tool_objtype *keytype,
     CK_BYTE *data = NULL;
     CK_ULONG data_len = 0;
     CK_RV rc;
+
+    if (opt_encrypted_pem) {
+        warnx("Option '-e'/'--encrypted-pem' is specified but is ignored for "
+              "exporting %s key \"%s\".", typestr, label);
+    }
 
     if (keytype->export_sym_clear == NULL) {
         warnx("No support for exporting %s key object \"%s\" to file '%s'",
@@ -9481,6 +9533,22 @@ static CK_RV p11sak_export_key(void)
     if (opt_uri_pin_source != NULL && opt_so) {
         warnx("Option '--uri-pin-source' can not be specified together with "
               "the '--so' option.");
+        return CKR_ARGUMENTS_BAD;
+    }
+    if (opt_encrypted_pem && (opt_spki || opt_opaque || opt_uri_pem)) {
+        warnx("Option '-e'/'--encrypted-pem' can not be specified together "
+               "with the '-o'/'--opaque', '-S'/'--spki', or '-u'/'--uri-pem' "
+               "options");
+        return CKR_ARGUMENTS_BAD;
+    }
+    if (opt_pem_password != NULL && !opt_encrypted_pem) {
+        warnx("Option '-P'/'--pem-password' can only be specified together "
+              "with the '-e'/'--encrypted-pem' option.");
+        return CKR_ARGUMENTS_BAD;
+    }
+    if (opt_force_pem_pwd_prompt && !opt_encrypted_pem) {
+        warnx("Option '--force-pem-pwd-prompt' can only be specified together "
+              "with the '-e'/'--encrypted-pem' option.");
         return CKR_ARGUMENTS_BAD;
     }
     if (opt_oqsprovider_pem &&
