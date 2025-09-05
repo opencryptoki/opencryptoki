@@ -3422,8 +3422,8 @@ PKCS\~#11 library \fBlibopencryptoki.so\fP is used.
 .PP
 .
 .SS "P11SAK_PEM_PASSWORD"
-PEM files used for importing keys from can be password protected. The PEM
-password can be specified via the environment variable
+PEM files used for importing and exporting keys can be password protected.
+The PEM password can be specified via the environment variable
 \fBP11SAK_PEM_PASSWORD\fP. If this environment variable is not set, and the
 option
 .BR \-\-pem\-password | \-P
