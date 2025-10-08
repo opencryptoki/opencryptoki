@@ -1484,16 +1484,6 @@ CK_RV SC_EncryptInit(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
         goto done;
     }
 
-    if (!pMechanism) {
-        TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
-        rc = CKR_ARGUMENTS_BAD;
-        goto done;
-    }
-
-    rc = valid_mech(tokdata, pMechanism, CKF_ENCRYPT);
-    if (rc != CKR_OK)
-        goto done;
-
     sess = session_mgr_find_reset_error(tokdata, sSession->sessionh);
     if (!sess) {
         TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
@@ -1509,6 +1499,16 @@ CK_RV SC_EncryptInit(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
         rc = CKR_PIN_EXPIRED;
         goto done;
     }
+
+    if (pMechanism == NULL) {
+        /* As per PKCS#11 v3.0 Init with NULL pMechanism cancels operation */
+        rc = session_mgr_cancel(tokdata, sess, CKF_ENCRYPT);
+        goto done;
+    }
+
+    rc = valid_mech(tokdata, pMechanism, CKF_ENCRYPT);
+    if (rc != CKR_OK)
+        goto done;
 
     if (sess->encr_ctx.active == TRUE) {
         TRACE_ERROR("%s\n", ock_err(ERR_OPERATION_ACTIVE));
@@ -1716,16 +1716,6 @@ CK_RV SC_DecryptInit(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
         goto done;
     }
 
-    if (!pMechanism) {
-        TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
-        rc = CKR_ARGUMENTS_BAD;
-        goto done;
-    }
-
-    rc = valid_mech(tokdata, pMechanism, CKF_DECRYPT);
-    if (rc != CKR_OK)
-        goto done;
-
     sess = session_mgr_find_reset_error(tokdata, sSession->sessionh);
     if (!sess) {
         TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
@@ -1741,6 +1731,16 @@ CK_RV SC_DecryptInit(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
         rc = CKR_PIN_EXPIRED;
         goto done;
     }
+
+    if (pMechanism == NULL) {
+        /* As per PKCS#11 v3.0 Init with NULL pMechanism cancels operation */
+        rc = session_mgr_cancel(tokdata, sess, CKF_DECRYPT);
+        goto done;
+    }
+
+    rc = valid_mech(tokdata, pMechanism, CKF_DECRYPT);
+    if (rc != CKR_OK)
+        goto done;
 
     if (sess->decr_ctx.active == TRUE) {
         TRACE_ERROR("%s\n", ock_err(ERR_OPERATION_ACTIVE));
@@ -1974,15 +1974,6 @@ CK_RV SC_DigestInit(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
         rc = CKR_CRYPTOKI_NOT_INITIALIZED;
         goto done;
     }
-    if (!pMechanism) {
-        TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
-        rc = CKR_ARGUMENTS_BAD;
-        goto done;
-    }
-
-    rc = valid_mech(tokdata, pMechanism, CKF_DIGEST);
-    if (rc != CKR_OK)
-        goto done;
 
     sess = session_mgr_find_reset_error(tokdata, sSession->sessionh);
     if (!sess) {
@@ -1999,6 +1990,16 @@ CK_RV SC_DigestInit(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
         rc = CKR_PIN_EXPIRED;
         goto done;
     }
+
+    if (pMechanism == NULL) {
+        /* As per PKCS#11 v3.0 Init with NULL pMechanism cancels operation */
+        rc = session_mgr_cancel(tokdata, sess, CKF_DIGEST);
+        goto done;
+    }
+
+    rc = valid_mech(tokdata, pMechanism, CKF_DIGEST);
+    if (rc != CKR_OK)
+        goto done;
 
     if (sess->digest_ctx.active == TRUE) {
         TRACE_ERROR("%s\n", ock_err(ERR_OPERATION_ACTIVE));
@@ -2218,12 +2219,6 @@ CK_RV SC_SignInit(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
         goto done;
     }
 
-    if (!pMechanism) {
-        TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
-        rc = CKR_ARGUMENTS_BAD;
-        goto done;
-    }
-
     sess = session_mgr_find_reset_error(tokdata, sSession->sessionh);
     if (!sess) {
         TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
@@ -2233,16 +2228,22 @@ CK_RV SC_SignInit(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
     //set the handle into the session.
     sess->handle = sSession->sessionh;
 
-    rc = valid_mech(tokdata, pMechanism, CKF_SIGN);
-    if (rc != CKR_OK)
-        goto done;
-
     if (pin_expired(&sess->session_info,
                     tokdata->nv_token_data->token_info.flags) == TRUE) {
         TRACE_ERROR("%s\n", ock_err(ERR_PIN_EXPIRED));
         rc = CKR_PIN_EXPIRED;
         goto done;
     }
+
+    if (pMechanism == NULL) {
+        /* As per PKCS#11 v3.0 Init with NULL pMechanism cancels operation */
+        rc = session_mgr_cancel(tokdata, sess, CKF_SIGN);
+        goto done;
+    }
+
+    rc = valid_mech(tokdata, pMechanism, CKF_SIGN);
+    if (rc != CKR_OK)
+        goto done;
 
     if (sess->sign_ctx.active == TRUE) {
         rc = CKR_OPERATION_ACTIVE;
@@ -2475,15 +2476,6 @@ CK_RV SC_VerifyInit(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
         rc = CKR_CRYPTOKI_NOT_INITIALIZED;
         goto done;
     }
-    if (!pMechanism) {
-        TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
-        rc = CKR_ARGUMENTS_BAD;
-        goto done;
-    }
-
-    rc = valid_mech(tokdata, pMechanism, CKF_VERIFY);
-    if (rc != CKR_OK)
-        goto done;
 
     sess = session_mgr_find_reset_error(tokdata, sSession->sessionh);
     if (!sess) {
@@ -2500,6 +2492,16 @@ CK_RV SC_VerifyInit(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
         rc = CKR_PIN_EXPIRED;
         goto done;
     }
+
+    if (pMechanism == NULL) {
+        /* As per PKCS#11 v3.0 Init with NULL pMechanism cancels operation */
+        rc = session_mgr_cancel(tokdata, sess, CKF_VERIFY);
+        goto done;
+    }
+
+    rc = valid_mech(tokdata, pMechanism, CKF_VERIFY);
+    if (rc != CKR_OK)
+        goto done;
 
     if (sess->verify_ctx.active == TRUE) {
         rc = CKR_OPERATION_ACTIVE;
