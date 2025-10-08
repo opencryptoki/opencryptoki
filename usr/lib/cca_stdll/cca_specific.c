@@ -5455,6 +5455,7 @@ static CK_RV cca_rsa_inttok_privkeysec_get_n(CK_BYTE *sec, CK_ULONG *n_len, CK_B
 static CK_RV cca_rsa_inttok_pubkeysec_get_e(CK_BYTE *sec, CK_ULONG *e_len, CK_BYTE *e)
 {
     uint16_t e_length;
+    CK_BYTE *p;
 
     if (sec[0] != 0x04) {
         TRACE_ERROR("Invalid public key section identifier 0x%02hhx\n", sec[0]);
@@ -5468,8 +5469,9 @@ static CK_RV cca_rsa_inttok_pubkeysec_get_e(CK_BYTE *sec, CK_ULONG *e_len, CK_BY
         return CKR_FUNCTION_FAILED;
     }
 
-    memcpy(e, &sec[CCA_RSA_INTTOK_PUBKEY_E_OFFSET], (size_t) e_length);
-    *e_len = (CK_ULONG) e_length;
+    *e_len = e_length;
+    p = p11_bigint_trim(&sec[CCA_RSA_INTTOK_PUBKEY_E_OFFSET], e_len);
+    memcpy(e, p, *e_len);
 
     return CKR_OK;
 }
@@ -5508,6 +5510,7 @@ static CK_RV cca_rsa_exttok_pubkeysec_get_n(CK_BYTE *sec, CK_ULONG *n_len, CK_BY
 static CK_RV cca_rsa_exttok_pubkeysec_get_e(CK_BYTE *sec, CK_ULONG *e_len, CK_BYTE *e)
 {
     uint16_t e_length;
+    CK_BYTE *p;
 
     if (sec[0] != 0x04) {
         TRACE_ERROR("Invalid public key section identifier 0x%02hhx\n", sec[0]);
@@ -5521,8 +5524,9 @@ static CK_RV cca_rsa_exttok_pubkeysec_get_e(CK_BYTE *sec, CK_ULONG *e_len, CK_BY
         return CKR_FUNCTION_FAILED;
     }
 
-    memcpy(e, &sec[CCA_RSA_INTTOK_PUBKEY_E_OFFSET], (size_t) e_length);
-    *e_len = (CK_ULONG) e_length;
+    *e_len = e_length;
+    p = p11_bigint_trim(&sec[CCA_RSA_INTTOK_PUBKEY_E_OFFSET], e_len);
+    memcpy(e, p, *e_len);
 
     return CKR_OK;
 }
