@@ -1359,6 +1359,28 @@ CK_RV do_SessionCancel(void)
         return rc;
     }
 
+    // now, begin encrypting multipart again
+    rc = funcs->C_EncryptInit(session1, &mech, h_key);
+    if (rc != CKR_OK) {
+        testcase_fail("C_EncryptInit #3, rc=%lx, %s", rc, p11_get_ckr(rc));
+        return rc;
+    }
+
+    // cancel the operation by calling C_EncryptInit with NULL mechanism
+    rc = funcs->C_EncryptInit(session1, NULL, h_key);
+    if (rc != CKR_OK) {
+        testcase_fail("C_EncryptInit (cancel), rc=%lx, %s", rc, p11_get_ckr(rc));
+        return rc;
+    }
+
+    // cancel the non existing sign operation by calling C_SignInit with NULL
+    // mechanism (no effect expected)
+    rc = funcs->C_SignInit(session1, NULL, h_key);
+    if (rc != CKR_OK) {
+        testcase_fail("C_SignInit (cancel), rc=%lx, %s", rc, p11_get_ckr(rc));
+        return rc;
+    }
+
     rc = funcs->C_CloseSession(session1);
     if (rc != CKR_OK) {
         testcase_fail("C_CloseSession #1, rc=%lx, %s", rc, p11_get_ckr(rc));
