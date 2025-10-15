@@ -7531,6 +7531,11 @@ static CK_RV ep11tok_kyber_mech_pre_process(STDLL_TokData_t *tokdata,
     }
 
     if (kyber_params->hSecret != CK_INVALID_HANDLE) {
+        if (*secret_key_obj != NULL) {
+            object_put(tokdata, *secret_key_obj, TRUE);
+            *secret_key_obj = NULL;
+        }
+
         rc = h_opaque_2_blob(tokdata, kyber_params->hSecret,
                              &mech_ep11->params.pBlob,
                              &mech_ep11->params.ulBlobLen,
