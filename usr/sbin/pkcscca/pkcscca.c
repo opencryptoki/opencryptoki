@@ -1803,7 +1803,7 @@ static int verbose_str2level(char *str)
 
 int main(int argc, char **argv)
 {
-    int ret = -1, opt = 0, c_flag = 0, masterkey = 0;
+    int ret = -1, opt = 0, masterkey = 0;
     int data_store_len = 0;
     CK_SLOT_ID slot_id = 0;
     const char *sopin = NULL, *userpin = NULL;
@@ -1866,7 +1866,6 @@ int main(int argc, char **argv)
             }
             break;
         case 's':
-            c_flag++;
             slot_id = atoi(optarg);
             break;
         case 'v':
