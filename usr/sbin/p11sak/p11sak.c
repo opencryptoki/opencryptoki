@@ -1440,6 +1440,8 @@ static const struct p11tool_arg p11sak_generate_dsa_args[] = {
 
 #define DECLARE_CURVE_VALUE(name)                                              \
     { .value = # name, .args = NULL, .private = { .ptr = &name ## _info, }, }
+#define DECLARE_CURVE_VALUE2(name, def)                                        \
+    { .value = # name, .args = NULL, .private = { .ptr = &def ## _info, }, }
 
 DECLARE_CURVE_INFO(prime256v1, 256);
 DECLARE_CURVE_INFO(prime192v1, 192);
@@ -1465,6 +1467,7 @@ DECLARE_CURVE_INFO(curve25519, 256);
 DECLARE_CURVE_INFO(curve448, 448);
 DECLARE_CURVE_INFO(ed25519, 256);
 DECLARE_CURVE_INFO(ed448, 448);
+DECLARE_CURVE_INFO(bls12_381, 384);
 
 static const struct p11tool_enum_value p11sak_ec_curves[] = {
     DECLARE_CURVE_VALUE(prime256v1),
@@ -1491,6 +1494,7 @@ static const struct p11tool_enum_value p11sak_ec_curves[] = {
     DECLARE_CURVE_VALUE(curve448),
     DECLARE_CURVE_VALUE(ed25519),
     DECLARE_CURVE_VALUE(ed448),
+    DECLARE_CURVE_VALUE2(bls12-381, bls12_381),
     { .value = NULL, },
 };
 
@@ -2582,7 +2586,7 @@ const struct p11tool_attr p11sak_bool_attrs[] = {
     DECLARE_BOOL_ATTR(CKA_MODIFIABLE,        'M', true,  true,  true,  true),
     DECLARE_BOOL_ATTR(CKA_COPYABLE,          'B', true,  true,  true,  true),
     DECLARE_BOOL_ATTR(CKA_DESTROYABLE,       'Y', true,  true,  true,  true),
-    DECLARE_BOOL_ATTR(CKA_DERIVE,            'R', true,  false, true,  true),
+    DECLARE_BOOL_ATTR(CKA_DERIVE,            'R', true,  true,  true,  true),
     DECLARE_BOOL_ATTR(CKA_ENCRYPT,           'E', true,  true,  false, true),
     DECLARE_BOOL_ATTR(CKA_DECRYPT,           'D', true,  false, true,  true),
     DECLARE_BOOL_ATTR(CKA_SIGN,              'G', true,  false, true,  true),
