@@ -527,7 +527,7 @@ secp265k1 |\: brainpoolP160r1 |\: brainpoolP160t1 |\: brainpoolP192r1 |\: \
 brainpoolP192t1 |\: brainpoolP224r1 |\: brainpoolP224t1 |\: brainpoolP256r1 \
 |\: brainpoolP256t1 |\: brainpoolP320r1 |\: brainpoolP320t1 |\: \
 brainpoolP384r1 |\: brainpoolP384t1 |\: brainpoolP512r1 |\: brainpoolP512t1 \
-|\: curve25519 |\: curve448 |\: ed25519 |\: ed448
+|\: curve25519 |\: curve448 |\: ed25519 |\: ed448 |\: bls12-381
 .PP
 .B Note:
 Not all curves are supported by all tokens and key generation fails
@@ -2492,7 +2492,7 @@ secp265k1 |\: brainpoolP160r1 |\: brainpoolP160t1 |\: brainpoolP192r1 |\: \
 brainpoolP192t1 |\: brainpoolP224r1 |\: brainpoolP224t1 |\: brainpoolP256r1 \
 |\: brainpoolP256t1 |\: brainpoolP320r1 |\: brainpoolP320t1 |\: \
 brainpoolP384r1 |\: brainpoolP384t1 |\: brainpoolP512r1 |\: brainpoolP512t1 \
-|\: curve25519 |\: curve448 |\: ed25519 |\: ed448 .
+|\: curve25519 |\: curve448 |\: ed25519 |\: ed448 |\: bls12-381 .
 .PP
 .
 .SS "VERSION"
