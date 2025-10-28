@@ -142,7 +142,7 @@ static void policy_check_ec_allowed(struct policy_private *pp,
         s->allowed = CK_FALSE;
         for (i = 0; i < pp->numallowedcurves; ++i) {
             if (pp->allowedcurves[i]->data_size == oidlen &&
-                memcmp(oid, pp->allowedcurves[i]->data, oidlen)) {
+                memcmp(oid, pp->allowedcurves[i]->data, oidlen) == 0) {
                 s->allowed = CK_TRUE;
                 break;
             }
