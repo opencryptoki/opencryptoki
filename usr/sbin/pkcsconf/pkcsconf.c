@@ -517,6 +517,7 @@ CK_RV print_mech_info(int slot_id)
     if (rc != CKR_OK) {
         warnx("Error getting mechanisms list: 0x%lX (%s)", rc,
               p11_get_ckr(rc));
+        free(MechanismList);
         return rc;
     }
 
@@ -529,6 +530,7 @@ CK_RV print_mech_info(int slot_id)
         if (rc != CKR_OK) {
             warnx("Error getting mechanisms info: 0x%lX (%s)", rc,
                   p11_get_ckr(rc));
+            free(MechanismList);
             return rc;
         }
         printf("Mechanism #%lu\n", i);
