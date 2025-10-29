@@ -2240,8 +2240,8 @@ static CK_RV ab_unwrap_update_template(STDLL_TokData_t * tokdata,
     CK_ULONG i;
     CK_ATTRIBUTE *attr;
     CK_BBOOL cktrue = TRUE;
-    CK_BYTE *useblob;
-    size_t useblob_len;
+    CK_BYTE *useblob = NULL;
+    size_t useblob_len = 0;
 
     RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
     RETRY_REENC_BLOB_START(tokdata, target_info, obj, blob, blob_len,
@@ -5434,8 +5434,8 @@ static CK_RV import_blob(STDLL_TokData_t *tokdata, SESSION *sess, OBJECT *obj,
     CK_ULONG maced_spki_len = sizeof(maced_spki);
     ep11_target_info_t* target_info;
     int curve_type;
-    CK_BYTE *useblob, *blob2;
-    size_t useblob_len, blob1_len, blob2_len;
+    CK_BYTE *useblob = NULL, *blob2;
+    size_t useblob_len = 0, blob1_len, blob2_len;
     CK_KEY_TYPE blob_type = CK_UNAVAILABLE_INFORMATION;
     CK_KEY_TYPE blob_type2 = CK_UNAVAILABLE_INFORMATION;
     CK_KEY_TYPE exp_keytype;
@@ -7071,8 +7071,8 @@ CK_RV token_specific_rsa_sign(STDLL_TokData_t *tokdata, SESSION *session,
     size_t keyblobsize = 0;
     CK_BYTE *keyblob;
     CK_MECHANISM mech;
-    CK_BYTE *useblob;
-    size_t useblobsize;
+    CK_BYTE *useblob = NULL;
+    size_t useblobsize = 0;
 
     rc = obj_opaque_2_blob(tokdata, key_obj, &keyblob, &keyblobsize);
     if (rc != CKR_OK) {
@@ -7111,8 +7111,8 @@ CK_RV token_specific_rsa_verify(STDLL_TokData_t *tokdata, SESSION *session,
     CK_BYTE *spki;
     size_t spki_len = 0;
     CK_MECHANISM mech;
-    CK_BYTE *useblob;
-    size_t useblob_len;
+    CK_BYTE *useblob = NULL;
+    size_t useblob_len = 0;
 
     rc = obj_opaque_2_blob(tokdata, key_obj, &spki, &spki_len);
     if (rc != CKR_OK) {
@@ -7152,8 +7152,8 @@ CK_RV token_specific_rsa_pss_sign(STDLL_TokData_t *tokdata, SESSION *session,
     CK_BYTE *keyblob;
     OBJECT *key_obj;
     CK_MECHANISM mech;
-    CK_BYTE *useblob;
-    size_t useblobsize;
+    CK_BYTE *useblob = NULL;
+    size_t useblobsize = 0;
 
     rc = h_opaque_2_blob(tokdata, ctx->key, &keyblob, &keyblobsize, &key_obj,
                          READ_LOCK);
@@ -7196,8 +7196,8 @@ CK_RV token_specific_rsa_pss_verify(STDLL_TokData_t *tokdata, SESSION *session,
     size_t spki_len = 0;
     OBJECT *key_obj;
     CK_MECHANISM mech;
-    CK_BYTE *useblob;
-    size_t useblob_len;
+    CK_BYTE *useblob = NULL;
+    size_t useblob_len = 0;
 
     rc = h_opaque_2_blob(tokdata, ctx->key, &spki, &spki_len, &key_obj,
                          READ_LOCK);
@@ -7243,8 +7243,8 @@ CK_RV token_specific_ec_sign(STDLL_TokData_t *tokdata, SESSION  *session,
     size_t keyblobsize = 0;
     CK_BYTE *keyblob;
     CK_MECHANISM mech;
-    CK_BYTE *useblob;
-    size_t useblobsize;
+    CK_BYTE *useblob = NULL;
+    size_t useblobsize = 0;
 
     rc = obj_opaque_2_blob(tokdata, key_obj, &keyblob, &keyblobsize);
     if (rc != CKR_OK) {
@@ -7304,8 +7304,8 @@ CK_RV token_specific_ec_verify(STDLL_TokData_t *tokdata, SESSION  *session,
     CK_BYTE *spki;
     size_t spki_len = 0;
     CK_MECHANISM mech;
-    CK_BYTE *useblob;
-    size_t useblob_len;
+    CK_BYTE *useblob = NULL;
+    size_t useblob_len = 0;
 
     rc = obj_opaque_2_blob(tokdata, key_obj, &spki, &spki_len);
     if (rc != CKR_OK) {
@@ -7368,8 +7368,8 @@ CK_RV token_specific_reencrypt_single(STDLL_TokData_t *tokdata,
     CK_BYTE *decr_key, *encr_key;
     size_t decr_key_len = 0, encr_key_len = 0;
     int status;
-    CK_BYTE *decr_useblob, *encr_useblob;
-    size_t decr_useblob_len, encr_useblob_len;
+    CK_BYTE *decr_useblob = NULL, *encr_useblob = NULL;
+    size_t decr_useblob_len = 0, encr_useblob_len = 0;
 
     UNUSED(decr_ctx);
     UNUSED(encr_ctx);
@@ -7896,8 +7896,8 @@ static CK_RV ep11tok_btc_mech_post_process(STDLL_TokData_t *tokdata,
     CK_ATTRIBUTE *spki_attr = NULL;
     CK_BBOOL allocated = FALSE;
     CK_RV rc = CKR_OK;
-    CK_BYTE *useblob;
-    size_t useblob_len;
+    CK_BYTE *useblob = NULL;
+    size_t useblob_len = 0;
 
     if (mech->ulParameterLen != sizeof(CK_IBM_BTC_DERIVE_PARAMS) ||
         mech->pParameter == NULL) {
@@ -11467,8 +11467,8 @@ CK_RV ep11tok_sign_single(STDLL_TokData_t *tokdata, SESSION *session,
     struct ECDSA_OTHER_MECH_PARAM mech_ep11;
     struct EP11_BLS12_MECH mech_bls;
     void *pAggrElements = NULL;
-    CK_BYTE *useblob;
-    size_t useblobsize;
+    CK_BYTE *useblob = NULL;
+    size_t useblobsize = 0;
     CK_MECHANISM ep11_mech;
 
     if (!is_ec_aggregate_mechanism(mech)) {
@@ -11976,8 +11976,8 @@ CK_RV ep11tok_verify_single(STDLL_TokData_t *tokdata, SESSION *session,
     size_t spki_len = 0;
     OBJECT *key_obj = NULL;
     struct ECDSA_OTHER_MECH_PARAM mech_ep11;
-    CK_BYTE *useblob;
-    size_t useblob_len;
+    CK_BYTE *useblob = NULL;
+    size_t useblob_len = 0;
     CK_MECHANISM ep11_mech;
 
     rc = h_opaque_2_blob(tokdata, key, &spki, &spki_len, &key_obj, READ_LOCK);
@@ -12265,8 +12265,8 @@ CK_RV ep11tok_decrypt_single(STDLL_TokData_t *tokdata, SESSION *session,
     size_t keyblobsize = 0;
     CK_BYTE *keyblob;
     OBJECT *key_obj = NULL;
-    CK_BYTE *useblob;
-    size_t useblobsize;
+    CK_BYTE *useblob = NULL;
+    size_t useblobsize = 0;
     struct RSA_OAEP_MECH_PARAM rsa_oaep_mech_ep11;
 
     UNUSED(length_only);
@@ -12514,8 +12514,8 @@ CK_RV ep11tok_encrypt_single(STDLL_TokData_t *tokdata, SESSION *session,
     size_t keyblobsize = 0;
     CK_BYTE *keyblob;
     OBJECT *key_obj = NULL;
-    CK_BYTE *useblob;
-    size_t useblobsize;
+    CK_BYTE *useblob = NULL;
+    size_t useblobsize = 0;
     struct RSA_OAEP_MECH_PARAM rsa_oaep_mech_ep11;
 
     UNUSED(length_only);
@@ -12890,15 +12890,15 @@ CK_RV ep11tok_wrap_key(STDLL_TokData_t * tokdata, SESSION * session,
                        CK_ULONG_PTR p_wrapped_key_len)
 {
     CK_RV rc;
-    CK_BYTE *wrapping_blob, *use_wrapping_blob = NULL;
-    size_t wrapping_blob_len, use_wrapping_blob_len = 0;
+    CK_BYTE *wrapping_blob = NULL, *use_wrapping_blob = NULL;
+    size_t wrapping_blob_len = 0, use_wrapping_blob_len = 0;
     CK_OBJECT_CLASS class;
     CK_BYTE *wrap_target_blob, *use_wrap_target_blob;
     size_t wrap_target_blob_len, use_wrap_target_blob_len;
     int size_query = 0;
     OBJECT *key_obj = NULL, *wrap_key_obj = NULL, *sobj = NULL;
     CK_BYTE *sign_blob = NULL, *use_sign_blob = NULL;
-    size_t sign_blob_len = ~0, use_sign_blob_len = 0;
+    size_t sign_blob_len = 0, use_sign_blob_len = 0;
     CK_KEY_TYPE ktype;
 
     /* ep11 weakness:
@@ -13094,7 +13094,7 @@ CK_RV ep11tok_unwrap_key(STDLL_TokData_t * tokdata, SESSION * session,
     CK_ULONG new_attrs2_len = 0;
     CK_BBOOL isab;
     CK_BYTE *verifyblob = NULL, *use_verifyblob = NULL;
-    size_t verifyblobsize = ~0, use_verifyblobsize = 0;
+    size_t verifyblobsize = 0, use_verifyblobsize = 0;
     OBJECT *vobj = NULL;
     CK_KEY_TYPE keytype;
 
@@ -17659,9 +17659,9 @@ static CK_RV update_ep11_attrs_from_blob(STDLL_TokData_t *tokdata,
     CK_ATTRIBUTE *attr, *blob_attr = NULL;
     CK_RV rc = CKR_OK;
     CK_ULONG i;
-    CK_BYTE *useblob, *blob;
+    CK_BYTE *useblob = NULL, *blob;
     CK_OBJECT_CLASS class;
-    size_t usebloblen;
+    size_t usebloblen = 0;
 
     CK_ATTRIBUTE ibm_attrs[] = {
         { CKA_IBM_RESTRICTABLE, &restr, sizeof(restr) },
