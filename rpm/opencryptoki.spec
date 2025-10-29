@@ -2,7 +2,7 @@
 
 Name:			opencryptoki
 Summary:		Implementation of the PKCS#11 (Cryptoki) specification v3.0 and partially v3.1
-Version:		3.25.0
+Version:		3.26.0
 Release:		1%{?dist}
 License:		CPL
 Group:			System Environment/Base
@@ -12,11 +12,15 @@ Source:			https://github.com/%{name}/%{name}/archive/v%{version}.tar.gz#/%{name}
 Requires(pre):		coreutils
 BuildRequires:		gcc
 BuildRequires:		openssl-devel >= 1.1.1
+%if 0%{?tpmtok}
 BuildRequires:		trousers-devel
+%endif
 BuildRequires:		openldap-devel
 BuildRequires:		autoconf automake libtool autoconf-archive
 BuildRequires:		bison flex
+%ifarch s390 s390x
 BuildRequires:		systemd-devel
+%endif
 BuildRequires:		libcap-devel
 BuildRequires:		make
 %ifarch s390 s390x
@@ -183,10 +187,20 @@ configured with Enterprise PKCS#11 (EP11) firmware.
 
 %configure --with-systemd=%{_unitdir}	\
     --with-pkcsslotd-user=pkcsslotd --with-pkcs-group=pkcs11	\
-%ifarch s390 s390x
-    --enable-icatok --enable-ccatok --enable-ep11tok --enable-pkcsep11_migrate
+%if 0%{?tpmtok}
+    --enable-tpmtok \
 %else
-    --disable-icatok --enable-ccatok --disable-ep11tok --disable-pkcsep11_migrate --enable-pkcscca_migrate
+    --disable-tpmtok \
+%endif
+%ifarch s390 s390x x86_64 ppc64le
+    --enable-ccatok \
+%else
+    --disable-ccatok \
+%endif
+%ifarch s390 s390x
+    --enable-icatok --enable-ep11tok --enable-pkcsep11_migrate
+%else
+    --disable-icatok --disable-ep11tok --disable-pkcsep11_migrate --enable-pkcscca_migrate
 %endif
 
 make %{?_smp_mflags} CHGRP=/bin/true
@@ -308,11 +322,13 @@ exit 0
 %dir %attr(770,root,pkcs11) %{_sharedstatedir}/%{name}/swtok/
 %dir %attr(770,root,pkcs11) %{_sharedstatedir}/%{name}/swtok/TOK_OBJ/
 
+%if 0%{?tpmtok}
 %files tpmtok
 %doc doc/README.tpm_stdll
 %{_libdir}/opencryptoki/stdll/libpkcs11_tpm.*
 %{_libdir}/opencryptoki/stdll/PKCS11_TPM.so
 %dir %attr(770,root,pkcs11) %{_sharedstatedir}/%{name}/tpm/
+%endif
 
 %files icsftok
 %doc doc/README.icsf_stdll
@@ -330,6 +346,7 @@ exit 0
 %dir %attr(770,root,pkcs11) %{_sharedstatedir}/%{name}/lite/TOK_OBJ/
 %endif
 
+%ifarch s390 s390x x86_64 ppc64le
 %files ccatok
 %doc doc/README.cca_stdll
 %config(noreplace) %{_sysconfdir}/%{name}/ccatok.conf
@@ -339,6 +356,7 @@ exit 0
 %{_libdir}/opencryptoki/stdll/PKCS11_CCA.so
 %dir %attr(770,root,pkcs11) %{_sharedstatedir}/%{name}/ccatok/
 %dir %attr(770,root,pkcs11) %{_sharedstatedir}/%{name}/ccatok/TOK_OBJ/
+%endif
 
 %ifarch s390 s390x
 %files ep11tok
