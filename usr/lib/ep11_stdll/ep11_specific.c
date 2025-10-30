@@ -528,6 +528,9 @@ static CK_BBOOL ep11_pqc_obj_strength_supported(ep11_target_info_t *target_info,
         return TRUE;
     }
 
+    if (key_obj == NULL)
+        return FALSE;
+
     oid = pqc_get_keyform_mode(key_obj->template, mech);
     if (oid == NULL) {
         TRACE_DEVEL("No keyform/mode found in key object\n");
@@ -5646,7 +5649,8 @@ static CK_RV import_blob(STDLL_TokData_t *tokdata, SESSION *sess, OBJECT *obj,
     }
 
     /* Check if session bound and if so for valid session */
-    if (memcmp(session_id, zero_session, XCP_WK_BYTES) == 0)
+    if (session_id == NULL ||
+        memcmp(session_id, zero_session, XCP_WK_BYTES) == 0)
         session_id = NULL;
     if (keytype == CKK_AES_XTS &&
         memcmp(session_id2, zero_session, XCP_WK_BYTES) == 0)
@@ -5764,7 +5768,6 @@ static CK_RV import_blob(STDLL_TokData_t *tokdata, SESSION *sess, OBJECT *obj,
             put_target_info(tokdata, target_info);
 
             if (rc != CKR_OK) {
-                put_target_info(tokdata, target_info);
                 TRACE_ERROR("%s new WK has just been activated, can not "
                             "reencipher key blob\n", __func__);
                 return CKR_ATTRIBUTE_VALUE_INVALID;
