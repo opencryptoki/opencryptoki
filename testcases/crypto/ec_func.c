@@ -3210,8 +3210,8 @@ _signVerifyParam bls_test_input = {{CKM_IBM_ECDSA_OTHER, &other_bls,
 CK_RV run_BLSAggregation(void)
 {
     CK_MECHANISM mech;
-    CK_OBJECT_HANDLE priv_key[CK_IBM_BLS_MAX_AGGREGATIONS],
-                     pub_key[CK_IBM_BLS_MAX_AGGREGATIONS];
+    CK_OBJECT_HANDLE priv_key[CK_IBM_BLS_MAX_AGGREGATIONS] = { CK_INVALID_HANDLE },
+                     pub_key[CK_IBM_BLS_MAX_AGGREGATIONS] = { CK_INVALID_HANDLE };
     CK_IBM_ECDSA_OTHER_BLS_PARAMS blsparam1, blsparam2;
     CK_OBJECT_HANDLE aggpubkey = CK_INVALID_HANDLE;
     CK_ULONG signatlen = CK_IBM_BLS12_381_SIGN_LEN;
