@@ -2919,7 +2919,7 @@ static CK_RV p11kmip_locate_remote_key(const char *label,
     }
     num_attrs++;
 
-    attrs = malloc(num_attrs * sizeof(struct kmip_node *));
+    attrs = calloc(num_attrs, sizeof(struct kmip_node *));
     k = 0;
 
     /* Set the label */
@@ -3882,7 +3882,7 @@ static CK_RV p11kmip_generate_remote_secret_key(
     int rc = 0;
 
     num_attrs = 4 + (supports_sensitive_attr()? 1 : 0);
-    attrs = malloc(num_attrs * sizeof(struct kmip_node *));
+    attrs = calloc(num_attrs, sizeof(struct kmip_node *));
 
     secret_alg = get_kmip_alg_from_p11(keytype->type);
 
