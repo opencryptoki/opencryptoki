@@ -221,10 +221,9 @@ CK_RV trace_initialize(void)
     return (CKR_OK);
 
 error:
-    trace.level = TRACE_LEVEL_NONE;
-    trace.fd = -1;
+    trace_finalize();
 
-    return (CKR_FUNCTION_FAILED);
+    return CKR_FUNCTION_FAILED;
 }
 
 void ock_traceit(trace_level_t level, const char *file, int line,
