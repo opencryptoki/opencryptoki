@@ -897,7 +897,7 @@ out:
 CK_RV hsm_mk_change_op_remove(const char *id)
 {
     char hsm_mk_change_file[PATH_MAX];
-    struct dirent **namelist;
+    struct dirent **namelist = NULL;
     CK_RV rc = CKR_OK;
     int n, i;
 
@@ -942,7 +942,7 @@ CK_RV hsm_mk_change_op_iterate(CK_RV (*cb)(struct hsm_mk_change_op *op,
                                            void *private), void *private)
 {
     struct hsm_mk_change_op op;
-    struct dirent **namelist;
+    struct dirent **namelist = NULL;
     CK_RV rc = CKR_OK;
     int n, i;
 
