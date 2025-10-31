@@ -11895,7 +11895,7 @@ CK_RV ep11tok_sign_single(STDLL_TokData_t *tokdata, SESSION *session,
     size_t keyblobsize = 0;
     CK_BYTE *keyblob;
     OBJECT *key_obj = NULL;
-    struct ECDSA_OTHER_MECH_PARAM mech_ep11;
+    struct ECDSA_OTHER_MECH_PARAM mech_ep11 = { 0 };
     struct EP11_BLS12_MECH mech_bls;
     void *pAggrElements = NULL;
     CK_BYTE *useblob = NULL;
