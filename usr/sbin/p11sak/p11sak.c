@@ -8683,7 +8683,7 @@ static CK_RV p11sak_export_dilithium_ml_dsa_pkey(
         if (keytype->type == CKK_IBM_ML_DSA) {
             seed_len = oid->len_info.ml_dsa.priv_seed_len;
             priv_seed = calloc(1, seed_len);
-            if (priv_key == NULL) {
+            if (priv_seed == NULL) {
                 warnx("Failed to allocate buffer for private seed.");
                 rc = CKR_HOST_MEMORY;
                 goto out;
@@ -8958,7 +8958,7 @@ static CK_RV p11sak_export_ml_kem_pkey(const struct p11tool_objtype *keytype,
 
         seed_len = oid->len_info.ml_kem.priv_seed_len;
         priv_seed = calloc(1, seed_len);
-        if (priv_key == NULL) {
+        if (priv_seed == NULL) {
             warnx("Failed to allocate buffer for private seed.");
             rc = CKR_HOST_MEMORY;
             goto out;
