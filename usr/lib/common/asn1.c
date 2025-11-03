@@ -5515,7 +5515,8 @@ CK_RV ber_decode_IBM_ML_DSA_PrivateKey(CK_MECHANISM_TYPE mech,
     if (pseed != NULL) {
         if (pseed_len != (*oid)->len_info.ml_dsa.priv_seed_len) {
             TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
-            return CKR_FUNCTION_FAILED;
+            rc = CKR_FUNCTION_FAILED;
+            goto cleanup;
         }
 
         rc = build_attribute(CKA_IBM_ML_DSA_PRIVATE_SEED, pseed,
@@ -5892,7 +5893,7 @@ CK_RV ber_decode_IBM_ML_KEM_PrivateKey(CK_MECHANISM_TYPE mech,
                                        CK_ATTRIBUTE **value,
                                        const struct pqc_oid **oid)
 {
-    CK_ATTRIBUTE *sk_attr = NULL, *seed_attr = NULL;
+    CK_ATTRIBUTE *sk_attr = NULL;
     CK_ATTRIBUTE *priv_seed_attr = NULL, *value_attr = NULL;
     CK_BYTE *algid = NULL, *priv = NULL, *both = NULL, *key = NULL;
     CK_BYTE *pseed = NULL, *tmp = NULL;
@@ -5976,7 +5977,8 @@ CK_RV ber_decode_IBM_ML_KEM_PrivateKey(CK_MECHANISM_TYPE mech,
     if (key != NULL) {
         if (key_len != (*oid)->len_info.ml_kem.sk_len) {
             TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
-            return CKR_FUNCTION_FAILED;
+            rc = CKR_FUNCTION_FAILED;
+            goto cleanup;
         }
 
         rc = build_attribute(CKA_IBM_ML_KEM_SK, key,
@@ -5990,7 +5992,8 @@ CK_RV ber_decode_IBM_ML_KEM_PrivateKey(CK_MECHANISM_TYPE mech,
     if (pseed != NULL) {
         if (pseed_len != (*oid)->len_info.ml_kem.priv_seed_len) {
             TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
-            return CKR_FUNCTION_FAILED;
+            rc = CKR_FUNCTION_FAILED;
+            goto cleanup;
         }
 
         rc = build_attribute(CKA_IBM_ML_KEM_PRIVATE_SEED, pseed,
@@ -6025,8 +6028,6 @@ CK_RV ber_decode_IBM_ML_KEM_PrivateKey(CK_MECHANISM_TYPE mech,
 cleanup:
     if (sk_attr)
         free(sk_attr);
-    if (seed_attr)
-        free(seed_attr);
     if (priv_seed_attr)
         free(priv_seed_attr);
     if (value_attr)
