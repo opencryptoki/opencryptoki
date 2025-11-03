@@ -6665,7 +6665,9 @@ static CK_RV openssl_specific_pqc_perform_kem(const struct pqc_oid *oid,
     CK_RV rc = CKR_OK;
     EVP_PKEY_CTX *ctx = NULL;
     const char *alg_name;
-    size_t cipher_len, secret_len;
+    size_t cipher_len, secret_len = 0;
+
+    *pSecret = NULL;
 
     alg_name = openssl_get_pqc_oid_name(oid);
     if (alg_name == NULL) {
