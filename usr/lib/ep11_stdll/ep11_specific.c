@@ -253,8 +253,8 @@ static const version_req_t ibm_kyber_req_versions[] = {
 };
 #define NUM_KYBER_REQ (sizeof(ibm_kyber_req_versions) / sizeof(version_req_t))
 
-static const CK_VERSION ibm_cex8p_ml_dsa_kem_support_v9 = { .major = 9, .minor = 5 };
-static const CK_VERSION ibm_cex8p_ml_dsa_kem_support_v8 = { .major = 8, .minor = 37 };
+static const CK_VERSION ibm_cex8p_ml_dsa_kem_support_v9 = { .major = 9, .minor = 6 };
+static const CK_VERSION ibm_cex8p_ml_dsa_kem_support_v8 = { .major = 8, .minor = 39 };
 
 static const version_req_t ibm_mldsa_kem_req_versions[] = {
         { .card_type = 8, .apply_to_firmware_version_only = 8,
