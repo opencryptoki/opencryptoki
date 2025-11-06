@@ -2292,17 +2292,26 @@ static CK_RV ab_unwrap_update_template(STDLL_TokData_t * tokdata,
         {CKA_KEY_TYPE,          &template_keytype,  sizeof(template_keytype)},
         {CKA_VALUE_LEN,         &valuelen,          sizeof(valuelen)},
     };
+    CK_ULONG num_attrs = sizeof(attrs) / sizeof(CK_ATTRIBUTE);
     CK_ULONG i;
     CK_ATTRIBUTE *attr;
     CK_BBOOL cktrue = TRUE;
     CK_BYTE *useblob = NULL;
     size_t useblob_len = 0;
 
+    switch (keytype) {
+    case CKK_GENERIC_SECRET:
+    case CKK_AES:
+        break;
+    default:
+        num_attrs -= 1; /* No CKA_VALUE_LEN attribute */
+        break;
+    }
+
     RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
     RETRY_REENC_BLOB_START(tokdata, target_info, obj, blob, blob_len,
                            useblob, useblob_len, rc)
-        rc = dll_m_GetAttributeValue(useblob, useblob_len, attrs,
-                                     sizeof(attrs) / sizeof(CK_ATTRIBUTE),
+        rc = dll_m_GetAttributeValue(useblob, useblob_len, attrs, num_attrs,
                                      target_info->target);
     RETRY_REENC_BLOB_END(tokdata, target_info, useblob, useblob_len, rc)
     RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, session)
