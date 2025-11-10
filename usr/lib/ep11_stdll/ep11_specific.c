@@ -5550,13 +5550,24 @@ static CK_RV import_blob(STDLL_TokData_t *tokdata, SESSION *sess, OBJECT *obj,
     CK_KEY_TYPE exp_keytype;
     CK_ULONG value_len, value_len2, stdcomp, stdcomp2;
     CK_BYTE buf[MAX_BLOBSIZE];
-    CK_ATTRIBUTE get_attr[] = {
-        { CKA_KEY_TYPE, &blob_type, sizeof(blob_type) }, /* must be first */
+    CK_ATTRIBUTE get_attr_pub[] = {
+        { CKA_KEY_TYPE, &blob_type, sizeof(blob_type) },
+    };
+    CK_ULONG get_attr_pub_num = sizeof(get_attr_pub) / sizeof(CK_ATTRIBUTE);
+    CK_ATTRIBUTE get_attr_priv[] = {
+        { CKA_KEY_TYPE, &blob_type, sizeof(blob_type) },
+        { CKA_IBM_STD_COMPLIANCE1, &stdcomp, sizeof(stdcomp) },
+        { CKA_PUBLIC_KEY_INFO, &buf, sizeof(buf) },
+    };
+    CK_ULONG get_attr_priv_num = sizeof(get_attr_priv) / sizeof(CK_ATTRIBUTE);
+    CK_ATTRIBUTE get_attr_sec[] = {
+        { CKA_KEY_TYPE, &blob_type, sizeof(blob_type) },
         { CKA_VALUE_LEN, &value_len, sizeof(value_len) },
         { CKA_IBM_STD_COMPLIANCE1, &stdcomp, sizeof(stdcomp) },
-        { CKA_PUBLIC_KEY_INFO, &buf, sizeof(buf) } /* SPKI must be last */
     };
-    CK_ULONG get_attr_num = sizeof(get_attr) / sizeof(CK_ATTRIBUTE);
+    CK_ULONG get_attr_sec_num = sizeof(get_attr_sec) / sizeof(CK_ATTRIBUTE);
+    CK_ATTRIBUTE *get_attr = NULL;
+    CK_ULONG get_attr_num = 0;
     CK_ATTRIBUTE get_attr2[] = {
         { CKA_KEY_TYPE, &blob_type2, sizeof(blob_type2) },
         { CKA_VALUE_LEN, &value_len2, sizeof(value_len2) },
@@ -5793,10 +5804,22 @@ static CK_RV import_blob(STDLL_TokData_t *tokdata, SESSION *sess, OBJECT *obj,
         }
     }
 
-    if (class == CKO_PUBLIC_KEY)
-        get_attr_num = 1; /* get only key type for public key */
-    if (class == CKO_SECRET_KEY)
-        get_attr_num--; /* don't get SPKI for secret key */
+    switch (class) {
+    case CKO_PUBLIC_KEY:
+        get_attr = get_attr_pub;
+        get_attr_num = get_attr_pub_num;
+        break;
+    case CKO_PRIVATE_KEY:
+        get_attr = get_attr_priv;
+        get_attr_num = get_attr_priv_num;
+        break;
+    case CKO_SECRET_KEY:
+        get_attr = get_attr_sec;
+        get_attr_num = get_attr_sec_num;
+        break;
+    default:
+        return CKR_KEY_TYPE_INCONSISTENT;
+    }
 
     /* Get Key type and SPKI for private keys */
     blob1_len = keytype == CKK_AES_XTS ? blob_len / 2 : blob_len;
@@ -5879,8 +5902,8 @@ static CK_RV import_blob(STDLL_TokData_t *tokdata, SESSION *sess, OBJECT *obj,
 
     case CKO_PRIVATE_KEY:
         rc = import_blob_private_public(tokdata, sess, obj, keytype,
-                                        get_attr[get_attr_num - 1].pValue,
-                                        get_attr[get_attr_num - 1].ulValueLen,
+                                        get_attr_priv[get_attr_priv_num - 1].pValue,
+                                        get_attr_priv[get_attr_priv_num - 1].ulValueLen,
                                         FALSE);
         if (rc != CKR_OK) {
             TRACE_ERROR("%s import_blob_public failed rc=0x%lx\n",
@@ -5899,15 +5922,17 @@ static CK_RV import_blob(STDLL_TokData_t *tokdata, SESSION *sess, OBJECT *obj,
         break;
     }
 
-    rc = template_build_update_attribute(obj->template, CKA_IBM_STD_COMPLIANCE1,
-                                         (CK_BYTE *)&stdcomp, sizeof(stdcomp));
-    if (rc != CKR_OK) {
-        TRACE_ERROR("%s template_build_update_attribute failed rc=0x%lx\n",
-                    __func__, rc);
-        return rc;
-    }
-
     if (class != CKO_PUBLIC_KEY) {
+        rc = template_build_update_attribute(obj->template,
+                                             CKA_IBM_STD_COMPLIANCE1,
+                                             (CK_BYTE *)&stdcomp,
+                                             sizeof(stdcomp));
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s template_build_update_attribute failed rc=0x%lx\n",
+                        __func__, rc);
+            return rc;
+        }
+
         /* Set CKA_ALWAYS_SENSITIVE and CKA_NEVER_EXTRACTABLE */
         rc = key_mgr_apply_always_sensitive_never_extractable_attrs(tokdata,
                                                                     obj);
