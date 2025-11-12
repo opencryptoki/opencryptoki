@@ -263,6 +263,13 @@ AC_ARG_WITH([pkcs-group],
 	[pkcs_group=$withval],
 	[pkcs_group=pkcs11])
 
+dnl --- max-token-objects
+AC_ARG_WITH([max-token-objects],
+	AS_HELP_STRING([--with-max-token-objects=NUMBER],[set the maximum number of token objects that are supported (default: 2048).
+			Opencryptioki supports up to that number of public token objects (CKA_PRIVATE=FALSE) plus up to that number of private token objects (CKA_PRIVATE=TRUE).]),
+	[max_token_objects=$withval],
+	[max_token_objects=2048])
+
 dnl ---
 dnl ---
 dnl --- Now that we have all the options, let's check for a valid build
@@ -797,6 +804,7 @@ fi
 
 AC_DEFINE_UNQUOTED([PKCSSLOTD_USER], "$pkcsslotd_user")
 AC_DEFINE_UNQUOTED([PKCS_GROUP], "$pkcs_group")
+AC_DEFINE_UNQUOTED([MAX_TOK_OBJS], $max_token_objects)
 
 CFLAGS="$CFLAGS"' -DCONFIG_PATH=\"$(localstatedir)/lib/opencryptoki\" -DSBIN_PATH=\"$(sbindir)\" -DLIB_PATH=\"$(libdir)\" -DRUN_PATH=\"$(RUN_PATH)\" -DLOCKDIR_PATH=\"$(lockdir)\" -DOCK_CONFDIR=\"$(sysconfdir)/opencryptoki\" -DOCK_LOGDIR=\"$(logdir)\"'
 
@@ -877,6 +885,7 @@ echo "	pkcscca build:		$enable_pkcscca"
 echo
 echo "pkcsslotd user:		$pkcsslotd_user"
 echo "pkcs group:		$pkcs_group"
+echo "max token objects:	$max_token_objects"
 echo
 echo "CFLAGS=$CFLAGS"
 echo "LDFLAGS=$LDFLAGS"

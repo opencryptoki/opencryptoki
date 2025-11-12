@@ -162,7 +162,9 @@ struct oc_sha_ctx {
 
 #define DEFAULT_SO_PIN  "87654321"
 
-#define MAX_TOK_OBJS 2048
+#ifndef MAX_TOK_OBJS
+    #define MAX_TOK_OBJS 2048
+#endif
 
 
 typedef enum {
