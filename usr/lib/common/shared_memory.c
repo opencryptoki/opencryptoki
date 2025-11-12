@@ -284,11 +284,15 @@ int sm_open(const char *sm_name, int mode, void **p_addr, size_t len, int force,
         }
 
         /*
-         * Too big real_len indicates the new token data format is used.
+         * Too big or too small real_len indicates the new token data format
+         * is used, or the desired size of the shared memory segment has
+         * changed by other means.
          * If no application is attached to the shm (ref==1) it can be
          * safely expanded/recreated. Otherwise, fail.
+         * The caller must have the token xproc-lock, so it is save to check
+         * the reference counter here.
          */
-        if (ref <= 1 && real_len > (size_t)stat_buf.st_size) {
+        if (ref <= 1 && real_len != (size_t)stat_buf.st_size) {
             created = 1;
             TRACE_DEVEL("Truncating \"%s\".\n", name);
             if (ftruncate(fd, real_len) < 0) {
