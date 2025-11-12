@@ -1795,15 +1795,17 @@ void object_mgr_add_to_shm(OBJECT *obj, LW_SHM_TYPE *global_shm)
     else
         entry = &global_shm->publ_tok_objs[global_shm->num_publ_tok_obj];
 
-    entry->deleted = FALSE;
     entry->count_lo = 0;
     entry->count_hi = 0;
     memcpy(entry->name, obj->name, 8);
 
-    if (priv)
+    if (priv) {
+        obj->index = global_shm->num_priv_tok_obj;
         global_shm->num_priv_tok_obj++;
-    else
+    } else {
+        obj->index = global_shm->num_publ_tok_obj;
         global_shm->num_publ_tok_obj++;
+    }
 
     return;
 }
@@ -2097,12 +2099,19 @@ CK_RV object_mgr_search_shm_for_obj(TOK_OBJ_ENTRY *obj_list,
                                     CK_ULONG lo,
                                     CK_ULONG hi, OBJECT *obj, CK_ULONG *index)
 {
-// SAB  XXX reduce the search time since this is what seems to be burning cycles
     CK_ULONG idx;
 
     UNUSED(lo);
 
     if (obj->index == 0) {
+        /*
+         * obj->index 0 is a valid index, but is also used to indicate that no
+         * index is set/known. In case of a valid index 0, below loop should
+         * find the matching SHM entry in the very first iteration, so the
+         * code is not different to the code when obj->index would be > 0,
+         * i.e. a memcmp of the name to check that the SHM entry still matches,
+         * and a return if it matches, and a search loop if it is not matching.
+         */
         for (idx = 0; idx <= hi; idx++) {
             if (memcmp(obj->name, obj_list[idx].name, 8) == 0) {
                 *index = idx;
@@ -2111,12 +2120,16 @@ CK_RV object_mgr_search_shm_for_obj(TOK_OBJ_ENTRY *obj_list,
             }
         }
     } else {
-        // SAB better double check
+        /* Check if the SHM entry is still for the desired object */
         if (memcmp(obj->name, obj_list[obj->index].name, 8) == 0) {
             *index = obj->index;
             return CKR_OK;
         } else {
-            // something is hosed.. go back to the brute force method
+            /*
+             * SHM entry is no longer for the desired object, search for it.
+             * This can happen if a token object was deleted and the SHM entry
+             * of it was removed, moving all following entries up by one.
+             */
             for (idx = 0; idx <= hi; idx++) {
                 if (memcmp(obj->name, obj_list[idx].name, 8) == 0) {
                     *index = idx;

@@ -375,7 +375,6 @@ CK_RV ock_generic_get_mechanism_info(STDLL_TokData_t * tokdata,
                                                CK_MECHANISM_INFO *info));
 
 typedef struct _TOK_OBJ_ENTRY {
-    CK_BBOOL deleted;
     char name[8];
     CK_ULONG_32 count_lo;
     CK_ULONG_32 count_hi;
