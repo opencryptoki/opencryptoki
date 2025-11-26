@@ -127,6 +127,7 @@ static bool opt_uri_pin_value = false;
 static char *opt_uri_pin_source = NULL;
 static bool opt_oqsprovider_pem = false;
 static bool opt_hsm_mkvp = false;
+static bool opt_ep11_session_id = false;
 char *opt_kek_label = NULL;
 char *opt_kek_id = NULL;
 bool opt_raw = false;
@@ -305,6 +306,15 @@ static void p11sak_print_mkvp_ep11_long(const struct p11tool_token_info *info,
                                         const CK_BYTE *secure_key,
                                         CK_ULONG secure_key_len,
                                         int indent);
+static void p11sak_print_session_id_ep11_short(
+                                         const struct p11tool_token_info *info,
+                                         const CK_BYTE *secure_key,
+                                         CK_ULONG secure_key_len);
+static void p11sak_print_session_id_ep11_long(
+                                         const struct p11tool_token_info *info,
+                                         const CK_BYTE *secure_key,
+                                         CK_ULONG secure_key_len,
+                                         int indent);
 
 #define DECLARE_CERT_ATTRS                                                     \
     { .name = "CKA_LABEL", .type = CKA_LABEL,                                  \
@@ -1714,6 +1724,11 @@ static const struct p11tool_opt p11sak_list_key_opts[] = {
       .description = "Show the HSM master key verification patterns (MKVPs) of "
                      "the key objects. Only valid for secure key tokens, such "
                      "as the CCA and EP11 tokens.", },
+    { .short_opt = 'e', .long_opt = "ep11-session-id", .required = false,
+      .arg =  { .type = ARG_TYPE_PLAIN, .required = false,
+                .value.plain = &opt_ep11_session_id, },
+      .description = "Show the EP11 session-IDs of the key objects. Only valid "
+                     "for an EP11 token.", },
     { .short_opt = 'S', .long_opt = "sort", .required = false,
       .arg =  { .type = ARG_TYPE_STRING, .required = true,
                 .value.string = &opt_sort, .name = "SORT-SPEC" },
@@ -2808,9 +2823,12 @@ static const struct p11tool_token_info p11sak_known_tokens[] = {
       .print_mkvp_long = p11sak_print_mkvp_cca_long, },
     { .type = TOKTYPE_EP11, .manufacturer = "IBM", .model = "EP11",
       .mkvp_size = 16, .mktype_cell_size = 8,
+      .session_id_size = 32,
       .secure_key_attr = CKA_IBM_OPAQUE,
       .print_mkvp_short = p11sak_print_mkvp_ep11_short,
-      .print_mkvp_long = p11sak_print_mkvp_ep11_long, },
+      .print_mkvp_long = p11sak_print_mkvp_ep11_long,
+      .print_session_id_short = p11sak_print_session_id_ep11_short,
+      .print_session_id_long = p11sak_print_session_id_ep11_long, },
     { .type = TOKTYPE_UNKNOWN, },
 };
 
@@ -4685,11 +4703,11 @@ static void p11sak_print_mkvp_cca_long(const struct p11tool_token_info *info,
     printf(" (%s)\n", mktype);
 }
 
-static const CK_BYTE *p11sak_get_ep11_wkvp(const struct p11tool_token_info *info,
-                                           const CK_BYTE *secure_key,
-                                           CK_ULONG secure_key_len)
+static CK_RV p11sak_get_ep11_get_spki_len(const CK_BYTE *secure_key,
+                                          CK_ULONG secure_key_len,
+                                          CK_ULONG *spki_len)
 {
-    CK_ULONG len, spki_len, wkid_len, i, val = 0;
+    CK_ULONG len, i, val = 0;
 
     /*
      * From the EP11 structure document:
@@ -4706,18 +4724,39 @@ static const CK_BYTE *p11sak_get_ep11_wkvp(const struct p11tool_token_info *info
         if (secure_key[1] & 0x80) {
             /* long form, len contains number of length bytes */
             if (len > 4)
-                return NULL;
+                return CKR_FUNCTION_FAILED;
+
             for (i = 0; i < len; i++) {
                 if (i > 0)
                     val <<= 8;
                 val |= secure_key[2 + i];
             }
-            spki_len = 2 + len + val;
+
+            *spki_len = 2 + len + val;
         } else {
             /* short form */
-            spki_len = 2 + len;
+            *spki_len = 2 + len;
         }
 
+        return CKR_OK;
+    }
+
+    /* No SPKI */
+    *spki_len = 0;
+    return CKR_OK;
+}
+
+static const CK_BYTE *p11sak_get_ep11_wkvp(const struct p11tool_token_info *info,
+                                           const CK_BYTE *secure_key,
+                                           CK_ULONG secure_key_len)
+{
+    CK_ULONG spki_len, wkid_len;
+
+    if (p11sak_get_ep11_get_spki_len(secure_key, secure_key_len,
+                                     &spki_len) != CKR_OK)
+        return NULL;
+
+    if (spki_len > 0) {
         /* An OCTET STRING with short form length must follow */
         if (secure_key_len < spki_len + 2 || secure_key[spki_len] != 0x04)
             return NULL;
@@ -4778,6 +4817,93 @@ static void p11sak_print_mkvp_ep11_long(const struct p11tool_token_info *info,
     printf(" (EP11-WK)\n");
 }
 
+static const CK_BYTE *p11sak_get_ep11_session_id(
+                                          const struct p11tool_token_info *info,
+                                          const CK_BYTE *secure_key,
+                                          CK_ULONG secure_key_len)
+{
+    CK_ULONG spki_len, wkid_len, sess_id_len;
+
+    if (p11sak_get_ep11_get_spki_len(secure_key, secure_key_len,
+                                     &spki_len) != CKR_OK)
+        return NULL;
+
+    if (spki_len > 0) {
+        /* An OCTET STRING with short form length must follow */
+        if (secure_key_len < spki_len + 2 || secure_key[spki_len] != 0x04)
+            return NULL;
+
+        wkid_len = secure_key[spki_len + 1];
+        if (wkid_len != info->mkvp_size)
+            return NULL;
+
+        /* An OCTET STRING with short form length must follow */
+        if (secure_key_len < spki_len + 2 + wkid_len + 2 ||
+            secure_key[spki_len + 2 + wkid_len] != 0x04)
+            return NULL;
+
+        sess_id_len = secure_key[spki_len + 2 + wkid_len + 1];
+        if (sess_id_len != info->session_id_size)
+            return NULL;
+
+        return &secure_key[spki_len + 2 + wkid_len + 2];
+    }
+
+    /* Secure key */
+    if (secure_key_len <= EP11_SESSION_ID_OFFSET + info->session_id_size)
+        return NULL;
+
+    return &secure_key[EP11_SESSION_ID_OFFSET];
+}
+
+static const CK_BYTE ep11_null_session[32] = { 0 };
+
+static void p11sak_print_session_id_ep11_short(
+                                         const struct p11tool_token_info *info,
+                                         const CK_BYTE *secure_key,
+                                         CK_ULONG secure_key_len)
+{
+    unsigned int i;
+    const CK_BYTE *session_id;
+
+    session_id = p11sak_get_ep11_session_id(info, secure_key, secure_key_len);
+    if (session_id == NULL ||
+        memcmp(session_id, ep11_null_session, sizeof(ep11_null_session)) == 0) {
+        printf("%-*s", MAX(LIST_SESS_MIN_CELL_SIZE,
+                           info->session_id_size * 2), "-");
+        return;
+    }
+
+    for (i = 0; i < info->session_id_size; i++)
+        printf("%02X", session_id[i]);
+    for (i = info->session_id_size * 2; i < LIST_SESS_MIN_CELL_SIZE; i++)
+        printf(" ");
+}
+
+static void p11sak_print_session_id_ep11_long(
+                                        const struct p11tool_token_info *info,
+                                        const CK_BYTE *secure_key,
+                                        CK_ULONG secure_key_len,
+                                        int indent)
+{
+    unsigned int i;
+    const CK_BYTE *session_id;
+
+    session_id = p11sak_get_ep11_session_id(info, secure_key, secure_key_len);
+    if (session_id == NULL)
+        return;
+
+    if (memcmp(session_id, ep11_null_session, sizeof(ep11_null_session)) == 0) {
+        printf("%*sSession-ID: [none]\n", indent, "");
+        return;
+    }
+
+    printf("%*sSession-ID: ", indent, "");
+    for (i = 0; i < info->session_id_size; i++)
+        printf("%02X", session_id[i]);
+    printf("\n");
+}
+
 static CK_RV handle_obj_list(CK_OBJECT_HANDLE key, CK_OBJECT_CLASS class,
                              const struct p11tool_objtype *objtype,
                              CK_ULONG keysize, const char *typestr,
@@ -4800,7 +4926,7 @@ static CK_RV handle_obj_list(CK_OBJECT_HANDLE key, CK_OBJECT_CLASS class,
         return rc;
     }
 
-    if (opt_hsm_mkvp &&  p11tool_token_info != NULL) {
+    if ((opt_hsm_mkvp || opt_ep11_session_id) && p11tool_token_info != NULL) {
         /* Get secure key attr, ignore if key does not have that attribute */
         secure_key_attr.type =  p11tool_token_info->secure_key_attr;
         rc = p11tool_get_attribute(key, &secure_key_attr);
@@ -4822,9 +4948,18 @@ static CK_RV handle_obj_list(CK_OBJECT_HANDLE key, CK_OBJECT_CLASS class,
         printf("Label: \"%s\"\n", label);
         printf("    URI: %s\n", p11_uri_format(uri));
         printf("    %s: %s\n", objtype->obj_liststr, typestr);
-        if (opt_hsm_mkvp &&  p11tool_token_info != NULL &&
+        if (opt_hsm_mkvp && p11tool_token_info != NULL &&
             secure_key_attr.pValue != NULL && secure_key_attr.ulValueLen > 0) {
              p11tool_token_info->print_mkvp_long(p11tool_token_info,
+                                        secure_key_attr.pValue,
+                                        secure_key_attr.ulValueLen,
+                                        4);
+        }
+        if (opt_ep11_session_id && p11tool_token_info != NULL &&
+                   secure_key_attr.pValue != NULL &&
+                   secure_key_attr.ulValueLen > 0 &&
+                   p11tool_token_info->print_session_id_long != NULL) {
+             p11tool_token_info->print_session_id_long(p11tool_token_info,
                                         secure_key_attr.pValue,
                                         secure_key_attr.ulValueLen,
                                         4);
@@ -4846,6 +4981,16 @@ static CK_RV handle_obj_list(CK_OBJECT_HANDLE key, CK_OBJECT_CLASS class,
                     p11tool_token_info->mkvp_size * 2),
                    "-", MAX(LIST_MKTYPE_MIN_CELL_SIZE,
                            p11tool_token_info->mktype_cell_size), "-");
+        printf(" ");
+    } else if (!opt_long && opt_ep11_session_id && p11tool_token_info != NULL) {
+        if (secure_key_attr.pValue != NULL && secure_key_attr.ulValueLen > 0 &&
+            p11tool_token_info->print_session_id_short != NULL)
+            p11tool_token_info->print_session_id_short(p11tool_token_info,
+                                         secure_key_attr.pValue,
+                                         secure_key_attr.ulValueLen);
+        else
+            printf("%-*s", MAX(LIST_SESS_MIN_CELL_SIZE,
+                    p11tool_token_info->session_id_size * 2), "-");
         printf(" ");
     } else {
         rc = print_boolean_attrs(key, class, objtype, typestr, label, data);
@@ -5079,6 +5224,20 @@ static CK_RV p11sak_list_key(void)
         rc = CKR_ARGUMENTS_BAD;
         goto done;
     }
+    if (opt_ep11_session_id && (p11tool_token_info == NULL ||
+        (p11tool_token_info != NULL &&
+         p11tool_token_info->type != TOKTYPE_EP11))) {
+        warnx("Option '-e'/'--ep11-session-id' can only be used with an EP11 "
+              "token");
+        rc = CKR_ARGUMENTS_BAD;
+        goto done;
+    }
+    if (!opt_long && opt_hsm_mkvp && opt_ep11_session_id) {
+        warnx("Either '-m'/'--hsm-mkvp' or '-e'/'--ep11-session-id' can can be "
+              "specified, unless '-l'/'--long' is also specified");
+        rc = CKR_ARGUMENTS_BAD;
+        goto done;
+    }
 
     for (attr = p11sak_bool_attrs, data.num_bool_attrs = 0; attr->name != NULL;
                                         attr++, data.num_bool_attrs++)
@@ -5106,18 +5265,33 @@ static CK_RV p11sak_list_key(void)
 
     if (opt_hsm_mkvp && !opt_long) {
         printf("| MASTER KEY VERIFICATION PATTERN ");
-        for(i = LIST_MKVP_MIN_CELL_SIZE; i < p11tool_token_info->mkvp_size; i++)
+        for(i = LIST_MKVP_MIN_CELL_SIZE; i < p11tool_token_info->mkvp_size * 2;
+                                                            i++)
             printf(" ");
         printf(" | %-*s ", MAX(LIST_MKTYPE_MIN_CELL_SIZE,
                 p11tool_token_info->mktype_cell_size), "MK TYPE");
         printf("| %*s | LABEL\n", LIST_KEYTYPE_CELL_SIZE, "KEY TYPE");
         printf("|-");
-        for(i = 0; i < MAX(LIST_MKVP_MIN_CELL_SIZE, p11tool_token_info->mkvp_size * 2);
-                                                                    i++)
+        for(i = 0; i < MAX(LIST_MKVP_MIN_CELL_SIZE,
+                           p11tool_token_info->mkvp_size * 2); i++)
             printf("-");
         printf("-+-");
         for (i = 0; i < MAX(LIST_MKTYPE_MIN_CELL_SIZE,
                 p11tool_token_info->mktype_cell_size); i++)
+            printf("-");
+        printf("-+-");
+        for (i = 0; i < LIST_KEYTYPE_CELL_SIZE; i++)
+            printf("-");
+        printf("-+--------------------\n");
+    } else if (opt_ep11_session_id && !opt_long) {
+        printf("| EP11 SESSION ID ");
+        for(i = LIST_SESS_MIN_CELL_SIZE;
+                            i < p11tool_token_info->session_id_size * 2; i++)
+            printf(" ");
+        printf(" | %*s | LABEL\n", LIST_KEYTYPE_CELL_SIZE, "KEY TYPE");
+        printf("|-");
+        for(i = 0; i < MAX(LIST_SESS_MIN_CELL_SIZE,
+                           p11tool_token_info->session_id_size * 2); i++)
             printf("-");
         printf("-+-");
         for (i = 0; i < LIST_KEYTYPE_CELL_SIZE; i++)

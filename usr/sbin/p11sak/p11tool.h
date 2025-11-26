@@ -216,6 +216,7 @@ struct p11tool_token_info {
     const char *model;
     unsigned int mkvp_size;
     unsigned int mktype_cell_size;
+    unsigned int session_id_size;
     CK_ATTRIBUTE_TYPE secure_key_attr;
     void (*print_mkvp_long)(const struct p11tool_token_info *info,
                             const CK_BYTE *secure_key,
@@ -225,6 +226,13 @@ struct p11tool_token_info {
                              const CK_BYTE *secure_key,
                              CK_ULONG secure_key_len,
                              const char *separator);
+    void (*print_session_id_long)(const struct p11tool_token_info *info,
+                                  const CK_BYTE *secure_key,
+                                  CK_ULONG secure_key_len,
+                                  int indent);
+    void (*print_session_id_short)(const struct p11tool_token_info *info,
+                                   const CK_BYTE *secure_key,
+                                   CK_ULONG secure_key_len);
 };
 
 extern void *p11tool_pkcs11_lib;

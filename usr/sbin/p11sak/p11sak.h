@@ -52,6 +52,7 @@
 #define LIST_KEYTYPE_CELL_SIZE  22
 #define LIST_MKVP_MIN_CELL_SIZE 32
 #define LIST_MKTYPE_MIN_CELL_SIZE 8
+#define LIST_SESS_MIN_CELL_SIZE 16
 #define LIST_CERTTYPE_CELL_SIZE  9
 #define LIST_CERT_CN_CELL_SIZE  22
 
@@ -169,6 +170,7 @@ static const CK_BYTE bls12_381[] = OCK_BLS12_381;
 #endif
 
 #define EP11_WKVP_OFFSET        32
+#define EP11_SESSION_ID_OFFSET  0
 
 struct cca_token_header {
     unsigned char id;
