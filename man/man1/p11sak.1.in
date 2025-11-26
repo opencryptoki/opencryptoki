@@ -808,6 +808,7 @@ attribute of the key.
 .RB [ \-\-long | \-l ]
 .RB [ \-\-detailed\-uri ]
 .RB [ \-\-hsm\-mkvp | \-m ]
+.RB [ \-\-ep11\-session\-id | \-e ]
 .RB [ \-\-sort | \-S
 .IR SORT\-SPEC ]
 .RB [ \-\-help | \-h ]
@@ -867,6 +868,10 @@ When option
 is specified, the HSM master key verification patterns (MKVPs) of the keys are
 displayed. This is only possible for secure key tokens, such as the CCA and EP11
 tokens.
+When option
+.BR \-\-ep11\-session\-id | \-e
+is specified, the EP11 session-IDs of the keys are displayed. This is only
+possible for EP11 tokens.
 .PP
 By default, the keys are displayed in the order as they are retrieved from the
 PKCS\~#11 implementation. To display the keys in a certain order, specify the
@@ -3018,7 +3023,15 @@ This option is only valid for secure key tokens, such as the CCA and EP11
 tokens.
 .RE
 .PP
-
+.
+.
+.
+.TP 8
+.BR \-\-ep11\-session\-id | \-e
+Shows the EP11 session-IDs of the key objects. This option is only valid for
+EP11 tokens.
+.RE
+.PP
 .
 .
 .
