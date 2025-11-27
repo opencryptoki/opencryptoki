@@ -691,6 +691,7 @@ static CK_RV ep11tok_pkey_skey2pkey(STDLL_TokData_t *tokdata, SESSION *session,
     uint64_t token_size = 0;
     uint8_t wrapped_key[EP11_MAX_WRAPPED_KEY_SIZE * 2];
     ep11_target_info_t *target_info = NULL;
+    CK_ULONG retry_count = 0;
     CK_RV ret;
 
     target_info = get_target_info(tokdata);
@@ -733,6 +734,7 @@ static CK_RV ep11tok_pkey_skey2pkey(STDLL_TokData_t *tokdata, SESSION *session,
         pkey_wrap_handler_data.aes_xts = TRUE;
     }
 
+retry:
     if (target_info->single_apqn) {
         /* If in single APQN mode, call handler for that single APQN only */
         RETRY_SINGLE_APQN_START(tokdata, ret)
@@ -747,6 +749,20 @@ static CK_RV ep11tok_pkey_skey2pkey(STDLL_TokData_t *tokdata, SESSION *session,
                                     &pkey_wrap_handler_data);
     }
     if (ret != CKR_OK || !pkey_wrap_handler_data.wrap_was_successful) {
+        if (pkey_wrap_handler_data.wrap_error == CKR_KEY_NEEDED &&
+            retry_count < 10) {
+            /*
+             * The EP11 host library v4.2 or later may return CKR_KEY_NEEDED
+             * at m_WrapKey() with mechanism CKM_IBM_CPACF_WRAP to indicate
+             * that the firmware is not yet ready to derive a protected key.
+             * Sleep 500 msec and retry up to 10 times.
+             */
+            TRACE_DEVEL("CKM_IBM_CPACF_WRAP failed with CKR_KEY_NEEDED, retry\n");
+            usleep(500000);
+            retry_count++;
+            goto retry;
+        }
+
         TRACE_ERROR("handle_all_ep11_cards failed or no APQN could do the wrap.\n");
         ret = CKR_FUNCTION_FAILED;
         goto done;
