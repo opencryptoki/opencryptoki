@@ -3703,6 +3703,8 @@ static CK_RV make_maced_spki(STDLL_TokData_t *tokdata, SESSION *sess,
             goto make_maced_spki_end;
         }
 
+        ep11tok_pkcs11_keytype_translate(tokdata, keytype, &keytype);
+
         is_private = object_is_private(pub_key_obj);
         is_session = object_is_session_object(pub_key_obj);
 
@@ -3726,6 +3728,8 @@ static CK_RV make_maced_spki(STDLL_TokData_t *tokdata, SESSION *sess,
             TRACE_ERROR("Could not find CKA_KEY_TYPE for the key.\n");
             goto make_maced_spki_end;
         }
+
+        ep11tok_pkcs11_keytype_translate(tokdata, keytype, &keytype);
 
         is_private = ep11_is_private_object(pub_key_attrs, pub_key_attrs_len);
         is_session = ep11_is_session_object(pub_key_attrs, pub_key_attrs_len);
@@ -3849,6 +3853,54 @@ static int get_curve_type_from_spki(CK_BYTE *spki, CK_ULONG spki_len)
     }
 
     return -1;
+}
+
+static CK_RV import_edwards_montgomery_preprocess(CK_BYTE *ec_spki,
+                                                  CK_ULONG ec_spki_len,
+                                                  CK_BYTE **spki,
+                                                  CK_ULONG *spki_len,
+                                                  TEMPLATE *tmpl,
+                                                  CK_KEY_TYPE keytype,
+                                                  CK_BBOOL is_public)
+{
+    CK_BYTE *algid = NULL;
+    CK_ULONG algid_len;
+    CK_ATTRIBUTE ec_point, params;
+    CK_RV rc;
+
+    UNUSED(ec_spki_len);
+
+    rc = ber_decode_SPKI(ec_spki, &algid, &algid_len,
+                         (CK_BYTE **)&params.pValue, &params.ulValueLen,
+                         (CK_BYTE **)&ec_point.pValue, &ec_point.ulValueLen);
+    if (rc != CKR_OK) {
+       TRACE_ERROR("%s ber_decode_SPKI rc=0x%lx\n", __func__, rc);
+       return rc;
+    }
+
+    rc = ber_encode_ECPublicKey(FALSE, spki, spki_len, &params, &ec_point,
+                                keytype);
+    if (rc != CKR_OK) {
+       TRACE_ERROR("%s ber_encode_ECPublicKey rc=0x%lx\n", __func__, rc);
+       return rc;
+    }
+
+    if (is_public) {
+        rc = template_build_update_attribute(tmpl, CKA_EC_POINT,
+                                             ec_point.pValue,
+                                             ec_point.ulValueLen);
+        if (rc != CKR_OK) {
+           TRACE_ERROR("%s template_build_update_attribute rc=0x%lx\n",
+                       __func__, rc);
+
+           free(*spki);
+           *spki = NULL;
+
+           return rc;
+        }
+    }
+
+    return CKR_OK;
 }
 
 /* import a AES-XTS key, that is, make a blob for a AES XTS key
@@ -4282,7 +4334,8 @@ static CK_RV import_EC_key(STDLL_TokData_t *tokdata, SESSION *sess,
                            OBJECT *ec_key_obj,
                            CK_BYTE *blob,  CK_BYTE *blobreenc,
                            size_t *blob_size,
-                           CK_BYTE *spki, size_t *spki_size)
+                           CK_BYTE *spki, size_t *spki_size,
+                           CK_KEY_TYPE keytype)
 {
     ep11_private_data_t *ep11_data = tokdata->private_data;
     CK_RV rc;
@@ -4304,6 +4357,8 @@ static CK_RV import_EC_key(STDLL_TokData_t *tokdata, SESSION *sess,
     CK_BYTE *pubkey = NULL;
     const struct _ec *curve = NULL;
     CK_BYTE *wrap_blob;
+    CK_BYTE *spki2 = NULL;
+    CK_ULONG spki_buf_len = *spki_size, spki2_len = 0;
 
     memcpy(iv, "1234567812345678", AES_BLOCK_SIZE);
 
@@ -4351,13 +4406,25 @@ static CK_RV import_EC_key(STDLL_TokData_t *tokdata, SESSION *sess,
             goto import_EC_key_end;
         }
 
-        /* CKA_EC_POINT is an BER encoded OCTET STRING. Extract it. */
-        rc = ber_decode_OCTET_STRING((CK_BYTE *)ec_point_attr->pValue, &ecpoint,
-                                     &ecpoint_len, &field_len);
-        if (rc != CKR_OK || ec_point_attr->ulValueLen != field_len) {
-            TRACE_DEVEL("%s ber_decode_OCTET_STRING failed\n", __func__);
-            rc = CKR_ATTRIBUTE_VALUE_INVALID;
-            goto import_EC_key_end;
+        switch (keytype) {
+        case CKK_EC:
+            /* CKA_EC_POINT is an BER encoded OCTET STRING. Extract it. */
+            rc = ber_decode_OCTET_STRING((CK_BYTE *)ec_point_attr->pValue,
+                                         &ecpoint, &ecpoint_len, &field_len);
+            if (rc != CKR_OK || ec_point_attr->ulValueLen != field_len) {
+                TRACE_DEVEL("%s ber_decode_OCTET_STRING failed\n", __func__);
+                rc = CKR_ATTRIBUTE_VALUE_INVALID;
+                goto import_EC_key_end;
+            }
+            break;
+        case CKK_EC_EDWARDS:
+        case CKK_EC_MONTGOMERY:
+            /* Edwards/Montgomery has a raw EC-point, no need to uncompress */
+            ecpoint = ec_point_attr->pValue;
+            ecpoint_len = ec_point_attr->ulValueLen;
+            break;
+        default:
+            return CKR_KEY_TYPE_INCONSISTENT;
         }
 
         /* Uncompress the public key (EC_POINT) */
@@ -4496,6 +4563,31 @@ static CK_RV import_EC_key(STDLL_TokData_t *tokdata, SESSION *sess,
         } else {
             TRACE_INFO("%s wrapping unwrap key rc=0x%lx blob_size=0x%zx\n",
                        __func__, rc, *blob_size);
+        }
+
+        if (keytype == CKK_EC_EDWARDS || keytype == CKK_EC_MONTGOMERY) {
+            /* Edwards/Montomery has a different SPKI and EC-point format */
+            rc = import_edwards_montgomery_preprocess(spki, *spki_size,
+                                                      &spki2, &spki2_len,
+                                                      ec_key_obj->template,
+                                                      keytype,
+                                                      FALSE);
+            if (rc != CKR_OK) {
+                TRACE_ERROR("%s import_edwards_montgomery_preprocess "
+                            "rc=0x%lx\n", __func__, rc);
+                return rc;
+            }
+
+            if (spki2_len > spki_buf_len) {
+                TRACE_ERROR("%s SPKI buffer is too small\n", __func__);
+                free(spki2);
+                return CKR_BUFFER_TOO_SMALL;
+            }
+
+            memcpy(spki, spki2, spki2_len);
+            *spki_size = spki2_len;
+
+            free(spki2);
         }
 
         cleanse_attribute(ec_key_obj->template, CKA_VALUE);
@@ -5271,8 +5363,9 @@ static CK_RV import_blob_private_public(STDLL_TokData_t *tokdata, SESSION *sess,
                                         CK_BYTE *spki, CK_ULONG spki_len,
                                         CK_BBOOL is_public)
 {
-    CK_ULONG data_len, raw_spki_len;
-    CK_BYTE *data;
+    CK_ULONG data_len, raw_spki_len, spki2_len = 0;
+    CK_BYTE *data, *spki2 = NULL;
+    const struct _ec *curve;
     CK_RV rc;
 
     UNUSED(tokdata);
@@ -5281,8 +5374,10 @@ static CK_RV import_blob_private_public(STDLL_TokData_t *tokdata, SESSION *sess,
     /* Decode SPKI and add the respective public key attributes */
     switch (keytype) {
     case CKK_EC:
+    case CKK_EC_EDWARDS:
+    case CKK_EC_MONTGOMERY:
         rc = ec_priv_unwrap_get_data(obj->template, spki, spki_len,
-                                        is_public, CKK_EC);
+                                     is_public, CKK_EC);
         break;
     case CKK_RSA:
         rc = rsa_priv_unwrap_get_data(obj->template, spki, spki_len, is_public);
@@ -5311,12 +5406,38 @@ static CK_RV import_blob_private_public(STDLL_TokData_t *tokdata, SESSION *sess,
         return rc;
     }
 
+    switch (keytype) {
+    case CKK_EC_EDWARDS:
+    case CKK_EC_MONTGOMERY:
+        /* Edwards/Montomery has a different SPKI and EC-point format */
+        rc = import_edwards_montgomery_preprocess(spki, spki_len,
+                                                  &spki2, &spki2_len,
+                                                  obj->template, keytype,
+                                                  is_public);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s import_edwards_montgomery_preprocess "
+                        "rc=0x%lx\n", __func__, rc);
+            return rc;
+        }
+
+        spki = spki2;
+        spki_len = spki2_len;
+        /* fallthrough */
+
+    case CKK_EC:
+        if (!ep11tok_ec_curve_supported2(tokdata, obj->template, &curve)) {
+            TRACE_ERROR("Curve not supported.\n");
+            return CKR_CURVE_NOT_SUPPORTED;
+        }
+        break;
+    }
+
     /* SPKI is a MACed SPKI, get length of SPKI part only */
     rc = ber_decode_SEQUENCE(spki, &data, &data_len, &raw_spki_len);
     if (rc != CKR_OK) {
         TRACE_ERROR("%s ber_decode_SEQUENCE failed rc=0x%lx\n",
                     __func__, rc);
-        return rc;
+        goto out;
     }
 
     /* Add SPKI as CKA_PUBLIC_KEY_INFO */
@@ -5325,10 +5446,14 @@ static CK_RV import_blob_private_public(STDLL_TokData_t *tokdata, SESSION *sess,
     if (rc != CKR_OK) {
         TRACE_ERROR("%s template_build_update_attribute failed with rc=0x%lx\n",
                     __func__, rc);
-        return rc;
+        goto out;
     }
 
-    return CKR_OK;
+out:
+    if (spki2 != NULL)
+        free(spki2);
+
+    return rc;
 }
 
 static CK_RV import_blob_secret(STDLL_TokData_t *tokdata, SESSION *sess,
@@ -6061,8 +6186,10 @@ CK_RV token_specific_object_add(STDLL_TokData_t * tokdata, SESSION * sess,
                    __func__, rc, blobsize);
         break;
     case CKK_EC:
+    case CKK_EC_EDWARDS:
+    case CKK_EC_MONTGOMERY:
         rc = import_EC_key(tokdata, sess, obj, blob, blobreenc, &blobsize,
-                           spki, &spkisize);
+                           spki, &spkisize, keytype);
         if (rc != CKR_OK) {
             TRACE_ERROR("%s import EC key rc=0x%lx blobsize=0x%zx\n",
                         __func__, rc, blobsize);
@@ -6717,6 +6844,7 @@ static CK_BBOOL ep11tok_ec_curve_supported2(STDLL_TokData_t *tokdata,
     ep11_private_data_t *ep11_data = tokdata->private_data;
     CK_RV rc;
     CK_ATTRIBUTE *attr = NULL;
+    CK_KEY_TYPE key_type;
     int i, status;
     const CK_VERSION ver3 = { .major = 3, .minor = 0 };
     const CK_VERSION ver4_1_2 = { .major = 4, .minor = 0x12 };
@@ -6727,6 +6855,12 @@ static CK_BBOOL ep11tok_ec_curve_supported2(STDLL_TokData_t *tokdata,
                                           &attr);
     if (rc != CKR_OK) {
         TRACE_ERROR("Could not find CKA_ECDSA_PARAMS for the key.\n");
+        return CK_FALSE;
+    }
+
+    rc = template_attribute_get_ulong(template, CKA_KEY_TYPE, &key_type);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_KEY_TYPE for the key.\n");
         return CK_FALSE;
     }
 
@@ -6748,8 +6882,19 @@ static CK_BBOOL ep11tok_ec_curve_supported2(STDLL_TokData_t *tokdata,
     case PRIME_CURVE:
     case BRAINPOOL_CURVE:
     case KOBLITZ_CURVE:
+        if (key_type != CKK_EC) {
+            TRACE_INFO("%s Curve only supported for key type CKK_EC\n",
+                       __func__);
+            return CK_FALSE;
+        }
         break;
     case BLS12_381_CURVE:
+        if (key_type != CKK_EC) {
+            TRACE_INFO("%s Curve only supported for key type CKK_EC\n",
+                       __func__);
+            return CK_FALSE;
+        }
+
         if (compare_ck_version(&ep11_data->ep11_lib_version, &ver4_1_2) < 0) {
             TRACE_INFO("%s Curve requires host library version 4.1.2 or later\n",
                        __func__);
@@ -6768,6 +6913,19 @@ static CK_BBOOL ep11tok_ec_curve_supported2(STDLL_TokData_t *tokdata,
 
     case MONTGOMERY_CURVE:
     case EDWARDS_CURVE:
+        if ((*curve)->curve_type == MONTGOMERY_CURVE &&
+            key_type != CKK_EC_MONTGOMERY && key_type != CKK_EC) {
+            TRACE_INFO("%s Curve only supported for key type "
+                       "CKK_EC_MONTGOMERY or CKK_EC\n", __func__);
+            return CK_FALSE;
+        }
+        if ((*curve)->curve_type == EDWARDS_CURVE &&
+            key_type != CKK_EC_EDWARDS && key_type != CKK_EC) {
+            TRACE_INFO("%s Curve only supported for key type CKK_EC_EDWARDS "
+                       "or CKK_EC\n", __func__);
+            return CK_FALSE;
+        }
+
         if (compare_ck_version(&ep11_data->ep11_lib_version, &ver3) < 0) {
             TRACE_INFO("%s Curve requires host library version 3 or later\n",
                        __func__);
@@ -7506,6 +7664,204 @@ done:
     return rc;
 }
 
+static CK_RV ep11tok_ec_edwards_mech_preprocess(STDLL_TokData_t *tokdata,
+                                                OBJECT *key_obj,
+                                                CK_MECHANISM *mech,
+                                                CK_MECHANISM *ep11_mech)
+{
+    CK_EDDSA_PARAMS* eddsa_params = NULL;
+    CK_ATTRIBUTE *attr;
+    CK_ULONG i;
+    const struct _ec *curve = NULL;
+    CK_RV rc;
+
+    UNUSED(tokdata);
+
+    if (mech->ulParameterLen == sizeof(CK_EDDSA_PARAMS) &&
+        mech->pParameter != NULL) {
+        eddsa_params = mech->pParameter;
+
+        if (eddsa_params->ulContextDataLen != 0 ||
+            eddsa_params->pContextData != NULL) {
+            TRACE_ERROR("EP11 does not support a non-empty context\n");
+            return CKR_MECHANISM_PARAM_INVALID;
+        }
+
+        if (eddsa_params->phFlag) {
+            TRACE_ERROR("EP11 does not support pre-hash\n");
+            return CKR_MECHANISM_PARAM_INVALID;
+        }
+    }
+
+    rc = template_attribute_get_non_empty(key_obj->template, CKA_EC_PARAMS,
+                                          &attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_EC_PARAMS for the key.\n");
+        return rc;
+    }
+
+    for (i = 0; i < NUMEC; i++) {
+        if (der_ec_supported[i].data_size == attr->ulValueLen &&
+            (memcmp(attr->pValue, der_ec_supported[i].data,
+             attr->ulValueLen) == 0)) {
+            curve = &der_ec_supported[i];
+            break;
+        }
+    }
+
+    if (curve == NULL || curve->curve_type != EDWARDS_CURVE) {
+        TRACE_ERROR("Must be a Edwards curve\n");
+        return CKR_CURVE_NOT_SUPPORTED;
+    }
+
+    switch (curve->prime_bits) {
+    case CURVE255:
+        ep11_mech->mechanism = CKM_IBM_ED25519_SHA512;
+        break;
+
+    case CURVE448:
+        if (eddsa_params == NULL) {
+            TRACE_ERROR("Mechanism parameter is required for Ed448\n");
+            return CKR_MECHANISM_PARAM_INVALID;
+        }
+
+        ep11_mech->mechanism = CKM_IBM_ED448_SHA3;
+        break;
+
+    default:
+        return CKR_CURVE_NOT_SUPPORTED;
+    }
+
+    ep11_mech->pParameter = NULL;
+    ep11_mech->ulParameterLen = 0;
+
+    return CKR_OK;
+}
+
+CK_RV token_specific_ec_edwards_sign(STDLL_TokData_t *tokdata,
+                                     SESSION  *session,
+                                     CK_BYTE *in_data, CK_ULONG in_data_len,
+                                     CK_BYTE *out_data, CK_ULONG *out_data_len,
+                                     OBJECT *key_obj, CK_MECHANISM *mech)
+{
+    CK_RV rc;
+    size_t keyblobsize = 0;
+    CK_BYTE *keyblob;
+    CK_MECHANISM ep11_mech;
+    CK_BYTE *useblob = NULL;
+    size_t useblobsize = 0;
+
+    rc = ep11tok_ec_edwards_mech_preprocess(tokdata, key_obj, mech, &ep11_mech);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s ep11tok_ec_edwards_mech_preprocess failed rc=0x%lx\n",
+                    __func__, rc);
+        return rc;
+    }
+
+    rc = obj_opaque_2_blob(tokdata, key_obj, &keyblob, &keyblobsize);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s no blob rc=0x%lx\n", __func__, rc);
+        return rc;
+    }
+
+#ifndef NO_PKEY
+    rc = ep11tok_pkey_check(tokdata, session, key_obj, mech);
+    switch (rc) {
+    case CKR_OK:
+        rc = pkey_ed_sign(tokdata, session, key_obj, in_data, in_data_len,
+                          out_data, out_data_len, ep11tok_pkey_convert_key);
+        goto done;
+    case CKR_FUNCTION_NOT_SUPPORTED:
+        break;
+    default:
+        goto done;
+    }
+#endif /* NO_PKEY */
+
+    RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
+    RETRY_REENC_BLOB_START(tokdata, target_info, key_obj, keyblob, keyblobsize,
+                           useblob, useblobsize, rc)
+        rc = dll_m_SignSingle(useblob, useblobsize, &ep11_mech,
+                              in_data, in_data_len,
+                              out_data, out_data_len, target_info->target);
+    RETRY_REENC_BLOB_END(tokdata, target_info, useblob, useblobsize, rc)
+    RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, session)
+    if (rc != CKR_OK) {
+        rc = ep11_error_to_pkcs11_error(rc, session);
+        TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
+    } else {
+        TRACE_INFO("%s rc=0x%lx\n", __func__, rc);
+    }
+
+#ifndef NO_PKEY
+done:
+#endif
+
+    return rc;
+}
+
+CK_RV token_specific_ec_edwards_verify(STDLL_TokData_t *tokdata,
+                                       SESSION  *session,
+                                       CK_BYTE *in_data, CK_ULONG in_data_len,
+                                       CK_BYTE *out_data, CK_ULONG out_data_len,
+                                       OBJECT *key_obj, CK_MECHANISM *mech)
+{
+    CK_RV rc;
+    CK_BYTE *spki;
+    size_t spki_len = 0;
+    CK_MECHANISM ep11_mech;
+    CK_BYTE *useblob = NULL;
+    size_t useblob_len = 0;
+
+    rc = ep11tok_ec_edwards_mech_preprocess(tokdata, key_obj, mech, &ep11_mech);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s ep11tok_ec_edwards_mech_preprocess failed rc=0x%lx\n",
+                    __func__, rc);
+        return rc;
+    }
+
+    rc = obj_opaque_2_blob(tokdata, key_obj, &spki, &spki_len);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s no blob rc=0x%lx\n", __func__, rc);
+        return rc;
+    }
+
+#ifndef NO_PKEY
+    rc = ep11tok_pkey_check(tokdata, session, key_obj, mech);
+    switch (rc) {
+    case CKR_OK:
+        rc = pkey_ed_verify(key_obj, in_data, in_data_len,
+                            out_data, out_data_len, CKK_EC_EDWARDS);
+        goto done;
+    case CKR_FUNCTION_NOT_SUPPORTED:
+        break;
+    default:
+        goto done;
+    }
+#endif /* NO_PKEY */
+
+    RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
+    RETRY_REENC_BLOB_START(tokdata, target_info, key_obj, spki, spki_len,
+                           useblob, useblob_len, rc)
+        rc = dll_m_VerifySingle(useblob, useblob_len, &ep11_mech,
+                                in_data, in_data_len,
+                                out_data, out_data_len, target_info->target);
+    RETRY_REENC_BLOB_END(tokdata, target_info, useblob, useblob_len, rc)
+    RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, session)
+    if (rc != CKR_OK) {
+        rc = ep11_error_to_pkcs11_error(rc, session);
+        TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
+    } else {
+        TRACE_INFO("%s rc=0x%lx\n", __func__, rc);
+    }
+
+#ifndef NO_PKEY
+done:
+#endif
+
+    return rc;
+}
+
 CK_RV token_specific_reencrypt_single(STDLL_TokData_t *tokdata,
                                      SESSION *session,
                                       ENCR_DECR_CONTEXT *decr_ctx,
@@ -7922,7 +8278,7 @@ static CK_RV ep11tok_ml_kem_with_ecdh_mech_pre_process(
                                                 TRUE, &allocated,
                                                 &ecpoint, &ecpoint_len);
     if (rc != CKR_OK) {
-        TRACE_DEVEL("ec_point_from_public_data failed\n");
+        TRACE_DEVEL("ec_point_uncompressed_from_public_data failed\n");
         goto out;
     }
 
@@ -8641,6 +8997,96 @@ CK_RV is_ec_aggregate_mechanism(CK_MECHANISM_PTR pMechanism)
     return (pMechanism->mechanism == CKM_IBM_EC_AGGREGATE);
 }
 
+static CK_RV ep11tok_ec_montgomery_mech_preprocess(STDLL_TokData_t *tokdata,
+                                                   OBJECT *base_key_obj,
+                                                   CK_MECHANISM *mech,
+                                                   CK_MECHANISM *ep11_mech)
+{
+    CK_KEY_TYPE keytype;
+    CK_ATTRIBUTE *attr;
+    CK_ULONG i;
+    const struct _ec *curve = NULL;
+    CK_RV rc;
+
+    UNUSED(tokdata);
+
+    if (mech->mechanism != CKM_ECDH1_DERIVE) {
+        *ep11_mech = *mech;
+        return CKR_OK;
+    }
+
+    rc = template_attribute_get_ulong(base_key_obj->template, CKA_KEY_TYPE,
+                                      &keytype);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Invalid key type attribute\n");
+        return rc;
+    }
+
+    if (keytype != CKK_EC_MONTGOMERY) {
+        *ep11_mech = *mech;
+        return CKR_OK;
+    }
+
+    rc = template_attribute_get_non_empty(base_key_obj->template, CKA_EC_PARAMS,
+                                          &attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_EC_PARAMS for the key.\n");
+        return rc;
+    }
+
+    for (i = 0; i < NUMEC; i++) {
+        if (der_ec_supported[i].data_size == attr->ulValueLen &&
+            (memcmp(attr->pValue, der_ec_supported[i].data,
+             attr->ulValueLen) == 0)) {
+            curve = &der_ec_supported[i];
+            break;
+        }
+    }
+
+    if (curve == NULL || curve->curve_type != MONTGOMERY_CURVE) {
+        TRACE_ERROR("Must be a Montgomery curve\n");
+        return CKR_CURVE_NOT_SUPPORTED;
+    }
+
+    switch (curve->prime_bits) {
+    case CURVE255:
+        ep11_mech->mechanism = CKM_IBM_EC_X25519;
+        break;
+
+    case CURVE448:
+        ep11_mech->mechanism = CKM_IBM_EC_X448;
+        break;
+
+    default:
+        return CKR_CURVE_NOT_SUPPORTED;
+    }
+
+    ep11_mech->pParameter = mech->pParameter;
+    ep11_mech->ulParameterLen = mech->ulParameterLen;
+
+    return CKR_OK;
+}
+
+CK_RV ep11tok_ibm_ed_mont_mech_check_keytype(OBJECT *key_obj)
+{
+    CK_KEY_TYPE keytype;
+    CK_RV rc;
+
+    rc = template_attribute_get_ulong(key_obj->template, CKA_KEY_TYPE,
+                                      &keytype);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find attribute CKA_KEY_TYPE for the key.\n");
+        return CKR_TEMPLATE_INCOMPLETE;
+    }
+
+    if (keytype != CKK_EC) {
+        TRACE_ERROR("%s\n", ock_err(ERR_KEY_TYPE_INCONSISTENT));
+        return CKR_KEY_TYPE_INCONSISTENT;
+    }
+
+    return CKR_OK;
+}
+
 CK_RV ep11tok_derive_key(STDLL_TokData_t *tokdata, SESSION *session,
                          CK_MECHANISM_PTR mech, CK_OBJECT_HANDLE hBaseKey,
                          CK_OBJECT_HANDLE_PTR handle, CK_ATTRIBUTE_PTR attrs,
@@ -8667,7 +9113,7 @@ CK_RV ep11tok_derive_key(STDLL_TokData_t *tokdata, SESSION *session,
     ep11_session_t *ep11_session = (ep11_session_t *) session->private_data;
     CK_ECDH1_DERIVE_PARAMS *ecdh1_parms = NULL;
     CK_ECDH1_DERIVE_PARAMS ecdh1_parms2;
-    CK_MECHANISM ecdh1_mech, ecdh1_mech2;
+    CK_MECHANISM ecdh1_mech, ecdh1_mech2, ecdh1_mech3;
     CK_BYTE *ecpoint = NULL;
     CK_ULONG ecpoint_len, field_len, key_len = 0;
     CK_ATTRIBUTE *new_attrs1 = NULL, *new_attrs2 = NULL;
@@ -8727,32 +9173,55 @@ CK_RV ep11tok_derive_key(STDLL_TokData_t *tokdata, SESSION *session,
                     return rc;
                 }
 
-                rc = get_ecsiglen(base_key_obj, &privlen);
-                privlen /= 2;
-
+                rc = template_attribute_get_ulong(base_key_obj->template,
+                                                  CKA_KEY_TYPE, &keytype);
                 if (rc != CKR_OK) {
-                    TRACE_ERROR("%s get_ecsiglen failed\n", __func__);
+                    TRACE_ERROR("Invalid key type attribute\n");
                     goto error;
                 }
 
-                rc = template_attribute_get_non_empty(base_key_obj->template,
-                                                      CKA_EC_PARAMS,
-                                                      &ec_parms_attr);
-                if (rc != CKR_OK) {
-                    TRACE_ERROR("Could not find CKA_EC_PARAMS in base key\n");
-                    goto error;
-                }
+                switch (keytype) {
+                case CKK_EC:
+                    rc = get_ecsiglen(base_key_obj, &privlen);
+                    privlen /= 2;
 
-                rc = ec_point_uncompressed_from_public_data(
-                                               ecdh1_parms->pPublicData,
-                                               ecdh1_parms->ulPublicDataLen,
-                                               privlen,
-                                               (CK_BYTE *)ec_parms_attr->pValue,
-                                               ec_parms_attr->ulValueLen,
-                                               TRUE, &allocated,
-                                               &ecpoint, &ecpoint_len);
-                if (rc != CKR_OK) {
-                    TRACE_DEVEL("ec_point_from_public_data failed\n");
+                    if (rc != CKR_OK) {
+                        TRACE_ERROR("%s get_ecsiglen failed\n", __func__);
+                        goto error;
+                    }
+
+                    rc = template_attribute_get_non_empty(base_key_obj->template,
+                                                          CKA_EC_PARAMS,
+                                                          &ec_parms_attr);
+                    if (rc != CKR_OK) {
+                        TRACE_ERROR("Could not find CKA_EC_PARAMS in base key\n");
+                        goto error;
+                    }
+
+                    rc = ec_point_uncompressed_from_public_data(
+                                                   ecdh1_parms->pPublicData,
+                                                   ecdh1_parms->ulPublicDataLen,
+                                                   privlen,
+                                                   (CK_BYTE *)
+                                                       ec_parms_attr->pValue,
+                                                   ec_parms_attr->ulValueLen,
+                                                   TRUE, &allocated,
+                                                   &ecpoint, &ecpoint_len);
+                    if (rc != CKR_OK) {
+                        TRACE_DEVEL("ec_point_from_public_data failed\n");
+                        goto error;
+                    }
+                    break;
+
+                case CKK_EC_MONTGOMERY:
+                    /* Montgomery uses a raw EC point */
+                    ecpoint = ecdh1_parms->pPublicData;
+                    ecpoint_len = ecdh1_parms->ulPublicDataLen;
+                    break;
+
+                default:
+                    TRACE_ERROR("Invalid key type attribute\n");
+                    rc = CKR_KEY_TYPE_INCONSISTENT;
                     goto error;
                 }
 
@@ -8856,7 +9325,7 @@ CK_RV ep11tok_derive_key(STDLL_TokData_t *tokdata, SESSION *session,
         }
 
         if (!key_object_is_mechanism_allowed(base_key_obj->template,
-                                             mech->mechanism)) {
+                                             mech_orig->mechanism)) {
             TRACE_ERROR("Mechanism not allowed per CKA_ALLOWED_MECHANISMS.\n");
             rc = CKR_MECHANISM_INVALID;
             goto error;
@@ -9045,6 +9514,21 @@ do_retry:
         if (rc != CKR_OK)
             goto error;
         mech = &mech_ep11.mech;
+        break;
+
+    case CKM_IBM_EC_X25519:
+    case CKM_IBM_EC_X448:
+        rc = ep11tok_ibm_ed_mont_mech_check_keytype(base_key_obj);
+        if (rc != CKR_OK)
+            return rc;
+        break;
+
+    case CKM_ECDH1_DERIVE:
+        rc = ep11tok_ec_montgomery_mech_preprocess(tokdata, base_key_obj, mech,
+                                                   &ecdh1_mech3);
+        if (rc != CKR_OK)
+            return rc;
+        mech = &ecdh1_mech3;
         break;
 
     default:
@@ -10032,8 +10516,15 @@ static CK_RV rsa_ec_generate_keypair(STDLL_TokData_t *tokdata,
     CK_ULONG new_publ_attrs2_len = 0, new_priv_attrs2_len = 0;
     const struct _ec *curve = NULL;
     CK_ULONG raw_spki_len;
+    CK_MECHANISM ep11_mech = *pMechanism;
+    CK_BBOOL allocated = CK_FALSE;
 
-    if (pMechanism->mechanism == CKM_EC_KEY_PAIR_GEN) {
+    ep11tok_pkcs11_mech_translate(tokdata, pMechanism->mechanism,
+                                  &ep11_mech.mechanism);
+
+    if (pMechanism->mechanism == CKM_EC_KEY_PAIR_GEN ||
+        pMechanism->mechanism == CKM_EC_EDWARDS_KEY_PAIR_GEN ||
+        pMechanism->mechanism == CKM_EC_MONTGOMERY_KEY_PAIR_GEN) {
         ktype = CKK_EC;
     } else if ((pMechanism->mechanism == CKM_RSA_PKCS_KEY_PAIR_GEN) ||
                (pMechanism->mechanism == CKM_RSA_X9_31_KEY_PAIR_GEN)) {
@@ -10054,7 +10545,7 @@ static CK_RV rsa_ec_generate_keypair(STDLL_TokData_t *tokdata,
     rc = build_ep11_attrs(tokdata, publ_tmpl,
                           &new_publ_attrs, &new_publ_attrs_len,
                           ktype, CKO_PUBLIC_KEY,
-                          curve != NULL ? curve->curve_type : -1, pMechanism);
+                          curve != NULL ? curve->curve_type : -1, &ep11_mech);
     if (rc != CKR_OK) {
         TRACE_ERROR("%s build_ep11_attrs failed with rc=0x%lx\n", __func__, rc);
         goto error;
@@ -10063,7 +10554,7 @@ static CK_RV rsa_ec_generate_keypair(STDLL_TokData_t *tokdata,
     rc = build_ep11_attrs(tokdata, priv_tmpl,
                           &new_priv_attrs, &new_priv_attrs_len,
                           ktype, CKO_PRIVATE_KEY,
-                          curve != NULL ? curve->curve_type : -1, pMechanism);
+                          curve != NULL ? curve->curve_type : -1, &ep11_mech);
     if (rc != CKR_OK) {
         TRACE_ERROR("%s build_ep11_attrs failed with rc=0x%lx\n", __func__, rc);
         goto error;
@@ -10109,7 +10600,7 @@ static CK_RV rsa_ec_generate_keypair(STDLL_TokData_t *tokdata,
 
     RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
     RETRY_REENC_CREATE_KEY2_START()
-        rc = dll_m_GenerateKeyPair(pMechanism,
+        rc = dll_m_GenerateKeyPair(&ep11_mech,
                                    new_publ_attrs2, new_publ_attrs2_len,
                                    new_priv_attrs2, new_priv_attrs2_len,
                                    priv_ep11_pin_blob, priv_ep11_pin_blob_len,
@@ -10124,13 +10615,13 @@ static CK_RV rsa_ec_generate_keypair(STDLL_TokData_t *tokdata,
         TRACE_ERROR("%s m_GenerateKeyPair rc=0x%lx spki_len=0x%zx "
                     "privkey_blob_len=0x%zx mech='%s'\n",
                     __func__, rc, spki_len, privkey_blob_len,
-                    ep11_get_ckm(tokdata, pMechanism->mechanism));
+                    ep11_get_ckm(tokdata, ep11_mech.mechanism));
         goto error;
     }
     TRACE_INFO("%s m_GenerateKeyPair rc=0x%lx spki_len=0x%zx "
                "privkey_blob_len=0x%zx mech='%s'\n",
                __func__, rc, spki_len, privkey_blob_len,
-              ep11_get_ckm(tokdata, pMechanism->mechanism));
+              ep11_get_ckm(tokdata, ep11_mech.mechanism));
 
     if (check_expected_mkvp(tokdata, privkey_blob, privkey_blob_len,
                             NULL) != CKR_OK) {
@@ -10225,7 +10716,7 @@ static CK_RV rsa_ec_generate_keypair(STDLL_TokData_t *tokdata,
         }
     }
 
-    if (pMechanism->mechanism == CKM_EC_KEY_PAIR_GEN) {
+    if (ep11_mech.mechanism == CKM_EC_KEY_PAIR_GEN) {
         /* scan the SPKI for CKA_EC_POINT */
 
 #ifdef DEBUG
@@ -10260,16 +10751,25 @@ static CK_RV rsa_ec_generate_keypair(STDLL_TokData_t *tokdata,
         TRACE_DEBUG_DUMP("    ", data, data_len);
 #endif
 
-        /* build and add CKA_EC_POINT as BER encoded OCTET STRING */
-        rc = ber_encode_OCTET_STRING(FALSE, &data, &data_len,
-                                     key, bit_str_len);
-        if (rc != CKR_OK) {
-            TRACE_DEVEL("ber_encode_OCTET_STRING failed\n");
-            goto error;
+        /*
+         * Edwards and Montgomery keys have a raw EC-point, but EC keys have
+         * it as BER encoded OCTET STRING
+         */
+        if (pMechanism->mechanism != CKM_EC_EDWARDS_KEY_PAIR_GEN &&
+            pMechanism->mechanism != CKM_EC_MONTGOMERY_KEY_PAIR_GEN) {
+            /* build and add CKA_EC_POINT as BER encoded OCTET STRING */
+            rc = ber_encode_OCTET_STRING(FALSE, &data, &data_len,
+                                         key, bit_str_len);
+            if (rc != CKR_OK) {
+                TRACE_DEVEL("ber_encode_OCTET_STRING failed\n");
+                goto error;
+            }
+            allocated = TRUE;
         }
 
         rc = build_attribute(CKA_EC_POINT, data, data_len, &attr);
-        free(data);
+        if (allocated)
+            free(data);
         if (rc != CKR_OK) {
             TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n",
                         __func__, rc);
@@ -10803,6 +11303,8 @@ CK_RV ep11tok_generate_key_pair(STDLL_TokData_t * tokdata, SESSION * sess,
                                  private_key_obj->template);
         break;
     case CKM_EC_KEY_PAIR_GEN:  /* takes same parameters as RSA */
+    case CKM_EC_EDWARDS_KEY_PAIR_GEN:
+    case CKM_EC_MONTGOMERY_KEY_PAIR_GEN:
     case CKM_RSA_PKCS_KEY_PAIR_GEN:
     case CKM_RSA_X9_31_KEY_PAIR_GEN:
         rc = rsa_ec_generate_keypair(tokdata, sess, pMechanism,
@@ -11523,6 +12025,7 @@ CK_BOOL ep11tok_mech_single_only(CK_MECHANISM *mech)
     case CKM_DSA:
     case CKM_IBM_ED25519_SHA512:
     case CKM_IBM_ED448_SHA3:
+    case CKM_EDDSA:
     case CKM_IBM_DILITHIUM:
     case CKM_IBM_EC_AGGREGATE:
     case CKM_IBM_ML_DSA:
@@ -11646,6 +12149,14 @@ CK_RV ep11tok_sign_init(STDLL_TokData_t * tokdata, SESSION * session,
     case CKM_IBM_SHA3_384_HMAC:
     case CKM_IBM_SHA3_512_HMAC:
         rc = ep11tok_hmac_mech_check_keytype(mech->mechanism, key_obj);
+        if (rc != CKR_OK) {
+            free(ep11_sign_state);
+            goto done;
+        }
+        break;
+    case CKM_IBM_ED25519_SHA512:
+    case CKM_IBM_ED448_SHA3:
+        rc = ep11tok_ibm_ed_mont_mech_check_keytype(key_obj);
         if (rc != CKR_OK) {
             free(ep11_sign_state);
             goto done;
@@ -12011,6 +12522,13 @@ CK_RV ep11tok_sign_single(STDLL_TokData_t *tokdata, SESSION *session,
             goto done;
         mech = &mech_bls.mech;
         break;
+    case CKM_EDDSA:
+        rc = ep11tok_ec_edwards_mech_preprocess(tokdata, key_obj, mech,
+                                                &ep11_mech);
+        if (rc != CKR_OK)
+            goto done;
+        mech = &ep11_mech;
+        break;
     }
 
     ep11_mech = *mech;
@@ -12177,6 +12695,14 @@ CK_RV ep11tok_verify_init(STDLL_TokData_t * tokdata, SESSION * session,
     case CKM_IBM_SHA3_384_HMAC:
     case CKM_IBM_SHA3_512_HMAC:
         rc = ep11tok_hmac_mech_check_keytype(mech->mechanism, key_obj);
+        if (rc != CKR_OK) {
+            free(ep11_sign_state);
+            goto done;
+        }
+        break;
+    case CKM_IBM_ED25519_SHA512:
+    case CKM_IBM_ED448_SHA3:
+        rc = ep11tok_ibm_ed_mont_mech_check_keytype(key_obj);
         if (rc != CKR_OK) {
             free(ep11_sign_state);
             goto done;
@@ -12518,6 +13044,13 @@ CK_RV ep11tok_verify_single(STDLL_TokData_t *tokdata, SESSION *session,
         rc = ep11tok_hmac_mech_check_keytype(mech->mechanism, key_obj);
         if (rc != CKR_OK)
             goto done;
+        break;
+    case CKM_EDDSA:
+        rc = ep11tok_ec_edwards_mech_preprocess(tokdata, key_obj, mech,
+                                                &ep11_mech);
+        if (rc != CKR_OK)
+            goto done;
+        mech = &ep11_mech;
         break;
     }
 
@@ -13442,11 +13975,18 @@ CK_RV ep11tok_wrap_key(STDLL_TokData_t * tokdata, SESSION * session,
         goto done;
     }
 
-    if (ktype == CKK_AES_XTS) {
-        TRACE_ERROR("%s Wrapping an AES-XTS key is not supported\n", __func__);
-        rc = CKR_KEY_TYPE_INCONSISTENT;
+    switch (ktype) {
+    case CKK_AES_XTS:
+    case CKK_EC_EDWARDS:
+    case CKK_EC_MONTGOMERY:
+        TRACE_ERROR("%s Wrapping an key of type 0x%lx is not supported\n",
+                    __func__, ktype);
+        rc = CKR_KEY_NOT_WRAPPABLE;
         goto done;
+    default:
+        break;
     }
+
     rc = tokdata->policy->is_mech_allowed(tokdata->policy, mech,
                                           &wrap_key_obj->strength,
                                           POLICY_CHECK_WRAP, session);
@@ -13637,6 +14177,19 @@ CK_RV ep11tok_unwrap_key(STDLL_TokData_t * tokdata, SESSION * session,
         rc = CKR_TEMPLATE_INCONSISTENT;
         goto error;
     }
+
+    switch (*(CK_KEY_TYPE *) keytype_attr->pValue) {
+    case CKK_AES_XTS:
+    case CKK_EC_EDWARDS:
+    case CKK_EC_MONTGOMERY:
+        TRACE_ERROR("%s Unwrapping an key of type 0x%lx is not supported\n",
+                    __func__, *(CK_KEY_TYPE *)keytype_attr->pValue);
+        rc = CKR_KEY_NOT_WRAPPABLE;
+        goto error;
+    default:
+        break;
+    }
+
     rc = check_ab_unwrap(tokdata, &verifyblob, &verifyblobsize, &vobj, kobj,
                          attrs, attrs_len, mech, &isab, session);
     if (rc != CKR_OK) {
@@ -14094,6 +14647,9 @@ static const CK_MECHANISM_TYPE ep11_supported_mech_list[] = {
     CKM_IBM_ECDSA_OTHER,
     CKM_IBM_BTC_DERIVE,
     CKM_IBM_EC_AGGREGATE,
+    CKM_EC_EDWARDS_KEY_PAIR_GEN,
+    CKM_EC_MONTGOMERY_KEY_PAIR_GEN,
+    CKM_EDDSA,
 };
 
 static const CK_ULONG supported_mech_list_len =
@@ -14125,6 +14681,8 @@ static const struct mech_translate pkcs11_mechanism_translation[] = {
     { CKM_SHA3_256_KEY_GEN,   CKM_GENERIC_SECRET_KEY_GEN },
     { CKM_SHA3_384_KEY_GEN,   CKM_GENERIC_SECRET_KEY_GEN },
     { CKM_SHA3_512_KEY_GEN,   CKM_GENERIC_SECRET_KEY_GEN },
+    { CKM_EC_EDWARDS_KEY_PAIR_GEN,      CKM_EC_KEY_PAIR_GEN },
+    { CKM_EC_MONTGOMERY_KEY_PAIR_GEN,   CKM_EC_KEY_PAIR_GEN },
 };
 
 static const CK_ULONG pkcs11_mechanism_translation_len =
@@ -14164,6 +14722,8 @@ static const struct keytype_translate pkcs11_keytype_translation[] = {
     { CKK_SHA3_256_HMAC, CKK_GENERIC_SECRET },
     { CKK_SHA3_384_HMAC, CKK_GENERIC_SECRET },
     { CKK_SHA3_512_HMAC, CKK_GENERIC_SECRET },
+    { CKK_EC_EDWARDS, CKK_EC },
+    { CKK_EC_MONTGOMERY, CKK_EC },
 };
 
 static const CK_ULONG pkcs11_keytype_translation_len =
@@ -14461,6 +15021,12 @@ CK_RV ep11tok_get_mechanism_list(STDLL_TokData_t * tokdata,
                                                                     CKR_OK) {
             *pulCount += 1;
         }
+        if (ep11tok_is_mechanism_supported(tokdata, CKM_IBM_ED25519_SHA512)
+                                                                    == CKR_OK &&
+            ep11tok_is_mechanism_supported(tokdata, CKM_IBM_ED448_SHA3) ==
+                                                                    CKR_OK) {
+            *pulCount += 1;
+        }
     } else {
         /* 2. call, content request */
         size = *pulCount;
@@ -14558,6 +15124,16 @@ CK_RV ep11tok_get_mechanism_list(STDLL_TokData_t * tokdata,
                                                                    CKR_OK) {
             if (*pulCount < size)
                 pMechanismList[*pulCount] = CKM_IBM_ML_KEM_WITH_ECDH;
+            *pulCount = *pulCount + 1;
+        }
+        if (*pulCount > size)
+            rc = CKR_BUFFER_TOO_SMALL;
+        if (ep11tok_is_mechanism_supported(tokdata, CKM_IBM_ED25519_SHA512)
+                                                                    == CKR_OK &&
+            ep11tok_is_mechanism_supported(tokdata, CKM_IBM_ED448_SHA3) ==
+                                                                    CKR_OK) {
+            if (*pulCount < size)
+                pMechanismList[*pulCount] = CKM_EDDSA;
             *pulCount = *pulCount + 1;
         }
         if (*pulCount > size)
@@ -14928,6 +15504,7 @@ CK_RV ep11tok_get_mechanism_info(STDLL_TokData_t * tokdata,
     int status;
     ep11_target_info_t* target_info;
     const struct sha_combined *comb_mech;
+    CK_MECHANISM_TYPE orig_type = type;
 
     rc = ep11tok_is_mechanism_supported(tokdata, type);
     if (rc != CKR_OK) {
@@ -14947,7 +15524,7 @@ CK_RV ep11tok_get_mechanism_info(STDLL_TokData_t * tokdata,
     if (target_info == NULL)
         return CKR_FUNCTION_FAILED;
 
-    switch (type) {
+    switch (orig_type) {
         case CKM_AES_XTS:
             pInfo->ulMinKeySize = 32;
             pInfo->ulMaxKeySize = 64;
@@ -14957,6 +15534,19 @@ CK_RV ep11tok_get_mechanism_info(STDLL_TokData_t * tokdata,
             pInfo->ulMinKeySize = 32;
             pInfo->ulMaxKeySize = 64;
             pInfo->flags = (CK_FLAGS)(CKF_HW|CKF_GENERATE);
+            break;
+        case CKM_EC_EDWARDS_KEY_PAIR_GEN:
+        case CKM_EC_MONTGOMERY_KEY_PAIR_GEN:
+            pInfo->ulMinKeySize = 255;
+            pInfo->ulMaxKeySize = 448;
+            pInfo->flags = (CK_FLAGS)(CKF_GENERATE_KEY_PAIR | CKF_EC_OID |
+                                      CKF_EC_F_P | CKF_EC_COMPRESS);
+            break;
+        case CKM_EDDSA:
+            pInfo->ulMinKeySize = 255;
+            pInfo->ulMaxKeySize = 448;
+            pInfo->flags = (CK_FLAGS)(CKF_SIGN | CKF_VERIFY | CKF_EC_OID |
+                                      CKF_EC_F_P | CKF_EC_COMPRESS);
             break;
         default:
             if (type == CKM_IBM_ML_KEM_WITH_ECDH)
@@ -14984,7 +15574,7 @@ CK_RV ep11tok_get_mechanism_info(STDLL_TokData_t * tokdata,
      * they can use (mechanisms that are not rejected by the card).
      */
 #ifdef DEFENSIVE_MECHLIST
-    switch (type) {
+    switch (orig_type) {
     case CKM_RSA_PKCS:
     case CKM_RSA_PKCS_KEY_PAIR_GEN:
     case CKM_RSA_X9_31_KEY_PAIR_GEN:
@@ -15031,6 +15621,10 @@ CK_RV ep11tok_get_mechanism_info(STDLL_TokData_t * tokdata,
     case CKM_IBM_SHA3_256_HMAC:
     case CKM_IBM_SHA3_384_HMAC:
     case CKM_IBM_SHA3_512_HMAC:
+    case CKM_SHA3_224_HMAC:
+    case CKM_SHA3_256_HMAC:
+    case CKM_SHA3_384_HMAC:
+    case CKM_SHA3_512_HMAC:
         /*
          * Older levels of the EP11 firmware report ulMinKeySize in bytes,
          * but ulMaxKeySize in bits for HMAC mechanisms. Adjust ulMinKeySize
