@@ -1758,6 +1758,31 @@ CK_RV ecdh_aes_key_wrap(STDLL_TokData_t *tokdata, SESSION *sess,
         goto done;
     }
 
+    /* Get the (raw) size of the generated EC point */
+    rc = object_mgr_find_in_map1(tokdata, ec_publ_key_handle,
+                                 &pub_key_obj, READ_LOCK);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Failed to acquire key from EC public key handle.\n");
+        if (rc == CKR_OBJECT_HANDLE_INVALID)
+            rc = CKR_KEY_HANDLE_INVALID;
+        goto done;
+    }
+
+    rc = template_attribute_get_non_empty(pub_key_obj->template, CKA_EC_POINT,
+                                          &ec_point);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("Failed to get CKA_EC_POINT.\n");
+        goto done;
+    }
+
+    rc = ber_decode_OCTET_STRING((CK_BYTE *)ec_point->pValue,
+                                  &pub_ec_point, &pub_ec_point_len, &field_len);
+    if (rc != CKR_OK || field_len != ec_point->ulValueLen) {
+        rc = CKR_FUNCTION_FAILED;
+        TRACE_DEVEL("Failed to decode CKA_EC_POINT.\n");
+        goto done;
+    }
+
     /* Perform ECDH to derive a shared AES key */
     ecdh_params.kdf = params->kdf;
     ecdh_params.pSharedData = params->pSharedData;
@@ -1813,7 +1838,7 @@ CK_RV ecdh_aes_key_wrap(STDLL_TokData_t *tokdata, SESSION *sess,
     }
 
     /* Calculate the final length of the wrapped key data */
-    total_len = ecdh_params.ulPublicDataLen + wrapped_key_len;
+    total_len = pub_ec_point_len + wrapped_key_len;
 
     if (length_only) {
         *out_data_len = total_len;
@@ -1831,31 +1856,6 @@ CK_RV ecdh_aes_key_wrap(STDLL_TokData_t *tokdata, SESSION *sess,
      * Copy the (raw) EC point of the public transport EC key as first part of
      * the wrapped key data.
      */
-    rc = object_mgr_find_in_map1(tokdata, ec_publ_key_handle,
-                                 &pub_key_obj, READ_LOCK);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("Failed to acquire key from EC public key handle.\n");
-        if (rc == CKR_OBJECT_HANDLE_INVALID)
-            return CKR_KEY_HANDLE_INVALID;
-        else
-            return rc;
-    }
-
-    rc = template_attribute_get_non_empty(pub_key_obj->template, CKA_EC_POINT,
-                                          &ec_point);
-    if (rc != CKR_OK) {
-        TRACE_DEVEL("Failed to get CKA_EC_POINT.\n");
-        goto done;
-    }
-
-    rc = ber_decode_OCTET_STRING((CK_BYTE *)ec_point->pValue,
-                                  &pub_ec_point, &pub_ec_point_len, &field_len);
-    if (rc != CKR_OK || field_len != ec_point->ulValueLen) {
-        rc = CKR_FUNCTION_FAILED;
-        TRACE_DEVEL("Failed to decode CKA_EC_POINT.\n");
-        goto done;
-    }
-
     memcpy(out_data, pub_ec_point, pub_ec_point_len);
 
     /*
@@ -1864,7 +1864,7 @@ CK_RV ecdh_aes_key_wrap(STDLL_TokData_t *tokdata, SESSION *sess,
      */
     rc = encr_mgr_encrypt(tokdata, sess, FALSE, &aeskw_ctx,
                           in_data, in_data_len,
-                          out_data + ecdh_params.ulPublicDataLen,
+                          out_data + pub_ec_point_len,
                           &wrapped_key_len);
     if (rc != CKR_OK) {
         TRACE_ERROR("Failed to encrypt the to-be-wrapped key: %s (0x%lx)\n",
