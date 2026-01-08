@@ -3567,8 +3567,7 @@ CK_RV new_gcm_specific_aes_gcm_update(STDLL_TokData_t *tokdata, SESSION *sess,
 
         rc = ica_aes_gcm_kma_update(buffer, out_data, out_len,
                                     auth_data, auth_data_len,
-                                    context->ulAlen ? 0 : 1,
-                                    0, gcm_ctx);
+                                    1, 0, gcm_ctx);
 
         /* save any remaining data */
         if (remain != 0)
@@ -3596,8 +3595,7 @@ CK_RV new_gcm_specific_aes_gcm_update(STDLL_TokData_t *tokdata, SESSION *sess,
 
         rc = ica_aes_gcm_kma_update(buffer, out_data, out_len,
                                     auth_data, auth_data_len,
-                                    context->ulAlen ? 0 : 1,
-                                    0, gcm_ctx);
+                                    1, 0, gcm_ctx);
     }
 
     if (rc != 0) {
@@ -3607,11 +3605,6 @@ CK_RV new_gcm_specific_aes_gcm_update(STDLL_TokData_t *tokdata, SESSION *sess,
     }
 
     *out_data_len = out_len;
-
-    /* AAD only processed in first update sequence,
-     * mark it empty for all subsequent calls
-     */
-    context->ulAlen = 0;
 
 done:
     if (buffer)
