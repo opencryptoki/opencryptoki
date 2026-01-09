@@ -134,14 +134,22 @@ CK_RV template_add_attributes(TEMPLATE *tmpl, CK_ATTRIBUTE *pTemplate,
  * Add default attributes to '*tmpl'.
  * '*basetmpl' may be used to derive values to the default attributes
  */
-CK_RV template_add_default_attributes(TEMPLATE *tmpl, TEMPLATE *basetmpl,
+CK_RV template_add_default_attributes(STDLL_TokData_t *tokdata,
+                                      TEMPLATE *tmpl, TEMPLATE *basetmpl,
                                       CK_ULONG class, CK_ULONG subclass,
                                       CK_ULONG mode)
 {
     CK_RV rc;
 
-    /* first add the default common attributes */
-    rc = template_set_default_common_attributes(tmpl);
+    /*
+     * First add the default common attributes. CKA_PRIVATE is TRUE by default
+     * for private and secret keys, but only if USER is logged in. An SO session
+     * or a public session does not have access to private objects, thus private
+     * objects can not be created without USER being logged in.
+     */
+    rc = template_set_default_common_attributes(
+                tmpl, session_mgr_user_session_exists(tokdata) &&
+                      (class == CKO_SECRET_KEY || class == CKO_PRIVATE_KEY));
     if (rc != CKR_OK) {
         TRACE_DEVEL("template_set_default_common_attributes failed.\n");
         return rc;
@@ -1493,11 +1501,11 @@ CK_RV template_merge(TEMPLATE *dest, TEMPLATE **src)
  * Set the default attributes common to all objects:
  *
  * CKA_TOKEN: FALSE
- * CKA_PRIVATE: TRUE -- Cryptoki leaves this up to the token to decide
+ * CKA_PRIVATE: use the value specified in the 'private' argument
  * CKA_MODIFIABLE: TRUE
  * CKA_LABEL: empty string
  */
-CK_RV template_set_default_common_attributes(TEMPLATE *tmpl)
+CK_RV template_set_default_common_attributes(TEMPLATE *tmpl, CK_BBOOL private)
 {
     char unique_id_str[2 * UNIQUE_ID_LEN + 1];
     CK_ATTRIBUTE *token_attr;
@@ -1541,7 +1549,7 @@ CK_RV template_set_default_common_attributes(TEMPLATE *tmpl)
     priv_attr->type = CKA_PRIVATE;
     priv_attr->ulValueLen = sizeof(CK_BBOOL);
     priv_attr->pValue = (CK_BYTE *) priv_attr + sizeof(CK_ATTRIBUTE);
-    *(CK_BBOOL *) priv_attr->pValue = FALSE;
+    *(CK_BBOOL *) priv_attr->pValue = private;
 
     mod_attr->type = CKA_MODIFIABLE;
     mod_attr->ulValueLen = sizeof(CK_BBOOL);

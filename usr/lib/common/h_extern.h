@@ -2534,7 +2534,8 @@ CK_RV object_ex_data_unlock(OBJECT *obj);
 CK_RV template_add_attributes(TEMPLATE *tmpl,
                               CK_ATTRIBUTE *attr, CK_ULONG ulCount);
 
-CK_RV template_add_default_attributes(TEMPLATE *tmpl,
+CK_RV template_add_default_attributes(STDLL_TokData_t *tokdata,
+                                      TEMPLATE *tmpl,
                                       TEMPLATE *basetmpl,
                                       CK_ULONG class,
                                       CK_ULONG subclass, CK_ULONG mode);
@@ -2578,7 +2579,7 @@ CK_ULONG template_get_size(TEMPLATE *tmpl);
 
 CK_ULONG template_get_compressed_size(TEMPLATE *tmpl);
 
-CK_RV template_set_default_common_attributes(TEMPLATE *tmpl);
+CK_RV template_set_default_common_attributes(TEMPLATE *tmpl, CK_BBOOL private);
 
 CK_RV template_merge(TEMPLATE *dest, TEMPLATE **src);
 
