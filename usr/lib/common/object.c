@@ -883,7 +883,8 @@ CK_RV object_create_skel(STDLL_TokData_t * tokdata,
         goto done;
     }
 
-    rc = template_add_default_attributes(tmpl, tmpl2, class, subclass, mode);
+    rc = template_add_default_attributes(tokdata, tmpl, tmpl2, class, subclass,
+                                         mode);
     if (rc != CKR_OK)
         goto done;
 
