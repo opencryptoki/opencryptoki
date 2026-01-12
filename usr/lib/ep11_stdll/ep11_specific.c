@@ -6718,7 +6718,7 @@ static CK_BBOOL ep11tok_ec_curve_supported2(STDLL_TokData_t *tokdata,
     CK_ATTRIBUTE *attr = NULL;
     int i, status;
     const CK_VERSION ver3 = { .major = 3, .minor = 0 };
-    const CK_VERSION ver4_1 = { .major = 4, .minor = 1 };
+    const CK_VERSION ver4_1_2 = { .major = 4, .minor = 0x12 };
 
     *curve = NULL;
 
@@ -6749,8 +6749,8 @@ static CK_BBOOL ep11tok_ec_curve_supported2(STDLL_TokData_t *tokdata,
     case KOBLITZ_CURVE:
         break;
     case BLS12_381_CURVE:
-        if (compare_ck_version(&ep11_data->ep11_lib_version, &ver4_1) < 0) {
-            TRACE_INFO("%s Curve requires host library version 4.1 or later\n",
+        if (compare_ck_version(&ep11_data->ep11_lib_version, &ver4_1_2) < 0) {
+            TRACE_INFO("%s Curve requires host library version 4.1.2 or later\n",
                        __func__);
             return CK_FALSE;
         }
