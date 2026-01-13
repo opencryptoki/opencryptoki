@@ -623,9 +623,13 @@ static FILE* hsm_mk_change_op_open(const char *id, CK_SLOT_ID slot_id,
 
     TRACE_DEVEL("file to open: %s mode: %s\n", hsm_mk_change_file, mode);
 
-    fp = fopen(hsm_mk_change_file, mode);
+    /* CWE-59 fix: Use fopen_nofollow to prevent symlink attacks */
+    fp = fopen_nofollow(hsm_mk_change_file, mode);
     if (fp == NULL) {
-        TRACE_ERROR("%s fopen(%s, %s): %s\n", __func__,
+        if (errno == ELOOP)
+            TRACE_ERROR("Refusing to follow symlink: %s\n", hsm_mk_change_file);
+        else
+            TRACE_ERROR("%s fopen(%s, %s): %s\n", __func__,
                         hsm_mk_change_file, mode, strerror(errno));
     }
 
