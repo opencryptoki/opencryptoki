@@ -336,9 +336,16 @@ static int set_file_permissions(const char *fname, const struct group *group,
     pr_verbose("Setting permissions for '%s' with group '%s'", fname,
                group->gr_name);
 
-    if (stat(fname, &sb) != 0) {
+    /* CWE-59 fix: Use lstat to detect symlinks */
+    if (lstat(fname, &sb) != 0) {
         warnx("'%s' does not exist.", fname);
         return -1;
+    }
+
+    /* Only process regular files and directories (CWE-59 fix) */
+    if (!S_ISREG(sb.st_mode) && !S_ISDIR(sb.st_mode)) {
+        warnx("Skipping '%s': not a regular file or directory.", fname);
+        return 0;
     }
 
     if (sb.st_uid != 0) {

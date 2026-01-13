@@ -48,6 +48,7 @@
 #include "local_types.h"
 #include "h_extern.h"
 #include "slotmgr.h" // for ock_snprintf
+#include "platform.h"
 
 #define OCK_TOOL
 #include "pkcs_utils.h"
@@ -77,9 +78,14 @@ static FILE *open_datastore_file(char *buf, size_t buflen,
         TRACE_ERROR("Path overflow for datastore file %s\n", file);
         return NULL;
     }
-    res = fopen(buf, mode);
-    if (!res)
-        TRACE_ERROR("fopen(%s) failed, errno=%s\n", buf, strerror(errno));
+    /* CWE-59 fix: Use fopen_nofollow to prevent symlink attacks */
+    res = fopen_nofollow(buf, mode);
+    if (!res) {
+        if (errno == ELOOP)
+            TRACE_ERROR("Refusing to follow symlink: %s\n", buf);
+        else
+            TRACE_ERROR("fopen(%s) failed, errno=%s\n", buf, strerror(errno));
+    }
     return res;
 }
 
@@ -94,9 +100,14 @@ static FILE *open_tokenobject(char *buf, size_t buflen,
                     file, tokenobj);
         return NULL;
     }
-    res = fopen(buf, mode);
-    if (!res)
-        TRACE_ERROR("fopen(%s) failed, errno=%s\n", buf, strerror(errno));
+    /* CWE-59 fix: Use fopen_nofollow to prevent symlink attacks */
+    res = fopen_nofollow(buf, mode);
+    if (!res) {
+        if (errno == ELOOP)
+            TRACE_ERROR("Refusing to follow symlink: %s\n", buf);
+        else
+            TRACE_ERROR("fopen(%s) failed, errno=%s\n", buf, strerror(errno));
+    }
     return res;
 }
 
