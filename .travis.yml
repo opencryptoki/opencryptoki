@@ -1,5 +1,5 @@
 os: linux
-dist: jammy
+dist: noble
 
 language: c
 
@@ -24,7 +24,7 @@ jobs:
           os: linux
           arch: ppc64le
           compiler: clang
-          env: CONFIG_OPTS="--enable-swtok --enable-icsftok --enable-ccatok --enable-tpmtok --enable-testcases --with-systemd" CFLAGS="-O3 -Werror"
+          env: CONFIG_OPTS="--enable-swtok --enable-icsftok --enable-ccatok --enable-tpmtok --enable-testcases --with-systemd" CFLAGS="-O3 -Werror -Wno-error=unused-but-set-variable"
         - name: "linux-ppc64le-gcc"
           os: linux
           arch: ppc64le
@@ -34,7 +34,7 @@ jobs:
           os: linux
           arch: s390x
           compiler: clang
-          env: CONFIG_OPTS="--enable-swtok --enable-icsftok --enable-ccatok --enable-tpmtok --enable-icatok --enable-ep11tok --enable-testcases --with-systemd" CFLAGS="-O3 -Werror -DDEBUG"
+          env: CONFIG_OPTS="--enable-swtok --enable-icsftok --enable-ccatok --enable-tpmtok --enable-icatok --enable-ep11tok --enable-testcases --with-systemd" CFLAGS="-O3 -Werror -Wno-error=unused-but-set-variable -DDEBUG"
         - name: "linux-s390x-gcc"
           os: linux
           arch: s390x
@@ -44,7 +44,7 @@ jobs:
           os: linux
           arch: arm64
           compiler: clang
-          env: CONFIG_OPTS="--enable-swtok --enable-icsftok --enable-ccatok --enable-tpmtok --enable-testcases  --with-systemd" CFLAGS="-O3 -Werror"
+          env: CONFIG_OPTS="--enable-swtok --enable-icsftok --enable-ccatok --enable-tpmtok --enable-testcases  --with-systemd" CFLAGS="-O3 -Werror -Wno-error=unused-but-set-variable"
         - name: "linux-arm64-gcc"
           os: linux
           arch: arm64
