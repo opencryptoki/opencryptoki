@@ -14574,11 +14574,12 @@ CK_RV ep11tok_is_mechanism_supported(STDLL_TokData_t *tokdata,
                                      CK_MECHANISM_TYPE type)
 {
     ep11_private_data_t *ep11_data = tokdata->private_data;
-    CK_VERSION ver1_3 = { .major = 1, .minor = 3 };
-    CK_VERSION ver3 = { .major = 3, .minor = 0 };
-    CK_VERSION ver3_1 = { .major = 3, .minor = 0x10 };
-    CK_VERSION ver4 = { .major = 4, .minor = 0 };
-    CK_VERSION ver4_2 = { .major = 4, .minor = 0x20 };
+    const CK_VERSION ver1_3 = { .major = 1, .minor = 0x30 };
+    const CK_VERSION ver3 = { .major = 3, .minor = 0 };
+    const CK_VERSION ver3_1 = { .major = 3, .minor = 0x10 };
+    const CK_VERSION ver4 = { .major = 4, .minor = 0 };
+    const CK_VERSION ver4_1_2 = { .major = 4, .minor = 0x12 };
+    const CK_VERSION ver4_2 = { .major = 4, .minor = 0x20 };
     CK_BBOOL found = FALSE;
     CK_ULONG i;
     int status;
@@ -14824,6 +14825,23 @@ CK_RV ep11tok_is_mechanism_supported(STDLL_TokData_t *tokdata,
         }
         status = check_required_versions(tokdata, ibm_ecdsa_other_req_versions,
                                          NUM_ECDSA_OTHER_REQ);
+        if (status != 1) {
+            TRACE_INFO("%s Mech '%s' banned due to old card or mixed firmware versions\n",
+                       __func__, ep11_get_ckm(tokdata, orig_mech));
+            rc = CKR_MECHANISM_INVALID;
+            goto out;
+        }
+        break;
+
+    case CKM_IBM_EC_AGGREGATE:
+        if (compare_ck_version(&ep11_data->ep11_lib_version, &ver4_1_2) < 0) {
+            TRACE_INFO("%s Mech '%s' banned due to host library version\n",
+                       __func__, ep11_get_ckm(tokdata, orig_mech));
+            rc = CKR_MECHANISM_INVALID;
+            goto out;
+        }
+        status = check_required_versions(tokdata, ibm_bls_req_versions,
+                                         NUM_BLS_REQ);
         if (status != 1) {
             TRACE_INFO("%s Mech '%s' banned due to old card or mixed firmware versions\n",
                        __func__, ep11_get_ckm(tokdata, orig_mech));
