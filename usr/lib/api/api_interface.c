@@ -279,6 +279,116 @@ static CK_FUNCTION_LIST_3_0 func_list_pkcs11_3_0 = {
     C_MessageVerifyFinal
 };
 
+static CK_FUNCTION_LIST_3_2 func_list_pkcs11_3_2 = {
+    {3, 2},
+    C_Initialize,
+    C_Finalize,
+    C_GetInfo,
+    C_GetFunctionList,
+    C_GetSlotList,
+    C_GetSlotInfo,
+    C_GetTokenInfo,
+    C_GetMechanismList,
+    C_GetMechanismInfo,
+    C_InitToken,
+    C_InitPIN,
+    C_SetPIN,
+    C_OpenSession,
+    C_CloseSession,
+    C_CloseAllSessions,
+    C_GetSessionInfo,
+    C_GetOperationState,
+    C_SetOperationState,
+    C_Login,
+    C_Logout,
+    C_CreateObject,
+    C_CopyObject,
+    C_DestroyObject,
+    C_GetObjectSize,
+    C_GetAttributeValue,
+    C_SetAttributeValue,
+    C_FindObjectsInit,
+    C_FindObjects,
+    C_FindObjectsFinal,
+    C_EncryptInit,
+    C_Encrypt,
+    C_EncryptUpdate,
+    C_EncryptFinal,
+    C_DecryptInit,
+    C_Decrypt,
+    C_DecryptUpdate,
+    C_DecryptFinal,
+    C_DigestInit,
+    C_Digest,
+    C_DigestUpdate,
+    C_DigestKey,
+    C_DigestFinal,
+    C_SignInit,
+    C_Sign,
+    C_SignUpdate,
+    C_SignFinal,
+    C_SignRecoverInit,
+    C_SignRecover,
+    C_VerifyInit,
+    C_Verify,
+    C_VerifyUpdate,
+    C_VerifyFinal,
+    C_VerifyRecoverInit,
+    C_VerifyRecover,
+    C_DigestEncryptUpdate,
+    C_DecryptDigestUpdate,
+    C_SignEncryptUpdate,
+    C_DecryptVerifyUpdate,
+    C_GenerateKey,
+    C_GenerateKeyPair,
+    C_WrapKey,
+    C_UnwrapKey,
+    C_DeriveKey,
+    C_SeedRandom,
+    C_GenerateRandom,
+    C_GetFunctionStatus,
+    C_CancelFunction,
+    C_WaitForSlotEvent,
+
+    C_GetInterfaceList,
+    C_GetInterface,
+    C_LoginUser,
+    C_SessionCancel,
+    C_MessageEncryptInit,
+    C_EncryptMessage,
+    C_EncryptMessageBegin,
+    C_EncryptMessageNext,
+    C_MessageEncryptFinal,
+    C_MessageDecryptInit,
+    C_DecryptMessage,
+    C_DecryptMessageBegin,
+    C_DecryptMessageNext,
+    C_MessageDecryptFinal,
+    C_MessageSignInit,
+    C_SignMessage,
+    C_SignMessageBegin,
+    C_SignMessageNext,
+    C_MessageSignFinal,
+    C_MessageVerifyInit,
+    C_VerifyMessage,
+    C_VerifyMessageBegin,
+    C_VerifyMessageNext,
+    C_MessageVerifyFinal,
+
+    C_EncapsulateKey,
+    C_DecapsulateKey,
+    C_VerifySignatureInit,
+    C_VerifySignature,
+    C_VerifySignatureUpdate,
+    C_VerifySignatureFinal,
+    C_GetSessionValidationFlags,
+    C_AsyncComplete,
+    C_AsyncGetID,
+    C_AsyncJoin,
+    C_WrapKeyAuthenticated,
+    C_UnwrapKeyAuthenticated
+};
+
 int slot_loaded[NUMBER_SLOTS_MANAGED];  // Array of flags to indicate
                                        // if the STDLL loaded
 
@@ -290,6 +400,11 @@ CK_BBOOL in_destructor = FALSE;
  * interface_get's arguments, the interface at lowest index is returned.
  */
 static CK_INTERFACE interface_list[] = {
+    {
+        (CK_UTF8CHAR *)"PKCS 11",
+        &func_list_pkcs11_3_2,
+        CKF_INTERFACE_FORK_SAFE /*XXX*/
+    },
     {
         (CK_UTF8CHAR *)"PKCS 11",
         &func_list_pkcs11_3_0,
@@ -3589,6 +3704,11 @@ CK_RV C_OpenSession(CK_SLOT_ID slotID,
         return CKR_SESSION_PARALLEL_NOT_SUPPORTED;
     }
 
+    if (flags & CKF_ASYNC_SESSION) {
+        TRACE_ERROR("%s\n", ock_err(ERR_SESSION_ASYNC_NOT_SUPPORTED));
+        return CKR_SESSION_ASYNC_NOT_SUPPORTED;
+    }
+
     if (API_Initialized() == FALSE) {
         TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
         return CKR_CRYPTOKI_NOT_INITIALIZED;
@@ -5545,6 +5665,343 @@ CK_RV C_MessageVerifyFinal(CK_SESSION_HANDLE hSession)
     UNUSED(hSession);
 
     TRACE_INFO("C_VerifyMessageFinal\n");
+
+    if (API_Initialized() == FALSE) {
+        TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
+        rv = CKR_CRYPTOKI_NOT_INITIALIZED;
+        goto ret;
+    }
+
+    TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
+    rv = CKR_FUNCTION_NOT_SUPPORTED;
+ret:
+    return rv;
+}
+
+CK_RV C_EncapsulateKey(CK_SESSION_HANDLE hSession,
+                       CK_MECHANISM_PTR pMechanism,
+                       CK_OBJECT_HANDLE hPublicKey,
+                       CK_ATTRIBUTE_PTR pTemplate,
+                       CK_ULONG ulAttributeCount,
+                       CK_BYTE_PTR pCiphertext,
+                       CK_ULONG_PTR pulCiphertextLen,
+                       CK_OBJECT_HANDLE_PTR phKey)
+{
+    CK_RV rv;
+
+    UNUSED(hSession);
+    UNUSED(pMechanism);
+    UNUSED(hPublicKey);
+    UNUSED(pTemplate);
+    UNUSED(ulAttributeCount);
+    UNUSED(pCiphertext);
+    UNUSED(pulCiphertextLen);
+    UNUSED(phKey);
+
+    TRACE_INFO("C_EncapsulateKey\n");
+
+    if (API_Initialized() == FALSE) {
+        TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
+        rv = CKR_CRYPTOKI_NOT_INITIALIZED;
+        goto ret;
+    }
+
+    TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
+    rv = CKR_FUNCTION_NOT_SUPPORTED;
+ret:
+    return rv;
+}
+
+CK_RV C_DecapsulateKey(CK_SESSION_HANDLE hSession,
+                       CK_MECHANISM_PTR pMechanism,
+                       CK_OBJECT_HANDLE hPrivateKey,
+                       CK_ATTRIBUTE_PTR pTemplate,
+                       CK_ULONG ulAttributeCount,
+                       CK_BYTE_PTR pCiphertext,
+                       CK_ULONG ulCiphertextLen,
+                       CK_OBJECT_HANDLE_PTR phKey)
+{
+    CK_RV rv;
+
+    UNUSED(hSession);
+    UNUSED(pMechanism);
+    UNUSED(hPrivateKey);
+    UNUSED(pTemplate);
+    UNUSED(ulAttributeCount);
+    UNUSED(pCiphertext);
+    UNUSED(ulCiphertextLen);
+    UNUSED(phKey);
+
+    TRACE_INFO("C_DecapsulateKey\n");
+
+    if (API_Initialized() == FALSE) {
+        TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
+        rv = CKR_CRYPTOKI_NOT_INITIALIZED;
+        goto ret;
+    }
+
+    TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
+    rv = CKR_FUNCTION_NOT_SUPPORTED;
+ret:
+    return rv;
+}
+
+CK_RV C_VerifySignatureInit(CK_SESSION_HANDLE hSession,
+                            CK_MECHANISM_PTR pMechanism,
+                            CK_OBJECT_HANDLE hKey,
+                            CK_BYTE_PTR pSignature,
+                            CK_ULONG ulSignatureLen)
+{
+    CK_RV rv;
+
+    UNUSED(hSession);
+    UNUSED(pMechanism);
+    UNUSED(hKey);
+    UNUSED(pSignature);
+    UNUSED(ulSignatureLen);
+
+    TRACE_INFO("C_VerifySignatureInit\n");
+
+    if (API_Initialized() == FALSE) {
+        TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
+        rv = CKR_CRYPTOKI_NOT_INITIALIZED;
+        goto ret;
+    }
+
+    TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
+    rv = CKR_FUNCTION_NOT_SUPPORTED;
+ret:
+    return rv;
+}
+
+CK_RV C_VerifySignature(CK_SESSION_HANDLE hSession,
+                        CK_BYTE_PTR pData,
+                        CK_ULONG ulDataLen)
+{
+    CK_RV rv;
+
+    UNUSED(hSession);
+    UNUSED(pData);
+    UNUSED(ulDataLen);
+
+    TRACE_INFO("C_VerifySignature\n");
+
+    if (API_Initialized() == FALSE) {
+        TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
+        rv = CKR_CRYPTOKI_NOT_INITIALIZED;
+        goto ret;
+    }
+
+    TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
+    rv = CKR_FUNCTION_NOT_SUPPORTED;
+ret:
+    return rv;
+}
+
+CK_RV C_VerifySignatureUpdate(CK_SESSION_HANDLE hSession,
+                              CK_BYTE_PTR pPart,
+                              CK_ULONG ulPartLen)
+{
+    CK_RV rv;
+
+    UNUSED(hSession);
+    UNUSED(pPart);
+    UNUSED(ulPartLen);
+
+    TRACE_INFO("C_VerifySignatureUpdate\n");
+
+    if (API_Initialized() == FALSE) {
+        TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
+        rv = CKR_CRYPTOKI_NOT_INITIALIZED;
+        goto ret;
+    }
+
+    TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
+    rv = CKR_FUNCTION_NOT_SUPPORTED;
+ret:
+    return rv;
+}
+
+CK_RV C_VerifySignatureFinal(CK_SESSION_HANDLE hSession)
+{
+    CK_RV rv;
+
+    UNUSED(hSession);
+
+    TRACE_INFO("C_VerifySignatureFinal\n");
+
+    if (API_Initialized() == FALSE) {
+        TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
+        rv = CKR_CRYPTOKI_NOT_INITIALIZED;
+        goto ret;
+    }
+
+    TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
+    rv = CKR_FUNCTION_NOT_SUPPORTED;
+ret:
+    return rv;
+}
+
+CK_RV C_GetSessionValidationFlags(CK_SESSION_HANDLE hSession,
+                                  CK_SESSION_VALIDATION_FLAGS_TYPE type,
+                                  CK_FLAGS_PTR pFlags)
+{
+    CK_RV rv;
+
+    UNUSED(hSession);
+    UNUSED(type);
+    UNUSED(pFlags);
+
+    TRACE_INFO("C_GetSessionValidationFlags\n");
+
+    if (API_Initialized() == FALSE) {
+        TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
+        rv = CKR_CRYPTOKI_NOT_INITIALIZED;
+        goto ret;
+    }
+
+    TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
+    rv = CKR_FUNCTION_NOT_SUPPORTED;
+ret:
+    return rv;
+}
+
+CK_RV C_AsyncComplete(CK_SESSION_HANDLE hSession,
+                      CK_UTF8CHAR_PTR pFunctionName,
+                      CK_ASYNC_DATA_PTR pResult)
+{
+    CK_RV rv;
+
+    UNUSED(hSession);
+    UNUSED(pFunctionName);
+    UNUSED(pResult);
+
+    TRACE_INFO("C_AsyncComplete\n");
+
+    if (API_Initialized() == FALSE) {
+        TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
+        rv = CKR_CRYPTOKI_NOT_INITIALIZED;
+        goto ret;
+    }
+
+    TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
+    rv = CKR_FUNCTION_NOT_SUPPORTED;
+ret:
+    return rv;
+}
+
+CK_RV C_AsyncGetID(CK_SESSION_HANDLE hSession,
+                   CK_UTF8CHAR_PTR pFunctionName,
+                   CK_ULONG_PTR pulID)
+{
+    CK_RV rv;
+
+    UNUSED(hSession);
+    UNUSED(pFunctionName);
+    UNUSED(pulID);
+
+    TRACE_INFO("C_AsyncGetID\n");
+
+    if (API_Initialized() == FALSE) {
+        TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
+        rv = CKR_CRYPTOKI_NOT_INITIALIZED;
+        goto ret;
+    }
+
+    TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
+    rv = CKR_FUNCTION_NOT_SUPPORTED;
+ret:
+    return rv;
+}
+
+CK_RV C_AsyncJoin(CK_SESSION_HANDLE hSession,
+                  CK_UTF8CHAR_PTR pFunctionName,
+                  CK_ULONG ulID,
+                  CK_BYTE_PTR pData,
+                  CK_ULONG ulData)
+{
+    CK_RV rv;
+
+    UNUSED(hSession);
+    UNUSED(pFunctionName);
+    UNUSED(ulID);
+    UNUSED(pData);
+    UNUSED(ulData);
+
+    TRACE_INFO("C_AsyncJoin\n");
+
+    if (API_Initialized() == FALSE) {
+        TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
+        rv = CKR_CRYPTOKI_NOT_INITIALIZED;
+        goto ret;
+    }
+
+    TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
+    rv = CKR_FUNCTION_NOT_SUPPORTED;
+ret:
+    return rv;
+}
+
+CK_RV C_WrapKeyAuthenticated(CK_SESSION_HANDLE hSession,
+                             CK_MECHANISM_PTR pMechanism,
+                             CK_OBJECT_HANDLE hWrappingKey,
+                             CK_OBJECT_HANDLE hKey,
+                             CK_BYTE_PTR pAssociatedData,
+                             CK_ULONG ulAssociatedDataLen,
+                             CK_BYTE_PTR pWrappedKey,
+                             CK_ULONG_PTR pulWrappedKeyLen)
+{
+    CK_RV rv;
+
+    UNUSED(hSession);
+    UNUSED(pMechanism);
+    UNUSED(hWrappingKey);
+    UNUSED(hKey);
+    UNUSED(pAssociatedData);
+    UNUSED(ulAssociatedDataLen);
+    UNUSED(pWrappedKey);
+    UNUSED(pulWrappedKeyLen);
+
+
+    TRACE_INFO("C_WrapKeyAuthenticated\n");
+
+    if (API_Initialized() == FALSE) {
+        TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
+        rv = CKR_CRYPTOKI_NOT_INITIALIZED;
+        goto ret;
+    }
+
+    TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
+    rv = CKR_FUNCTION_NOT_SUPPORTED;
+ret:
+    return rv;
+}
+
+CK_RV C_UnwrapKeyAuthenticated(CK_SESSION_HANDLE hSession,
+                               CK_MECHANISM_PTR pMechanism,
+                               CK_OBJECT_HANDLE hUnwrappingKey,
+                               CK_BYTE_PTR pWrappedKey,
+                               CK_ULONG ulWrappedKeyLen,
+                               CK_ATTRIBUTE_PTR pTemplate,
+                               CK_ULONG ulAttributeCount,
+                               CK_BYTE_PTR pAssociatedData,
+                               CK_ULONG ulAssociatedDataLen,
+                               CK_OBJECT_HANDLE_PTR phKey)
+{
+    CK_RV rv;
+
+    UNUSED(hSession);
+    UNUSED(pMechanism);
+    UNUSED(hUnwrappingKey);
+    UNUSED(pWrappedKey);
+    UNUSED(ulWrappedKeyLen);
+    UNUSED(pTemplate);
+    UNUSED(ulAttributeCount);
+    UNUSED(pAssociatedData);
+    UNUSED(ulAssociatedDataLen);
+    UNUSED(phKey);
+
+    TRACE_INFO("C_UnwrapKeyAuthenticated\n");
 
     if (API_Initialized() == FALSE) {
         TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));

@@ -3051,7 +3051,7 @@ CK_RV rsa_aes_key_wrap(STDLL_TokData_t *tokdata, SESSION *sess,
     rc = key_mgr_generate_key(tokdata, sess, &aes_keygen_mech,
                               aes_key_tmpl,
                               sizeof(aes_key_tmpl) / sizeof(CK_ATTRIBUTE),
-                              &aes_key_handle, FALSE);
+                              &aes_key_handle, FALSE, OP_KEYGEN);
     if (rc != CKR_OK) {
         TRACE_ERROR("Failed to generate temporary AES key (%lu bits): "
                     "%s (0x%lx)\n", params->ulAESKeyBits, p11_get_ckr(rc), rc);
@@ -3067,7 +3067,7 @@ CK_RV rsa_aes_key_wrap(STDLL_TokData_t *tokdata, SESSION *sess,
 
     rc = key_mgr_wrap_key(tokdata, sess, TRUE, &rsa_oaep_mech,
                           ctx->key, aes_key_handle,
-                          NULL, &wrapped_aes_key_len, FALSE);
+                          NULL, &wrapped_aes_key_len, FALSE, OP_WRAP);
     if (rc != CKR_OK) {
         TRACE_ERROR("Failed to wrap temporary AES key: %s (0x%lx)\n",
                     p11_get_ckr(rc), rc);
@@ -3120,7 +3120,7 @@ CK_RV rsa_aes_key_wrap(STDLL_TokData_t *tokdata, SESSION *sess,
     /*  Wrap the temporary AES key as first part of the wrapped key data */
     rc = key_mgr_wrap_key(tokdata, sess, FALSE, &rsa_oaep_mech,
                           ctx->key, aes_key_handle,
-                          out_data, &wrapped_aes_key_len, FALSE);
+                          out_data, &wrapped_aes_key_len, FALSE, OP_WRAP);
     if (rc != CKR_OK) {
         TRACE_ERROR("Failed to wrap temporary AES key: %s (0x%lx)\n",
                     p11_get_ckr(rc), rc);
@@ -3237,7 +3237,7 @@ CK_RV rsa_aes_key_unwrap(STDLL_TokData_t *tokdata, SESSION *sess,
                             aes_key_tmpl,
                             sizeof(aes_key_tmpl) / sizeof(CK_ATTRIBUTE),
                             in_data, modulus_size, ctx->key, &aes_key_handle,
-                            FALSE);
+                            FALSE, OP_UNWRAP);
     if (rc != CKR_OK) {
         TRACE_ERROR("Failed to unwrap temporary AES key: %s (0x%lx)\n",
                     p11_get_ckr(rc), rc);

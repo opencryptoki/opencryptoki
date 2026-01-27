@@ -33,6 +33,7 @@
 #define MCF_KEYGEN            (1u <<  3u)
 #define MCF_WRAPUNWRAP        (1u <<  4u)
 #define MCF_DERIVE            (1u <<  5u)
+#define MCF_ENDECAPS          (1u <<  6u)
 
 #define MCF_NEEDSPARAM        (1u <<  8u)
 #define MCF_OPTIONALPARAM     (1u <<  9u)
