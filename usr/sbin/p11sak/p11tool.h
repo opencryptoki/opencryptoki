@@ -130,6 +130,7 @@ struct p11tool_objtype {
     bool encrypt_decrypt;
     bool wrap_unwrap;
     bool derive;
+    bool encaps_decaps;
     CK_RV (*keygen_prepare)(const struct p11tool_objtype *keytype,
                             void **private);
     void (*keygen_cleanup)(const struct p11tool_objtype *keytype,

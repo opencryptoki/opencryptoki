@@ -234,6 +234,7 @@ static const struct p11tool_objtype p11kmip_aes_keytype = {
     .is_asymmetric = false,
     .sign_verify = true, .encrypt_decrypt = true,
     .wrap_unwrap = true, .derive = true,
+    .encaps_decaps = false,
     .filter_attr = CKA_KEY_TYPE, .filter_value = CKK_AES,
     .keysize_attr = CKA_VALUE_LEN,
 };
@@ -244,6 +245,7 @@ static const struct p11tool_objtype p11kmip_rsa_keytype = {
     .is_asymmetric = true,
     .sign_verify = true, .encrypt_decrypt = true,
     .wrap_unwrap = true, .derive = false,
+    .encaps_decaps = false,
     .filter_attr = CKA_KEY_TYPE, .filter_value = CKK_RSA,
     .keysize_attr = CKA_MODULUS, .keysize_attr_value_len = true,
     .export_asym_pkey = p11kmip_export_local_rsa_pkey,

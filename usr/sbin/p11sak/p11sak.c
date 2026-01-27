@@ -426,7 +426,10 @@ static const struct p11tool_attr p11sak_x509_attrs[] = {
       .print_long = print_attr_array_attr, },                                  \
     { .name = "CKA_PUBLIC_KEY_INFO", .type = CKA_PUBLIC_KEY_INFO,              \
       .secret = false, .public = true, .private = true, .settable = true,      \
-      .print_long = p11tool_print_byte_array_attr, }
+      .print_long = p11tool_print_byte_array_attr, },                          \
+    { .name = "CKA_ENCAPSULATE_TEMPLATE", .type = CKA_ENCAPSULATE_TEMPLATE,    \
+      .secret = false, .public = true, .private = false, .settable = true,     \
+      .print_long = print_attr_array_attr, }
 
 #define DECLARE_PRIVATE_KEY_ATTRS                                              \
     { .name = "CKA_SUBJECT", .type = CKA_SUBJECT,                              \
@@ -440,6 +443,9 @@ static const struct p11tool_attr p11sak_x509_attrs[] = {
       .print_long = p11tool_print_byte_array_attr, },                          \
     { .name = "CKA_DERIVE_TEMPLATE", .type = CKA_DERIVE_TEMPLATE,              \
       .secret = true, .public = false, .private = true, .settable = true,      \
+      .print_long = print_attr_array_attr, },                                  \
+    { .name = "CKA_DECAPSULATE_TEMPLATE", .type = CKA_DECAPSULATE_TEMPLATE,    \
+      .secret = false, .public = false, .private = true, .settable = true,     \
       .print_long = print_attr_array_attr, }
 
 static const struct p11tool_attr p11sak_des_attrs[] = {
@@ -783,6 +789,7 @@ static const struct p11tool_objtype p11sak_des_keytype = {
     .is_asymmetric = false,
     .sign_verify = true, .encrypt_decrypt = true,
     .wrap_unwrap = true, .derive = true,
+    .encaps_decaps = false,
     .filter_attr = CKA_KEY_TYPE, .filter_value = CKK_DES,
     .keysize_attr = (CK_ATTRIBUTE_TYPE)-1,
     .secret_attrs = p11sak_des_attrs,
@@ -798,6 +805,7 @@ static const struct p11tool_objtype p11sak_3des_keytype = {
     .is_asymmetric = false,
     .sign_verify = true, .encrypt_decrypt = true,
     .wrap_unwrap = true, .derive = true,
+    .encaps_decaps = false,
     .filter_attr = CKA_KEY_TYPE, .filter_value = CKK_DES3,
     .keysize_attr = (CK_ATTRIBUTE_TYPE)-1,
     .secret_attrs = p11sak_3des_attrs,
@@ -816,6 +824,7 @@ static const struct p11tool_objtype p11sak_generic_keytype = {
     .keygen_add_secret_attrs = generic_add_secret_attrs,
     .sign_verify = true, .encrypt_decrypt = false,
     .wrap_unwrap = false, .derive = true,
+    .encaps_decaps = false,
     .filter_attr = CKA_KEY_TYPE, .filter_value = CKK_GENERIC_SECRET,
     .keysize_attr = CKA_VALUE_LEN, .key_keysize_adjust = generic_keysize_adjust,
     .secret_attrs = p11sak_generic_attrs,
@@ -834,6 +843,7 @@ static const struct p11tool_objtype p11sak_sha_1_hmac_keytype = {
     .keygen_add_secret_attrs = generic_add_secret_attrs,
     .sign_verify = true, .encrypt_decrypt = false,
     .wrap_unwrap = false, .derive = true,
+    .encaps_decaps = false,
     .filter_attr = CKA_KEY_TYPE, .filter_value = CKK_SHA_1_HMAC,
     .keysize_attr = CKA_VALUE_LEN, .key_keysize_adjust = generic_keysize_adjust,
     .secret_attrs = p11sak_generic_attrs,
@@ -852,6 +862,7 @@ static const struct p11tool_objtype p11sak_sha224_hmac_keytype = {
     .keygen_add_secret_attrs = generic_add_secret_attrs,
     .sign_verify = true, .encrypt_decrypt = false,
     .wrap_unwrap = false, .derive = true,
+    .encaps_decaps = false,
     .filter_attr = CKA_KEY_TYPE, .filter_value = CKK_SHA224_HMAC,
     .keysize_attr = CKA_VALUE_LEN, .key_keysize_adjust = generic_keysize_adjust,
     .secret_attrs = p11sak_generic_attrs,
@@ -870,6 +881,7 @@ static const struct p11tool_objtype p11sak_sha256_hmac_keytype = {
     .keygen_add_secret_attrs = generic_add_secret_attrs,
     .sign_verify = true, .encrypt_decrypt = false,
     .wrap_unwrap = false, .derive = true,
+    .encaps_decaps = false,
     .filter_attr = CKA_KEY_TYPE, .filter_value = CKK_SHA256_HMAC,
     .keysize_attr = CKA_VALUE_LEN, .key_keysize_adjust = generic_keysize_adjust,
     .secret_attrs = p11sak_generic_attrs,
@@ -888,6 +900,7 @@ static const struct p11tool_objtype p11sak_sha384_hmac_keytype = {
     .keygen_add_secret_attrs = generic_add_secret_attrs,
     .sign_verify = true, .encrypt_decrypt = false,
     .wrap_unwrap = false, .derive = true,
+    .encaps_decaps = false,
     .filter_attr = CKA_KEY_TYPE, .filter_value = CKK_SHA384_HMAC,
     .keysize_attr = CKA_VALUE_LEN, .key_keysize_adjust = generic_keysize_adjust,
     .secret_attrs = p11sak_generic_attrs,
@@ -906,6 +919,7 @@ static const struct p11tool_objtype p11sak_sha512_hmac_keytype = {
     .keygen_add_secret_attrs = generic_add_secret_attrs,
     .sign_verify = true, .encrypt_decrypt = false,
     .wrap_unwrap = false, .derive = true,
+    .encaps_decaps = false,
     .filter_attr = CKA_KEY_TYPE, .filter_value = CKK_SHA512_HMAC,
     .keysize_attr = CKA_VALUE_LEN, .key_keysize_adjust = generic_keysize_adjust,
     .secret_attrs = p11sak_generic_attrs,
@@ -924,6 +938,7 @@ static const struct p11tool_objtype p11sak_sha512_224_hmac_keytype = {
     .keygen_add_secret_attrs = generic_add_secret_attrs,
     .sign_verify = true, .encrypt_decrypt = false,
     .wrap_unwrap = false, .derive = true,
+    .encaps_decaps = false,
     .filter_attr = CKA_KEY_TYPE, .filter_value = CKK_SHA512_224_HMAC,
     .keysize_attr = CKA_VALUE_LEN, .key_keysize_adjust = generic_keysize_adjust,
     .secret_attrs = p11sak_generic_attrs,
@@ -942,6 +957,7 @@ static const struct p11tool_objtype p11sak_sha512_256_hmac_keytype = {
     .keygen_add_secret_attrs = generic_add_secret_attrs,
     .sign_verify = true, .encrypt_decrypt = false,
     .wrap_unwrap = false, .derive = true,
+    .encaps_decaps = false,
     .filter_attr = CKA_KEY_TYPE, .filter_value = CKK_SHA512_256_HMAC,
     .keysize_attr = CKA_VALUE_LEN, .key_keysize_adjust = generic_keysize_adjust,
     .secret_attrs = p11sak_generic_attrs,
@@ -960,6 +976,7 @@ static const struct p11tool_objtype p11sak_sha3_224_hmac_keytype = {
     .keygen_add_secret_attrs = generic_add_secret_attrs,
     .sign_verify = true, .encrypt_decrypt = false,
     .wrap_unwrap = false, .derive = true,
+    .encaps_decaps = false,
     .filter_attr = CKA_KEY_TYPE, .filter_value = CKK_SHA3_224_HMAC,
     .keysize_attr = CKA_VALUE_LEN, .key_keysize_adjust = generic_keysize_adjust,
     .secret_attrs = p11sak_generic_attrs,
@@ -978,6 +995,7 @@ static const struct p11tool_objtype p11sak_sha3_256_hmac_keytype = {
     .keygen_add_secret_attrs = generic_add_secret_attrs,
     .sign_verify = true, .encrypt_decrypt = false,
     .wrap_unwrap = false, .derive = true,
+    .encaps_decaps = false,
     .filter_attr = CKA_KEY_TYPE, .filter_value = CKK_SHA3_256_HMAC,
     .keysize_attr = CKA_VALUE_LEN, .key_keysize_adjust = generic_keysize_adjust,
     .secret_attrs = p11sak_generic_attrs,
@@ -996,6 +1014,7 @@ static const struct p11tool_objtype p11sak_sha3_384_hmac_keytype = {
     .keygen_add_secret_attrs = generic_add_secret_attrs,
     .sign_verify = true, .encrypt_decrypt = false,
     .wrap_unwrap = false, .derive = true,
+    .encaps_decaps = false,
     .filter_attr = CKA_KEY_TYPE, .filter_value = CKK_SHA3_384_HMAC,
     .keysize_attr = CKA_VALUE_LEN, .key_keysize_adjust = generic_keysize_adjust,
     .secret_attrs = p11sak_generic_attrs,
@@ -1014,6 +1033,7 @@ static const struct p11tool_objtype p11sak_sha3_512_hmac_keytype = {
     .keygen_add_secret_attrs = generic_add_secret_attrs,
     .sign_verify = true, .encrypt_decrypt = false,
     .wrap_unwrap = false, .derive = true,
+    .encaps_decaps = false,
     .filter_attr = CKA_KEY_TYPE, .filter_value = CKK_SHA3_512_HMAC,
     .keysize_attr = CKA_VALUE_LEN, .key_keysize_adjust = generic_keysize_adjust,
     .secret_attrs = p11sak_generic_attrs,
@@ -1031,6 +1051,7 @@ static const struct p11tool_objtype p11sak_aes_keytype = {
     .keygen_add_secret_attrs = aes_add_secret_attrs,
     .sign_verify = true, .encrypt_decrypt = true,
     .wrap_unwrap = true, .derive = true,
+    .encaps_decaps = false,
     .filter_attr = CKA_KEY_TYPE, .filter_value = CKK_AES,
     .keysize_attr = CKA_VALUE_LEN, .key_keysize_adjust = aes_keysize_adjust,
     .secret_attrs = p11sak_aes_attrs,
@@ -1048,6 +1069,7 @@ static const struct p11tool_objtype p11sak_aes_xts_keytype = {
     .keygen_add_secret_attrs = aes_add_secret_attrs,
     .sign_verify = true, .encrypt_decrypt = true,
     .wrap_unwrap = true, .derive = true,
+    .encaps_decaps = false,
     .filter_attr = CKA_KEY_TYPE, .filter_value = CKK_AES_XTS,
     .keysize_attr = CKA_VALUE_LEN, .key_keysize_adjust = aes_xts_keysize_adjust,
     .secret_attrs = p11sak_aes_attrs,
@@ -1065,6 +1087,7 @@ static const struct p11tool_objtype p11sak_rsa_keytype = {
     .keygen_add_public_attrs = rsa_add_public_attrs,
     .sign_verify = true, .encrypt_decrypt = true,
     .wrap_unwrap = true, .derive = false,
+    .encaps_decaps = true,
     .filter_attr = CKA_KEY_TYPE, .filter_value = CKK_RSA,
     .keysize_attr = CKA_MODULUS, .keysize_attr_value_len = true,
     .key_keysize_adjust = rsa_keysize_adjust,
@@ -1086,6 +1109,7 @@ static const struct p11tool_objtype p11sak_dh_keytype = {
     .keygen_add_private_attrs = dh_add_private_attrs,
     .sign_verify = false, .encrypt_decrypt = false,
     .wrap_unwrap = false, .derive = true,
+    .encaps_decaps = true,
     .filter_attr = CKA_KEY_TYPE, .filter_value = CKK_DH,
     .keysize_attr = CKA_PRIME, .keysize_attr_value_len = true,
     .key_keysize_adjust = dh_keysize_adjust,
@@ -1106,6 +1130,7 @@ static const struct p11tool_objtype p11sak_dsa_keytype = {
     .keygen_add_public_attrs = dsa_add_public_attrs,
     .sign_verify = true, .encrypt_decrypt = false,
     .wrap_unwrap = false, .derive = false,
+    .encaps_decaps = false,
     .filter_attr = CKA_KEY_TYPE, .filter_value = CKK_DSA,
     .keysize_attr = CKA_PRIME, .keysize_attr_value_len = true,
     .key_keysize_adjust = dsa_keysize_adjust,
@@ -1124,6 +1149,7 @@ static const struct p11tool_objtype p11sak_ec_keytype = {
     .keygen_add_public_attrs = ec_add_public_attrs,
     .sign_verify = true, .encrypt_decrypt = false,
     .wrap_unwrap = false, .derive = true,
+    .encaps_decaps = true,
     .filter_attr = CKA_KEY_TYPE, .filter_value = CKK_EC,
     .keysize_attr = (CK_ATTRIBUTE_TYPE)-1,
     .public_attrs = p11sak_public_ec_attrs,
@@ -1141,6 +1167,7 @@ static const struct p11tool_objtype p11sak_ec_edwards_keytype = {
     .keygen_add_public_attrs = ec_add_public_attrs,
     .sign_verify = true, .encrypt_decrypt = false,
     .wrap_unwrap = false, .derive = false,
+    .encaps_decaps = false,
     .filter_attr = CKA_KEY_TYPE, .filter_value = CKK_EC_EDWARDS,
     .keysize_attr = (CK_ATTRIBUTE_TYPE)-1,
     .public_attrs = p11sak_public_ec_attrs,
@@ -1159,6 +1186,7 @@ static const struct p11tool_objtype p11sak_ec_montgomery_keytype = {
     .keygen_add_public_attrs = ec_add_public_attrs,
     .sign_verify = true, .encrypt_decrypt = false,
     .wrap_unwrap = false, .derive = true,
+    .encaps_decaps = true,
     .filter_attr = CKA_KEY_TYPE, .filter_value = CKK_EC_MONTGOMERY,
     .keysize_attr = (CK_ATTRIBUTE_TYPE)-1,
     .public_attrs = p11sak_public_ec_attrs,
@@ -1177,6 +1205,7 @@ static const struct p11tool_objtype p11sak_ibm_dilithium_keytype = {
     .keygen_add_public_attrs = ibm_dilithium_add_public_attrs,
     .sign_verify = true, .encrypt_decrypt = false,
     .wrap_unwrap = false, .derive = false,
+    .encaps_decaps = false,
     .filter_attr = CKA_KEY_TYPE, .filter_value = CKK_IBM_PQC_DILITHIUM,
     .keysize_attr = (CK_ATTRIBUTE_TYPE)-1,
     .public_attrs = p11sak_public_ibm_dilithium_attrs,
@@ -1198,6 +1227,7 @@ static const struct p11tool_objtype p11sak_ibm_kyber_keytype = {
     .keygen_add_public_attrs = ibm_kyber_add_public_attrs,
     .sign_verify = false, .encrypt_decrypt = true,
     .wrap_unwrap = false, .derive = true,
+    .encaps_decaps = false,
     .filter_attr = CKA_KEY_TYPE, .filter_value = CKK_IBM_PQC_KYBER,
     .keysize_attr = (CK_ATTRIBUTE_TYPE)-1,
     .public_attrs = p11sak_public_ibm_kyber_attrs,
@@ -1217,6 +1247,7 @@ static const struct p11tool_objtype p11sak_ibm_ml_dsa_keytype = {
     .keygen_add_public_attrs = ibm_ml_dsa_kem_add_public_attrs,
     .sign_verify = true, .encrypt_decrypt = false,
     .wrap_unwrap = false, .derive = false,
+    .encaps_decaps = false,
     .filter_attr = CKA_KEY_TYPE, .filter_value = CKK_IBM_ML_DSA,
     .keysize_attr = (CK_ATTRIBUTE_TYPE)-1,
     .public_attrs = p11sak_public_ibm_ml_dsa_attrs,
@@ -1234,6 +1265,7 @@ static const struct p11tool_objtype p11sak_ibm_ml_kem_keytype = {
     .keygen_add_public_attrs = ibm_ml_dsa_kem_add_public_attrs,
     .sign_verify = false, .encrypt_decrypt = false,
     .wrap_unwrap = false, .derive = true,
+    .encaps_decaps = false,
     .filter_attr = CKA_KEY_TYPE, .filter_value = CKK_IBM_ML_KEM,
     .keysize_attr = (CK_ATTRIBUTE_TYPE)-1,
     .public_attrs = p11sak_public_ibm_ml_kem_attrs,
@@ -1383,11 +1415,11 @@ static const struct p11tool_opt p11sak_generic_opts[] = {
       .arg =  { .type = ARG_TYPE_STRING, .required = true,                     \
                 .value.string = &opt_attr, .name = "ATTRS", },                 \
       .description = "Filter the key by its boolean attribute values:\n"       \
-                     "P L M B Y R E D G C V O W U S A X N T I H K Z (optional)"\
-                     ". Specify a set of these letters without any blanks in " \
-                     "between. See below for the meaning of the attribute "    \
-                     "letters. Attributes that are not specified are not "     \
-                     "used to filter the keys.", }
+                     "P L M B Y R E D G C V O W U S A X N T I H J Q K Z "      \
+                     "(optional). Specify a set of these letters without any " \
+                     "blanks in between. See below for the meaning of the "    \
+                     "attribute letters. Attributes that are not specified "   \
+                     "are not used to filter the keys.", }
 
 #define CERT_FILTER_OPTS                                                       \
     { .short_opt = 'L', .long_opt = "label", .required = false,                \
@@ -1501,7 +1533,7 @@ static const struct p11tool_opt p11sak_generate_key_opts[] = {
       .arg =  { .type = ARG_TYPE_STRING, .required = true,
                 .value.string = &opt_attr, .name = "ATTRS", },
       .description = "The boolean attributes to set for the key:\n"
-                     "P M B Y R E D G C V O W U S X T I H K (optional). "
+                     "P M B Y R E D G C V O W U S X T I H J Q K (optional). "
                      "Specify a set of these letters without any blanks in "
                      "between. See below for the meaning of the attribute "
                      "letters. For asymmetric keys set individual key "
@@ -1979,7 +2011,7 @@ static const struct p11tool_opt p11sak_set_key_attr_opts[] = {
       .arg =  { .type = ARG_TYPE_STRING, .required = true,
                 .value.string = &opt_new_attr, .name = "ATTRS", },
       .description = "The boolean attributes to set for the key (optional):\n"
-                     "P M B Y R E D G C V O W U S X T I K. "
+                     "P M B Y R E D G C V O W U S X T I J Q K. "
                      "Specify a set of these letters without any blanks in "
                      "between. See below for the meaning of the attribute "
                      "letters. Restrictions on attribute values may apply.", },
@@ -2055,8 +2087,8 @@ static const struct p11tool_opt p11sak_copy_key_opts[] = {
       .arg =  { .type = ARG_TYPE_STRING, .required = true,
                 .value.string = &opt_new_attr, .name = "ATTRS", },
       .description = "The boolean attributes to set for the copied key "
-                     "(optional):\n P L M B Y R E D G C V O W U S A X N T I. "
-                     "Specify a set of these letters without any blanks in "
+                     "(optional):\n P L M B Y R E D G C V O W U S A X N T I J "
+                     "Q. Specify a set of these letters without any blanks in "
                      "between. See below for the meaning of the attribute "
                      "letters. Restrictions on attribute values may apply.", },
     { .short_opt = 'l', .long_opt = "new-label", .required = false,
@@ -2130,7 +2162,7 @@ static const struct p11tool_opt p11sak_import_key_opts[] = {
       .arg =  { .type = ARG_TYPE_STRING, .required = true,
                 .value.string = &opt_attr, .name = "ATTRS", },
       .description = "The boolean attributes to set for the key:\n"
-                     "P M B Y R E D G C V O W U S X T I H K (optional). "
+                     "P M B Y R E D G C V O W U S X T I H J Q K (optional). "
                      "Specify a set of these letters without any blanks in "
                      "between. See below for the meaning of the attribute "
                      "letters.", },
@@ -2445,7 +2477,7 @@ static const struct p11tool_opt p11sak_extract_pubkey_opts[] = {
       .arg =  { .type = ARG_TYPE_STRING, .required = true,
                 .value.string = &opt_new_attr, .name = "ATTRS", },
       .description = "The boolean attributes to set for the extracted public "
-                     "key (optional): P M B Y R E D G C V O W U S X T I K. "
+                     "key (optional): P M B Y R E D G C V O W U S X T I J Q K. "
                      "Specify a set of these letters without any blanks in "
                      "between. See below for the meaning of the attribute "
                      "letters. Restrictions on attribute values may apply.", },
@@ -2536,7 +2568,7 @@ static const struct p11tool_opt p11sak_extract_cert_pubkey_opts[] = {
       .arg =  { .type = ARG_TYPE_STRING, .required = true,
                 .value.string = &opt_new_attr, .name = "ATTRS", },
       .description = "The boolean attributes to set for the extracted public "
-                     "key (optional): P M B Y R E D G C V O W U S X T I K. "
+                     "key (optional): P M B Y R E D G C V O W U S X T I J Q K. "
                      "Specify a set of these letters without any blanks in "
                      "between. See below for the meaning of the attribute "
                      "letters. Restrictions on attribute values may apply.", },
@@ -2691,7 +2723,7 @@ static const struct p11tool_opt p11sak_unwrap_key_opts[] = {
       .arg =  { .type = ARG_TYPE_STRING, .required = true,
                 .value.string = &opt_attr, .name = "ATTRS", },
       .description = "The boolean attributes to set for the unwrapped key:\n"
-                     "P M B Y R E D G C V O W U S X T I H K (optional). "
+                     "P M B Y R E D G C V O W U S X T I H J Q K (optional). "
                      "Specify a set of these letters without any blanks in "
                      "between. See below for the meaning of the attribute "
                      "letters.", },
@@ -2869,6 +2901,8 @@ const struct p11tool_attr p11sak_bool_attrs[] = {
     DECLARE_BOOL_ATTR(CKA_WRAP_WITH_TRUSTED, 'I', true,  false, true,  true),
     DECLARE_BOOL_ATTR(CKA_ALWAYS_AUTHENTICATE,
                                              'H', false, false, true,  true),
+    DECLARE_BOOL_ATTR(CKA_ENCAPSULATE,       'J', false, true,  false, true),
+    DECLARE_BOOL_ATTR(CKA_DECAPSULATE,       'Q', false, false, true,  true),
     DECLARE_BOOL_ATTR(CKA_IBM_PROTKEY_EXTRACTABLE,
                                              'K', true,  false, true,  true),
     DECLARE_BOOL_ATTR(CKA_IBM_PROTKEY_NEVER_EXTRACTABLE,

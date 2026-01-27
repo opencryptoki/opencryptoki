@@ -1477,6 +1477,8 @@ bool p11tool_is_attr_array_attr(CK_ATTRIBUTE *attr)
     case CKA_WRAP_TEMPLATE:
     case CKA_UNWRAP_TEMPLATE:
     case CKA_DERIVE_TEMPLATE:
+    case CKA_ENCAPSULATE_TEMPLATE:
+    case CKA_DECAPSULATE_TEMPLATE:
         return true;
 
     default:
@@ -2218,6 +2220,10 @@ bool p11tool_attr_applicable_for_keytype(const struct p11tool_objtype *keytype,
 
     case CKA_DERIVE:
         return keytype->derive;
+
+    case CKA_ENCAPSULATE:
+    case CKA_DECAPSULATE:
+        return keytype->encaps_decaps;
 
     default:
         return true;
