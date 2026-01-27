@@ -17,7 +17,7 @@
 
 static int get_interface_test(void)
 {
-    CK_FUNCTION_LIST_3_0 *tfn;
+    CK_FUNCTION_LIST_3_2 *tfn;
     CK_INTERFACE *interface;
     CK_VERSION version, *v;
     CK_SLOT_ID slot;
@@ -158,7 +158,31 @@ static int get_interface_test(void)
     printf("pFunctionList version  %u.%u\n", v->major, v->minor);
     printf("flags                  0x%016lx\n", interface->flags);
 
-    tfn = (CK_FUNCTION_LIST_3_0 *)interface->pFunctionList;
+    version.major = 3;
+    version.minor = 2;
+    flags = 0ULL;
+    rv = funcs3->C_GetInterface((CK_UTF8CHAR *)"PKCS 11",
+                                &version, &interface, flags);
+    if (rv != CKR_OK) {
+        testcase_fail("C_GetInterface returned %s.\n", p11_get_ckr(rv));
+        goto ret;
+    }
+    if (strcmp((char *)interface->pInterfaceName, "PKCS 11") != 0) {
+        testcase_fail("Returned interface name: %s.\n",
+                           interface->pInterfaceName);
+        goto ret;
+    }
+    v = (CK_VERSION *)interface->pFunctionList;
+    if (v->major != version.major || v->minor != version.minor) {
+        testcase_fail("Returned version: %u.%u.\n", v->major, v->minor);
+        goto ret;
+    }
+    printf("%s\n", "PKCS #11 version 3.2 interface:");
+    printf("pInterfaceName         %s\n", interface->pInterfaceName);
+    printf("pFunctionList version  %u.%u\n", v->major, v->minor);
+    printf("flags                  0x%016lx\n", interface->flags);
+
+    tfn = (CK_FUNCTION_LIST_3_2 *)interface->pFunctionList;
     if (tfn->C_Initialize == NULL
         || tfn->C_Finalize == NULL
         || tfn->C_GetInfo == NULL
@@ -251,8 +275,21 @@ static int get_interface_test(void)
         || tfn->C_VerifyMessage == NULL
         || tfn->C_VerifyMessageBegin == NULL
         || tfn->C_VerifyMessageNext == NULL
-        || tfn->C_MessageVerifyFinal == NULL) {
-        testcase_fail("%s", "Returned CK_FUNCTION_LIST_3_0 contains"
+        || tfn->C_MessageVerifyFinal == NULL
+        /* Additional PKCS #11 3.2 functions */
+        || tfn->C_EncapsulateKey == NULL
+        || tfn->C_DecapsulateKey == NULL
+        || tfn->C_VerifySignatureInit == NULL
+        || tfn->C_VerifySignature == NULL
+        || tfn->C_VerifySignatureUpdate == NULL
+        || tfn->C_VerifySignatureFinal == NULL
+        || tfn->C_GetSessionValidationFlags == NULL
+        || tfn->C_AsyncComplete == NULL
+        || tfn->C_AsyncGetID == NULL
+        || tfn->C_AsyncJoin == NULL
+        || tfn->C_WrapKeyAuthenticated == NULL
+        || tfn->C_UnwrapKeyAuthenticated == NULL) {
+        testcase_fail("%s", "Returned CK_FUNCTION_LIST_3_2 contains"
                       " a NULL function pointer.\n");
         goto ret;
     }
@@ -354,6 +391,20 @@ static int get_interface_test(void)
     tfn->C_VerifyMessageBegin(0UL, NULL, 0UL);
     tfn->C_VerifyMessageNext(0UL, NULL, 0UL, NULL, 0UL, NULL, 0UL);
     tfn->C_MessageVerifyFinal(0UL);
+    /* Additional PKCS #11 3.2 functions */
+    tfn->C_EncapsulateKey(0UL, NULL, 0UL, NULL, 0UL, NULL, 0UL, NULL);
+    tfn->C_DecapsulateKey(0UL, NULL, 0UL, NULL, 0UL, NULL, 0UL, NULL);
+    tfn->C_VerifySignatureInit(0UL, NULL, 0UL, NULL, 0UL);
+    tfn->C_VerifySignature(0UL, NULL, 0UL);
+    tfn->C_VerifySignatureUpdate(0UL, NULL, 0UL);
+    tfn->C_VerifySignatureFinal(0UL);
+    tfn->C_GetSessionValidationFlags(0UL, 0UL, NULL);
+    tfn->C_AsyncComplete(0UL, NULL, NULL);
+    tfn->C_AsyncGetID(0UL, NULL, NULL);
+    tfn->C_AsyncJoin(0UL, NULL, 0UL, NULL, 0UL);
+    tfn->C_WrapKeyAuthenticated(0UL, NULL, 0UL, 0UL, NULL, 0UL, NULL, NULL);
+    tfn->C_UnwrapKeyAuthenticated(0UL, NULL, 0UL, NULL, 0UL, NULL, 0UL, NULL,
+                                  0UL, NULL);
 
     testcase_pass("C_GetInterface works.\n");
     rc = 0;
