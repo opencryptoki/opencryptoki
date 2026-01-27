@@ -747,6 +747,12 @@ void print_token_info(int slot_id, CK_TOKEN_INFO *TokenInfo)
         printf("SO_PIN_LOCKED|");
     if (TokenInfo->flags & CKF_SO_PIN_TO_BE_CHANGED)
         printf("SO_PIN_TO_BE_CHANGED|");
+    if (TokenInfo->flags & CKF_ERROR_STATE)
+        printf("ERROR_STATE|");
+    if (TokenInfo->flags & CKF_SEED_RANDOM_REQUIRED)
+        printf("SEED_RANDOM_REQUIRED|");
+    if (TokenInfo->flags & CKF_ASYNC_SESSION_SUPPORTED)
+        printf("ASYNC_SESSION_SUPPORTED|");
     printf(")\n");
 
     print_value(TokenInfo->ulSessionCount, temp1, sizeof(temp1), FALSE, "%lu");

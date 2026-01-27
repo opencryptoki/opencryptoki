@@ -943,7 +943,7 @@ CK_RV ecdh_pkcs_derive(STDLL_TokData_t *tokdata, SESSION *sess,
                  CK_MECHANISM *mech, OBJECT *base_key_obj,
                  CK_ATTRIBUTE *pTemplate, CK_ULONG ulCount,
                  CK_OBJECT_HANDLE *derived_key_obj,
-                 CK_BBOOL count_statistic);
+                 CK_BBOOL count_statistic, CK_ULONG mode);
 
 // DES routines - I have to provide two different versions of these
 //                because encryption routines are also used internally
@@ -2125,7 +2125,7 @@ CK_RV key_mgr_generate_key(STDLL_TokData_t *tokdata,
                            CK_MECHANISM *mech,
                            CK_ATTRIBUTE *pTemplate, CK_ULONG ulCount,
                            CK_OBJECT_HANDLE *key_handle,
-                           CK_BBOOL count_statistics);
+                           CK_BBOOL count_statistics, CK_ULONG operation);
 
 CK_RV key_mgr_generate_key_pair(STDLL_TokData_t *tokdata,
                                 SESSION *sess,
@@ -2134,7 +2134,7 @@ CK_RV key_mgr_generate_key_pair(STDLL_TokData_t *tokdata,
                                 CK_ATTRIBUTE *priv_tmpl, CK_ULONG priv_count,
                                 CK_OBJECT_HANDLE *publ_key_handle,
                                 CK_OBJECT_HANDLE *priv_key_handle,
-                                CK_BBOOL count_statistics);
+                                CK_BBOOL count_statistics, CK_ULONG operation);
 
 CK_RV key_mgr_get_private_key_type(CK_BYTE *keydata,
                                    CK_ULONG keylen, CK_KEY_TYPE *keytype);
@@ -2145,7 +2145,7 @@ CK_RV key_mgr_derive_key(STDLL_TokData_t *tokdata,
                          CK_OBJECT_HANDLE base_key,
                          CK_OBJECT_HANDLE *derived_key,
                          CK_ATTRIBUTE *pTemplate, CK_ULONG ulCount,
-                         CK_BBOOL count_statistics);
+                         CK_BBOOL count_statistics, CK_ULONG operation);
 
 CK_RV key_mgr_wrap_key(STDLL_TokData_t *tokdata,
                        SESSION *sess,
@@ -2154,7 +2154,7 @@ CK_RV key_mgr_wrap_key(STDLL_TokData_t *tokdata,
                        CK_OBJECT_HANDLE h_wrapping_key,
                        CK_OBJECT_HANDLE h_key,
                        CK_BYTE *wrapped_key, CK_ULONG *wrapped_key_len,
-                       CK_BBOOL count_statistics);
+                       CK_BBOOL count_statistics, CK_ULONG operation);
 
 CK_RV key_mgr_unwrap_key(STDLL_TokData_t *tokdata,
                          SESSION *sess,
@@ -2165,7 +2165,7 @@ CK_RV key_mgr_unwrap_key(STDLL_TokData_t *tokdata,
                          CK_ULONG wrapped_key_len,
                          CK_OBJECT_HANDLE unwrapping_key,
                          CK_OBJECT_HANDLE *unwrapped_key,
-                         CK_BBOOL count_statistics);
+                         CK_BBOOL count_statistics, CK_ULONG operation);
 
 CK_RV key_mgr_derive_prolog(SESSION *sess,
                             CK_ATTRIBUTE *attributes,

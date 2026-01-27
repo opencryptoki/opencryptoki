@@ -1062,7 +1062,7 @@ CK_RV ecdh_pkcs_derive(STDLL_TokData_t *tokdata, SESSION *sess,
                        CK_MECHANISM *mech, OBJECT *base_key_obj,
                        CK_ATTRIBUTE *pTemplate, CK_ULONG ulCount,
                        CK_OBJECT_HANDLE *derived_key_obj,
-                       CK_BBOOL count_statistic)
+                       CK_BBOOL count_statistic, CK_ULONG mode)
 {
     CK_RV rc;
     CK_ULONG class = 0, keytype = 0, key_len = 0;
@@ -1108,7 +1108,7 @@ CK_RV ecdh_pkcs_derive(STDLL_TokData_t *tokdata, SESSION *sess,
         return CKR_MECHANISM_PARAM_INVALID;
     }
 
-    rc = object_mgr_create_skel(tokdata, sess, pTemplate, ulCount, MODE_DERIVE,
+    rc = object_mgr_create_skel(tokdata, sess, pTemplate, ulCount, mode,
                                 class, keytype, &temp_obj);
     if (rc != CKR_OK) {
         TRACE_ERROR("Object Mgr create skeleton failed, rc=0x%lx.\n", rc);
@@ -1803,7 +1803,7 @@ CK_RV ecdh_aes_key_wrap(STDLL_TokData_t *tokdata, SESSION *sess,
         { CKA_HIDDEN, &ck_true, sizeof(ck_true) },
         { CKA_TOKEN, &ck_false, sizeof(ck_false) },
         { CKA_PRIVATE, &ck_true, sizeof(ck_true) },
-        { CKA_WRAP, &ck_false, sizeof(ck_false) },
+        { CKA_WRAP, &ck_true, sizeof(ck_true) },
         { CKA_ENCRYPT, &ck_false, sizeof(ck_false) },
         { CKA_VERIFY, &ck_false, sizeof(ck_false) },
         { CKA_VERIFY_RECOVER, &ck_false, sizeof(ck_false) },
@@ -1814,7 +1814,7 @@ CK_RV ecdh_aes_key_wrap(STDLL_TokData_t *tokdata, SESSION *sess,
         { CKA_SENSITIVE, &ck_true, sizeof(ck_true) },
         { CKA_TOKEN, &ck_false, sizeof(ck_false) },
         { CKA_PRIVATE, &ck_true, sizeof(ck_true) },
-        { CKA_UNWRAP, &ck_false, sizeof(ck_false) },
+        { CKA_UNWRAP, &ck_true, sizeof(ck_true) },
         { CKA_DECRYPT, &ck_false, sizeof(ck_false) },
         { CKA_SIGN, &ck_false, sizeof(ck_false) },
         { CKA_SIGN_RECOVER, &ck_false, sizeof(ck_false) },
@@ -1874,7 +1874,7 @@ CK_RV ecdh_aes_key_wrap(STDLL_TokData_t *tokdata, SESSION *sess,
                                    ec_priv_key_tmpl, sizeof(ec_priv_key_tmpl) /
                                                        sizeof(CK_ATTRIBUTE),
                                    &ec_publ_key_handle, &ec_priv_key_handle,
-                                   FALSE);
+                                   FALSE, OP_KEYGEN);
     if (rc != CKR_OK) {
         TRACE_ERROR("Failed to generate temporary EC key pair: "
                     "%s (0x%lx)\n", p11_get_ckr(rc), rc);
@@ -1946,7 +1946,7 @@ CK_RV ecdh_aes_key_wrap(STDLL_TokData_t *tokdata, SESSION *sess,
                             ec_priv_key_handle, &aes_key_handle,
                             aes_key_tmpl,
                             sizeof(aes_key_tmpl) / sizeof(CK_ATTRIBUTE),
-                            FALSE);
+                            FALSE, OP_WRAP);
     if (rc != CKR_OK) {
         TRACE_ERROR("Failed to derive temporary AES key (%lu bits): "
                     "%s (0x%lx)\n", params->ulAESKeyBits, p11_get_ckr(rc), rc);
@@ -2176,7 +2176,7 @@ CK_RV ecdh_aes_key_unwrap(STDLL_TokData_t *tokdata, SESSION *sess,
                             ctx->key, &aes_key_handle,
                             aes_key_tmpl,
                             sizeof(aes_key_tmpl) / sizeof(CK_ATTRIBUTE),
-                            FALSE);
+                            FALSE, OP_UNWRAP);
     if (rc != CKR_OK) {
         TRACE_ERROR("Failed to derive temporary AES key (%lu bits): "
                     "%s (0x%lx)\n", params->ulAESKeyBits, p11_get_ckr(rc), rc);

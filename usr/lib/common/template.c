@@ -1940,7 +1940,8 @@ CK_RV template_validate_base_attribute(TEMPLATE *tmpl, CK_ATTRIBUTE *attr,
             TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
             return CKR_ATTRIBUTE_VALUE_INVALID;
         }
-        if ((mode & (MODE_CREATE | MODE_DERIVE | MODE_KEYGEN | MODE_UNWRAP)) !=
+        if ((mode & (MODE_CREATE | MODE_DERIVE | MODE_KEYGEN | MODE_UNWRAP |
+                     MODE_ENCAPS | MODE_DECAPS)) !=
             0)
             return CKR_OK;
         break;
@@ -1950,7 +1951,7 @@ CK_RV template_validate_base_attribute(TEMPLATE *tmpl, CK_ATTRIBUTE *attr,
             return CKR_ATTRIBUTE_VALUE_INVALID;
         }
         if ((mode & (MODE_CREATE | MODE_COPY | MODE_DERIVE | MODE_KEYGEN |
-                     MODE_UNWRAP)) != 0)
+                     MODE_UNWRAP | MODE_ENCAPS | MODE_DECAPS)) != 0)
             return CKR_OK;
         break;
     case CKA_PRIVATE:
@@ -1959,7 +1960,7 @@ CK_RV template_validate_base_attribute(TEMPLATE *tmpl, CK_ATTRIBUTE *attr,
             return CKR_ATTRIBUTE_VALUE_INVALID;
         }
         if ((mode & (MODE_CREATE | MODE_COPY | MODE_DERIVE | MODE_KEYGEN |
-                     MODE_UNWRAP)) != 0)
+                     MODE_UNWRAP | MODE_ENCAPS | MODE_DECAPS)) != 0)
             return CKR_OK;
         break;
     case CKA_LABEL:
@@ -1980,7 +1981,7 @@ CK_RV template_validate_base_attribute(TEMPLATE *tmpl, CK_ATTRIBUTE *attr,
         }
         /* CKA_MODIFIABLE can only be set on creation and copy */
         if ((mode & (MODE_CREATE | MODE_COPY | MODE_DERIVE | MODE_KEYGEN |
-                     MODE_UNWRAP)) != 0)
+                     MODE_UNWRAP | MODE_ENCAPS | MODE_DECAPS)) != 0)
             return CKR_OK;
         break;
     case CKA_DESTROYABLE:
@@ -1996,7 +1997,7 @@ CK_RV template_validate_base_attribute(TEMPLATE *tmpl, CK_ATTRIBUTE *attr,
             return CKR_ATTRIBUTE_VALUE_INVALID;
         }
         if ((mode & (MODE_CREATE | MODE_DERIVE | MODE_KEYGEN |
-                     MODE_UNWRAP)) != 0)
+                     MODE_UNWRAP | MODE_ENCAPS | MODE_DECAPS)) != 0)
             return CKR_OK;
         if (attr->pValue != NULL && *(CK_BBOOL *)attr->pValue == FALSE)
             return CKR_OK;
@@ -2005,7 +2006,7 @@ CK_RV template_validate_base_attribute(TEMPLATE *tmpl, CK_ATTRIBUTE *attr,
         break;
     case CKA_HIDDEN:
         if ((mode & (MODE_CREATE | MODE_DERIVE | MODE_KEYGEN |
-                     MODE_UNWRAP)) != 0)
+                     MODE_UNWRAP | MODE_ENCAPS | MODE_DECAPS)) != 0)
             return CKR_OK;
         break;
     default:
