@@ -22,6 +22,7 @@
 
 CK_FUNCTION_LIST *funcs;
 CK_FUNCTION_LIST_3_0 *funcs3;
+CK_FUNCTION_LIST_3_2 *funcs3_2;
 CK_INTERFACE *ifs;
 CK_SLOT_ID SLOT_ID;
 
@@ -2022,10 +2023,20 @@ CK_BBOOL do_GetFunctionList(void)
     flags = CKF_INTERFACE_FORK_SAFE;
     rc = getinterface((CK_UTF8CHAR *)"PKCS 11", &version, &interface, flags);
     if (rc != CKR_OK) {
-        testcase_error("C_GetInterface rc=%s", p11_get_ckr(rc));
+        testcase_error("C_GetInterface (v3.0) rc=%s", p11_get_ckr(rc));
         goto ret;
     }
     funcs3 = interface->pFunctionList;
+
+    version.major = 0x03;
+    version.minor = 0x02;
+    flags = CKF_INTERFACE_FORK_SAFE;
+    rc = getinterface((CK_UTF8CHAR *)"PKCS 11", &version, &interface, flags);
+    if (rc != CKR_OK) {
+        testcase_error("C_GetInterface (v3.2) rc=%s", p11_get_ckr(rc));
+        goto ret;
+    }
+    funcs3_2 = interface->pFunctionList;
 
     rv = TRUE;
 ret:
