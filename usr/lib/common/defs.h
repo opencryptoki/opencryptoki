@@ -66,6 +66,8 @@
 #define MODE_DERIVE     (1 << 4)
 #define MODE_UNWRAP     (1 << 5)
 #define MODE_UNWRAPPED  (1 << 6)
+#define MODE_ENCAPS     (1 << 7)
+#define MODE_DECAPS     (1 << 8)
 
 // RSA block formatting types
 //
@@ -78,6 +80,10 @@
 #define OP_UNWRAP       4
 #define OP_SIGN_INIT    5
 #define OP_VERIFY_INIT  6
+#define OP_ENCAPSULATE  7
+#define OP_DECAPSULATE  8
+#define OP_KEYGEN       9
+#define OP_DERIVE       10
 
 // saved-state identifiers
 //

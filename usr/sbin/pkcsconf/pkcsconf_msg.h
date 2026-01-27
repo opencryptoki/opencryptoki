@@ -29,6 +29,8 @@ struct _pkcs11_mech_flags {
     { "CKF_WRAP", CKF_WRAP },
     { "CKF_UNWRAP", CKF_UNWRAP },
     { "CKF_DERIVE", CKF_DERIVE },
+    { "CKF_ENCAPSULATE", CKF_ENCAPSULATE },
+    { "CKF_DECAPSULATE", CKF_DECAPSULATE },
     { "CKF_EC_F_P", CKF_EC_F_P },
     { "CKF_EC_F_2M", CKF_EC_F_2M },
     { "CKF_EC_ECPARAMETERS", CKF_EC_ECPARAMETERS },

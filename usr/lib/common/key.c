@@ -287,7 +287,8 @@ CK_RV key_object_validate_attribute(TEMPLATE *tmpl, CK_ATTRIBUTE *attr,
         }
 
         if (mode == MODE_CREATE || mode == MODE_DERIVE ||
-            mode == MODE_KEYGEN || mode == MODE_UNWRAP)
+            mode == MODE_KEYGEN || mode == MODE_UNWRAP ||
+            mode == MODE_ENCAPS || mode == MODE_DECAPS)
             return CKR_OK;
 
         TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_READ_ONLY));
@@ -303,7 +304,8 @@ CK_RV key_object_validate_attribute(TEMPLATE *tmpl, CK_ATTRIBUTE *attr,
             return CKR_ATTRIBUTE_VALUE_INVALID;
         }
         if (mode == MODE_CREATE || mode == MODE_KEYGEN ||
-            mode == MODE_DERIVE || mode == MODE_UNWRAP)
+            mode == MODE_DERIVE || mode == MODE_UNWRAP ||
+            mode == MODE_ENCAPS || mode == MODE_DECAPS)
             return CKR_OK;
         TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_READ_ONLY));
         return CKR_ATTRIBUTE_READ_ONLY;
@@ -329,6 +331,7 @@ CK_RV key_object_validate_attribute(TEMPLATE *tmpl, CK_ATTRIBUTE *attr,
         CK_BBOOL value = *(CK_BBOOL *) attr->pValue;
         if (mode != MODE_CREATE && mode != MODE_DERIVE &&
             mode != MODE_KEYGEN && mode != MODE_UNWRAP &&
+            mode != MODE_ENCAPS && mode != MODE_DECAPS &&
             value != FALSE) {
             TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_READ_ONLY));
             return CKR_ATTRIBUTE_READ_ONLY;
@@ -353,7 +356,8 @@ CK_RV key_object_validate_attribute(TEMPLATE *tmpl, CK_ATTRIBUTE *attr,
             return CKR_ATTRIBUTE_VALUE_INVALID;
         }
         if (mode == MODE_CREATE || mode == MODE_DERIVE || mode == MODE_KEYGEN
-            || mode == MODE_UNWRAP)
+            || mode == MODE_UNWRAP || mode == MODE_ENCAPS ||
+            mode == MODE_DECAPS)
             return CKR_OK;
         TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_READ_ONLY));
         return CKR_ATTRIBUTE_READ_ONLY;
@@ -363,7 +367,8 @@ CK_RV key_object_validate_attribute(TEMPLATE *tmpl, CK_ATTRIBUTE *attr,
             return CKR_ATTRIBUTE_VALUE_INVALID;
         }
         if (mode == MODE_CREATE || mode == MODE_DERIVE || mode == MODE_KEYGEN
-            || mode == MODE_UNWRAP)
+            || mode == MODE_UNWRAP || mode == MODE_ENCAPS ||
+            mode == MODE_DECAPS)
             return CKR_OK;
         TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_READ_ONLY));
         return CKR_ATTRIBUTE_READ_ONLY;
@@ -544,6 +549,8 @@ CK_RV publ_key_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     CK_ATTRIBUTE *trusted_attr = NULL;
     CK_ATTRIBUTE *pki_attr = NULL;
     CK_ATTRIBUTE *wraptmpl_attr = NULL;
+    CK_ATTRIBUTE *encaps_attr = NULL;
+    CK_ATTRIBUTE *encapstmpl_attr = NULL;
     CK_RV rc;
 
 
@@ -569,10 +576,13 @@ CK_RV publ_key_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
             (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE) + sizeof(CK_BBOOL));
     pki_attr = (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE));
     wraptmpl_attr = (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE));
+    encaps_attr =
+            (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE) + sizeof(CK_BBOOL));
+    encapstmpl_attr = (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE));
 
     if (!class_attr || !subject_attr || !encrypt_attr ||
         !verify_attr || !verify_recover_attr || !wrap_attr || !trusted_attr ||
-        !pki_attr || !wraptmpl_attr) {
+        !pki_attr || !wraptmpl_attr || !encaps_attr || !encapstmpl_attr) {
         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
         rc = CKR_HOST_MEMORY;
         goto error;
@@ -620,6 +630,15 @@ CK_RV publ_key_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     wraptmpl_attr->type = CKA_WRAP_TEMPLATE;
     wraptmpl_attr->ulValueLen = 0;
     wraptmpl_attr->pValue = NULL;
+
+    encaps_attr->type = CKA_ENCAPSULATE;
+    encaps_attr->ulValueLen = sizeof(CK_BBOOL);
+    encaps_attr->pValue = (CK_BYTE *)encaps_attr + sizeof(CK_ATTRIBUTE);
+    *(CK_BBOOL *) encaps_attr->pValue = FALSE;
+
+    encapstmpl_attr->type = CKA_ENCAPSULATE_TEMPLATE;
+    encapstmpl_attr->ulValueLen = 0;
+    encapstmpl_attr->pValue = NULL;
 
     rc = template_update_attribute(tmpl, class_attr);
     if (rc != CKR_OK) {
@@ -675,6 +694,18 @@ CK_RV publ_key_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
         goto error;
     }
     wraptmpl_attr = NULL;
+    rc = template_update_attribute(tmpl, encaps_attr);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("template_update_attribute failed.\n");
+        goto error;
+    }
+    encaps_attr = NULL;
+    rc = template_update_attribute(tmpl, encapstmpl_attr);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("template_update_attribute failed.\n");
+        goto error;
+    }
+    encapstmpl_attr = NULL;
 
     return CKR_OK;
 
@@ -697,6 +728,10 @@ error:
         free(pki_attr);
     if (wraptmpl_attr)
         free(wraptmpl_attr);
+    if (encaps_attr)
+        free(encaps_attr);
+    if (encapstmpl_attr)
+        free(encapstmpl_attr);
 
     return rc;
 }
@@ -716,6 +751,7 @@ CK_RV publ_key_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
     case CKA_VERIFY:
     case CKA_VERIFY_RECOVER:
     case CKA_WRAP:
+    case CKA_ENCAPSULATE:
         if (mode == MODE_MODIFY) {
             if (tokdata->nv_token_data->tweak_vector.allow_key_mods == TRUE)
                 return CKR_OK;
@@ -741,10 +777,12 @@ CK_RV publ_key_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
         }
         return CKR_OK;
     case CKA_PUBLIC_KEY_INFO:
-        if (mode == MODE_CREATE || mode == MODE_UNWRAP)
+        if (mode == MODE_CREATE || mode == MODE_UNWRAP ||
+            mode == MODE_ENCAPS || mode == MODE_DECAPS)
             return CKR_OK;
         return CKR_ATTRIBUTE_READ_ONLY;
     case CKA_WRAP_TEMPLATE:
+    case CKA_ENCAPSULATE_TEMPLATE:
         if ((attr->ulValueLen > 0 && attr->pValue == NULL) ||
             attr->ulValueLen % sizeof(CK_ATTRIBUTE)) {
             TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
@@ -757,7 +795,8 @@ CK_RV publ_key_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
             return rc;
         }
         if (mode == MODE_CREATE || mode == MODE_KEYGEN ||
-            mode == MODE_DERIVE || mode == MODE_UNWRAP)
+            mode == MODE_DERIVE || mode == MODE_UNWRAP ||
+            mode == MODE_ENCAPS || mode == MODE_DECAPS)
             return CKR_OK;
         TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_READ_ONLY));
         return CKR_ATTRIBUTE_READ_ONLY;
@@ -849,6 +888,8 @@ CK_RV priv_key_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     CK_ATTRIBUTE *pki_attr = NULL;
     CK_ATTRIBUTE *unwraptmpl_attr = NULL;
     CK_ATTRIBUTE *derivetmpl_attr = NULL;
+    CK_ATTRIBUTE *decaps_attr = NULL;
+    CK_ATTRIBUTE *decapstmpl_attr = NULL;
     CK_RV rc;
 
 
@@ -885,12 +926,15 @@ CK_RV priv_key_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     pki_attr = (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE));
     unwraptmpl_attr = (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE));
     derivetmpl_attr = (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE));
+    decaps_attr =
+        (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE) + sizeof(CK_BBOOL));
+    decapstmpl_attr = (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE));
 
     if (!class_attr || !subject_attr || !sensitive_attr || !decrypt_attr ||
         !sign_attr || !sign_recover_attr || !unwrap_attr || !extractable_attr ||
         !never_extr_attr || !always_sens_attr || !always_auth_attr ||
         !wrap_trusted_attr || !pki_attr || !unwraptmpl_attr ||
-        !derivetmpl_attr) {
+        !derivetmpl_attr || !decaps_attr || !decapstmpl_attr) {
         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
         rc = CKR_HOST_MEMORY;
         goto error;
@@ -976,6 +1020,16 @@ CK_RV priv_key_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     derivetmpl_attr->type = CKA_DERIVE_TEMPLATE;
     derivetmpl_attr->ulValueLen = 0;
     derivetmpl_attr->pValue = NULL;
+
+    decaps_attr->type = CKA_DECAPSULATE;
+    decaps_attr->ulValueLen = sizeof(CK_BBOOL);
+    decaps_attr->pValue =
+        (CK_BYTE *) decaps_attr + sizeof(CK_ATTRIBUTE);
+    *(CK_BBOOL *) decaps_attr->pValue = FALSE;
+
+    decapstmpl_attr->type = CKA_DECAPSULATE_TEMPLATE;
+    decapstmpl_attr->ulValueLen = 0;
+    decapstmpl_attr->pValue = NULL;
 
     rc = template_update_attribute(tmpl, class_attr);
     if (rc != CKR_OK) {
@@ -1067,6 +1121,18 @@ CK_RV priv_key_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
         goto error;
     }
     derivetmpl_attr = NULL;
+    rc = template_update_attribute(tmpl, decaps_attr);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("template_update_attribute failed.\n");
+        goto error;
+    }
+    decaps_attr = NULL;
+    rc = template_update_attribute(tmpl, decapstmpl_attr);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("template_update_attribute failed.\n");
+        goto error;
+    }
+    decapstmpl_attr = NULL;
 
     return CKR_OK;
 
@@ -1101,6 +1167,10 @@ error:
         free(unwraptmpl_attr);
     if (derivetmpl_attr)
         free(derivetmpl_attr);
+    if (decaps_attr)
+        free(decaps_attr);
+    if (decapstmpl_attr)
+        free(decapstmpl_attr);
 
     return rc;
 }
@@ -1289,6 +1359,7 @@ CK_RV priv_key_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
     case CKA_SIGN:
     case CKA_SIGN_RECOVER:
     case CKA_UNWRAP:
+    case CKA_DECAPSULATE:
         if (attr->ulValueLen != sizeof(CK_BBOOL) || attr->pValue == NULL) {
             TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
             return CKR_ATTRIBUTE_VALUE_INVALID;
@@ -1317,7 +1388,8 @@ CK_RV priv_key_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
                 return CKR_ATTRIBUTE_VALUE_INVALID;
             }
 
-            if (mode == MODE_CREATE || mode == MODE_KEYGEN)
+            if (mode == MODE_CREATE || mode == MODE_KEYGEN ||
+                mode == MODE_ENCAPS || mode == MODE_DECAPS)
                 return CKR_OK;
 
             value = *(CK_BBOOL *) attr->pValue;
@@ -1339,8 +1411,8 @@ CK_RV priv_key_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
             }
 
             value = *(CK_BBOOL *) attr->pValue;
-            if ((mode != MODE_CREATE && mode != MODE_KEYGEN) &&
-                value != FALSE) {
+            if ((mode != MODE_CREATE && mode != MODE_KEYGEN &&
+                 mode != MODE_ENCAPS) && value != FALSE) {
                 TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_READ_ONLY));
                 return CKR_ATTRIBUTE_READ_ONLY;
             }
@@ -1383,6 +1455,7 @@ CK_RV priv_key_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
         return CKR_ATTRIBUTE_TYPE_INVALID;
     case CKA_UNWRAP_TEMPLATE:
     case CKA_DERIVE_TEMPLATE:
+    case CKA_DECAPSULATE_TEMPLATE:
         if ((attr->ulValueLen > 0 && attr->pValue == NULL) ||
             attr->ulValueLen % sizeof(CK_ATTRIBUTE)) {
             TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
@@ -1395,7 +1468,8 @@ CK_RV priv_key_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
             return rc;
         }
         if (mode == MODE_CREATE || mode == MODE_KEYGEN ||
-            mode == MODE_DERIVE || mode == MODE_UNWRAP)
+            mode == MODE_DERIVE || mode == MODE_UNWRAP ||
+            mode == MODE_ENCAPS || mode == MODE_DECAPS)
             return CKR_OK;
         TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_READ_ONLY));
         return CKR_ATTRIBUTE_READ_ONLY;
@@ -1941,7 +2015,8 @@ CK_RV secret_key_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
             }
             value = *(CK_BBOOL *) attr->pValue;
             if ((mode != MODE_CREATE && mode != MODE_DERIVE &&
-                 mode != MODE_KEYGEN) && (value != TRUE)) {
+                 mode != MODE_KEYGEN && mode != MODE_ENCAPS  &&
+                 mode != MODE_DECAPS) && (value != TRUE)) {
                 TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_READ_ONLY));
                 return CKR_ATTRIBUTE_READ_ONLY;
             }
@@ -1961,7 +2036,8 @@ CK_RV secret_key_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
             }
             value = *(CK_BBOOL *) attr->pValue;
             if ((mode != MODE_CREATE && mode != MODE_DERIVE &&
-                 mode != MODE_KEYGEN) && (value != FALSE)) {
+                 mode != MODE_KEYGEN && mode != MODE_ENCAPS &&
+                 mode != MODE_DECAPS) && (value != FALSE)) {
                 TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_READ_ONLY));
                 return CKR_ATTRIBUTE_READ_ONLY;
             }
@@ -2013,7 +2089,8 @@ CK_RV secret_key_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
             return rc;
         }
         if (mode == MODE_CREATE || mode == MODE_KEYGEN ||
-            mode == MODE_DERIVE || mode == MODE_UNWRAP)
+            mode == MODE_DERIVE || mode == MODE_UNWRAP ||
+            mode == MODE_ENCAPS || mode == MODE_DECAPS)
             return CKR_OK;
         TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_READ_ONLY));
         return CKR_ATTRIBUTE_READ_ONLY;
@@ -2069,7 +2146,7 @@ CK_RV rsa_publ_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode)
 
     rc = template_attribute_get_ulong(tmpl, CKA_MODULUS_BITS, &val);
     if (rc != CKR_OK) {
-        if (mode == MODE_KEYGEN) {
+        if (mode == MODE_KEYGEN || mode == MODE_ENCAPS) {
             TRACE_ERROR("Could not find CKA_MODULUS_BITS\n");
             return rc;
         }
@@ -2191,7 +2268,7 @@ CK_RV rsa_publ_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
 {
     switch (attr->type) {
     case CKA_MODULUS_BITS:
-        if (mode == MODE_KEYGEN) {
+        if (mode == MODE_KEYGEN || mode == MODE_ENCAPS) {
             if (attr->ulValueLen != sizeof(CK_ULONG) ||
                 attr->pValue == NULL) {
                 TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
@@ -2221,7 +2298,7 @@ CK_RV rsa_publ_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
         TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_READ_ONLY));
         return CKR_ATTRIBUTE_READ_ONLY;
     case CKA_PUBLIC_EXPONENT:
-        if (mode == MODE_CREATE || mode == MODE_KEYGEN) {
+        if (mode == MODE_CREATE || mode == MODE_KEYGEN || mode == MODE_ENCAPS) {
             p11_attribute_trim(attr);
             return CKR_OK;
         }
@@ -3767,7 +3844,8 @@ CK_RV dsa_publ_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
         {
             CK_ULONG size;
 
-            if (mode != MODE_CREATE && mode != MODE_KEYGEN) {
+            if (mode != MODE_CREATE && mode != MODE_KEYGEN &&
+                mode != MODE_ENCAPS) {
                 TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_READ_ONLY));
                 return CKR_ATTRIBUTE_READ_ONLY;
             }
@@ -3782,7 +3860,7 @@ CK_RV dsa_publ_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
             return CKR_OK;
         }
     case CKA_SUBPRIME:
-        if (mode != MODE_CREATE && mode != MODE_KEYGEN) {
+        if (mode != MODE_CREATE && mode != MODE_KEYGEN && mode != MODE_ENCAPS) {
             TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_READ_ONLY));
             return CKR_ATTRIBUTE_READ_ONLY;
         }
@@ -3795,7 +3873,7 @@ CK_RV dsa_publ_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
         p11_attribute_trim(attr);
         return CKR_OK;
     case CKA_BASE:
-        if (mode == MODE_CREATE || mode == MODE_KEYGEN) {
+        if (mode == MODE_CREATE || mode == MODE_KEYGEN || mode == MODE_ENCAPS) {
             p11_attribute_trim(attr);
             return CKR_OK;
         }
@@ -4287,7 +4365,7 @@ CK_RV ec_publ_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode)
 
     rc = template_attribute_get_non_empty(tmpl, CKA_EC_PARAMS, &attr);
     if (rc != CKR_OK) {
-        if (mode == MODE_CREATE || mode == MODE_KEYGEN) {
+        if (mode == MODE_CREATE || mode == MODE_KEYGEN || mode == MODE_ENCAPS) {
             TRACE_ERROR("Could not find CKA_EC_PARAMS\n");
             return rc;
         }
@@ -4381,7 +4459,8 @@ CK_RV ec_publ_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
 {
     switch (attr->type) {
     case CKA_EC_PARAMS:
-        if (mode == MODE_CREATE || mode == MODE_KEYGEN || mode == MODE_DERIVE)
+        if (mode == MODE_CREATE || mode == MODE_KEYGEN || mode == MODE_DERIVE ||
+            mode == MODE_ENCAPS)
             return CKR_OK;
 
         TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_READ_ONLY));
@@ -4827,7 +4906,7 @@ CK_RV dh_publ_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode)
 
     rc = template_attribute_get_non_empty(tmpl, CKA_PRIME, &attr);
     if (rc != CKR_OK) {
-        if (mode == MODE_CREATE || mode == MODE_KEYGEN) {
+        if (mode == MODE_CREATE || mode == MODE_KEYGEN || mode == MODE_ENCAPS) {
             TRACE_ERROR("Could not find CKA_PRIME\n");
             return rc;
         }
@@ -4835,7 +4914,7 @@ CK_RV dh_publ_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode)
 
     rc = template_attribute_get_non_empty(tmpl, CKA_BASE, &attr);
     if (rc != CKR_OK) {
-        if (mode == MODE_CREATE || mode == MODE_KEYGEN) {
+        if (mode == MODE_CREATE || mode == MODE_KEYGEN || mode == MODE_ENCAPS) {
             TRACE_ERROR("Could not find CKA_BASE\n");
             return rc;
         }
@@ -4945,7 +5024,7 @@ CK_RV dh_publ_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
     switch (attr->type) {
     case CKA_PRIME:
     case CKA_BASE:
-        if (mode == MODE_CREATE || mode == MODE_KEYGEN) {
+        if (mode == MODE_CREATE || mode == MODE_KEYGEN || mode == MODE_ENCAPS) {
             p11_attribute_trim(attr);
             return CKR_OK;
         }
@@ -5044,7 +5123,8 @@ CK_RV dh_priv_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode)
 
     rc = template_attribute_get_ulong(tmpl, CKA_VALUE_BITS, &val);
     if (rc != CKR_TEMPLATE_INCOMPLETE) {
-        if (mode == MODE_CREATE || mode == MODE_UNWRAP) {
+        if (mode == MODE_CREATE || mode == MODE_UNWRAP ||
+            mode == MODE_ENCAPS || mode == MODE_DECAPS) {
             TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_READ_ONLY));
             return CKR_ATTRIBUTE_READ_ONLY;
         }
@@ -5073,7 +5153,8 @@ CK_RV dh_priv_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     prime_attr = (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE));
     base_attr = (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE));
     value_attr = (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE));
-    if (mode != MODE_CREATE && mode != MODE_UNWRAP)
+    if (mode != MODE_CREATE && mode != MODE_UNWRAP &&
+        mode != MODE_ENCAPS && mode != MODE_DECAPS)
         value_bits_attr =
             (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE) + sizeof(CK_ULONG));
 
@@ -5082,7 +5163,9 @@ CK_RV dh_priv_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
         rc =  CKR_HOST_MEMORY;
         goto error;
     }
-    if (mode != MODE_CREATE && mode != MODE_UNWRAP && !value_bits_attr) {
+    if (mode != MODE_CREATE && mode != MODE_UNWRAP &&
+        mode != MODE_ENCAPS && mode != MODE_DECAPS &&
+        !value_bits_attr) {
         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
         rc =  CKR_HOST_MEMORY;
         goto error;
@@ -5100,7 +5183,8 @@ CK_RV dh_priv_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     value_attr->ulValueLen = 0;
     value_attr->pValue = NULL;
 
-    if (mode != MODE_CREATE && mode != MODE_UNWRAP) {
+    if (mode != MODE_CREATE && mode != MODE_UNWRAP &&
+        mode != MODE_ENCAPS && mode != MODE_DECAPS) {
         value_bits_attr->type = CKA_VALUE_BITS;
         value_bits_attr->ulValueLen = sizeof(CK_ULONG);
         value_bits_attr->pValue =
@@ -5137,7 +5221,8 @@ CK_RV dh_priv_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
         goto error;
     }
     value_attr = NULL;
-    if (mode != MODE_CREATE && mode != MODE_UNWRAP) {
+    if (mode != MODE_CREATE && mode != MODE_UNWRAP &&
+        mode != MODE_ENCAPS && mode != MODE_DECAPS) {
         rc = template_update_attribute(tmpl, value_bits_attr);
         if (rc != CKR_OK) {
             TRACE_ERROR("template_update_attribute failed\n");
@@ -5173,7 +5258,7 @@ CK_RV dh_priv_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
     case CKA_PRIME:
     case CKA_BASE:
     case CKA_VALUE:
-        if (mode == MODE_CREATE || mode == MODE_KEYGEN) {
+        if (mode == MODE_CREATE || mode == MODE_KEYGEN || mode == MODE_ENCAPS) {
             p11_attribute_trim(attr);
             return CKR_OK;
         }
@@ -5889,6 +5974,7 @@ static CK_RV pqc_check_attributes(TEMPLATE *tmpl, CK_ULONG mode,
         }
         /* fallthrough */
     case MODE_KEYGEN:
+    case MODE_ENCAPS:
         /* Either keyform or mode or none of it must be present */
         if (keyform_present && mode_present) {
             TRACE_ERROR("%s, only one of KEYFORM or MODE can be specified .\n",
@@ -5897,6 +5983,7 @@ static CK_RV pqc_check_attributes(TEMPLATE *tmpl, CK_ULONG mode,
         }
         break;
     case MODE_UNWRAP:
+    case MODE_DECAPS:
         /* neither keyform or mode must be present */
         if (keyform_present || mode_present) {
             TRACE_ERROR("%s, none of KEYFORM or MODE can be specified .\n",
@@ -6039,7 +6126,7 @@ static CK_RV pqc_validate_keyform_mode(CK_ATTRIBUTE *attr, CK_ULONG mode,
         return CKR_MECHANISM_INVALID;
 
     if (attr->type == keyform_attr) {
-        if (mode == MODE_CREATE || mode == MODE_KEYGEN) {
+        if (mode == MODE_CREATE || mode == MODE_KEYGEN || mode == MODE_ENCAPS) {
             if (attr->ulValueLen != sizeof(CK_ULONG) || attr->pValue == NULL) {
                 TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
                 return CKR_ATTRIBUTE_VALUE_INVALID;
@@ -6055,7 +6142,7 @@ static CK_RV pqc_validate_keyform_mode(CK_ATTRIBUTE *attr, CK_ULONG mode,
         return CKR_ATTRIBUTE_READ_ONLY;
     }
     if (attr->type == mode_attr) {
-        if (mode == MODE_CREATE || mode == MODE_KEYGEN) {
+        if (mode == MODE_CREATE || mode == MODE_KEYGEN || mode == MODE_ENCAPS) {
             if (attr->ulValueLen == 0 || attr->pValue == NULL) {
                 TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
                 return CKR_ATTRIBUTE_VALUE_INVALID;
@@ -6658,7 +6745,7 @@ CK_RV generic_secret_validate_attribute(STDLL_TokData_t *tokdata,
         }
         if (mode == MODE_KEYGEN || mode == MODE_DERIVE)
             return CKR_OK;
-        if (mode == MODE_UNWRAP) {
+        if (mode == MODE_UNWRAP || mode == MODE_ENCAPS || mode == MODE_DECAPS) {
             if (tokdata->nv_token_data->tweak_vector.netscape_mods == TRUE)
                 return CKR_OK;
         }
@@ -7005,7 +7092,8 @@ CK_RV des_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
         }
         if (tokdata->nv_token_data->tweak_vector.netscape_mods == TRUE) {
             if (mode == MODE_CREATE || mode == MODE_DERIVE ||
-                mode == MODE_KEYGEN || mode == MODE_UNWRAP) {
+                mode == MODE_KEYGEN || mode == MODE_UNWRAP ||
+                mode == MODE_ENCAPS || mode == MODE_DECAPS) {
                 CK_ULONG len = *(CK_ULONG *) attr->pValue;
                 if (len != DES_KEY_SIZE) {
                     TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
@@ -7189,7 +7277,8 @@ CK_RV des2_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
         //
         if (tokdata->nv_token_data->tweak_vector.netscape_mods == TRUE) {
             if (mode == MODE_CREATE || mode == MODE_DERIVE ||
-                mode == MODE_KEYGEN || mode == MODE_UNWRAP) {
+                mode == MODE_KEYGEN || mode == MODE_UNWRAP ||
+                mode == MODE_ENCAPS || mode == MODE_DECAPS) {
                 CK_ULONG len = *(CK_ULONG *) attr->pValue;
                 if (len != (2 * DES_KEY_SIZE)) {
                     TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
@@ -7388,7 +7477,8 @@ CK_RV des3_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
         //
         if (tokdata->nv_token_data->tweak_vector.netscape_mods == TRUE) {
             if (mode == MODE_CREATE || mode == MODE_DERIVE ||
-                mode == MODE_KEYGEN || mode == MODE_UNWRAP) {
+                mode == MODE_KEYGEN || mode == MODE_UNWRAP ||
+                mode == MODE_ENCAPS || mode == MODE_DECAPS) {
                 return CKR_OK;
             }
             TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_READ_ONLY));
@@ -7570,7 +7660,8 @@ CK_RV aes_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
             return CKR_ATTRIBUTE_VALUE_INVALID;
         }
         if (mode == MODE_CREATE || mode == MODE_DERIVE ||
-            mode == MODE_KEYGEN || mode == MODE_UNWRAP) {
+            mode == MODE_KEYGEN || mode == MODE_UNWRAP ||
+            mode == MODE_ENCAPS || mode == MODE_DECAPS) {
             if (attr->ulValueLen != sizeof(CK_ULONG) ||
                 attr->pValue == NULL) {
                 TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
@@ -7595,6 +7686,7 @@ CK_RV aes_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
         }
         if (mode == MODE_CREATE || mode == MODE_DERIVE ||
             mode == MODE_KEYGEN || mode == MODE_UNWRAP ||
+            mode == MODE_ENCAPS || mode == MODE_DECAPS ||
             mode == MODE_COPY || mode == MODE_MODIFY) {
             if (attr->ulValueLen != sizeof(CK_IBM_CCA_AES_KEY_MODE_TYPE) ||
                 attr->pValue == NULL) {

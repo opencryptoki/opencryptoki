@@ -3703,7 +3703,7 @@ CK_RV SC_GenerateKey(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
     }
 
     rc = key_mgr_generate_key(tokdata, sess, pMechanism, pTemplate,
-                              ulCount, phKey, TRUE);
+                              ulCount, phKey, TRUE, OP_KEYGEN);
     if (rc != CKR_OK)
         TRACE_DEVEL("key_mgr_generate_key() failed.\n");
 
@@ -3795,7 +3795,7 @@ CK_RV SC_GenerateKeyPair(STDLL_TokData_t *tokdata,
                                    ulPublicKeyAttributeCount,
                                    pPrivateKeyTemplate,
                                    ulPrivateKeyAttributeCount,
-                                   phPublicKey, phPrivateKey, TRUE);
+                                   phPublicKey, phPrivateKey, TRUE, OP_KEYGEN);
     if (rc != CKR_OK)
         TRACE_DEVEL("key_mgr_generate_key_pair() failed.\n");
 
@@ -3877,7 +3877,7 @@ CK_RV SC_WrapKey(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
 
     rc = key_mgr_wrap_key(tokdata, sess, length_only, pMechanism,
                           hWrappingKey, hKey, pWrappedKey, pulWrappedKeyLen,
-                          TRUE);
+                          TRUE, OP_WRAP);
     if (rc != CKR_OK)
         TRACE_DEVEL("key_mgr_wrap_key() failed.\n");
 
@@ -3935,7 +3935,7 @@ CK_RV SC_UnwrapKey(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
 
     rc = key_mgr_unwrap_key(tokdata, sess, pMechanism, pTemplate, ulCount,
                             pWrappedKey, ulWrappedKeyLen, hUnwrappingKey,
-                            phKey, TRUE);
+                            phKey, TRUE, OP_UNWRAP);
     if (rc != CKR_OK)
         TRACE_DEVEL("key_mgr_unwrap_key() failed.\n");
 
@@ -4016,7 +4016,7 @@ CK_RV SC_DeriveKey(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
     }
 
     rc = key_mgr_derive_key(tokdata, sess, pMechanism, hBaseKey, phKey,
-                            pTemplate, ulCount, TRUE);
+                            pTemplate, ulCount, TRUE, OP_DERIVE);
     if (rc != CKR_OK)
         TRACE_DEVEL("key_mgr_derive_key() failed.\n");
 
