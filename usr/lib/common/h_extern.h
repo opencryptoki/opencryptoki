@@ -2167,15 +2167,23 @@ CK_RV key_mgr_unwrap_key(STDLL_TokData_t *tokdata,
                          CK_OBJECT_HANDLE *unwrapped_key,
                          CK_BBOOL count_statistics, CK_ULONG operation);
 
-CK_RV key_mgr_derive_prolog(SESSION *sess,
-                            CK_ATTRIBUTE *attributes,
-                            CK_ULONG attrcount,
-                            CK_OBJECT_HANDLE base_key,
-                            OBJECT *base_key_obj,
-                            CK_BYTE *base_key_value,
-                            CK_KEY_TYPE base_key_type,
-                            ATTRIBUTE_PARSE_LIST *parselist, CK_ULONG plcount);
+CK_RV key_mgr_encapsulate_key(STDLL_TokData_t *tokdata, SESSION *sess,
+                              CK_BBOOL length_only, CK_MECHANISM *pMechanism,
+                              CK_OBJECT_HANDLE hPublicKey,
+                              CK_ATTRIBUTE *pTemplate,
+                              CK_ULONG ulAttributeCount,
+                              CK_BYTE *pCiphertext, CK_ULONG *pulCiphertextLen,
+                              CK_OBJECT_HANDLE *phKey,
+                              CK_BBOOL count_statistics);
 
+CK_RV key_mgr_decapsulate_key(STDLL_TokData_t *tokdata, SESSION *sess,
+                              CK_MECHANISM *pMechanism,
+                              CK_OBJECT_HANDLE hPrivateKey,
+                              CK_ATTRIBUTE *pTemplate,
+                              CK_ULONG ulAttributeCount,
+                              CK_BYTE *pCiphertext, CK_ULONG ulCiphertextLen,
+                              CK_OBJECT_HANDLE *phKey,
+                              CK_BBOOL count_statistics);
 
 // signature manager routines
 //

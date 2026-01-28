@@ -3428,6 +3428,129 @@ CK_RV SC_CancelFunction(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession)
     return CKR_FUNCTION_NOT_PARALLEL;
 }
 
+CK_RV SC_EncapsulateKey(STDLL_TokData_t *tokdata, ST_SESSION_T *sSession,
+                        CK_MECHANISM_PTR pMechanism,
+                        CK_OBJECT_HANDLE hPublicKey,
+                        CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulAttributeCount,
+                        CK_BYTE_PTR pCiphertext, CK_ULONG_PTR pulCiphertextLen,
+                        CK_OBJECT_HANDLE_PTR phKey)
+{
+    SESSION *sess = NULL;
+    CK_BBOOL length_only = FALSE;
+    CK_RV rc = CKR_OK;
+
+    if (tokdata->initialized == FALSE) {
+        TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
+        rc = CKR_CRYPTOKI_NOT_INITIALIZED;
+        goto done;
+    }
+
+    if (!pMechanism || !pulCiphertextLen) {
+        TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
+        rc = CKR_ARGUMENTS_BAD;
+        goto done;
+    }
+
+    rc = valid_mech(tokdata, pMechanism, CKF_ENCAPSULATE);
+    if (rc != CKR_OK)
+        goto done;
+
+    if (!pCiphertext)
+        length_only = TRUE;
+
+    sess = session_mgr_find_reset_error(tokdata, sSession->sessionh);
+    if (!sess) {
+        TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
+        rc = CKR_SESSION_HANDLE_INVALID;
+        goto done;
+    }
+
+    if (pin_expired(&sess->session_info,
+                    tokdata->nv_token_data->token_info.flags) == TRUE) {
+        TRACE_ERROR("%s\n", ock_err(ERR_PIN_EXPIRED));
+        rc = CKR_PIN_EXPIRED;
+        goto done;
+    }
+
+    rc = key_mgr_encapsulate_key(tokdata, sess, length_only, pMechanism,
+                                 hPublicKey, pTemplate, ulAttributeCount,
+                                 pCiphertext, pulCiphertextLen, phKey,
+                                 TRUE);
+    if (rc != CKR_OK)
+        TRACE_DEVEL("key_mgr_encapsulate_key() failed.\n");
+
+done:
+    TRACE_INFO("SC_EncapsulateKey: rc = 0x%08lx, sess = %ld, priv key = %lu, "
+               "ciphertext = %lu, encpsed key = %lu\n", rc,
+               (sess == NULL) ? -1 : (CK_LONG) sess->handle,
+               hPublicKey, (pulCiphertextLen ? *pulCiphertextLen : 0),
+               (phKey ? *phKey : 0));
+
+    if (sess != NULL)
+        session_mgr_put(tokdata, sess);
+
+    return rc;
+}
+
+CK_RV SC_DecapsulateKey(STDLL_TokData_t *tokdata, ST_SESSION_T *sSession,
+                        CK_MECHANISM_PTR pMechanism,
+                        CK_OBJECT_HANDLE hPrivateKey,
+                        CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulAttributeCount,
+                        CK_BYTE_PTR pCiphertext, CK_ULONG ulCiphertextLen,
+                        CK_OBJECT_HANDLE_PTR phKey)
+{
+    SESSION *sess = NULL;
+    CK_RV rc = CKR_OK;
+
+    if (tokdata->initialized == FALSE) {
+        TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
+        rc = CKR_CRYPTOKI_NOT_INITIALIZED;
+        goto done;
+    }
+
+    if (!pMechanism || !pCiphertext) {
+        TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
+        rc = CKR_ARGUMENTS_BAD;
+        goto done;
+    }
+
+    rc = valid_mech(tokdata, pMechanism, CKF_DECAPSULATE);
+    if (rc != CKR_OK)
+        goto done;
+
+    sess = session_mgr_find_reset_error(tokdata, sSession->sessionh);
+    if (!sess) {
+        TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
+        rc = CKR_SESSION_HANDLE_INVALID;
+        goto done;
+    }
+
+    if (pin_expired(&sess->session_info,
+                    tokdata->nv_token_data->token_info.flags) == TRUE) {
+        TRACE_ERROR("%s\n", ock_err(ERR_PIN_EXPIRED));
+        rc = CKR_PIN_EXPIRED;
+        goto done;
+    }
+
+    rc = key_mgr_decapsulate_key(tokdata, sess, pMechanism,
+                                 hPrivateKey, pTemplate, ulAttributeCount,
+                                 pCiphertext, ulCiphertextLen, phKey,
+                                 TRUE);
+    if (rc != CKR_OK)
+        TRACE_DEVEL("key_mgr_decapsulate_key() failed.\n");
+
+done:
+    TRACE_INFO("SC_DecapsulateKey: rc = 0x%08lx, sess = %ld, pub key = %lu, "
+               "encpsed key = %lu\n", rc,
+               (sess == NULL) ? -1 : (CK_LONG) sess->handle,
+               hPrivateKey, (phKey ? *phKey : 0));
+
+    if (sess != NULL)
+        session_mgr_put(tokdata, sess);
+
+    return rc;
+}
+
 CK_RV SC_IBM_ReencryptSingle(STDLL_TokData_t *tokdata, ST_SESSION_T *sSession,
                              CK_MECHANISM_PTR pDecrMech,
                              CK_OBJECT_HANDLE hDecrKey,
@@ -3584,6 +3707,8 @@ void SC_SetFunctionList(void)
     function_list.ST_GetFunctionStatus = NULL;  // SC_GetFunctionStatus;
     function_list.ST_CancelFunction = NULL;     // SC_CancelFunction;
     function_list.ST_SessionCancel = SC_SessionCancel;
+    function_list.ST_EncapsulateKey = SC_EncapsulateKey;
+    function_list.ST_DecapsulateKey = SC_DecapsulateKey;
     function_list.ST_VerifySignatureInit = SC_VerifySignatureInit;
     function_list.ST_VerifySignature = SC_VerifySignature;
     function_list.ST_VerifySignatureUpdate = SC_VerifySignatureUpdate;

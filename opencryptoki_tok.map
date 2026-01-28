@@ -66,6 +66,8 @@ OPENCRYPTOKI_TOK_3.27 {
         SC_WrapKey;
         SC_IBM_ReencryptSingle;
         SC_SessionCancel;
+        SC_EncapsulateKey;
+        SC_DecapsulateKey;
         SC_VerifySignatureInit;
         SC_VerifySignature;
         SC_VerifySignatureUpdate;
