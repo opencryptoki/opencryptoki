@@ -1263,7 +1263,7 @@ CK_RV do_SignVerify_HMAC(struct HMAC_TEST_SUITE_INFO * tsuite)
             goto error;
         }
 
-        /** initilaize verification **/
+        /** Initialize verification using C_VerifyInit **/
         rc = funcs->C_VerifyInit(session, &mech, h_key);
         if (rc != CKR_OK) {
             testcase_error("C_VerifyInit rc=%s", p11_get_ckr(rc));
@@ -1274,6 +1274,21 @@ CK_RV do_SignVerify_HMAC(struct HMAC_TEST_SUITE_INFO * tsuite)
         rc = funcs->C_Verify(session, data, data_len, actual, actual_len);
         if (rc != CKR_OK) {
             testcase_error("C_Verify rc=%s", p11_get_ckr(rc));
+            goto error;
+        }
+
+        /** Initialize verification using C_VerifySignatureInit **/
+        rc = funcs3_2->C_VerifySignatureInit(session, &mech, h_key,
+                                             actual, actual_len);
+        if (rc != CKR_OK) {
+            testcase_error("C_VerifySignatureInit rc=%s", p11_get_ckr(rc));
+            goto error;
+        }
+
+        /** do verification **/
+        rc = funcs3_2->C_VerifySignature(session, data, data_len);
+        if (rc != CKR_OK) {
+            testcase_error("C_VerifySignature rc=%s", p11_get_ckr(rc));
             goto error;
         }
 
@@ -1347,6 +1362,16 @@ CK_RV do_SignVerify_HMAC_Update(struct HMAC_TEST_SUITE_INFO * tsuite)
         testsuite_skip(tsuite->tvcount,
                        "mechanism %s is not supported with slot %lu",
                        tsuite->name, slot_id);
+        goto testcase_cleanup;
+    }
+
+    if (tsuite->mech.mechanism == CKM_MD2_HMAC ||
+        tsuite->mech.mechanism == CKM_MD2_HMAC_GENERAL ||
+        tsuite->mech.mechanism == CKM_MD5_HMAC ||
+        tsuite->mech.mechanism == CKM_MD5_HMAC_GENERAL) {
+        testsuite_skip(tsuite->tvcount,
+                       "mechanism %s does not support multi-part sign",
+                       tsuite->name);
         goto testcase_cleanup;
     }
 
@@ -1440,7 +1465,7 @@ CK_RV do_SignVerify_HMAC_Update(struct HMAC_TEST_SUITE_INFO * tsuite)
             goto error;
         }
 
-        /** initilaize verification **/
+        /** Initialize verification using C_VerifyInit **/
         rc = funcs->C_VerifyInit(session, &mech, h_key);
         if (rc != CKR_OK) {
             testcase_error("C_VerifyInit rc=%s", p11_get_ckr(rc));
@@ -1472,6 +1497,46 @@ CK_RV do_SignVerify_HMAC_Update(struct HMAC_TEST_SUITE_INFO * tsuite)
         rc = funcs->C_VerifyFinal(session, actual, actual_len);
         if (rc != CKR_OK) {
             testcase_error("C_VerifyFinal rc=%s", p11_get_ckr(rc));
+            goto error;
+        }
+
+        /** Initialize verification using C_VerifySignatureInit **/
+        rc = funcs3_2->C_VerifySignatureInit(session, &mech, h_key,
+                                             actual, actual_len);
+        if (rc != CKR_OK) {
+            testcase_error("C_VerifySignatureInit rc=%s", p11_get_ckr(rc));
+            goto error;
+        }
+
+        /** do verification **/
+        if (data_len > 0) {
+            rc = funcs3_2->C_VerifySignatureUpdate(session, data, len1);
+            if (rc != CKR_OK) {
+                testcase_error("C_VerifySignatureUpdate rc=%s",
+                               p11_get_ckr(rc));
+                goto error;
+            }
+
+            if (len2) {
+                rc = funcs3_2->C_VerifySignatureUpdate(session, data + len1,
+                                                       len2);
+                if (rc != CKR_OK) {
+                    testcase_error("C_VerifySignatureUpdate rc=%s",
+                                   p11_get_ckr(rc));
+                    goto error;
+                }
+            }
+        } else {
+            rc = funcs3_2->C_VerifySignatureUpdate(session, NULL, 0);
+            if (rc != CKR_OK) {
+                testcase_error("C_VerifySignatureUpdate rc=%s",
+                               p11_get_ckr(rc));
+                goto error;
+            }
+        }
+        rc = funcs3_2->C_VerifySignatureFinal(session);
+        if (rc != CKR_OK) {
+            testcase_error("C_VerifySignatureFinal rc=%s", p11_get_ckr(rc));
             goto error;
         }
 
@@ -1839,6 +1904,12 @@ CK_RV digest_funcs(void)
     /**  RFC HMAC tests **/
     for (i = 0; i < NUM_OF_HMAC_TEST_SUITES; i++) {
         rc = do_SignVerify_HMAC(&hmac_test_suites[i]);
+        if (rc && !no_stop)
+            return rc;
+    }
+
+    for (i = 0; i < NUM_OF_HMAC_TEST_SUITES; i++) {
+        rc = do_SignVerify_HMAC_Update(&hmac_test_suites[i]);
         if (rc && !no_stop)
             return rc;
     }
