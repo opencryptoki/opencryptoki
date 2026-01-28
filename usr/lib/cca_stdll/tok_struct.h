@@ -151,6 +151,9 @@ token_spec_t token_specific = {
     &token_specific_object_add,
     &token_specific_key_wrap,
     &token_specific_key_unwrap,
+    NULL,                       // encapsulate_rsa_sym_keygen
+    NULL,                       // encapsulate_rsa_key_wrap
+    NULL,                       // encapsulate_rsa_key_unwrap
     &token_specific_reencrypt_single,
     &token_specific_set_attribute_values,
     &token_specific_set_attrs_for_new_object,
