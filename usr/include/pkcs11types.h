@@ -469,6 +469,9 @@ typedef CK_ULONG CK_KEY_TYPE;
 /* new for v3.0 */
 #define CKK_EC_EDWARDS      0x00000040
 #define CKK_EC_MONTGOMERY   0x00000041
+/* new for v3.2 */
+#define CKK_ML_KEM          0x00000049
+#define CKK_ML_DSA          0x0000004A
 
 #define CKK_VENDOR_DEFINED  0x80000000
 
@@ -621,10 +624,12 @@ typedef CK_ULONG CK_ATTRIBUTE_TYPE;
 #define CKA_PROFILE_ID         0x00000601UL
 
 /* new for v3.2 */
+#define CKA_PARAMETER_SET        0x0000061D
 #define CKA_ENCAPSULATE_TEMPLATE (CKF_ARRAY_ATTRIBUTE|0x0000062A)
 #define CKA_DECAPSULATE_TEMPLATE (CKF_ARRAY_ATTRIBUTE|0x0000062B)
 #define CKA_ENCAPSULATE          0x00000633
 #define CKA_DECAPSULATE          0x00000634
+#define CKA_SEED                 0x00000637
 
 #define CKA_VENDOR_DEFINED     0x80000000
 
@@ -724,15 +729,15 @@ typedef CK_ULONG CK_IBM_CCA_AES_KEY_MODE_TYPE;
 #ifndef OCK_NO_EP11_DEFINES
 typedef CK_ULONG CK_IBM_ML_DSA_PARAMETER_SET_TYPE;
 
-#define  CKP_IBM_ML_DSA_44              1
-#define  CKP_IBM_ML_DSA_65              2
-#define  CKP_IBM_ML_DSA_87              3
+#define  CKP_IBM_ML_DSA_44              CKP_ML_DSA_44
+#define  CKP_IBM_ML_DSA_65              CKP_ML_DSA_65
+#define  CKP_IBM_ML_DSA_87              CKP_ML_DSA_87
 
 typedef CK_ULONG CK_IBM_ML_KEM_PARAMETER_SET_TYPE;
 
-#define  CKP_IBM_ML_KEM_512             1
-#define  CKP_IBM_ML_KEM_768             2
-#define  CKP_IBM_ML_KEM_1024            3
+#define  CKP_IBM_ML_KEM_512             CKP_ML_KEM_512
+#define  CKP_IBM_ML_KEM_768             CKP_ML_KEM_768
+#define  CKP_IBM_ML_KEM_1024            CKP_ML_KEM_1024
 
 typedef CK_ULONG CK_IBM_HEDGE_TYPE;
 
@@ -1168,6 +1173,23 @@ typedef CK_ULONG CK_MECHANISM_TYPE;
 #define CKM_EC_EDWARDS_KEY_PAIR_GEN    0x00001055
 #define CKM_EC_MONTGOMERY_KEY_PAIR_GEN 0x00001056
 #define CKM_EDDSA                      0x00001057
+
+/* new for v3.2 */
+#define CKM_ML_KEM_KEY_PAIR_GEN        0x0000000F
+#define CKM_ML_KEM                     0x00000017
+#define CKM_ML_DSA_KEY_PAIR_GEN        0x0000001C
+#define CKM_ML_DSA                     0x0000001D
+#define CKM_HASH_ML_DSA                0x0000001F
+#define CKM_HASH_ML_DSA_SHA224         0x00000023
+#define CKM_HASH_ML_DSA_SHA256         0x00000024
+#define CKM_HASH_ML_DSA_SHA384         0x00000025
+#define CKM_HASH_ML_DSA_SHA512         0x00000026
+#define CKM_HASH_ML_DSA_SHA3_224       0x00000027
+#define CKM_HASH_ML_DSA_SHA3_256       0x00000028
+#define CKM_HASH_ML_DSA_SHA3_384       0x00000029
+#define CKM_HASH_ML_DSA_SHA3_512       0x0000002A
+#define CKM_HASH_ML_DSA_SHAKE128       0x0000002B
+#define CKM_HASH_ML_DSA_SHAKE256       0x0000002C
 
 #define CKM_VENDOR_DEFINED             0x80000000
 
@@ -1845,6 +1867,38 @@ typedef struct CK_ASYNC_DATA {
 typedef CK_ASYNC_DATA CK_PTR CK_ASYNC_DATA_PTR;
 
 typedef CK_ULONG CK_SESSION_VALIDATION_FLAGS_TYPE;
+
+typedef CK_ULONG CK_HEDGE_TYPE;
+
+#define CKH_HEDGE_PREFERRED        0x00000000
+#define CKH_HEDGE_REQUIRED         0x00000001
+#define CKH_DETERMINISTIC_REQUIRED 0x00000002
+
+/* PQC */
+typedef struct CK_SIGN_ADDITIONAL_CONTEXT {
+     CK_HEDGE_TYPE   hedgeVariant;
+     CK_BYTE_PTR     pContext;
+     CK_ULONG        ulContextLen;
+} CK_SIGN_ADDITIONAL_CONTEXT;
+
+typedef struct CK_HASH_SIGN_ADDITIONAL_CONTEXT {
+     CK_HEDGE_TYPE     hedgeVariant;
+     CK_BYTE_PTR       pContext;
+     CK_ULONG          ulContextLen;
+     CK_MECHANISM_TYPE hash;
+} CK_HASH_SIGN_ADDITIONAL_CONTEXT;
+
+typedef CK_ULONG CK_ML_DSA_PARAMETER_SET_TYPE;
+
+#define CKP_ML_DSA_44          0x00000001
+#define CKP_ML_DSA_65          0x00000002
+#define CKP_ML_DSA_87          0x00000003
+
+typedef CK_ULONG CK_ML_KEM_PARAMETER_SET_TYPE;
+
+#define CKP_ML_KEM_512         0x00000001
+#define CKP_ML_KEM_768         0x00000002
+#define CKP_ML_KEM_1024        0x00000003
 
 /* Attribute bound wrapping mechanism */
 typedef struct CK_IBM_ATTRIBUTEBOUND_WRAP {
