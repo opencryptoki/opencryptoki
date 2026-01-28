@@ -343,6 +343,26 @@ typedef CK_RV (CK_PTR ST_C_SessionCancel)(STDLL_TokData_t *tokdata,
                                           ST_SESSION_T *hSession,
                                           CK_FLAGS flags);
 
+typedef CK_RV (CK_PTR ST_C_VerifySignatureInit)(STDLL_TokData_t *tokdata,
+                                                ST_SESSION_T *hSession,
+                                                CK_MECHANISM_PTR pMechanism,
+                                                CK_OBJECT_HANDLE hKey,
+                                                CK_BYTE_PTR pSignature,
+                                                CK_ULONG ulSignatureLen);
+
+typedef CK_RV (CK_PTR ST_C_VerifySignature)(STDLL_TokData_t *tokdata,
+                                            ST_SESSION_T *hSession,
+                                            CK_BYTE_PTR pData,
+                                            CK_ULONG ulDataLen);
+
+typedef CK_RV (CK_PTR ST_C_VerifySignatureUpdate)(STDLL_TokData_t *tokdata,
+                                                  ST_SESSION_T *hSession,
+                                                  CK_BYTE_PTR pPart,
+                                                  CK_ULONG ulPartLen);
+
+typedef CK_RV (CK_PTR ST_C_VerifySignatureFinal)(STDLL_TokData_t *tokdata,
+                                                 ST_SESSION_T *hSession);
+
 typedef CK_RV (CK_PTR ST_C_IBM_ReencryptSingle)(STDLL_TokData_t *tokdata,
                                                 ST_SESSION_T *hSession,
                                                 CK_MECHANISM_PTR pDecrMech,
@@ -432,6 +452,11 @@ struct ST_FCN_LIST {
     ST_C_GetFunctionStatus ST_GetFunctionStatus;
     ST_C_CancelFunction ST_CancelFunction;
     ST_C_SessionCancel ST_SessionCancel;
+
+    ST_C_VerifySignatureInit ST_VerifySignatureInit;
+    ST_C_VerifySignature ST_VerifySignature;
+    ST_C_VerifySignatureUpdate ST_VerifySignatureUpdate;
+    ST_C_VerifySignatureFinal ST_VerifySignatureFinal;
 
     ST_C_IBM_ReencryptSingle ST_IBM_ReencryptSingle;
 

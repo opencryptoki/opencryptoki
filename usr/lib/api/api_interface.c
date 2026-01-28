@@ -5753,24 +5753,46 @@ CK_RV C_VerifySignatureInit(CK_SESSION_HANDLE hSession,
                             CK_ULONG ulSignatureLen)
 {
     CK_RV rv;
-
-    UNUSED(hSession);
-    UNUSED(pMechanism);
-    UNUSED(hKey);
-    UNUSED(pSignature);
-    UNUSED(ulSignatureLen);
+    API_Slot_t *sltp;
+    STDLL_FcnList_t *fcn;
+    ST_SESSION_T rSession;
 
     TRACE_INFO("C_VerifySignatureInit\n");
-
     if (API_Initialized() == FALSE) {
         TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
-        rv = CKR_CRYPTOKI_NOT_INITIALIZED;
-        goto ret;
+        return CKR_CRYPTOKI_NOT_INITIALIZED;
     }
 
-    TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
-    rv = CKR_FUNCTION_NOT_SUPPORTED;
-ret:
+    if (!Valid_Session(hSession, &rSession)) {
+        TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
+        TRACE_ERROR("Session handle id: %lu\n", hSession);
+        return CKR_SESSION_HANDLE_INVALID;
+    }
+    TRACE_INFO("Valid Session handle id: %lu\n", rSession.sessionh);
+
+    sltp = &(Anchor->SltList[rSession.slotID]);
+    if (sltp->DLLoaded == FALSE) {
+        TRACE_ERROR("%s\n", ock_err(ERR_TOKEN_NOT_PRESENT));
+        return CKR_TOKEN_NOT_PRESENT;
+    }
+    if ((fcn = sltp->FcnList) == NULL) {
+        TRACE_ERROR("%s\n", ock_err(ERR_TOKEN_NOT_PRESENT));
+        return CKR_TOKEN_NOT_PRESENT;
+    }
+    if (fcn->ST_VerifySignatureInit) {
+        BEGIN_OPENSSL_LIBCTX(Anchor->openssl_libctx, rv)
+        BEGIN_HSM_MK_CHANGE_LOCK(sltp, rv)
+        // Map the Session to the slot session
+        rv = fcn->ST_VerifySignatureInit(sltp->TokData, &rSession, pMechanism,
+                                         hKey, pSignature, ulSignatureLen);
+        TRACE_DEVEL("fcn->ST_VerifySignatureInit returned: 0x%lx\n", rv);
+        END_HSM_MK_CHANGE_LOCK(sltp, rv)
+        END_OPENSSL_LIBCTX(rv)
+    } else {
+        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
+        rv = CKR_FUNCTION_NOT_SUPPORTED;
+    }
+
     return rv;
 }
 
@@ -5779,22 +5801,46 @@ CK_RV C_VerifySignature(CK_SESSION_HANDLE hSession,
                         CK_ULONG ulDataLen)
 {
     CK_RV rv;
-
-    UNUSED(hSession);
-    UNUSED(pData);
-    UNUSED(ulDataLen);
+    API_Slot_t *sltp;
+    STDLL_FcnList_t *fcn;
+    ST_SESSION_T rSession;
 
     TRACE_INFO("C_VerifySignature\n");
-
     if (API_Initialized() == FALSE) {
         TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
-        rv = CKR_CRYPTOKI_NOT_INITIALIZED;
-        goto ret;
+        return CKR_CRYPTOKI_NOT_INITIALIZED;
     }
 
-    TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
-    rv = CKR_FUNCTION_NOT_SUPPORTED;
-ret:
+    if (!Valid_Session(hSession, &rSession)) {
+        TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
+        TRACE_ERROR("Session handle id: %lu\n", hSession);
+        return CKR_SESSION_HANDLE_INVALID;
+    }
+    TRACE_INFO("Valid Session handle id: %lu\n", rSession.sessionh);
+
+    sltp = &(Anchor->SltList[rSession.slotID]);
+    if (sltp->DLLoaded == FALSE) {
+        TRACE_ERROR("%s\n", ock_err(ERR_TOKEN_NOT_PRESENT));
+        return CKR_TOKEN_NOT_PRESENT;
+    }
+    if ((fcn = sltp->FcnList) == NULL) {
+        TRACE_ERROR("%s\n", ock_err(ERR_TOKEN_NOT_PRESENT));
+        return CKR_TOKEN_NOT_PRESENT;
+    }
+    if (fcn->ST_VerifySignature) {
+        BEGIN_OPENSSL_LIBCTX(Anchor->openssl_libctx, rv)
+        BEGIN_HSM_MK_CHANGE_LOCK(sltp, rv)
+        // Map the Session to the slot session
+        rv = fcn->ST_VerifySignature(sltp->TokData, &rSession, pData,
+                                     ulDataLen);
+        TRACE_DEVEL("fcn->ST_VerifySignature returned: 0x%lx\n", rv);
+        END_HSM_MK_CHANGE_LOCK(sltp, rv)
+        END_OPENSSL_LIBCTX(rv)
+    } else {
+        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
+        rv = CKR_FUNCTION_NOT_SUPPORTED;
+    }
+
     return rv;
 }
 
@@ -5803,42 +5849,91 @@ CK_RV C_VerifySignatureUpdate(CK_SESSION_HANDLE hSession,
                               CK_ULONG ulPartLen)
 {
     CK_RV rv;
-
-    UNUSED(hSession);
-    UNUSED(pPart);
-    UNUSED(ulPartLen);
+    API_Slot_t *sltp;
+    STDLL_FcnList_t *fcn;
+    ST_SESSION_T rSession;
 
     TRACE_INFO("C_VerifySignatureUpdate\n");
-
     if (API_Initialized() == FALSE) {
         TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
-        rv = CKR_CRYPTOKI_NOT_INITIALIZED;
-        goto ret;
+        return CKR_CRYPTOKI_NOT_INITIALIZED;
     }
 
-    TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
-    rv = CKR_FUNCTION_NOT_SUPPORTED;
-ret:
+    if (!Valid_Session(hSession, &rSession)) {
+        TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
+        TRACE_ERROR("Session handle id: %lu\n", hSession);
+        return CKR_SESSION_HANDLE_INVALID;
+    }
+    TRACE_INFO("Valid Session handle id: %lu\n", rSession.sessionh);
+
+    sltp = &(Anchor->SltList[rSession.slotID]);
+    if (sltp->DLLoaded == FALSE) {
+        TRACE_ERROR("%s\n", ock_err(ERR_TOKEN_NOT_PRESENT));
+        return CKR_TOKEN_NOT_PRESENT;
+    }
+    if ((fcn = sltp->FcnList) == NULL) {
+        TRACE_ERROR("%s\n", ock_err(ERR_TOKEN_NOT_PRESENT));
+        return CKR_TOKEN_NOT_PRESENT;
+    }
+    if (fcn->ST_VerifySignatureUpdate) {
+        BEGIN_OPENSSL_LIBCTX(Anchor->openssl_libctx, rv)
+        BEGIN_HSM_MK_CHANGE_LOCK(sltp, rv)
+        // Map the Session to the slot session
+        rv = fcn->ST_VerifySignatureUpdate(sltp->TokData, &rSession, pPart,
+                                     ulPartLen);
+        TRACE_DEVEL("fcn->ST_VerifySignatureUpdate returned: 0x%lx\n", rv);
+        END_HSM_MK_CHANGE_LOCK(sltp, rv)
+        END_OPENSSL_LIBCTX(rv)
+    } else {
+        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
+        rv = CKR_FUNCTION_NOT_SUPPORTED;
+    }
+
     return rv;
 }
 
 CK_RV C_VerifySignatureFinal(CK_SESSION_HANDLE hSession)
 {
     CK_RV rv;
-
-    UNUSED(hSession);
+    API_Slot_t *sltp;
+    STDLL_FcnList_t *fcn;
+    ST_SESSION_T rSession;
 
     TRACE_INFO("C_VerifySignatureFinal\n");
-
     if (API_Initialized() == FALSE) {
         TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
-        rv = CKR_CRYPTOKI_NOT_INITIALIZED;
-        goto ret;
+        return CKR_CRYPTOKI_NOT_INITIALIZED;
     }
 
-    TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
-    rv = CKR_FUNCTION_NOT_SUPPORTED;
-ret:
+    if (!Valid_Session(hSession, &rSession)) {
+        TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
+        TRACE_ERROR("Session handle id: %lu\n", hSession);
+        return CKR_SESSION_HANDLE_INVALID;
+    }
+    TRACE_INFO("Valid Session handle id: %lu\n", rSession.sessionh);
+
+    sltp = &(Anchor->SltList[rSession.slotID]);
+    if (sltp->DLLoaded == FALSE) {
+        TRACE_ERROR("%s\n", ock_err(ERR_TOKEN_NOT_PRESENT));
+        return CKR_TOKEN_NOT_PRESENT;
+    }
+    if ((fcn = sltp->FcnList) == NULL) {
+        TRACE_ERROR("%s\n", ock_err(ERR_TOKEN_NOT_PRESENT));
+        return CKR_TOKEN_NOT_PRESENT;
+    }
+    if (fcn->ST_VerifySignatureFinal) {
+        BEGIN_OPENSSL_LIBCTX(Anchor->openssl_libctx, rv)
+        BEGIN_HSM_MK_CHANGE_LOCK(sltp, rv)
+        // Map the Session to the slot session
+        rv = fcn->ST_VerifySignatureFinal(sltp->TokData, &rSession);
+        TRACE_DEVEL("fcn->ST_VerifySignatureFinal returned: 0x%lx\n", rv);
+        END_HSM_MK_CHANGE_LOCK(sltp, rv)
+        END_OPENSSL_LIBCTX(rv)
+    } else {
+        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
+        rv = CKR_FUNCTION_NOT_SUPPORTED;
+    }
+
     return rv;
 }
 

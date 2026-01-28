@@ -3250,8 +3250,9 @@ done:
 }
 
 
-CK_RV SC_VerifyInit(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
-                    CK_MECHANISM_PTR pMechanism, CK_OBJECT_HANDLE hKey)
+static CK_RV VerifyInit(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
+                        CK_MECHANISM_PTR pMechanism, CK_OBJECT_HANDLE hKey,
+                        CK_BYTE_PTR pSignature, CK_ULONG ulSignatureLen)
 {
     SESSION *sess = NULL;
     CK_RV rc = CKR_OK;
@@ -3292,6 +3293,19 @@ CK_RV SC_VerifyInit(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
         goto done;
     }
 
+    if (pSignature != NULL && ulSignatureLen != 0) {
+        /* Save signature in context for later verification */
+        sess->verify_ctx.saved_signature = malloc(ulSignatureLen);
+        if (sess->verify_ctx.saved_signature == NULL) {
+            rc = CKR_HOST_MEMORY;
+            TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+            goto done;
+        }
+
+        memcpy(sess->verify_ctx.saved_signature, pSignature, ulSignatureLen);
+        sess->verify_ctx.saved_signature_len = ulSignatureLen;
+    }
+
     sess->verify_ctx.count_statistics = TRUE;
     rc = verify_mgr_init(tokdata, sess, &sess->verify_ctx, pMechanism,
                          FALSE, hKey, TRUE);
@@ -3299,7 +3313,8 @@ CK_RV SC_VerifyInit(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
         TRACE_DEVEL("verify_mgr_init() failed.\n");
 
 done:
-    TRACE_INFO("C_VerifyInit: rc = 0x%08lx, sess = %ld, mech = 0x%lx\n",
+    TRACE_INFO("C_Verify%sInit: rc = 0x%08lx, sess = %ld, mech = 0x%lx\n",
+               pSignature != NULL && ulSignatureLen != 0 ? "Signature" : "",
                rc, (sess == NULL) ? -1 : (CK_LONG) sess->handle,
                (pMechanism ? pMechanism->mechanism : (CK_ULONG)-1));
 
@@ -3309,10 +3324,15 @@ done:
     return rc;
 }
 
+CK_RV SC_VerifyInit(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
+                    CK_MECHANISM_PTR pMechanism, CK_OBJECT_HANDLE hKey)
+{
+    return VerifyInit(tokdata, sSession, pMechanism, hKey, NULL, 0);
+}
 
-CK_RV SC_Verify(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
-                CK_BYTE_PTR pData, CK_ULONG ulDataLen, CK_BYTE_PTR pSignature,
-                CK_ULONG ulSignatureLen)
+static CK_RV Verify(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
+                    CK_BYTE_PTR pData, CK_ULONG ulDataLen,
+                    CK_BYTE_PTR pSignature, CK_ULONG ulSignatureLen)
 {
     SESSION *sess = NULL;
     CK_RV rc = CKR_OK;
@@ -3330,7 +3350,7 @@ CK_RV SC_Verify(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
         goto done;
     }
 
-    if (!pData || !pSignature) {
+    if (!pData) {
         TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
         rc = CKR_ARGUMENTS_BAD;
         goto done;
@@ -3342,8 +3362,27 @@ CK_RV SC_Verify(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
         goto done;
     }
 
-    rc = verify_mgr_verify(tokdata, sess, &sess->verify_ctx, pData,
-                           ulDataLen, pSignature, ulSignatureLen);
+    if (sess->verify_ctx.saved_signature == NULL && pSignature == NULL) {
+        /* Operation was initialized with C_VerifyInit() */
+        TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
+        rc = CKR_ARGUMENTS_BAD;
+        goto done;
+    }
+
+    if (sess->verify_ctx.saved_signature != NULL && pSignature != NULL) {
+        /* Operation was initialized with C_VerifySignatureInit() */
+        TRACE_ERROR("%s\n", ock_err(ERR_OPERATION_NOT_INITIALIZED));
+        rc = CKR_OPERATION_NOT_INITIALIZED;
+        goto done;
+    }
+
+    rc = verify_mgr_verify(tokdata, sess, &sess->verify_ctx, pData, ulDataLen,
+                           sess->verify_ctx.saved_signature != NULL ?
+                                 sess->verify_ctx.saved_signature :
+                                 pSignature,
+                           sess->verify_ctx.saved_signature != NULL ?
+                                 sess->verify_ctx.saved_signature_len :
+                                 ulSignatureLen);
     if (rc != CKR_OK)
         TRACE_DEVEL("verify_mgr_verify() failed.\n");
 
@@ -3351,7 +3390,8 @@ done:
     if (sess != NULL)
         verify_mgr_cleanup(tokdata, sess, &sess->verify_ctx);
 
-    TRACE_INFO("C_Verify: rc = 0x%08lx, sess = %ld, datalen = %lu\n",
+    TRACE_INFO("C_Verify%s: rc = 0x%08lx, sess = %ld, datalen = %lu\n",
+               pSignature == NULL ? "Signature" : "",
                rc, (sess == NULL) ? -1 : (CK_LONG) sess->handle, ulDataLen);
 
     if (sess != NULL)
@@ -3360,9 +3400,17 @@ done:
     return rc;
 }
 
+CK_RV SC_Verify(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
+                CK_BYTE_PTR pData, CK_ULONG ulDataLen, CK_BYTE_PTR pSignature,
+                CK_ULONG ulSignatureLen)
+{
+    return Verify(tokdata, sSession, pData, ulDataLen,
+                  pSignature, ulSignatureLen);
+}
 
-CK_RV SC_VerifyUpdate(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
-                      CK_BYTE_PTR pPart, CK_ULONG ulPartLen)
+static CK_RV VerifyUpdate(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
+                          CK_BYTE_PTR pPart, CK_ULONG ulPartLen,
+                          CK_BBOOL verify_message)
 {
     SESSION *sess = NULL;
     CK_RV rc = CKR_OK;
@@ -3392,6 +3440,12 @@ CK_RV SC_VerifyUpdate(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
         goto done;
     }
 
+    if ((sess->verify_ctx.saved_signature != NULL) != verify_message) {
+        rc = CKR_OPERATION_NOT_INITIALIZED;
+        TRACE_ERROR("%s\n", ock_err(ERR_OPERATION_NOT_INITIALIZED));
+        goto done;
+    }
+
     rc = verify_mgr_verify_update(tokdata, sess, &sess->verify_ctx, pPart,
                                   ulPartLen);
     if (rc != CKR_OK)
@@ -3401,7 +3455,9 @@ done:
     if (rc != CKR_OK && sess != NULL)
         verify_mgr_cleanup(tokdata, sess, &sess->verify_ctx);
 
-    TRACE_INFO("C_VerifyUpdate: rc = 0x%08lx, sess = %ld, datalen = %lu\n",
+    TRACE_INFO("C_Verify%sUpdate: rc = 0x%08lx, sess = %ld, datalen = %lu\n",
+               (sess != NULL && sess->verify_ctx.saved_signature != NULL) ?
+                                                   "Signature" : "",
                rc, (sess == NULL) ? -1 : (CK_LONG) sess->handle, ulPartLen);
 
     if (sess != NULL)
@@ -3410,9 +3466,14 @@ done:
     return rc;
 }
 
+CK_RV SC_VerifyUpdate(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
+                      CK_BYTE_PTR pPart, CK_ULONG ulPartLen)
+{
+    return VerifyUpdate(tokdata, sSession, pPart, ulPartLen, FALSE);
+}
 
-CK_RV SC_VerifyFinal(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
-                     CK_BYTE_PTR pSignature, CK_ULONG ulSignatureLen)
+static CK_RV VerifyFinal(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
+                         CK_BYTE_PTR pSignature, CK_ULONG ulSignatureLen)
 {
     SESSION *sess = NULL;
     CK_RV rc = CKR_OK;
@@ -3430,20 +3491,33 @@ CK_RV SC_VerifyFinal(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
         goto done;
     }
 
-    if (!pSignature) {
-        TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
-        rc = CKR_ARGUMENTS_BAD;
-        goto done;
-    }
-
     if (sess->verify_ctx.active == FALSE) {
         rc = CKR_OPERATION_NOT_INITIALIZED;
         TRACE_ERROR("%s\n", ock_err(ERR_OPERATION_NOT_INITIALIZED));
         goto done;
     }
 
+    if (pSignature == NULL && sess->verify_ctx.saved_signature == NULL) {
+        /* Operation was initialized with C_VerifyInit() */
+        rc = CKR_OPERATION_NOT_INITIALIZED;
+        TRACE_ERROR("%s\n", ock_err(ERR_OPERATION_NOT_INITIALIZED));
+        goto done;
+    }
+
+    if (pSignature != NULL && sess->verify_ctx.saved_signature != NULL) {
+        /* Operation was initialized with C_VerifySignatureInit() */
+        rc = CKR_OPERATION_NOT_INITIALIZED;
+        TRACE_ERROR("%s\n", ock_err(ERR_OPERATION_NOT_INITIALIZED));
+        goto done;
+    }
+
     rc = verify_mgr_verify_final(tokdata, sess, &sess->verify_ctx,
-                                 pSignature, ulSignatureLen);
+                                 sess->verify_ctx.saved_signature != NULL ?
+                                       sess->verify_ctx.saved_signature :
+                                       pSignature,
+                                 sess->verify_ctx.saved_signature != NULL ?
+                                       sess->verify_ctx.saved_signature_len :
+                                       ulSignatureLen);
     if (rc != CKR_OK)
         TRACE_DEVEL("verify_mgr_verify_final() failed.\n");
 
@@ -3451,7 +3525,8 @@ done:
     if (sess != NULL)
         verify_mgr_cleanup(tokdata, sess, &sess->verify_ctx);
 
-    TRACE_INFO("C_VerifyFinal: rc = 0x%08lx, sess = %ld\n",
+    TRACE_INFO("C_Verify%sFinal: rc = 0x%08lx, sess = %ld\n",
+               pSignature == NULL ? "Signature" : "",
                rc, (sess == NULL) ? -1 : (CK_LONG) sess->handle);
 
     if (sess != NULL)
@@ -3460,6 +3535,16 @@ done:
     return rc;
 }
 
+CK_RV SC_VerifyFinal(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
+                     CK_BYTE_PTR pSignature, CK_ULONG ulSignatureLen)
+{
+    if (pSignature == NULL || ulSignatureLen == 0) {
+        TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
+        return CKR_ARGUMENTS_BAD;
+    }
+
+    return VerifyFinal(tokdata, sSession, pSignature, ulSignatureLen);
+}
 
 CK_RV SC_VerifyRecoverInit(STDLL_TokData_t *tokdata,
                            ST_SESSION_HANDLE *sSession,
@@ -3581,6 +3666,36 @@ done:
     return rc;
 }
 
+CK_RV SC_VerifySignatureInit(STDLL_TokData_t *tokdata, ST_SESSION_T *sSession,
+                             CK_MECHANISM_PTR pMechanism,
+                             CK_OBJECT_HANDLE hKey,
+                             CK_BYTE_PTR pSignature, CK_ULONG ulSignatureLen)
+{
+    if (pSignature == NULL || ulSignatureLen == 0) {
+        TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
+        return CKR_ARGUMENTS_BAD;
+    }
+
+    return VerifyInit(tokdata, sSession, pMechanism, hKey,
+                      pSignature, ulSignatureLen);
+}
+
+CK_RV SC_VerifySignature(STDLL_TokData_t *tokdata, ST_SESSION_T *sSession,
+                        CK_BYTE_PTR pData, CK_ULONG ulDataLen)
+{
+    return Verify(tokdata, sSession, pData, ulDataLen, NULL, 0);
+}
+
+CK_RV SC_VerifySignatureUpdate(STDLL_TokData_t *tokdata, ST_SESSION_T *sSession,
+                               CK_BYTE_PTR pPart, CK_ULONG ulPartLen)
+{
+    return VerifyUpdate(tokdata, sSession, pPart, ulPartLen, TRUE);
+}
+
+CK_RV SC_VerifySignatureFinal(STDLL_TokData_t *tokdata, ST_SESSION_T *sSession)
+{
+    return VerifyFinal(tokdata, sSession, NULL, 0);
+}
 
 CK_RV SC_DigestEncryptUpdate(STDLL_TokData_t *tokdata,
                              ST_SESSION_HANDLE *sSession, CK_BYTE_PTR pPart,
@@ -4321,6 +4436,10 @@ void SC_SetFunctionList(void)
     function_list.ST_GetFunctionStatus = NULL;  // SC_GetFunctionStatus;
     function_list.ST_CancelFunction = NULL;     // SC_CancelFunction;
     function_list.ST_SessionCancel = SC_SessionCancel;
+    function_list.ST_VerifySignatureInit = SC_VerifySignatureInit;
+    function_list.ST_VerifySignature = SC_VerifySignature;
+    function_list.ST_VerifySignatureUpdate = SC_VerifySignatureUpdate;
+    function_list.ST_VerifySignatureFinal = SC_VerifySignatureFinal;
 
     function_list.ST_IBM_ReencryptSingle = SC_IBM_ReencryptSingle;
 
