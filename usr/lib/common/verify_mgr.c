@@ -1060,6 +1060,12 @@ CK_RV verify_mgr_cleanup(STDLL_TokData_t *tokdata, SESSION *sess,
 
     ctx->mech.mechanism = 0;
 
+    if (ctx->saved_signature) {
+        free(ctx->saved_signature);
+        ctx->saved_signature = 0;
+    }
+    ctx->saved_signature_len = 0;
+
     return CKR_OK;
 }
 

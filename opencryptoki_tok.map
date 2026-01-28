@@ -1,4 +1,4 @@
-OPENCRYPTOKI_TOK_3.10 {
+OPENCRYPTOKI_TOK_3.27 {
     global:
         SC_CancelFunction;
         SC_CloseAllSessions;
@@ -66,6 +66,10 @@ OPENCRYPTOKI_TOK_3.10 {
         SC_WrapKey;
         SC_IBM_ReencryptSingle;
         SC_SessionCancel;
+        SC_VerifySignatureInit;
+        SC_VerifySignature;
+        SC_VerifySignatureUpdate;
+        SC_VerifySignatureFinal;
         ST_Initialize;
     local: *;
 };
