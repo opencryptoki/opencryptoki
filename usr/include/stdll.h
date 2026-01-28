@@ -343,6 +343,26 @@ typedef CK_RV (CK_PTR ST_C_SessionCancel)(STDLL_TokData_t *tokdata,
                                           ST_SESSION_T *hSession,
                                           CK_FLAGS flags);
 
+typedef CK_RV (CK_PTR ST_C_EncapsulateKey)(STDLL_TokData_t *tokdata,
+                                           ST_SESSION_T *hSession,
+                                           CK_MECHANISM_PTR pMechanism,
+                                           CK_OBJECT_HANDLE hPublicKey,
+                                           CK_ATTRIBUTE_PTR pTemplate,
+                                           CK_ULONG ulAttributeCount,
+                                           CK_BYTE_PTR pCiphertext,
+                                           CK_ULONG_PTR pulCiphertextLen,
+                                           CK_OBJECT_HANDLE_PTR phKey);
+
+typedef CK_RV (CK_PTR ST_C_DecapsulateKey)(STDLL_TokData_t *tokdata,
+                                           ST_SESSION_T *hSession,
+                                           CK_MECHANISM_PTR pMechanism,
+                                           CK_OBJECT_HANDLE hPrivateKey,
+                                           CK_ATTRIBUTE_PTR pTemplate,
+                                           CK_ULONG ulAttributeCount,
+                                           CK_BYTE_PTR pCiphertext,
+                                           CK_ULONG ulCiphertextLen,
+                                           CK_OBJECT_HANDLE_PTR phKey);
+
 typedef CK_RV (CK_PTR ST_C_VerifySignatureInit)(STDLL_TokData_t *tokdata,
                                                 ST_SESSION_T *hSession,
                                                 CK_MECHANISM_PTR pMechanism,
@@ -453,6 +473,8 @@ struct ST_FCN_LIST {
     ST_C_CancelFunction ST_CancelFunction;
     ST_C_SessionCancel ST_SessionCancel;
 
+    ST_C_EncapsulateKey ST_EncapsulateKey;
+    ST_C_DecapsulateKey ST_DecapsulateKey;
     ST_C_VerifySignatureInit ST_VerifySignatureInit;
     ST_C_VerifySignature ST_VerifySignature;
     ST_C_VerifySignatureUpdate ST_VerifySignatureUpdate;

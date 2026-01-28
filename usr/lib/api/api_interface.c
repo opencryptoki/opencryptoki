@@ -5688,27 +5688,47 @@ CK_RV C_EncapsulateKey(CK_SESSION_HANDLE hSession,
                        CK_OBJECT_HANDLE_PTR phKey)
 {
     CK_RV rv;
-
-    UNUSED(hSession);
-    UNUSED(pMechanism);
-    UNUSED(hPublicKey);
-    UNUSED(pTemplate);
-    UNUSED(ulAttributeCount);
-    UNUSED(pCiphertext);
-    UNUSED(pulCiphertextLen);
-    UNUSED(phKey);
+    API_Slot_t *sltp;
+    STDLL_FcnList_t *fcn;
+    ST_SESSION_T rSession;
 
     TRACE_INFO("C_EncapsulateKey\n");
-
     if (API_Initialized() == FALSE) {
         TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
-        rv = CKR_CRYPTOKI_NOT_INITIALIZED;
-        goto ret;
+        return CKR_CRYPTOKI_NOT_INITIALIZED;
     }
 
-    TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
-    rv = CKR_FUNCTION_NOT_SUPPORTED;
-ret:
+    if (!Valid_Session(hSession, &rSession)) {
+        TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
+        TRACE_ERROR("Session handle id: %lu\n", hSession);
+        return CKR_SESSION_HANDLE_INVALID;
+    }
+    TRACE_INFO("Valid Session handle id: %lu\n", rSession.sessionh);
+
+    sltp = &(Anchor->SltList[rSession.slotID]);
+    if (sltp->DLLoaded == FALSE) {
+        TRACE_ERROR("%s\n", ock_err(ERR_TOKEN_NOT_PRESENT));
+        return CKR_TOKEN_NOT_PRESENT;
+    }
+    if ((fcn = sltp->FcnList) == NULL) {
+        TRACE_ERROR("%s\n", ock_err(ERR_TOKEN_NOT_PRESENT));
+        return CKR_TOKEN_NOT_PRESENT;
+    }
+    if (fcn->ST_EncapsulateKey) {
+        BEGIN_OPENSSL_LIBCTX(Anchor->openssl_libctx, rv)
+        BEGIN_HSM_MK_CHANGE_LOCK(sltp, rv)
+        // Map the Session to the slot session
+        rv = fcn->ST_EncapsulateKey(sltp->TokData, &rSession, pMechanism,
+                                    hPublicKey, pTemplate, ulAttributeCount,
+                                    pCiphertext, pulCiphertextLen, phKey);
+        TRACE_DEVEL("fcn->ST_EncapsulateKey returned: 0x%lx\n", rv);
+        END_HSM_MK_CHANGE_LOCK(sltp, rv)
+        END_OPENSSL_LIBCTX(rv)
+    } else {
+        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
+        rv = CKR_FUNCTION_NOT_SUPPORTED;
+    }
+
     return rv;
 }
 
@@ -5722,27 +5742,47 @@ CK_RV C_DecapsulateKey(CK_SESSION_HANDLE hSession,
                        CK_OBJECT_HANDLE_PTR phKey)
 {
     CK_RV rv;
-
-    UNUSED(hSession);
-    UNUSED(pMechanism);
-    UNUSED(hPrivateKey);
-    UNUSED(pTemplate);
-    UNUSED(ulAttributeCount);
-    UNUSED(pCiphertext);
-    UNUSED(ulCiphertextLen);
-    UNUSED(phKey);
+    API_Slot_t *sltp;
+    STDLL_FcnList_t *fcn;
+    ST_SESSION_T rSession;
 
     TRACE_INFO("C_DecapsulateKey\n");
-
     if (API_Initialized() == FALSE) {
         TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
-        rv = CKR_CRYPTOKI_NOT_INITIALIZED;
-        goto ret;
+        return CKR_CRYPTOKI_NOT_INITIALIZED;
     }
 
-    TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
-    rv = CKR_FUNCTION_NOT_SUPPORTED;
-ret:
+    if (!Valid_Session(hSession, &rSession)) {
+        TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
+        TRACE_ERROR("Session handle id: %lu\n", hSession);
+        return CKR_SESSION_HANDLE_INVALID;
+    }
+    TRACE_INFO("Valid Session handle id: %lu\n", rSession.sessionh);
+
+    sltp = &(Anchor->SltList[rSession.slotID]);
+    if (sltp->DLLoaded == FALSE) {
+        TRACE_ERROR("%s\n", ock_err(ERR_TOKEN_NOT_PRESENT));
+        return CKR_TOKEN_NOT_PRESENT;
+    }
+    if ((fcn = sltp->FcnList) == NULL) {
+        TRACE_ERROR("%s\n", ock_err(ERR_TOKEN_NOT_PRESENT));
+        return CKR_TOKEN_NOT_PRESENT;
+    }
+    if (fcn->ST_DecapsulateKey) {
+        BEGIN_OPENSSL_LIBCTX(Anchor->openssl_libctx, rv)
+        BEGIN_HSM_MK_CHANGE_LOCK(sltp, rv)
+        // Map the Session to the slot session
+        rv = fcn->ST_DecapsulateKey(sltp->TokData, &rSession, pMechanism,
+                                    hPrivateKey, pTemplate, ulAttributeCount,
+                                    pCiphertext, ulCiphertextLen, phKey);
+        TRACE_DEVEL("fcn->ST_DecapsulateKey returned: 0x%lx\n", rv);
+        END_HSM_MK_CHANGE_LOCK(sltp, rv)
+        END_OPENSSL_LIBCTX(rv)
+    } else {
+        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
+        rv = CKR_FUNCTION_NOT_SUPPORTED;
+    }
+
     return rv;
 }
 
