@@ -79,6 +79,8 @@ typedef struct _SIGN_VERIFY_CONTEXT {
     CK_BBOOL state_unsaveable;
     CK_BBOOL count_statistics;
     CK_BBOOL auth_required;
+    CK_BYTE *saved_signature;  // for C_VerifySignature[Init/Update/Final]
+    CK_ULONG saved_signature_len;
 } SIGN_VERIFY_CONTEXT;
 
 

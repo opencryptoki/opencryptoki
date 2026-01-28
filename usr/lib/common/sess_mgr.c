@@ -850,7 +850,9 @@ CK_RV session_mgr_get_op_state(STDLL_TokData_t *tokdata, SESSION *sess,
         active_ops++;
         op_data_len = sizeof(OP_STATE_DATA) +
             sizeof(SIGN_VERIFY_CONTEXT) +
-            sess->verify_ctx.context_len + sess->verify_ctx.mech.ulParameterLen;
+            sess->verify_ctx.context_len +
+            sess->verify_ctx.mech.ulParameterLen +
+            sess->verify_ctx.saved_signature_len;
         all_data_len += op_data_len;
 
         if (length_only == FALSE) {
@@ -893,6 +895,14 @@ CK_RV session_mgr_get_op_state(STDLL_TokData_t *tokdata, SESSION *sess,
                 memcpy((CK_BYTE *) op_data + offset,
                        sess->verify_ctx.mech.pParameter,
                        sess->verify_ctx.mech.ulParameterLen);
+
+                offset += sess->verify_ctx.mech.ulParameterLen;
+            }
+
+            if (sess->verify_ctx.saved_signature_len != 0) {
+                memcpy((CK_BYTE *) op_data + offset,
+                       sess->verify_ctx.saved_signature,
+                       sess->verify_ctx.saved_signature_len);
             }
 
             max_data_len -= op_data_len;
@@ -922,9 +932,11 @@ CK_RV session_mgr_set_op_state(STDLL_TokData_t *tokdata, SESSION *sess,
     OP_STATE_DATA *op_data = NULL;
     CK_BYTE *mech_param = NULL;
     CK_BYTE *context = NULL;
+    CK_BYTE *saved_signature = NULL;
     CK_BYTE *ptr1 = NULL;
     CK_BYTE *ptr2 = NULL;
     CK_BYTE *ptr3 = NULL;
+    CK_BYTE *ptr4 = NULL;
     CK_ULONG len;
     CK_ULONG encr_key_needed = 0;
     CK_ULONG auth_key_needed = 0;
@@ -997,7 +1009,8 @@ CK_RV session_mgr_set_op_state(STDLL_TokData_t *tokdata, SESSION *sess,
                     (SIGN_VERIFY_CONTEXT *)(cur_data + sizeof(OP_STATE_DATA));
 
                 len = sizeof(SIGN_VERIFY_CONTEXT) + ctx->context_len +
-                                                ctx->mech.ulParameterLen;
+                                                ctx->mech.ulParameterLen +
+                                                ctx->saved_signature_len;
                 if (len != op_data->data_len) {
                     TRACE_ERROR("%s\n", ock_err(ERR_SAVED_STATE_INVALID));
                     return CKR_SAVED_STATE_INVALID;
@@ -1125,7 +1138,8 @@ CK_RV session_mgr_set_op_state(STDLL_TokData_t *tokdata, SESSION *sess,
                     (SIGN_VERIFY_CONTEXT *)(cur_data + sizeof(OP_STATE_DATA));
 
                 len = sizeof(SIGN_VERIFY_CONTEXT) + ctx->context_len +
-                                                    ctx->mech.ulParameterLen;
+                                                    ctx->mech.ulParameterLen +
+                                                    ctx->saved_signature_len;
                 if (len != op_data->data_len) {
                     TRACE_ERROR("%s\n", ock_err(ERR_SAVED_STATE_INVALID));
                     return CKR_SAVED_STATE_INVALID;
@@ -1137,6 +1151,7 @@ CK_RV session_mgr_set_op_state(STDLL_TokData_t *tokdata, SESSION *sess,
                 ptr1 = (CK_BYTE *) ctx;
                 ptr2 = ptr1 + sizeof(SIGN_VERIFY_CONTEXT);
                 ptr3 = ptr2 + ctx->context_len;
+                ptr4 = ptr3 + ctx->mech.ulParameterLen;
 
                 if (ctx->context_len) {
                     context = (CK_BYTE *) malloc(ctx->context_len);
@@ -1156,6 +1171,21 @@ CK_RV session_mgr_set_op_state(STDLL_TokData_t *tokdata, SESSION *sess,
                         return CKR_HOST_MEMORY;
                     }
                     memcpy(mech_param, ptr3, ctx->mech.ulParameterLen);
+                }
+
+                if (op_data->active_operation == STATE_VERIFY &&
+                    ctx->saved_signature_len != 0) {
+                    saved_signature =
+                                (CK_BYTE *)malloc(ctx->saved_signature_len);
+                    if (!saved_signature) {
+                        if (context)
+                            free(context);
+                        if (mech_param)
+                            free(mech_param);
+                        TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+                        return CKR_HOST_MEMORY;
+                    }
+                    memcpy(saved_signature, ptr4, ctx->saved_signature_len);
                 }
             }
             break;
@@ -1225,6 +1255,7 @@ CK_RV session_mgr_set_op_state(STDLL_TokData_t *tokdata, SESSION *sess,
             sess->sign_ctx.key = auth_key;
             sess->sign_ctx.context = context;
             sess->sign_ctx.mech.pParameter = mech_param;
+            sess->verify_ctx.saved_signature = saved_signature;
             break;
 
         case STATE_VERIFY:
@@ -1233,6 +1264,7 @@ CK_RV session_mgr_set_op_state(STDLL_TokData_t *tokdata, SESSION *sess,
             sess->verify_ctx.key = auth_key;
             sess->verify_ctx.context = context;
             sess->verify_ctx.mech.pParameter = mech_param;
+            sess->verify_ctx.saved_signature = saved_signature;
             break;
 
         case STATE_DIGEST:
@@ -1245,6 +1277,7 @@ CK_RV session_mgr_set_op_state(STDLL_TokData_t *tokdata, SESSION *sess,
 
         context = NULL;
         mech_param = NULL;
+        saved_signature = NULL;
 
         /* move on to next operation */
         cur_data_len -= (op_data->data_len + sizeof(OP_STATE_DATA));
