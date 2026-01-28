@@ -1205,6 +1205,219 @@ CK_RV do_OperationState3(void)
     return rc;
 }
 
+CK_RV do_OperationState4(void)
+{
+    CK_SLOT_ID slot_id;
+    CK_SESSION_HANDLE session1, session2;
+    CK_FLAGS flags;
+    CK_BYTE user_pin[PKCS11_MAX_PIN_LEN];
+    CK_ULONG user_pin_len;
+    CK_RV rc;
+
+    CK_BYTE message[1024];
+    CK_BYTE signature[1024];
+
+    CK_BYTE *op_state = NULL;
+    CK_ULONG op_state_len;
+
+    CK_ULONG message_len, signature_len;
+    CK_ULONG i;
+
+    CK_ULONG key_len = 32;
+    CK_ATTRIBUTE key_gen_tmpl[] = {
+        {CKA_VALUE_LEN, &key_len, sizeof(CK_ULONG)}
+    };
+
+    CK_MECHANISM mech;
+    CK_OBJECT_HANDLE h_key;
+
+
+    testcase_begin("do_OperationState4");
+    testcase_new_assertion();
+    slot_id = SLOT_ID;
+
+    flags = CKF_SERIAL_SESSION | CKF_RW_SESSION;
+    rc = funcs->C_OpenSession(slot_id, flags, NULL, NULL, &session1);
+    if (rc != CKR_OK) {
+        testcase_fail("C_OpenSession #1, rc=%lx, %s", rc, p11_get_ckr(rc));
+        return rc;
+    }
+
+    rc = funcs->C_OpenSession(slot_id, flags, NULL, NULL, &session2);
+    if (rc != CKR_OK) {
+        testcase_fail("C_OpenSession #2, rc=%lx, %s", rc, p11_get_ckr(rc));
+        return rc;
+    }
+
+    if (get_user_pin(user_pin))
+        return CKR_FUNCTION_FAILED;
+
+    user_pin_len = (CK_ULONG) strlen((char *) user_pin);
+
+    rc = funcs->C_Login(session1, CKU_USER, user_pin, user_pin_len);
+    if (rc != CKR_OK) {
+        testcase_fail("C_Login #1, rc=%lx, %s", rc, p11_get_ckr(rc));
+        return rc;
+    }
+
+   message_len = sizeof(message);
+    for (i = 0; i < message_len; i++)
+        message[i] = i % 255;
+
+    mech.mechanism = CKM_GENERIC_SECRET_KEY_GEN;
+    mech.ulParameterLen = 0;
+    mech.pParameter = NULL;
+
+    if (!mech_supported(slot_id, mech.mechanism)) {
+        testcase_skip("Mechanism %s not supported. (skipped)",
+               mech_to_str(mech.mechanism));
+        funcs->C_CloseSession(session1);
+        funcs->C_CloseSession(session2);
+        return 0;
+    }
+
+    rc = funcs->C_GenerateKey(session1, &mech, key_gen_tmpl, 1, &h_key);
+    if (rc != CKR_OK) {
+        testcase_fail("C_GenerateKey #1, rc=%lx, %s", rc, p11_get_ckr(rc));
+        return rc;
+    }
+
+    mech.mechanism = CKM_SHA256_HMAC;
+    mech.ulParameterLen = 0;
+    mech.pParameter = NULL;
+
+    rc = funcs->C_SignInit(session1, &mech, h_key);
+    if (rc != CKR_OK) {
+        testcase_fail("C_SignInit #1, rc=%lx, %s", rc, p11_get_ckr(rc));
+        return rc;
+    }
+
+    signature_len = sizeof(signature);
+    rc = funcs->C_Sign(session1, message, message_len, signature, &signature_len);
+    if (rc != CKR_OK) {
+        testcase_fail("C_Sign #1, rc=%lx, %s", rc, p11_get_ckr(rc));
+        return rc;
+    }
+
+    rc = funcs->C_VerifyInit(session1, &mech, h_key);
+    if (rc != CKR_OK) {
+        testcase_fail("C_VerifyInit #1, rc=%lx, %s", rc, p11_get_ckr(rc));
+        return rc;
+    }
+
+    // save session #1's operation state
+    rc = funcs->C_GetOperationState(session1, NULL, &op_state_len);
+    if (rc != CKR_OK) {
+        if (rc == CKR_STATE_UNSAVEABLE) {
+            testcase_skip("Session state not savable for mechanism %s. (skipped)",
+                   mech_to_str(mech.mechanism));
+            funcs->C_CloseSession(session1);
+            funcs->C_CloseSession(session2);
+            return 0;
+        }
+        testcase_fail("C_GetOperationState #1, rc=%lx, %s", rc, p11_get_ckr(rc));
+        return rc;
+    }
+
+    op_state = (CK_BYTE *)malloc(op_state_len);
+    if (!op_state) {
+        testcase_fail("HOST MEMORY ERROR");
+        return -1;
+    }
+
+    rc = funcs->C_GetOperationState(session1, op_state, &op_state_len);
+    if (rc != CKR_OK) {
+        testcase_fail("C_GetOperationState #1, rc=%lx, %s", rc, p11_get_ckr(rc));
+        return rc;
+    }
+
+    // restore session #1's operation state that we just saved back
+    // into session #2 and continue with the verify
+    rc = funcs->C_SetOperationState(session2, op_state, op_state_len, 0, h_key);
+    if (rc != CKR_OK) {
+        testcase_fail("C_SetOperationState #2, rc=%lx, %s", rc, p11_get_ckr(rc));
+        return rc;
+    }
+
+    free(op_state);
+
+    rc = funcs->C_Verify(session2, message, message_len, signature, signature_len);
+    if (rc != CKR_OK) {
+        testcase_fail("C_Verify #2, rc=%lx, %s", rc, p11_get_ckr(rc));
+        return rc;
+    }
+
+    rc = funcs3->C_SessionCancel(session1, CKF_VERIFY);
+    if (rc != CKR_OK) {
+        testcase_fail("C_SessionCancel  #1, rc=%lx, %s", rc, p11_get_ckr(rc));
+        return rc;
+    }
+
+    rc = funcs3_2->C_VerifySignatureInit(session1, &mech, h_key, signature, signature_len);
+    if (rc != CKR_OK) {
+        testcase_fail("C_VerifySignatureInit #1, rc=%lx, %s", rc, p11_get_ckr(rc));
+        return rc;
+    }
+
+    // save session #1's operation state
+    rc = funcs->C_GetOperationState(session1, NULL, &op_state_len);
+    if (rc != CKR_OK) {
+        if (rc == CKR_STATE_UNSAVEABLE) {
+            testcase_skip("Session state not savable for mechanism %s. (skipped)",
+                   mech_to_str(mech.mechanism));
+            funcs->C_CloseSession(session1);
+            funcs->C_CloseSession(session2);
+            return 0;
+        }
+        testcase_fail("C_GetOperationState #1, rc=%lx, %s", rc, p11_get_ckr(rc));
+        return rc;
+    }
+
+    op_state = (CK_BYTE *)malloc(op_state_len);
+    if (!op_state) {
+        testcase_fail("HOST MEMORY ERROR");
+        return -1;
+    }
+
+    rc = funcs->C_GetOperationState(session1, op_state, &op_state_len);
+    if (rc != CKR_OK) {
+        testcase_fail("C_GetOperationState #1, rc=%lx, %s", rc, p11_get_ckr(rc));
+        return rc;
+    }
+
+    // restore session #1's operation state that we just saved back
+    // into session #2 and continue with the verify
+    rc = funcs->C_SetOperationState(session2, op_state, op_state_len, 0, h_key);
+    if (rc != CKR_OK) {
+        testcase_fail("C_SetOperationState #2, rc=%lx, %s", rc, p11_get_ckr(rc));
+        return rc;
+    }
+
+    free(op_state);
+
+    rc = funcs3_2->C_VerifySignature(session2, message, message_len);
+    if (rc != CKR_OK) {
+        testcase_fail("C_VerifySignature #2, rc=%lx, %s", rc, p11_get_ckr(rc));
+        return rc;
+    }
+
+    rc = funcs->C_CloseSession(session1);
+    if (rc != CKR_OK) {
+        testcase_fail("C_CloseSession #1, rc=%lx, %s", rc, p11_get_ckr(rc));
+        return rc;
+    }
+
+    rc = funcs->C_CloseSession(session2);
+    if (rc != CKR_OK) {
+        testcase_fail("C_CloseSession #2, rc=%lx, %s", rc, p11_get_ckr(rc));
+        return rc;
+    }
+
+    testcase_pass("do_OperationState4 passed");
+
+    return rc;
+}
+
 CK_RV do_SessionCancel(void)
 {
     CK_SLOT_ID slot_id;
@@ -1467,6 +1680,15 @@ CK_RV sess_mgmt_functions(void)
     rc = do_OperationState3();
     if (rc && !no_stop) {
         testcase_fail("do_OperationState3, rc=%lx, %s", rc, p11_get_ckr(rc));
+        return rc;
+    }
+    GetSystemTime(&t2);
+    process_time(t1, t2);
+
+    GetSystemTime(&t1);
+    rc = do_OperationState4();
+    if (rc && !no_stop) {
+        testcase_fail("do_OperationState4, rc=%lx, %s", rc, p11_get_ckr(rc));
         return rc;
     }
     GetSystemTime(&t2);
