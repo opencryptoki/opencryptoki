@@ -2122,3 +2122,188 @@ done:
 
     return rc;
 }
+
+CK_RV key_mgr_encapsulate_key(STDLL_TokData_t *tokdata, SESSION *sess,
+                              CK_BBOOL length_only, CK_MECHANISM *mech,
+                              CK_OBJECT_HANDLE hPublicKey,
+                              CK_ATTRIBUTE *pTemplate,
+                              CK_ULONG ulAttributeCount,
+                              CK_BYTE *pCiphertext, CK_ULONG *pulCiphertextLen,
+                              CK_OBJECT_HANDLE *phKey,
+                              CK_BBOOL count_statistics)
+{
+    OBJECT *public_key_obj = NULL;
+    CK_ATTRIBUTE *new_attrs = NULL;
+    CK_ULONG new_attr_count = 0;
+    CK_BBOOL flag;
+    CK_RV rc;
+
+    if (sess == NULL || mech == NULL || pulCiphertextLen == NULL) {
+        TRACE_ERROR("%s received bad argument(s)\n", __func__);
+        return CKR_FUNCTION_FAILED;
+    }
+
+    if (!length_only && (pCiphertext == NULL || phKey == NULL)) {
+        TRACE_ERROR("%s received bad argument(s)\n", __func__);
+        return CKR_FUNCTION_FAILED;
+    }
+
+    if (phKey != NULL)
+        *phKey = CK_INVALID_HANDLE;
+
+    rc = object_mgr_find_in_map1(tokdata, hPublicKey, &public_key_obj,
+                                 READ_LOCK);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s\n", ock_err(ERR_OBJECT_HANDLE_INVALID));
+        goto done;
+    }
+
+    rc = tokdata->policy->is_mech_allowed(tokdata->policy, mech,
+                                          &public_key_obj->strength,
+                                          POLICY_CHECK_ENCAPS, sess);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("POLICY VIOLATION: key encapsulation\n");
+        goto done;
+    }
+
+    if (!key_object_is_mechanism_allowed(public_key_obj->template,
+                                         mech->mechanism)) {
+        TRACE_ERROR("Mechanism not allowed per CKA_ALLOWED_MECHANISMS.\n");
+        rc = CKR_MECHANISM_INVALID;
+        goto done;
+    }
+
+    rc = template_attribute_get_bool(public_key_obj->template, CKA_ENCAPSULATE,
+                                     &flag);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_ENCAPSULATE for the public key.\n");
+        rc = CKR_KEY_FUNCTION_NOT_PERMITTED;
+        goto done;
+    }
+
+    if (flag == FALSE) {
+        TRACE_ERROR("CKA_ENCAPSULATE is set to FALSE.\n");
+        rc = CKR_KEY_FUNCTION_NOT_PERMITTED;
+        goto done;
+    }
+
+    rc = key_object_apply_template_attr(public_key_obj->template,
+                                        CKA_ENCAPSULATE_TEMPLATE,
+                                        pTemplate, ulAttributeCount,
+                                        &new_attrs, &new_attr_count);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("key_object_apply_template_attr failed.\n");
+        goto done;
+    }
+
+    switch (mech->mechanism) {
+    default:
+        TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
+        rc = CKR_MECHANISM_INVALID;
+        break;
+    }
+
+done:
+    if (count_statistics == TRUE && rc == CKR_OK)
+        INC_COUNTER(tokdata, sess, mech, public_key_obj,
+                    POLICY_STRENGTH_IDX_0);
+
+    if (new_attrs != NULL)
+        cleanse_and_free_attribute_array(new_attrs, new_attr_count);
+    if (public_key_obj != NULL) {
+        object_put(tokdata, public_key_obj, TRUE);
+        public_key_obj = NULL;
+    }
+
+    return rc;
+}
+
+CK_RV key_mgr_decapsulate_key(STDLL_TokData_t *tokdata, SESSION *sess,
+                              CK_MECHANISM *mech,
+                              CK_OBJECT_HANDLE hPrivateKey,
+                              CK_ATTRIBUTE *pTemplate,
+                              CK_ULONG ulAttributeCount,
+                              CK_BYTE *pCiphertext, CK_ULONG ulCiphertextLen,
+                              CK_OBJECT_HANDLE *phKey,
+                              CK_BBOOL count_statistics)
+{
+    OBJECT *private_key_obj = NULL;
+    CK_ATTRIBUTE *new_attrs = NULL;
+    CK_ULONG new_attr_count = 0;
+    CK_BBOOL flag;
+    CK_RV rc;
+
+    if (sess == NULL || mech == NULL || pCiphertext == NULL ||
+        ulCiphertextLen == 0 || phKey == NULL) {
+        TRACE_ERROR("%s received bad argument(s)\n", __func__);
+        return CKR_FUNCTION_FAILED;
+    }
+
+    *phKey = CK_INVALID_HANDLE;
+
+    rc = object_mgr_find_in_map1(tokdata, hPrivateKey, &private_key_obj,
+                                 READ_LOCK);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s\n", ock_err(ERR_OBJECT_HANDLE_INVALID));
+        goto done;
+    }
+
+    rc = tokdata->policy->is_mech_allowed(tokdata->policy, mech,
+                                          &private_key_obj->strength,
+                                          POLICY_CHECK_DECAPS, sess);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("POLICY VIOLATION: key decapsulation\n");
+        goto done;
+    }
+
+    if (!key_object_is_mechanism_allowed(private_key_obj->template,
+                                         mech->mechanism)) {
+        TRACE_ERROR("Mechanism not allowed per CKA_ALLOWED_MECHANISMS.\n");
+        rc = CKR_MECHANISM_INVALID;
+        goto done;
+    }
+
+    rc = template_attribute_get_bool(private_key_obj->template, CKA_DECAPSULATE,
+                                     &flag);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_DECAPSULATE for the public key.\n");
+        rc = CKR_KEY_FUNCTION_NOT_PERMITTED;
+        goto done;
+    }
+
+    if (flag == FALSE) {
+        TRACE_ERROR("CKA_DECAPSULATE is set to FALSE.\n");
+        rc = CKR_KEY_FUNCTION_NOT_PERMITTED;
+        goto done;
+    }
+
+    rc = key_object_apply_template_attr(private_key_obj->template,
+                                        CKA_DECAPSULATE_TEMPLATE,
+                                        pTemplate, ulAttributeCount,
+                                        &new_attrs, &new_attr_count);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("key_object_apply_template_attr failed.\n");
+        goto done;
+    }
+
+    switch (mech->mechanism) {
+    default:
+        TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
+        rc = CKR_MECHANISM_INVALID;
+        break;
+    }
+
+done:
+    if (count_statistics == TRUE && rc == CKR_OK)
+        INC_COUNTER(tokdata, sess, mech, private_key_obj,
+                    POLICY_STRENGTH_IDX_0);
+
+    if (new_attrs != NULL)
+        cleanse_and_free_attribute_array(new_attrs, new_attr_count);
+    if (private_key_obj != NULL) {
+        object_put(tokdata, private_key_obj, TRUE);
+        private_key_obj = NULL;
+    }
+
+    return rc;
+}
