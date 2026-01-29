@@ -151,6 +151,36 @@ int unwrap_supported(CK_SLOT_ID slot_id, CK_MECHANISM mech)
     return rc;
 }
 
+int encapsulate_supported(CK_SLOT_ID slot_id, CK_MECHANISM mech)
+{
+    CK_MECHANISM_INFO mech_info;
+    CK_RV rc;
+    // get mech info
+    rc = funcs->C_GetMechanismInfo(slot_id, mech.mechanism, &mech_info);
+    if (rc != CKR_OK) {
+        testcase_error("C_GetMechanismInfo(), rc=%s.", p11_get_ckr(rc));
+        return -1;
+    }
+    rc = mech_info.flags & CKF_ENCAPSULATE;
+
+    return rc;
+}
+
+int decapsulate_supported(CK_SLOT_ID slot_id, CK_MECHANISM mech)
+{
+    CK_MECHANISM_INFO mech_info;
+    CK_RV rc;
+    // get mech info
+    rc = funcs->C_GetMechanismInfo(slot_id, mech.mechanism, &mech_info);
+    if (rc != CKR_OK) {
+        testcase_error("C_GetMechanismInfo(), rc=%s.", p11_get_ckr(rc));
+        return -1;
+    }
+    rc = mech_info.flags & CKF_DECAPSULATE;
+
+    return rc;
+}
+
 /**
  * Check if the last CKR_FUNCTION__FAILED error was due to policy restrictions
  */
@@ -492,6 +522,7 @@ CK_RV generate_RSA_PKCS_KeyPair(CK_SESSION_HANDLE session,
         {CKA_ENCRYPT, &true, sizeof(true)},
         {CKA_VERIFY, &true, sizeof(true)},
         {CKA_WRAP, &true, sizeof(true)},
+        {CKA_ENCAPSULATE, &true, sizeof(true)},
         {CKA_MODULUS_BITS, &modulusBits, sizeof(modulusBits)},
         {CKA_PUBLIC_EXPONENT, publicExponent, publicExponent_len}
     };
@@ -504,13 +535,14 @@ CK_RV generate_RSA_PKCS_KeyPair(CK_SESSION_HANDLE session,
         {CKA_DECRYPT, &true, sizeof(true)},
         {CKA_SIGN, &true, sizeof(true)},
         {CKA_UNWRAP, &true, sizeof(true)},
+        {CKA_DECAPSULATE, &true, sizeof(true)},
     };
 
     // generate keys
     rc = funcs->C_GenerateKeyPair(session,
                                   &mech,
                                   publicKeyTemplate,
-                                  5, privateKeyTemplate, 8, publ_key, priv_key);
+                                  6, privateKeyTemplate, 9, publ_key, priv_key);
 
     if (is_rejected_by_policy(rc, session))
         rc = CKR_POLICY_VIOLATION;
