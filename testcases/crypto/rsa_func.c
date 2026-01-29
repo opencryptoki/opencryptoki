@@ -2355,6 +2355,451 @@ testcase_cleanup:
     return rc;
 }
 
+
+CK_RV do_EncapsDecapsRSA(struct GENERATED_TEST_SUITE_INFO * tsuite)
+{
+    unsigned int i = 0;
+    char *s = NULL;
+    CK_OBJECT_HANDLE publ_key, priv_key;
+    CK_OBJECT_HANDLE secret_key1 = CK_INVALID_HANDLE;
+    CK_OBJECT_HANDLE secret_key2 = CK_INVALID_HANDLE;
+    CK_BYTE_PTR cipher = NULL;
+    CK_ULONG cipher_len;
+    CK_MECHANISM encaps_mech, mech;
+    CK_RSA_PKCS_OAEP_PARAMS oaep_params;
+    CK_BYTE clear[32], encypted[32], re_cipher[32];
+    CK_ULONG encrypted_len = 32, re_cipher_len = 32;
+
+    CK_SESSION_HANDLE session;
+    CK_FLAGS flags;
+    CK_SLOT_ID slot_id = SLOT_ID;
+    CK_BYTE user_pin[PKCS11_MAX_PIN_LEN];
+    CK_ULONG user_pin_len;
+    CK_RV rc, loc_rc;
+
+    CK_OBJECT_CLASS key_class = CKO_SECRET_KEY;
+    CK_KEY_TYPE key_type;
+    CK_ULONG keylen = 0;
+    CK_BBOOL ck_false = CK_FALSE;
+    CK_ATTRIBUTE encaps_decaps_tmpl[] = {
+        {CKA_CLASS, &key_class, sizeof(CK_OBJECT_CLASS)},
+        {CKA_KEY_TYPE, &key_type, sizeof(CK_KEY_TYPE)},
+        {CKA_EXTRACTABLE, &ck_false, sizeof(CK_BBOOL)},
+        {CKA_VALUE_LEN, &keylen, sizeof(CK_ULONG)}
+    };
+    CK_ULONG encaps_decaps_tmpl_len;
+
+    // begin test suite
+    testsuite_begin("%s Ecapsulate Decapsulate.", tsuite->name);
+    testcase_rw_session();
+    testcase_user_login();
+
+    // skip all tests if the slot doesn't support this mechanism
+    if (!mech_supported(slot_id, tsuite->mech.mechanism)) {
+        testsuite_skip(tsuite->tvcount,
+                       "Slot %u doesn't support %s (0x%x)",
+                       (unsigned int) slot_id,
+                       mech_to_str(tsuite->mech.mechanism),
+                       (unsigned int) tsuite->mech.mechanism);
+        goto testcase_cleanup;
+    } else if (!encapsulate_supported(slot_id, tsuite->mech)) {
+        // skip all tests if the slot doesn't support wrapping
+        testsuite_skip(tsuite->tvcount,
+                       "Slot %u doesn't support key encapsulation",
+                       (unsigned int) slot_id);
+        goto testcase_cleanup;
+    }
+    if (!mech_supported(slot_id, tsuite->keygen_mech.mechanism)) {
+        testsuite_skip(tsuite->tvcount,
+                       "Slot %u doesn't support %s (0x%x)",
+                       (unsigned int) slot_id,
+                       mech_to_str(tsuite->keygen_mech.mechanism),
+                       (unsigned int) tsuite->keygen_mech.mechanism);
+        goto testcase_cleanup;
+    }
+
+    for (i = 0; i < tsuite->tvcount; i++) {
+        // skip if the slot doesn't support the keygen mechanism
+        if (!mech_supported(slot_id, tsuite->tv[i].keytype.mechanism)) {
+            testcase_skip("Slot %u doesn't support %s (0x%x)",
+                          (unsigned int) slot_id,
+                          mech_to_str(tsuite->tv[i].keytype.mechanism),
+                          (unsigned int) tsuite->tv[i].keytype.mechanism);
+            continue;
+        }
+
+        if (tsuite->tv[i].modbits > 4096 && !rsa8k) {
+            testcase_skip("Tests with  modbits='%lu' are not enabled",
+                          tsuite->tv[i].modbits);
+            continue;
+        }
+        if (!keysize_supported(slot_id, tsuite->mech.mechanism,
+                               tsuite->tv[i].modbits)) {
+            testcase_skip("Token in slot %lu cannot be used with modbits='%lu'",
+                          SLOT_ID, tsuite->tv[i].modbits);
+            continue;
+        }
+        // get public exponent from test vector
+        if (p11_ahex_dump(&s, tsuite->tv[i].publ_exp,
+                          tsuite->tv[i].publ_exp_len) == NULL) {
+            testcase_error("p11_ahex_dump() failed");
+            rc = -1;
+            goto testcase_cleanup;
+        }
+
+        if (is_ep11_token(slot_id)) {
+            if (!is_valid_ep11_pubexp(tsuite->tv[i].publ_exp,
+                                      tsuite->tv[i].publ_exp_len)) {
+                testcase_skip("EP11 Token cannot be used with publ_exp.='%s'", s);
+                free(s);
+                continue;
+            }
+        }
+        if (is_icsf_token(slot_id)) {
+            if (!is_valid_icsf_pubexp(tsuite->tv[i].publ_exp,
+                                      tsuite->tv[i].publ_exp_len) ||
+                (tsuite->tv[i].modbits < 1024)) {
+                testcase_skip("ICSF Token cannot be used with publ_exp='%s'.", s);
+                free(s);
+                continue;
+            }
+        }
+        if (is_tpm_token(slot_id)) {
+            if ((!is_valid_tpm_pubexp(tsuite->tv[i].publ_exp,
+                                      tsuite->tv[i].publ_exp_len)) ||
+                (!is_valid_tpm_modbits(tsuite->tv[i].modbits))) {
+                testcase_skip("TPM Token cannot be used with publ_exp.='%s'", s);
+                free(s);
+                continue;
+           }
+        }
+        if (is_cca_token(slot_id)) {
+            if (!is_valid_cca_pubexp(tsuite->tv[i].publ_exp,
+                                     tsuite->tv[i].publ_exp_len)) {
+                testcase_skip("CCA Token cannot be used with publ_exp='%s'.", s);
+                free(s);
+                continue;
+            }
+
+            if (tsuite->tv[i].keytype.mechanism == CKM_GENERIC_SECRET_KEY_GEN) {
+                testcase_skip("CCA Token cannot wrap CKK_GENERIC_SECRET keys");
+                free(s);
+                continue;
+            }
+
+            if (tsuite->mech.mechanism == CKM_RSA_PKCS_OAEP &&
+                tsuite->tv[i].oaep_params.hashAlg != CKM_SHA_1 &&
+                tsuite->tv[i].oaep_params.hashAlg != CKM_SHA256) {
+                testcase_skip("CCA Token cannot use RSA OAEP with a hash "
+                             "algorithm other than SHA1 and SHA256: %s",
+                             mech_to_str(tsuite->tv[i].oaep_params.hashAlg));
+                free(s);
+                continue;
+            }
+
+            if (tsuite->mech.mechanism == CKM_RSA_PKCS_OAEP &&
+                 tsuite->tv[i].oaep_params.source == CKZ_DATA_SPECIFIED &&
+                 tsuite->tv[i].oaep_params.ulSourceDataLen > 0) {
+                 testcase_skip("CCA Token cannot use RSA OAEP with non empty "
+                               "source data");
+                 free(s);
+                 continue;
+             }
+
+            if (tsuite->mech.mechanism == CKM_RSA_AES_KEY_WRAP &&
+                (tsuite->tv[i].keytype.mechanism != CKM_AES_KEY_GEN ||
+                 tsuite->tv[i].oaep_params.hashAlg != CKM_SHA_1 ||
+                 tsuite->tv[i].oaep_params.mgf != CKG_MGF1_SHA1 ||
+                 (tsuite->tv[i].oaep_params.source == CKZ_DATA_SPECIFIED &&
+                 tsuite->tv[i].oaep_params.ulSourceDataLen > 0))) {
+                 testcase_skip("CCA Token cannot use RSA AES keywrap with "
+                               "OAEP params other than SHA-1 and empty source "
+                               "data");
+                 free(s);
+                 continue;
+             }
+        }
+        if (is_soft_token(slot_id)) {
+            if (!is_valid_soft_pubexp(tsuite->tv[i].publ_exp,
+                                      tsuite->tv[i].publ_exp_len)) {
+                testcase_skip("Soft Token cannot be used with publ_exp='%s'.", s);
+                free(s);
+                continue;
+            }
+        }
+
+        if (tsuite->mech.mechanism == CKM_RSA_PKCS_OAEP) {
+            if (!mech_supported(slot_id, tsuite->tv[i].oaep_params.hashAlg)) {
+                testcase_skip("Slot %u doesn't support OAEP hash alg %s (0x%x)",
+                              (unsigned int)slot_id,
+                              mech_to_str(tsuite->tv[i].oaep_params.hashAlg),
+                              (unsigned int)tsuite->tv[i].oaep_params.hashAlg);
+                free(s);
+                continue;
+            }
+        }
+
+        // begin test
+        testcase_begin("%s Encapsulate Decapsulate with test vector %u, "
+                       "\npubl_exp='%s', mod_bits='%lu', keylen='%lu', "
+                       "keytype='%s'", tsuite->name, i, s,
+                       tsuite->tv[i].modbits, tsuite->tv[i].keylen,
+                       p11_get_ckm(&mechtable_funcs,
+                                   tsuite->tv[i].keytype.mechanism));
+
+        // free memory
+        if (s)
+            free(s);
+
+        encaps_decaps_tmpl_len =
+                    sizeof(encaps_decaps_tmpl) / sizeof(CK_ATTRIBUTE);
+
+        // get wrapping mechanism
+        encaps_mech = tsuite->mech;
+        if (encaps_mech.mechanism == CKM_RSA_PKCS_OAEP) {
+            oaep_params = tsuite->tv[i].oaep_params;
+            encaps_mech.pParameter = &oaep_params;
+            encaps_mech.ulParameterLen = sizeof(CK_RSA_PKCS_OAEP_PARAMS);
+        }
+
+        if (tsuite->tv[i].keytype.mechanism == CKM_AES_XTS_KEY_GEN &&
+            (is_ep11_token(slot_id) || is_cca_token(slot_id))) {
+            testcase_skip("Skip test as CKM_AES_XTS_KEY_GEN is supported " \
+                          "only for protected keys in EP11 and CCA token");
+            continue;
+        }
+
+        if (!mech_supported(slot_id, encaps_mech.mechanism)) {
+            testcase_skip("Slot %u doesn't support %s (0x%x)",
+                          (unsigned int)slot_id,
+                          mech_to_str(encaps_mech.mechanism),
+                          (unsigned int)encaps_mech.mechanism);
+            continue;
+        }
+
+        // generate RSA key pair
+        rc = generate_RSA_PKCS_KeyPair_cached(session,
+                                              tsuite->keygen_mech.mechanism,
+                                              tsuite->tv[i].modbits,
+                                              tsuite->tv[i].publ_exp,
+                                              tsuite->tv[i].publ_exp_len,
+                                              &publ_key, &priv_key);
+        if (rc != CKR_OK) {
+            if (rc == CKR_POLICY_VIOLATION) {
+                testcase_skip("RSA key generation is not allowed by policy");
+                continue;
+            }
+            if (rc == CKR_KEY_SIZE_RANGE) {
+                testcase_skip("RSA key size is not in supported range");
+                continue;
+            }
+
+            testcase_error("C_GenerateKeyPair() rc = %s", p11_get_ckr(rc));
+            goto testcase_cleanup;
+        }
+
+        mech.ulParameterLen = 0;
+        mech.pParameter = NULL;
+
+        // get encaps key type and length + key check mech
+        switch (tsuite->tv[i].keytype.mechanism) {
+        case CKM_AES_KEY_GEN:
+            key_type = CKK_AES;
+            mech.mechanism = CKM_AES_CBC;
+            mech.ulParameterLen = AES_IV_SIZE;
+            mech.pParameter = &aes_iv;
+            break;
+        case CKM_AES_XTS_KEY_GEN:
+            key_type = CKK_AES_XTS;
+            mech.mechanism = CKM_AES_XTS;
+            mech.ulParameterLen = AES_IV_SIZE;
+            mech.pParameter = &aes_iv;
+            break;
+        case CKM_DES3_KEY_GEN:
+            key_type = CKK_DES3;
+            encaps_decaps_tmpl_len =
+                     sizeof(encaps_decaps_tmpl) / sizeof(CK_ATTRIBUTE) - 1;
+            mech.mechanism = CKM_DES3_CBC;
+            mech.ulParameterLen = DES_IV_SIZE;
+            mech.pParameter = &des_iv;
+            break;
+        case CKM_DES_KEY_GEN:
+            key_type = CKK_DES;
+            encaps_decaps_tmpl_len =
+                     sizeof(encaps_decaps_tmpl) / sizeof(CK_ATTRIBUTE) - 1;
+            mech.mechanism = CKM_DES_CBC;
+            mech.ulParameterLen = DES_IV_SIZE;
+            mech.pParameter = &des_iv;
+            break;
+        case CKM_GENERIC_SECRET_KEY_GEN:
+            key_type = CKK_GENERIC_SECRET;
+            break;
+        default:
+            testcase_error("unknown mech");
+            goto error;
+        }
+
+        keylen = tsuite->tv[i].keylen;
+
+        // encapsulate key (length only)
+        rc = funcs3_2->C_EncapsulateKey(session, &encaps_mech, publ_key,
+                                        encaps_decaps_tmpl,
+                                        encaps_decaps_tmpl_len,
+                                        NULL, &cipher_len, NULL);
+        if (rc != CKR_OK) {
+            if (rc == CKR_MECHANISM_PARAM_INVALID &&
+                encaps_mech.mechanism == CKM_RSA_PKCS_OAEP &&
+                is_ep11_token(slot_id) &&
+                (oaep_params.hashAlg != CKM_SHA_1 ||
+                 oaep_params.mgf != CKG_MGF1_SHA1)) {
+                testcase_skip("EP11 Token does not support RSA OAEP with hash "
+                              "and/or MGF other than SHA-1");
+                goto tv_cleanup;
+            }
+            if (rc == CKR_KEY_NOT_WRAPPABLE && is_cca_token(slot_id)) {
+                testcase_skip("CCA Token does not support to encapsulate %s "
+                              "keys with %s",
+                              encaps_mech.mechanism == CKM_RSA_AES_KEY_WRAP ?
+                                                      "DATA" : "CIPHER",
+                              mech_to_str(encaps_mech.mechanism));
+                goto tv_cleanup;
+            }
+
+            testcase_error("C_EncapsulateKey(), rc=%s.", p11_get_ckr(rc));
+            goto error;
+        }
+
+        testcase_new_assertion();       /* assertion #1 */
+
+        // allocate memory for wrapped_key
+        cipher = calloc(cipher_len, sizeof(CK_BYTE));
+        if (cipher == NULL) {
+            testcase_error("Can't allocate memory for %lu bytes.",
+                           sizeof(CK_BYTE) * cipher_len);
+            rc = CKR_HOST_MEMORY;
+            goto error;
+        }
+        // encapsulate key
+        rc = funcs3_2->C_EncapsulateKey(session, &encaps_mech, publ_key,
+                                        encaps_decaps_tmpl,
+                                        encaps_decaps_tmpl_len,
+                                        cipher, &cipher_len, &secret_key1);
+        if (rc != CKR_OK) {
+            testcase_fail("C_EncapsulateKey, rc=%s", p11_get_ckr(rc));
+            goto error;
+        }
+
+        // Decaps does not allow CKA_VALUE_LEN, RSA can recover the key size
+        encaps_decaps_tmpl_len =
+                 sizeof(encaps_decaps_tmpl) / sizeof(CK_ATTRIBUTE) - 1;
+
+        // decapsulate key
+        rc = funcs3_2->C_DecapsulateKey(session, &encaps_mech, priv_key,
+                                        encaps_decaps_tmpl,
+                                        encaps_decaps_tmpl_len,
+                                        cipher, cipher_len, &secret_key2);
+        if (rc != CKR_OK) {
+            testcase_fail("C_DecapsulateKey, rc=%s", p11_get_ckr(rc));
+            goto error;
+        } else {
+            testcase_pass("encapsulate and decapsulate key successful.");
+        }
+
+        if (tsuite->tv[i].keytype.mechanism != CKM_GENERIC_SECRET_KEY_GEN) {
+            if (!mech_supported(slot_id, mech.mechanism)) {
+                testcase_skip("Slot %u doesn't support %s (0x%x)",
+                              (unsigned int) slot_id,
+                              mech_to_str(mech.mechanism),
+                              (unsigned int)mech.mechanism);
+                goto tv_cleanup;
+            }
+
+            rc = funcs->C_EncryptInit(session, &mech, secret_key1);
+            if (rc != CKR_OK) {
+                testcase_error("C_EncryptInit with encapsulated key "
+                               ": rc = %s", p11_get_ckr(rc));
+                goto error;
+            }
+
+            rc = funcs->C_Encrypt(session, clear, sizeof(clear),
+                                  encypted, &encrypted_len);
+            if (rc != CKR_OK) {
+                testcase_error("C_Encrypt secret_key: rc = %s",
+                               p11_get_ckr(rc));
+                goto error;
+            }
+
+            rc = funcs->C_DecryptInit(session, &mech, secret_key2);
+            if (rc != CKR_OK) {
+                testcase_error("C_DecryptInit with decapsulated key: "
+                               " rc = %s", p11_get_ckr(rc));
+                goto error;
+            }
+
+            rc = funcs->C_Decrypt(session, encypted, encrypted_len,
+                                  re_cipher, &re_cipher_len);
+            if (rc != CKR_OK) {
+                testcase_error("C_Decrypt unwrapped_key: "
+                               "rc = %s", p11_get_ckr(rc));
+                goto error;
+            }
+
+            testcase_new_assertion();
+
+            if (memcmp(clear, re_cipher, 32) != 0) {
+                testcase_fail("ERROR:data mismatch\n");
+                goto error;
+            } else {
+                testcase_pass("Decrypted data is correct.");
+            }
+        }
+
+        // clean up
+tv_cleanup:
+        if (cipher) {
+            free(cipher);
+            cipher = NULL;
+        }
+
+        if (secret_key1 != CK_INVALID_HANDLE) {
+            rc = funcs->C_DestroyObject(session, secret_key1);
+            if (rc != CKR_OK)
+                testcase_error("C_DestroyObject(), rc=%s.",
+                               p11_get_ckr(rc));
+            secret_key1 = CK_INVALID_HANDLE;
+        }
+
+        if (secret_key2 != CK_INVALID_HANDLE) {
+            rc = funcs->C_DestroyObject(session, secret_key2);
+            if (rc != CKR_OK)
+                testcase_error("C_DestroyObject(), rc=%s.",
+                               p11_get_ckr(rc));
+            secret_key2 = CK_INVALID_HANDLE;
+        }
+
+    }
+    goto testcase_cleanup;
+
+error:
+    if (cipher) {
+        free(cipher);
+        cipher = NULL;
+    }
+
+    funcs->C_DestroyObject(session, secret_key1);
+    funcs->C_DestroyObject(session, secret_key2);
+
+testcase_cleanup:
+    free_rsa_key_cache(session);
+    testcase_user_logout();
+    loc_rc = funcs->C_CloseAllSessions(slot_id);
+    if (loc_rc != CKR_OK) {
+        testcase_error("C_CloseAllSessions(), rc=%s.", p11_get_ckr(loc_rc));
+    }
+
+    return rc;
+}
+
 CK_RV rsa_funcs(void)
 {
     unsigned int i;
@@ -2439,6 +2884,19 @@ CK_RV rsa_funcs(void)
     // Implicit rejection tests
     for (i = 0; i < NUM_OF_IMPLICIT_REJECTION_TESTSUITES; i++) {
         rv = do_RSAImplicitRejection(&rsa_implicit_rejection_test_suites[i]);
+        if (rv != CKR_OK && (!no_stop))
+            break;
+    }
+
+    // Encapsulate/Decapsulate tests
+    for (i = 0; i < NUM_OF_GENERATED_KEYWRAP_TESTSUITES; i++) {
+        rv = do_EncapsDecapsRSA(&generated_keywrap_test_suites[i]);
+        if (rv != CKR_OK && (!no_stop))
+            break;
+    }
+
+    for (i = 0; i < NUM_OF_GENERATED_OAEP_TESTSUITES; i++) {
+        rv = do_EncapsDecapsRSA(&generated_oaep_test_suites[i]);
         if (rv != CKR_OK && (!no_stop))
             break;
     }
