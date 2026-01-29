@@ -2204,6 +2204,12 @@ CK_RV key_mgr_encapsulate_key(STDLL_TokData_t *tokdata, SESSION *sess,
                                  public_key_obj, new_attrs, new_attr_count,
                                  pCiphertext, pulCiphertextLen, phKey);
         break;
+    case CKM_ECDH1_DERIVE:
+    case CKM_ECDH1_COFACTOR_DERIVE:
+        rc = ecdh_encapsulate_key(tokdata, sess, length_only, mech,
+                                  public_key_obj, new_attrs, new_attr_count,
+                                  pCiphertext, pulCiphertextLen, phKey);
+        break;
     default:
         TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
         rc = CKR_MECHANISM_INVALID;
@@ -2299,6 +2305,12 @@ CK_RV key_mgr_decapsulate_key(STDLL_TokData_t *tokdata, SESSION *sess,
         rc = rsa_decapsulate_key(tokdata, sess, mech, private_key_obj,
                                  new_attrs, new_attr_count,
                                  pCiphertext, ulCiphertextLen, phKey);
+        break;
+    case CKM_ECDH1_DERIVE:
+    case CKM_ECDH1_COFACTOR_DERIVE:
+        rc = ecdh_decapsulate_key(tokdata, sess, mech, private_key_obj,
+                                  new_attrs, new_attr_count,
+                                  pCiphertext, ulCiphertextLen, phKey);
         break;
     default:
         TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));

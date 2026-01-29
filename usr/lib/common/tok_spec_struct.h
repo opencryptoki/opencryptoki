@@ -348,6 +348,20 @@ struct token_specific_struct {
                                           CK_OBJECT_HANDLE,
                                           CK_OBJECT_HANDLE*);
 
+    CK_RV(* t_encapsulate_ecdh_key_pair_gen)(STDLL_TokData_t *, SESSION *,
+                                             CK_MECHANISM *,
+                                             CK_ATTRIBUTE *, CK_ULONG,
+                                             CK_ATTRIBUTE *, CK_ULONG,
+                                             CK_OBJECT_HANDLE *,
+                                             CK_OBJECT_HANDLE *);
+
+    CK_RV(* t_en_decapsulate_ecdh_derive_key)(STDLL_TokData_t *, SESSION *,
+                                              CK_MECHANISM *,
+                                              CK_OBJECT_HANDLE baskey,
+                                              CK_OBJECT_HANDLE *,
+                                              CK_ATTRIBUTE *, CK_ULONG,
+                                              CK_ULONG);
+
     CK_RV(*t_reencrypt_single) (STDLL_TokData_t *, SESSION *,
                                 ENCR_DECR_CONTEXT *, CK_MECHANISM *, OBJECT *,
                                 ENCR_DECR_CONTEXT *, CK_MECHANISM *, OBJECT *,

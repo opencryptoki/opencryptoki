@@ -765,6 +765,19 @@ CK_RV ecdh_aes_key_unwrap(STDLL_TokData_t *tokdata, SESSION *sess,
                           CK_BYTE *in_data, CK_ULONG in_data_len,
                           CK_BYTE *out_data, CK_ULONG *out_data_len);
 
+CK_RV ecdh_encapsulate_key(STDLL_TokData_t *tokdata, SESSION *sess,
+                           CK_BBOOL length_only, CK_MECHANISM *mech,
+                           OBJECT *public_key,
+                           CK_ATTRIBUTE *pTemplate, CK_ULONG ulAttributeCount,
+                           CK_BYTE *pCiphertext, CK_ULONG *pulCiphertextLen,
+                           CK_OBJECT_HANDLE *phKey);
+
+CK_RV ecdh_decapsulate_key(STDLL_TokData_t *tokdata, SESSION *sess,
+                           CK_MECHANISM *mech, OBJECT *private_key,
+                           CK_ATTRIBUTE *pTemplate, CK_ULONG ulAttributeCount,
+                           CK_BYTE *pCiphertext, CK_ULONG ulCiphertextLen,
+                           CK_OBJECT_HANDLE *phKey);
+
 CK_RV rsa_format_block(STDLL_TokData_t *tokdata,
                        CK_BYTE *in_data,
                        CK_ULONG in_data_len,
