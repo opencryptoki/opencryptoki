@@ -4258,7 +4258,7 @@ CK_RV SC_GenerateKey(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
     }
 
     rc = ep11tok_generate_key(tokdata, sess, pMechanism, pTemplate,
-                              ulCount, phKey);
+                              ulCount, phKey, TRUE, OP_KEYGEN);
     if (rc != CKR_OK)
         TRACE_DEVEL("ep11tok_generate_key() failed.\n");
 
@@ -4427,7 +4427,7 @@ CK_RV SC_WrapKey(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
     }
 
     rc = ep11tok_wrap_key(tokdata, sess, pMechanism, hWrappingKey, hKey,
-                          pWrappedKey, pulWrappedKeyLen);
+                          pWrappedKey, pulWrappedKeyLen, TRUE);
     if (rc != CKR_OK)
         TRACE_DEVEL("ep11tok_wrap_key() failed.\n");
 
@@ -4485,7 +4485,7 @@ CK_RV SC_UnwrapKey(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
 
     rc = ep11tok_unwrap_key(tokdata, sess, pMechanism, pTemplate, ulCount,
                             pWrappedKey, ulWrappedKeyLen, hUnwrappingKey,
-                            phKey);
+                            phKey, OP_UNWRAP);
     if (rc != CKR_OK)
         TRACE_DEVEL("ep11tok_unwrap_key() failed.\n");
 

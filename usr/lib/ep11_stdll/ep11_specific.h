@@ -471,7 +471,8 @@ CK_RV ep11tok_final(STDLL_TokData_t * tokdata, CK_BBOOL in_fork_initializer);
 
 CK_RV ep11tok_generate_key(STDLL_TokData_t * tokdata, SESSION * session,
                            CK_MECHANISM_PTR mech, CK_ATTRIBUTE_PTR attrs,
-                           CK_ULONG attrs_len, CK_OBJECT_HANDLE_PTR handle);
+                           CK_ULONG attrs_len, CK_OBJECT_HANDLE_PTR handle,
+                           CK_BBOOL count_statistics, CK_ULONG operation);
 
 CK_RV is_ec_aggregate_mechanism(CK_MECHANISM_PTR pMechanism);
 
@@ -585,14 +586,15 @@ CK_RV ep11tok_decrypt_single(STDLL_TokData_t *tokdata, SESSION *session,
 CK_RV ep11tok_wrap_key(STDLL_TokData_t * tokdata, SESSION * session,
                        CK_MECHANISM_PTR mech, CK_OBJECT_HANDLE wrapping_key,
                        CK_OBJECT_HANDLE key, CK_BYTE_PTR wrapped_key,
-                       CK_ULONG_PTR p_wrapped_key_len);
+                       CK_ULONG_PTR p_wrapped_key_len,
+                       CK_BBOOL count_statistics);
 
 CK_RV ep11tok_unwrap_key(STDLL_TokData_t * tokdata, SESSION * session,
                          CK_MECHANISM_PTR mech, CK_ATTRIBUTE_PTR attrs,
                          CK_ULONG attrs_len, CK_BYTE_PTR wrapped_key,
                          CK_ULONG wrapped_key_len,
                          CK_OBJECT_HANDLE wrapping_key,
-                         CK_OBJECT_HANDLE_PTR p_key);
+                         CK_OBJECT_HANDLE_PTR p_key, CK_ULONG operation);
 
 CK_RV ep11tok_login_session(STDLL_TokData_t * tokdata, SESSION * session);
 

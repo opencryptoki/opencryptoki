@@ -1710,6 +1710,89 @@ static const struct {
     { 0, 0, 0, 0 },
 };
 
+static void ep11tok_endecaps_combine_attrs(TEMPLATE *tmpl, CK_KEY_TYPE keytype,
+                                           CK_OBJECT_CLASS class,
+                                           CK_ATTRIBUTE_TYPE pkcs11_attr,
+                                           CK_BBOOL *user_val)
+{
+    CK_ATTRIBUTE *attr;
+
+    switch (keytype) {
+    case CKK_RSA:
+        /* RSA: Combine WRAP and ENCAPS, UNWRAP and DECAPS */
+        if (pkcs11_attr == CKA_WRAP &&
+            class == CKO_PUBLIC_KEY &&
+            template_attribute_find(tmpl, CKA_ENCAPSULATE, &attr) &&
+            attr->ulValueLen == sizeof(CK_BBOOL) &&
+            attr->pValue != NULL) {
+            TRACE_DEVEL("%s RSA pub key: CKA_WRAP (%d) = CKA_WRAP (%d) OR "
+                        "CKA_ENCAPSULATE (%d)\n", __func__,
+                        *user_val | *((CK_BBOOL *)attr->pValue),
+                        *user_val, *((CK_BBOOL *)attr->pValue));
+            *user_val |= *((CK_BBOOL *)attr->pValue);
+        }
+        if (pkcs11_attr == CKA_UNWRAP &&
+            class == CKO_PRIVATE_KEY &&
+            template_attribute_find(tmpl, CKA_DECAPSULATE, &attr) &&
+            attr->ulValueLen == sizeof(CK_BBOOL) &&
+            attr->pValue != NULL) {
+            TRACE_DEVEL("%s RSA prv key: CKA_UNWRAP (%d) = CKA_UNWRAP (%d) OR "
+                        "CKA_DECAPSULATE (%d)\n", __func__,
+                        *user_val | *((CK_BBOOL *)attr->pValue),
+                        *user_val, *((CK_BBOOL *)attr->pValue));
+            *user_val |= *((CK_BBOOL *)attr->pValue);
+        }
+        break;
+    }
+}
+
+static CK_RV ep11tok_endecaps_combine_attrs_import(TEMPLATE *tmpl,
+                                                   CK_KEY_TYPE keytype,
+                                                   CK_OBJECT_CLASS class,
+                                                   CK_BBOOL add_always,
+                                                   CK_BBOOL wrap,
+                                                   CK_BBOOL unwrap)
+{
+    CK_ATTRIBUTE *attr;
+    CK_RV rc;
+
+    switch (keytype) {
+    case CKK_RSA:
+        /* RSA: Set ENCAPS = WRAP, DECAPS = UNWRAP */
+        if(class == CKO_PUBLIC_KEY &&
+           (add_always ||
+            !template_attribute_find(tmpl, CKA_ENCAPSULATE, &attr))) {
+            TRACE_DEVEL("%s RSA pub key: Add CKA_ENCAPSULATE = CKA_WRAP "
+                        "(%d)\n", __func__, wrap);
+
+            rc = template_build_update_attribute(tmpl, CKA_ENCAPSULATE,
+                                                 &wrap, sizeof(CK_BBOOL));
+            if (rc != CKR_OK) {
+                TRACE_ERROR("template_build_update_attribute (CKA_ENCAPSULATE) "
+                           "failed (rc=0x%lx)\n", rc);
+                return rc;
+            }
+        }
+        if (class == CKO_PRIVATE_KEY &&
+            (add_always ||
+             !template_attribute_find(tmpl, CKA_DECAPSULATE, &attr))) {
+            TRACE_DEVEL("%s RSA prv key: Add CKA_DECAPSULATE = CKA_UNWRAP "
+                        "(%d)\n", __func__, unwrap);
+
+            rc = template_build_update_attribute(tmpl, CKA_DECAPSULATE,
+                                                 &unwrap, sizeof(CK_BBOOL));
+            if (rc != CKR_OK) {
+                TRACE_ERROR("template_build_update_attribute (CKA_DECAPSULATE) "
+                            "failed (rc=0x%lx)\n", rc);
+                return rc;
+            }
+        }
+        break;
+    }
+
+    return CKR_OK;
+}
+
 static CK_RV ep11tok_check_blob_import_attrs(STDLL_TokData_t *tokdata,
                                              CK_OBJECT_CLASS class,
                                              TEMPLATE *tmpl,
@@ -1718,7 +1801,8 @@ static CK_RV ep11tok_check_blob_import_attrs(STDLL_TokData_t *tokdata,
     CK_ULONG keytype, i;
     XCP_Attr_t *bool_attrs = NULL, *bool_attrs2 = NULL;
     CK_ATTRIBUTE *attr;
-    CK_BBOOL is_spki, blob_val, user_val;
+    CK_BBOOL is_spki, blob_val, user_val, new_blob_val;
+    CK_BBOOL wrap = CK_FALSE, unwrap = CK_FALSE;
     CK_RV rc;
 
     UNUSED(tokdata);
@@ -1782,32 +1866,58 @@ static CK_RV ep11tok_check_blob_import_attrs(STDLL_TokData_t *tokdata,
                                     &attr) &&
             attr->ulValueLen == sizeof(CK_BBOOL) && attr->pValue != NULL) {
             user_val = *((CK_BBOOL *)attr->pValue);
-            if (blob_val != user_val) {
+
+            new_blob_val = user_val;
+            ep11tok_endecaps_combine_attrs(tmpl, keytype, class,
+                                           ep11_pkcs11_attr_map[i].pkcs11_attr,
+                                           &new_blob_val);
+
+            if (blob_val != new_blob_val) {
                 /* User supplied attribute is different than in blob */
                 if ((*bool_attrs & XCP_BLOB_MODIFIABLE) == 0) {
                     TRACE_ERROR("Attribute %s=%s in template can not be "
                                 "applied to the blob because the blob has "
                                 "CKA_MODIFIABLE=FALSE\n",
                                p11_get_cka(ep11_pkcs11_attr_map[i].pkcs11_attr),
-                               user_val ? "TRUE" : "FALSE");
+                               new_blob_val ? "TRUE" : "FALSE");
                     return CKR_ATTRIBUTE_VALUE_INVALID;
                 }
-                if ((user_val == FALSE &&
+                if ((new_blob_val == FALSE &&
                                     ep11_pkcs11_attr_map[i].can_set_to_false) ||
-                    (user_val == TRUE &&
+                    (new_blob_val == TRUE &&
                                     ep11_pkcs11_attr_map[i].can_set_to_true)) {
-                    /* Update of attr is allowed */
+                    /*
+                     * Update of attr is allowed. Use the original user value,
+                     * any adjustments done by ep11tok_endecaps_combine_attrs()
+                     * should not be reflected in template. Later on
+                     * import_blob_update_attrs() will do the same adjustments
+                     * again and update the blob attributes as needed.
+                     */
                     blob_val = user_val;
                 } else {
                     TRACE_ERROR("Attribute %s=%s in template conflicts with "
                                "blob attribute setting %s\n",
                                p11_get_cka(ep11_pkcs11_attr_map[i].pkcs11_attr),
-                               user_val ? "TRUE" : "FALSE",
+                               new_blob_val ? "TRUE" : "FALSE",
                                blob_val ? "TRUE" : "FALSE");
                     return CKR_ATTRIBUTE_VALUE_INVALID;
                 }
+            } else {
+                /*
+                 * After adjustment by ep11tok_endecaps_combine_attrs(), the
+                 * user supplied attribute is the same as in the blob. Still,
+                 * use the original user value, any adjustments done by
+                 * ep11tok_endecaps_combine_attrs() should not be reflected in
+                 * template.
+                 */
+                blob_val = user_val;
             }
         }
+
+        if (ep11_pkcs11_attr_map[i].pkcs11_attr == CKA_WRAP)
+            wrap = blob_val;
+        if (ep11_pkcs11_attr_map[i].pkcs11_attr == CKA_UNWRAP)
+            unwrap = blob_val;
 
         rc = template_build_update_attribute(tmpl,
                                              ep11_pkcs11_attr_map[i].pkcs11_attr,
@@ -1817,6 +1927,17 @@ static CK_RV ep11tok_check_blob_import_attrs(STDLL_TokData_t *tokdata,
                         p11_get_cka(ep11_pkcs11_attr_map[i].pkcs11_attr));
             return rc;
         }
+    }
+
+    /*
+     * Set CKA_ENCAPSULATE/CKA_DECAPSULATE according to combined attrs, if not
+     * already specified by user in the template.
+     */
+    rc = ep11tok_endecaps_combine_attrs_import(tmpl, keytype, class, FALSE,
+                                               wrap, unwrap);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("ep11tok_endecaps_combine_attrs_import failed\n");
+        return rc;
     }
 
     return CKR_OK;
@@ -2284,7 +2405,8 @@ static CK_RV ab_unwrap_update_template(STDLL_TokData_t * tokdata,
                                        SESSION * session,
                                        CK_BYTE *blob, size_t blob_len,
                                        OBJECT *obj,
-                                       CK_KEY_TYPE keytype)
+                                       CK_KEY_TYPE keytype,
+                                       CK_OBJECT_CLASS class)
 {
     CK_RV rc;
     CK_BBOOL trusted, encrypt, decrypt, wrap, unwrap, sign, sign_recover,
@@ -2382,7 +2504,18 @@ static CK_RV ab_unwrap_update_template(STDLL_TokData_t * tokdata,
         free(attr);
         attr = NULL;
         TRACE_ERROR("%s failed to force template sensitive; rc=0x%08lx\n", __func__, rc);
+        return rc;
     }
+
+    /* Set CKA_ENCAPSULATE/CKA_DECAPSULATE according to combined attrs */
+    rc = ep11tok_endecaps_combine_attrs_import(obj->template, keytype,
+                                               class, TRUE,
+                                               wrap, unwrap);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("ep11tok_endecaps_combine_attrs_import failed\n");
+        return rc;
+    }
+
     return rc;
 } 
 
@@ -2782,6 +2915,121 @@ static CK_BBOOL attr_applicable_for_ep11(STDLL_TokData_t * tokdata,
     return CK_TRUE;
 }
 
+struct endecap_combine_attrs_data {
+    CK_BBOOL wrap_found;
+    CK_BBOOL wrap;
+    CK_BBOOL unwrap_found;
+    CK_BBOOL unwrap;
+    CK_BBOOL encaps_found;
+    CK_BBOOL encaps;
+    CK_BBOOL decaps_found;
+    CK_BBOOL decaps;
+};
+
+static CK_RV ep11tok_endecaps_combine_attrs_collect(
+                                      CK_ATTRIBUTE *attr,
+                                      struct endecap_combine_attrs_data* data)
+{
+    switch (attr->type) {
+    case CKA_WRAP:
+        if (attr->ulValueLen != sizeof(CK_BBOOL) || attr->pValue == NULL)
+            return CKR_ATTRIBUTE_VALUE_INVALID;
+        /* Remember value for later, but do not add now */
+        data->wrap = *(CK_BBOOL *)attr->pValue;
+        data->wrap_found = CK_TRUE;
+        return CKR_OK;
+
+    case CKA_UNWRAP:
+        if (attr->ulValueLen != sizeof(CK_BBOOL) || attr->pValue == NULL)
+            return CKR_ATTRIBUTE_VALUE_INVALID;
+        /* Remember value for later, but do not add now */
+        data->unwrap = *(CK_BBOOL *)attr->pValue;
+        data->unwrap_found = CK_TRUE;
+        return CKR_OK;
+
+    case CKA_ENCAPSULATE:
+        if (attr->ulValueLen != sizeof(CK_BBOOL) || attr->pValue == NULL)
+            return CKR_ATTRIBUTE_VALUE_INVALID;
+        /* Remember value for later, but do not add now */
+        data->encaps = *(CK_BBOOL *)attr->pValue;
+        data->encaps_found = CK_TRUE;
+        return CKR_OK;
+
+    case CKA_DECAPSULATE:
+        if (attr->ulValueLen != sizeof(CK_BBOOL) || attr->pValue == NULL)
+            return CKR_ATTRIBUTE_VALUE_INVALID;
+        /* Remember value for later, but do not add now */
+        data->decaps = *(CK_BBOOL *)attr->pValue;
+        data->decaps_found = CK_TRUE;
+        return CKR_OK;
+    }
+
+    return CKR_ATTRIBUTE_TYPE_INVALID;
+}
+
+static CK_RV ep11tok_endecaps_combine_attrs_apply(
+                                      STDLL_TokData_t *tokdata,
+                                      CK_OBJECT_CLASS class,
+                                      CK_KEY_TYPE keytype,
+                                      int curve_type,
+                                      CK_MECHANISM *mech,
+                                      CK_ATTRIBUTE **p_attrs,
+                                      CK_ULONG *p_attrs_len,
+                                      struct endecap_combine_attrs_data* data)
+{
+    CK_ATTRIBUTE wrap_attr = { CKA_WRAP, &data->wrap, sizeof(CK_BBOOL) };
+    CK_ATTRIBUTE unwrap_attr = { CKA_UNWRAP, &data->unwrap, sizeof(CK_BBOOL) };
+    CK_RV rc;
+
+    switch (keytype) {
+    case CKK_RSA:
+        /* RSA: Combine Encaps and Wrap, Decaps and Unwrap */
+        if (data->encaps_found && class == CKO_PUBLIC_KEY) {
+            TRACE_DEVEL("%s RSA pub key: CKA_WRAP (%d) = CKA_WRAP (%d) OR "
+                        "CKA_ENCAPSULATE (%d)\n", __func__,
+                        data->wrap | data->encaps,
+                        data->wrap, data->encaps);
+
+            data->wrap |= data->encaps;
+            data->wrap_found = CK_TRUE;
+        }
+        if (data->decaps_found && class == CKO_PRIVATE_KEY) {
+            TRACE_DEVEL("%s RSA prv key: CKA_UNWRAP (%d) = CKA_UNWRAP (%d) OR "
+                        "CKA_DECAPSULATE (%d)\n", __func__,
+                        data->unwrap | data->decaps,
+                        data->unwrap, data->decaps);
+
+            data->unwrap |= data->decaps;
+            data->unwrap_found = CK_TRUE;
+        }
+        break;
+    }
+
+    if (data->wrap_found &&
+        attr_applicable_for_ep11(tokdata, &wrap_attr, keytype, class,
+                                 curve_type, mech)) {
+        rc = add_to_attribute_array(p_attrs, p_attrs_len, CKA_WRAP,
+                                    &data->wrap, sizeof(CK_BBOOL));
+        if (rc != CKR_OK) {
+            TRACE_ERROR("Adding attribute failed (CKA_WRAP) rc=0x%lx\n", rc);
+            return rc;
+        }
+    }
+
+    if (data->unwrap_found &&
+        attr_applicable_for_ep11(tokdata, &unwrap_attr, keytype, class,
+                                 curve_type, mech)) {
+        rc = add_to_attribute_array(p_attrs, p_attrs_len, CKA_UNWRAP,
+                                    &data->unwrap, sizeof(CK_BBOOL));
+        if (rc != CKR_OK) {
+            TRACE_ERROR("Adding attribute failed (CKA_UNWRAP) rc=0x%lx\n", rc);
+            return rc;
+        }
+    }
+
+    return CKR_OK;
+}
+
 /*
  * Build an array of attributes to be passed to EP11. Some attributes are
  * handled 'read-only' by EP11, and would cause an error if passed to EP11.
@@ -2796,10 +3044,15 @@ static CK_RV build_ep11_attrs(STDLL_TokData_t * tokdata, TEMPLATE *template,
     CK_RV rc;
     CK_ULONG value_len = 0;
     CK_KEY_TYPE key_type;
+    struct endecap_combine_attrs_data combine_attr_data = { 0 };
 
     node = template->attribute_list;
     while (node != NULL) {
         attr = node->data;
+
+        rc = ep11tok_endecaps_combine_attrs_collect(attr, &combine_attr_data);
+        if (rc == CKR_OK)
+            goto next;
 
         /* EP11 handles this as 'read only' and reports an error if specified */
         switch (attr->type) {
@@ -2863,7 +3116,16 @@ static CK_RV build_ep11_attrs(STDLL_TokData_t * tokdata, TEMPLATE *template,
             }
         }
 
+next:
         node = node->next;
+    }
+
+    rc = ep11tok_endecaps_combine_attrs_apply(tokdata, class, ktype, curve_type,
+                                              mech, p_attrs, p_attrs_len,
+                                              &combine_attr_data);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("ep11tok_endecaps_combine_attrs_apply failed: 0x%lx\n", rc);
+        return rc;
     }
 
     return CKR_OK;
@@ -5538,6 +5800,11 @@ static CK_RV import_blob_update_attrs(STDLL_TokData_t *tokdata, SESSION *sess,
                                     &attr) &&
             attr->ulValueLen == sizeof(CK_BBOOL) && attr->pValue != NULL) {
             user_val = *((CK_BBOOL *)attr->pValue);
+
+            ep11tok_endecaps_combine_attrs(obj->template, keytype, class,
+                                           ep11_pkcs11_attr_map[i].pkcs11_attr,
+                                           &user_val);
+
             if (blob_val != user_val &&
                 ((user_val == FALSE &&
                                  ep11_pkcs11_attr_map[i].can_set_to_false) ||
@@ -5545,8 +5812,8 @@ static CK_RV import_blob_update_attrs(STDLL_TokData_t *tokdata, SESSION *sess,
                                  ep11_pkcs11_attr_map[i].can_set_to_true))) {
                 /* Attribute was updated, add it */
                 rc = template_build_update_attribute(tmpl, attr->type,
-                                                     (CK_BYTE *)attr->pValue,
-                                                     attr->ulValueLen);
+                                                     (CK_BYTE *)&user_val,
+                                                     sizeof(user_val));
                 if (rc != CKR_OK) {
                     TRACE_ERROR("%s template_build_update_attribute failed "
                                 "rc=0x%lx\n", __func__, rc);
@@ -6369,7 +6636,8 @@ CK_RV token_specific_object_add(STDLL_TokData_t * tokdata, SESSION * sess,
 
 CK_RV ep11tok_generate_key(STDLL_TokData_t * tokdata, SESSION * session,
                            CK_MECHANISM_PTR mech, CK_ATTRIBUTE_PTR attrs,
-                           CK_ULONG attrs_len, CK_OBJECT_HANDLE_PTR handle)
+                           CK_ULONG attrs_len, CK_OBJECT_HANDLE_PTR handle,
+                           CK_BBOOL count_statistics, CK_ULONG operation)
 {
     ep11_private_data_t *ep11_data = tokdata->private_data;
     CK_BYTE blob[MAX_BLOBSIZE], blob2[MAX_BLOBSIZE];
@@ -6392,12 +6660,25 @@ CK_RV ep11tok_generate_key(STDLL_TokData_t * tokdata, SESSION * session,
     ep11_session_t *ep11_session = (ep11_session_t *) session->private_data;
     CK_MECHANISM mech2 = {0, NULL, 0};
     CK_BBOOL blob_new_mk = FALSE, blob2_new_mk = FALSE;
+    CK_ULONG mode;
 
     memset(blob, 0, sizeof(blob));
     memset(reenc_blob, 0, sizeof(reenc_blob));
     memset(csum, 0, sizeof(csum));
     memset(blob2, 0, sizeof(blob2));
     memset(csum2, 0, sizeof(csum2));
+
+    switch (operation) {
+    case OP_KEYGEN:
+        mode = MODE_KEYGEN;
+        break;
+    case OP_ENCAPSULATE:
+        mode = MODE_ENCAPS;
+        break;
+    default:
+        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
+        return CKR_FUNCTION_FAILED;
+    }
 
     /* Get the keytype to use when creating the key object */
     rc = pkcs_get_keytype(attrs, attrs_len, mech, &ktype, &class);
@@ -6422,7 +6703,7 @@ CK_RV ep11tok_generate_key(STDLL_TokData_t * tokdata, SESSION * session,
 #endif /* NO_PKEY */
 
     rc = object_mgr_create_skel(tokdata, session, new_attrs, new_attrs_len,
-                                MODE_KEYGEN, CKO_SECRET_KEY, ktype, &key_obj);
+                                mode, CKO_SECRET_KEY, ktype, &key_obj);
     if (rc != CKR_OK) {
         TRACE_ERROR("%s object_mgr_create_skel failed with rc=0x%lx\n",
                     __func__, rc);
@@ -6669,7 +6950,8 @@ retry_xts:
         goto error;
     }
 
-    INC_COUNTER(tokdata, session, mech, key_obj, POLICY_STRENGTH_IDX_0);
+    if (count_statistics)
+        INC_COUNTER(tokdata, session, mech, key_obj, POLICY_STRENGTH_IDX_0);
 
     goto done;
 error:
@@ -13911,7 +14193,8 @@ CK_RV ep11tok_decrypt_init(STDLL_TokData_t * tokdata, SESSION * session,
 CK_RV ep11tok_wrap_key(STDLL_TokData_t * tokdata, SESSION * session,
                        CK_MECHANISM_PTR mech, CK_OBJECT_HANDLE wrapping_key,
                        CK_OBJECT_HANDLE key, CK_BYTE_PTR wrapped_key,
-                       CK_ULONG_PTR p_wrapped_key_len)
+                       CK_ULONG_PTR p_wrapped_key_len,
+                       CK_BBOOL count_statistics)
 {
     CK_RV rc;
     CK_BYTE *wrapping_blob = NULL, *use_wrapping_blob = NULL;
@@ -14075,7 +14358,7 @@ CK_RV ep11tok_wrap_key(STDLL_TokData_t * tokdata, SESSION * session,
     }
 
 done:
-    if (rc == CKR_OK && !size_query)
+    if (rc == CKR_OK && !size_query && count_statistics)
         INC_COUNTER(tokdata, session, mech, wrap_key_obj,
                     POLICY_STRENGTH_IDX_0);
 
@@ -14098,7 +14381,7 @@ CK_RV ep11tok_unwrap_key(STDLL_TokData_t * tokdata, SESSION * session,
                          CK_ULONG attrs_len, CK_BYTE_PTR wrapped_key,
                          CK_ULONG wrapped_key_len,
                          CK_OBJECT_HANDLE wrapping_key,
-                         CK_OBJECT_HANDLE_PTR p_key)
+                         CK_OBJECT_HANDLE_PTR p_key, CK_ULONG operation)
 {
     ep11_private_data_t *ep11_data = tokdata->private_data;
     CK_RV rc;
@@ -14128,6 +14411,26 @@ CK_RV ep11tok_unwrap_key(STDLL_TokData_t * tokdata, SESSION * session,
     size_t verifyblobsize = 0, use_verifyblobsize = 0;
     OBJECT *vobj = NULL;
     CK_KEY_TYPE keytype;
+    CK_ULONG mode;
+    int policy_check;
+    CK_ATTRIBUTE_TYPE apply_tmpl_attr;
+
+    switch (operation) {
+    case OP_UNWRAP:
+        mode = MODE_UNWRAP;
+        apply_tmpl_attr = CKA_UNWRAP_TEMPLATE;
+        policy_check = POLICY_CHECK_UNWRAP;
+        break;
+    case OP_DECAPSULATE:
+        mode = MODE_DECAPS;
+        apply_tmpl_attr = CKA_DECAPSULATE_TEMPLATE;
+        policy_check = POLICY_CHECK_DECAPS;
+        break;
+    default:
+        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
+    }
 
     /* get wrapping key blob */
     rc = h_opaque_2_blob(tokdata, wrapping_key, &wrapping_blob,
@@ -14152,7 +14455,7 @@ CK_RV ep11tok_unwrap_key(STDLL_TokData_t * tokdata, SESSION * session,
 
     rc = tokdata->policy->is_mech_allowed(tokdata->policy, mech,
                                           &kobj->strength,
-                                          POLICY_CHECK_UNWRAP, session);
+                                          policy_check, session);
     if (rc != CKR_OK) {
         TRACE_ERROR("POLICY VIOLATION: key unwrap\n");
         goto done;
@@ -14259,7 +14562,7 @@ CK_RV ep11tok_unwrap_key(STDLL_TokData_t * tokdata, SESSION * session,
     tmp_attrs_len = new_attrs_len;
     new_attrs = NULL;
     new_attrs_len = 0;
-    rc = key_object_apply_template_attr(kobj->template, CKA_UNWRAP_TEMPLATE,
+    rc = key_object_apply_template_attr(kobj->template, apply_tmpl_attr,
                                         tmp_attrs, tmp_attrs_len,
                                         &new_attrs, &new_attrs_len);
     free_attribute_array(tmp_attrs, tmp_attrs_len);
@@ -14290,7 +14593,7 @@ CK_RV ep11tok_unwrap_key(STDLL_TokData_t * tokdata, SESSION * session,
 
     /* Start creating the key object */
     rc = object_mgr_create_skel(tokdata, session, new_attrs, new_attrs_len,
-                                MODE_UNWRAP, class, ktype, &key_obj);
+                                mode, class, ktype, &key_obj);
     if (rc != CKR_OK) {
         TRACE_ERROR("%s object_mgr_create_skel failed with rc=0x%lx\n",
                     __func__, rc);
@@ -14387,7 +14690,8 @@ CK_RV ep11tok_unwrap_key(STDLL_TokData_t * tokdata, SESSION * session,
     if (isab) {
         rc = ab_unwrap_update_template(tokdata, session,
                                        keyblob, keyblobsize, key_obj,
-                                       *(CK_KEY_TYPE *) keytype_attr->pValue);
+                                       *(CK_KEY_TYPE *)keytype_attr->pValue,
+                                       *(CK_OBJECT_CLASS *)cla_attr->pValue);
         if (rc != CKR_OK) {
             TRACE_ERROR("ab_unwrap_update_template failed with rc=0x%08lx\n", rc);
             goto error;
@@ -14561,6 +14865,58 @@ done:
     kobj = NULL;
 
     return rc;
+}
+
+CK_RV token_specific_encapsulate_rsa_sym_keygen(STDLL_TokData_t *tokdata,
+                                                SESSION *sess,
+                                                CK_MECHANISM *mech,
+                                                CK_ATTRIBUTE *pTemplate,
+                                                CK_ULONG ulCount,
+                                                CK_OBJECT_HANDLE *handle)
+{
+    CK_RV rc;
+
+    rc = tokdata->policy->is_mech_allowed(tokdata->policy, mech,
+                                          NULL, POLICY_CHECK_ENCAPS, sess);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("POLICY VIOLATION: Key generation mechanism not "
+                    "allowed\n");
+        return rc;
+    }
+
+    return ep11tok_generate_key(tokdata, sess, mech, pTemplate, ulCount,
+                                handle, FALSE, OP_ENCAPSULATE);
+}
+
+CK_RV token_specific_encapsulate_rsa_key_wrap(STDLL_TokData_t *tokdata,
+                                              SESSION *sess,
+                                              CK_BBOOL length_only,
+                                              CK_MECHANISM *mech,
+                                              CK_OBJECT_HANDLE wrapping_key,
+                                              CK_OBJECT_HANDLE key,
+                                              CK_BYTE *wrapped_key,
+                                              CK_ULONG *wrapped_key_len)
+{
+    UNUSED(length_only);
+
+    return ep11tok_wrap_key(tokdata, sess, mech, wrapping_key, key,
+                            wrapped_key, wrapped_key_len, FALSE);
+}
+
+CK_RV token_specific_encapsulate_rsa_key_unwrap(STDLL_TokData_t *tokdata,
+                                                SESSION *sess,
+                                                CK_MECHANISM *mech,
+                                                CK_ATTRIBUTE *pTemplate,
+                                                CK_ULONG ulCount,
+                                                CK_BYTE *wrapped_key,
+                                                CK_ULONG wrapped_key_len,
+                                                CK_OBJECT_HANDLE unwrapping_key,
+                                                CK_OBJECT_HANDLE *unwrapped_key)
+{
+    return ep11tok_unwrap_key(tokdata, sess, mech, pTemplate, ulCount,
+                              wrapped_key, wrapped_key_len,
+                              unwrapping_key, unwrapped_key,
+                              OP_DECAPSULATE);
 }
 
 static const CK_MECHANISM_TYPE ep11_supported_mech_list[] = {
@@ -15584,10 +15940,16 @@ CK_RV ep11tok_get_mechanism_info(STDLL_TokData_t * tokdata,
 #ifdef DEFENSIVE_MECHLIST
     switch (orig_type) {
     case CKM_RSA_PKCS:
+    case CKM_RSA_PKCS_OAEP:
+        /* En/Decapsulate is not known by EP11, but we support it anyway */
+        if (pInfo->flags & CKF_WRAP)
+            pInfo->flags |= CKF_ENCAPSULATE;
+        if (pInfo->flags & CKF_UNWRAP)
+            pInfo->flags |= CKF_DECAPSULATE;
+        /* fallthrough */
     case CKM_RSA_PKCS_KEY_PAIR_GEN:
     case CKM_RSA_X9_31_KEY_PAIR_GEN:
     case CKM_RSA_PKCS_PSS:
-    case CKM_RSA_PKCS_OAEP:
     case CKM_SHA1_RSA_X9_31:
     case CKM_SHA1_RSA_PKCS:
     case CKM_SHA1_RSA_PKCS_PSS:
@@ -18302,6 +18664,8 @@ CK_RV token_specific_set_attribute_values(STDLL_TokData_t *tokdata,
     CK_ATTRIBUTE_PTR attributes = NULL;
     CK_ULONG num_attributes = 0;
     CK_ATTRIBUTE *attr;
+    struct endecap_combine_attrs_data combine_attr_data = { 0 };
+    CK_MECHANISM tmp_mech = { (CK_MECHANISM_TYPE)-1, NULL, 0 };
     CK_RV rc;
 
     rc = template_attribute_get_ulong(obj->template, CKA_CLASS, &class);
@@ -18360,9 +18724,18 @@ CK_RV token_specific_set_attribute_values(STDLL_TokData_t *tokdata,
         return rc;
 #endif /* NO_PKEY */
 
+    template_attribute_get_bool(obj->template, CKA_WRAP,
+                                &combine_attr_data.wrap);
+    template_attribute_get_bool(obj->template, CKA_UNWRAP,
+                                &combine_attr_data.unwrap);
+
     node = new_tmpl->attribute_list;
     while (node) {
         attr = (CK_ATTRIBUTE *)node->data;
+
+        rc = ep11tok_endecaps_combine_attrs_collect(attr, &combine_attr_data);
+        if (rc == CKR_OK)
+            goto next;
 
         /* EP11 can set certain boolean attributes only */
         switch (attr->type) {
@@ -18379,8 +18752,6 @@ CK_RV token_specific_set_attribute_values(STDLL_TokData_t *tokdata,
         case CKA_SIGN_RECOVER:
         case CKA_DECRYPT:
         case CKA_DERIVE:
-        case CKA_UNWRAP:
-        case CKA_WRAP:
         case CKA_WRAP_WITH_TRUSTED:
         case CKA_TRUSTED:
         case CKA_IBM_RESTRICTABLE:
@@ -18413,7 +18784,17 @@ CK_RV token_specific_set_attribute_values(STDLL_TokData_t *tokdata,
             break;
         }
 
+next:
         node = node->next;
+    }
+
+    rc = ep11tok_endecaps_combine_attrs_apply(tokdata, class, ktype, -1,
+                                              &tmp_mech,
+                                              &attributes, &num_attributes,
+                                              &combine_attr_data);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("ep11tok_endecaps_combine_attrs_apply failed: 0x%lx\n", rc);
+        return rc;
     }
 
     if (attributes != NULL && num_attributes > 0) {
