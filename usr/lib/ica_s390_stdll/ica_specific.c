@@ -5178,7 +5178,7 @@ static const REF_MECH_LIST_ELEMENT ref_mech_list[] = {
 #ifndef NO_EC
     {EC_DH, CKM_ECDH1_DERIVE,
      {160, 521, CKF_DERIVE | CKF_EC_OID | CKF_EC_F_P | CKF_EC_UNCOMPRESS |
-                CKF_EC_COMPRESS}
+                CKF_EC_COMPRESS | CKF_ENCAPSULATE | CKF_DECAPSULATE}
     },
     {EC_DSA_SIGN, CKM_ECDSA,
      {160, 521, CKF_SIGN | CKF_VERIFY | CKF_EC_OID | CKF_EC_F_P |
