@@ -306,10 +306,12 @@ static const MECH_LIST_ELEMENT soft_mech_list[] = {
     {CKM_ECDSA_SHA3_512, {160, 521, CKF_SIGN | CKF_VERIFY | CKF_EC_OID |
                           CKF_EC_F_P | CKF_EC_UNCOMPRESS | CKF_EC_COMPRESS}},
     {CKM_ECDH1_DERIVE, {160, 521, CKF_DERIVE | CKF_EC_OID | CKF_EC_F_P |
-                        CKF_EC_UNCOMPRESS | CKF_EC_COMPRESS}},
+                        CKF_EC_UNCOMPRESS | CKF_EC_COMPRESS | CKF_ENCAPSULATE |
+                        CKF_DECAPSULATE}},
     {CKM_ECDH1_COFACTOR_DERIVE, {160, 521, CKF_DERIVE | CKF_EC_OID |
                                  CKF_EC_F_P | CKF_EC_UNCOMPRESS |
-                                 CKF_EC_COMPRESS}},
+                                 CKF_EC_COMPRESS | CKF_ENCAPSULATE |
+                                 CKF_DECAPSULATE}},
     {CKM_ECDH_AES_KEY_WRAP, {160, 521, CKF_WRAP | CKF_UNWRAP |
                              CKF_EC_OID | CKF_EC_F_P | CKF_EC_UNCOMPRESS |
                              CKF_EC_COMPRESS}},
