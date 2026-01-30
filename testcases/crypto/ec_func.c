@@ -4662,6 +4662,558 @@ testcase_cleanup:
     return rc;
 }
 
+typedef struct ecdh_encaps_decaps_params {
+    _ec_struct curve;
+    CK_KEY_TYPE sym_key_type;
+    CK_ULONG sym_key_size;
+    CK_EC_KDF_TYPE kdf;
+    CK_BYTE *shared_data;
+    CK_ULONG shared_data_len;
+} ecdh_encaps_decaps_params;
+
+const ecdh_encaps_decaps_params ecdh_encaps_decaps_tests[] = {
+    { .curve = { &prime256v1, sizeof(prime256v1), CK_FALSE,
+                 CURVE_PRIME, CURVE256_LENGTH, "prime256v1" },
+      .sym_key_type = CKK_AES,
+      .sym_key_size = 32,
+      .kdf = CKD_SHA256_KDF,
+      .shared_data = (CK_BYTE *)"abcdefg",
+      .shared_data_len = 6,
+    },
+    { .curve = { &secp521r1, sizeof(secp521r1), CK_FALSE,
+                 CURVE_PRIME, CURVE521_LENGTH + 8, "secp521r1" },
+      .sym_key_type = CKK_AES,
+      .sym_key_size = 32,
+      .kdf = CKD_SHA256_KDF,
+      .shared_data = (CK_BYTE *)"abcdefg",
+      .shared_data_len = 6,
+    },
+    { .curve = { &brainpoolP256r1, sizeof(brainpoolP256r1), CK_FALSE,
+                 CURVE_BRAINPOOL, CURVE256_LENGTH, "brainpoolP256r1" },
+      .sym_key_type = CKK_AES,
+      .sym_key_size = 32,
+      .kdf = CKD_SHA256_KDF,
+      .shared_data = (CK_BYTE *)"abcdefg",
+      .shared_data_len = 6,
+    },
+    { .curve = { &brainpoolP512r1, sizeof(brainpoolP512r1), CK_FALSE,
+                 CURVE_BRAINPOOL, CURVE512_LENGTH, "brainpoolP512r1" },
+      .sym_key_type = CKK_AES,
+      .sym_key_size = 32,
+      .kdf = CKD_SHA256_KDF,
+      .shared_data = (CK_BYTE *)"abcdefg",
+      .shared_data_len = 6,
+    },
+    { .curve = { &curve25519, sizeof(curve25519), CK_FALSE,
+                 CURVE_MONTGOMERY, CURVE256_LENGTH, "curve25519" },
+      .sym_key_type = CKK_AES,
+      .sym_key_size = 32,
+      .kdf = CKD_SHA256_KDF,
+      .shared_data = (CK_BYTE *)"abcdefg",
+      .shared_data_len = 6,
+    },
+    { .curve = { &curve448, sizeof(curve448), CK_FALSE,
+                 CURVE_MONTGOMERY, CURVE448_LENGTH, "curve448" },
+      .sym_key_type = CKK_AES,
+      .sym_key_size = 32,
+      .kdf = CKD_SHA256_KDF,
+      .shared_data = (CK_BYTE *)"abcdefg",
+      .shared_data_len = 6,
+    },
+    { .curve = { &prime256v1, sizeof(prime256v1), CK_FALSE,
+                 CURVE_PRIME, CURVE256_LENGTH, "prime256v1" },
+      .sym_key_type = CKK_AES,
+      .sym_key_size = 16,
+      .kdf = CKD_SHA256_KDF,
+      .shared_data = (CK_BYTE *)"abcdefg",
+      .shared_data_len = 6,
+    },
+    { .curve = { &prime256v1, sizeof(prime256v1), CK_FALSE,
+                 CURVE_PRIME, CURVE256_LENGTH, "prime256v1" },
+      .sym_key_type = CKK_AES_XTS,
+      .sym_key_size = 64,
+      .kdf = CKD_SHA256_KDF,
+      .shared_data = (CK_BYTE *)"abcdefg",
+      .shared_data_len = 6,
+    },
+    { .curve = { &prime256v1, sizeof(prime256v1), CK_FALSE,
+                 CURVE_PRIME, CURVE256_LENGTH, "prime256v1" },
+      .sym_key_type = CKK_GENERIC_SECRET,
+      .sym_key_size = 32,
+      .kdf = CKD_SHA256_KDF,
+      .shared_data = (CK_BYTE *)"abcdefg",
+      .shared_data_len = 6,
+    },
+    { .curve = { &prime256v1, sizeof(prime256v1), CK_FALSE,
+                 CURVE_PRIME, CURVE256_LENGTH, "prime256v1" },
+      .sym_key_type = CKK_GENERIC_SECRET,
+      .sym_key_size = 64,
+      .kdf = CKD_SHA256_KDF,
+      .shared_data = (CK_BYTE *)"abcdefg",
+      .shared_data_len = 6,
+    },
+};
+
+#define NUMENCAPSDECAPS  sizeof(ecdh_encaps_decaps_tests) / \
+                                       sizeof(ecdh_encaps_decaps_params)
+
+CK_RV run_EncapsDecapsECDH(CK_BBOOL cofactor_mode)
+{
+    CK_SESSION_HANDLE session;
+    CK_MECHANISM mech;
+    CK_FLAGS flags;
+    CK_OBJECT_HANDLE publ_key = CK_INVALID_HANDLE,
+                     priv_key = CK_INVALID_HANDLE;
+    CK_OBJECT_HANDLE secret_keyA = CK_INVALID_HANDLE,
+                     secret_keyB = CK_INVALID_HANDLE;
+    CK_BYTE user_pin[PKCS11_MAX_PIN_LEN];
+    CK_ULONG user_pin_len;
+    CK_RV rc = CKR_OK;
+    CK_OBJECT_CLASS class = CKO_SECRET_KEY;
+    CK_ECDH1_DERIVE_PARAMS ecdh_parm;
+    CK_ULONG i;
+    CK_BBOOL ck_true = CK_TRUE;
+    CK_BBOOL ck_false = CK_FALSE;
+    CK_BYTE *cipher = NULL;
+    CK_ULONG cipher_len;
+    CK_BYTE mac1[SHA256_HASH_SIZE] = { 0 };
+    CK_ULONG mac1_len = sizeof(mac1);
+    CK_BYTE mac2[SHA256_HASH_SIZE] = { 0 };
+    CK_ULONG mac2_len = sizeof(mac2);
+    CK_BYTE enc1[AES_BLOCK_SIZE] = { 0 };
+    CK_ULONG enc1_len = sizeof(enc1);
+    CK_BYTE enc2[AES_BLOCK_SIZE] = { 0 };
+    CK_ULONG enc2_len = sizeof(enc2);
+
+    testcase_begin("starting run_EncapsDecapsECDH %s with pkey=%X ...",
+                   cofactor_mode ? "in cofactor mode" : "", pkey);
+    testcase_rw_session();
+    testcase_user_login();
+
+    /* Skip tests if pkey = true, but the slot doesn't support protected keys*/
+    if (pkey && !is_ep11_token(SLOT_ID) && !is_cca_token(SLOT_ID)) {
+        testcase_skip("pkey test option is true, but slot %u doesn't support "
+                      "protected keys", (unsigned int)SLOT_ID);
+        goto testcase_cleanup;
+    }
+
+    mech.mechanism = cofactor_mode ?
+            CKM_ECDH1_COFACTOR_DERIVE : CKM_ECDH1_DERIVE;
+    if (!mech_supported(SLOT_ID, mech.mechanism)) {
+        testcase_skip("Slot %u doesn't support %s\n",
+                      (unsigned int)SLOT_ID,
+                      p11_get_ckm(&mechtable_funcs, mech.mechanism));
+        goto testcase_cleanup;
+    }
+    if (!encapsulate_supported(SLOT_ID, mech) ||
+        !decapsulate_supported(SLOT_ID, mech)) {
+        testcase_skip("Slot %u doesn't support key encapsulation with %s",
+                      (unsigned int)SLOT_ID,
+                      p11_get_ckm(&mechtable_funcs, mech.mechanism));
+        goto testcase_cleanup;
+    }
+
+    for (i = 0; i < NUMENCAPSDECAPS; i++) {
+        CK_ATTRIBUTE decaps_tmp[] = {
+            {CKA_KEY_TYPE,
+                    (CK_VOID_PTR)&ecdh_encaps_decaps_tests[i].sym_key_type,
+                    sizeof(ecdh_encaps_decaps_tests[i].sym_key_type)},
+            {CKA_VALUE_LEN,
+                    (CK_VOID_PTR)&ecdh_encaps_decaps_tests[i].sym_key_size,
+                    sizeof(ecdh_encaps_decaps_tests[i].sym_key_size)},
+        };
+        CK_ATTRIBUTE prv_attr[] = {
+            {CKA_SIGN, &ck_true, sizeof(ck_true)},
+            {CKA_EXTRACTABLE, &ck_true, sizeof(ck_true)},
+            {CKA_SENSITIVE, &ck_true, sizeof(ck_true)},
+            {CKA_DERIVE, &ck_false, sizeof(ck_false)},
+            {CKA_DECAPSULATE, &ck_true, sizeof(ck_true)},
+            {CKA_DECAPSULATE_TEMPLATE, &decaps_tmp, sizeof(decaps_tmp)},
+        };
+        CK_ULONG prv_attr_len = sizeof(prv_attr)/sizeof(CK_ATTRIBUTE);
+        CK_ATTRIBUTE pub_attr[] = {
+            {CKA_EC_PARAMS,
+                    (CK_VOID_PTR)ecdh_encaps_decaps_tests[i].curve.curve,
+                    ecdh_encaps_decaps_tests[i].curve.size},
+            {CKA_VERIFY, &ck_true, sizeof(ck_true)},
+            {CKA_DERIVE, &ck_false, sizeof(ck_false)},
+            {CKA_ENCAPSULATE, &ck_true, sizeof(ck_true)},
+        };
+        CK_ULONG pub_attr_len = sizeof(pub_attr)/sizeof(CK_ATTRIBUTE);
+
+        CK_ATTRIBUTE encaps_decaps_tmpl[] = {
+            {CKA_CLASS, &class, sizeof(class)},
+            {CKA_KEY_TYPE,
+                    (CK_VOID_PTR)&ecdh_encaps_decaps_tests[i].sym_key_type,
+                    sizeof(ecdh_encaps_decaps_tests[i].sym_key_type)},
+            {CKA_EXTRACTABLE, &ck_false, sizeof(ck_false)},
+            {CKA_SENSITIVE, &ck_true, sizeof(ck_true)},
+            {CKA_VALUE_LEN,
+                    (CK_VOID_PTR)&ecdh_encaps_decaps_tests[i].sym_key_size,
+                    sizeof(ecdh_encaps_decaps_tests[i].sym_key_size)},
+        };
+        CK_ULONG encaps_decaps_tmpl_len =
+            sizeof(encaps_decaps_tmpl) / sizeof(CK_ATTRIBUTE);
+
+        mech.mechanism = cofactor_mode ?
+                        CKM_ECDH1_COFACTOR_DERIVE : CKM_ECDH1_DERIVE;
+
+        testcase_begin("Starting with mech=%s, index=%lu, curve=%s, kdf=%s, "
+                       "keytype=0x%lx, keylen=%lu, shared_data=%lu, pkey=%X",
+                       p11_get_ckm(&mechtable_funcs, mech.mechanism), i,
+                       ecdh_encaps_decaps_tests[i].curve.name,
+                       p11_get_ckd(ecdh_encaps_decaps_tests[i].kdf),
+                       ecdh_encaps_decaps_tests[i].sym_key_type,
+                       ecdh_encaps_decaps_tests[i].sym_key_size,
+                       ecdh_encaps_decaps_tests[i].shared_data_len,
+                       pkey);
+
+        /* Check the curve */
+        if (ecdh_encaps_decaps_tests[i].curve.type == CURVE_EDWARDS||
+            ecdh_encaps_decaps_tests[i].curve.type == CURVE_BLS12_381) {
+            /* Edwards/BLS curves can not be used for ECDH encaps/decaps */
+            continue;
+        }
+
+        if (is_cca_token(SLOT_ID)) {
+            if (ecdh_encaps_decaps_tests[i].curve.twisted) {
+                testcase_skip("Slot %u doesn't support this curve: %s",
+                              (unsigned int) SLOT_ID,
+                              ecdh_encaps_decaps_tests[i].curve.name);
+                continue;
+            }
+        }
+
+        /* Check the KDF */
+        switch (ecdh_encaps_decaps_tests[i].kdf) {
+        case CKD_SHA1_KDF:
+        case CKD_SHA1_KDF_SP800:
+            if (!mech_supported(SLOT_ID, CKM_SHA_1)) {
+                testcase_skip("Slot %u doesn't support %s\n",
+                              (unsigned int) SLOT_ID,
+                              p11_get_ckd(ecdh_encaps_decaps_tests[i].kdf));
+                continue;
+            }
+            break;
+        case CKD_SHA224_KDF:
+        case CKD_SHA224_KDF_SP800:
+            if (!mech_supported(SLOT_ID, CKM_SHA224)) {
+                testcase_skip("Slot %u doesn't support %s\n",
+                              (unsigned int) SLOT_ID,
+                              p11_get_ckd(ecdh_encaps_decaps_tests[i].kdf));
+                continue;
+            }
+            break;
+        case CKD_SHA256_KDF:
+        case CKD_SHA256_KDF_SP800:
+            if (!mech_supported(SLOT_ID, CKM_SHA256)) {
+                testcase_skip("Slot %u doesn't support %s\n",
+                              (unsigned int) SLOT_ID,
+                              p11_get_ckd(ecdh_encaps_decaps_tests[i].kdf));
+                continue;
+            }
+            break;
+        case CKD_SHA384_KDF:
+        case CKD_SHA384_KDF_SP800:
+            if (!mech_supported(SLOT_ID, CKM_SHA384)) {
+                testcase_skip("Slot %u doesn't support %s\n",
+                              (unsigned int) SLOT_ID,
+                              p11_get_ckd(ecdh_encaps_decaps_tests[i].kdf));
+                continue;
+            }
+            break;
+        case CKD_SHA512_KDF:
+        case CKD_SHA512_KDF_SP800:
+            if (!mech_supported(SLOT_ID, CKM_SHA512)) {
+                testcase_skip("Slot %u doesn't support %s\n",
+                              (unsigned int) SLOT_ID,
+                              p11_get_ckd(ecdh_encaps_decaps_tests[i].kdf));
+                continue;
+            }
+            break;
+        case CKD_SHA3_224_KDF:
+        case CKD_SHA3_224_KDF_SP800:
+            if (!mech_supported(SLOT_ID, CKM_SHA3_224)) {
+                testcase_skip("Slot %u doesn't support %s\n",
+                              (unsigned int) SLOT_ID,
+                              p11_get_ckd(ecdh_encaps_decaps_tests[i].kdf));;
+                continue;
+            }
+            break;
+        case CKD_SHA3_256_KDF:
+        case CKD_SHA3_256_KDF_SP800:
+            if (!mech_supported(SLOT_ID, CKM_SHA3_256)) {
+                testcase_skip("Slot %u doesn't support %s\n",
+                              (unsigned int) SLOT_ID,
+                              p11_get_ckd(ecdh_encaps_decaps_tests[i].kdf));
+                continue;
+            }
+            break;
+        case CKD_SHA3_384_KDF:
+        case CKD_SHA3_384_KDF_SP800:
+            if (!mech_supported(SLOT_ID, CKM_SHA3_384)) {
+                testcase_skip("Slot %u doesn't support %s\n",
+                              (unsigned int) SLOT_ID,
+                              p11_get_ckd(ecdh_encaps_decaps_tests[i].kdf));
+                continue;
+            }
+            break;
+        case CKD_SHA3_512_KDF:
+        case CKD_SHA3_512_KDF_SP800:
+            if (!mech_supported(SLOT_ID, CKM_SHA3_512)) {
+                testcase_skip("Slot %u doesn't support %s\n",
+                              (unsigned int) SLOT_ID,
+                              p11_get_ckd(ecdh_encaps_decaps_tests[i].kdf));
+                continue;
+            }
+            break;
+        default:
+            break;
+        }
+
+        if (is_cca_token(SLOT_ID)) {
+           switch (ecdh_encaps_decaps_tests[i].kdf) {
+           case CKD_SHA224_KDF:
+           case CKD_SHA256_KDF:
+           case CKD_SHA384_KDF:
+           case CKD_SHA512_KDF:
+               break;
+           default:
+               testcase_skip("CCA token can not en/decapsulate keys with "
+                             "this KDF %s",
+                             p11_get_ckd(ecdh_encaps_decaps_tests[i].kdf));
+               continue;
+           }
+        }
+
+        /* Check the to be en/decapsulated key type and size */
+        if (is_cca_token(SLOT_ID)) {
+            if (ecdh_encaps_decaps_tests[i].sym_key_type != CKK_AES) {
+                testcase_skip("CCA token can not en/decapsulate keys other "
+                              "than AES\n");
+                continue;
+            }
+        }
+
+        /* Generate the EC key pair for party A */
+        mech.mechanism =
+                ecdh_encaps_decaps_tests[i].curve.type == CURVE_MONTGOMERY ?
+                        CKM_EC_MONTGOMERY_KEY_PAIR_GEN : CKM_EC_KEY_PAIR_GEN;
+        mech.ulParameterLen = 0;
+        mech.pParameter = NULL;
+
+        if (!mech_supported(SLOT_ID, mech.mechanism)) {
+            testcase_skip("Slot %u doesn't support %s\n",
+                          (unsigned int)SLOT_ID,
+                          p11_get_ckm(&mechtable_funcs, mech.mechanism));
+            continue;
+        }
+
+        rc = funcs->C_GenerateKeyPair(session, &mech,
+                                      pub_attr, pub_attr_len,
+                                      prv_attr, prv_attr_len,
+                                      &publ_key, &priv_key);
+        if (rc != CKR_OK) {
+            if (is_rejected_by_policy(rc, session)) {
+                testcase_skip("EC key generation is not allowed by policy");
+                goto testcase_next;
+            }
+            if (rc == CKR_MECHANISM_PARAM_INVALID ||
+                rc == CKR_ATTRIBUTE_VALUE_INVALID ||
+                rc == CKR_CURVE_NOT_SUPPORTED) {
+                testcase_skip("Slot %u doesn't support this curve: %s",
+                              (unsigned int) SLOT_ID,
+                              ecdh_encaps_decaps_tests[i].curve.name);
+                goto testcase_next;
+            }
+            testcase_fail("C_GenerateKeyPair with valid input failed at i=%lu "
+                          "(%s), rc=%s", i,
+                          ecdh_encaps_decaps_tests[i].curve.name,
+                          p11_get_ckr(rc));
+            goto testcase_next;
+        }
+
+        /* Encapsulate on party B */
+        mech.mechanism = cofactor_mode ?
+                CKM_ECDH1_COFACTOR_DERIVE : CKM_ECDH1_DERIVE;
+        mech.ulParameterLen = sizeof(CK_ECDH1_DERIVE_PARAMS);
+        mech.pParameter = &ecdh_parm;
+
+        ecdh_parm.kdf = ecdh_encaps_decaps_tests[i].kdf;
+        ecdh_parm.pSharedData = ecdh_encaps_decaps_tests[i].shared_data;
+        ecdh_parm.ulSharedDataLen = ecdh_encaps_decaps_tests[i].shared_data_len;
+        ecdh_parm.pPublicData = NULL;
+        ecdh_parm.ulPublicDataLen = 0;
+
+        rc = funcs3_2->C_EncapsulateKey(session, &mech, publ_key,
+                                        encaps_decaps_tmpl,
+                                        encaps_decaps_tmpl_len,
+                                        NULL, &cipher_len, NULL);
+        if (rc != CKR_OK) {
+            if (is_ep11_token(SLOT_ID) &&
+                rc == CKR_MECHANISM_PARAM_INVALID &&
+                (ecdh_parm.kdf != CKD_NULL ||
+                 ecdh_parm.ulSharedDataLen > 0)) {
+                testcase_skip("EP11 does not support KDF %s and/or "
+                              "shared data with older firmware "
+                              "versions\n",
+                              p11_get_ckd(ecdh_parm.kdf));
+                goto testcase_next;
+            }
+            if (rc == CKR_KEY_TYPE_INCONSISTENT) {
+                testcase_skip("Slot %u doesn't support to en/decaps key "
+                              "type 0x%lx", (unsigned int) SLOT_ID,
+                              ecdh_encaps_decaps_tests[i].sym_key_type);
+                goto testcase_next;
+            }
+            if (is_rejected_by_policy(rc, session)) {
+                testcase_skip("key derivation is not allowed by policy");
+                continue;
+            }
+            if (rc == CKR_FUNCTION_CANCELED) {
+                testcase_skip("key derivation is not allowed by "
+                              "adapter control point");
+                goto testcase_next;
+            }
+
+            testcase_fail("C_EncapsulateKey #1: rc = %s", p11_get_ckr(rc));
+            goto testcase_next;
+        }
+
+        cipher = calloc(cipher_len, sizeof(CK_BYTE));
+        if (cipher == NULL) {
+            testcase_error("Can't allocate memory for %lu bytes.", cipher_len);
+            rc = CKR_HOST_MEMORY;
+            goto testcase_cleanup;
+        }
+
+        rc = funcs3_2->C_EncapsulateKey(session, &mech, publ_key,
+                                        encaps_decaps_tmpl,
+                                        encaps_decaps_tmpl_len,
+                                        cipher, &cipher_len, &secret_keyB);
+        if (rc != CKR_OK) {
+            if (rc == CKR_KEY_TYPE_INCONSISTENT) {
+                testcase_skip("Slot %u doesn't support to en/decaps key "
+                              "type 0x%lx", (unsigned int) SLOT_ID,
+                              ecdh_encaps_decaps_tests[i].sym_key_type);
+                goto testcase_next;
+            }
+            testcase_fail("C_EncapsulateKey #2: rc = %s", p11_get_ckr(rc));
+            goto testcase_next;
+        }
+
+        /* Decapsulate on party A */
+        rc = funcs3_2->C_DecapsulateKey(session, &mech, priv_key,
+                                        encaps_decaps_tmpl,
+                                        encaps_decaps_tmpl_len,
+                                        cipher, cipher_len, &secret_keyA);
+        if (rc != CKR_OK) {
+            testcase_fail("C_DecapsulateKey: rc = %s", p11_get_ckr(rc));
+            goto testcase_next;
+        }
+
+        /* Check if encapsulated key is the same as the decapsukated key */
+        switch (ecdh_encaps_decaps_tests[i].sym_key_type) {
+        case CKK_GENERIC_SECRET:
+            mac1_len = sizeof(mac1);
+            rc = run_HMACSign(session, secret_keyB,
+                              ecdh_encaps_decaps_tests[i].sym_key_size,
+                              CKM_SHA256_HMAC, mac1, &mac1_len);
+            if (rc != CKR_OK) {
+                testcase_fail("Encapsulated key #1 is not usable: %s",
+                              p11_get_ckr(rc));
+                goto testcase_next;
+            }
+
+            mac2_len = sizeof(mac2);
+            rc = run_HMACSign(session, secret_keyA,
+                              ecdh_encaps_decaps_tests[i].sym_key_size,
+                              CKM_SHA256_HMAC, mac2, &mac2_len);
+            if (rc != CKR_OK) {
+                testcase_fail("Decapsulated key #2 is not usable: %s",
+                              p11_get_ckr(rc));
+                goto testcase_next;
+            }
+
+            if (mac1_len != mac2_len ||
+                memcmp(mac1, mac2, mac1_len) != 0) {
+                testcase_fail("ERROR: en/Decapsulated keys do not produce the "
+                              "same HMAC");
+                goto testcase_next;
+            }
+            break;
+
+        case CKK_AES:
+            enc1_len = sizeof(enc1);
+            rc = run_AESEncrypt(session, secret_keyB, enc1, &enc1_len);
+            if (rc != CKR_OK) {
+                testcase_fail("Encapsulated key #1 is not usable: %s",
+                              p11_get_ckr(rc));
+                goto testcase_next;
+            }
+
+            enc2_len = sizeof(enc2);
+            rc = run_AESEncrypt(session, secret_keyA, enc2, &enc2_len);
+            if (rc != CKR_OK) {
+                testcase_fail("Decapsulated key #2 is not usable: %s",
+                              p11_get_ckr(rc));
+                goto testcase_next;
+            }
+
+            if (enc1_len != enc2_len ||
+                memcmp(enc1, enc2, enc1_len) != 0) {
+                testcase_fail("ERROR: en/decapsulated keys do not produce the "
+                              "same encrypted cipher text");
+                goto testcase_next;
+            }
+            break;
+        }
+
+        testcase_pass("EnDecapsulate shared secret mech=%s, index=%lu, "
+                      "curve=%s, kdf=%s, keytype=ox%lx, keylen=%lu, "
+                      "shared_data=%lu passed.",
+                      p11_get_ckm(&mechtable_funcs, mech.mechanism), i,
+                      ecdh_encaps_decaps_tests[i].curve.name,
+                      p11_get_ckd(ecdh_encaps_decaps_tests[i].kdf),
+                      ecdh_encaps_decaps_tests[i].sym_key_type,
+                      ecdh_encaps_decaps_tests[i].sym_key_size,
+                      ecdh_encaps_decaps_tests[i].shared_data_len);
+
+testcase_next:
+        if (secret_keyA != CK_INVALID_HANDLE)
+            funcs->C_DestroyObject(session, secret_keyA);
+        secret_keyA = CK_INVALID_HANDLE;
+        if (secret_keyB != CK_INVALID_HANDLE)
+            funcs->C_DestroyObject(session, secret_keyB);
+        secret_keyB = CK_INVALID_HANDLE;
+        if (publ_key != CK_INVALID_HANDLE)
+            funcs->C_DestroyObject(session, publ_key);
+        publ_key = CK_INVALID_HANDLE;
+        if (priv_key != CK_INVALID_HANDLE)
+            funcs->C_DestroyObject(session, priv_key);
+        priv_key = CK_INVALID_HANDLE;
+    }
+
+testcase_cleanup:
+    if (secret_keyA != CK_INVALID_HANDLE)
+        funcs->C_DestroyObject(session, secret_keyA);
+    secret_keyA = CK_INVALID_HANDLE;
+    if (secret_keyB != CK_INVALID_HANDLE)
+        funcs->C_DestroyObject(session, secret_keyB);
+    secret_keyB = CK_INVALID_HANDLE;
+    if (publ_key != CK_INVALID_HANDLE)
+        funcs->C_DestroyObject(session, publ_key);
+    publ_key = CK_INVALID_HANDLE;
+    if (priv_key != CK_INVALID_HANDLE)
+        funcs->C_DestroyObject(session, priv_key);
+    priv_key = CK_INVALID_HANDLE;
+
+    testcase_user_logout();
+    testcase_close_session();
+
+    return rc;
+}
+
 int main(int argc, char **argv)
 {
     CK_C_INITIALIZE_ARGS cinit_args;
@@ -4721,6 +5273,8 @@ int main(int argc, char **argv)
     rv += run_ImportEdwardsKeyPairSignVerifyKAT();
     rv += run_TransferEdwardsMontgomeryKeyPair();
     rv += run_MontgomeryECDHKeyKAT();
+    rv += run_EncapsDecapsECDH(FALSE);
+    rv += run_EncapsDecapsECDH(TRUE);
 
 #ifndef NO_PKEY
     if (is_ep11_token(SLOT_ID) || is_cca_token(SLOT_ID)) {
@@ -4735,6 +5289,7 @@ int main(int argc, char **argv)
         rv += run_ImportEdwardsKeyPairSignVerifyKAT();
         rv += run_TransferEdwardsMontgomeryKeyPair();
         rv += run_MontgomeryECDHKeyKAT();
+        rv += run_EncapsDecapsECDH(FALSE);
     }
 #endif
 
