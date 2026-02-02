@@ -1755,8 +1755,8 @@ options to specify the OAEP mechanism parameters.
 .BR ecdh\-aeskw :
 Use mechanism 
 .B CKM_ECDH_AES_KEY_WRAP
-for key wrapping. Wrapping is done with an EC public key, unwrapping is done
-with the corresponding EC private key. Use the
+for key wrapping. Wrapping is done with an EC or EC-Montgomery public key,
+unwrapping is done with the corresponding EC or EC-Montgomery private key.
 Use the
 .BR \-\-aes\-key\-size
 .I AES\-KEYBITS
@@ -1973,8 +1973,8 @@ options to specify the OAEP mechanism parameters.
 .BR ecdh\-aeskw :
 Use mechanism 
 .B CKM_ECDH_AES_KEY_WRAP
-for key wrapping. Wrapping is done with an EC public key, unwrapping is done
-with the corresponding EC private key. Use the
+for key wrapping. Wrapping is done with an EC or EC-Montgomery public key
+unwrapping is done with the corresponding EC or EC-Montgomery private key.
 Use the
 .BR \-\-aes\-key\-size
 .I AES\-KEYBITS

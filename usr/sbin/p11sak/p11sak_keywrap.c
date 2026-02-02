@@ -89,6 +89,7 @@ static const struct p11sak_wrap_mech p11sak_wrap_mech_aes_cbc = {
     .wrap_class = CKO_SECRET_KEY,
     .unwrap_class = CKO_SECRET_KEY,
     .key_type = CKK_AES,
+    .addl_key_type = (CK_KEY_TYPE)-1,
     .prepare_mech_param_from_opts = p11sak_aes_iv_prepare_mech_param_from_opts,
     .prepare_mech_param_from_pem = p11sak_aes_iv_prepare_mech_param_from_pem,
     .prepare_pem_header = p11sak_aes_iv_prepare_pem_header,
@@ -102,6 +103,7 @@ static const struct p11sak_wrap_mech p11sak_wrap_mech_aeskw_kwp = {
     .wrap_class = CKO_SECRET_KEY,
     .unwrap_class = CKO_SECRET_KEY,
     .key_type = CKK_AES,
+    .addl_key_type = (CK_KEY_TYPE)-1,
     .prepare_mech_param_from_opts = p11sak_aes_iv_prepare_mech_param_from_opts,
     .prepare_mech_param_from_pem = p11sak_aes_iv_prepare_mech_param_from_pem,
     .prepare_pem_header = p11sak_aes_iv_prepare_pem_header,
@@ -115,6 +117,7 @@ static const struct p11sak_wrap_mech p11sak_wrap_mech_aeskw_pkcs7 = {
     .wrap_class = CKO_SECRET_KEY,
     .unwrap_class = CKO_SECRET_KEY,
     .key_type = CKK_AES,
+    .addl_key_type = (CK_KEY_TYPE)-1,
     .prepare_mech_param_from_opts = p11sak_aes_iv_prepare_mech_param_from_opts,
     .prepare_mech_param_from_pem = p11sak_aes_iv_prepare_mech_param_from_pem,
     .prepare_pem_header = p11sak_aes_iv_prepare_pem_header,
@@ -127,6 +130,7 @@ static const struct p11sak_wrap_mech p11sak_wrap_mech_rsa_pkcs = {
     .wrap_class = CKO_PUBLIC_KEY,
     .unwrap_class = CKO_PRIVATE_KEY,
     .key_type = CKK_RSA,
+    .addl_key_type = (CK_KEY_TYPE)-1,
 };
 
 static const struct p11sak_wrap_mech p11sak_wrap_mech_rsa_oaep = {
@@ -136,6 +140,7 @@ static const struct p11sak_wrap_mech p11sak_wrap_mech_rsa_oaep = {
     .wrap_class = CKO_PUBLIC_KEY,
     .unwrap_class = CKO_PRIVATE_KEY,
     .key_type = CKK_RSA,
+    .addl_key_type = (CK_KEY_TYPE)-1,
     .prepare_mech_param_from_opts =
                         p11sak_rsa_oaep_prepare_mech_param_from_opts,
     .prepare_mech_param_from_pem =
@@ -151,6 +156,7 @@ static const struct p11sak_wrap_mech p11sak_wrap_mech_rsa_aeskw = {
     .wrap_class = CKO_PUBLIC_KEY,
     .unwrap_class = CKO_PRIVATE_KEY,
     .key_type = CKK_RSA,
+    .addl_key_type = (CK_KEY_TYPE)-1,
     .prepare_mech_param_from_opts =
                         p11sak_rsa_aeskw_prepare_mech_param_from_opts,
     .prepare_mech_param_from_pem =
@@ -166,6 +172,7 @@ static const struct p11sak_wrap_mech p11sak_wrap_mech_ecdh_aeskw = {
     .wrap_class = CKO_PUBLIC_KEY,
     .unwrap_class = CKO_PRIVATE_KEY,
     .key_type = CKK_EC,
+    .addl_key_type = CKK_EC_MONTGOMERY,
     .prepare_mech_param_from_opts =
                         p11sak_ecdh_aeskw_prepare_mech_param_from_opts,
     .prepare_mech_param_from_pem =
@@ -421,8 +428,9 @@ const struct p11tool_enum_value p11sak_wrap_mech_values[] = {
     { .value = "ecdh-aeskw", .args = NULL,
       .opts = p11sak_wrap_mech_ecdh_aeskw_opts,
       .description = "Use mechanism CKM_ECDH_AES_KEY_WRAP for key wrapping. "
-                     "Wrapping is done with an EC public key, unwrapping is "
-                     "done with the corresponding EC private key.",
+                     "Wrapping is done with an EC or EC-Montgomery public key, "
+                     "unwrapping is done with the corresponding EC or "
+                     "EC-Montgomery private key.",
       .private = { .ptr = &p11sak_wrap_mech_ecdh_aeskw, }, },
     { .value = NULL, },
 };
@@ -1160,10 +1168,11 @@ static CK_RV handle_kek_select(CK_OBJECT_HANDLE key, CK_OBJECT_CLASS class,
 }
 
 static CK_RV p11sak_select_kek(CK_OBJECT_CLASS kek_class, CK_KEY_TYPE kek_type,
+                               CK_KEY_TYPE addl_kek_type,
                                CK_OBJECT_HANDLE *kek_handle)
 {
     struct p11sak_select_kek_data data = { 0 };
-    const struct p11tool_objtype *keytype;
+    const struct p11tool_objtype *keytype, *addl_keytype = NULL;
     CK_RV rc;
 
     if (opt_kek_label == NULL && opt_kek_id == NULL) {
@@ -1178,12 +1187,25 @@ static CK_RV p11sak_select_kek(CK_OBJECT_CLASS kek_class, CK_KEY_TYPE kek_type,
     data.kek_handle = CK_INVALID_HANDLE;
 
     keytype = find_keytype(kek_type);
+    if (addl_kek_type != (CK_KEY_TYPE)-1)
+            addl_keytype = find_keytype(addl_kek_type);
+
     rc = iterate_objects(keytype, opt_kek_label, opt_kek_id, NULL, OBJCLASS_KEY,
                          NULL, handle_kek_select, &data);
     if (rc != CKR_OK) {
         warnx("Failed to iterate over key objects: 0x%lX: %s",
                rc, p11_get_ckr(rc));
         return rc;
+    }
+
+    if (addl_keytype != NULL) {
+        rc = iterate_objects(addl_keytype, opt_kek_label, opt_kek_id, NULL,
+                             OBJCLASS_KEY, NULL, handle_kek_select, &data);
+        if (rc != CKR_OK) {
+            warnx("Failed to iterate over key objects: 0x%lX: %s",
+                   rc, p11_get_ckr(rc));
+            return rc;
+        }
     }
 
     if (data.count > 1) {
@@ -1203,13 +1225,31 @@ static CK_RV p11sak_select_kek(CK_OBJECT_CLASS kek_class, CK_KEY_TYPE kek_type,
 
         if (data.cancel)
             return CKR_CANCEL;
+
+        if (data.kek_handle == CK_INVALID_HANDLE && addl_keytype != NULL) {
+            rc = iterate_objects(addl_keytype, opt_kek_label, opt_kek_id, NULL,
+                                 OBJCLASS_KEY, NULL, handle_kek_select, &data);
+            if (rc != CKR_OK) {
+                warnx("Failed to iterate over key objects: 0x%lX: %s",
+                       rc, p11_get_ckr(rc));
+                return rc;
+            }
+
+            if (data.cancel)
+                return CKR_CANCEL;
+
+            if (data.kek_handle != CK_INVALID_HANDLE)
+                keytype = addl_keytype;
+        }
     }
 
     if (data.kek_handle == CK_INVALID_HANDLE) {
-        warnx("No %s%s key matched the specified KEK label or ID.",
+        warnx("No %s%s%s%s key matched the specified KEK label or ID.",
               kek_class == CKO_SECRET_KEY ? "" :
                       kek_class == CKO_PUBLIC_KEY ? "public " : "private ",
-              keytype != NULL ? keytype->name : "");
+              keytype != NULL ? keytype->name : "",
+              addl_keytype != NULL ? " or " : "",
+              addl_keytype != NULL ? addl_keytype->name : "");
         return CKR_ARGUMENTS_BAD;
     }
 
@@ -1487,7 +1527,7 @@ CK_RV p11sak_wrap_key(void)
         return rc;
 
     rc = p11sak_select_kek(wrap_mech->wrap_class, wrap_mech->key_type,
-                           &data.kek_handle);
+                           wrap_mech->addl_key_type, &data.kek_handle);
     if (rc != CKR_OK)
         return rc;
 
@@ -1760,7 +1800,7 @@ CK_RV p11sak_unwrap_key(void)
         goto done;
 
     rc = p11sak_select_kek(wrap_mech->unwrap_class, wrap_mech->key_type,
-                           &kek_handle);
+                           wrap_mech->addl_key_type, &kek_handle);
     if (rc != CKR_OK)
         goto done;
 

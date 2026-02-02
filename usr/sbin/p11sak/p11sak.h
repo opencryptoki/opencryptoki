@@ -231,6 +231,7 @@ struct p11sak_wrap_mech {
     CK_OBJECT_CLASS wrap_class;
     CK_OBJECT_CLASS unwrap_class;
     CK_KEY_TYPE key_type;
+    CK_KEY_TYPE addl_key_type;
     CK_RV (*prepare_mech_param_from_opts)(
                                 const struct p11sak_wrap_mech *wrap_mech,
                                 CK_MECHANISM *mech);
