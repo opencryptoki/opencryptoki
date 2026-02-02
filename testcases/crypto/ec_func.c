@@ -514,7 +514,7 @@ CK_RV run_HMACSign_OpenSSL(CK_BYTE *key, CK_ULONG key_len,
  * Generate EC key-pairs for parties A and B.
  * Derive shared secrets based on Diffie Hellman key agreement defined in PKCS#3
  */
-CK_RV run_DeriveECDHKey(void)
+CK_RV run_DeriveECDHKey(CK_BBOOL cofactor_mode)
 {
     CK_SESSION_HANDLE session;
     CK_MECHANISM mech;
@@ -650,8 +650,14 @@ CK_RV run_DeriveECDHKey(void)
             }
         }
 
-        derive_mech_type = CKM_ECDH1_DERIVE;
+        derive_mech_type = cofactor_mode ?
+                        CKM_ECDH1_COFACTOR_DERIVE : CKM_ECDH1_DERIVE;
         if (der_ec_supported[i].type == CURVE_MONTGOMERY) {
+            if (cofactor_mode) {
+                testcase_skip("No cofactor mode possible for curve: %s",
+                              der_ec_supported[i].name);
+                continue;
+            }
             if (der_ec_supported[i].curve == curve25519)
                 derive_mech_type = CKM_IBM_EC_X25519;
             if (der_ec_supported[i].curve == curve448)
@@ -662,6 +668,11 @@ CK_RV run_DeriveECDHKey(void)
             pub_attr_gen = pub_attr_montgomery;
             pub_attr_gen_len = pub_attr_montgomery_len;
         } else if (der_ec_supported[i].type == CURVE_EDWARDS) {
+            if (cofactor_mode) {
+                testcase_skip("No cofactor mode possible for curve: %s",
+                              der_ec_supported[i].name);
+                continue;
+            }
             prv_attr_gen = prv_attr_edwards;
             prv_attr_gen_len = prv_attr_edwards_len;
         }
@@ -4701,7 +4712,8 @@ int main(int argc, char **argv)
     rv = run_GenerateECCKeyPairSignVerify();
     rv += run_ImportECCKeyPairSignVerify();
     rv += run_TransferECCKeyPairSignVerify();
-    rv += run_DeriveECDHKey();
+    rv += run_DeriveECDHKey(FALSE);
+    rv += run_DeriveECDHKey(TRUE);
     rv += run_DeriveECDHKeyKAT();
     rv += run_DeriveBTC();
     rv += run_BLSAggregation();
@@ -4716,7 +4728,7 @@ int main(int argc, char **argv)
         rv += run_GenerateECCKeyPairSignVerify();
         rv += run_ImportECCKeyPairSignVerify();
         rv += run_TransferECCKeyPairSignVerify();
-        rv += run_DeriveECDHKey();
+        rv += run_DeriveECDHKey(FALSE);
         rv += run_DeriveECDHKeyKAT();
         rv += run_ImportSignVerify_Pkey();
         rv += run_GenerateEdwardsKeyPairSignVerify();
