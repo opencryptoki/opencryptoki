@@ -1778,7 +1778,7 @@ CK_RV ecdh_aes_key_wrap(STDLL_TokData_t *tokdata, SESSION *sess,
 {
     CK_ECDH_AES_KEY_WRAP_PARAMS *params;
     CK_ATTRIBUTE *ec_params = NULL, *ec_point = NULL;
-    CK_MECHANISM ec_keygen_mech = { CKM_EC_KEY_PAIR_GEN, NULL, 0 };
+    CK_MECHANISM ec_keygen_mech = { 0, NULL, 0 };
     CK_ECDH1_DERIVE_PARAMS ecdh_params = { 0 };
     CK_MECHANISM ecdh_mech = { CKM_ECDH1_DERIVE, &ecdh_params,
                                sizeof(ecdh_params) };
@@ -1795,6 +1795,7 @@ CK_RV ecdh_aes_key_wrap(STDLL_TokData_t *tokdata, SESSION *sess,
     CK_BBOOL ck_true = TRUE;
     CK_BBOOL ck_false = TRUE;
     OBJECT *key_obj = NULL, *pub_key_obj = NULL;
+    int curve_type;
     CK_RV rc, rc2;
 
     CK_ATTRIBUTE ec_publ_key_tmpl[] = {
@@ -1855,7 +1856,17 @@ CK_RV ecdh_aes_key_wrap(STDLL_TokData_t *tokdata, SESSION *sess,
         goto done;
     }
 
+    curve_type = ec_curve_type_from_oid(ec_params->pValue,
+                                        ec_params->ulValueLen);
+    if (curve_type < 0) {
+        TRACE_DEVEL("Failed to get CKA_EC_PARAMS.\n");
+        rc = CKR_CURVE_NOT_SUPPORTED;
+        goto done;
+    }
+
     /* Generate a temporary EC key pair using the same EC parameters */
+    ec_keygen_mech.mechanism = curve_type == MONTGOMERY_CURVE ?
+            CKM_EC_MONTGOMERY_KEY_PAIR_GEN : CKM_EC_KEY_PAIR_GEN;
     ec_publ_key_tmpl[0] = *ec_params;
     rc = key_mgr_generate_key_pair(tokdata, sess, &ec_keygen_mech,
                                    ec_publ_key_tmpl, sizeof(ec_publ_key_tmpl) /
@@ -1887,12 +1898,19 @@ CK_RV ecdh_aes_key_wrap(STDLL_TokData_t *tokdata, SESSION *sess,
         goto done;
     }
 
-    rc = ber_decode_OCTET_STRING((CK_BYTE *)ec_point->pValue,
-                                  &pub_ec_point, &pub_ec_point_len, &field_len);
-    if (rc != CKR_OK || field_len != ec_point->ulValueLen) {
-        rc = CKR_FUNCTION_FAILED;
-        TRACE_DEVEL("Failed to decode CKA_EC_POINT.\n");
-        goto done;
+    if (curve_type == MONTGOMERY_CURVE) {
+        /* Montgomery curves have a raw EC point */
+        pub_ec_point = ec_point->pValue;
+        pub_ec_point_len = ec_point->ulValueLen;
+    } else {
+        rc = ber_decode_OCTET_STRING((CK_BYTE *)ec_point->pValue,
+                                      &pub_ec_point, &pub_ec_point_len,
+                                      &field_len);
+        if (rc != CKR_OK || field_len != ec_point->ulValueLen) {
+            rc = CKR_FUNCTION_FAILED;
+            TRACE_DEVEL("Failed to decode CKA_EC_POINT.\n");
+            goto done;
+        }
     }
 
     /* Perform ECDH to derive a shared AES key */
@@ -1907,14 +1925,20 @@ CK_RV ecdh_aes_key_wrap(STDLL_TokData_t *tokdata, SESSION *sess,
         goto done;
     }
 
-    rc = ber_decode_OCTET_STRING((CK_BYTE *)ec_point->pValue,
-                                  &ecdh_params.pPublicData,
-                                  &ecdh_params.ulPublicDataLen,
-                                  &field_len);
-    if (rc != CKR_OK || field_len != ec_point->ulValueLen) {
-        rc = CKR_FUNCTION_FAILED;
-        TRACE_DEVEL("Failed to decode CKA_EC_POINT.\n");
-        goto done;
+    if (curve_type == MONTGOMERY_CURVE) {
+        /* Montgomery curves have a raw EC point */
+        ecdh_params.pPublicData = ec_point->pValue;
+        ecdh_params.ulPublicDataLen = ec_point->ulValueLen;
+    } else {
+        rc = ber_decode_OCTET_STRING((CK_BYTE *)ec_point->pValue,
+                                      &ecdh_params.pPublicData,
+                                      &ecdh_params.ulPublicDataLen,
+                                      &field_len);
+        if (rc != CKR_OK || field_len != ec_point->ulValueLen) {
+            rc = CKR_FUNCTION_FAILED;
+            TRACE_DEVEL("Failed to decode CKA_EC_POINT.\n");
+            goto done;
+        }
     }
 
     aes_key_size = params->ulAESKeyBits / 8;
@@ -2045,6 +2069,8 @@ CK_RV ecdh_aes_key_unwrap(STDLL_TokData_t *tokdata, SESSION *sess,
     CK_KEY_TYPE aes_key_type = CKK_AES;
     CK_ULONG aes_key_size;
     CK_BYTE form;
+    CK_ATTRIBUTE *ec_params;
+    int curve_type;
     CK_RV rc, rc2;
 
     CK_ATTRIBUTE aes_key_tmpl[] = {
@@ -2076,6 +2102,21 @@ CK_RV ecdh_aes_key_unwrap(STDLL_TokData_t *tokdata, SESSION *sess,
             return rc;
     }
 
+    rc = template_attribute_get_non_empty(key_obj->template, CKA_EC_PARAMS,
+                                          &ec_params);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("Failed to get CKA_EC_PARAMS.\n");
+        goto done;
+    }
+
+    curve_type = ec_curve_type_from_oid(ec_params->pValue,
+                                        ec_params->ulValueLen);
+    if (curve_type < 0) {
+        TRACE_DEVEL("Failed to get CKA_EC_PARAMS.\n");
+        rc = CKR_CURVE_NOT_SUPPORTED;
+        goto done;
+    }
+
     rc = get_ecsiglen(key_obj, &prime_len);
     if (rc != CKR_OK) {
         TRACE_DEVEL("get_ecsiglen failed.\n");
@@ -2083,32 +2124,44 @@ CK_RV ecdh_aes_key_unwrap(STDLL_TokData_t *tokdata, SESSION *sess,
     }
     prime_len /= 2; /* prime length is half the size of an EC signature */
 
-    /* Input must be at least a compressed EC point plus wrapped data */
-    if (in_data_len <= prime_len + 1 + 2 * AES_KEY_WRAP_BLOCK_SIZE) {
-        TRACE_ERROR("%s\n", ock_err(ERR_ENCRYPTED_DATA_LEN_RANGE));
-        rc = CKR_ENCRYPTED_DATA_LEN_RANGE;
-        goto done;
-    }
-
-    form  = in_data[0] & ~0x01;
-    switch (form) {
-    case POINT_CONVERSION_COMPRESSED:
-        public_data_len = prime_len + 1;
-        /* Length checked above already */
-        break;
-    case POINT_CONVERSION_UNCOMPRESSED:
-    case POINT_CONVERSION_HYBRID:
-        public_data_len = 2 * prime_len + 1;
-        if (in_data_len < public_data_len + 2 * AES_KEY_WRAP_BLOCK_SIZE) {
+    if (curve_type == MONTGOMERY_CURVE) {
+        /* Input must be at least a raw  EC point plus wrapped data */
+        if (in_data_len < prime_len + 2 * AES_KEY_WRAP_BLOCK_SIZE) {
             TRACE_ERROR("%s\n", ock_err(ERR_ENCRYPTED_DATA_LEN_RANGE));
             rc = CKR_ENCRYPTED_DATA_LEN_RANGE;
             goto done;
         }
-        break;
-    default:
-        TRACE_ERROR("%s\n", ock_err(ERR_ENCRYPTED_DATA_INVALID));
-        rc = CKR_ENCRYPTED_DATA_INVALID;
-        goto done;
+
+        /* Montgomery keys have a raw EC point */
+        public_data_len = prime_len;
+    } else {
+        /* Input must be at least a compressed EC point plus wrapped data */
+        if (in_data_len < prime_len + 1 + 2 * AES_KEY_WRAP_BLOCK_SIZE) {
+            TRACE_ERROR("%s\n", ock_err(ERR_ENCRYPTED_DATA_LEN_RANGE));
+            rc = CKR_ENCRYPTED_DATA_LEN_RANGE;
+            goto done;
+        }
+
+        form  = in_data[0] & ~0x01;
+        switch (form) {
+        case POINT_CONVERSION_COMPRESSED:
+            public_data_len = prime_len + 1;
+            /* Length checked above already */
+            break;
+        case POINT_CONVERSION_UNCOMPRESSED:
+        case POINT_CONVERSION_HYBRID:
+            public_data_len = 2 * prime_len + 1;
+            if (in_data_len < public_data_len + 2 * AES_KEY_WRAP_BLOCK_SIZE) {
+                TRACE_ERROR("%s\n", ock_err(ERR_ENCRYPTED_DATA_LEN_RANGE));
+                rc = CKR_ENCRYPTED_DATA_LEN_RANGE;
+                goto done;
+            }
+            break;
+        default:
+            TRACE_ERROR("%s\n", ock_err(ERR_ENCRYPTED_DATA_INVALID));
+            rc = CKR_ENCRYPTED_DATA_INVALID;
+            goto done;
+        }
     }
 
     /* Perform ECDH to derive a shared AES key */
