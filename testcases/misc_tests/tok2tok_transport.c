@@ -386,6 +386,15 @@ struct wrapping_mech_info wrapping_tests[] = {
         .ec_parms_len = sizeof(prime256v1),
     },
     {
+        .name = "Wrap/Unwrap with ECDH AES KEY WRAP (AES 256, X25519)",
+        .wrapping_mech = { CKM_ECDH_AES_KEY_WRAP,
+                           &ecdh_aeskw_aes_256__params,
+                           sizeof(CK_ECDH_AES_KEY_WRAP_PARAMS) },
+        .wrapping_key_gen_mech = { CKM_EC_MONTGOMERY_KEY_PAIR_GEN, 0, 0 },
+        .ec_parms = curve25519,
+        .ec_parms_len = sizeof(curve25519),
+    },
+    {
         .name = "Wrap/Unwrap with DES ECB",
         .wrapping_mech = { CKM_DES_ECB, 0, 0 },
         .wrapping_key_gen_mech = { CKM_DES_KEY_GEN, 0, 0 },
@@ -1792,6 +1801,20 @@ CK_RV do_wrapping_test(struct wrapping_mech_info *tsuite)
                                  FALSE);
         break;
 
+    case CKM_EC_EDWARDS_KEY_PAIR_GEN:
+        rc = generate_EC_KeyPair(session2, CKM_EC_EDWARDS_KEY_PAIR_GEN,
+                                 tsuite->ec_parms, tsuite->ec_parms_len,
+                                 &publ_wrap_key2, &priv_wrap_key2,
+                                 FALSE);
+        break;
+
+    case CKM_EC_MONTGOMERY_KEY_PAIR_GEN:
+        rc = generate_EC_KeyPair(session2, CKM_EC_MONTGOMERY_KEY_PAIR_GEN,
+                                 tsuite->ec_parms, tsuite->ec_parms_len,
+                                 &publ_wrap_key2, &priv_wrap_key2,
+                                 FALSE);
+        break;
+
     case CKM_AES_KEY_GEN:
         key_size = tsuite->sym_keylen;
         rc = funcs->C_GenerateRandom(session2, key, key_size);
@@ -1958,6 +1981,36 @@ CK_RV do_wrapping_test(struct wrapping_mech_info *tsuite)
             goto testcase_cleanup;
         }
         rc = create_ECPublicKey(session1, CKK_EC, ec_publ_tmpl[0].pValue,
+                                ec_publ_tmpl[0].ulValueLen,
+                                ec_publ_tmpl[1].pValue,
+                                ec_publ_tmpl[1].ulValueLen, &publ_wrap_key1,
+                                FALSE);
+        break;
+
+    case CKM_EC_EDWARDS_KEY_PAIR_GEN:
+        rc = funcs->C_GetAttributeValue(session2, publ_wrap_key2,
+                                        ec_publ_tmpl, 2);
+        if (rc != CKR_OK) {
+            testcase_error("C_GetAttributeValue(), rc=%s.", p11_get_ckr(rc));
+            goto testcase_cleanup;
+        }
+        rc = create_ECPublicKey(session1, CKK_EC_EDWARDS,
+                                ec_publ_tmpl[0].pValue,
+                                ec_publ_tmpl[0].ulValueLen,
+                                ec_publ_tmpl[1].pValue,
+                                ec_publ_tmpl[1].ulValueLen, &publ_wrap_key1,
+                                FALSE);
+        break;
+
+    case CKM_EC_MONTGOMERY_KEY_PAIR_GEN:
+        rc = funcs->C_GetAttributeValue(session2, publ_wrap_key2,
+                                        ec_publ_tmpl, 2);
+        if (rc != CKR_OK) {
+            testcase_error("C_GetAttributeValue(), rc=%s.", p11_get_ckr(rc));
+            goto testcase_cleanup;
+        }
+        rc = create_ECPublicKey(session1, CKK_EC_MONTGOMERY,
+                                ec_publ_tmpl[0].pValue,
                                 ec_publ_tmpl[0].ulValueLen,
                                 ec_publ_tmpl[1].pValue,
                                 ec_publ_tmpl[1].ulValueLen, &publ_wrap_key1,
