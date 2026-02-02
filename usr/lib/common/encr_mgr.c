@@ -391,7 +391,7 @@ CK_RV encr_mgr_init(STDLL_TokData_t *tokdata,
             goto done;
         }
 
-        if (keytype != CKK_EC) {
+        if (keytype != CKK_EC && keytype != CKK_EC_MONTGOMERY) {
             TRACE_ERROR("%s\n", ock_err(ERR_KEY_TYPE_INCONSISTENT));
             rc = CKR_KEY_TYPE_INCONSISTENT;
             goto done;
