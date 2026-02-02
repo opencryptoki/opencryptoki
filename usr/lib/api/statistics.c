@@ -140,6 +140,7 @@ static CK_RV statistics_increment(struct statistics *statistics,
             return rc;
         break;
     case CKM_ECDH1_DERIVE:
+    case CKM_ECDH1_COFACTOR_DERIVE:
         if (mech->pParameter == NULL ||
             mech->ulParameterLen != sizeof(CK_ECDH1_DERIVE_PARAMS))
             return CKR_MECHANISM_PARAM_INVALID;

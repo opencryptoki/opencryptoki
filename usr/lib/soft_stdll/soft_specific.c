@@ -305,6 +305,9 @@ static const MECH_LIST_ELEMENT soft_mech_list[] = {
                           CKF_EC_F_P | CKF_EC_UNCOMPRESS | CKF_EC_COMPRESS}},
     {CKM_ECDH1_DERIVE, {160, 521, CKF_DERIVE | CKF_EC_OID | CKF_EC_F_P |
                         CKF_EC_UNCOMPRESS | CKF_EC_COMPRESS}},
+    {CKM_ECDH1_COFACTOR_DERIVE, {160, 521, CKF_DERIVE | CKF_EC_OID |
+                                 CKF_EC_F_P | CKF_EC_UNCOMPRESS |
+                                 CKF_EC_COMPRESS}},
     {CKM_ECDH_AES_KEY_WRAP, {160, 521, CKF_WRAP | CKF_UNWRAP |
                              CKF_EC_OID | CKF_EC_F_P | CKF_EC_UNCOMPRESS |
                              CKF_EC_COMPRESS}},
@@ -1560,12 +1563,13 @@ CK_RV token_specific_ecdh_pkcs_derive(STDLL_TokData_t *tokdata,
                                       CK_ULONG pub_length,
                                       CK_BYTE *secret_value,
                                       CK_ULONG *secret_value_len,
-                                      CK_BYTE *oid, CK_ULONG oid_length)
+                                      CK_BYTE *oid, CK_ULONG oid_length,
+                                      CK_BBOOL cofactor_mode)
 {
     return openssl_specific_ecdh_pkcs_derive(tokdata, priv_bytes, priv_length,
                                              pub_bytes, pub_length,
                                              secret_value, secret_value_len,
-                                             oid, oid_length);
+                                             oid, oid_length, cofactor_mode);
 }
 
 #endif

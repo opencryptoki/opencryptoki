@@ -3293,7 +3293,8 @@ CK_RV openssl_specific_ecdh_pkcs_derive(STDLL_TokData_t *tokdata,
                                         CK_ULONG pub_length,
                                         CK_BYTE *secret_value,
                                         CK_ULONG *secret_value_len,
-                                        CK_BYTE *oid, CK_ULONG oid_length);
+                                        CK_BYTE *oid, CK_ULONG oid_length,
+                                        CK_BBOOL cofactor_mode);
 
 CK_RV openssl_specific_sha_init(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *ctx,
                                 CK_MECHANISM *mech);

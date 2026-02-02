@@ -178,11 +178,11 @@ struct token_specific_struct {
 
     CK_RV(*t_ecdh_pkcs_derive) (STDLL_TokData_t *tokdata, CK_BYTE *, CK_ULONG,
                                 CK_BYTE *, CK_ULONG, CK_BYTE *, CK_ULONG *,
-                                CK_BYTE *, CK_ULONG);
+                                CK_BYTE *, CK_ULONG, CK_BBOOL);
 
     CK_RV (*t_ecdh_pkcs_derive_kdf) (STDLL_TokData_t *, SESSION *, OBJECT *,
                                      CK_ECDH1_DERIVE_PARAMS *, OBJECT *,
-                                     CK_ULONG, CK_ULONG);
+                                     CK_ULONG, CK_ULONG, CK_BBOOL);
 
     /* Begin code contributed by Corrent corp. */
 

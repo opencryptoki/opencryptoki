@@ -3369,7 +3369,8 @@ CK_RV openssl_specific_ecdh_pkcs_derive(STDLL_TokData_t *tokdata,
                                         CK_ULONG pub_length,
                                         CK_BYTE *secret_value,
                                         CK_ULONG *secret_value_len,
-                                        CK_BYTE *oid, CK_ULONG oid_length)
+                                        CK_BYTE *oid, CK_ULONG oid_length,
+                                        CK_BBOOL cofactor_mode)
 {
 #if !OPENSSL_VERSION_PREREQ(3, 0)
     EC_KEY *pub = NULL, *priv = NULL;
@@ -3472,13 +3473,34 @@ CK_RV openssl_specific_ecdh_pkcs_derive(STDLL_TokData_t *tokdata,
     ctx = EVP_PKEY_CTX_new(ec_priv, NULL);
     if (ctx == NULL) {
         TRACE_DEVEL("EVP_PKEY_CTX_new failed\n");
+        rc = CKR_FUNCTION_FAILED;
         goto out;
     }
 
     if (EVP_PKEY_derive_init(ctx) <= 0 ||
         EVP_PKEY_derive_set_peer(ctx, ec_pub) <= 0) {
         TRACE_DEVEL("EVP_PKEY_derive_init/EVP_PKEY_derive_set_peer failed\n");
+        rc = CKR_FUNCTION_FAILED;
         goto out;
+    }
+
+    switch (nid) {
+    case NID_X25519:
+    case NID_X448:
+        if (cofactor_mode) {
+            TRACE_DEVEL("Cofactor mode does not work with Montgomrey keys\n");
+            rc = CKR_KEY_TYPE_INCONSISTENT;
+            goto out;
+        }
+        break;
+    default:
+        if (EVP_PKEY_CTX_set_ecdh_cofactor_mode(ctx,
+                                                cofactor_mode ? 1 : 0) <= 0) {
+            TRACE_DEVEL("EVP_PKEY_CTX_set_ecdh_cofactor_mode failed\n");
+            rc = CKR_FUNCTION_FAILED;
+            goto out;
+        }
+        break;
     }
 
     len = ec_prime_len_from_nid(nid);
@@ -7695,6 +7717,7 @@ static CK_RV openssl_specific_pqc_kem_with_ecdh(STDLL_TokData_t *tokdata,
     CK_BYTE *value = NULL;
     CK_ULONG value_len;
     CK_BBOOL value_allocated = FALSE;
+    CK_MECHANISM ecdh_mech = { CKM_ECDH1_DERIVE, NULL, 0 };
 
     if (base_key_type != CKK_IBM_ML_KEM) {
         TRACE_ERROR("%s\n", ock_err(ERR_KEY_TYPE_INCONSISTENT));
@@ -7773,7 +7796,8 @@ static CK_RV openssl_specific_pqc_kem_with_ecdh(STDLL_TokData_t *tokdata,
 
     rc = ckm_ecdh_pkcs_derive(tokdata, sess, kem_params->pPublicData,
                               kem_params->ulPublicDataLen, ec_key_object,
-                              ecdh_secret_z, &ecdh_secret_z_len, NULL, FALSE);
+                              ecdh_secret_z, &ecdh_secret_z_len, &ecdh_mech,
+                              FALSE);
     if (rc != CKR_OK) {
         TRACE_ERROR("ckm_ecdh_pkcs_derive failed\n");
         goto out;

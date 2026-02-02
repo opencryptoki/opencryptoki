@@ -13143,8 +13143,14 @@ CK_RV token_specific_ecdh_pkcs_derive_kdf(STDLL_TokData_t *tokdata,
                                           CK_ECDH1_DERIVE_PARAMS *params,
                                           OBJECT *derived_key_obj,
                                           CK_ULONG derived_key_class,
-                                          CK_ULONG derived_key_type)
+                                          CK_ULONG derived_key_type,
+                                          CK_BBOOL cofactor_mode)
 {
+    if (cofactor_mode) {
+        TRACE_ERROR("ECDH with cofactor mode is not supported. \n");
+        return CKR_MECHANISM_INVALID;
+    }
+
     return cca_ecdh_pkcs_derive_kdf(tokdata, session, base_key_obj, params,
                                     derived_key_obj, derived_key_class,
                                     derived_key_type, NULL);
