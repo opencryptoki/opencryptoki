@@ -1892,6 +1892,7 @@ CK_RV key_mgr_derive_key(STDLL_TokData_t *tokdata,
 #endif
 /* End code contributed by Corrent corp. */
     case CKM_ECDH1_DERIVE:
+    case CKM_ECDH1_COFACTOR_DERIVE:
         if (!derived_key) {
             TRACE_ERROR("%s received bad argument(s)\n", __func__);
             rc = CKR_FUNCTION_FAILED;

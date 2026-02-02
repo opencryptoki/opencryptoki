@@ -7655,10 +7655,16 @@ CK_RV token_specific_ecdh_pkcs_derive(STDLL_TokData_t *tokdata,
                                       CK_ULONG pub_length,
                                       CK_BYTE *secret_value,
                                       CK_ULONG *secret_value_len,
-                                      CK_BYTE *oid, CK_ULONG oid_length)
+                                      CK_BYTE *oid, CK_ULONG oid_length,
+                                      CK_BBOOL cofactor_mode)
 {
     ica_private_data_t *ica_data = (ica_private_data_t *)tokdata->private_data;
     CK_RV rc = CKR_FUNCTION_FAILED;
+
+    if (cofactor_mode) {
+        TRACE_ERROR("ECDH with cofactor mode is not supported. \n");
+        return CKR_MECHANISM_INVALID;
+    }
 
     if (ica_data->ica_ec_derive_available) {
         rc = ica_specific_ecdh_pkcs_derive(tokdata, priv_bytes, priv_length,
@@ -7673,7 +7679,7 @@ CK_RV token_specific_ecdh_pkcs_derive(STDLL_TokData_t *tokdata,
         rc = openssl_specific_ecdh_pkcs_derive(tokdata, priv_bytes, priv_length,
                                                pub_bytes, pub_length,
                                                secret_value, secret_value_len,
-                                               oid, oid_length);
+                                               oid, oid_length, FALSE);
 
     return rc;
 }

@@ -1037,6 +1037,7 @@ static CK_RV policy_is_mech_allowed(policy_t p, CK_MECHANISM_PTR mech,
             }
             break;
         case CKM_ECDH1_DERIVE:
+        case CKM_ECDH1_COFACTOR_DERIVE:
             if (mech->ulParameterLen != sizeof(CK_ECDH1_DERIVE_PARAMS) ||
                 mech->pParameter == NULL) {
                 TRACE_ERROR("Invalid mechanism parameter\n");
@@ -1348,6 +1349,7 @@ static CK_RV policy_update_mech_info(policy_t p, CK_MECHANISM_TYPE mech,
             }
             break;
         case CKM_ECDH1_DERIVE:
+        case CKM_ECDH1_COFACTOR_DERIVE:
         case CKM_ECDSA:
         case CKM_EC_KEY_PAIR_GEN:
         case CKM_EC_EDWARDS_KEY_PAIR_GEN:

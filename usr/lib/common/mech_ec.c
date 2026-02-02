@@ -905,6 +905,11 @@ CK_RV ckm_ecdh_pkcs_derive(STDLL_TokData_t *tokdata, SESSION *sess,
         rc = CKR_KEY_TYPE_INCONSISTENT;
         goto done;
     }
+    if (mech->mechanism == CKM_ECDH1_COFACTOR_DERIVE && keytype != CKK_EC) {
+        TRACE_ERROR("Cofactor mode only works with an EC private key\n");
+        rc = CKR_KEY_TYPE_INCONSISTENT;
+        goto done;
+    }
 
     /* Extract EC private key (D) from base_key */
     rc = template_attribute_get_non_empty(base_key_obj->template,
@@ -920,7 +925,9 @@ CK_RV ckm_ecdh_pkcs_derive(STDLL_TokData_t *tokdata, SESSION *sess,
                                            attr->ulValueLen,
                                            (CK_BYTE *) other_pubkey,
                                            other_pubkey_len, secret_value,
-                                           secret_value_len, oid_p, oid_len);
+                                           secret_value_len, oid_p, oid_len,
+                                           mech->mechanism ==
+                                                     CKM_ECDH1_COFACTOR_DERIVE);
     if (rc != CKR_OK) {
         TRACE_ERROR("Token specific ecdh pkcs derive failed with rc=%ld.\n",
                     rc);
@@ -1111,7 +1118,9 @@ CK_RV ecdh_pkcs_derive(STDLL_TokData_t *tokdata, SESSION *sess,
     if (token_specific.t_ecdh_pkcs_derive_kdf != NULL) {
         rc = token_specific.t_ecdh_pkcs_derive_kdf(tokdata, sess, base_key_obj,
                                                    pParms, temp_obj,
-                                                   class, keytype);
+                                                   class, keytype,
+                                                   mech->mechanism ==
+                                                     CKM_ECDH1_COFACTOR_DERIVE);
         if (rc != CKR_OK) {
             TRACE_ERROR("t_ecdh_pkcs_derive_kdf failed, rc=0x%lx.\n", rc);
             goto end;
