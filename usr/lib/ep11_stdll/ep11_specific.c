@@ -1743,6 +1743,33 @@ static void ep11tok_endecaps_combine_attrs(TEMPLATE *tmpl, CK_KEY_TYPE keytype,
             *user_val |= *((CK_BBOOL *)attr->pValue);
         }
         break;
+
+    case CKK_EC:
+    case CKK_EC_MONTGOMERY:
+        /* EC: Combine DERIVE and ENCAPS and DECAPS */
+        if (pkcs11_attr == CKA_DERIVE) {
+            if (class == CKO_PUBLIC_KEY &&
+                template_attribute_find(tmpl, CKA_ENCAPSULATE, &attr) &&
+                attr->ulValueLen == sizeof(CK_BBOOL) &&
+                attr->pValue != NULL) {
+                TRACE_DEVEL("%s EC pub key: CKA_DERIVE (%d) = CKA_DERIVE (%d) "
+                            "OR CKA_ENCAPSULATE (%d)\n", __func__,
+                            *user_val | *((CK_BBOOL *)attr->pValue),
+                            *user_val, *((CK_BBOOL *)attr->pValue));
+                *user_val |= *((CK_BBOOL *)attr->pValue);
+            }
+            if (class == CKO_PRIVATE_KEY &&
+                template_attribute_find(tmpl, CKA_DECAPSULATE, &attr) &&
+                attr->ulValueLen == sizeof(CK_BBOOL) &&
+                attr->pValue != NULL) {
+                TRACE_DEVEL("%s EC prv key: CKA_DERIVE (%d) = CKA_DERIVE (%d) "
+                            "OR CKA_DECAPSULATE (%d)\n", __func__,
+                            *user_val | *((CK_BBOOL *)attr->pValue),
+                            *user_val, *((CK_BBOOL *)attr->pValue));
+                *user_val |= *((CK_BBOOL *)attr->pValue);
+            }
+        }
+        break;
     }
 }
 
@@ -1751,7 +1778,8 @@ static CK_RV ep11tok_endecaps_combine_attrs_import(TEMPLATE *tmpl,
                                                    CK_OBJECT_CLASS class,
                                                    CK_BBOOL add_always,
                                                    CK_BBOOL wrap,
-                                                   CK_BBOOL unwrap)
+                                                   CK_BBOOL unwrap,
+                                                   CK_BBOOL derive)
 {
     CK_ATTRIBUTE *attr;
     CK_RV rc;
@@ -1788,6 +1816,39 @@ static CK_RV ep11tok_endecaps_combine_attrs_import(TEMPLATE *tmpl,
             }
         }
         break;
+
+    case CKK_EC:
+    case CKK_EC_MONTGOMERY:
+        /* EC: Set ENCAPS = DERIVE, DECAPS = DERIVE */
+        if(class == CKO_PUBLIC_KEY &&
+           (add_always ||
+            !template_attribute_find(tmpl, CKA_ENCAPSULATE, &attr))) {
+            TRACE_DEVEL("%s EC pub key: Add CKA_ENCAPSULATE = CKA_DERIVE "
+                        "(%d)\n", __func__, derive);
+
+            rc = template_build_update_attribute(tmpl, CKA_ENCAPSULATE,
+                                                 &derive, sizeof(CK_BBOOL));
+            if (rc != CKR_OK) {
+                TRACE_ERROR("template_build_update_attribute (CKA_ENCAPSULATE) "
+                           "failed (rc=0x%lx)\n", rc);
+                return rc;
+            }
+        }
+        if (class == CKO_PRIVATE_KEY &&
+            (add_always ||
+             !template_attribute_find(tmpl, CKA_DECAPSULATE, &attr))) {
+            TRACE_DEVEL("%s EC prv key: Add CKA_DECAPSULATE = CKA_DERIVE "
+                        "(%d)\n", __func__, derive);
+
+            rc = template_build_update_attribute(tmpl, CKA_DECAPSULATE,
+                                                 &derive, sizeof(CK_BBOOL));
+            if (rc != CKR_OK) {
+                TRACE_ERROR("template_build_update_attribute (CKA_DECAPSULATE) "
+                            "failed (rc=0x%lx)\n", rc);
+                return rc;
+            }
+        }
+        break;
     }
 
     return CKR_OK;
@@ -1802,7 +1863,7 @@ static CK_RV ep11tok_check_blob_import_attrs(STDLL_TokData_t *tokdata,
     XCP_Attr_t *bool_attrs = NULL, *bool_attrs2 = NULL;
     CK_ATTRIBUTE *attr;
     CK_BBOOL is_spki, blob_val, user_val, new_blob_val;
-    CK_BBOOL wrap = CK_FALSE, unwrap = CK_FALSE;
+    CK_BBOOL wrap = CK_FALSE, unwrap = CK_FALSE, derive = CK_FALSE;
     CK_RV rc;
 
     UNUSED(tokdata);
@@ -1918,6 +1979,8 @@ static CK_RV ep11tok_check_blob_import_attrs(STDLL_TokData_t *tokdata,
             wrap = blob_val;
         if (ep11_pkcs11_attr_map[i].pkcs11_attr == CKA_UNWRAP)
             unwrap = blob_val;
+        if (ep11_pkcs11_attr_map[i].pkcs11_attr == CKA_DERIVE)
+            derive = blob_val;
 
         rc = template_build_update_attribute(tmpl,
                                              ep11_pkcs11_attr_map[i].pkcs11_attr,
@@ -1934,7 +1997,7 @@ static CK_RV ep11tok_check_blob_import_attrs(STDLL_TokData_t *tokdata,
      * already specified by user in the template.
      */
     rc = ep11tok_endecaps_combine_attrs_import(tmpl, keytype, class, FALSE,
-                                               wrap, unwrap);
+                                               wrap, unwrap, derive);
     if (rc != CKR_OK) {
         TRACE_ERROR("ep11tok_endecaps_combine_attrs_import failed\n");
         return rc;
@@ -2510,7 +2573,7 @@ static CK_RV ab_unwrap_update_template(STDLL_TokData_t * tokdata,
     /* Set CKA_ENCAPSULATE/CKA_DECAPSULATE according to combined attrs */
     rc = ep11tok_endecaps_combine_attrs_import(obj->template, keytype,
                                                class, TRUE,
-                                               wrap, unwrap);
+                                               wrap, unwrap, derive);
     if (rc != CKR_OK) {
         TRACE_ERROR("ep11tok_endecaps_combine_attrs_import failed\n");
         return rc;
@@ -2920,6 +2983,8 @@ struct endecap_combine_attrs_data {
     CK_BBOOL wrap;
     CK_BBOOL unwrap_found;
     CK_BBOOL unwrap;
+    CK_BBOOL derive_found;
+    CK_BBOOL derive;
     CK_BBOOL encaps_found;
     CK_BBOOL encaps;
     CK_BBOOL decaps_found;
@@ -2945,6 +3010,14 @@ static CK_RV ep11tok_endecaps_combine_attrs_collect(
         /* Remember value for later, but do not add now */
         data->unwrap = *(CK_BBOOL *)attr->pValue;
         data->unwrap_found = CK_TRUE;
+        return CKR_OK;
+
+    case CKA_DERIVE:
+        if (attr->ulValueLen != sizeof(CK_BBOOL) || attr->pValue == NULL)
+            return CKR_ATTRIBUTE_VALUE_INVALID;
+        /* Remember value for later, but do not add now */
+        data->derive = *(CK_BBOOL *)attr->pValue;
+        data->derive_found = CK_TRUE;
         return CKR_OK;
 
     case CKA_ENCAPSULATE:
@@ -2979,6 +3052,7 @@ static CK_RV ep11tok_endecaps_combine_attrs_apply(
 {
     CK_ATTRIBUTE wrap_attr = { CKA_WRAP, &data->wrap, sizeof(CK_BBOOL) };
     CK_ATTRIBUTE unwrap_attr = { CKA_UNWRAP, &data->unwrap, sizeof(CK_BBOOL) };
+    CK_ATTRIBUTE derive_attr = { CKA_DERIVE, &data->derive, sizeof(CK_BBOOL) };
     CK_RV rc;
 
     switch (keytype) {
@@ -3003,6 +3077,28 @@ static CK_RV ep11tok_endecaps_combine_attrs_apply(
             data->unwrap_found = CK_TRUE;
         }
         break;
+    case CKK_EC:
+    case CKK_EC_MONTGOMERY:
+        /* EC: Combine Encaps and Derive, Decaps and Derive */
+        if (data->encaps_found && class == CKO_PUBLIC_KEY) {
+            TRACE_DEVEL("%s EC pub key: CKA_DERIVE (%d) = CKA_DERIVE (%d) OR "
+                        "CKA_ENCAPSULATE (%d)\n", __func__,
+                        data->derive | data->encaps,
+                        data->derive, data->encaps);
+
+            data->derive |= data->encaps;
+            data->derive_found = CK_TRUE;
+        }
+        if (data->decaps_found && class == CKO_PRIVATE_KEY) {
+            TRACE_DEVEL("%s EC prv key: CKA_DERIVE (%d) = CKA_DERIVE (%d) OR "
+                        "CKA_DECAPSULATE (%d)\n", __func__,
+                        data->derive | data->decaps,
+                        data->derive, data->decaps);
+
+            data->derive |= data->decaps;
+            data->derive_found = CK_TRUE;
+        }
+        break;
     }
 
     if (data->wrap_found &&
@@ -3023,6 +3119,17 @@ static CK_RV ep11tok_endecaps_combine_attrs_apply(
                                     &data->unwrap, sizeof(CK_BBOOL));
         if (rc != CKR_OK) {
             TRACE_ERROR("Adding attribute failed (CKA_UNWRAP) rc=0x%lx\n", rc);
+            return rc;
+        }
+    }
+
+    if (data->derive_found &&
+        attr_applicable_for_ep11(tokdata, &derive_attr, keytype, class,
+                                 curve_type, mech)) {
+        rc = add_to_attribute_array(p_attrs, p_attrs_len, CKA_DERIVE,
+                                    &data->derive, sizeof(CK_BBOOL));
+        if (rc != CKR_OK) {
+            TRACE_ERROR("Adding attribute failed (CKA_DERIVE) rc=0x%lx\n", rc);
             return rc;
         }
     }
@@ -9372,7 +9479,8 @@ CK_RV ep11tok_ibm_ed_mont_mech_check_keytype(OBJECT *key_obj)
 CK_RV ep11tok_derive_key(STDLL_TokData_t *tokdata, SESSION *session,
                          CK_MECHANISM_PTR mech, CK_OBJECT_HANDLE hBaseKey,
                          CK_OBJECT_HANDLE_PTR handle, CK_ATTRIBUTE_PTR attrs,
-                         CK_ULONG attrs_len)
+                         CK_ULONG attrs_len, CK_BBOOL count_statistics,
+                         CK_ULONG operation)
 {
     ep11_private_data_t *ep11_data = tokdata->private_data;
     CK_RV rc;
@@ -9415,9 +9523,33 @@ CK_RV ep11tok_derive_key(STDLL_TokData_t *tokdata, SESSION *session,
     CK_BYTE *useblob = NULL;
     size_t useblobsize = 0;
     int retry_mech_param_blob = 0;
+    CK_ULONG mode;
+    int policy_check;
+    CK_ATTRIBUTE_TYPE apply_tmpl_attr;
 
     memset(newblob, 0, sizeof(newblob));
     memset(newblobreenc, 0, sizeof(newblobreenc));
+
+    switch (operation) {
+    case OP_DERIVE:
+        policy_check = POLICY_CHECK_DERIVE;
+        mode = MODE_DERIVE;
+        apply_tmpl_attr = CKA_DERIVE_TEMPLATE;
+        break;
+    case OP_ENCAPSULATE:
+        policy_check = POLICY_CHECK_ENCAPS;
+        mode = MODE_ENCAPS;
+        apply_tmpl_attr = CKA_ENCAPSULATE_TEMPLATE;
+        break;
+    case OP_DECAPSULATE:
+        policy_check = POLICY_CHECK_DECAPS;
+        mode = MODE_DECAPS;
+        apply_tmpl_attr = CKA_DECAPSULATE_TEMPLATE;
+        break;
+    default:
+        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
+        return CKR_FUNCTION_FAILED;
+    }
 
     if (mech->mechanism == CKM_ECDH1_DERIVE ||
         mech->mechanism == CKM_IBM_EC_X25519 ||
@@ -9601,8 +9733,7 @@ CK_RV ep11tok_derive_key(STDLL_TokData_t *tokdata, SESSION *session,
 
         rc = tokdata->policy->is_mech_allowed(tokdata->policy, mech_orig,
                                               &base_key_obj->strength,
-                                              POLICY_CHECK_DERIVE,
-                                              session);
+                                              policy_check, session);
         if (rc != CKR_OK) {
             TRACE_ERROR("POLICY VIOLATION: derive key\n");
             goto error;
@@ -9636,8 +9767,7 @@ CK_RV ep11tok_derive_key(STDLL_TokData_t *tokdata, SESSION *session,
         objstrength.allowed = CK_TRUE;
         rc = tokdata->policy->is_mech_allowed(tokdata->policy, mech_orig,
                                               &objstrength,
-                                              POLICY_CHECK_DERIVE,
-                                              session);
+                                              policy_check, session);
         if (rc != CKR_OK) {
             TRACE_ERROR("POLICY VIOLATION: derive key\n");
             goto error;
@@ -9708,7 +9838,7 @@ CK_RV ep11tok_derive_key(STDLL_TokData_t *tokdata, SESSION *session,
         }
 
         rc = key_object_apply_template_attr(base_key_obj->template,
-                                            CKA_DERIVE_TEMPLATE,
+                                            apply_tmpl_attr,
                                             new_attrs, new_attrs_len,
                                             &new_attrs1, &new_attrs1_len);
         if (rc != CKR_OK) {
@@ -9730,7 +9860,7 @@ CK_RV ep11tok_derive_key(STDLL_TokData_t *tokdata, SESSION *session,
                                     new_attrs1 : new_attrs,
                                 !is_ec_aggregate_mechanism(mech) ?
                                     new_attrs1_len : new_attrs_len,
-                                MODE_DERIVE, class, ktype, &key_obj);
+                                mode, class, ktype, &key_obj);
     if (rc != CKR_OK) {
         TRACE_ERROR("%s object_mgr_create_skel failed with rc=0x%lx\n",
                     __func__, rc);
@@ -9972,9 +10102,10 @@ do_retry:
         goto error;
     }
 
-    INC_COUNTER(tokdata, session, mech_orig, base_key_obj,
-                is_ec_aggregate_mechanism(mech) ?
-                    POLICY_STRENGTH_IDX_192  : POLICY_STRENGTH_IDX_0);
+    if (count_statistics)
+        INC_COUNTER(tokdata, session, mech_orig, base_key_obj,
+                    is_ec_aggregate_mechanism(mech) ?
+                        POLICY_STRENGTH_IDX_192  : POLICY_STRENGTH_IDX_0);
 
     goto out;
 error:
@@ -11530,7 +11661,9 @@ CK_RV ep11tok_generate_key_pair(STDLL_TokData_t * tokdata, SESSION * sess,
                                 CK_ATTRIBUTE_PTR pPrivateKeyTemplate,
                                 CK_ULONG ulPrivateKeyAttributeCount,
                                 CK_OBJECT_HANDLE_PTR phPublicKey,
-                                CK_OBJECT_HANDLE_PTR phPrivateKey)
+                                CK_OBJECT_HANDLE_PTR phPrivateKey,
+                                CK_BBOOL count_statistics,
+                                CK_ULONG operation)
 {
     CK_RV rc;
     OBJECT *public_key_obj = NULL;
@@ -11541,6 +11674,19 @@ CK_RV ep11tok_generate_key_pair(STDLL_TokData_t * tokdata, SESSION * sess,
     CK_ATTRIBUTE *n_attr = NULL;
     CK_BYTE *spki = NULL;
     CK_ULONG spki_length = 0;
+    CK_ULONG mode;
+
+    switch (operation) {
+    case OP_KEYGEN:
+        mode = MODE_KEYGEN;
+        break;
+    case OP_ENCAPSULATE:
+        mode = MODE_ENCAPS;
+        break;
+    default:
+        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
+        return CKR_FUNCTION_FAILED;
+    }
 
     /* Get the keytype to use when creating the key object */
     rc = pkcs_get_keytype(pPrivateKeyTemplate, ulPrivateKeyAttributeCount,
@@ -11571,7 +11717,7 @@ CK_RV ep11tok_generate_key_pair(STDLL_TokData_t * tokdata, SESSION * sess,
 
     /* Now build the skeleton key. */
     rc = object_mgr_create_skel(tokdata, sess, pPublicKeyTemplate,
-                                ulPublicKeyAttributeCount, MODE_KEYGEN,
+                                ulPublicKeyAttributeCount, mode,
                                 CKO_PUBLIC_KEY, publ_ktype, &public_key_obj);
     if (rc != CKR_OK) {
         TRACE_DEVEL("%s Object mgr create skeleton failed\n", __func__);
@@ -11579,7 +11725,7 @@ CK_RV ep11tok_generate_key_pair(STDLL_TokData_t * tokdata, SESSION * sess,
     }
 
     rc = object_mgr_create_skel(tokdata, sess, pPrivateKeyTemplate,
-                                ulPrivateKeyAttributeCount, MODE_KEYGEN,
+                                ulPrivateKeyAttributeCount, mode,
                                 CKO_PRIVATE_KEY, priv_ktype, &private_key_obj);
     if (rc != CKR_OK) {
         TRACE_DEVEL("%s Object mgr create skeleton failed\n", __func__);
@@ -11788,8 +11934,9 @@ CK_RV ep11tok_generate_key_pair(STDLL_TokData_t * tokdata, SESSION * sess,
         goto error;
     }
 
-    INC_COUNTER(tokdata, sess, pMechanism, private_key_obj,
-                POLICY_STRENGTH_IDX_0);
+    if (count_statistics)
+        INC_COUNTER(tokdata, sess, pMechanism, private_key_obj,
+                    POLICY_STRENGTH_IDX_0);
 
     return rc;
 
@@ -14919,6 +15066,48 @@ CK_RV token_specific_encapsulate_rsa_key_unwrap(STDLL_TokData_t *tokdata,
                               OP_DECAPSULATE);
 }
 
+CK_RV token_specific_encapsulate_ecdh_key_pair_gen(
+                                                STDLL_TokData_t *tokdata,
+                                                SESSION *sess,
+                                                CK_MECHANISM *mech,
+                                                CK_ATTRIBUTE *publ_tmpl,
+                                                CK_ULONG publ_count ,
+                                                CK_ATTRIBUTE *priv_tmpl,
+                                                CK_ULONG priv_count,
+                                                CK_OBJECT_HANDLE *publ_key,
+                                                CK_OBJECT_HANDLE *priv_key)
+{
+    CK_RV rc;
+
+    rc = tokdata->policy->is_mech_allowed(tokdata->policy, mech,
+                                          NULL, POLICY_CHECK_ENCAPS, sess);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("POLICY VIOLATION: Keypair generation mechanism not "
+                    "allowed\n");
+        return rc;
+    }
+
+    return ep11tok_generate_key_pair(tokdata, sess, mech,
+                                     publ_tmpl, publ_count,
+                                     priv_tmpl, priv_count,
+                                     publ_key, priv_key,
+                                     FALSE, OP_ENCAPSULATE);
+}
+
+CK_RV token_specific_en_decapsulate_ecdh_derive_key(
+                                            STDLL_TokData_t *tokdata,
+                                            SESSION *sess,
+                                            CK_MECHANISM *mech,
+                                            CK_OBJECT_HANDLE base_key,
+                                            CK_OBJECT_HANDLE *derived_key,
+                                            CK_ATTRIBUTE *pTemplate,
+                                            CK_ULONG ulCount,
+                                            CK_ULONG operation)
+{
+    return ep11tok_derive_key(tokdata, sess, mech, base_key, derived_key,
+                              pTemplate, ulCount, FALSE, operation);
+}
+
 static const CK_MECHANISM_TYPE ep11_supported_mech_list[] = {
     CKM_AES_CBC,
     CKM_AES_CBC_PAD,
@@ -16054,6 +16243,11 @@ CK_RV ep11tok_get_mechanism_info(STDLL_TokData_t * tokdata,
     case CKM_SHA512_256_KEY_DERIVATION:
         pInfo->ulMinKeySize = 8;
         pInfo->ulMaxKeySize = SHA256_HASH_SIZE * 8;
+        break;
+    case CKM_ECDH1_DERIVE:
+        /* En/Decapsulate is not known by EP11, but we support it anyway */
+        if (pInfo->flags & CKF_DERIVE)
+            pInfo->flags |= CKF_ENCAPSULATE | CKF_DECAPSULATE;
         break;
 
     default:
@@ -18728,6 +18922,8 @@ CK_RV token_specific_set_attribute_values(STDLL_TokData_t *tokdata,
                                 &combine_attr_data.wrap);
     template_attribute_get_bool(obj->template, CKA_UNWRAP,
                                 &combine_attr_data.unwrap);
+    template_attribute_get_bool(obj->template, CKA_DERIVE,
+                                &combine_attr_data.derive);
 
     node = new_tmpl->attribute_list;
     while (node) {
@@ -18751,7 +18947,6 @@ CK_RV token_specific_set_attribute_values(STDLL_TokData_t *tokdata,
         case CKA_SIGN:
         case CKA_SIGN_RECOVER:
         case CKA_DECRYPT:
-        case CKA_DERIVE:
         case CKA_WRAP_WITH_TRUSTED:
         case CKA_TRUSTED:
         case CKA_IBM_RESTRICTABLE:
