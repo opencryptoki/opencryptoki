@@ -479,7 +479,8 @@ CK_RV is_ec_aggregate_mechanism(CK_MECHANISM_PTR pMechanism);
 CK_RV ep11tok_derive_key(STDLL_TokData_t * tokdata, SESSION * session,
                          CK_MECHANISM_PTR mech, CK_OBJECT_HANDLE hBaseKey,
                          CK_OBJECT_HANDLE_PTR handle, CK_ATTRIBUTE_PTR attrs,
-                         CK_ULONG attrs_len);
+                         CK_ULONG attrs_len, CK_BBOOL count_statistics,
+                         CK_ULONG operation);
 
 CK_RV ep11tok_generate_key_pair(STDLL_TokData_t * tokdata, SESSION * sess,
                                 CK_MECHANISM_PTR pMechanism,
@@ -488,7 +489,9 @@ CK_RV ep11tok_generate_key_pair(STDLL_TokData_t * tokdata, SESSION * sess,
                                 CK_ATTRIBUTE_PTR pPrivateKeyTemplate,
                                 CK_ULONG ulPrivateKeyAttributeCount,
                                 CK_OBJECT_HANDLE_PTR phPublicKey,
-                                CK_OBJECT_HANDLE_PTR phPrivateKey);
+                                CK_OBJECT_HANDLE_PTR phPrivateKey,
+                                CK_BBOOL count_statistics,
+                                CK_ULONG operation);
 
 CK_RV ep11tok_check_single_mech_key(STDLL_TokData_t *tokdata, SESSION * session,
                                     CK_MECHANISM *mech, CK_OBJECT_HANDLE key,
