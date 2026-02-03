@@ -4350,7 +4350,8 @@ CK_RV SC_GenerateKeyPair(STDLL_TokData_t *tokdata,
                                    ulPublicKeyAttributeCount,
                                    pPrivateKeyTemplate,
                                    ulPrivateKeyAttributeCount,
-                                   phPublicKey, phPrivateKey);
+                                   phPublicKey, phPrivateKey,
+                                   TRUE, OP_KEYGEN);
     if (rc != CKR_OK)
         TRACE_DEVEL("ep11tok_generate_key_pair() failed.\n");
 
@@ -4566,7 +4567,7 @@ CK_RV SC_DeriveKey(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
     }
 
     rc = ep11tok_derive_key(tokdata, sess, pMechanism, hBaseKey, phKey,
-                            pTemplate, ulCount);
+                            pTemplate, ulCount, TRUE, OP_DERIVE);
     if (rc != CKR_OK)
         TRACE_DEVEL("epl11tok_derive_key() failed.\n");
 
