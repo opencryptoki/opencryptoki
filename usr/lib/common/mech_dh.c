@@ -38,6 +38,7 @@
 #include "attributes.h"
 #include "tok_spec_struct.h"
 #include "trace.h"
+#include "p11util.h"
 
 #ifndef NODH
 
@@ -268,6 +269,271 @@ CK_RV ckm_dh_pkcs_key_pair_gen(STDLL_TokData_t *tokdata,
     if (rc != CKR_OK)
         TRACE_DEVEL("Token specific dh pkcs key pair gen failed.\n");
 
+    return rc;
+}
+
+CK_RV dh_encapsulate_key(STDLL_TokData_t *tokdata, SESSION *sess,
+                         CK_BBOOL length_only, CK_MECHANISM *mech,
+                         OBJECT *public_key,
+                         CK_ATTRIBUTE *pTemplate,
+                         CK_ULONG ulAttributeCount,
+                         CK_BYTE *pCiphertext,
+                         CK_ULONG *pulCiphertextLen,
+                         CK_OBJECT_HANDLE *phKey)
+{
+    CK_MECHANISM dh_keygen_mech = { CKM_DH_PKCS_KEY_PAIR_GEN, NULL, 0 };
+    CK_MECHANISM dh_mech;
+    CK_ATTRIBUTE *pub_key_value, *prime, *base;
+    CK_OBJECT_HANDLE gen_dh_publ_key_handle = CK_INVALID_HANDLE;
+    CK_OBJECT_HANDLE gen_dh_priv_key_handle = CK_INVALID_HANDLE;
+    CK_OBJECT_HANDLE hKey = CK_INVALID_HANDLE;
+    OBJECT *gen_pub_key_obj = NULL;
+    CK_ATTRIBUTE *gen_pub_key_value;
+    CK_BBOOL ck_true = TRUE;
+    CK_BBOOL ck_false = TRUE;
+    CK_RV rc, rc2;
+
+    CK_ATTRIBUTE dh_publ_key_tmpl[] = {
+        { CKA_PRIME, NULL, 0 },
+        { CKA_BASE, NULL, 0 },
+        { CKA_HIDDEN, &ck_true, sizeof(ck_true) },
+        { CKA_TOKEN, &ck_false, sizeof(ck_false) },
+        { CKA_PRIVATE, &ck_true, sizeof(ck_true) },
+        { CKA_ENCAPSULATE, &ck_true, sizeof(ck_true) },
+        { CKA_WRAP, &ck_false, sizeof(ck_false) },
+        { CKA_ENCRYPT, &ck_false, sizeof(ck_false) },
+        { CKA_VERIFY, &ck_false, sizeof(ck_false) },
+        { CKA_VERIFY_RECOVER, &ck_false, sizeof(ck_false) },
+        { CKA_DERIVE, &ck_true, sizeof(ck_true) },
+    };
+    CK_ATTRIBUTE dh_priv_key_tmpl[] = {
+        { CKA_HIDDEN, &ck_true, sizeof(ck_true) },
+        { CKA_SENSITIVE, &ck_true, sizeof(ck_true) },
+        { CKA_TOKEN, &ck_false, sizeof(ck_false) },
+        { CKA_PRIVATE, &ck_true, sizeof(ck_true) },
+        { CKA_UNWRAP, &ck_false, sizeof(ck_false) },
+        { CKA_DECRYPT, &ck_false, sizeof(ck_false) },
+        { CKA_SIGN, &ck_false, sizeof(ck_false) },
+        { CKA_SIGN_RECOVER, &ck_false, sizeof(ck_false) },
+        { CKA_DERIVE, &ck_true, sizeof(ck_true) },
+        { CKA_DECAPSULATE, &ck_true, sizeof(ck_true) },
+    };
+
+    /* Mechanism parameter (= public key) must be NULL and 0 */
+    if (mech->ulParameterLen != 0 || mech->pParameter != NULL) {
+        TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
+        return CKR_MECHANISM_PARAM_INVALID;
+    }
+
+    /* Generate a temporary DH key pair using the same DH parameters */
+    rc = template_attribute_get_non_empty(public_key->template,
+                                          CKA_PRIME, &prime);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("Failed to get CKA_PRIME.\n");
+        goto done;
+    }
+
+    rc = template_attribute_get_non_empty(public_key->template,
+                                          CKA_BASE, &base);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("Failed to get CKA_BASE.\n");
+        goto done;
+    }
+
+    dh_publ_key_tmpl[0].pValue = prime->pValue;
+    dh_publ_key_tmpl[0].ulValueLen = prime->ulValueLen;
+    dh_publ_key_tmpl[1].pValue = base->pValue;
+    dh_publ_key_tmpl[1].ulValueLen = base->ulValueLen;
+
+    if (token_specific.t_encapsulate_dh_ecdh_key_pair_gen != NULL) {
+        rc = token_specific.t_encapsulate_dh_ecdh_key_pair_gen(
+                                       tokdata, sess,&dh_keygen_mech,
+                                       dh_publ_key_tmpl,
+                                       sizeof(dh_publ_key_tmpl) /
+                                                           sizeof(CK_ATTRIBUTE),
+                                       dh_priv_key_tmpl,
+                                       sizeof(dh_priv_key_tmpl) /
+                                                           sizeof(CK_ATTRIBUTE),
+                                       &gen_dh_publ_key_handle,
+                                       &gen_dh_priv_key_handle);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("token specific encapsulate_dh_ecdh_key_pair_gen "
+                        "failed to generate temporary DH key pair: %s "
+                        "(0x%lx)\n", p11_get_ckr(rc), rc);
+            goto done;
+        }
+    } else {
+        rc = key_mgr_generate_key_pair(tokdata, sess, &dh_keygen_mech,
+                                       dh_publ_key_tmpl,
+                                       sizeof(dh_publ_key_tmpl) /
+                                                           sizeof(CK_ATTRIBUTE),
+                                       dh_priv_key_tmpl,
+                                       sizeof(dh_priv_key_tmpl) /
+                                                           sizeof(CK_ATTRIBUTE),
+                                       &gen_dh_publ_key_handle,
+                                       &gen_dh_priv_key_handle,
+                                       FALSE, OP_ENCAPSULATE);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("key_mgr_generate_key_pair failed to generate "
+                        "temporary DH key pair: %s (0x%lx)\n",
+                        p11_get_ckr(rc), rc);
+            goto done;
+        }
+    }
+
+    /* Get the size of the generated DH public value */
+    rc = object_mgr_find_in_map1(tokdata, gen_dh_publ_key_handle,
+                                 &gen_pub_key_obj, READ_LOCK);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Failed to acquire key from DH public key handle.\n");
+        if (rc == CKR_OBJECT_HANDLE_INVALID)
+            rc = CKR_KEY_HANDLE_INVALID;
+        goto done;
+    }
+
+    rc = template_attribute_get_non_empty(gen_pub_key_obj->template,
+                                          CKA_VALUE, &gen_pub_key_value);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("Failed to get CKA_VALUE.\n");
+        goto done;
+    }
+
+    if (length_only) {
+        *pulCiphertextLen = gen_pub_key_value->ulValueLen;
+        goto done;
+    }
+
+    if (*pulCiphertextLen < gen_pub_key_value->ulValueLen) {
+        *pulCiphertextLen = gen_pub_key_value->ulValueLen;
+        rc = CKR_BUFFER_TOO_SMALL;
+        goto done;
+    }
+
+    rc = template_attribute_get_non_empty(public_key->template,
+                                          CKA_VALUE, &pub_key_value);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("Failed to get CKA_VALUE.\n");
+        goto done;
+    }
+
+    dh_mech.mechanism = CKM_DH_PKCS_DERIVE;
+    dh_mech.pParameter = pub_key_value->pValue;
+    dh_mech.ulParameterLen = pub_key_value->ulValueLen;
+
+    if (token_specific.t_en_decapsulate_dh_ecdh_derive_key != NULL) {
+        rc = token_specific.t_en_decapsulate_dh_ecdh_derive_key(
+                                            tokdata, sess, &dh_mech,
+                                            gen_dh_priv_key_handle,
+                                            &hKey, pTemplate, ulAttributeCount,
+                                            OP_ENCAPSULATE);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("token specific en_decapsulate_dh_ecdh_derive_key "
+                        "failed.\n");
+            goto done;
+        }
+    } else {
+        rc = key_mgr_derive_key(tokdata, sess, &dh_mech,
+                                gen_dh_priv_key_handle,
+                                &hKey, pTemplate, ulAttributeCount,
+                                FALSE, OP_ENCAPSULATE);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("key_mgr_derive_key failed.\n");
+            goto done;
+        }
+    }
+
+
+    *pulCiphertextLen = gen_pub_key_value->ulValueLen;
+    memcpy(pCiphertext, gen_pub_key_value->pValue,
+           gen_pub_key_value->ulValueLen);
+
+    *phKey = hKey;
+
+done:
+    if (gen_dh_publ_key_handle != CK_INVALID_HANDLE) {
+        rc2 = object_mgr_destroy_object(tokdata, sess,
+                                        gen_dh_publ_key_handle);
+        if (rc2 != CKR_OK) {
+            TRACE_ERROR("Failed to destroy temporary DH public key: %s "
+                        "(0x%lx)\n", p11_get_ckr(rc2), rc2);
+            if (rc == CKR_OK)
+                rc = rc2;
+        }
+    }
+    if (gen_dh_priv_key_handle != CK_INVALID_HANDLE) {
+        rc2 = object_mgr_destroy_object(tokdata, sess,
+                                        gen_dh_priv_key_handle);
+        if (rc2 != CKR_OK) {
+            TRACE_ERROR("Failed to destroy temporary DH private key: %s "
+                        "(0x%lx)\n", p11_get_ckr(rc2), rc2);
+            if (rc == CKR_OK)
+                rc = rc2;
+        }
+    }
+
+    if (rc != CKR_OK && hKey != CK_INVALID_HANDLE) {
+        rc2 = object_mgr_destroy_object(tokdata, sess, hKey);
+        if (rc2 != CKR_OK) {
+            TRACE_ERROR("Failed to destroy derived secret key: %s "
+                        "(0x%lx)\n", p11_get_ckr(rc2), rc2);
+            if (rc == CKR_OK)
+                rc = rc2;
+        }
+    }
+
+    object_put(tokdata, gen_pub_key_obj, TRUE);
+    gen_pub_key_obj = NULL;
+
+    return rc;
+}
+
+CK_RV dh_decapsulate_key(STDLL_TokData_t *tokdata, SESSION *sess,
+                         CK_MECHANISM *mech, OBJECT *private_key,
+                         CK_ATTRIBUTE *pTemplate,
+                         CK_ULONG ulAttributeCount,
+                         CK_BYTE *pCiphertext,
+                         CK_ULONG ulCiphertextLen,
+                         CK_OBJECT_HANDLE *phKey)
+{
+    CK_MECHANISM dh_mech;
+    CK_OBJECT_HANDLE hKey = CK_INVALID_HANDLE;
+    CK_RV rc;
+
+    /* Mechanism parameter (= public key) must be NULL and 0 */
+    if (mech->ulParameterLen != 0 || mech->pParameter != NULL) {
+        TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
+        return CKR_MECHANISM_PARAM_INVALID;
+    }
+
+    dh_mech.mechanism = CKM_DH_PKCS_DERIVE;
+    dh_mech.pParameter = pCiphertext;
+    dh_mech.ulParameterLen = ulCiphertextLen;
+
+    if (token_specific.t_en_decapsulate_dh_ecdh_derive_key != NULL) {
+        rc = token_specific.t_en_decapsulate_dh_ecdh_derive_key(
+                                            tokdata, sess, &dh_mech,
+                                            private_key->map_handle,
+                                            &hKey, pTemplate, ulAttributeCount,
+                                            OP_DECAPSULATE);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("token specific en_decapsulate_dh_ecdh_derive_key "
+                        "failed.\n");
+            goto done;
+        }
+    } else {
+        rc = key_mgr_derive_key(tokdata, sess, &dh_mech,
+                                private_key->map_handle,
+                                &hKey, pTemplate, ulAttributeCount,
+                                FALSE, OP_DECAPSULATE);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("key_mgr_derive_key failed.\n");
+            goto done;
+        }
+    }
+
+    *phKey = hKey;
+
+done:
     return rc;
 }
 

@@ -2394,8 +2394,8 @@ CK_RV ecdh_encapsulate_key(STDLL_TokData_t *tokdata, SESSION *sess,
 
     ec_publ_key_tmpl[0] = *ec_params;
 
-    if (token_specific.t_encapsulate_ecdh_key_pair_gen != NULL) {
-        rc = token_specific.t_encapsulate_ecdh_key_pair_gen(
+    if (token_specific.t_encapsulate_dh_ecdh_key_pair_gen != NULL) {
+        rc = token_specific.t_encapsulate_dh_ecdh_key_pair_gen(
                                        tokdata, sess,&ec_keygen_mech,
                                        ec_publ_key_tmpl,
                                        sizeof(ec_publ_key_tmpl) /
@@ -2406,9 +2406,9 @@ CK_RV ecdh_encapsulate_key(STDLL_TokData_t *tokdata, SESSION *sess,
                                        &gen_ec_publ_key_handle,
                                        &gen_ec_priv_key_handle);
         if (rc != CKR_OK) {
-            TRACE_DEVEL("token specific encapsulate_ecdh_key_pair_gen failed "
-                        "to generate temporary EC key pair: %s (0x%lx)\n",
-                        p11_get_ckr(rc), rc);
+            TRACE_DEVEL("token specific encapsulate_dh_ecdh_key_pair_gen "
+                        "failed to generate temporary EC key pair: %s "
+                        "(0x%lx)\n", p11_get_ckr(rc), rc);
             goto done;
         }
     } else {
@@ -2488,14 +2488,14 @@ CK_RV ecdh_encapsulate_key(STDLL_TokData_t *tokdata, SESSION *sess,
     ecdh_mech.pParameter = &ecdh_params;
     ecdh_mech.ulParameterLen = sizeof(ecdh_params);
 
-    if (token_specific.t_en_decapsulate_ecdh_derive_key != NULL) {
-        rc = token_specific.t_en_decapsulate_ecdh_derive_key(
+    if (token_specific.t_en_decapsulate_dh_ecdh_derive_key != NULL) {
+        rc = token_specific.t_en_decapsulate_dh_ecdh_derive_key(
                                             tokdata, sess, &ecdh_mech,
                                             gen_ec_priv_key_handle,
                                             &hKey, pTemplate, ulAttributeCount,
                                             OP_ENCAPSULATE);
         if (rc != CKR_OK) {
-            TRACE_DEVEL("token specific en_decapsulate_ecdh_derive_key "
+            TRACE_DEVEL("token specific en_decapsulate_dh_ecdh_derive_key "
                         "failed.\n");
             goto done;
         }
@@ -2588,14 +2588,14 @@ CK_RV ecdh_decapsulate_key(STDLL_TokData_t *tokdata, SESSION *sess,
     ecdh_mech.pParameter = &ecdh_params;
     ecdh_mech.ulParameterLen = sizeof(ecdh_params);
 
-    if (token_specific.t_en_decapsulate_ecdh_derive_key != NULL) {
-        rc = token_specific.t_en_decapsulate_ecdh_derive_key(
+    if (token_specific.t_en_decapsulate_dh_ecdh_derive_key != NULL) {
+        rc = token_specific.t_en_decapsulate_dh_ecdh_derive_key(
                                             tokdata, sess, &ecdh_mech,
                                             private_key->map_handle,
                                             &hKey, pTemplate, ulAttributeCount,
                                             OP_DECAPSULATE);
         if (rc != CKR_OK) {
-            TRACE_DEVEL("token specific en_decapsulate_ecdh_derive_key "
+            TRACE_DEVEL("token specific en_decapsulate_dh_ecdh_derive_key "
                         "failed.\n");
             goto done;
         }

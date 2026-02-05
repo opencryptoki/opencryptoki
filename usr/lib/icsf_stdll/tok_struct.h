@@ -146,8 +146,8 @@ token_spec_t token_specific = {
     NULL,                       // encapsulate_rsa_sym_keygen
     NULL,                       // encapsulate_rsa_key_wrap
     NULL,                       // encapsulate_rsa_key_unwrap
-    NULL,                       // encapsulate_ecdh_key_pair_gen
-    NULL,                       // en_decapsulate_ecdh_derive_key
+    NULL,                       // encapsulate_dh_ecdh_key_pair_gen
+    NULL,                       // en_decapsulate_dh_ecdh_derive_key
     NULL,                       // reencrypt_single
     NULL,                       // set_attribute_values
     NULL,                       // set_attrs_for_new_object

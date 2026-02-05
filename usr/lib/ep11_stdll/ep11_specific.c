@@ -15058,7 +15058,7 @@ CK_RV token_specific_encapsulate_rsa_key_unwrap(STDLL_TokData_t *tokdata,
                               OP_DECAPSULATE);
 }
 
-CK_RV token_specific_encapsulate_ecdh_key_pair_gen(
+CK_RV token_specific_encapsulate_dh_ecdh_key_pair_gen(
                                                 STDLL_TokData_t *tokdata,
                                                 SESSION *sess,
                                                 CK_MECHANISM *mech,
@@ -15086,7 +15086,7 @@ CK_RV token_specific_encapsulate_ecdh_key_pair_gen(
                                      FALSE, OP_ENCAPSULATE);
 }
 
-CK_RV token_specific_en_decapsulate_ecdh_derive_key(
+CK_RV token_specific_en_decapsulate_dh_ecdh_derive_key(
                                             STDLL_TokData_t *tokdata,
                                             SESSION *sess,
                                             CK_MECHANISM *mech,
