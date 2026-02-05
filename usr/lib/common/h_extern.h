@@ -908,6 +908,19 @@ CK_RV ckm_dh_key_pair_gen(STDLL_TokData_t *tokdata, TEMPLATE *publ_tmpl,
 
 CK_RV ckm_dh_pkcs_key_pair_gen(STDLL_TokData_t *tokdata,
                                TEMPLATE *publ_tmpl, TEMPLATE *priv_tmpl);
+
+CK_RV dh_encapsulate_key(STDLL_TokData_t *tokdata, SESSION *sess,
+                         CK_BBOOL length_only, CK_MECHANISM *mech,
+                         OBJECT *public_key,
+                         CK_ATTRIBUTE *pTemplate, CK_ULONG ulAttributeCount,
+                         CK_BYTE *pCiphertext, CK_ULONG *pulCiphertextLen,
+                         CK_OBJECT_HANDLE *phKey);
+
+CK_RV dh_decapsulate_key(STDLL_TokData_t *tokdata, SESSION *sess,
+                         CK_MECHANISM *mech, OBJECT *private_key,
+                         CK_ATTRIBUTE *pTemplate, CK_ULONG ulAttributeCount,
+                         CK_BYTE *pCiphertext, CK_ULONG ulCiphertextLen,
+                         CK_OBJECT_HANDLE *phKey);
 #endif
 /* End code contributed by Corrent corp. */
 
