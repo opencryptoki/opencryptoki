@@ -136,7 +136,8 @@ static const MECH_LIST_ELEMENT soft_mech_list[] = {
 #endif
 /* Begin code contributed by Corrent corp. */
 #if !(NODH)
-    {CKM_DH_PKCS_DERIVE, {512, 8192, CKF_DERIVE}},
+    {CKM_DH_PKCS_DERIVE, {512, 8192, CKF_DERIVE | CKF_ENCAPSULATE |
+                          CKF_DECAPSULATE}},
     {CKM_DH_PKCS_KEY_PAIR_GEN, {512, 8192, CKF_GENERATE_KEY_PAIR}},
 #endif
 /* End code contributed by Corrent corp. */
