@@ -223,6 +223,16 @@ static CK_RV policy_get_pqc_args(CK_KEY_TYPE key_type,
         mode_attr = (CK_ATTRIBUTE_TYPE)-1;
         oids = ml_kem_oids;
         break;
+    case CKK_ML_DSA:
+        keyform_attr = CKA_PARAMETER_SET;
+        mode_attr = (CK_ATTRIBUTE_TYPE)-1;
+        oids = ml_dsa_oids;
+        break;
+    case CKK_ML_KEM:
+        keyform_attr = CKA_PARAMETER_SET;
+        mode_attr = (CK_ATTRIBUTE_TYPE)-1;
+        oids = ml_kem_oids;
+        break;
     default:
         TRACE_ERROR("Unsupported key type 0x%lx\n", key_type);
         return CKR_KEY_TYPE_INCONSISTENT;
@@ -385,6 +395,8 @@ static CK_RV policy_extract_key_data(get_attr_val_f getattr, void *d,
     case CKK_IBM_PQC_KYBER:
     case CKK_IBM_ML_DSA:
     case CKK_IBM_ML_KEM:
+    case CKK_ML_KEM:
+    case CKK_ML_DSA:
         rv = policy_get_pqc_args(*(CK_ULONG *)keytype->pValue, getattr, d,
                                  free_attr, size, siglen, oid, oidlen);
         *comptarget = COMPARE_PQC;
@@ -426,6 +438,7 @@ static CK_RV policy_get_sig_size(CK_MECHANISM_PTR mech, struct objstrength *s,
                                  CK_ULONG *ssize)
 {
     const struct mechrow *col = mechrow_from_numeric(mech->mechanism);
+    const struct mechrow *impl;
     CK_ULONG size;
 
     if (!col || !s)
@@ -466,6 +479,8 @@ static CK_RV policy_get_sig_size(CK_MECHANISM_PTR mech, struct objstrength *s,
         case CKM_IBM_DILITHIUM:
             /* Fallthrough */
         case CKM_IBM_ML_DSA:
+            /* Fallthrough */
+        case CKM_ML_DSA:
             *ssize = s->siglen;
             break;
         case CKM_DSA_SHA1:
@@ -493,6 +508,10 @@ static CK_RV policy_get_sig_size(CK_MECHANISM_PTR mech, struct objstrength *s,
         case CKM_SHA3_224_RSA_PKCS:
             /* Fallthrough */
         case CKM_SHA3_224_RSA_PKCS_PSS:
+            /* Fallthrough */
+        case CKM_HASH_ML_DSA_SHA224:
+            /* Fallthrough */
+        case CKM_HASH_ML_DSA_SHA3_224:
             *ssize = MIN(s->siglen, 224);
             break;
         case CKM_ECDSA_SHA256:
@@ -506,6 +525,12 @@ static CK_RV policy_get_sig_size(CK_MECHANISM_PTR mech, struct objstrength *s,
         case CKM_SHA3_256_RSA_PKCS:
             /* Fallthrough */
         case CKM_SHA3_256_RSA_PKCS_PSS:
+            /* Fallthrough */
+        case CKM_HASH_ML_DSA_SHA256:
+            /* Fallthrough */
+        case CKM_HASH_ML_DSA_SHA3_256:
+            /* Fallthrough */
+        case CKM_HASH_ML_DSA_SHAKE128:
             *ssize = MIN(s->siglen, 256);
             break;
         case CKM_ECDSA_SHA384:
@@ -519,6 +544,10 @@ static CK_RV policy_get_sig_size(CK_MECHANISM_PTR mech, struct objstrength *s,
         case CKM_SHA3_384_RSA_PKCS:
             /* Fallthrough */
         case CKM_SHA3_384_RSA_PKCS_PSS:
+            /* Fallthrough */
+        case CKM_HASH_ML_DSA_SHA384:
+            /* Fallthrough */
+        case CKM_HASH_ML_DSA_SHA3_384:
             *ssize = MIN(s->siglen, 384);
             break;
         case CKM_ECDSA_SHA512:
@@ -534,6 +563,12 @@ static CK_RV policy_get_sig_size(CK_MECHANISM_PTR mech, struct objstrength *s,
         case CKM_SHA3_512_RSA_PKCS_PSS:
             /* Fallthrough */
         case CKM_IBM_ED25519_SHA512:
+            /* Fallthrough */
+        case CKM_HASH_ML_DSA_SHA512:
+            /* Fallthrough */
+        case CKM_HASH_ML_DSA_SHA3_512:
+            /* Fallthrough */
+        case CKM_HASH_ML_DSA_SHAKE256:
             *ssize = MIN(s->siglen, 512);
             break;
         case CKM_IBM_ECDSA_OTHER:
@@ -557,6 +592,22 @@ static CK_RV policy_get_sig_size(CK_MECHANISM_PTR mech, struct objstrength *s,
             break;
         case CKM_IBM_EC_AGGREGATE:
             *ssize = MIN(s->siglen, CK_IBM_BLS12_381_SIGN_LEN * 8);
+            break;
+        case CKM_HASH_ML_DSA:
+            if (mech->ulParameterLen !=
+                                sizeof(CK_HASH_SIGN_ADDITIONAL_CONTEXT) ||
+                mech->pParameter == NULL) {
+                TRACE_ERROR("Invalid mechanism parameter\n");
+                return CKR_MECHANISM_PARAM_INVALID;
+            }
+            impl = mechrow_from_numeric(
+                  ((CK_HASH_SIGN_ADDITIONAL_CONTEXT *)mech->pParameter)->hash);
+            if (impl == NULL ||
+                impl->outputsize == MC_INFORMATION_UNAVAILABLE) {
+                TRACE_ERROR("Invalid mechanism parameter: hash mech invalid\n");
+                return CKR_MECHANISM_PARAM_INVALID;
+            }
+            *ssize = MIN(s->siglen, impl->outputsize * 8);
             break;
         default:
             return CKR_FUNCTION_FAILED;
@@ -848,6 +899,8 @@ static CK_RV policy_check_signature_size(struct policy_private *pp,
             case CKM_IBM_DILITHIUM:
                 /* Fallthrough */
             case CKM_IBM_ML_DSA:
+                /* Fallthrough */
+            case CKM_ML_DSA:
                 siglen = 256;
                 break;
             default:
@@ -1210,6 +1263,22 @@ static CK_RV policy_is_mech_allowed(policy_t p, CK_MECHANISM_PTR mech,
                     break;
             }
             break;
+        case CKM_HASH_ML_DSA:
+            if (mech->ulParameterLen !=
+                                    sizeof(CK_HASH_SIGN_ADDITIONAL_CONTEXT) ||
+                mech->pParameter == NULL) {
+                TRACE_ERROR("Invalid mechanism parameter\n");
+                return CKR_MECHANISM_PARAM_INVALID;
+            }
+            if (hashmap_find(pp->allowedmechs,
+                             ((CK_HASH_SIGN_ADDITIONAL_CONTEXT *)
+                                     mech->pParameter)->hash, NULL) == 0) {
+                TRACE_WARNING("POLICY VIOLATION: ML-DSA hash algorithm not "
+                              "allowed by policy.\n");
+                rv = CKR_FUNCTION_FAILED;
+                break;
+            }
+            break;
         default:
             break;
         }
@@ -1404,6 +1473,21 @@ static CK_RV policy_update_mech_info(policy_t p, CK_MECHANISM_TYPE mech,
         case CKM_IBM_ML_KEM_KEY_PAIR_GEN:
         case CKM_IBM_ML_KEM:
         case CKM_IBM_ML_KEM_WITH_ECDH:
+        case CKM_ML_KEM_KEY_PAIR_GEN:
+        case CKM_ML_KEM:
+        case CKM_ML_DSA_KEY_PAIR_GEN:
+        case CKM_ML_DSA:
+        case CKM_HASH_ML_DSA:
+        case CKM_HASH_ML_DSA_SHA224:
+        case CKM_HASH_ML_DSA_SHA256:
+        case CKM_HASH_ML_DSA_SHA384:
+        case CKM_HASH_ML_DSA_SHA512:
+        case CKM_HASH_ML_DSA_SHA3_224:
+        case CKM_HASH_ML_DSA_SHA3_256:
+        case CKM_HASH_ML_DSA_SHA3_384:
+        case CKM_HASH_ML_DSA_SHA3_512:
+        case CKM_HASH_ML_DSA_SHAKE128:
+        case CKM_HASH_ML_DSA_SHAKE256:
             break;
         case CKM_IBM_SHA3_224:
         case CKM_IBM_SHA3_256:
