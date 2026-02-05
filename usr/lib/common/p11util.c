@@ -219,10 +219,12 @@ const char *p11_get_cka(CK_ATTRIBUTE_TYPE atype)
         _sym2str(CKA_DERIVE_TEMPLATE);
         _sym2str(CKA_ALLOWED_MECHANISMS);
         _sym2str(CKA_PROFILE_ID);
+        _sym2str(CKA_PARAMETER_SET);
         _sym2str(CKA_ENCAPSULATE_TEMPLATE);
         _sym2str(CKA_DECAPSULATE_TEMPLATE);
         _sym2str(CKA_ENCAPSULATE);
         _sym2str(CKA_DECAPSULATE);
+        _sym2str(CKA_SEED);
         _sym2str(CKA_IBM_OPAQUE);
         _sym2str(CKA_IBM_OPAQUE_REENC);
         _sym2str(CKA_IBM_OPAQUE_OLD);
@@ -347,10 +349,12 @@ CK_BBOOL is_attribute_defined(CK_ATTRIBUTE_TYPE type)
     case CKA_DESTROYABLE:
     case CKA_ALLOWED_MECHANISMS:
     case CKA_DERIVE_TEMPLATE:
+    case CKA_PARAMETER_SET:
     case CKA_ENCAPSULATE_TEMPLATE:
     case CKA_DECAPSULATE_TEMPLATE:
     case CKA_ENCAPSULATE:
     case CKA_DECAPSULATE:
+    case CKA_SEED:
         return TRUE;
     }
 
