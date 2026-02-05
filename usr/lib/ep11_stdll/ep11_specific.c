@@ -1744,14 +1744,15 @@ static void ep11tok_endecaps_combine_attrs(TEMPLATE *tmpl, CK_KEY_TYPE keytype,
 
     case CKK_EC:
     case CKK_EC_MONTGOMERY:
-        /* EC: Combine DERIVE and ENCAPS and DECAPS */
+    case CKK_DH:
+        /* EC/DH: Combine DERIVE and ENCAPS and DECAPS */
         if (pkcs11_attr == CKA_DERIVE) {
             if (class == CKO_PUBLIC_KEY &&
                 template_attribute_find(tmpl, CKA_ENCAPSULATE, &attr) &&
                 attr->ulValueLen == sizeof(CK_BBOOL) &&
                 attr->pValue != NULL) {
-                TRACE_DEVEL("%s EC pub key: CKA_DERIVE (%d) = CKA_DERIVE (%d) "
-                            "OR CKA_ENCAPSULATE (%d)\n", __func__,
+                TRACE_DEVEL("%s EC/DH pub key: CKA_DERIVE (%d) = CKA_DERIVE "
+                            "(%d) OR CKA_ENCAPSULATE (%d)\n", __func__,
                             *user_val | *((CK_BBOOL *)attr->pValue),
                             *user_val, *((CK_BBOOL *)attr->pValue));
                 *user_val |= *((CK_BBOOL *)attr->pValue);
@@ -1760,8 +1761,8 @@ static void ep11tok_endecaps_combine_attrs(TEMPLATE *tmpl, CK_KEY_TYPE keytype,
                 template_attribute_find(tmpl, CKA_DECAPSULATE, &attr) &&
                 attr->ulValueLen == sizeof(CK_BBOOL) &&
                 attr->pValue != NULL) {
-                TRACE_DEVEL("%s EC prv key: CKA_DERIVE (%d) = CKA_DERIVE (%d) "
-                            "OR CKA_DECAPSULATE (%d)\n", __func__,
+                TRACE_DEVEL("%s EC/DH prv key: CKA_DERIVE (%d) = CKA_DERIVE "
+                            "(%d) OR CKA_DECAPSULATE (%d)\n", __func__,
                             *user_val | *((CK_BBOOL *)attr->pValue),
                             *user_val, *((CK_BBOOL *)attr->pValue));
                 *user_val |= *((CK_BBOOL *)attr->pValue);
@@ -1817,11 +1818,12 @@ static CK_RV ep11tok_endecaps_combine_attrs_import(TEMPLATE *tmpl,
 
     case CKK_EC:
     case CKK_EC_MONTGOMERY:
-        /* EC: Set ENCAPS = DERIVE, DECAPS = DERIVE */
+    case CKK_DH:
+        /* EC/DH: Set ENCAPS = DERIVE, DECAPS = DERIVE */
         if(class == CKO_PUBLIC_KEY &&
            (add_always ||
             !template_attribute_find(tmpl, CKA_ENCAPSULATE, &attr))) {
-            TRACE_DEVEL("%s EC pub key: Add CKA_ENCAPSULATE = CKA_DERIVE "
+            TRACE_DEVEL("%s EC/DH pub key: Add CKA_ENCAPSULATE = CKA_DERIVE "
                         "(%d)\n", __func__, derive);
 
             rc = template_build_update_attribute(tmpl, CKA_ENCAPSULATE,
@@ -1835,7 +1837,7 @@ static CK_RV ep11tok_endecaps_combine_attrs_import(TEMPLATE *tmpl,
         if (class == CKO_PRIVATE_KEY &&
             (add_always ||
              !template_attribute_find(tmpl, CKA_DECAPSULATE, &attr))) {
-            TRACE_DEVEL("%s EC prv key: Add CKA_DECAPSULATE = CKA_DERIVE "
+            TRACE_DEVEL("%s EC/DH prv key: Add CKA_DECAPSULATE = CKA_DERIVE "
                         "(%d)\n", __func__, derive);
 
             rc = template_build_update_attribute(tmpl, CKA_DECAPSULATE,
@@ -3077,10 +3079,11 @@ static CK_RV ep11tok_endecaps_combine_attrs_apply(
         break;
     case CKK_EC:
     case CKK_EC_MONTGOMERY:
-        /* EC: Combine Encaps and Derive, Decaps and Derive */
+    case CKK_DH:
+        /* EC/DH: Combine Encaps and Derive, Decaps and Derive */
         if (data->encaps_found && class == CKO_PUBLIC_KEY) {
-            TRACE_DEVEL("%s EC pub key: CKA_DERIVE (%d) = CKA_DERIVE (%d) OR "
-                        "CKA_ENCAPSULATE (%d)\n", __func__,
+            TRACE_DEVEL("%s EC/DH pub key: CKA_DERIVE (%d) = CKA_DERIVE (%d) "
+                        "OR CKA_ENCAPSULATE (%d)\n", __func__,
                         data->derive | data->encaps,
                         data->derive, data->encaps);
 
@@ -3088,8 +3091,8 @@ static CK_RV ep11tok_endecaps_combine_attrs_apply(
             data->derive_found = CK_TRUE;
         }
         if (data->decaps_found && class == CKO_PRIVATE_KEY) {
-            TRACE_DEVEL("%s EC prv key: CKA_DERIVE (%d) = CKA_DERIVE (%d) OR "
-                        "CKA_DECAPSULATE (%d)\n", __func__,
+            TRACE_DEVEL("%s EC/DH prv key: CKA_DERIVE (%d) = CKA_DERIVE (%d) "
+                        "OR CKA_DECAPSULATE (%d)\n", __func__,
                         data->derive | data->decaps,
                         data->derive, data->decaps);
 
@@ -16237,6 +16240,7 @@ CK_RV ep11tok_get_mechanism_info(STDLL_TokData_t * tokdata,
         pInfo->ulMaxKeySize = SHA256_HASH_SIZE * 8;
         break;
     case CKM_ECDH1_DERIVE:
+    case CKM_DH_PKCS_DERIVE:
         /* En/Decapsulate is not known by EP11, but we support it anyway */
         if (pInfo->flags & CKF_DERIVE)
             pInfo->flags |= CKF_ENCAPSULATE | CKF_DECAPSULATE;
