@@ -41,6 +41,21 @@
 
 #ifndef NODH
 
+static CK_ULONG keylen_from_keytype(CK_ULONG keytype)
+{
+    switch (keytype) {
+    case CKK_DES:
+        return 8;
+    case CKK_DES2:
+        return 16;
+    case CKK_DES3:
+        return 24;
+        /* for all other keytypes CKA_VALUE_LEN must be specified */
+    default:
+        return 0;
+    }
+}
+
 //
 //
 CK_RV dh_pkcs_derive(STDLL_TokData_t *tokdata,
@@ -54,6 +69,7 @@ CK_RV dh_pkcs_derive(STDLL_TokData_t *tokdata,
     CK_RV rc;
     CK_ULONG keyclass = 0, keytype = 0;
     CK_ATTRIBUTE *new_attr;
+    CK_ULONG value_len = 0, secret_len;
     OBJECT *temp_obj = NULL;
 
     CK_BYTE secret_key_value[256];
@@ -102,8 +118,29 @@ CK_RV dh_pkcs_derive(STDLL_TokData_t *tokdata,
     if (rc != CKR_OK)
         return rc;
 
+    rc = get_ulong_attribute_by_type(pTemplate, ulCount, CKA_VALUE_LEN,
+                                     &value_len);
+    if (rc == CKR_ATTRIBUTE_VALUE_INVALID) {
+        TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
+        return CKR_ATTRIBUTE_VALUE_INVALID;
+    }
+
+    secret_len = keylen_from_keytype(keytype);
+    if (secret_len == 0)
+        secret_len = value_len;
+    if (secret_len == 0) {
+        /* Neither CKA_VALUE_LEN nor predefined length by key type */
+        TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCONSISTENT));
+        return CKR_TEMPLATE_INCONSISTENT;
+    }
+    if (secret_len > secret_key_value_len) {
+        /* Requested key size can not be derived */
+        TRACE_ERROR("%s\n", ock_err(ERR_KEY_SIZE_RANGE));
+        return CKR_KEY_SIZE_RANGE;
+    }
+
     // Build the attribute from the vales that were returned back
-    rc = build_attribute(CKA_VALUE, secret_key_value, secret_key_value_len,
+    rc = build_attribute(CKA_VALUE, secret_key_value, secret_len,
                          &new_attr);
     if (rc != CKR_OK) {
         TRACE_DEVEL("Failed to build the new attribute.\n");
