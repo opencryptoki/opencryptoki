@@ -6619,7 +6619,8 @@ CK_RV openssl_specific_pqc_generate_keypair(STDLL_TokData_t *tokdata,
     }
 
     /* Add SPKI as CKA_VALUE to public template */
-    rc = pqc_publ_get_spki(publ_tmpl, keytype, FALSE, &spki, &spki_len);
+    rc = pqc_publ_get_spki(publ_tmpl, keytype, FALSE, &spki, &spki_len,
+                           FALSE);
     if (rc != CKR_OK) {
         TRACE_ERROR("pqc_publ_get_spki failed\n");
         goto out;
@@ -6713,6 +6714,15 @@ CK_RV openssl_make_pqc_key_from_template(TEMPLATE *tmpl,
         seed_attr = CKA_IBM_ML_KEM_PRIVATE_SEED;
         seed_param = OSSL_PKEY_PARAM_ML_KEM_SEED;
         break;
+    case CKM_ML_DSA:
+    case CKM_HASH_ML_DSA:
+        seed_attr = CKA_SEED;
+        seed_param = OSSL_PKEY_PARAM_ML_DSA_SEED;
+        break;
+    case CKM_ML_KEM:
+        seed_attr = CKA_SEED;
+        seed_param = OSSL_PKEY_PARAM_ML_KEM_SEED;
+        break;
     default:
         seed_attr = (CK_ATTRIBUTE_TYPE)-1;
         seed_param = NULL;
@@ -6745,27 +6755,30 @@ CK_RV openssl_make_pqc_key_from_template(TEMPLATE *tmpl,
         }
     }
 
-    rc = pqc_pack_pub_key(tmpl, oid, mech, NULL, &pub_len);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("pqc_pack_pub_key failed\n");
-        goto out;
-    }
-
-    pub_key = calloc(1, pub_len);
-    if (pub_key == NULL) {
-        TRACE_ERROR("Failed to allocate public key buffer\n");
-        rc = CKR_HOST_MEMORY;
-        goto out;
-    }
-
-    rc = pqc_pack_pub_key(tmpl, oid, mech, pub_key, &pub_len);
-    if (rc != CKR_OK) {
-        if (rc == CKR_ATTRIBUTE_VALUE_INVALID) {
-            free(pub_key);
-            pub_key = NULL; /* Indicate no pub key */
-        } else {
+    if (mech == CKM_IBM_ML_DSA || mech == CKM_IBM_ML_KEM ||
+        !private_key) {
+        rc = pqc_pack_pub_key(tmpl, oid, mech, NULL, &pub_len);
+        if (rc != CKR_OK) {
             TRACE_ERROR("pqc_pack_pub_key failed\n");
             goto out;
+        }
+
+        pub_key = calloc(1, pub_len);
+        if (pub_key == NULL) {
+            TRACE_ERROR("Failed to allocate public key buffer\n");
+            rc = CKR_HOST_MEMORY;
+            goto out;
+        }
+
+        rc = pqc_pack_pub_key(tmpl, oid, mech, pub_key, &pub_len);
+        if (rc != CKR_OK) {
+            if (rc == CKR_ATTRIBUTE_VALUE_INVALID) {
+                free(pub_key);
+                pub_key = NULL; /* Indicate no pub key */
+            } else {
+                TRACE_ERROR("pqc_pack_pub_key failed\n");
+                goto out;
+            }
         }
     }
 
@@ -6861,6 +6874,47 @@ out:
     if (params != NULL)
         OSSL_PARAM_free(params);
 
+    return rc;
+}
+
+CK_RV openssl_specific_pqc_get_pub_key_from_priv_key(TEMPLATE *priv_tmpl,
+                                                     const struct pqc_oid *oid,
+                                                     CK_MECHANISM_TYPE mech,
+                                                     CK_ATTRIBUTE *pub_value)
+{
+    const char *alg_name;
+    EVP_PKEY *pkey = NULL;
+    CK_RV rc;
+
+    alg_name = openssl_get_pqc_oid_name(oid);
+    if (alg_name == NULL) {
+        TRACE_ERROR("PQC key form is not supported by oqsprovider or "
+                    "OpenSSL\n");
+        rc = CKR_KEY_SIZE_RANGE;
+        goto out;
+    }
+
+    rc = openssl_make_pqc_key_from_template(priv_tmpl, oid, mech,
+                                            TRUE, alg_name, &pkey);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("openssl_make_pqc_key_from_template failed.\n");
+        goto out;
+    }
+
+    rc = openssl_get_key_from_pkey(pkey, OSSL_PKEY_PARAM_PUB_KEY,
+                                   (CK_BYTE **)&pub_value->pValue,
+                                   &pub_value->ulValueLen,
+                                   FALSE);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("get_key_from_pkey failed for pub key\n");
+        goto out;
+    }
+
+    pub_value->type = CKA_VALUE;
+
+out:
+    if (pkey != NULL)
+        EVP_PKEY_free(pkey);
     return rc;
 }
 

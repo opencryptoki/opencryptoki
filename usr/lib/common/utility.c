@@ -1008,6 +1008,15 @@ CK_RV pkcsget_keytype_for_mech(CK_MECHANISM_TYPE mech, CK_KEY_TYPE *keytype,
     case CKM_IBM_ML_KEM_WITH_ECDH:
         *keytype = CKK_IBM_ML_KEM;
         break;
+    case CKM_ML_DSA:
+    case CKM_ML_DSA_KEY_PAIR_GEN:
+    case CKM_HASH_ML_DSA:
+        *keytype = CKK_ML_DSA;
+        break;
+    case CKM_ML_KEM:
+    case CKM_ML_KEM_KEY_PAIR_GEN:
+        *keytype = CKK_ML_KEM;
+        break;
     default:
         return CKR_MECHANISM_INVALID;
     }

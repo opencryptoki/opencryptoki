@@ -727,6 +727,231 @@ out:
     return rc;
 }
 
+static CK_RV ml_dsa_pack_priv_key(TEMPLATE *templ,
+                                  const struct pqc_oid *oid,
+                                  CK_BYTE *priv, CK_ULONG *priv_len)
+{
+    CK_ATTRIBUTE *value = NULL;
+    CK_ULONG ofs = 0;
+    CK_RV rc;
+
+    if (priv == NULL) {
+        *priv_len = oid->len_info.ml_dsa.rho_len +
+                    oid->len_info.ml_dsa.seed_len +
+                    oid->len_info.ml_dsa.tr_len +
+                    oid->len_info.ml_dsa.s1_len +
+                    oid->len_info.ml_dsa.s2_len +
+                    oid->len_info.ml_dsa.t0_len;
+        return CKR_OK;
+    }
+
+    rc = template_attribute_get_non_empty(templ, CKA_VALUE, &value);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_VALUE for the key.\n");
+        return rc;
+    }
+
+    PACK_PART(value, oid->len_info.ml_dsa.rho_len +
+                     oid->len_info.ml_dsa.seed_len +
+                     oid->len_info.ml_dsa.tr_len +
+                     oid->len_info.ml_dsa.s1_len +
+                     oid->len_info.ml_dsa.s2_len +
+                     oid->len_info.ml_dsa.t0_len,
+              priv, *priv_len, ofs);
+
+    *priv_len = ofs;
+
+    return CKR_OK;
+}
+
+static CK_RV ml_dsa_pack_pub_key(TEMPLATE *templ,
+                                 const struct pqc_oid *oid,
+                                 CK_BYTE *pub, CK_ULONG *pub_len)
+{
+    CK_ATTRIBUTE *value = NULL;
+    CK_ULONG ofs = 0;
+    CK_RV rc;
+
+    if (pub == NULL) {
+        *pub_len = oid->len_info.ml_dsa.rho_len +
+                   oid->len_info.ml_dsa.t1_len;
+        return CKR_OK;
+    }
+
+    rc = template_attribute_get_non_empty(templ, CKA_VALUE, &value);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_VALUE for the key.\n");
+        return rc;
+    }
+
+    PACK_PART(value, oid->len_info.ml_dsa.rho_len +
+                     oid->len_info.ml_dsa.t1_len,
+              pub, *pub_len, ofs);
+
+    *pub_len = ofs;
+
+    return CKR_OK;
+}
+
+static CK_RV ml_dsa_unpack_priv_key(CK_BYTE *priv, CK_ULONG priv_len,
+                                    const struct pqc_oid *oid,
+                                    TEMPLATE *templ)
+{
+    CK_ATTRIBUTE *value = NULL;
+    CK_ULONG ofs = 0;
+    CK_RV rc;
+
+    UNPACK_PART(value, CKA_VALUE, oid->len_info.ml_dsa.rho_len +
+                                  oid->len_info.ml_dsa.seed_len +
+                                  oid->len_info.ml_dsa.tr_len +
+                                  oid->len_info.ml_dsa.s1_len +
+                                  oid->len_info.ml_dsa.s2_len +
+                                  oid->len_info.ml_dsa.t0_len,
+                priv, priv_len, ofs, rc, out);
+
+    rc = template_update_attribute(templ, value);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("Template update for CKA_VALUE failed\n");
+        goto out;
+    }
+    value = NULL;
+
+out:
+    if (value != NULL)
+        free(value);
+
+    return rc;
+}
+
+static CK_RV ml_dsa_unpack_pub_key(CK_BYTE *pub, CK_ULONG pub_len,
+                                   const struct pqc_oid *oid,
+                                   TEMPLATE *templ)
+{
+    CK_ATTRIBUTE *value = NULL;
+    CK_ULONG ofs = 0;
+    CK_RV rc;
+
+    UNPACK_PART(value, CKA_VALUE, oid->len_info.ml_dsa.rho_len +
+                                  oid->len_info.ml_dsa.t1_len,
+                pub, pub_len, ofs, rc, out);
+
+    rc = template_update_attribute(templ, value);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("Template update for CKA_VALUE failed\n");
+        goto out;
+    }
+    value = NULL;
+
+out:
+    if (value != NULL)
+        free(value);
+
+    return rc;
+}
+
+static CK_RV ml_kem_pack_priv_key(TEMPLATE *templ,
+                                  const struct pqc_oid *oid,
+                                  CK_BYTE *priv, CK_ULONG *priv_len)
+{
+    CK_ATTRIBUTE *value = NULL;
+    CK_ULONG ofs = 0;
+    CK_RV rc;
+
+    if (priv == NULL) {
+        *priv_len = oid->len_info.ml_kem.sk_len;
+        return CKR_OK;
+    }
+
+    rc = template_attribute_get_non_empty(templ, CKA_VALUE, &value);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_VALUE for the key.\n");
+        return rc;
+    }
+
+    PACK_PART(value, oid->len_info.ml_kem.sk_len, priv, *priv_len, ofs);
+
+    *priv_len = ofs;
+
+    return CKR_OK;
+}
+
+static CK_RV ml_kem_pack_pub_key(TEMPLATE *templ,
+                                 const struct pqc_oid *oid,
+                                 CK_BYTE *pub, CK_ULONG *pub_len)
+{
+    CK_ATTRIBUTE *value = NULL;
+    CK_ULONG ofs = 0;
+    CK_RV rc;
+
+    if (pub == NULL) {
+        *pub_len = oid->len_info.ml_kem.pk_len;
+        return CKR_OK;
+    }
+
+    rc = template_attribute_get_non_empty(templ, CKA_VALUE, &value);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_VALUE for the key.\n");
+        return rc;
+    }
+
+    PACK_PART(value, oid->len_info.ml_kem.pk_len, pub, *pub_len, ofs);
+
+    *pub_len = ofs;
+
+    return CKR_OK;
+}
+
+static CK_RV ml_kem_unpack_priv_key(CK_BYTE *priv, CK_ULONG priv_len,
+                                    const struct pqc_oid *oid,
+                                    TEMPLATE *templ)
+{
+    CK_ATTRIBUTE *value = NULL;
+    CK_ULONG ofs = 0;
+    CK_RV rc;
+
+    UNPACK_PART(value, CKA_VALUE, oid->len_info.ml_kem.sk_len,
+                priv, priv_len, ofs, rc, out);
+
+    rc = template_update_attribute(templ, value);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("Template update for CKA_VALUE failed\n");
+        goto out;
+    }
+    value = NULL;
+
+out:
+    if (value != NULL)
+        free(value);
+
+    return rc;
+}
+
+static CK_RV ml_kem_unpack_pub_key(CK_BYTE *pub, CK_ULONG pub_len,
+                                   const struct pqc_oid *oid,
+                                   TEMPLATE *templ)
+{
+    CK_ATTRIBUTE *value = NULL;
+    CK_ULONG ofs = 0;
+    CK_RV rc;
+
+    UNPACK_PART(value, CKA_VALUE, oid->len_info.ml_kem.pk_len,
+                pub, pub_len, ofs, rc, out);
+
+    rc = template_update_attribute(templ, value);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("Template update for CKA_VALUE failed\n");
+        goto out;
+    }
+    value = NULL;
+
+out:
+    if (value != NULL)
+        free(value);
+
+    return rc;
+}
+
+
 #undef PACK_PART
 #undef UNPACK_PART
 
@@ -743,6 +968,13 @@ CK_RV pqc_pack_priv_key(TEMPLATE *templ, const struct pqc_oid *oid,
     case CKM_IBM_ML_KEM_KEY_PAIR_GEN:
     case CKM_IBM_ML_KEM_WITH_ECDH:
         return ibm_ml_kem_pack_priv_key(templ, oid, mech, priv, priv_len);
+    case CKM_ML_DSA:
+    case CKM_ML_DSA_KEY_PAIR_GEN:
+    case CKM_HASH_ML_DSA:
+        return ml_dsa_pack_priv_key(templ, oid, priv, priv_len);
+    case CKM_ML_KEM:
+    case CKM_ML_KEM_KEY_PAIR_GEN:
+        return ml_kem_pack_priv_key(templ, oid, priv, priv_len);
     default:
         return CKR_MECHANISM_INVALID;
     }
@@ -761,6 +993,13 @@ CK_RV pqc_pack_pub_key(TEMPLATE *templ, const struct pqc_oid *oid,
     case CKM_IBM_ML_KEM_KEY_PAIR_GEN:
     case CKM_IBM_ML_KEM_WITH_ECDH:
         return ibm_ml_kem_pack_pub_key(templ, oid, mech, pub, pub_len);
+    case CKM_ML_DSA:
+    case CKM_ML_DSA_KEY_PAIR_GEN:
+    case CKM_HASH_ML_DSA:
+        return ml_dsa_pack_pub_key(templ, oid, pub, pub_len);
+    case CKM_ML_KEM:
+    case CKM_ML_KEM_KEY_PAIR_GEN:
+        return ml_kem_pack_pub_key(templ, oid, pub, pub_len);
     default:
         return CKR_MECHANISM_INVALID;
     }
@@ -779,6 +1018,13 @@ CK_RV pqc_unpack_priv_key(CK_BYTE *priv, CK_ULONG priv_len,
     case CKM_IBM_ML_KEM_KEY_PAIR_GEN:
     case CKM_IBM_ML_KEM_WITH_ECDH:
         return ibm_ml_kem_unpack_priv_key(priv, priv_len, oid, mech, templ);
+    case CKM_ML_DSA:
+    case CKM_ML_DSA_KEY_PAIR_GEN:
+    case CKM_HASH_ML_DSA:
+        return ml_dsa_unpack_priv_key(priv, priv_len, oid, templ);
+    case CKM_ML_KEM:
+    case CKM_ML_KEM_KEY_PAIR_GEN:
+        return ml_kem_unpack_priv_key(priv, priv_len, oid, templ);
     default:
         return CKR_MECHANISM_INVALID;
     }
@@ -797,6 +1043,13 @@ CK_RV pqc_unpack_pub_key(CK_BYTE *pub, CK_ULONG pub_len,
     case CKM_IBM_ML_KEM_KEY_PAIR_GEN:
     case CKM_IBM_ML_KEM_WITH_ECDH:
         return ibm_ml_kem_unpack_pub_key(pub, pub_len, oid, mech, templ);
+    case CKM_ML_DSA:
+    case CKM_ML_DSA_KEY_PAIR_GEN:
+    case CKM_HASH_ML_DSA:
+        return ml_dsa_unpack_pub_key(pub, pub_len, oid, templ);
+    case CKM_ML_KEM:
+    case CKM_ML_KEM_KEY_PAIR_GEN:
+        return ml_kem_unpack_pub_key(pub, pub_len, oid, templ);
     default:
         return CKR_MECHANISM_INVALID;
     }

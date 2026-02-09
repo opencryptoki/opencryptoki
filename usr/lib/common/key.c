@@ -813,7 +813,8 @@ CK_RV publ_key_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
  * Extract the SubjectPublicKeyInfo from the public key
  */
 CK_RV publ_key_get_spki(TEMPLATE *tmpl, CK_ULONG keytype, CK_BBOOL length_only,
-                        CK_BYTE **data, CK_ULONG *data_len)
+                        CK_BYTE **data, CK_ULONG *data_len,
+                        CK_BBOOL is_priv_tmpl)
 {
     CK_RV rc;
 
@@ -847,6 +848,14 @@ CK_RV publ_key_get_spki(TEMPLATE *tmpl, CK_ULONG keytype, CK_BBOOL length_only,
     case CKK_IBM_ML_KEM:
         rc = ibm_ml_kem_publ_get_spki(tmpl, length_only, data, data_len,
                                       CKM_IBM_ML_KEM);
+        break;
+    case CKK_ML_DSA:
+        rc = ml_dsa_publ_get_spki(tmpl, length_only, data, data_len,
+                                  is_priv_tmpl);
+        break;
+    case CKK_ML_KEM:
+        rc = ml_kem_publ_get_spki(tmpl, length_only, data, data_len,
+                                  is_priv_tmpl);
         break;
     default:
         TRACE_ERROR("%s\n", ock_err(ERR_KEY_TYPE_INCONSISTENT));
@@ -1222,6 +1231,12 @@ CK_RV priv_key_unwrap(TEMPLATE *tmpl,
     case CKK_IBM_ML_KEM:
         rc = ibm_ml_kem_priv_unwrap(tmpl,  data, data_len, TRUE, CKM_IBM_ML_KEM);
         break;
+    case CKK_ML_DSA:
+        rc = ml_dsa_priv_unwrap(tmpl, data, data_len, TRUE);
+        break;
+    case CKK_ML_KEM:
+        rc = ml_kem_priv_unwrap(tmpl,  data, data_len, TRUE);
+        break;
     default:
         TRACE_ERROR("%s\n", ock_err(ERR_WRAPPED_KEY_INVALID));
         return CKR_WRAPPED_KEY_INVALID;
@@ -1272,7 +1287,7 @@ CK_RV priv_key_unwrap(TEMPLATE *tmpl,
      * This may fail if the public key info can not be reconstructed from
      * the private key (e.g. because its a secure key token).
      */
-    rc = publ_key_get_spki(tmpl, keytype, FALSE, &spki, &spki_length);
+    rc = publ_key_get_spki(tmpl, keytype, FALSE, &spki, &spki_length, TRUE);
     if (rc == CKR_OK && spki != NULL && spki_length > 0) {
         rc = build_attribute(CKA_PUBLIC_KEY_INFO, spki, spki_length,
                              &pub_key_info);
@@ -2962,6 +2977,19 @@ static CK_RV pqc_keyform_mode_attrs_by_mech(CK_MECHANISM_TYPE mech,
         *mode_attr = (CK_ATTRIBUTE_TYPE)-1;
         *oids = ml_kem_oids;
         break;
+    case CKM_ML_DSA:
+    case CKM_ML_DSA_KEY_PAIR_GEN:
+    case CKM_HASH_ML_DSA:
+        *keyform_attr = CKA_PARAMETER_SET;
+        *mode_attr = (CK_ATTRIBUTE_TYPE)-1;
+        *oids = ml_dsa_oids;
+        break;
+    case CKM_ML_KEM:
+    case CKM_ML_KEM_KEY_PAIR_GEN:
+        *keyform_attr = CKA_PARAMETER_SET;
+        *mode_attr = (CK_ATTRIBUTE_TYPE)-1;
+        *oids = ml_kem_oids;
+        break;
     default:
         TRACE_ERROR("Unsupported mechanims: 0x%lx\n", mech);
         return CKR_MECHANISM_INVALID;
@@ -3593,9 +3621,368 @@ error:
     return rc;
 }
 
+CK_RV ml_dsa_publ_get_spki(TEMPLATE *tmpl, CK_BBOOL length_only,
+                           CK_BYTE **data, CK_ULONG *data_len,
+                           CK_BBOOL is_priv_tmpl)
+{
+    CK_ATTRIBUTE *value = NULL;
+    const struct pqc_oid *oid;
+    CK_ATTRIBUTE val_attr = { 0, NULL, 0 };
+    CK_RV rc;
+
+    oid = pqc_get_keyform_mode(tmpl, CKM_ML_DSA);
+    if (oid == NULL)
+       return CKR_TEMPLATE_INCOMPLETE;
+
+    if (is_priv_tmpl) {
+#if OPENSSL_VERSION_PREREQ(3, 0)
+        /*
+         * An ML-DSA private key does not contain the public key components,
+         * try to calculate them from the private key using OpenSSL
+         */
+        rc = openssl_specific_pqc_get_pub_key_from_priv_key(tmpl, oid,
+                                                            CKM_ML_DSA,
+                                                            &val_attr);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("openssl_specific_pqc_get_pub_key_from_priv_key "
+                        "failed.\n");
+            goto out;
+        }
+
+        value = &val_attr;
+#else
+        TRACE_ERROR("OpenSSL < 3.0.0: Can not calc pub key from priv key\n");
+        return CKR_TEMPLATE_INCOMPLETE;
+#endif
+    } else {
+        rc = template_attribute_get_non_empty(tmpl, CKA_VALUE, &value);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("Could not find CKA_VALUE for the key.\n");
+            goto out;
+        }
+    }
+
+    rc = ber_encode_ML_DSA_PublicKey(length_only, data, data_len,
+                                     oid->oid, oid->oid_len, value);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("ber_encode_ML_DSA_PublicKey failed.\n");
+        goto out;
+    }
+
+out:
+    if (val_attr.pValue != NULL)
+        free(val_attr.pValue);
+
+    return rc;
+}
+
+CK_RV ml_dsa_priv_wrap_get_data(TEMPLATE *tmpl, CK_BBOOL length_only,
+                                CK_BYTE **data, CK_ULONG *data_len)
+{
+    CK_ATTRIBUTE *value = NULL, *seed = NULL;
+    const struct pqc_oid *oid;
+    CK_RV rc;
+
+    oid = pqc_get_keyform_mode(tmpl, CKM_ML_DSA);
+    if (oid == NULL)
+       return CKR_TEMPLATE_INCOMPLETE;
+
+    /* If seed is available, then the value is optional */
+    if (template_attribute_find(tmpl, CKA_SEED, &seed) == TRUE) {
+        if (seed->ulValueLen == 0 || seed->pValue == NULL)
+            seed = NULL;
+    }
+
+    template_attribute_find(tmpl, CKA_VALUE, &value);
+
+    if (seed == NULL) {
+        if (value == NULL || value->ulValueLen == 0 || value->pValue == NULL) {
+            TRACE_ERROR("Could not find CKA_VALUE for the key.\n");
+            return CKR_TEMPLATE_INCOMPLETE;
+        }
+    }
+
+    rc = ber_encode_ML_DSA_PrivateKey(length_only, data, data_len,
+                                      oid->oid, oid->oid_len, value, seed);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("ber_encode_ML_DSA_PrivateKey failed\n");
+    }
+
+    return rc;
+}
+
+CK_RV ml_dsa_priv_unwrap_get_data(TEMPLATE *tmpl, CK_BYTE *data,
+                                  CK_ULONG total_length, CK_BBOOL is_public)
+{
+    CK_ATTRIBUTE *value = NULL;
+    const struct pqc_oid *oid;
+    CK_RV rc;
+
+    rc = ber_decode_ML_DSA_PublicKey(data, total_length, &value, &oid);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("ber_decode_ML_DSA_PublicKey failed\n");
+        return rc;
+    }
+
+    rc = pqc_add_keyform_mode(tmpl, oid, CKM_ML_DSA);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("pqc_add_keyform_mode failed\n");
+        goto error;
+    }
+
+    if (is_public) {
+        rc = template_update_attribute(tmpl, value);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("template_update_attribute failed.\n");
+            goto error;
+        }
+    } else {
+        free(value);
+    }
+    value = NULL;
+
+    return CKR_OK;
+
+error:
+    if (value)
+        free(value);
+
+    return rc;
+}
+
+CK_RV ml_dsa_priv_unwrap(TEMPLATE *tmpl, CK_BYTE *data,
+                         CK_ULONG total_length, CK_BBOOL add_value)
+{
+    CK_ATTRIBUTE *seed = NULL, *value = NULL;
+    const struct pqc_oid *oid;
+    CK_RV rc;
+
+    rc = ber_decode_ML_DSA_PrivateKey(data, total_length, &value, &seed, &oid);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("ber_decode_ML_DSA_PrivateKey failed\n");
+        return rc;
+    }
+
+    rc = pqc_add_keyform_mode(tmpl, oid, CKM_ML_DSA);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("pqc_add_keyform_mode failed\n");
+        goto error;
+    }
+
+    if (seed != NULL) {
+        rc = template_update_attribute(tmpl, seed);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("template_update_attribute failed\n");
+            goto error;
+        }
+        seed = NULL;
+    }
+
+    if (add_value && value != NULL) {
+        rc = template_update_attribute(tmpl, value);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("template_update_attribute failed.\n");
+            goto error;
+        }
+    } else if (value != NULL) {
+        free(value);
+    }
+    value = NULL;
+
+    return CKR_OK;
+
+error:
+    if (seed)
+        free(seed);
+    if (value)
+        free(value);
+
+    return rc;
+}
+
+CK_RV ml_kem_publ_get_spki(TEMPLATE *tmpl, CK_BBOOL length_only,
+                           CK_BYTE **data, CK_ULONG *data_len,
+                           CK_BBOOL is_priv_tmpl)
+{
+    CK_ATTRIBUTE *value = NULL;
+    const struct pqc_oid *oid;
+    CK_ATTRIBUTE val_attr = { 0, NULL, 0 };
+    CK_RV rc;
+
+    oid = pqc_get_keyform_mode(tmpl, CKM_ML_KEM);
+    if (oid == NULL)
+       return CKR_TEMPLATE_INCOMPLETE;
+
+    if (is_priv_tmpl) {
+#if OPENSSL_VERSION_PREREQ(3, 0)
+        /*
+         * An ML-KEM private key does not contain the public key components,
+         * try to calculate them from the private key using OpenSSL
+         */
+        rc = openssl_specific_pqc_get_pub_key_from_priv_key(tmpl, oid,
+                                                            CKM_ML_KEM,
+                                                            &val_attr);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("openssl_specific_pqc_get_pub_key_from_priv_key "
+                        "failed.\n");
+            goto out;
+        }
+
+        value = &val_attr;
+#else
+        TRACE_ERROR("OpenSSL < 3.0.0: Can not calc pub key from priv key\n");
+        return CKR_TEMPLATE_INCOMPLETE;
+#endif
+    } else {
+        rc = template_attribute_get_non_empty(tmpl, CKA_VALUE, &value);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("Could not find CKA_VALUE for the key.\n");
+            goto out;
+        }
+    }
+
+    rc = ber_encode_ML_KEM_PublicKey(length_only, data, data_len,
+                                     oid->oid, oid->oid_len, value);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("ber_encode_ML_KEM_PublicKey failed.\n");
+        goto out;
+    }
+
+out:
+    if (val_attr.pValue != NULL)
+        free(val_attr.pValue);
+
+    return rc;
+}
+
+CK_RV ml_kem_priv_wrap_get_data(TEMPLATE *tmpl, CK_BBOOL length_only,
+                                CK_BYTE **data, CK_ULONG *data_len)
+{
+    CK_ATTRIBUTE *value = NULL, *seed = NULL;
+    const struct pqc_oid *oid;
+    CK_RV rc;
+
+    oid = pqc_get_keyform_mode(tmpl, CKM_ML_KEM);
+    if (oid == NULL)
+       return CKR_TEMPLATE_INCOMPLETE;
+
+    /* If seed is available, then the value is optional */
+    if (template_attribute_find(tmpl, CKA_SEED, &seed) == TRUE) {
+        if (seed->ulValueLen == 0 || seed->pValue == NULL)
+            seed = NULL;
+    }
+
+    template_attribute_find(tmpl, CKA_VALUE, &value);
+
+    if (seed == NULL) {
+        if (value == NULL || value->ulValueLen == 0 || value->pValue == NULL) {
+            TRACE_ERROR("Could not find CKA_VALUE for the key.\n");
+            return CKR_TEMPLATE_INCOMPLETE;
+        }
+    }
+
+    rc = ber_encode_ML_KEM_PrivateKey(length_only, data, data_len,
+                                      oid->oid, oid->oid_len, value, seed);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("ber_encode_ML_KEM_PrivateKey failed\n");
+    }
+
+    return rc;
+}
+
+CK_RV ml_kem_priv_unwrap_get_data(TEMPLATE *tmpl, CK_BYTE *data,
+                                  CK_ULONG total_length, CK_BBOOL is_public)
+{
+    CK_ATTRIBUTE *value = NULL;
+    const struct pqc_oid *oid;
+    CK_RV rc;
+
+    rc = ber_decode_ML_KEM_PublicKey(data, total_length, &value, &oid);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("ber_decode_ML_KEM_PublicKey failed\n");
+        return rc;
+    }
+
+    rc = pqc_add_keyform_mode(tmpl, oid, CKM_ML_KEM);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("pqc_add_keyform_mode failed\n");
+        goto error;
+    }
+
+    if (is_public) {
+        rc = template_update_attribute(tmpl, value);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("template_update_attribute failed.\n");
+            goto error;
+        }
+    } else {
+        free(value);
+    }
+    value = NULL;
+
+    return CKR_OK;
+
+error:
+    if (value)
+        free(value);
+
+    return rc;
+}
+
+CK_RV ml_kem_priv_unwrap(TEMPLATE *tmpl, CK_BYTE *data,
+                         CK_ULONG total_length, CK_BBOOL add_value)
+{
+    CK_ATTRIBUTE *seed = NULL, *value = NULL;
+    const struct pqc_oid *oid;
+    CK_RV rc;
+
+    rc = ber_decode_ML_KEM_PrivateKey(data, total_length, &value, &seed, &oid);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("ber_decode_ML_KEM_PrivateKey failed\n");
+        return rc;
+    }
+
+    rc = pqc_add_keyform_mode(tmpl, oid, CKM_ML_KEM);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("pqc_add_keyform_mode failed\n");
+        goto error;
+    }
+
+    if (seed != NULL) {
+        rc = template_update_attribute(tmpl, seed);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("template_update_attribute failed\n");
+            goto error;
+        }
+        seed = NULL;
+    }
+
+    if (add_value && value != NULL) {
+        rc = template_update_attribute(tmpl, value);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("template_update_attribute failed.\n");
+            goto error;
+        }
+    } else if (value != NULL) {
+        free(value);
+    }
+    value = NULL;
+
+    return CKR_OK;
+
+error:
+    if (seed)
+        free(seed);
+    if (value)
+        free(value);
+
+    return rc;
+}
+
 CK_RV pqc_publ_get_spki(TEMPLATE *tmpl, CK_KEY_TYPE keytype,
                         CK_BBOOL length_only,
-                        CK_BYTE **data, CK_ULONG *data_len)
+                        CK_BYTE **data, CK_ULONG *data_len,
+                        CK_BBOOL is_priv_tmpl)
 {
     switch (keytype) {
     case CKK_IBM_PQC_DILITHIUM:
@@ -3610,6 +3997,12 @@ CK_RV pqc_publ_get_spki(TEMPLATE *tmpl, CK_KEY_TYPE keytype,
     case CKK_IBM_ML_KEM:
         return ibm_ml_kem_publ_get_spki(tmpl, length_only, data, data_len,
                                         CKM_IBM_ML_KEM);
+    case CKK_ML_DSA:
+        return ml_dsa_publ_get_spki(tmpl, length_only, data, data_len,
+                                    is_priv_tmpl);
+    case CKK_ML_KEM:
+        return ml_kem_publ_get_spki(tmpl, length_only, data, data_len,
+                                    is_priv_tmpl);
     default:
         TRACE_DEVEL("Key type 0x%lx not supported.\n", keytype);
         return CKR_KEY_TYPE_INCONSISTENT;
@@ -3633,6 +4026,10 @@ CK_RV pqc_priv_wrap_get_data(TEMPLATE *tmpl, CK_KEY_TYPE keytype,
     case CKK_IBM_ML_KEM:
         return ibm_ml_kem_priv_wrap_get_data(tmpl, length_only, data, data_len,
                                              CKM_IBM_ML_KEM);
+    case CKK_ML_DSA:
+        return ml_dsa_priv_wrap_get_data(tmpl, length_only, data, data_len);
+    case CKK_ML_KEM:
+        return ml_kem_priv_wrap_get_data(tmpl, length_only, data, data_len);
     default:
         TRACE_DEVEL("Key type 0x%lx not supported.\n", keytype);
         return CKR_KEY_TYPE_INCONSISTENT;
@@ -3655,6 +4052,10 @@ CK_RV pqc_priv_unwrap(TEMPLATE *tmpl, CK_KEY_TYPE keytype, CK_BYTE *data,
     case CKK_IBM_ML_KEM:
         return ibm_ml_kem_priv_unwrap(tmpl, data, total_length, add_value,
                                       CKM_IBM_ML_KEM);
+    case CKK_ML_DSA:
+        return ml_dsa_priv_unwrap(tmpl, data, total_length, add_value);
+    case CKK_ML_KEM:
+        return ml_kem_priv_unwrap(tmpl, data, total_length, add_value);
     default:
         TRACE_DEVEL("Key type 0x%lx not supported.\n", keytype);
         return CKR_KEY_TYPE_INCONSISTENT;
@@ -3678,6 +4079,10 @@ CK_RV pqc_priv_unwrap_get_data(TEMPLATE *tmpl, CK_KEY_TYPE keytype,
     case CKK_IBM_ML_KEM:
         return ibm_ml_kem_priv_unwrap_get_data(tmpl, data, total_length,
                                                is_public, CKM_IBM_ML_KEM);
+    case CKK_ML_DSA:
+        return ml_dsa_priv_unwrap_get_data(tmpl, data, total_length, is_public);
+    case CKK_ML_KEM:
+        return ml_kem_priv_unwrap_get_data(tmpl, data, total_length, is_public);
     default:
         TRACE_DEVEL("Key type 0x%lx not supported.\n", keytype);
         return CKR_KEY_TYPE_INCONSISTENT;
@@ -5907,6 +6312,237 @@ error:
     return rc;
 }
 
+CK_RV ml_dsa_publ_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
+{
+    CK_ATTRIBUTE *type_attr = NULL;
+    CK_ATTRIBUTE *value_attr = NULL;
+    CK_RV rc;
+
+    publ_key_set_default_attributes(tmpl, mode);
+
+    type_attr = (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE) + sizeof(CK_KEY_TYPE));
+    value_attr = (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE));
+
+    if (!type_attr || !value_attr) {
+        TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+        rc = CKR_HOST_MEMORY;
+        goto error;
+    }
+
+    type_attr->type = CKA_KEY_TYPE;
+    type_attr->ulValueLen = sizeof(CK_KEY_TYPE);
+    type_attr->pValue = (CK_BYTE *) type_attr + sizeof(CK_ATTRIBUTE);
+    *(CK_KEY_TYPE *)type_attr->pValue = CKK_ML_DSA;
+
+    value_attr->type = CKA_VALUE;
+    value_attr->ulValueLen = 0;
+    value_attr->pValue = NULL;
+
+    rc = template_update_attribute(tmpl, type_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    type_attr = NULL;
+    rc = template_update_attribute(tmpl, value_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    value_attr = NULL;
+
+    return CKR_OK;
+
+error:
+    if (type_attr)
+        free(type_attr);
+    if (value_attr)
+        free(value_attr);
+
+   return rc;
+}
+
+CK_RV ml_dsa_priv_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
+{
+    CK_ATTRIBUTE *type_attr = NULL;
+    CK_ATTRIBUTE *seed_attr = NULL;
+    CK_ATTRIBUTE *value_attr = NULL;
+    CK_RV rc;
+
+    priv_key_set_default_attributes(tmpl, mode);
+
+    type_attr = (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE) + sizeof(CK_KEY_TYPE));
+    seed_attr = (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE));
+    value_attr = (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE));
+
+    if (!type_attr || !seed_attr || !value_attr) {
+        TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+        rc = CKR_HOST_MEMORY;
+        goto error;
+    }
+
+    type_attr->type = CKA_KEY_TYPE;
+    type_attr->ulValueLen = sizeof(CK_KEY_TYPE);
+    type_attr->pValue = (CK_BYTE *) type_attr + sizeof(CK_ATTRIBUTE);
+    *(CK_KEY_TYPE *)type_attr->pValue = CKK_ML_DSA;
+
+    seed_attr->type = CKA_SEED;
+    seed_attr->ulValueLen = 0;
+    seed_attr->pValue = NULL;
+
+    value_attr->type = CKA_VALUE;
+    value_attr->ulValueLen = 0;
+    value_attr->pValue = NULL;
+
+    rc = template_update_attribute(tmpl, type_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    type_attr = NULL;
+    rc = template_update_attribute(tmpl, seed_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    seed_attr = NULL;
+    rc = template_update_attribute(tmpl, value_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    value_attr = NULL;
+
+    return CKR_OK;
+
+error:
+    if (type_attr)
+        free(type_attr);
+    if (seed_attr)
+        free(seed_attr);
+    if (value_attr)
+        free(value_attr);
+
+    return rc;
+}
+
+
+
+CK_RV ml_kem_publ_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
+{
+    CK_ATTRIBUTE *type_attr = NULL;
+    CK_ATTRIBUTE *value_attr = NULL;
+    CK_RV rc;
+
+    publ_key_set_default_attributes(tmpl, mode);
+
+    type_attr = (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE) + sizeof(CK_KEY_TYPE));
+    value_attr = (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE));
+
+    if (!type_attr || !value_attr) {
+        TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+        rc = CKR_HOST_MEMORY;
+        goto error;
+    }
+
+    type_attr->type = CKA_KEY_TYPE;
+    type_attr->ulValueLen = sizeof(CK_KEY_TYPE);
+    type_attr->pValue = (CK_BYTE *) type_attr + sizeof(CK_ATTRIBUTE);
+    *(CK_KEY_TYPE *)type_attr->pValue = CKK_ML_KEM;
+
+    value_attr->type = CKA_VALUE;
+    value_attr->ulValueLen = 0;
+    value_attr->pValue = NULL;
+
+    rc = template_update_attribute(tmpl, type_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    type_attr = NULL;
+    rc = template_update_attribute(tmpl, value_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    value_attr = NULL;
+
+    return CKR_OK;
+
+error:
+    if (type_attr)
+        free(type_attr);
+    if (value_attr)
+        free(value_attr);
+
+   return rc;
+}
+
+CK_RV ml_kem_priv_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
+{
+    CK_ATTRIBUTE *type_attr = NULL;
+    CK_ATTRIBUTE *seed_attr = NULL;
+    CK_ATTRIBUTE *value_attr = NULL;
+    CK_RV rc;
+
+    priv_key_set_default_attributes(tmpl, mode);
+
+    type_attr = (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE) + sizeof(CK_KEY_TYPE));
+    seed_attr = (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE));
+    value_attr = (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE));
+
+    if (!type_attr || !seed_attr || !value_attr) {
+        TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+        rc = CKR_HOST_MEMORY;
+        goto error;
+    }
+
+    type_attr->type = CKA_KEY_TYPE;
+    type_attr->ulValueLen = sizeof(CK_KEY_TYPE);
+    type_attr->pValue = (CK_BYTE *) type_attr + sizeof(CK_ATTRIBUTE);
+    *(CK_KEY_TYPE *)type_attr->pValue = CKK_ML_KEM;
+
+    seed_attr->type = CKA_SEED;
+    seed_attr->ulValueLen = 0;
+    seed_attr->pValue = NULL;
+
+    value_attr->type = CKA_VALUE;
+    value_attr->ulValueLen = 0;
+    value_attr->pValue = NULL;
+
+    rc = template_update_attribute(tmpl, type_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    type_attr = NULL;
+    rc = template_update_attribute(tmpl, seed_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    seed_attr = NULL;
+    rc = template_update_attribute(tmpl, value_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    value_attr = NULL;
+
+    return CKR_OK;
+
+error:
+    if (type_attr)
+        free(type_attr);
+    if (seed_attr)
+        free(seed_attr);
+    if (value_attr)
+        free(value_attr);
+
+    return rc;
+}
+
+
 static CK_RV pqc_check_attributes(TEMPLATE *tmpl, CK_ULONG mode,
                                   CK_MECHANISM_TYPE mech,
                                   const CK_MECHANISM_TYPE *req_attrs,
@@ -5968,9 +6604,15 @@ static CK_RV pqc_check_attributes(TEMPLATE *tmpl, CK_ULONG mode,
             if (rc != CKR_OK) {
                 if (rc != CKR_ATTRIBUTE_VALUE_INVALID)
                     TRACE_ERROR("%s, attribute %08lX missing.\n",
-                               ock_err(ERR_TEMPLATE_INCOMPLETE), req_attrs[i]);
+                                ock_err(ERR_TEMPLATE_INCOMPLETE), req_attrs[i]);
                 return rc;
             }
+        }
+        if (num_req_attrs == 0) {
+            TRACE_ERROR("%s, Either CKA_VALUE or private seed attr %08lX must "
+                        "be specified.\n",
+                        ock_err(ERR_TEMPLATE_INCOMPLETE), priv_seed_attr);
+            return CKR_TEMPLATE_INCONSISTENT;
         }
         /* fallthrough */
     case MODE_KEYGEN:
@@ -6107,6 +6749,56 @@ CK_RV ibm_ml_kem_priv_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode,
     rc = pqc_check_attributes(tmpl, mode, mech, req_attrs,
                               sizeof(req_attrs) / sizeof(req_attrs[0]),
                               priv_seed_attr);
+    if (rc != CKR_OK)
+        return rc;
+
+    /* All required attrs found, check them */
+    return priv_key_check_required_attributes(tmpl, mode);
+}
+
+CK_RV ml_dsa_publ_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode)
+{
+    CK_RV rc;
+
+    rc = pqc_check_attributes(tmpl, mode, CKM_ML_DSA, NULL, 0,
+                              (CK_MECHANISM_TYPE)-1);
+    if (rc != CKR_OK)
+        return rc;
+
+    /* All required attrs found, check them */
+    return publ_key_check_required_attributes(tmpl, mode);
+}
+
+CK_RV ml_dsa_priv_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode)
+{
+    CK_RV rc;
+
+    rc = pqc_check_attributes(tmpl, mode, CKM_ML_DSA, NULL, 0, CKA_SEED);
+    if (rc != CKR_OK)
+        return rc;
+
+    /* All required attrs found, check them */
+    return priv_key_check_required_attributes(tmpl, mode);
+}
+
+CK_RV ml_kem_publ_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode)
+{
+    CK_RV rc;
+
+    rc = pqc_check_attributes(tmpl, mode, CKM_ML_KEM, NULL, 0,
+                              (CK_MECHANISM_TYPE)-1);
+    if (rc != CKR_OK)
+        return rc;
+
+    /* All required attrs found, check them */
+    return publ_key_check_required_attributes(tmpl, mode);
+}
+
+CK_RV ml_kem_priv_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode)
+{
+    CK_RV rc;
+
+    rc = pqc_check_attributes(tmpl, mode, CKM_ML_KEM, NULL, 0, CKA_SEED);
     if (rc != CKR_OK)
         return rc;
 
@@ -6307,6 +6999,118 @@ CK_BBOOL ibm_ml_kem_priv_check_exportability(CK_ATTRIBUTE_TYPE type)
     case CKA_VALUE:
     case CKA_IBM_ML_KEM_SK:
     case CKA_IBM_ML_KEM_PRIVATE_SEED:
+        return FALSE;
+    }
+
+    return TRUE;
+}
+
+CK_RV ml_dsa_publ_validate_attribute(STDLL_TokData_t *tokdata,
+                                     TEMPLATE *tmpl, CK_ATTRIBUTE *attr,
+                                     CK_ULONG mode)
+{
+    CK_RV rc;
+
+    switch (attr->type) {
+    case CKA_PARAMETER_SET:
+        rc = pqc_validate_keyform_mode(attr, mode, CKM_ML_DSA);
+        if (rc != CKR_OK)
+            return rc;
+        return CKR_OK;
+    case CKA_VALUE:
+        if (mode == MODE_CREATE)
+            return CKR_OK;
+        TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_READ_ONLY));
+        return CKR_ATTRIBUTE_READ_ONLY;
+    default:
+        return publ_key_validate_attribute(tokdata, tmpl, attr, mode);
+    }
+}
+
+CK_RV ml_dsa_priv_validate_attribute(STDLL_TokData_t *tokdata,
+                                     TEMPLATE *tmpl, CK_ATTRIBUTE *attr,
+                                     CK_ULONG mode)
+{
+    CK_RV rc;
+
+    switch (attr->type) {
+    case CKA_PARAMETER_SET:
+        rc = pqc_validate_keyform_mode(attr, mode, CKM_ML_DSA);
+        if (rc != CKR_OK)
+            return rc;
+        return CKR_OK;
+    case CKA_VALUE:
+    case CKA_SEED:
+        if (mode == MODE_CREATE)
+            return CKR_OK;
+        TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_READ_ONLY));
+        return CKR_ATTRIBUTE_READ_ONLY;
+    default:
+        return priv_key_validate_attribute(tokdata, tmpl, attr, mode);
+    }
+}
+
+CK_BBOOL ml_dsa_priv_check_exportability(CK_ATTRIBUTE_TYPE type)
+{
+    switch (type) {
+    case CKA_VALUE:
+    case CKA_SEED:
+        return FALSE;
+    }
+
+    return TRUE;
+}
+
+CK_RV ml_kem_publ_validate_attribute(STDLL_TokData_t *tokdata,
+                                     TEMPLATE *tmpl, CK_ATTRIBUTE *attr,
+                                     CK_ULONG mode)
+{
+    CK_RV rc;
+
+    switch (attr->type) {
+    case CKA_PARAMETER_SET:
+        rc = pqc_validate_keyform_mode(attr, mode, CKM_ML_KEM);
+        if (rc != CKR_OK)
+            return rc;
+        return CKR_OK;
+    case CKA_VALUE:
+        if (mode == MODE_CREATE)
+            return CKR_OK;
+        TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_READ_ONLY));
+        return CKR_ATTRIBUTE_READ_ONLY;
+    default:
+        return publ_key_validate_attribute(tokdata, tmpl, attr, mode);
+    }
+}
+
+CK_RV ml_kem_priv_validate_attribute(STDLL_TokData_t *tokdata,
+                                     TEMPLATE *tmpl, CK_ATTRIBUTE *attr,
+                                     CK_ULONG mode)
+{
+    CK_RV rc;
+
+    switch (attr->type) {
+    case CKA_PARAMETER_SET:
+        rc = pqc_validate_keyform_mode(attr, mode, CKM_ML_KEM);
+        if (rc != CKR_OK)
+            return rc;
+        return CKR_OK;
+    case CKA_VALUE:
+    case CKA_SEED:
+        if (mode == MODE_CREATE)
+            return CKR_OK;
+        TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_READ_ONLY));
+        return CKR_ATTRIBUTE_READ_ONLY;
+    default:
+        return priv_key_validate_attribute(tokdata, tmpl, attr, mode);
+    }
+}
+
+CK_BBOOL ml_kem_priv_check_exportability(CK_ATTRIBUTE_TYPE type)
+{
+    switch (type) {
+    case CKA_VALUE:
+    case CKA_SEED:
         return FALSE;
     }
 
