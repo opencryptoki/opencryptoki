@@ -683,6 +683,21 @@ CK_RV key_mgr_generate_key_pair(STDLL_TokData_t *tokdata,
         }
         subclass = CKK_IBM_ML_KEM;
         break;
+    case CKM_ML_DSA_KEY_PAIR_GEN:
+        if (subclass != 0 && subclass != CKK_ML_DSA) {
+            TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCONSISTENT));
+            return CKR_TEMPLATE_INCONSISTENT;
+        }
+        subclass = CKK_ML_DSA;
+        break;
+    case CKM_ML_KEM_KEY_PAIR_GEN:
+        if (subclass != 0 && subclass != CKK_ML_KEM) {
+            TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCONSISTENT));
+            return CKR_TEMPLATE_INCONSISTENT;
+        }
+        subclass = CKK_ML_KEM;
+        break;
+
     default:
         TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
         return CKR_MECHANISM_INVALID;
@@ -749,6 +764,14 @@ CK_RV key_mgr_generate_key_pair(STDLL_TokData_t *tokdata,
     case CKM_IBM_ML_KEM_KEY_PAIR_GEN:
         rc = ckm_ibm_ml_kem_key_pair_gen(tokdata, mech, publ_key_obj->template,
                                          priv_key_obj->template);
+        break;
+    case CKM_ML_DSA_KEY_PAIR_GEN:
+        rc = ckm_ml_dsa_key_pair_gen(tokdata, publ_key_obj->template,
+                                     priv_key_obj->template);
+        break;
+    case CKM_ML_KEM_KEY_PAIR_GEN:
+        rc = ckm_ml_kem_key_pair_gen(tokdata, publ_key_obj->template,
+                                     priv_key_obj->template);
         break;
     default:
         TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));

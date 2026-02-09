@@ -129,6 +129,8 @@ struct token_specific_struct token_specific = {
     NULL,                       // ibm_ml_dsa_verify
     NULL,                       // ibm_ml_kem_generate_keypair
     NULL,                       // ibm_ml_kem_derive
+    NULL,                       // ml_dsa_generate_keypair
+    NULL,                       // ml_kem_generate_keypair
     &token_specific_get_mechanism_list,
     &token_specific_get_mechanism_info,
     NULL,                       // object_add

@@ -317,6 +317,14 @@ struct token_specific_struct {
                                  OBJECT *, CK_OBJECT_CLASS, CK_KEY_TYPE,
                                  OBJECT *, CK_KEY_TYPE, CK_ULONG);
 
+    CK_RV (*t_ml_dsa_generate_keypair)(STDLL_TokData_t *,
+                                       const struct pqc_oid *,
+                                       TEMPLATE *, TEMPLATE *);
+
+    CK_RV (*t_ml_kem_generate_keypair)(STDLL_TokData_t *,
+                                       const struct pqc_oid *,
+                                       TEMPLATE *, TEMPLATE *);
+
     CK_RV(*t_get_mechanism_list) (STDLL_TokData_t *, CK_MECHANISM_TYPE_PTR,
                                   CK_ULONG_PTR);
     CK_RV(*t_get_mechanism_info) (STDLL_TokData_t *, CK_MECHANISM_TYPE,

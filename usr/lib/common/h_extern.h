@@ -964,6 +964,12 @@ CK_RV pqc_unpack_pub_key(CK_BYTE *pub, CK_ULONG pub_len,
 CK_RV ibm_ml_dsa_dup_param(CK_VOID_PTR src, CK_VOID_PTR dst, CK_ULONG len);
 CK_RV ibm_ml_dsa_free_param(CK_VOID_PTR p, CK_ULONG len);
 
+CK_RV ckm_ml_dsa_key_pair_gen(STDLL_TokData_t *tokdata,
+                              TEMPLATE *publ_tmpl, TEMPLATE *priv_tmpl);
+
+CK_RV ckm_ml_kem_key_pair_gen(STDLL_TokData_t *tokdata,
+                              TEMPLATE *publ_tmpl, TEMPLATE *priv_tmpl);
+
 CK_RV digest_from_kdf(CK_EC_KDF_TYPE kdf, CK_MECHANISM_TYPE *mech);
 CK_RV get_digest_from_mech(CK_MECHANISM_TYPE mech, CK_MECHANISM_TYPE *digest);
 
