@@ -1672,7 +1672,7 @@ static CK_RV import_pqc_key(STDLL_TokData_t *tokdata, OBJECT *obj,
              break;
          case CKO_PUBLIC_KEY:
              rc = pqc_publ_get_spki(obj->template, keytype,
-                                    FALSE, &data, &data_len);
+                                    FALSE, &data, &data_len, FALSE);
              if (rc != CKR_OK) {
                  TRACE_ERROR("Failed to encode public key.\n");
                  return rc;
