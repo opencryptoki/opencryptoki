@@ -826,7 +826,7 @@ CK_RV key_mgr_generate_key_pair(STDLL_TokData_t *tokdata,
 
     /* Extract the SPKI and add CKA_PUBLIC_KEY_INFO to both keys */
     rc = publ_key_get_spki(publ_key_obj->template, subclass, FALSE,
-                           &spki, &spki_length);
+                           &spki, &spki_length, FALSE);
     if (rc != CKR_OK) {
         TRACE_DEVEL("publ_key_get_spki failed\n");
         goto error;
@@ -1221,6 +1221,8 @@ CK_RV key_mgr_wrap_key(STDLL_TokData_t *tokdata,
     case CKK_IBM_PQC_KYBER:
     case CKK_IBM_ML_DSA:
     case CKK_IBM_ML_KEM:
+    case CKK_ML_DSA:
+    case CKK_ML_KEM:
         rc = pqc_priv_wrap_get_data(key_obj->template, keytype, FALSE,
                                     &data, &data_len);
         if (rc != CKR_OK) {
@@ -1372,7 +1374,7 @@ CK_RV key_mgr_unwrap_key(STDLL_TokData_t *tokdata,
     OBJECT *key_obj = NULL, *unwrapping_key_obj = NULL;
     CK_BYTE *data = NULL;
     CK_ULONG data_len, value_len = 0;
-    CK_ULONG keyclass = 0, keytype = 0, priv_keytype = 0;
+    CK_ULONG keyclass = 0, keytype = 0, priv_keytype = 0, alt_priv_keytype = 0;
     CK_BBOOL fromend, not_opaque = FALSE, flag;
     CK_ATTRIBUTE *new_attrs = NULL;
     CK_ULONG new_attr_count = 0;
@@ -1670,16 +1672,18 @@ CK_RV key_mgr_unwrap_key(STDLL_TokData_t *tokdata,
 
     // extract the key type from the PrivateKeyInfo::AlgorithmIndicator
     if (keyclass == CKO_PRIVATE_KEY) {
-        rc = key_mgr_get_private_key_type(data, data_len, &priv_keytype);
+        rc = key_mgr_get_private_key_type(data, data_len, &priv_keytype,
+                                          &alt_priv_keytype);
         if (rc != CKR_OK) {
             TRACE_DEVEL("key_mgr_get_private_key_type failed.\n");
             goto done;
         }
 
-        if (priv_keytype != keytype) {
+        if (priv_keytype != keytype && alt_priv_keytype != keytype) {
             rc = CKR_UNWRAPPING_KEY_TYPE_INCONSISTENT;
             TRACE_DEVEL("keytype in template (%lu) does not match the unwrapped"
-                        " key (%lu).\n", keytype, priv_keytype);
+                        " key (%lu or %lu).\n", keytype, priv_keytype,
+                        alt_priv_keytype);
             goto done;
         }
     }
@@ -1758,12 +1762,15 @@ done:
 
 
 CK_RV key_mgr_get_private_key_type(CK_BYTE *keydata,
-                                   CK_ULONG keylen, CK_KEY_TYPE *keytype)
+                                   CK_ULONG keylen, CK_KEY_TYPE *keytype,
+                                   CK_KEY_TYPE *alt_keytype)
 {
     CK_BYTE *alg = NULL;
     CK_BYTE *priv_key = NULL;
     CK_ULONG alg_len, i;
     CK_RV rc;
+
+    *alt_keytype = (CK_KEY_TYPE)-1;
 
     rc = ber_decode_PrivateKeyInfo(keydata, keylen, &alg, &alg_len, &priv_key);
     if (rc != CKR_OK) {
@@ -1851,7 +1858,8 @@ CK_RV key_mgr_get_private_key_type(CK_BYTE *keydata,
     for (i = 0; ml_dsa_oids[i].oid != NULL; i++) {
         if (alg_len == ml_dsa_oids[i].oid_len &&
             memcmp(alg, ml_dsa_oids[i].oid, ml_dsa_oids[i].oid_len) == 0) {
-            *keytype = CKK_IBM_ML_DSA;
+            *keytype = CKK_ML_DSA;
+            *alt_keytype = CKK_IBM_ML_DSA;
             return CKR_OK;
         }
     }
@@ -1860,7 +1868,8 @@ CK_RV key_mgr_get_private_key_type(CK_BYTE *keydata,
     for (i = 0; ml_kem_oids[i].oid != NULL; i++) {
         if (alg_len == ml_kem_oids[i].oid_len &&
             memcmp(alg, ml_kem_oids[i].oid, ml_kem_oids[i].oid_len) == 0) {
-            *keytype = CKK_IBM_ML_KEM;
+            *keytype = CKK_ML_KEM;
+            *alt_keytype = CKK_IBM_ML_KEM;
             return CKR_OK;
         }
     }

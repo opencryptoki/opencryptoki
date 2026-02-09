@@ -5506,7 +5506,7 @@ static CK_RV import_pqc_key(STDLL_TokData_t *tokdata, SESSION *sess,
          } else {
             /* Individual attributes */
              rc = pqc_publ_get_spki(pqc_key_obj->template, keytype,
-                                    FALSE, &data, &data_len);
+                                    FALSE, &data, &data_len, FALSE);
             if (rc != CKR_OK) {
                 TRACE_ERROR("%s public key import class=0x%lx rc=0x%lx "
                             "data_len=0x%lx\n", __func__, class, rc, data_len);
@@ -9110,7 +9110,7 @@ static CK_RV ep11tok_btc_mech_post_process(STDLL_TokData_t *tokdata,
 
         /* Extract the SPKI and add CKA_PUBLIC_KEY_INFO to key */
         rc = publ_key_get_spki(key_obj->template, ktype, FALSE,
-                               &spki, &spki_length);
+                               &spki, &spki_length, FALSE);
         if (rc != CKR_OK) {
             TRACE_DEVEL("publ_key_get_spki failed\n");
             return rc;
@@ -11870,7 +11870,7 @@ CK_RV ep11tok_generate_key_pair(STDLL_TokData_t * tokdata, SESSION * sess,
 
     /* Extract the SPKI and add CKA_PUBLIC_KEY_INFO to both keys */
     rc = publ_key_get_spki(public_key_obj->template, publ_ktype, FALSE,
-                           &spki, &spki_length);
+                           &spki, &spki_length, FALSE);
     if (rc != CKR_OK) {
         TRACE_DEVEL("publ_key_get_spki failed\n");
         goto error;

@@ -9955,7 +9955,8 @@ static CK_RV token_create_ibm_pqc_keypair(CK_MECHANISM_TYPE mech,
     }
 
     /* Add SPKI as CKA_VALUE to public template */
-    rc = pqc_publ_get_spki(publ_tmpl, keytype, FALSE, &spki, &spki_len);
+    rc = pqc_publ_get_spki(publ_tmpl, keytype, FALSE, &spki, &spki_len,
+                           FALSE);
     if (rc != CKR_OK) {
         TRACE_ERROR("pqc_publ_get_spki failed\n");
         return rc;
@@ -13818,7 +13819,7 @@ static CK_RV import_ibm_pqc_pubkey(STDLL_TokData_t *tokdata,
 
         /* Add SPKI as CKA_VALUE to public template */
         rc = pqc_publ_get_spki(pub_templ, keytype, FALSE,
-                               &spki, &spki_len);
+                               &spki, &spki_len, FALSE);
         if (rc != CKR_OK) {
             TRACE_ERROR("pqc_publ_get_spki failed\n");
             return rc;
@@ -13868,7 +13869,7 @@ static CK_RV import_ibm_pqc_pubkey(STDLL_TokData_t *tokdata,
         } else {
             /* Add SPKI as CKA_VALUE to public template */
             rc = pqc_publ_get_spki(pub_templ, keytype, FALSE,
-                                   &spki, &spki_len);
+                                   &spki, &spki_len, FALSE);
             if (rc != CKR_OK) {
                 TRACE_ERROR("pqc_publ_get_spki failed\n");
                 return rc;

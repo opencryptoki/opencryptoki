@@ -182,6 +182,10 @@ CK_RV template_add_default_attributes(STDLL_TokData_t *tokdata,
         case CKK_IBM_PQC_KYBER:
         case CKK_IBM_ML_KEM:
             return ibm_ml_kem_publ_set_default_attributes(tmpl, mode, subclass);
+        case CKK_ML_DSA:
+            return ml_dsa_publ_set_default_attributes(tmpl, mode);
+        case CKK_ML_KEM:
+            return ml_kem_publ_set_default_attributes(tmpl, mode);
         default:
             TRACE_ERROR("%s: %lx\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID),
                         subclass);
@@ -205,6 +209,10 @@ CK_RV template_add_default_attributes(STDLL_TokData_t *tokdata,
         case CKK_IBM_PQC_KYBER:
         case CKK_IBM_ML_KEM:
             return ibm_ml_kem_priv_set_default_attributes(tmpl, mode, subclass);
+        case CKK_ML_DSA:
+            return ml_dsa_priv_set_default_attributes(tmpl, mode);
+        case CKK_ML_KEM:
+            return ml_kem_priv_set_default_attributes(tmpl, mode);
         default:
             TRACE_ERROR("%s: %lx\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID),
                         subclass);
@@ -458,6 +466,10 @@ CK_RV template_check_required_attributes(TEMPLATE *tmpl, CK_ULONG class,
         case CKK_IBM_ML_KEM:
             return ibm_ml_kem_publ_check_required_attributes(tmpl, mode,
                                                              CKM_IBM_ML_KEM);
+        case CKK_ML_DSA:
+            return ml_dsa_publ_check_required_attributes(tmpl, mode);
+        case CKK_ML_KEM:
+            return ml_kem_publ_check_required_attributes(tmpl, mode);
         default:
             TRACE_ERROR("%s: %lx\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID),
                         subclass);
@@ -487,6 +499,10 @@ CK_RV template_check_required_attributes(TEMPLATE *tmpl, CK_ULONG class,
         case CKK_IBM_ML_KEM:
             return ibm_ml_kem_priv_check_required_attributes(tmpl, mode,
                                                              CKM_IBM_ML_KEM);
+        case CKK_ML_DSA:
+            return ml_dsa_priv_check_required_attributes(tmpl, mode);
+        case CKK_ML_KEM:
+            return ml_kem_priv_check_required_attributes(tmpl, mode);
         default:
             TRACE_ERROR("%s: %lx\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID),
                         subclass);
@@ -1455,6 +1471,10 @@ CK_BBOOL template_check_exportability(TEMPLATE *tmpl, CK_ATTRIBUTE_TYPE type)
         case CKK_IBM_KYBER:
         case CKK_IBM_ML_KEM:
             return ibm_ml_kem_priv_check_exportability(type);
+        case CKK_ML_DSA:
+            return ml_dsa_priv_check_exportability(type);
+        case CKK_ML_KEM:
+            return ml_kem_priv_check_exportability(type);
         default:
             TRACE_ERROR("%s: %lx\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID),
                         subclass);
@@ -1800,6 +1820,10 @@ CK_RV template_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
         case CKK_IBM_ML_KEM:
             return ibm_ml_kem_publ_validate_attribute(tokdata, tmpl, attr, mode,
                                                       CKM_IBM_ML_KEM);
+        case CKK_ML_DSA:
+            return ml_dsa_publ_validate_attribute(tokdata, tmpl, attr, mode);
+        case CKK_ML_KEM:
+            return ml_kem_publ_validate_attribute(tokdata, tmpl, attr, mode);
         default:
             TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
             return CKR_ATTRIBUTE_VALUE_INVALID; // unknown key type
@@ -1829,6 +1853,10 @@ CK_RV template_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
         case CKK_IBM_ML_KEM:
             return ibm_ml_kem_priv_validate_attribute(tokdata, tmpl, attr, mode,
                                                       CKM_IBM_ML_KEM);
+        case CKK_ML_DSA:
+            return ml_dsa_priv_validate_attribute(tokdata, tmpl, attr, mode);
+        case CKK_ML_KEM:
+            return ml_kem_priv_validate_attribute(tokdata, tmpl, attr, mode);
         default:
             TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
             return CKR_ATTRIBUTE_VALUE_INVALID; // unknown key type

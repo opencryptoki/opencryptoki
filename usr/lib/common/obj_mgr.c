@@ -148,7 +148,8 @@ CK_RV object_mgr_add(STDLL_TokData_t *tokdata,
          * This may fail if the public key info can not be reconstructed from
          * the private key (e.g. because its a secure key token).
          */
-        rc = publ_key_get_spki(o->template, keytype, FALSE, &spki, &spki_len);
+        rc = publ_key_get_spki(o->template, keytype, FALSE, &spki, &spki_len,
+                               class == CKO_PRIVATE_KEY);
         if (rc == CKR_OK && spki != NULL && spki_len > 0) {
             rc = build_attribute(CKA_PUBLIC_KEY_INFO, spki, spki_len,
                                  &spki_attr);
