@@ -348,6 +348,56 @@ end:
     return rc;
 }
 
+CK_RV ckm_ml_dsa_key_pair_gen(STDLL_TokData_t *tokdata,
+                              TEMPLATE *publ_tmpl, TEMPLATE *priv_tmpl)
+{
+    const struct pqc_oid *pqc_oid;
+    CK_RV rc;
+
+    if (token_specific.t_ml_dsa_generate_keypair == NULL) {
+        TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
+        return CKR_MECHANISM_INVALID;
+    }
+
+    pqc_oid = pqc_get_keyform_mode(publ_tmpl, CKM_ML_DSA_KEY_PAIR_GEN);
+    if (pqc_oid == NULL) {
+        TRACE_ERROR("%s Failed to determine ML-DSA OID\n", __func__);
+        return CKR_TEMPLATE_INCOMPLETE;
+    }
+
+    rc = token_specific.t_ml_dsa_generate_keypair(tokdata, pqc_oid,
+                                                  publ_tmpl, priv_tmpl);
+    if (rc != CKR_OK)
+        TRACE_DEVEL("Token specific ML-DSA keypair generation failed.\n");
+
+    return rc;
+}
+
+CK_RV ckm_ml_kem_key_pair_gen(STDLL_TokData_t *tokdata,
+                              TEMPLATE *publ_tmpl, TEMPLATE *priv_tmpl)
+{
+    const struct pqc_oid *pqc_oid;
+    CK_RV rc;
+
+    if (token_specific.t_ml_kem_generate_keypair == NULL) {
+        TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
+        return CKR_MECHANISM_INVALID;
+    }
+
+    pqc_oid = pqc_get_keyform_mode(publ_tmpl, CKM_ML_KEM_KEY_PAIR_GEN);
+    if (pqc_oid == NULL) {
+        TRACE_ERROR("%s Failed to determine ML-KEM OID\n", __func__);
+        return CKR_TEMPLATE_INCOMPLETE;
+    }
+
+    rc = token_specific.t_ml_kem_generate_keypair(tokdata, pqc_oid,
+                                                  publ_tmpl, priv_tmpl);
+    if (rc != CKR_OK)
+        TRACE_DEVEL("Token specific ML-KEM keypair generation failed.\n");
+
+    return rc;
+}
+
 #define PACK_PART(attr, explen, buf, buflen, ofs)                       \
     if ((attr)->ulValueLen != (explen)) {                               \
         TRACE_ERROR("Key part #attr length not as expected\n");         \
