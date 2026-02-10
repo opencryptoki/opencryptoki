@@ -97,6 +97,26 @@ const struct p11tool_enum_value p11tool_ibm_ml_kem_versions[] = {
     { .value = NULL, },
 };
 
+const struct p11tool_enum_value p11tool_ml_dsa_versions[] = {
+    { .value = "44", .args = NULL,
+      .private = { .num = CKP_ML_DSA_44 }, },
+    { .value = "65", .args = NULL,
+      .private = { .num = CKP_ML_DSA_65 }, },
+    { .value = "87", .args = NULL,
+      .private = { .num = CKP_ML_DSA_87 }, },
+    { .value = NULL, },
+};
+
+const struct p11tool_enum_value p11tool_ml_kem_versions[] = {
+    { .value = "512", .args = NULL,
+      .private = { .num = CKP_ML_KEM_512 }, },
+    { .value = "768", .args = NULL,
+      .private = { .num = CKP_ML_KEM_768 }, },
+    { .value = "1024", .args = NULL,
+      .private = { .num = CKP_ML_KEM_1024 }, },
+    { .value = NULL, },
+};
+
 static bool p11tool_argument_is_set(const struct p11tool_arg *arg);
 
 const struct p11tool_cmd *p11tool_find_command(const struct p11tool_cmd *cmds,
