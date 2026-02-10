@@ -251,6 +251,8 @@ extern const struct p11tool_enum_value p11tool_ibm_dilithium_versions[];
 extern const struct p11tool_enum_value p11tool_ibm_kyber_versions[];
 extern const struct p11tool_enum_value p11tool_ibm_ml_dsa_versions[];
 extern const struct p11tool_enum_value p11tool_ibm_ml_kem_versions[];
+extern const struct p11tool_enum_value p11tool_ml_dsa_versions[];
+extern const struct p11tool_enum_value p11tool_ml_kem_versions[];
 
 const struct p11tool_cmd *p11tool_find_command(const struct p11tool_cmd *cmds,
                                                const char *cmd);
