@@ -3681,7 +3681,8 @@ CK_RV openssl_specific_pqc_sign(STDLL_TokData_t *tokdata,
                                 CK_ULONG in_data_len,
                                 CK_BYTE *signature,
                                 CK_ULONG *signature_len,
-                                OBJECT *key_obj);
+                                OBJECT *key_obj,
+                                CK_BBOOL final_part);
 CK_RV openssl_specific_pqc_verify(STDLL_TokData_t *tokdata,
                                   SESSION *sess,
                                   const struct pqc_oid *oid,
@@ -3690,7 +3691,8 @@ CK_RV openssl_specific_pqc_verify(STDLL_TokData_t *tokdata,
                                   CK_ULONG in_data_len,
                                   CK_BYTE *signature,
                                   CK_ULONG signature_len,
-                                  OBJECT *key_obj);
+                                  OBJECT *key_obj,
+                                  CK_BBOOL final_part);
 CK_RV openssl_specific_pqc_kem_derive(STDLL_TokData_t *tokdata, SESSION *sess,
                                       const struct pqc_oid *oid,
                                       CK_MECHANISM *mech,
