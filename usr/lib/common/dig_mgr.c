@@ -112,6 +112,21 @@ CK_RV digest_mgr_init(STDLL_TokData_t *tokdata,
               return rc;
           }
         break;
+    case CKM_OCK_SHAKE128:
+    case CKM_OCK_SHAKE256:
+        if (mech->ulParameterLen != sizeof(CK_ULONG)) {
+            TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
+            return CKR_MECHANISM_PARAM_INVALID;
+        }
+
+        ctx->context = NULL;
+        rc = sha_init(tokdata, sess, ctx, mech);
+        if (rc != CKR_OK) {
+            digest_mgr_cleanup(tokdata, sess, ctx);    // to de-initialize context above
+            TRACE_ERROR("Failed to init sha context.\n");
+            return rc;
+        }
+        break;
     default:
         TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
         return CKR_MECHANISM_INVALID;
@@ -239,6 +254,8 @@ CK_RV digest_mgr_digest(STDLL_TokData_t *tokdata,
     case CKM_IBM_SHA3_256:
     case CKM_IBM_SHA3_384:
     case CKM_IBM_SHA3_512:
+    case CKM_OCK_SHAKE128:
+    case CKM_OCK_SHAKE256:
         rc = sha_hash(tokdata, sess, length_only, ctx, in_data, in_data_len,
                       out_data, out_data_len);
         break;
@@ -320,6 +337,8 @@ CK_RV digest_mgr_digest_update(STDLL_TokData_t *tokdata,
     case CKM_IBM_SHA3_256:
     case CKM_IBM_SHA3_384:
     case CKM_IBM_SHA3_512:
+    case CKM_OCK_SHAKE128:
+    case CKM_OCK_SHAKE256:
         rc = sha_hash_update(tokdata, sess, ctx, data, data_len);
         break;
 #if !(NOMD2)
@@ -469,6 +488,8 @@ CK_RV digest_mgr_digest_final(STDLL_TokData_t *tokdata,
     case CKM_IBM_SHA3_256:
     case CKM_IBM_SHA3_384:
     case CKM_IBM_SHA3_512:
+    case CKM_OCK_SHAKE128:
+    case CKM_OCK_SHAKE256:
         rc = sha_hash_final(tokdata, sess, length_only, ctx, hash, hash_len);
         break;
 #if !(NOMD2)

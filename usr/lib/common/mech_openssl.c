@@ -3595,6 +3595,16 @@ static const EVP_MD *md_from_mech(CK_MECHANISM *mech)
         md = EVP_sha3_512();
         break;
 #endif
+#ifdef NID_shake128
+    case CKM_OCK_SHAKE128:
+        md = EVP_shake128();
+        break;
+#endif
+#ifdef NID_shake256
+    case CKM_OCK_SHAKE256:
+        md = EVP_shake256();
+        break;
+#endif
     default:
         break;
     }
@@ -3709,6 +3719,7 @@ CK_RV openssl_specific_sha(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *ctx,
 {
     unsigned int len;
     CK_RV rc = CKR_OK;
+    CK_ULONG hsize;
 #if !OPENSSL_VERSION_PREREQ(3, 0)
     EVP_MD_CTX *md_ctx;
 #endif
@@ -3729,28 +3740,81 @@ CK_RV openssl_specific_sha(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *ctx,
         return CKR_HOST_MEMORY;
     }
 
-    if (*out_data_len < (CK_ULONG)EVP_MD_CTX_size(md_ctx))
-        return CKR_BUFFER_TOO_SMALL;
+    switch (ctx->mech.mechanism) {
+    case CKM_OCK_SHAKE128:
+    case CKM_OCK_SHAKE256:
+        if (ctx->mech.ulParameterLen != sizeof(CK_ULONG)) {
+            TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
+            rc = CKR_MECHANISM_PARAM_INVALID;
+            goto out;
+        }
+        hsize = *(CK_ULONG *)ctx->mech.pParameter;
 
-    if (!EVP_DigestUpdate(md_ctx, in_data, in_data_len) ||
-        !EVP_DigestFinal(md_ctx, out_data, &len)) {
-        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
-        rc = CKR_FUNCTION_FAILED;
-        goto out;
+        if (*out_data_len < hsize) {
+            TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
+            rc = CKR_BUFFER_TOO_SMALL;
+            goto out;
+        }
+
+        len = hsize;
+        if (!EVP_DigestUpdate(md_ctx, in_data, in_data_len) ||
+            !EVP_DigestFinalXOF(md_ctx, out_data, len)) {
+            TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
+            rc = CKR_FUNCTION_FAILED;
+            goto out;
+        }
+        break;
+    default:
+        if (*out_data_len < (CK_ULONG)EVP_MD_CTX_size(md_ctx))
+            return CKR_BUFFER_TOO_SMALL;
+
+        len = *out_data_len;
+        if (!EVP_DigestUpdate(md_ctx, in_data, in_data_len) ||
+            !EVP_DigestFinal(md_ctx, out_data, &len)) {
+            TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
+            rc = CKR_FUNCTION_FAILED;
+            goto out;
+        }
     }
 
     *out_data_len = len;
 #else
-    if (*out_data_len < (CK_ULONG)EVP_MD_CTX_size((EVP_MD_CTX *)ctx->context)) {
-        TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
-        return CKR_BUFFER_TOO_SMALL;
-    }
+    switch (ctx->mech.mechanism) {
+    case CKM_OCK_SHAKE128:
+    case CKM_OCK_SHAKE256:
+        if (ctx->mech.ulParameterLen != sizeof(CK_ULONG)) {
+            TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
+            return CKR_MECHANISM_PARAM_INVALID;
+        }
+        hsize = *(CK_ULONG *)ctx->mech.pParameter;
 
-    len = *out_data_len;
-    if (!EVP_DigestUpdate((EVP_MD_CTX *)ctx->context, in_data, in_data_len) ||
-        !EVP_DigestFinal((EVP_MD_CTX *)ctx->context, out_data, &len)) {
-        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
-        return CKR_FUNCTION_FAILED;
+        if (*out_data_len < hsize) {
+            TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
+            return CKR_BUFFER_TOO_SMALL;
+        }
+
+        len = hsize;
+        if (!EVP_DigestUpdate((EVP_MD_CTX *)ctx->context, in_data,
+                              in_data_len) ||
+            !EVP_DigestFinalXOF((EVP_MD_CTX *)ctx->context, out_data, len)) {
+            TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
+            return CKR_FUNCTION_FAILED;
+        }
+        break;
+    default:
+        if (*out_data_len <
+                (CK_ULONG)EVP_MD_CTX_size((EVP_MD_CTX *)ctx->context)) {
+            TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
+            return CKR_BUFFER_TOO_SMALL;
+        }
+
+        len = *out_data_len;
+        if (!EVP_DigestUpdate((EVP_MD_CTX *)ctx->context, in_data,
+                              in_data_len) ||
+            !EVP_DigestFinal((EVP_MD_CTX *)ctx->context, out_data, &len)) {
+            TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
+            return CKR_FUNCTION_FAILED;
+        }
     }
 
     *out_data_len = len;
@@ -3822,6 +3886,7 @@ CK_RV openssl_specific_sha_final(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *ctx,
 {
     unsigned int len;
     CK_RV rc = CKR_OK;
+    CK_ULONG hsize;
 #if !OPENSSL_VERSION_PREREQ(3, 0)
     EVP_MD_CTX *md_ctx;
 #endif
@@ -3842,13 +3907,40 @@ CK_RV openssl_specific_sha_final(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *ctx,
         return CKR_HOST_MEMORY;
     }
 
-    if (*out_data_len < (CK_ULONG)EVP_MD_CTX_size(md_ctx))
-        return CKR_BUFFER_TOO_SMALL;
+    switch (ctx->mech.mechanism) {
+    case CKM_OCK_SHAKE128:
+    case CKM_OCK_SHAKE256:
+        if (ctx->mech.ulParameterLen != sizeof(CK_ULONG)) {
+            TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
+            rc =  CKR_MECHANISM_PARAM_INVALID;
+            goto out;
+        }
+        hsize = *(CK_ULONG *)ctx->mech.pParameter;
 
-    if (!EVP_DigestFinal(md_ctx, out_data, &len)) {
-        rc = CKR_FUNCTION_FAILED;
-        goto out;
+        if (*out_data_len < hsize) {
+            TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
+            rc = CKR_BUFFER_TOO_SMALL;
+            goto out;
+        }
+
+        len = hsize;
+        if (!EVP_DigestFinalXOF(md_ctx, out_data, len)) {
+            TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
+            rc = CKR_FUNCTION_FAILED;
+            goto out;
+        }
+        break;
+    default:
+        if (*out_data_len < (CK_ULONG)EVP_MD_CTX_size(md_ctx))
+            return CKR_BUFFER_TOO_SMALL;
+
+        len = *out_data_len;
+        if (!EVP_DigestFinal(md_ctx, out_data, &len)) {
+            rc = CKR_FUNCTION_FAILED;
+            goto out;
+        }
     }
+
     *out_data_len = len;
 
 out:
@@ -3858,15 +3950,38 @@ out:
     ctx->context_len = 0;
     ctx->context_free_func = NULL;
 #else
-    if (*out_data_len < (CK_ULONG)EVP_MD_CTX_size((EVP_MD_CTX *)ctx->context)) {
-        TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
-        return CKR_BUFFER_TOO_SMALL;
-    }
+    switch (ctx->mech.mechanism) {
+    case CKM_OCK_SHAKE128:
+    case CKM_OCK_SHAKE256:
+        if (ctx->mech.ulParameterLen != sizeof(CK_ULONG)) {
+            TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
+            return CKR_MECHANISM_PARAM_INVALID;
+        }
+        hsize = *(CK_ULONG *)ctx->mech.pParameter;
 
-    len = *out_data_len;
-    if (!EVP_DigestFinal((EVP_MD_CTX *)ctx->context, out_data, &len)) {
-        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
-        return CKR_FUNCTION_FAILED;
+        if (*out_data_len < hsize) {
+            TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
+            return CKR_BUFFER_TOO_SMALL;
+        }
+
+        len = hsize;
+        if (!EVP_DigestFinalXOF((EVP_MD_CTX *)ctx->context, out_data, len)) {
+            TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
+            return CKR_FUNCTION_FAILED;
+        }
+        break;
+    default:
+        if (*out_data_len <
+                (CK_ULONG)EVP_MD_CTX_size((EVP_MD_CTX *)ctx->context)) {
+            TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
+            return CKR_BUFFER_TOO_SMALL;
+        }
+
+        len = *out_data_len;
+        if (!EVP_DigestFinal((EVP_MD_CTX *)ctx->context, out_data, &len)) {
+            TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
+            return CKR_FUNCTION_FAILED;
+        }
     }
 
     *out_data_len = len;

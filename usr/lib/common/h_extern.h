@@ -3645,4 +3645,11 @@ extern token_spec_t token_specific;
  * Used for objects internal to a token for management of that token */
 #define CKA_HIDDEN              CKA_VENDOR_DEFINED + 0x01000000
 
+/*
+ * Opencryptoki internal mechanisms for SHAKE, not defined by PKCS#11.
+ * The have a CK_ULONG mechanism parameter specifying the output size.
+ */
+#define CKM_OCK_SHAKE128        CKM_VENDOR_DEFINED + 0x01000001
+#define CKM_OCK_SHAKE256        CKM_VENDOR_DEFINED + 0x01000002
+
 #endif
