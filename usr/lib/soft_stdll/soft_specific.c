@@ -333,6 +333,20 @@ static const MECH_LIST_ELEMENT soft_mech_list[] = {
     {CKM_IBM_ML_KEM, {800, 1568, CKF_DERIVE}},
     {CKM_IBM_ML_KEM_WITH_ECDH, {800, 1568, CKF_DERIVE}},
     {CKM_ML_DSA_KEY_PAIR_GEN, {1312, 2592, CKF_GENERATE_KEY_PAIR}},
+    {CKM_ML_DSA, {1312, 2592, CKF_SIGN | CKF_VERIFY}},
+#ifdef OSSL_SIGNATURE_PARAM_MESSAGE_ENCODING
+    {CKM_HASH_ML_DSA, {1312, 2592, CKF_SIGN | CKF_VERIFY}},
+    {CKM_HASH_ML_DSA_SHA224, {1312, 2592, CKF_SIGN | CKF_VERIFY}},
+    {CKM_HASH_ML_DSA_SHA256, {1312, 2592, CKF_SIGN | CKF_VERIFY}},
+    {CKM_HASH_ML_DSA_SHA384, {1312, 2592, CKF_SIGN | CKF_VERIFY}},
+    {CKM_HASH_ML_DSA_SHA512, {1312, 2592, CKF_SIGN | CKF_VERIFY}},
+    {CKM_HASH_ML_DSA_SHA3_224, {1312, 2592, CKF_SIGN | CKF_VERIFY}},
+    {CKM_HASH_ML_DSA_SHA3_256, {1312, 2592, CKF_SIGN | CKF_VERIFY}},
+    {CKM_HASH_ML_DSA_SHA3_384, {1312, 2592, CKF_SIGN | CKF_VERIFY}},
+    {CKM_HASH_ML_DSA_SHA3_512, {1312, 2592, CKF_SIGN | CKF_VERIFY}},
+    {CKM_HASH_ML_DSA_SHAKE128, {1312, 2592, CKF_SIGN | CKF_VERIFY}},
+    {CKM_HASH_ML_DSA_SHAKE256, {1312, 2592, CKF_SIGN | CKF_VERIFY}},
+#endif
     {CKM_ML_KEM_KEY_PAIR_GEN, {800, 1568, CKF_GENERATE_KEY_PAIR}},
 #endif
 };
@@ -1986,7 +2000,7 @@ CK_RV token_specific_ibm_ml_dsa_sign(STDLL_TokData_t *tokdata,
     return openssl_specific_pqc_sign(tokdata, sess, length_only, oid,
                                      mech, in_data, in_data_len,
                                      signature, signature_len,
-                                     key_obj);
+                                     key_obj, TRUE);
 }
 
 CK_RV token_specific_ibm_ml_dsa_verify(STDLL_TokData_t *tokdata,
@@ -2005,7 +2019,7 @@ CK_RV token_specific_ibm_ml_dsa_verify(STDLL_TokData_t *tokdata,
     return openssl_specific_pqc_verify(tokdata, sess, oid, mech,
                                        in_data, in_data_len,
                                        signature, signature_len,
-                                       key_obj);
+                                       key_obj, TRUE);
 }
 
 CK_RV token_specific_ibm_ml_kem_generate_keypair(STDLL_TokData_t *tokdata,
@@ -2054,6 +2068,47 @@ CK_RV token_specific_ml_dsa_generate_keypair(STDLL_TokData_t *tokdata,
 
     return openssl_specific_pqc_generate_keypair(tokdata, oid, &mech,
                                                  publ_tmpl, priv_tmpl);
+}
+
+CK_RV token_specific_ml_dsa_sign(STDLL_TokData_t *tokdata,
+                                 SESSION *sess,
+                                 CK_BBOOL length_only,
+                                 const struct pqc_oid *oid,
+                                 CK_MECHANISM *mech,
+                                 CK_BYTE *in_data,
+                                 CK_ULONG in_data_len,
+                                 CK_BYTE *signature,
+                                 CK_ULONG *signature_len,
+                                 OBJECT *key_obj,
+                                 CK_BBOOL final_part)
+{
+    if (!token_specific_filter_mechanism(tokdata, mech->mechanism, NULL))
+        return CKR_MECHANISM_INVALID;
+
+    return openssl_specific_pqc_sign(tokdata, sess, length_only, oid,
+                                     mech, in_data, in_data_len,
+                                     signature, signature_len,
+                                     key_obj, final_part);
+}
+
+CK_RV token_specific_ml_dsa_verify(STDLL_TokData_t *tokdata,
+                                       SESSION *sess,
+                                       const struct pqc_oid *oid,
+                                       CK_MECHANISM *mech,
+                                       CK_BYTE *in_data,
+                                       CK_ULONG in_data_len,
+                                       CK_BYTE *signature,
+                                       CK_ULONG signature_len,
+                                       OBJECT *key_obj,
+                                       CK_BBOOL final_part)
+{
+    if (!token_specific_filter_mechanism(tokdata, mech->mechanism, NULL))
+        return CKR_MECHANISM_INVALID;
+
+    return openssl_specific_pqc_verify(tokdata, sess, oid, mech,
+                                       in_data, in_data_len,
+                                       signature, signature_len,
+                                       key_obj, final_part);
 }
 
 CK_RV token_specific_ml_kem_generate_keypair(STDLL_TokData_t *tokdata,
