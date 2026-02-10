@@ -7062,7 +7062,10 @@ out:
     return rc;
 }
 
-#if defined(OSSL_SIGNATURE_PARAM_DETERMINISTIC) || defined(OSSL_SIGNATURE_PARAM_CONTEXT_STRING)
+#if defined(OSSL_SIGNATURE_PARAM_DETERMINISTIC) || \
+    defined(OSSL_SIGNATURE_PARAM_CONTEXT_STRING) || \
+    defined(OSSL_SIGNATURE_PARAM_MESSAGE_ENCODING) || \
+    defined(OSSL_SIGNATURE_PARAM_SIGNATURE)
 static CK_BBOOL check_settable_ctx_params(EVP_PKEY_CTX *ctx, const char *name)
 {
     const OSSL_PARAM *settable, *p;
@@ -7078,12 +7081,65 @@ static CK_BBOOL check_settable_ctx_params(EVP_PKEY_CTX *ctx, const char *name)
 }
 #endif
 
-static CK_RV openssl_specific_ibm_ml_dsa_set_params(
-                                         EVP_PKEY_CTX *ctx,
-                                         CK_IBM_SIGN_ADDITIONAL_CONTEXT *param)
+static CK_RV openssl_specific_ml_dsa_set_params(EVP_PKEY_CTX *ctx,
+                                                CK_MECHANISM *mech)
 {
+    CK_SIGN_ADDITIONAL_CONTEXT *param, tmp_param;
     OSSL_PARAM params[2];
     int deterministic = 0;
+    CK_RV rc;
+
+    switch (mech->mechanism) {
+    case CKM_IBM_ML_DSA:
+        if (mech->pParameter == NULL ||
+            mech->ulParameterLen != sizeof(CK_IBM_SIGN_ADDITIONAL_CONTEXT)) {
+            TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
+            return CKR_MECHANISM_PARAM_INVALID;
+        }
+
+        /* Translate IBM mech param to PKCS#11 standard one */
+        rc = ml_dsa_translate_sign_mech_param_from_ibm(mech->pParameter,
+                                                       &tmp_param);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("ml_dsa_translate_sign_mech_param_from_ibm failed\n");
+            return rc;
+        }
+
+        param = &tmp_param;
+        break;
+
+    case CKM_ML_DSA:
+        if (mech->pParameter == NULL ||
+            mech->ulParameterLen != sizeof(CK_SIGN_ADDITIONAL_CONTEXT)) {
+            TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
+            return CKR_MECHANISM_PARAM_INVALID;
+        }
+
+        param = mech->pParameter;
+        break;
+
+    case CKM_HASH_ML_DSA:
+        if (mech->pParameter == NULL ||
+            mech->ulParameterLen != sizeof(CK_HASH_SIGN_ADDITIONAL_CONTEXT)) {
+            TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
+            return CKR_MECHANISM_PARAM_INVALID;
+        }
+
+
+        /* Translate hash sign param to sign param one */
+        rc = ml_dsa_translate_sign_mech_param_from_hash(mech->pParameter,
+                                                       &tmp_param, NULL);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("ml_dsa_translate_sign_mech_param_from_hash failed\n");
+            return rc;
+        }
+
+        param = &tmp_param;
+        break;
+    default:
+        TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
+        return CKR_MECHANISM_INVALID;
+    }
 
 #ifndef OSSL_SIGNATURE_PARAM_DETERMINISTIC
 #ifndef OSSL_SIGNATURE_PARAM_CONTEXT_STRING
@@ -7093,13 +7149,16 @@ static CK_RV openssl_specific_ibm_ml_dsa_set_params(
 #endif
 
     switch (param->hedgeVariant) {
-    case CKH_IBM_HEDGE_PREFERRED:
-    case CKH_IBM_HEDGE_REQUIRED:
+    case CKH_HEDGE_PREFERRED:
+    case CKH_HEDGE_REQUIRED:
         deterministic = 0;
         break;
-    case CKH_IBM_DETERMINISTIC_REQUIRED:
+    case CKH_DETERMINISTIC_REQUIRED:
         deterministic = 1;
         break;
+    default:
+        TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
+        return CKR_MECHANISM_PARAM_INVALID;
     }
 
     if (deterministic) {
@@ -7154,6 +7213,161 @@ static CK_RV openssl_specific_ibm_ml_dsa_set_params(
     return CKR_OK;
 }
 
+static CK_RV openssl_specific_ml_dsa_encode_prehashed_msg(
+                                        EVP_PKEY_CTX *ctx,
+                                        CK_BYTE *in_data, CK_ULONG in_data_len,
+                                        CK_MECHANISM_TYPE prehash_mech,
+                                        CK_BYTE *context,
+                                        CK_ULONG context_len,
+                                        CK_BYTE **prehashed_msg,
+                                        CK_ULONG *prehashed_msg_len)
+{
+#ifdef OSSL_SIGNATURE_PARAM_MESSAGE_ENCODING
+    CK_RV rc = CKR_OK;
+    ASN1_OBJECT *obj = NULL;
+    CK_BYTE *oid = NULL, *p;
+    int oid_len;
+    OSSL_PARAM params[2];
+    int encoding = 0;
+
+    if (context_len > 255) {
+        TRACE_ERROR("Context length is too large\n");
+        rc = CKR_MECHANISM_PARAM_INVALID;
+        goto out;
+    }
+
+    if (!check_settable_ctx_params(ctx,
+                                   OSSL_SIGNATURE_PARAM_MESSAGE_ENCODING)) {
+        TRACE_ERROR("OpenSSL does not support Prehash-ML-DSA\n");
+        rc = CKR_MECHANISM_PARAM_INVALID;
+        goto out;
+    }
+
+    switch (prehash_mech) {
+    case CKM_SHA_1:
+        obj = OBJ_nid2obj(NID_sha1);
+        break;
+    case CKM_SHA224:
+        obj = OBJ_nid2obj(NID_sha224);
+        break;
+    case CKM_SHA256:
+        obj = OBJ_nid2obj(NID_sha256);
+        break;
+    case CKM_SHA384:
+        obj = OBJ_nid2obj(NID_sha384);
+        break;
+    case CKM_SHA512:
+        obj = OBJ_nid2obj(NID_sha512);
+        break;
+    case CKM_SHA512_224:
+        obj = OBJ_nid2obj(NID_sha512_224);
+        break;
+    case CKM_SHA512_256:
+        obj = OBJ_nid2obj(NID_sha512_256);
+        break;
+    case CKM_SHA3_224:
+        obj = OBJ_nid2obj(NID_sha3_224);
+        break;
+    case CKM_SHA3_256:
+        obj = OBJ_nid2obj(NID_sha3_256);
+        break;
+    case CKM_SHA3_384:
+        obj = OBJ_nid2obj(NID_sha3_384);
+        break;
+    case CKM_SHA3_512:
+        obj = OBJ_nid2obj(NID_sha3_512);
+        break;
+    case CKM_OCK_SHAKE128:
+        obj = OBJ_nid2obj(NID_shake128);
+        break;
+    case CKM_OCK_SHAKE256:
+        obj = OBJ_nid2obj(NID_shake256);
+        break;
+    default:
+        break;
+    }
+
+    if (obj == NULL) {
+        TRACE_ERROR("Prehash-mechanism not supported\n");
+        rc = CKR_MECHANISM_INVALID;
+        goto out;
+    }
+
+    oid_len = i2d_ASN1_OBJECT(obj, &oid);
+    if (oid_len <= 0) {
+        TRACE_ERROR("Prehash-mechanism not supported\n");
+        rc = CKR_MECHANISM_INVALID;
+        goto out;
+    }
+
+    params[0] = OSSL_PARAM_construct_int(
+                            OSSL_SIGNATURE_PARAM_MESSAGE_ENCODING,
+                            &encoding);
+    params[1] = OSSL_PARAM_construct_end();
+
+    if (EVP_PKEY_CTX_set_params(ctx, params) != 1) {
+        TRACE_ERROR("EVP_PKEY_CTX_set_params (encoding) failed\n");
+        rc = CKR_MECHANISM_PARAM_INVALID;
+        goto out;
+    }
+
+    *prehashed_msg_len = 2 + context_len + oid_len + in_data_len;
+
+    *prehashed_msg = malloc(*prehashed_msg_len);
+    if (*prehashed_msg == NULL) {
+        TRACE_ERROR("Failed to allocate message buffer\n");
+        rc = CKR_HOST_MEMORY;
+        goto out;
+    }
+
+    /*
+     * Encode the prehashed message 'phm' according to FIPS 204 algorithm 4
+     * step 23 (HashML-sign) and algorithm 5 step 18 (HashML-verify), i.e.:
+     *       0x01 || len(ctx) || ctx || oid || phm
+     */
+    p = *prehashed_msg;
+    *(p++) = 0x01;
+    *(p++) = context_len;
+    memcpy(p, context, context_len);
+    p += context_len;
+    memcpy(p, oid, oid_len);
+    p += oid_len;
+    memcpy(p, in_data, in_data_len);
+
+out:
+    if (obj != NULL)
+        ASN1_OBJECT_free(obj);
+    if (oid != NULL)
+        OPENSSL_free(oid);
+
+    return rc;
+#else
+    UNUSED(ctx);
+    UNUSED(in_data);
+    UNUSED(in_data_len);
+    UNUSED(prehash_mech);
+    UNUSED(context);
+    UNUSED(context_len);
+    UNUSED(prehashed_msg);
+    UNUSED(prehashed_msg_len);
+
+    TRACE_ERROR("OpenSSL does not support Prehash-ML-DSA\n");
+    return CKR_MECHANISM_INVALID;
+#endif
+}
+
+static void openssl_specific_pqc_ctx_free(STDLL_TokData_t *tokdata,
+                                          SESSION *sess,
+                                          CK_BYTE *context,
+                                          CK_ULONG context_len)
+{
+    UNUSED(tokdata);
+    UNUSED(sess);
+    UNUSED(context_len);
+
+    EVP_PKEY_CTX_free((EVP_PKEY_CTX *)context);
+}
+
 CK_RV openssl_specific_pqc_sign(STDLL_TokData_t *tokdata,
                                 SESSION *sess,
                                 CK_BBOOL length_only,
@@ -7163,7 +7377,8 @@ CK_RV openssl_specific_pqc_sign(STDLL_TokData_t *tokdata,
                                 CK_ULONG in_data_len,
                                 CK_BYTE *signature,
                                 CK_ULONG *signature_len,
-                                OBJECT *key_obj)
+                                OBJECT *key_obj,
+                                CK_BBOOL final_part)
 {
     struct openssl_ex_data *ex_data = NULL;
 #ifdef EVP_PKEY_OP_SIGNMSG
@@ -7174,91 +7389,207 @@ CK_RV openssl_specific_pqc_sign(STDLL_TokData_t *tokdata,
     EVP_PKEY_CTX *ctx = NULL;
     const char *alg_name;
     size_t siglen;
+    CK_HASH_SIGN_ADDITIONAL_CONTEXT *hash_sign_context;
+    CK_BYTE *prehashed_msg = NULL;
+    CK_ULONG prehashed_msg_len = 0;
+    CK_BBOOL single_part = FALSE;
 
     UNUSED(tokdata);
     UNUSED(sess);
 
-    alg_name = openssl_get_pqc_oid_name(oid);
-    if (alg_name == NULL) {
-        TRACE_ERROR("PQC key form is not supported by oqsprovider or "
-                    "OpenSSL\n");
-        return CKR_KEY_SIZE_RANGE;
+    if (mech->mechanism == CKM_HASH_ML_DSA && !final_part) {
+        /* CKM_HASH_ML_DSA does not support multipart */
+        TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
+        return CKR_MECHANISM_INVALID;
     }
 
-    rc = openssl_get_ex_data(key_obj, (void **)&ex_data,
-                             sizeof(struct openssl_ex_data),
-                             openssl_need_wr_lock, NULL);
-    if (rc != CKR_OK)
-        return rc;
+    if (mech->mechanism == CKM_HASH_ML_DSA ||
+        sess->sign_ctx.context == NULL) {
+        alg_name = openssl_get_pqc_oid_name(oid);
+        if (alg_name == NULL) {
+            TRACE_ERROR("PQC key form is not supported by oqsprovider or "
+                        "OpenSSL\n");
+            return CKR_KEY_SIZE_RANGE;
+        }
 
-    if (ex_data->pkey == NULL) {
-        rc = openssl_make_pqc_key_from_template(key_obj->template,
-                                                oid, mech->mechanism,
-                                                TRUE, alg_name,
-                                                &ex_data->pkey);
+        rc = openssl_get_ex_data(key_obj, (void **)&ex_data,
+                                 sizeof(struct openssl_ex_data),
+                                 openssl_need_wr_lock, NULL);
         if (rc != CKR_OK)
+            return rc;
+
+        if (ex_data->pkey == NULL) {
+            rc = openssl_make_pqc_key_from_template(key_obj->template,
+                                                    oid, mech->mechanism,
+                                                    TRUE, alg_name,
+                                                    &ex_data->pkey);
+            if (rc != CKR_OK)
+                goto out;
+        }
+
+        pkey = ex_data->pkey;
+        if (EVP_PKEY_up_ref(pkey) != 1) {
+            TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
+            rc = CKR_FUNCTION_FAILED;
             goto out;
-    }
+        }
 
-    pkey = ex_data->pkey;
-    if (EVP_PKEY_up_ref(pkey) != 1) {
-        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
-        rc = CKR_FUNCTION_FAILED;
-        goto out;
-    }
+        ctx = EVP_PKEY_CTX_new(pkey, NULL);
+        if (ctx == NULL) {
+            TRACE_ERROR("EVP_PKEY_CTX_new failed\n");
+            rc = CKR_FUNCTION_FAILED;
+            goto out;
+        }
 
-    ctx = EVP_PKEY_CTX_new(pkey, NULL);
-    if (ctx == NULL) {
-        TRACE_ERROR("EVP_PKEY_CTX_new failed\n");
-        rc = CKR_FUNCTION_FAILED;
-        goto out;
-    }
-
-    ERR_set_mark();
-    if (EVP_PKEY_sign_init(ctx) <= 0) {
+        ERR_set_mark();
+        if (EVP_PKEY_sign_init(ctx) <= 0) {
 #ifdef EVP_PKEY_OP_SIGNMSG
-        /* OpenSSL 3.5 supports ML-DSA sign only with the sign-message API */
-        ERR_pop_to_mark();
+            /*
+             * OpenSSL 3.5 supports ML-DSA sign only with the sign-message API
+             */
+            ERR_pop_to_mark();
 
-        alg = EVP_SIGNATURE_fetch(NULL, alg_name, NULL);
-        if (alg == NULL) {
-            TRACE_ERROR("EVP_SIGNATURE_fetch failed for %s\n", alg_name);
-            rc = CKR_FUNCTION_FAILED;
-            goto out;
-        }
+            alg = EVP_SIGNATURE_fetch(NULL, alg_name, NULL);
+            if (alg == NULL) {
+                TRACE_ERROR("EVP_SIGNATURE_fetch failed for %s\n", alg_name);
+                rc = CKR_FUNCTION_FAILED;
+                goto out;
+            }
 
-        if (EVP_PKEY_sign_message_init(ctx, alg, NULL) <= 0) {
-            TRACE_ERROR("EVP_PKEY_sign_message_init and EVP_PKEY_sign_init "
-                        "have both failed\n");
-            rc = CKR_FUNCTION_FAILED;
-            goto out;
-        }
+            if (EVP_PKEY_sign_message_init(ctx, alg, NULL) <= 0) {
+                TRACE_ERROR("EVP_PKEY_sign_message_init and EVP_PKEY_sign_init "
+                            "have both failed\n");
+                rc = CKR_FUNCTION_FAILED;
+                goto out;
+            }
 #else
-        TRACE_ERROR("EVP_PKEY_sign_init failed\n");
-        rc = CKR_FUNCTION_FAILED;
+            TRACE_ERROR("EVP_PKEY_sign_init failed\n");
+            rc = CKR_FUNCTION_FAILED;
+            goto out;
+#endif
+        }
+
+        if (mech->pParameter != NULL && mech->ulParameterLen > 0) {
+            rc = openssl_specific_ml_dsa_set_params(ctx, mech);
+            if (rc != CKR_OK) {
+                TRACE_ERROR("openssl_specific_ml_dsa_set_params failed\n");
+                goto out;
+            }
+        }
+
+        single_part = final_part;
+
+        if (!single_part) {
+            sess->sign_ctx.context = (CK_BYTE*)ctx;
+            sess->sign_ctx.context_free_func = openssl_specific_pqc_ctx_free;
+            sess->sign_ctx.state_unsaveable = TRUE;
+        }
+    } else {
+        ctx = (EVP_PKEY_CTX*)sess->sign_ctx.context;
+    }
+
+    if (!final_part) {
+#ifdef EVP_PKEY_OP_SIGNMSG
+        if (in_data_len > 0 &&
+            EVP_PKEY_sign_message_update(ctx, in_data, in_data_len) <= 0) {
+#ifdef EVP_R_PROVIDER_SIGNATURE_NOT_SUPPORTED
+            if (ERR_GET_REASON(ERR_get_error()) ==
+                                    EVP_R_PROVIDER_SIGNATURE_NOT_SUPPORTED) {
+                rc = CKR_MECHANISM_INVALID; /* Multi-part not supported */
+                TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
+            } else {
+                rc = CKR_FUNCTION_FAILED;
+                TRACE_ERROR("EVP_PKEY_sign_message_update failed\n");
+            }
+#else
+            rc = CKR_FUNCTION_FAILED;
+            TRACE_ERROR("EVP_PKEY_sign_message_update failed\n");
+#endif
+            goto out;
+        }
+
+        rc = CKR_OK;
+        goto out;
+#else
+        rc = CKR_MECHANISM_INVALID; /* Multi-part not supported */
+        TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
         goto out;
 #endif
     }
 
-    switch (mech->mechanism) {
-    case CKM_IBM_ML_DSA:
+    /* Prehash-mode is only supported with CKM_HASH_ML_DSA */
+    if (mech->mechanism == CKM_HASH_ML_DSA) {
         if (mech->pParameter == NULL ||
-            mech->ulParameterLen != sizeof(CK_IBM_SIGN_ADDITIONAL_CONTEXT))
-            break;
-
-        rc = openssl_specific_ibm_ml_dsa_set_params(ctx, mech->pParameter);
-        if (rc != CKR_OK) {
-            TRACE_ERROR("openssl_specific_ibm_ml_dsa_set_params failed\n");
+            mech->ulParameterLen != sizeof(CK_HASH_SIGN_ADDITIONAL_CONTEXT)) {
+            TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
+            rc = CKR_MECHANISM_PARAM_INVALID;
             goto out;
         }
-        break;
+        hash_sign_context = mech->pParameter;
+
+        rc = openssl_specific_ml_dsa_encode_prehashed_msg(
+                                    ctx, in_data, in_data_len,
+                                    hash_sign_context->hash,
+                                    hash_sign_context->pContext,
+                                    hash_sign_context->ulContextLen,
+                                    &prehashed_msg, &prehashed_msg_len);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("openssl_specific_ml_dsa_encode_prehashed_msg "
+                        "failed\n");
+            goto out;
+        }
+
+        in_data = prehashed_msg;
+        in_data_len = prehashed_msg_len;
     }
 
     if (length_only) {
-        if (EVP_PKEY_sign(ctx, NULL, &siglen, in_data, in_data_len) <= 0) {
-            TRACE_ERROR("EVP_PKEY_sign failed\n");
-            rc = CKR_FUNCTION_FAILED;
+        if (single_part) {
+            if (EVP_PKEY_sign(ctx, NULL, &siglen, in_data, in_data_len) <= 0) {
+                TRACE_ERROR("EVP_PKEY_sign failed\n");
+                rc = CKR_FUNCTION_FAILED;
+                goto out;
+            }
+        } else {
+#ifdef EVP_PKEY_OP_SIGNMSG
+            if (in_data_len > 0 &&
+                EVP_PKEY_sign_message_update(ctx, in_data, in_data_len) <= 0) {
+#ifdef EVP_R_PROVIDER_SIGNATURE_NOT_SUPPORTED
+                if (ERR_GET_REASON(ERR_get_error()) ==
+                                        EVP_R_PROVIDER_SIGNATURE_NOT_SUPPORTED) {
+                    rc = CKR_MECHANISM_INVALID; /* Multi-part not supported */
+                    TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
+                } else {
+                    rc = CKR_FUNCTION_FAILED;
+                    TRACE_ERROR("EVP_PKEY_sign_message_update failed\n");
+                }
+#else
+                rc = CKR_FUNCTION_FAILED;
+                TRACE_ERROR("EVP_PKEY_sign_message_update failed\n");
+#endif
+                goto out;
+            }
+            if (EVP_PKEY_sign_message_final(ctx, NULL, &siglen) <= 0) {
+#ifdef EVP_R_PROVIDER_SIGNATURE_NOT_SUPPORTED
+                if (ERR_GET_REASON(ERR_get_error()) ==
+                                    EVP_R_PROVIDER_SIGNATURE_NOT_SUPPORTED) {
+                    TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
+                    rc = CKR_MECHANISM_INVALID; /* Multi-part not supported */
+                } else {
+                    TRACE_ERROR("EVP_PKEY_sign_message_final failed\n");
+                    rc = CKR_FUNCTION_FAILED;
+                }
+#else
+                TRACE_ERROR("EVP_PKEY_sign_message_final failed\n");
+                rc = CKR_FUNCTION_FAILED;
+#endif
+                goto out;
+            }
+#else
+            rc = CKR_MECHANISM_INVALID; /* Multi-part not supported */
+            TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
             goto out;
+#endif
         }
 
         *signature_len = siglen;
@@ -7266,24 +7597,56 @@ CK_RV openssl_specific_pqc_sign(STDLL_TokData_t *tokdata,
     }
 
     siglen = *signature_len;
-    if (EVP_PKEY_sign(ctx, signature, &siglen, in_data, in_data_len) <= 0) {
-        TRACE_ERROR("EVP_PKEY_sign failed\n");
-        rc = CKR_FUNCTION_FAILED;
+    if (single_part) {
+        if (EVP_PKEY_sign(ctx, signature, &siglen, in_data, in_data_len) <= 0) {
+            TRACE_ERROR("EVP_PKEY_sign failed\n");
+            rc = CKR_FUNCTION_FAILED;
+            goto out;
+        }
+    } else {
+#ifdef EVP_PKEY_OP_SIGNMSG
+        if (EVP_PKEY_sign_message_final(ctx, signature, &siglen) <= 0) {
+#ifdef EVP_R_PROVIDER_SIGNATURE_NOT_SUPPORTED
+            if (ERR_GET_REASON(ERR_get_error()) ==
+                                EVP_R_PROVIDER_SIGNATURE_NOT_SUPPORTED) {
+                TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
+                rc = CKR_MECHANISM_INVALID; /* Multi-part not supported */
+            } else {
+                TRACE_ERROR("EVP_PKEY_sign_message_final failed\n");
+                rc = CKR_FUNCTION_FAILED;
+            }
+#else
+            TRACE_ERROR("EVP_PKEY_sign_message_final failed\n");
+            rc = CKR_FUNCTION_FAILED;
+#endif
+        }
+#else
+        rc = CKR_MECHANISM_INVALID; /* Multi-part not supported */
+        TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
         goto out;
+#endif
     }
 
     *signature_len = siglen;
 
 out:
+    if (prehashed_msg != NULL)
+        free(prehashed_msg);
     if (pkey != NULL)
         EVP_PKEY_free(pkey);
-    if (ctx != NULL)
+    if (final_part && (single_part || !length_only) && ctx != NULL) {
         EVP_PKEY_CTX_free(ctx);
+        if (!single_part) {
+            sess->sign_ctx.context = NULL;
+            sess->sign_ctx.context_free_func = 0;
+        }
+    }
 #ifdef EVP_PKEY_OP_SIGNMSG
     if (alg != NULL)
         EVP_SIGNATURE_free(alg);
 #endif
-    object_ex_data_unlock(key_obj);
+    if (ex_data != NULL)
+        object_ex_data_unlock(key_obj);
 
     return rc;
 }
@@ -7296,7 +7659,8 @@ CK_RV openssl_specific_pqc_verify(STDLL_TokData_t *tokdata,
                                   CK_ULONG in_data_len,
                                   CK_BYTE *signature,
                                   CK_ULONG signature_len,
-                                  OBJECT *key_obj)
+                                  OBJECT *key_obj,
+                                  CK_BBOOL final_part)
 {
     struct openssl_ex_data *ex_data = NULL;
 #ifdef EVP_PKEY_OP_VERIFYMSG
@@ -7307,88 +7671,203 @@ CK_RV openssl_specific_pqc_verify(STDLL_TokData_t *tokdata,
     EVP_PKEY_CTX *ctx = NULL;
     const char *alg_name;
     size_t siglen;
+    CK_HASH_SIGN_ADDITIONAL_CONTEXT *hash_verify_context;
+    CK_BYTE *prehashed_msg = NULL;
+    CK_ULONG prehashed_msg_len = 0;
+    CK_BBOOL single_part = FALSE;
 
     UNUSED(tokdata);
     UNUSED(sess);
 
-    alg_name = openssl_get_pqc_oid_name(oid);
-    if (alg_name == NULL) {
-        TRACE_ERROR("PQC key form is not supported by oqsprovider or "
-                    "OpenSSL\n");
-        return CKR_KEY_SIZE_RANGE;
+    if (mech->mechanism == CKM_HASH_ML_DSA && !final_part) {
+        /* CKM_HASH_ML_DSA does not support multipart */
+        TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
+        return CKR_MECHANISM_INVALID;
     }
 
-    rc = openssl_get_ex_data(key_obj, (void **)&ex_data,
-                             sizeof(struct openssl_ex_data),
-                             openssl_need_wr_lock, NULL);
-    if (rc != CKR_OK)
-        return rc;
+    if (mech->mechanism == CKM_HASH_ML_DSA ||
+        sess->verify_ctx.context == NULL) {
+        alg_name = openssl_get_pqc_oid_name(oid);
+        if (alg_name == NULL) {
+            TRACE_ERROR("PQC key form is not supported by oqsprovider or "
+                        "OpenSSL\n");
+            return CKR_KEY_SIZE_RANGE;
+        }
 
-    if (ex_data->pkey == NULL) {
-        rc = openssl_make_pqc_key_from_template(key_obj->template,
-                                                oid, mech->mechanism,
-                                                FALSE, alg_name,
-                                                &ex_data->pkey);
+        rc = openssl_get_ex_data(key_obj, (void **)&ex_data,
+                                 sizeof(struct openssl_ex_data),
+                                 openssl_need_wr_lock, NULL);
         if (rc != CKR_OK)
+            return rc;
+
+        if (ex_data->pkey == NULL) {
+            rc = openssl_make_pqc_key_from_template(key_obj->template,
+                                                    oid, mech->mechanism,
+                                                    FALSE, alg_name,
+                                                    &ex_data->pkey);
+            if (rc != CKR_OK)
+                goto out;
+        }
+
+        pkey = ex_data->pkey;
+        if (EVP_PKEY_up_ref(pkey) != 1) {
+            TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
+            rc = CKR_FUNCTION_FAILED;
             goto out;
-    }
+        }
 
-    pkey = ex_data->pkey;
-    if (EVP_PKEY_up_ref(pkey) != 1) {
-        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
-        rc = CKR_FUNCTION_FAILED;
-        goto out;
-    }
+        ctx = EVP_PKEY_CTX_new(pkey, NULL);
+        if (ctx == NULL) {
+            TRACE_ERROR("EVP_PKEY_CTX_new failed\n");
+            rc = CKR_FUNCTION_FAILED;
+            goto out;
+        }
 
-    ctx = EVP_PKEY_CTX_new(pkey, NULL);
-    if (ctx == NULL) {
-        TRACE_ERROR("EVP_PKEY_CTX_new failed\n");
-        rc = CKR_FUNCTION_FAILED;
-        goto out;
-    }
-
-    ERR_set_mark();
-    if (EVP_PKEY_verify_init(ctx) <= 0) {
+        ERR_set_mark();
+        if (EVP_PKEY_verify_init(ctx) <= 0) {
 #ifdef EVP_PKEY_OP_VERIFYMSG
-        /* OpenSSL 3.5 supports ML-DSA verify only with the verify-message API */
-        ERR_pop_to_mark();
+            /*
+             * OpenSSL 3.5 supports ML-DSA verify only with the verify-message
+             * API
+             */
+            ERR_pop_to_mark();
 
-        alg = EVP_SIGNATURE_fetch(NULL, alg_name, NULL);
-        if (alg == NULL) {
-            TRACE_ERROR("EVP_SIGNATURE_fetch failed for %s\n", alg_name);
-            rc = CKR_FUNCTION_FAILED;
-            goto out;
-        }
+            alg = EVP_SIGNATURE_fetch(NULL, alg_name, NULL);
+            if (alg == NULL) {
+                TRACE_ERROR("EVP_SIGNATURE_fetch failed for %s\n", alg_name);
+                rc = CKR_FUNCTION_FAILED;
+                goto out;
+            }
 
-        if (EVP_PKEY_verify_message_init(ctx, alg, NULL) <= 0) {
-            TRACE_ERROR("EVP_PKEY_verify_message_init and EVP_PKEY_verify_init "
-                        "have both failed\n");
-            rc = CKR_FUNCTION_FAILED;
-            goto out;
-        }
+            if (EVP_PKEY_verify_message_init(ctx, alg, NULL) <= 0) {
+                TRACE_ERROR("EVP_PKEY_verify_message_init and "
+                            "EVP_PKEY_verify_init have both failed\n");
+                rc = CKR_FUNCTION_FAILED;
+                goto out;
+            }
 #else
-        TRACE_ERROR("EVP_PKEY_verify_init failed\n");
-        rc = CKR_FUNCTION_FAILED;
+            TRACE_ERROR("EVP_PKEY_verify_init failed\n");
+            rc = CKR_FUNCTION_FAILED;
+            goto out;
+#endif
+        }
+
+        if (mech->pParameter != NULL && mech->ulParameterLen > 0) {
+            rc = openssl_specific_ml_dsa_set_params(ctx, mech);
+            if (rc != CKR_OK) {
+                TRACE_ERROR("openssl_specific_ml_dsa_set_params failed\n");
+                goto out;
+            }
+        }
+
+        single_part = final_part;
+
+        if (!single_part) {
+            sess->verify_ctx.context = (CK_BYTE*)ctx;
+            sess->verify_ctx.context_free_func = openssl_specific_pqc_ctx_free;
+            sess->verify_ctx.state_unsaveable = TRUE;
+        }
+    } else {
+        ctx = (EVP_PKEY_CTX*)sess->verify_ctx.context;
+    }
+
+    if (!final_part) {
+#ifdef EVP_PKEY_OP_VERIFYMSG
+        if (in_data_len > 0 &&
+            EVP_PKEY_verify_message_update(ctx, in_data, in_data_len) <= 0) {
+#ifdef EVP_R_PROVIDER_SIGNATURE_NOT_SUPPORTED
+            if (ERR_GET_REASON(ERR_get_error()) ==
+                                EVP_R_PROVIDER_SIGNATURE_NOT_SUPPORTED) {
+                rc = CKR_MECHANISM_INVALID; /* Multi-part not supported */
+                TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
+            } else {
+                rc = CKR_FUNCTION_FAILED;
+                TRACE_ERROR("EVP_PKEY_verify_message_update failed\n");
+            }
+#else
+            rc = CKR_FUNCTION_FAILED;
+            TRACE_ERROR("EVP_PKEY_verify_message_update failed\n");
+#endif
+            goto out;
+        }
+
+        rc = CKR_OK;
+        goto out;
+#else
+        rc = CKR_MECHANISM_INVALID; /* Multi-part not supported */
+        TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
         goto out;
 #endif
     }
 
-    switch (mech->mechanism) {
-    case CKM_IBM_ML_DSA:
+    /* Prehash-mode is only supported with CKM_HASH_ML_DSA */
+    if (mech->mechanism == CKM_HASH_ML_DSA) {
         if (mech->pParameter == NULL ||
-            mech->ulParameterLen != sizeof(CK_IBM_SIGN_ADDITIONAL_CONTEXT))
-            break;
-
-        rc = openssl_specific_ibm_ml_dsa_set_params(ctx, mech->pParameter);
-        if (rc != CKR_OK) {
-            TRACE_ERROR("openssl_specific_ibm_ml_dsa_set_params failed\n");
+            mech->ulParameterLen != sizeof(CK_HASH_SIGN_ADDITIONAL_CONTEXT)) {
+            TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
+            rc = CKR_MECHANISM_PARAM_INVALID;
             goto out;
         }
-        break;
+        hash_verify_context = mech->pParameter;
+
+        rc = openssl_specific_ml_dsa_encode_prehashed_msg(
+                                    ctx, in_data, in_data_len,
+                                    hash_verify_context->hash,
+                                    hash_verify_context->pContext,
+                                    hash_verify_context->ulContextLen,
+                                    &prehashed_msg, &prehashed_msg_len);
+
+        if (rc != CKR_OK) {
+            TRACE_ERROR("openssl_specific_ml_dsa_encode_prehashed_msg failed\n");
+            goto out;
+        }
+
+        in_data = prehashed_msg;
+        in_data_len = prehashed_msg_len;
     }
 
     siglen = signature_len;
-    rc = EVP_PKEY_verify(ctx, signature, siglen, in_data, in_data_len);
+    if (single_part) {
+        rc = EVP_PKEY_verify(ctx, signature, siglen, in_data, in_data_len);
+    } else {
+#ifdef EVP_PKEY_OP_VERIFYMSG
+        if (in_data_len > 0 &&
+            EVP_PKEY_verify_message_update(ctx, in_data, in_data_len) <= 0) {
+#ifdef EVP_R_PROVIDER_SIGNATURE_NOT_SUPPORTED
+            if (ERR_GET_REASON(ERR_get_error()) ==
+                                    EVP_R_PROVIDER_SIGNATURE_NOT_SUPPORTED) {
+                rc = CKR_MECHANISM_INVALID; /* Multi-part not supported */
+                TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
+            } else {
+                rc = CKR_FUNCTION_FAILED;
+                TRACE_ERROR("EVP_PKEY_verify_message_update failed\n");
+            }
+#else
+            rc = CKR_FUNCTION_FAILED;
+            TRACE_ERROR("EVP_PKEY_verify_message_update failed\n");
+#endif
+            goto out;
+        }
+
+        if (!check_settable_ctx_params(ctx, OSSL_SIGNATURE_PARAM_SIGNATURE)) {
+            TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
+            rc = CKR_MECHANISM_INVALID; /* Multi-part not supported */
+            goto out;
+        }
+
+        if (EVP_PKEY_CTX_set_signature(ctx, signature, siglen) != 1) {
+            TRACE_ERROR("EVP_PKEY_CTX_set_signature failed\n");
+            rc = CKR_FUNCTION_FAILED;
+            goto out;
+        }
+
+        rc = EVP_PKEY_verify_message_final(ctx);
+#else
+        rc = CKR_MECHANISM_INVALID; /* Multi-part not supported */
+        TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
+        goto out;
+#endif
+    }
     switch (rc) {
     case 0:
         rc = CKR_SIGNATURE_INVALID;
@@ -7397,21 +7876,40 @@ CK_RV openssl_specific_pqc_verify(STDLL_TokData_t *tokdata,
         rc = CKR_OK;
         break;
     default:
+#ifdef EVP_R_PROVIDER_SIGNATURE_NOT_SUPPORTED
+        if (ERR_GET_REASON(ERR_get_error()) ==
+                            EVP_R_PROVIDER_SIGNATURE_NOT_SUPPORTED) {
+            TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
+            rc = CKR_MECHANISM_INVALID; /* Multi-part not supported */
+        } else {
+            TRACE_ERROR("EVP_PKEY_verify[_message_final] failed\n");
+            rc = CKR_FUNCTION_FAILED;
+        }
+#else
         TRACE_ERROR("EVP_PKEY_verify failed\n");
         rc = CKR_FUNCTION_FAILED;
+#endif
         break;
     }
 
 out:
+    if (prehashed_msg != NULL)
+        free(prehashed_msg);
     if (pkey != NULL)
         EVP_PKEY_free(pkey);
-    if (ctx != NULL)
+    if (final_part && ctx != NULL) {
         EVP_PKEY_CTX_free(ctx);
+        if (!single_part) {
+            sess->verify_ctx.context = NULL;
+            sess->verify_ctx.context_free_func = 0;
+        }
+    }
 #ifdef EVP_PKEY_OP_VERIFYMSG
     if (alg != NULL)
         EVP_SIGNATURE_free(alg);
 #endif
-    object_ex_data_unlock(key_obj);
+    if (ex_data != NULL)
+        object_ex_data_unlock(key_obj);
 
     return rc;
 }
