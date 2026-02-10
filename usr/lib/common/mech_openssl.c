@@ -6687,6 +6687,14 @@ CK_RV openssl_specific_pqc_generate_keypair(STDLL_TokData_t *tokdata,
         seed_attr = CKA_IBM_ML_KEM_PRIVATE_SEED;
         seed_param = OSSL_PKEY_PARAM_ML_KEM_SEED;
         break;
+    case CKK_ML_DSA:
+        seed_attr = CKA_SEED;
+        seed_param = OSSL_PKEY_PARAM_ML_DSA_SEED;
+        break;
+    case CKK_ML_KEM:
+        seed_attr = CKA_SEED;
+        seed_param = OSSL_PKEY_PARAM_ML_KEM_SEED;
+        break;
     default:
         seed_attr = (CK_ATTRIBUTE_TYPE)-1;
         seed_param = NULL;
@@ -6712,12 +6720,21 @@ CK_RV openssl_specific_pqc_generate_keypair(STDLL_TokData_t *tokdata,
         }
     }
 
-    /* Also add public key components to private template */
-    rc = pqc_unpack_pub_key(pub_key, pub_len, oid,
-                            mech->mechanism, priv_tmpl);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("pqc_unpack_pub_key failed for pub key\n");
-        goto out;
+    switch (mech->mechanism) {
+    case CKM_IBM_DILITHIUM:
+    case CKM_IBM_KYBER:
+    case CKM_IBM_ML_DSA_KEY_PAIR_GEN:
+    case CKM_IBM_ML_KEM_KEY_PAIR_GEN:
+        /* Also add public key components to private template */
+        rc = pqc_unpack_pub_key(pub_key, pub_len, oid,
+                                mech->mechanism, priv_tmpl);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("pqc_unpack_pub_key failed for pub key\n");
+            goto out;
+        }
+    default:
+        /* ML-DSA and ML-KEM have no public key components in priv key */
+        break;
     }
 
     /* Add keyform and mode attributes to public and private template */
@@ -6733,34 +6750,46 @@ CK_RV openssl_specific_pqc_generate_keypair(STDLL_TokData_t *tokdata,
         goto out;
     }
 
-    /* Add SPKI as CKA_VALUE to public template */
-    rc = pqc_publ_get_spki(publ_tmpl, keytype, FALSE, &spki, &spki_len,
-                           FALSE);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("pqc_publ_get_spki failed\n");
-        goto out;
-    }
+    switch (mech->mechanism) {
+    case CKM_IBM_DILITHIUM:
+    case CKM_IBM_KYBER:
+    case CKM_IBM_ML_DSA_KEY_PAIR_GEN:
+    case CKM_IBM_ML_KEM_KEY_PAIR_GEN:
+        /* Add SPKI as CKA_VALUE to public template */
+        rc = pqc_publ_get_spki(publ_tmpl, keytype, FALSE, &spki, &spki_len,
+                               FALSE);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("pqc_publ_get_spki failed\n");
+            goto out;
+        }
 
-    rc = template_build_update_attribute(publ_tmpl, CKA_VALUE, spki, spki_len);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("template_build_update_attribute for CKA_VALUE failed "
-                    "rc=0x%lx\n", rc);
-        goto out;
-    }
+        rc = template_build_update_attribute(publ_tmpl, CKA_VALUE,
+                                             spki, spki_len);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("template_build_update_attribute for CKA_VALUE failed "
+                        "rc=0x%lx\n", rc);
+            goto out;
+        }
 
-    /* Add PKCS#8 encoding of private key to private template */
-    rc = pqc_priv_wrap_get_data(priv_tmpl, keytype, FALSE, &pkcs8, &pkcs8_len);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("pqc_priv_wrap_get_data failed\n");
-        goto out;
-    }
+        /* Add PKCS#8 encoding of private key to private template */
+        rc = pqc_priv_wrap_get_data(priv_tmpl, keytype, FALSE,
+                                    &pkcs8, &pkcs8_len);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("pqc_priv_wrap_get_data failed\n");
+            goto out;
+        }
 
-    rc = template_build_update_attribute(priv_tmpl, CKA_VALUE,
-                                         pkcs8, pkcs8_len);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("template_build_update_attribute for CKA_VALUE failed "
-                    "rc=0x%lx\n", rc);
-        goto out;
+        rc = template_build_update_attribute(priv_tmpl, CKA_VALUE,
+                                             pkcs8, pkcs8_len);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("template_build_update_attribute for CKA_VALUE failed "
+                        "rc=0x%lx\n", rc);
+            goto out;
+        }
+        break;
+    default:
+        /* ML-DSA and ML-KEM have raw key components in CKA_VALUE */
+        break;
     }
 
 out:
