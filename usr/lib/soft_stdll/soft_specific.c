@@ -332,6 +332,8 @@ static const MECH_LIST_ELEMENT soft_mech_list[] = {
     {CKM_IBM_ML_KEM_KEY_PAIR_GEN, {800, 1568, CKF_GENERATE_KEY_PAIR}},
     {CKM_IBM_ML_KEM, {800, 1568, CKF_DERIVE}},
     {CKM_IBM_ML_KEM_WITH_ECDH, {800, 1568, CKF_DERIVE}},
+    {CKM_ML_DSA_KEY_PAIR_GEN, {1312, 2592, CKF_GENERATE_KEY_PAIR}},
+    {CKM_ML_KEM_KEY_PAIR_GEN, {800, 1568, CKF_GENERATE_KEY_PAIR}},
 #endif
 };
 
@@ -398,11 +400,11 @@ CK_RV token_specific_init(STDLL_TokData_t *tokdata, CK_SLOT_ID SlotNumber,
     if (oid != NULL && openssl_get_pqc_oid_name(oid)!= NULL)
         soft_private->supports_dilithium = CK_TRUE;
 
-    oid = find_pqc_by_keyform(ml_dsa_oids, CKP_IBM_ML_DSA_44);
+    oid = find_pqc_by_keyform(ml_dsa_oids, CKP_ML_DSA_44);
     if (oid != NULL && openssl_get_pqc_oid_name(oid)!= NULL)
         soft_private->supports_ml_dsa = CK_TRUE;
 
-    oid = find_pqc_by_keyform(ml_dsa_oids, CKP_IBM_ML_KEM_512);
+    oid = find_pqc_by_keyform(ml_dsa_oids, CKP_ML_KEM_512);
     if (oid != NULL && openssl_get_pqc_oid_name(oid)!= NULL)
         soft_private->supports_ml_kem = CK_TRUE;
 #endif
@@ -459,10 +461,25 @@ static CK_BBOOL token_specific_filter_mechanism(STDLL_TokData_t *tokdata,
         return soft_private->supports_dilithium;
     case CKM_IBM_ML_DSA_KEY_PAIR_GEN:
     case CKM_IBM_ML_DSA:
+    case CKM_ML_DSA_KEY_PAIR_GEN:
+    case CKM_ML_DSA:
+    case CKM_HASH_ML_DSA:
+    case CKM_HASH_ML_DSA_SHA224:
+    case CKM_HASH_ML_DSA_SHA256:
+    case CKM_HASH_ML_DSA_SHA384:
+    case CKM_HASH_ML_DSA_SHA512:
+    case CKM_HASH_ML_DSA_SHA3_224:
+    case CKM_HASH_ML_DSA_SHA3_256:
+    case CKM_HASH_ML_DSA_SHA3_384:
+    case CKM_HASH_ML_DSA_SHA3_512:
+    case CKM_HASH_ML_DSA_SHAKE128:
+    case CKM_HASH_ML_DSA_SHAKE256:
         return soft_private->supports_ml_dsa;
     case CKM_IBM_ML_KEM_KEY_PAIR_GEN:
     case CKM_IBM_ML_KEM:
     case CKM_IBM_ML_KEM_WITH_ECDH:
+    case CKM_ML_KEM_KEY_PAIR_GEN:
+    case CKM_ML_KEM:
         return soft_private->supports_ml_kem;
 #endif
     default:
@@ -1615,6 +1632,12 @@ static CK_RV import_pqc_key(STDLL_TokData_t *tokdata, OBJECT *obj,
     case CKK_IBM_ML_KEM:
         mech = CKM_IBM_ML_KEM;
         break;
+    case CKK_ML_DSA:
+        mech = CKM_ML_DSA;
+        break;
+    case CKK_ML_KEM:
+        mech = CKM_ML_KEM;
+        break;
     default:
         return CKR_KEY_TYPE_INCONSISTENT;
     }
@@ -1626,75 +1649,85 @@ static CK_RV import_pqc_key(STDLL_TokData_t *tokdata, OBJECT *obj,
     if (rc != CKR_OK)
         return CKR_OK;
 
-    /* A clear IBM Dilithium key must either have a CKA_VALUE containing
-     * the SPKI or PKCS#8 encoded private key, or must have a keyform/mode
-     * value and the individual attributes.
-     * A clear ML-DSA or ML-KEM key must have a CKA_VALUE containing the SPKI
-     * or PKCS#8 encoded private key. Individual key attributes are not used.
-     */
-    if (template_attribute_find(obj->template, CKA_VALUE, &attr) == TRUE &&
-        attr->ulValueLen > 0 && attr->pValue != NULL) {
-        switch (class) {
-        case CKO_PRIVATE_KEY:
-            /* Private key in PKCS#8 form is present in CKA_VALUE */
-            rc = pqc_priv_unwrap(obj->template, keytype, 
-                                 attr->pValue, attr->ulValueLen, FALSE);
-            if (rc != CKR_OK) {
-                TRACE_ERROR("Failed to decode private key from "
-                            "CKA_VALUE.\n");
-                return rc;
+    switch (keytype) {
+    case CKK_IBM_DILITHIUM:
+    case CKK_IBM_KYBER:
+    case CKK_IBM_ML_DSA:
+    case CKK_IBM_ML_KEM:
+        /* A clear IBM Dilithium key must either have a CKA_VALUE containing
+         * the SPKI or PKCS#8 encoded private key, or must have a keyform/mode
+         * value and the individual attributes.
+         * A clear ML-DSA or ML-KEM key must have a CKA_VALUE containing the SPKI
+         * or PKCS#8 encoded private key. Individual key attributes are not used.
+         */
+        if (template_attribute_find(obj->template, CKA_VALUE, &attr) == TRUE &&
+            attr->ulValueLen > 0 && attr->pValue != NULL) {
+            switch (class) {
+            case CKO_PRIVATE_KEY:
+                /* Private key in PKCS#8 form is present in CKA_VALUE */
+                rc = pqc_priv_unwrap(obj->template, keytype,
+                                     attr->pValue, attr->ulValueLen, FALSE);
+                if (rc != CKR_OK) {
+                    TRACE_ERROR("Failed to decode private key from "
+                                "CKA_VALUE.\n");
+                    return rc;
+                }
+                break;
+            case CKO_PUBLIC_KEY:
+                /* Public key in SPKI form is present in CKA_VALUE */
+                rc = pqc_priv_unwrap_get_data(obj->template, keytype,
+                                              attr->pValue, attr->ulValueLen,
+                                              FALSE);
+                if (rc != CKR_OK) {
+                    TRACE_ERROR("Failed to decode public key from "
+                                "CKA_VALUE.\n");
+                    return rc;
+                }
+                break;
+            default:
+                return CKR_TEMPLATE_INCONSISTENT;
             }
-            break;
-        case CKO_PUBLIC_KEY:
-            /* Public key in SPKI form is present in CKA_VALUE */
-            rc = pqc_priv_unwrap_get_data(obj->template, keytype,
-                                          attr->pValue, attr->ulValueLen,
-                                          FALSE);
-            if (rc != CKR_OK) {
-                TRACE_ERROR("Failed to decode public key from "
-                            "CKA_VALUE.\n");
-                return rc;
+        } else {
+            /* Add CKA_VALUE with PKCS#8 or SPKI */
+            switch (class) {
+             case CKO_PRIVATE_KEY:
+                 rc = pqc_priv_wrap_get_data(obj->template, keytype,
+                                             FALSE, &data, &data_len);
+                 if (rc != CKR_OK) {
+                     TRACE_ERROR("Failed to encode private key.\n");
+                     return rc;
+                 }
+                 break;
+             case CKO_PUBLIC_KEY:
+                 rc = pqc_publ_get_spki(obj->template, keytype,
+                                        FALSE, &data, &data_len, FALSE);
+                 if (rc != CKR_OK) {
+                     TRACE_ERROR("Failed to encode public key.\n");
+                     return rc;
+                 }
+                 break;
+             default:
+                 return CKR_TEMPLATE_INCONSISTENT;
             }
-            break;
-        default:
-            return CKR_TEMPLATE_INCONSISTENT;
-        }
-    } else {
-        /* Add CKA_VALUE with PKCS#8 or SPKI */
-        switch (class) {
-         case CKO_PRIVATE_KEY:
-             rc = pqc_priv_wrap_get_data(obj->template, keytype,
-                                         FALSE, &data, &data_len);
-             if (rc != CKR_OK) {
-                 TRACE_ERROR("Failed to encode private key.\n");
-                 return rc;
-             }
-             break;
-         case CKO_PUBLIC_KEY:
-             rc = pqc_publ_get_spki(obj->template, keytype,
-                                    FALSE, &data, &data_len, FALSE);
-             if (rc != CKR_OK) {
-                 TRACE_ERROR("Failed to encode public key.\n");
-                 return rc;
-             }
-             break;
-         default:
-             return CKR_TEMPLATE_INCONSISTENT;
-        }
 
-        rc = build_attribute(CKA_VALUE, data, data_len, &attr);
-        OPENSSL_cleanse(data, data_len);
-        free(data);
-        if (rc != CKR_OK) {
-            TRACE_DEVEL("build_attribute CKA_VALUE failed\n");
-            return rc;
+            rc = build_attribute(CKA_VALUE, data, data_len, &attr);
+            OPENSSL_cleanse(data, data_len);
+            free(data);
+            if (rc != CKR_OK) {
+                TRACE_DEVEL("build_attribute CKA_VALUE failed\n");
+                return rc;
+            }
+            rc = template_update_attribute(obj->template, attr);
+            if (rc != CKR_OK) {
+                TRACE_DEVEL("template_update_attribute CKA_VALUE failed.\n");
+                free(attr);
+                return rc;
+            }
         }
-        rc = template_update_attribute(obj->template, attr);
-        if (rc != CKR_OK) {
-            TRACE_DEVEL("template_update_attribute CKA_VALUE failed.\n");
-            free(attr);
-            return rc;
-        }
+        break;
+    default:
+        /* ML-DSA and ML-KEM have raw key components in CKA_VALUE */
+        break;
     }
 
     oid = pqc_get_keyform_mode(obj->template, mech);
@@ -1712,7 +1745,10 @@ static CK_RV import_pqc_key(STDLL_TokData_t *tokdata, OBJECT *obj,
 
     if (class == CKO_PRIVATE_KEY &&
         (keytype == CKK_IBM_ML_DSA || keytype == CKK_IBM_ML_KEM)) {
-        /* Try tp add public key attributes if ML-DSA private key */
+        /*
+         * Try to add public key attributes if IBM ML-DSA or IBM ML-KEM
+         * private key.
+         */
         rc = openssl_make_pqc_key_from_template(obj->template, oid, mech,
                                                 TRUE, alg_name, &pkey);
         if (rc != CKR_OK)
@@ -1791,6 +1827,8 @@ CK_RV token_specific_object_add(STDLL_TokData_t * tokdata, SESSION * sess,
     case CKK_IBM_DILITHIUM:
     case CKK_IBM_ML_DSA:
     case CKK_IBM_ML_KEM:
+    case CKK_ML_DSA:
+    case CKK_ML_KEM:
         return import_pqc_key(tokdata, obj, keytype);
 #endif
 
@@ -1864,6 +1902,8 @@ CK_RV token_specific_set_attrs_for_new_object(STDLL_TokData_t *tokdata,
     case CKK_IBM_DILITHIUM:
     case CKK_IBM_ML_DSA:
     case CKK_IBM_ML_KEM:
+    case CKK_ML_DSA:
+    case CKK_ML_KEM:
         switch (keytype) {
         case CKK_IBM_DILITHIUM:
             mech = CKM_IBM_DILITHIUM;
@@ -1874,6 +1914,14 @@ CK_RV token_specific_set_attrs_for_new_object(STDLL_TokData_t *tokdata,
         case CKK_IBM_ML_KEM:
             mech = CKM_IBM_ML_KEM;
             break;
+        case CKK_ML_DSA:
+            mech = CKM_ML_DSA;
+            break;
+        case CKK_ML_KEM:
+            mech = CKM_ML_KEM;
+            break;
+        default:
+            return CKR_KEY_TYPE_INCONSISTENT;
         }
 
         if (!token_specific_filter_mechanism(tokdata, mech, NULL))
@@ -1991,6 +2039,36 @@ CK_RV token_specific_ibm_ml_kem_derive(STDLL_TokData_t *tokdata, SESSION *sess,
                                            base_key_type,
                                            derived_object, derived_key_type,
                                            derived_keylen);
+}
+
+CK_RV token_specific_ml_dsa_generate_keypair(STDLL_TokData_t *tokdata,
+                                             const struct pqc_oid *oid,
+                                             TEMPLATE *publ_tmpl,
+                                             TEMPLATE *priv_tmpl)
+{
+    CK_MECHANISM mech = { CKM_ML_DSA_KEY_PAIR_GEN, NULL, 0 };
+
+    if (!token_specific_filter_mechanism(tokdata, mech.mechanism,
+                                         NULL))
+        return CKR_MECHANISM_INVALID;
+
+    return openssl_specific_pqc_generate_keypair(tokdata, oid, &mech,
+                                                 publ_tmpl, priv_tmpl);
+}
+
+CK_RV token_specific_ml_kem_generate_keypair(STDLL_TokData_t *tokdata,
+                                             const struct pqc_oid *oid,
+                                             TEMPLATE *publ_tmpl,
+                                             TEMPLATE *priv_tmpl)
+{
+    CK_MECHANISM mech = { CKM_ML_KEM_KEY_PAIR_GEN, NULL, 0 };
+
+    if (!token_specific_filter_mechanism(tokdata, mech.mechanism,
+                                         NULL))
+        return CKR_MECHANISM_INVALID;
+
+    return openssl_specific_pqc_generate_keypair(tokdata, oid, &mech,
+                                                 publ_tmpl, priv_tmpl);
 }
 
 #endif
