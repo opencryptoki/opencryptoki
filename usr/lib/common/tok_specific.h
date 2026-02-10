@@ -366,6 +366,16 @@ CK_RV token_specific_ml_dsa_generate_keypair(STDLL_TokData_t *,
                                              const struct pqc_oid *,
                                              TEMPLATE *, TEMPLATE *);
 
+CK_RV token_specific_ml_dsa_sign(STDLL_TokData_t *, SESSION *, CK_BBOOL,
+                                 const struct pqc_oid *, CK_MECHANISM *,
+                                 CK_BYTE *, CK_ULONG,
+                                 CK_BYTE *, CK_ULONG *, OBJECT *, CK_BBOOL);
+
+CK_RV token_specific_ml_dsa_verify(STDLL_TokData_t *, SESSION *,
+                                   const struct pqc_oid *, CK_MECHANISM *,
+                                   CK_BYTE *, CK_ULONG,
+                                   CK_BYTE *, CK_ULONG, OBJECT *, CK_BBOOL);
+
 CK_RV token_specific_ml_kem_generate_keypair(STDLL_TokData_t *,
                                              const struct pqc_oid *,
                                              TEMPLATE *, TEMPLATE *);

@@ -12,6 +12,7 @@
 #include "pkcs11types.h"
 #include "defs.h"
 #include "trace.h"
+#include "h_extern.h"
 
 CK_RV get_sha_size(CK_ULONG mech, CK_ULONG *hsize)
 {
@@ -293,24 +294,28 @@ CK_RV get_digest_from_mech(CK_MECHANISM_TYPE mech, CK_MECHANISM_TYPE *digest)
     case CKM_SHA224_RSA_PKCS:
     case CKM_SHA224_RSA_PKCS_PSS:
     case CKM_SHA224_KEY_DERIVATION:
+    case CKM_HASH_ML_DSA_SHA224:
         *digest = CKM_SHA224;
         break;
     case CKM_ECDSA_SHA256:
     case CKM_SHA256_RSA_PKCS:
     case CKM_SHA256_RSA_PKCS_PSS:
     case CKM_SHA256_KEY_DERIVATION:
+    case CKM_HASH_ML_DSA_SHA256:
         *digest = CKM_SHA256;
         break;
     case CKM_ECDSA_SHA384:
     case CKM_SHA384_RSA_PKCS:
     case CKM_SHA384_RSA_PKCS_PSS:
     case CKM_SHA384_KEY_DERIVATION:
+    case CKM_HASH_ML_DSA_SHA384:
         *digest = CKM_SHA384;
         break;
     case CKM_ECDSA_SHA512:
     case CKM_SHA512_RSA_PKCS:
     case CKM_SHA512_RSA_PKCS_PSS:
     case CKM_SHA512_KEY_DERIVATION:
+    case CKM_HASH_ML_DSA_SHA512:
         *digest = CKM_SHA512;
         break;
     case CKM_SHA512_224_KEY_DERIVATION:
@@ -323,25 +328,35 @@ CK_RV get_digest_from_mech(CK_MECHANISM_TYPE mech, CK_MECHANISM_TYPE *digest)
     case CKM_SHA3_224_RSA_PKCS:
     case CKM_SHA3_224_RSA_PKCS_PSS:
     case CKM_SHA3_224_KEY_DERIVATION:
+    case CKM_HASH_ML_DSA_SHA3_224:
         *digest = CKM_SHA3_224;
         break;
     case CKM_ECDSA_SHA3_256:
     case CKM_SHA3_256_RSA_PKCS:
     case CKM_SHA3_256_RSA_PKCS_PSS:
     case CKM_SHA3_256_KEY_DERIVATION:
+    case CKM_HASH_ML_DSA_SHA3_256:
         *digest = CKM_SHA3_256;
         break;
     case CKM_ECDSA_SHA3_384:
     case CKM_SHA3_384_RSA_PKCS:
     case CKM_SHA3_384_RSA_PKCS_PSS:
     case CKM_SHA3_384_KEY_DERIVATION:
+    case CKM_HASH_ML_DSA_SHA3_384:
         *digest = CKM_SHA3_384;
         break;
     case CKM_ECDSA_SHA3_512:
     case CKM_SHA3_512_RSA_PKCS:
     case CKM_SHA3_512_RSA_PKCS_PSS:
     case CKM_SHA3_512_KEY_DERIVATION:
+    case CKM_HASH_ML_DSA_SHA3_512:
         *digest = CKM_SHA3_512;
+        break;
+    case CKM_HASH_ML_DSA_SHAKE128:
+        *digest = CKM_OCK_SHAKE128;
+        break;
+    case CKM_HASH_ML_DSA_SHAKE256:
+        *digest = CKM_OCK_SHAKE256;
         break;
     default:
         return CKR_MECHANISM_INVALID;
