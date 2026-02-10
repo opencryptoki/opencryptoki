@@ -970,6 +970,61 @@ CK_RV ckm_ml_dsa_key_pair_gen(STDLL_TokData_t *tokdata,
 CK_RV ckm_ml_kem_key_pair_gen(STDLL_TokData_t *tokdata,
                               TEMPLATE *publ_tmpl, TEMPLATE *priv_tmpl);
 
+CK_RV ml_dsa_sign(STDLL_TokData_t *tokdata, SESSION *sess,
+                  CK_BBOOL length_only, SIGN_VERIFY_CONTEXT *ctx,
+                  CK_BYTE *in_data, CK_ULONG in_data_len,
+                  CK_BYTE *signature, CK_ULONG *sig_len,
+                  CK_BBOOL final_part);
+
+CK_RV ml_dsa_hash_sign(STDLL_TokData_t *tokdata, SESSION *sess,
+                       CK_BBOOL length_only, SIGN_VERIFY_CONTEXT *ctx,
+                       CK_BYTE *in_data, CK_ULONG in_data_len,
+                       CK_BYTE *signature, CK_ULONG *sig_len);
+
+CK_RV ml_dsa_hash_sign_verify_update(STDLL_TokData_t *tokdata, SESSION *sess,
+                                     SIGN_VERIFY_CONTEXT *ctx,
+                                     CK_BYTE *in_data, CK_ULONG in_data_len);
+
+CK_RV ml_dsa_hash_sign_final(STDLL_TokData_t *tokdata, SESSION *sess,
+                             CK_BBOOL length_only, SIGN_VERIFY_CONTEXT *ctx,
+                             CK_BYTE *signature, CK_ULONG *sig_len);
+
+CK_RV ml_dsa_verify(STDLL_TokData_t *tokdata, SESSION *sess,
+                    SIGN_VERIFY_CONTEXT *ctx,
+                    CK_BYTE *in_data, CK_ULONG in_data_len,
+                    CK_BYTE *signature, CK_ULONG sig_len,
+                    CK_BBOOL final_part);
+
+CK_RV ml_dsa_hash_verify(STDLL_TokData_t *tokdata, SESSION *sess,
+                         SIGN_VERIFY_CONTEXT *ctx,
+                         CK_BYTE *in_data, CK_ULONG in_data_len,
+                         CK_BYTE *signature, CK_ULONG sig_len);
+
+CK_RV ml_dsa_hash_verify_final(STDLL_TokData_t *tokdata, SESSION *sess,
+                               SIGN_VERIFY_CONTEXT *ctx,
+                               CK_BYTE *signature, CK_ULONG sig_len);
+
+CK_RV ml_dsa_dup_param(CK_VOID_PTR src, CK_VOID_PTR dst, CK_ULONG len);
+CK_RV ml_dsa_free_param(CK_VOID_PTR p, CK_ULONG len);
+CK_RV ml_dsa_hash_dup_param(CK_VOID_PTR src, CK_VOID_PTR dst, CK_ULONG len);
+CK_RV ml_dsa_hash_free_param(CK_VOID_PTR p, CK_ULONG len);
+
+struct CK_IBM_SIGN_ADDITIONAL_CONTEXT;
+CK_RV ml_dsa_translate_sign_mech_param_from_ibm(
+                            struct CK_IBM_SIGN_ADDITIONAL_CONTEXT *from,
+                            CK_SIGN_ADDITIONAL_CONTEXT *to);
+CK_RV ml_dsa_translate_ibm_sign_mech_param_from_sign(
+                            CK_SIGN_ADDITIONAL_CONTEXT *from,
+                            struct CK_IBM_SIGN_ADDITIONAL_CONTEXT *to);
+CK_RV ml_dsa_translate_sign_mech_param_from_hash(
+                            CK_HASH_SIGN_ADDITIONAL_CONTEXT *from,
+                            CK_SIGN_ADDITIONAL_CONTEXT *to,
+                            CK_MECHANISM_TYPE *hash_mech);
+CK_RV ml_dsa_translate_hash_sign_mech_param_from_sign(
+                            CK_SIGN_ADDITIONAL_CONTEXT *from,
+                            CK_HASH_SIGN_ADDITIONAL_CONTEXT *to,
+                            CK_MECHANISM_TYPE hash_mech);
+
 CK_RV digest_from_kdf(CK_EC_KDF_TYPE kdf, CK_MECHANISM_TYPE *mech);
 CK_RV get_digest_from_mech(CK_MECHANISM_TYPE mech, CK_MECHANISM_TYPE *digest);
 

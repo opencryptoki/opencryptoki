@@ -177,6 +177,8 @@ token_spec_t token_specific = {
     &token_specific_ibm_ml_kem_generate_keypair,
     &token_specific_ibm_ml_kem_derive,
     NULL,                       // ml_dsa_generate_keypair
+    NULL,                       // ml_dsa_sign
+    NULL,                       // ml_dsa_verify
     NULL,                       // ml_kem_generate_keypair
 #else
     NULL,                       // ibm_ml_dsa_generate_keypair
@@ -185,6 +187,8 @@ token_spec_t token_specific = {
     NULL,                       // ibm_ml_kem_generate_keypair
     NULL,                       // ibm_ml_kem_derive
     NULL,                       // ml_dsa_generate_keypair
+    NULL,                       // ml_dsa_sign
+    NULL,                       // ml_dsa_verify
     NULL,                       // ml_kem_generate_keypair
 #endif
     &token_specific_get_mechanism_list,
