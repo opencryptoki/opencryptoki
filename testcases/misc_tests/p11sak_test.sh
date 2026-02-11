@@ -66,6 +66,12 @@ P11SAK_IBM_ML_DSA_POST=p11sak-ibm-ml-dsa-post.out
 P11SAK_IBM_ML_KEM_PRE=p11sak-ibm-ml-kem-pre.out
 P11SAK_IBM_ML_KEM_LONG=p11sak-ibm-ml-kem-long.out
 P11SAK_IBM_ML_KEM_POST=p11sak-ibm-ml-kem-post.out
+P11SAK_ML_DSA_PRE=p11sak-ml-dsa-pre.out
+P11SAK_ML_DSA_LONG=p11sak-ml-dsa-long.out
+P11SAK_ML_DSA_POST=p11sak-ml-dsa-post.out
+P11SAK_ML_KEM_PRE=p11sak-ml-kem-pre.out
+P11SAK_ML_KEM_LONG=p11sak-ml-kem-long.out
+P11SAK_ML_KEM_POST=p11sak-ml-kem-post.out
 P11SAK_ALL_PINOPT=p11sak-all-pinopt
 P11SAK_ALL_PINENV=p11sak-all-pinenv
 P11SAK_ALL_PINCON=p11sak-all-pincon
@@ -227,6 +233,20 @@ if [[ -n $( ${PKCSCONF} -m -c $SLOT | grep CKM_IBM_ML_KEM) ]]; then
 else
 	echo "Skip generating ibm-ml-kem keys, slot does not support CKM_IBM_ML_KEM"
 fi
+# ml-dsa
+if [[ -n $( ${PKCSCONF} -m -c $SLOT | grep CKM_ML_DSA) ]]; then
+        ${P11SAK} generate-key ml-dsa 65 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-ml-dsa"
+        RC_P11SAK_GENERATE=$((RC_P11SAK_GENERATE + $?))
+else
+        echo "Skip generating ml-dsa keys, slot does not support CKM_ML_DSA"
+fi
+# ml-kem
+if [[ -n $( ${PKCSCONF} -m -c $SLOT | grep CKM_ML_KEM) ]]; then
+        ${P11SAK} generate-key ml-kem 1024 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-ml-kem"
+        RC_P11SAK_GENERATE=$((RC_P11SAK_GENERATE + $?))
+else
+        echo "Skip generating ml-kem keys, slot does not support CKM_IBM_ML_KEM"
+fi
 
 
 echo "** Now list keys and redirect output to pre-files - 'p11sak_test.sh'"
@@ -263,6 +283,10 @@ ${P11SAK} list-key ibm-ml-dsa --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sa
 RC_P11SAK_LIST=$((RC_P11SAK_LIST + $?))
 ${P11SAK} list-key ibm-ml-kem --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-ibm-ml-kem*" &> $P11SAK_IBM_ML_KEM_PRE
 RC_P11SAK_LIST=$((RC_P11SAK_LIST + $?))
+${P11SAK} list-key ml-dsa --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-ml-dsa*" &> $P11SAK_ML_DSA_PRE
+RC_P11SAK_LIST=$((RC_P11SAK_LIST + $?))
+${P11SAK} list-key ml-kem --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-ml-kem*" &> $P11SAK_ML_KEM_PRE
+RC_P11SAK_LIST=$((RC_P11SAK_LIST + $?))
 
 RC_P11SAK_LIST_LONG=0
 ${P11SAK} list-key des --slot $SLOT --pin $PKCS11_USER_PIN --long --label "p11sak-des" &> $P11SAK_DES_LONG
@@ -294,6 +318,10 @@ RC_P11SAK_LIST_LONG=$((RC_P11SAK_LIST_LONG + $?))
 ${P11SAK} list-key ibm-ml-dsa --slot $SLOT --pin $PKCS11_USER_PIN --long --label "p11sak-ibm-ml-dsa*" &> $P11SAK_IBM_ML_DSA_LONG
 RC_P11SAK_LIST_LONG=$((RC_P11SAK_LIST_LONG + $?))
 ${P11SAK} list-key ibm-ml-kem --slot $SLOT --pin $PKCS11_USER_PIN --long --label "p11sak-ibm-ml-kem*" &> $P11SAK_IBM_ML_KEM_LONG
+RC_P11SAK_LIST_LONG=$((RC_P11SAK_LIST_LONG + $?))
+${P11SAK} list-key ml-dsa --slot $SLOT --pin $PKCS11_USER_PIN --long --label "p11sak-ml-dsa*" &> $P11SAK_ML_DSA_LONG
+RC_P11SAK_LIST_LONG=$((RC_P11SAK_LIST_LONG + $?))
+${P11SAK} list-key ml-kem --slot $SLOT --pin $PKCS11_USER_PIN --long --label "p11sak-ml-kem*" &> $P11SAK_ML_KEM_LONG
 RC_P11SAK_LIST_LONG=$((RC_P11SAK_LIST_LONG + $?))
 
 
@@ -351,6 +379,10 @@ RC_P11SAK_KEY_EXTRACT=$((RC_P11SAK_KEY_EXTRACT + $?))
 ${P11SAK} extract-pubkey private --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-ibm-ml-dsa*" --new-label "p11sak-pubkey-extracted" --force
 RC_P11SAK_KEY_EXTRACT=$((RC_P11SAK_KEY_EXTRACT + $?))
 ${P11SAK} extract-pubkey private --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-ibm-ml-kem*" --new-label "p11sak-pubkey-extracted" --force
+RC_P11SAK_KEY_EXTRACT=$((RC_P11SAK_KEY_EXTRACT + $?))
+${P11SAK} extract-pubkey private --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-ml-dsa*" --new-label "p11sak-pubkey-extracted" --force
+RC_P11SAK_KEY_EXTRACT=$((RC_P11SAK_KEY_EXTRACT + $?))
+${P11SAK} extract-pubkey private --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-ml-kem*" --new-label "p11sak-pubkey-extracted" --force
 RC_P11SAK_KEY_EXTRACT=$((RC_P11SAK_KEY_EXTRACT + $?))
 
 
@@ -497,7 +529,42 @@ if [[ -n $( ${PKCSCONF} -m -c $SLOT | grep CKM_IBM_ML_KEM) ]]; then
 		echo "Skip importing ml-kem keys, neither OpenSSL 3.5, nor the oqsprovider is available or does not support mlkem1024"
 	fi
 else
-	echo "Skip importing ibm-kyber keys, slot does not support CKM_IBM_ML_KEM"
+	echo "Skip importing ibm-ml-kem keys, slot does not support CKM_IBM_ML_KEM"
+fi
+
+# ml-dsa
+if [[ -n $( ${PKCSCONF} -m -c $SLOT | grep CKM_ML_DSA) ]]; then
+        if [[ -n $(openssl list -key-managers | grep -i "MLDSA65") ]]; then
+                openssl genpkey -algorithm mldsa65 -out mldsa65-priv-key.pem
+                RC_P11SAK_IMPORT=$((RC_P11SAK_IMPORT + $?))
+                openssl pkey -in mldsa65-priv-key.pem -pubout -out mldsa65-pub-key.pem
+                RC_P11SAK_IMPORT=$((RC_P11SAK_IMPORT + $?))
+                ${P11SAK} import-key ml-dsa private --slot $SLOT --pin $PKCS11_USER_PIN --label "import-ml-dsa-private" --file mldsa65-priv-key.pem --attr sX
+                RC_P11SAK_IMPORT=$((RC_P11SAK_IMPORT + $?))
+                ${P11SAK} import-key ml-dsa public --slot $SLOT --pin $PKCS11_USER_PIN --label "import-ml-dsa-public" --file mldsa65-pub-key.pem --attr sX
+                RC_P11SAK_IMPORT=$((RC_P11SAK_IMPORT + $?))
+        else
+                echo "Skip importing ml-dsa keys, neither OpenSSL 3.5, nor the oqsprovider is available or does not support mldsa65"
+        fi
+else
+        echo "Skip importing ml-dsa keys, slot does not support CKM_ML_DSA"
+fi
+# ml-kem
+if [[ -n $( ${PKCSCONF} -m -c $SLOT | grep CKM_ML_KEM) ]]; then
+        if [[ -n $(openssl list -key-managers | grep -i "MLKEM1024") ]]; then
+                openssl genpkey -algorithm mlkem1024 -out mlkem1024-priv-key.pem
+                RC_P11SAK_IMPORT=$((RC_P11SAK_IMPORT + $?))
+                openssl pkey -in mlkem1024-priv-key.pem -pubout -out mlkem1024-pub-key.pem
+                RC_P11SAK_IMPORT=$((RC_P11SAK_IMPORT + $?))
+                ${P11SAK} import-key ml-kem private --slot $SLOT --pin $PKCS11_USER_PIN --label "import-ml-kem-private" --file mlkem1024-priv-key.pem --attr sX
+                RC_P11SAK_IMPORT=$((RC_P11SAK_IMPORT + $?))
+                ${P11SAK} import-key ml-kem public --slot $SLOT --pin $PKCS11_USER_PIN --label "import-ml-kem-public" --file mlkem1024-pub-key.pem --attr sX
+                RC_P11SAK_IMPORT=$((RC_P11SAK_IMPORT + $?))
+        else
+                echo "Skip importing ml-kem keys, neither OpenSSL 3.5, nor the oqsprovider is available or does not support mlkem1024"
+        fi
+else
+        echo "Skip importing ml-kem, slot does not support CKM_IBM_ML_KEM"
 fi
 
 echo "** Now exporting keys - 'p11sak_test.sh'"
@@ -733,6 +800,42 @@ if [[ -n $( ${PKCSCONF} -m -c $SLOT | grep CKM_IBM_ML_KEM) ]]; then
 else
 	echo "Skip exporting ibm-ml-kem keys, slot does not support CKM_IBM_ML_KEM"
 fi
+# ml-dsa
+if [[ -n $( ${PKCSCONF} -m -c $SLOT | grep CKM_ML_DSA) ]]; then
+        if [[ -n $(openssl list -key-managers | grep -i "MLDSA65") ]]; then
+                if [[ -n $( ${PKCSCONF} -t -c $SLOT | grep "Model: EP11") || -n $( ${PKCSCONF} -t -c $SLOT | grep "Model: CCA") ]]; then
+                        ${P11SAK} export-key ml-dsa --slot $SLOT --pin $PKCS11_USER_PIN --label "import-ml-dsa-public" --file export-ml-dsa-key.pem --force
+                        RC_P11SAK_EXPORT=$((RC_P11SAK_EXPORT + $?))
+                        ${P11SAK} export-key ml-dsa --slot $SLOT --pin $PKCS11_USER_PIN --label "import-ml-dsa-private" --file export-ml-dsa-key.opaque --force --opaque
+                        RC_P11SAK_EXPORT=$((RC_P11SAK_EXPORT + $?))
+                else
+                        ${P11SAK} export-key ml-dsa --slot $SLOT --pin $PKCS11_USER_PIN --label "import-ml-dsa-*" --file export-ml-dsa-key.pem --force
+                        RC_P11SAK_EXPORT=$((RC_P11SAK_EXPORT + $?))
+                fi
+        else
+                echo "Skip exporting ml-dsa keys, neither OpeNSSL 3.5, nor the oqsprovider is available or does not support mldsa65"
+        fi
+else
+        echo "Skip exporting ml-dsa keys, slot does not support CKM_ML_DSA"
+fi
+# ml-kem
+if [[ -n $( ${PKCSCONF} -m -c $SLOT | grep CKM_ML_KEM) ]]; then
+        if [[ -n $(openssl list -key-managers | grep -i "MLKEM1024") ]]; then
+                if [[ -n $( ${PKCSCONF} -t -c $SLOT | grep "Model: EP11") || -n $( ${PKCSCONF} -t -c $SLOT | grep "Model: CCA") ]]; then
+                        ${P11SAK} export-key ml-kem --slot $SLOT --pin $PKCS11_USER_PIN --label "import-ml-kem-public" --file export-ml-kem-key.pem --force
+                        RC_P11SAK_EXPORT=$((RC_P11SAK_EXPORT + $?))
+                        ${P11SAK} export-key ml-kem --slot $SLOT --pin $PKCS11_USER_PIN --label "import-ml-kem-private" --file export-ml-kem-key.opaque --force --opaque
+                        RC_P11SAK_EXPORT=$((RC_P11SAK_EXPORT + $?))
+                else
+                        ${P11SAK} export-key ml-kem --slot $SLOT --pin $PKCS11_USER_PIN --label "import-ml-kem-*" --file export-mlkem-key.pem --force
+                        RC_P11SAK_EXPORT=$((RC_P11SAK_EXPORT + $?))
+                fi
+        else
+                echo "Skip exporting ml-kem keys, neither OpenSSL 3.5, nor the oqsprovider is available or does not support mlkem1024"
+        fi
+else
+        echo "Skip exporting ml-kem keys, slot does not support CKM_IBM_ML_KEM"
+fi
 # export to URI-PEM
 p11sak export-key aes --slot $SLOT --pin $PKCS11_USER_PIN --label "import-aes" --file export-uri-pem1.pem --force --uri-pem
 RC_P11SAK_EXPORT=$((RC_P11SAK_EXPORT + $?))
@@ -889,6 +992,16 @@ ${P11SAK} remove-key ibm-ml-kem --slot $SLOT --pin $PKCS11_USER_PIN --label "p11
 RC_P11SAK_REMOVE=$((RC_P11SAK_REMOVE + $?))
 ${P11SAK} remove-key ibm-ml-kem --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-ibm-ml-kem:prv" -f
 RC_P11SAK_REMOVE=$((RC_P11SAK_REMOVE + $?))
+# remove ml-dsa keys
+${P11SAK} remove-key ml-dsa --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-ml-dsa:pub" -f
+RC_P11SAK_REMOVE=$((RC_P11SAK_REMOVE + $?))
+${P11SAK} remove-key ml-dsa --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-ml-dsa:prv" -f
+RC_P11SAK_REMOVE=$((RC_P11SAK_REMOVE + $?))
+# remove ml-kem keys
+${P11SAK} remove-key ml-kem --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-ml-kem:pub" -f
+RC_P11SAK_REMOVE=$((RC_P11SAK_REMOVE + $?))
+${P11SAK} remove-key ml-kem --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-ml-kem:prv" -f
+RC_P11SAK_REMOVE=$((RC_P11SAK_REMOVE + $?))
 # remove imported and extracted keys
 ${P11SAK} remove-key --slot $SLOT --pin $PKCS11_USER_PIN --label "import*" -f
 RC_P11SAK_REMOVE=$((RC_P11SAK_REMOVE + $?))
@@ -931,6 +1044,10 @@ RC_P11SAK_LIST_POST=$((RC_P11SAK_LIST_POST + $?))
 ${P11SAK} list-key ibm-ml-dsa --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-ibm-ml-dsa*" &> $P11SAK_IBM_ML_DSA_POST
 RC_P11SAK_LIST_POST=$((RC_P11SAK_LIST_POST + $?))
 ${P11SAK} list-key ibm-ml-kem --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-ibm-ml-kem*" &> $P11SAK_IBM_ML_KEM_POST
+RC_P11SAK_LIST_POST=$((RC_P11SAK_LIST_POST + $?))
+${P11SAK} list-key ml-dsa --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-ml-dsa*" &> $P11SAK_ML_DSA_POST
+RC_P11SAK_LIST_POST=$((RC_P11SAK_LIST_POST + $?))
+${P11SAK} list-key ml-kem --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-ml-kem*" &> $P11SAK_ML_KEM_POST
 RC_P11SAK_LIST_POST=$((RC_P11SAK_LIST_POST + $?))
 
 
@@ -2041,6 +2158,63 @@ else
 fi
 
 
+if [[ -n $( ${PKCSCONF} -m -c $SLOT | grep CKM_ML_DSA) ]]; then
+        # CK_BBOOL
+        if [[ $(grep -c "CKA_MODIFIABLE: CK_TRUE" $P11SAK_ML_DSA_LONG) == "2" ]]; then
+                echo "* TESTCASE list-key ml-dsa PASS Listed random ml-dsa keys CK_BBOOL attribute"
+        else
+                echo "* TESTCASE list-key ml-dsa FAIL Failed to list ml-dsa keys CK_BBOOL attribute"
+                status=1
+        fi
+        # CK_ULONG
+        if [[ $(grep -c "CKA_PARAMETER_SET:" $P11SAK_ML_DSA_LONG) == "2" ]]; then
+                echo "* TESTCASE list-key ml-dsa PASS Listed random ml-dsa keys CK_ULONG attribute"
+        else
+                echo "* TESTCASE list-key ml-dsa FAIL Failed to list ml-dsa keys CK_ULONG attribute"
+                status=1
+        fi
+        # CK_BYTE
+        if [[ $(grep -c "CKA_VALUE:" $P11SAK_ML_DSA_LONG) == "2" ]]; then
+                echo "* TESTCASE list-key ml-dsa PASS Listed random ml-dsa keys CK_BYTE attribute"
+        else
+                echo "* TESTCASE list-key ml-dsa FAIL Failed to list ml-dsa keys CK_BYTE attribute"
+                status=1
+        fi
+else
+        echo "* TESTCASE list-key ml-dsa SKIP Listed random ml-dsa keys CK_BBOOL attribute"
+        echo "* TESTCASE list-key ml-dsa SKIP Listed random ml-dsa keys CK_ULONG attribute"
+        echo "* TESTCASE list-key ml-dsa SKIP Listed random ml-dsa keys CK_BYTE attribute"
+fi
+
+if [[ -n $( ${PKCSCONF} -m -c $SLOT | grep CKM_ML_KEM) ]]; then
+        # CK_BBOOL
+        if [[ $(grep -c "CKA_MODIFIABLE: CK_TRUE" $P11SAK_ML_KEM_LONG) == "2" ]]; then
+                echo "* TESTCASE list-key ml-kem PASS Listed random ml-kem keys CK_BBOOL attribute"
+        else
+                echo "* TESTCASE list-key ml-kem FAIL Failed to list ml-kem keys CK_BBOOL attribute"
+                status=1
+        fi
+        # CK_ULONG
+        if [[ $(grep -c "CKA_PARAMETER_SET:" $P11SAK_ML_KEM_LONG) == "2" ]]; then
+                echo "* TESTCASE list-key ml-kem PASS Listed random ml-kem keys CK_ULONG attribute"
+        else
+                echo "* TESTCASE list-key ml-kem FAIL Failed to list ml-kem keys CK_ULONG attribute"
+                status=1
+        fi
+        # CK_BYTE
+        if [[ $(grep -c "CKA_VALUE:" $P11SAK_ML_KEM_LONG) == "2" ]]; then
+                echo "* TESTCASE list-key ml-kem PASS Listed random ml-kem keys CK_BYTE attribute"
+        else
+                echo "* TESTCASE list-key ml-kem FAIL Failed to list ml-kem keys CK_BYTE attribute"
+                status=1
+        fi
+else
+        echo "* TESTCASE list-key ml-kem SKIP Listed random ml-kem keys CK_BBOOL attribute"
+        echo "* TESTCASE list-key ml-kem SKIP Listed random ml-kem keys CK_ULONG attribute"
+        echo "* TESTCASE list-key ml-kem SKIP Listed random ml-kem keys CK_BYTE attribute"
+fi
+
+
 echo "** Import the sample x.509 certificates - 'p11sak_test.sh'"
 RC_P11SAK_X509_IMPORT=0
 ${P11SAK} import-cert x509 --slot $SLOT --pin $PKCS11_USER_PIN --id 123 --label "p11sak-x509-rsa2048crt" --file $DIR/p11sak_rsa2048cert.crt
@@ -2101,7 +2275,7 @@ if [[ -n $( ${PKCSCONF} -m -c $SLOT | grep CKM_IBM_DILITHIUM) && -n $(openssl li
 else
 	echo "Skip importing x.509 certs with IBM Dilithum key, slot does not support CKM_IBM_DILITHIUM or oqsprovider not available or does not support dilithium3"
 fi
-if [[ -n $( ${PKCSCONF} -m -c $SLOT | grep CKM_IBM_ML_DSA) && -n $(openssl list -key-managers | grep -i "MLDSA65") ]]; then
+if [[ -n $( ${PKCSCONF} -m -c $SLOT | grep CKM_ML_DSA) && -n $(openssl list -key-managers | grep -i "MLDSA65") ]]; then
 	openssl req -x509 -new -newkey mldsa65 -keyout mldsa65_CA.key -out mldsa65_CA.crt -nodes -subj "/CN=test CA" -days 365 2>/dev/null
 	RC_P11SAK_X509_IMPORT=$((RC_P11SAK_X509_IMPORT + $?))
 	openssl genpkey -algorithm mldsa65 -out mldsa65_srv.key
@@ -2113,7 +2287,7 @@ if [[ -n $( ${PKCSCONF} -m -c $SLOT | grep CKM_IBM_ML_DSA) && -n $(openssl list 
 	${P11SAK} import-cert x509 --slot $SLOT --pin $PKCS11_USER_PIN --id ABC --label "p11sak-x509-mldsa65" --file mldsa65_srv.crt
 	RC_P11SAK_X509_IMPORT=$((RC_P11SAK_X509_IMPORT + $?))
 else
-	echo "Skip importing x.509 certs with IBM ML-DSA key, slot does not support CKM_IBM_ML_DSA or neither OpenSSL 3.5, nor oqsprovider not available or does not support mldsa65"
+	echo "Skip importing x.509 certs with ML-DSA key, slot does not support CKM_ML_DSA or neither OpenSSL 3.5, nor oqsprovider not available or does not support mldsa65"
 fi
 
 echo "** Now exporting x.509 certificates - 'p11sak_test.sh'"
@@ -2169,11 +2343,11 @@ if [[ -n $( ${PKCSCONF} -m -c $SLOT | grep CKM_IBM_DILITHIUM) && -n $(openssl li
 else
 	echo "Skip exporting x.509 certs with IBM Dilithum key, slot does not support CKM_IBM_DILITHIUM or the oqsprovider not available or does not support dilithium3"
 fi
-if [[ -n $( ${PKCSCONF} -m -c $SLOT | grep CKM_IBM_ML_DSA) && -n $(openssl list -key-managers | grep -i "MLDSA65") ]]; then
+if [[ -n $( ${PKCSCONF} -m -c $SLOT | grep CKM_ML_DSA) && -n $(openssl list -key-managers | grep -i "MLDSA65") ]]; then
 	${P11SAK} export-cert x509 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-x509-mldsa65" --file p11sak_mldsa65cert_exported.pem --force
 	RC_P11SAK_X509_EXPORT=$((RC_P11SAK_X509_EXPORT + $?))
 else
-	echo "Skip exporting x.509 certs with IBM ML-DSA key, slot does not support CKM_IBM_ML_DSA or neither OpenSSL 3.5, nor the oqsprovider not available or does not support mldsa65"
+	echo "Skip exporting x.509 certs with ML-DSA key, slot does not support CKM_ML_DSA or neither OpenSSL 3.5, nor the oqsprovider not available or does not support mldsa65"
 fi
 # export to URI-PEM
 p11sak export-cert x509 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-x509-rsa2048crt" --file export-uri-pem4.pem --force --uri-pem
@@ -2246,11 +2420,11 @@ ${P11SAK} extract-cert-pubkey x509 --slot $SLOT --pin $PKCS11_USER_PIN --label "
 else
 	echo "Skip extracting pubkeys from x.509 certs with IBM Dilithum key, slot does not support CKM_IBM_DILITHIUM or oqsprovider not available or does not support dilithium3"
 fi
-if [[ -n $( ${PKCSCONF} -m -c $SLOT | grep CKM_IBM_ML_DSA) && -n $(openssl list -key-managers | grep -i "MLDSA65") ]]; then
+if [[ -n $( ${PKCSCONF} -m -c $SLOT | grep CKM_ML_DSA) && -n $(openssl list -key-managers | grep -i "MLDSA65") ]]; then
 ${P11SAK} extract-cert-pubkey x509 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-x509-mldsa65" --force
 	RC_P11SAK_X509_EXTRACT=$((RC_P11SAK_X509_EXTRACT + $?))
 else
-	echo "Skip extracting pubkeys from x.509 certs with IBM ML-DSA key, slot does not support CKM_IBM_ML_DSA or neither OpenSSL 3.5, not the oqsprovider not available or does not support mldsa65"
+	echo "Skip extracting pubkeys from x.509 certs with ML-DSA key, slot does not support CKM_ML_DSA or neither OpenSSL 3.5, not the oqsprovider not available or does not support mldsa65"
 fi
 
 
@@ -2950,6 +3124,12 @@ rm -f $P11SAK_IBM_ML_DSA_POST
 rm -f $P11SAK_IBM_ML_KEM_PRE
 rm -f $P11SAK_IBM_ML_KEM_LONG
 rm -f $P11SAK_IBM_ML_KEM_POST
+rm -f $P11SAK_ML_DSA_PRE
+rm -f $P11SAK_ML_DSA_LONG
+rm -f $P11SAK_ML_DSA_POST
+rm -f $P11SAK_ML_KEM_PRE
+rm -f $P11SAK_ML_KEM_LONG
+rm -f $P11SAK_ML_KEM_POST
 rm -f $P11SAK_X509_PRE
 rm -f $P11SAK_X509_LONG
 rm -f $P11SAK_X509_POST
