@@ -1018,10 +1018,60 @@ CK_RV sign_mgr_cleanup(STDLL_TokData_t *tokdata, SESSION *sess,
         free(ctx->mech.pParameter);
         ctx->mech.pParameter = NULL;
     }
-    ctx->mech.mechanism = 0;
     ctx->mech.ulParameterLen = 0;
 
     if (ctx->context) {
+        /* Cleanup nested contexts if required */
+        switch (ctx->mech.mechanism) {
+#if !(NOMD2)
+        case CKM_MD2_RSA_PKCS:
+#endif
+        case CKM_MD5_RSA_PKCS:
+        case CKM_SHA1_RSA_PKCS:
+        case CKM_SHA224_RSA_PKCS:
+        case CKM_SHA256_RSA_PKCS:
+        case CKM_SHA384_RSA_PKCS:
+        case CKM_SHA512_RSA_PKCS:
+        case CKM_SHA3_224_RSA_PKCS:
+        case CKM_SHA3_256_RSA_PKCS:
+        case CKM_SHA3_384_RSA_PKCS:
+        case CKM_SHA3_512_RSA_PKCS:
+        case CKM_ECDSA_SHA1:
+        case CKM_ECDSA_SHA224:
+        case CKM_ECDSA_SHA256:
+        case CKM_ECDSA_SHA384:
+        case CKM_ECDSA_SHA512:
+        case CKM_ECDSA_SHA3_224:
+        case CKM_ECDSA_SHA3_256:
+        case CKM_ECDSA_SHA3_384:
+        case CKM_ECDSA_SHA3_512:
+        case CKM_SSL3_MD5_MAC:
+        case CKM_SSL3_SHA1_MAC:
+            /* Uses MP_DIGEST_CONTEXT as context, contains a DIGEST_CONTEXT */
+            if (ctx->context_len != sizeof(MP_DIGEST_CONTEXT))
+                break;
+            digest_mgr_cleanup(tokdata, sess,
+                           &((MP_DIGEST_CONTEXT *)ctx->context)->hash_context);
+
+            break;
+        case CKM_SHA1_RSA_PKCS_PSS:
+        case CKM_SHA224_RSA_PKCS_PSS:
+        case CKM_SHA256_RSA_PKCS_PSS:
+        case CKM_SHA384_RSA_PKCS_PSS:
+        case CKM_SHA512_RSA_PKCS_PSS:
+        case CKM_SHA3_224_RSA_PKCS_PSS:
+        case CKM_SHA3_256_RSA_PKCS_PSS:
+        case CKM_SHA3_384_RSA_PKCS_PSS:
+        case CKM_SHA3_512_RSA_PKCS_PSS:
+            /* Uses DIGEST_CONTEXT as context */
+            if (ctx->context_len != sizeof(DIGEST_CONTEXT))
+                break;
+            digest_mgr_cleanup(tokdata, sess, (DIGEST_CONTEXT *)ctx->context);
+            break;
+        default:
+            break;
+        }
+
         if (ctx->context_free_func != NULL)
             ctx->context_free_func(tokdata, sess, ctx->context,
                                    ctx->context_len);
@@ -1031,6 +1081,8 @@ CK_RV sign_mgr_cleanup(STDLL_TokData_t *tokdata, SESSION *sess,
     }
     ctx->context_len = 0;
     ctx->context_free_func = NULL;
+
+    ctx->mech.mechanism = 0;
 
     return CKR_OK;
 }
