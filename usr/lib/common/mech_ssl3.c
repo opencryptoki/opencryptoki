@@ -218,7 +218,7 @@ CK_RV ssl3_mac_sign_update(STDLL_TokData_t *tokdata,
     OBJECT *key_obj = NULL;
     CK_ATTRIBUTE *attr = NULL;
     CK_BYTE *key_data = NULL;
-    SSL3_MAC_CONTEXT *context = NULL;
+    MP_DIGEST_CONTEXT *context = NULL;
 
     CK_BYTE inner[48];
     CK_MECHANISM digest_mech;
@@ -230,7 +230,7 @@ CK_RV ssl3_mac_sign_update(STDLL_TokData_t *tokdata,
         TRACE_ERROR("%s received bad argument(s)\n", __func__);
         return CKR_FUNCTION_FAILED;
     }
-    context = (SSL3_MAC_CONTEXT *) ctx->context;
+    context = (MP_DIGEST_CONTEXT *) ctx->context;
 
     if (context->flag == FALSE) {
         rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj, READ_LOCK);
@@ -320,7 +320,7 @@ CK_RV ssl3_mac_sign_final(STDLL_TokData_t *tokdata,
     CK_ATTRIBUTE *attr = NULL;
     CK_BYTE *key_data = NULL;
     CK_BYTE hash[SHA1_HASH_SIZE];
-    SSL3_MAC_CONTEXT *context = NULL;
+    MP_DIGEST_CONTEXT *context = NULL;
 
     CK_BYTE outer[48];
     CK_MECHANISM digest_mech;
@@ -345,7 +345,7 @@ CK_RV ssl3_mac_sign_final(STDLL_TokData_t *tokdata,
         return CKR_BUFFER_TOO_SMALL;
     }
 
-    context = (SSL3_MAC_CONTEXT *) ctx->context;
+    context = (MP_DIGEST_CONTEXT *) ctx->context;
 
     if (context->flag == FALSE) {
         rc = ssl3_mac_sign_update(tokdata, sess, ctx, NULL, 0);
@@ -382,7 +382,7 @@ CK_RV ssl3_mac_sign_final(STDLL_TokData_t *tokdata,
     }
     // now, do the outer hash
     //
-    memset(context, 0x0, sizeof(SSL3_MAC_CONTEXT));
+    memset(context, 0x0, sizeof(MP_DIGEST_CONTEXT));
 
     memset(outer, 0x5C, 48);
 
@@ -504,7 +504,7 @@ CK_RV ssl3_mac_verify_update(STDLL_TokData_t *tokdata,
     OBJECT *key_obj = NULL;
     CK_ATTRIBUTE *attr = NULL;
     CK_BYTE *key_data = NULL;
-    SSL3_MAC_CONTEXT *context = NULL;
+    MP_DIGEST_CONTEXT *context = NULL;
 
     CK_BYTE inner[48];
     CK_MECHANISM digest_mech;
@@ -516,7 +516,7 @@ CK_RV ssl3_mac_verify_update(STDLL_TokData_t *tokdata,
         TRACE_ERROR("%s received bad argument(s)\n", __func__);
         return CKR_FUNCTION_FAILED;
     }
-    context = (SSL3_MAC_CONTEXT *) ctx->context;
+    context = (MP_DIGEST_CONTEXT *) ctx->context;
 
     if (context->flag == FALSE) {
         rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj, READ_LOCK);
@@ -604,7 +604,7 @@ CK_RV ssl3_mac_verify_final(STDLL_TokData_t *tokdata,
     OBJECT *key_obj = NULL;
     CK_ATTRIBUTE *attr = NULL;
     CK_BYTE *key_data = NULL;
-    SSL3_MAC_CONTEXT *context = NULL;
+    MP_DIGEST_CONTEXT *context = NULL;
     CK_BYTE hash[SHA1_HASH_SIZE];
 
     CK_BYTE outer[48];
@@ -619,7 +619,7 @@ CK_RV ssl3_mac_verify_final(STDLL_TokData_t *tokdata,
     }
     mac_len = *(CK_ULONG *) ctx->mech.pParameter;
 
-    context = (SSL3_MAC_CONTEXT *) ctx->context;
+    context = (MP_DIGEST_CONTEXT *) ctx->context;
 
     if (context->flag == FALSE) {
         rc = ssl3_mac_verify_update(tokdata, sess, ctx, NULL, 0);
@@ -656,7 +656,7 @@ CK_RV ssl3_mac_verify_final(STDLL_TokData_t *tokdata,
     }
     // now, do the outer hash
     //
-    memset(context, 0x0, sizeof(SSL3_MAC_CONTEXT));
+    memset(context, 0x0, sizeof(MP_DIGEST_CONTEXT));
 
     memset(outer, 0x5C, 48);
 
