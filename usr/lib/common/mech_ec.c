@@ -422,7 +422,7 @@ CK_RV ec_hash_sign_update(STDLL_TokData_t *tokdata,
                           SIGN_VERIFY_CONTEXT *ctx,
                           CK_BYTE *in_data, CK_ULONG in_data_len)
 {
-    RSA_DIGEST_CONTEXT *context = NULL;
+    MP_DIGEST_CONTEXT *context = NULL;
     CK_MECHANISM digest_mech;
     CK_RV rc;
 
@@ -430,7 +430,7 @@ CK_RV ec_hash_sign_update(STDLL_TokData_t *tokdata,
         TRACE_ERROR("%s received bad argument(s)\n", __func__);
         return CKR_FUNCTION_FAILED;
     }
-    context = (RSA_DIGEST_CONTEXT *) ctx->context;
+    context = (MP_DIGEST_CONTEXT *) ctx->context;
 
     if (context->flag == FALSE) {
         rc = get_digest_from_mech(ctx->mech.mechanism, &digest_mech.mechanism);
@@ -469,7 +469,7 @@ CK_RV ec_hash_sign_final(STDLL_TokData_t *tokdata,
                          CK_BYTE *signature, CK_ULONG *sig_len)
 {
     CK_BYTE hash[MAX_SHA_HASH_SIZE];
-    RSA_DIGEST_CONTEXT *context = NULL;
+    MP_DIGEST_CONTEXT *context = NULL;
     CK_ULONG hash_len;
     CK_MECHANISM sign_mech;
     SIGN_VERIFY_CONTEXT sign_ctx;
@@ -482,7 +482,7 @@ CK_RV ec_hash_sign_final(STDLL_TokData_t *tokdata,
 
     memset(&sign_ctx, 0x0, sizeof(sign_ctx));
 
-    context = (RSA_DIGEST_CONTEXT *) ctx->context;
+    context = (MP_DIGEST_CONTEXT *) ctx->context;
 
     if (context->flag == FALSE) {
         rc = ec_hash_sign_update(tokdata, sess, ctx, NULL, 0);
@@ -612,7 +612,7 @@ CK_RV ec_hash_verify_update(STDLL_TokData_t *tokdata,
                             SIGN_VERIFY_CONTEXT *ctx,
                             CK_BYTE *in_data, CK_ULONG in_data_len)
 {
-    RSA_DIGEST_CONTEXT *context = NULL;
+    MP_DIGEST_CONTEXT *context = NULL;
     CK_MECHANISM digest_mech;
     CK_RV rc;
 
@@ -620,7 +620,7 @@ CK_RV ec_hash_verify_update(STDLL_TokData_t *tokdata,
         TRACE_ERROR("%s received bad argument(s)\n", __func__);
         return CKR_FUNCTION_FAILED;
     }
-    context = (RSA_DIGEST_CONTEXT *) ctx->context;
+    context = (MP_DIGEST_CONTEXT *) ctx->context;
 
     if (context->flag == FALSE) {
         rc = get_digest_from_mech(ctx->mech.mechanism, &digest_mech.mechanism);
@@ -658,7 +658,7 @@ CK_RV ec_hash_verify_final(STDLL_TokData_t *tokdata,
                            CK_BYTE *signature, CK_ULONG sig_len)
 {
     CK_BYTE hash[MAX_SHA_HASH_SIZE];
-    RSA_DIGEST_CONTEXT *context = NULL;
+    MP_DIGEST_CONTEXT *context = NULL;
     CK_ULONG hash_len;
     CK_MECHANISM verify_mech;
     SIGN_VERIFY_CONTEXT verify_ctx;
@@ -670,7 +670,7 @@ CK_RV ec_hash_verify_final(STDLL_TokData_t *tokdata,
     }
     memset(&verify_ctx, 0x0, sizeof(verify_ctx));
 
-    context = (RSA_DIGEST_CONTEXT *) ctx->context;
+    context = (MP_DIGEST_CONTEXT *) ctx->context;
 
     if (context->flag == FALSE) {
         rc = ec_hash_verify_update(tokdata, sess, ctx, NULL, 0);

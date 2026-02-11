@@ -227,14 +227,14 @@ CK_RV sign_mgr_init(STDLL_TokData_t *tokdata,
             ctx->context_len = 0;
             ctx->context = NULL;
         } else {
-            ctx->context_len = sizeof(RSA_DIGEST_CONTEXT);
-            ctx->context = (CK_BYTE *) malloc(sizeof(RSA_DIGEST_CONTEXT));
+            ctx->context_len = sizeof(MP_DIGEST_CONTEXT);
+            ctx->context = (CK_BYTE *) malloc(sizeof(MP_DIGEST_CONTEXT));
             if (!ctx->context) {
                 TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
                 rc = CKR_HOST_MEMORY;
                 goto done;
             }
-            memset(ctx->context, 0x0, sizeof(RSA_DIGEST_CONTEXT));
+            memset(ctx->context, 0x0, sizeof(MP_DIGEST_CONTEXT));
         }
         break;
     case CKM_EDDSA:
@@ -321,14 +321,14 @@ CK_RV sign_mgr_init(STDLL_TokData_t *tokdata,
             rc = CKR_KEY_FUNCTION_NOT_PERMITTED;
             goto done;
         }
-        ctx->context_len = sizeof(RSA_DIGEST_CONTEXT);
-        ctx->context = (CK_BYTE *) malloc(sizeof(RSA_DIGEST_CONTEXT));
+        ctx->context_len = sizeof(MP_DIGEST_CONTEXT);
+        ctx->context = (CK_BYTE *) malloc(sizeof(MP_DIGEST_CONTEXT));
         if (!ctx->context) {
             TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
             rc = CKR_HOST_MEMORY;
             goto done;
         }
-        memset(ctx->context, 0x0, sizeof(RSA_DIGEST_CONTEXT));
+        memset(ctx->context, 0x0, sizeof(MP_DIGEST_CONTEXT));
         break;
     case CKM_SHA1_RSA_PKCS_PSS:
     case CKM_SHA224_RSA_PKCS_PSS:
@@ -689,14 +689,14 @@ CK_RV sign_mgr_init(STDLL_TokData_t *tokdata,
                 goto done;
             }
 
-            ctx->context_len = sizeof(SSL3_MAC_CONTEXT);
-            ctx->context = (CK_BYTE *) malloc(sizeof(SSL3_MAC_CONTEXT));
+            ctx->context_len = sizeof(MP_DIGEST_CONTEXT);
+            ctx->context = (CK_BYTE *) malloc(sizeof(MP_DIGEST_CONTEXT));
             if (!ctx->context) {
                 TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
                 rc = CKR_HOST_MEMORY;
                 goto done;
             }
-            memset(ctx->context, 0x0, sizeof(SSL3_MAC_CONTEXT));
+            memset(ctx->context, 0x0, sizeof(MP_DIGEST_CONTEXT));
         }
         break;
     case CKM_DES3_MAC:

@@ -321,17 +321,10 @@ typedef struct _TOKEN_DATA_OLD {
     TWEAK_VEC tweak_vector;
 } TOKEN_DATA_OLD;
 
-typedef struct _SSL3_MAC_CONTEXT {
+typedef struct _MP_DIGEST_CONTEXT {
     DIGEST_CONTEXT hash_context;
     CK_BBOOL flag;
-} SSL3_MAC_CONTEXT;
-
-
-typedef struct _RSA_DIGEST_CONTEXT {
-    DIGEST_CONTEXT hash_context;
-    CK_BBOOL flag;
-} RSA_DIGEST_CONTEXT;
-
+} MP_DIGEST_CONTEXT;
 
 typedef struct _MECH_LIST_ELEMENT {
     CK_MECHANISM_TYPE mech_type;
