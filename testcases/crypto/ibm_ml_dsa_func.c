@@ -678,7 +678,7 @@ CK_RV run_TransferMLDSAKeyPairSignVerify(void)
         wrapped_key = NULL;
 
         /* Test sign/verify using unwrapped private key and untouched public key */
-        rc = run_SignVerifyMLDSA(session, &sign_mech, 32, priv_key, publ_key);
+        rc = run_SignVerifyMLDSA(session, &sign_mech, 32, unwrapped_key, publ_key);
         if (rc == CKR_MECHANISM_INVALID) {
             testcase_skip("run_SignVerifyMLDSA index=%lu.", i);
         } else if (rc != 0) {
