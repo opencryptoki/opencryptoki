@@ -1047,6 +1047,7 @@ CK_RV unwrapKey(CK_SESSION_HANDLE session, CK_MECHANISM *wrap_mech,
         {CKA_SENSITIVE, &true, sizeof(true)},
         {CKA_DECRYPT, &true, sizeof(true)},
         {CKA_SIGN, &true, sizeof(true)},
+        {CKA_DERIVE, &true, sizeof(true)},
     };
 
     rc = funcs->C_UnwrapKey(session, wrap_mech, secret_key,
@@ -1208,7 +1209,7 @@ CK_RV run_TransferMLKEMKeyPairSignVerify(void)
         wrapped_key = NULL;
 
         /* Test Encapsulate/decapsulate (KEM) */
-        rc = run_EnDecapsulateMLKEM(session, priv_key, publ_key, CKK_AES, 32,
+        rc = run_EnDecapsulateMLKEM(session, unwrapped_key, publ_key, CKK_AES, 32,
                                     CKD_NULL, CK_FALSE, CK_FALSE, NULL, 0,
                                     NULL, 0, NULL, 0);
         if (rc == CKR_MECHANISM_INVALID) {
@@ -1222,7 +1223,7 @@ CK_RV run_TransferMLKEMKeyPairSignVerify(void)
             testcase_pass("*Encapsulate & Decapsulate (KEM), i=%lu passed.", i);
         }
 
-        rc = run_EnDecapsulateMLKEMwithECDH(session, priv_key, publ_key,
+        rc = run_EnDecapsulateMLKEMwithECDH(session, unwrapped_key, publ_key,
                                             CKK_AES, 32,
                                             CKD_IBM_HYBRID_SHA256_KDF, NULL, 0);
         if (rc == CKR_MECHANISM_INVALID) {
