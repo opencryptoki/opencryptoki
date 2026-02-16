@@ -3702,6 +3702,28 @@ CK_RV openssl_specific_pqc_kem_derive(STDLL_TokData_t *tokdata, SESSION *sess,
                                       OBJECT *derived_object,
                                       CK_KEY_TYPE derived_key_type,
                                       CK_ULONG derived_keylen);
+CK_RV openssl_specific_pqc_encapsulate_key(STDLL_TokData_t *tokdata,
+                                           SESSION *sess, CK_BBOOL length_only,
+                                           const struct pqc_oid *oid,
+                                           CK_MECHANISM *mech, OBJECT *key_obj,
+                                           CK_ATTRIBUTE *pTemplate,
+                                           CK_ULONG ulAttributeCount,
+                                           CK_BYTE *pCiphertext,
+                                           CK_ULONG *pulCiphertextLen,
+                                           CK_KEY_TYPE keytype,
+                                           CK_ULONG keylen,
+                                           CK_OBJECT_HANDLE *phKey);
+CK_RV openssl_specific_pqc_decapsulate_key(STDLL_TokData_t *tokdata,
+                                           SESSION *sess,
+                                           const struct pqc_oid *oid,
+                                           CK_MECHANISM *mech, OBJECT *key_obj,
+                                           CK_ATTRIBUTE *pTemplate,
+                                           CK_ULONG ulAttributeCount,
+                                           CK_BYTE *pCiphertext,
+                                           CK_ULONG ulCiphertextLen,
+                                           CK_KEY_TYPE keytype,
+                                           CK_ULONG keylen,
+                                           CK_OBJECT_HANDLE *phKey);
 #endif
 
 #include "tok_spec_struct.h"
