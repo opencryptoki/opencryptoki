@@ -348,6 +348,7 @@ static const MECH_LIST_ELEMENT soft_mech_list[] = {
     {CKM_HASH_ML_DSA_SHAKE256, {1312, 2592, CKF_SIGN | CKF_VERIFY}},
 #endif
     {CKM_ML_KEM_KEY_PAIR_GEN, {800, 1568, CKF_GENERATE_KEY_PAIR}},
+    {CKM_ML_KEM, {800, 1568, CKF_ENCAPSULATE | CKF_DECAPSULATE}},
 #endif
 };
 
@@ -2124,6 +2125,50 @@ CK_RV token_specific_ml_kem_generate_keypair(STDLL_TokData_t *tokdata,
 
     return openssl_specific_pqc_generate_keypair(tokdata, oid, &mech,
                                                  publ_tmpl, priv_tmpl);
+}
+
+CK_RV token_specific_ml_kem_encapsulate_key(STDLL_TokData_t *tokdata,
+                                            SESSION *sess, CK_BBOOL length_only,
+                                            const struct pqc_oid *oid,
+                                            CK_MECHANISM *mech, OBJECT *key_obj,
+                                            CK_ATTRIBUTE *pTemplate,
+                                            CK_ULONG ulAttributeCount,
+                                            CK_BYTE *pCiphertext,
+                                            CK_ULONG *pulCiphertextLen,
+                                            CK_KEY_TYPE keytype,
+                                            CK_ULONG keylen,
+                                            CK_OBJECT_HANDLE *phKey)
+{
+    if (!token_specific_filter_mechanism(tokdata, mech->mechanism, NULL))
+        return CKR_MECHANISM_INVALID;
+
+    return openssl_specific_pqc_encapsulate_key(tokdata, sess, length_only,
+                                                oid, mech, key_obj,
+                                                pTemplate, ulAttributeCount,
+                                                pCiphertext, pulCiphertextLen,
+                                                keytype, keylen, phKey);
+}
+
+CK_RV token_specific_ml_kem_decapsulate_key(STDLL_TokData_t *tokdata,
+                                            SESSION *sess,
+                                            const struct pqc_oid *oid,
+                                            CK_MECHANISM *mech, OBJECT *key_obj,
+                                            CK_ATTRIBUTE *pTemplate,
+                                            CK_ULONG ulAttributeCount,
+                                            CK_BYTE *pCiphertext,
+                                            CK_ULONG ulCiphertextLen,
+                                            CK_KEY_TYPE keytype,
+                                            CK_ULONG keylen,
+                                            CK_OBJECT_HANDLE *phKey)
+{
+    if (!token_specific_filter_mechanism(tokdata, mech->mechanism, NULL))
+        return CKR_MECHANISM_INVALID;
+
+    return openssl_specific_pqc_decapsulate_key(tokdata, sess,
+                                                oid, mech, key_obj,
+                                                pTemplate, ulAttributeCount,
+                                                pCiphertext, ulCiphertextLen,
+                                                keytype, keylen, phKey);
 }
 
 #endif

@@ -23,6 +23,7 @@
 #include "tok_spec_struct.h"
 #include "trace.h"
 #include "ec_defs.h"
+#include "attributes.h"
 
 #include <openssl/crypto.h>
 #include <openssl/err.h>
@@ -8679,6 +8680,153 @@ CK_RV openssl_specific_pqc_kem_derive(STDLL_TokData_t *tokdata, SESSION *sess,
     default:
         return CKR_MECHANISM_INVALID;
     }
+}
+
+static CK_RV openssl_specific_pqc_en_decapsulate_key(STDLL_TokData_t *tokdata,
+                                                     SESSION *sess,
+                                                     CK_BBOOL encapsulate,
+                                                     CK_BBOOL length_only,
+                                                     const struct pqc_oid *oid,
+                                                     CK_MECHANISM *mech,
+                                                     OBJECT *key_obj,
+                                                     CK_ATTRIBUTE *pTemplate,
+                                                     CK_ULONG ulAttributeCount,
+                                                     CK_BYTE *pCiphertext,
+                                                     CK_ULONG *pulCiphertextLen,
+                                                     CK_KEY_TYPE keytype,
+                                                     CK_ULONG keylen,
+                                                     CK_OBJECT_HANDLE *phKey)
+{
+    CK_RV rc = CKR_OK;
+    CK_ULONG secret_len = 0;
+    CK_BYTE *secret = NULL;
+    OBJECT *new_key_obj = NULL;
+
+    rc = object_mgr_create_skel(tokdata, sess, pTemplate, ulAttributeCount,
+                                encapsulate ? MODE_ENCAPS : MODE_DECAPS,
+                                CKO_SECRET_KEY, keytype, &new_key_obj);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Object Mgr create skeleton failed, rc=0x%lx.\n", rc);
+        return rc;
+    }
+
+    rc = openssl_specific_pqc_perform_kem(oid, mech, key_obj,
+                                          encapsulate ?
+                                              CKO_PUBLIC_KEY : CKO_PRIVATE_KEY,
+                                          encapsulate,
+                                          pCiphertext, pulCiphertextLen,
+                                          &secret, &secret_len);
+    if (length_only && rc == CKR_BUFFER_TOO_SMALL) {
+        rc = CKR_OK;
+        goto out;
+    }
+    if (rc != CKR_OK) {
+        TRACE_ERROR("openssl_specific_pqc_perform_kem failed\n");
+        goto out;
+    }
+
+    if (secret_len < keylen) {
+        TRACE_ERROR("Cannot create a key longer that %lu bytes.\n", secret_len);
+        rc = CKR_TEMPLATE_INCONSISTENT;
+        goto out;
+    }
+
+    /* Update key value in new object */
+    rc = template_build_update_attribute(new_key_obj->template,
+                                         CKA_VALUE, secret, keylen);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_build_update_attribute failed for CKA_VALUE, "
+                    "rc=0x%lx.\n", rc);
+        goto out;
+    }
+
+    switch (keytype) {
+    case CKK_GENERIC_SECRET:
+    case CKK_AES:
+    case CKK_AES_XTS:
+        /* Supply CKA_VALUE_LEN since this is required for those key types */
+        rc = template_build_update_attribute(new_key_obj->template,
+                                             CKA_VALUE_LEN,
+                                             (CK_BYTE*)&keylen,
+                                             sizeof(keylen));
+        if (rc != CKR_OK) {
+            TRACE_ERROR("template_build_update_attribute failed for "
+                        "CKA_VALUE_LEN, rc=0x%lx.\n", rc);
+            goto out;
+        }
+        break;
+    case CKK_DES:
+        if (des_check_weak_key(secret)) {
+            TRACE_ERROR("Derived key is a weak DES key\n");
+            rc = CKR_FUNCTION_FAILED;
+            goto out;
+        }
+        break;
+    default:
+        break;
+    }
+
+    rc = object_mgr_create_final(tokdata, sess, new_key_obj, phKey);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Object Mgr create final failed, rc=0x%lx.\n", rc);
+        goto out;
+    }
+
+out:
+    if (secret != NULL) {
+        OPENSSL_cleanse(secret, secret_len);
+        free(secret);
+    }
+
+    if ((rc != CKR_OK || length_only) && new_key_obj != NULL) {
+        object_free(new_key_obj);
+        if (phKey != NULL)
+            *phKey = CK_INVALID_HANDLE;
+    }
+
+    return rc;
+}
+
+CK_RV openssl_specific_pqc_encapsulate_key(STDLL_TokData_t *tokdata,
+                                           SESSION *sess, CK_BBOOL length_only,
+                                           const struct pqc_oid *oid,
+                                           CK_MECHANISM *mech, OBJECT *key_obj,
+                                           CK_ATTRIBUTE *pTemplate,
+                                           CK_ULONG ulAttributeCount,
+                                           CK_BYTE *pCiphertext,
+                                           CK_ULONG *pulCiphertextLen,
+                                           CK_KEY_TYPE keytype,
+                                           CK_ULONG keylen,
+                                           CK_OBJECT_HANDLE *phKey)
+{
+    return openssl_specific_pqc_en_decapsulate_key(tokdata, sess, TRUE,
+                                                   length_only, oid, mech,
+                                                   key_obj, pTemplate,
+                                                   ulAttributeCount,
+                                                   pCiphertext,
+                                                   pulCiphertextLen,
+                                                   keytype, keylen,phKey);
+}
+
+CK_RV openssl_specific_pqc_decapsulate_key(STDLL_TokData_t *tokdata,
+                                           SESSION *sess,
+                                           const struct pqc_oid *oid,
+                                           CK_MECHANISM *mech, OBJECT *key_obj,
+                                           CK_ATTRIBUTE *pTemplate,
+                                           CK_ULONG ulAttributeCount,
+                                           CK_BYTE *pCiphertext,
+                                           CK_ULONG ulCiphertextLen,
+                                           CK_KEY_TYPE keytype,
+                                           CK_ULONG keylen,
+                                           CK_OBJECT_HANDLE *phKey)
+{
+    return openssl_specific_pqc_en_decapsulate_key(tokdata, sess, FALSE,
+                                                   FALSE, oid, mech,
+                                                   key_obj, pTemplate,
+                                                   ulAttributeCount,
+                                                   pCiphertext,
+                                                   &ulCiphertextLen,
+                                                   keytype, keylen, phKey);
 }
 
 #endif
