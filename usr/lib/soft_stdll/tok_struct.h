@@ -180,6 +180,8 @@ token_spec_t token_specific = {
     NULL,                       // ml_dsa_sign
     NULL,                       // ml_dsa_verify
     NULL,                       // ml_kem_generate_keypair
+    NULL,                       // ml_kem_encapsulate_key
+    NULL,                       // ml_kem_decapsulate_key
 #else
     NULL,                       // ibm_ml_dsa_generate_keypair
     NULL,                       // ibm_ml_dsa_sign
@@ -190,6 +192,8 @@ token_spec_t token_specific = {
     NULL,                       // ml_dsa_sign
     NULL,                       // ml_dsa_verify
     NULL,                       // ml_kem_generate_keypair
+    NULL,                       // ml_kem_encapsulate_key
+    NULL,                       // ml_kem_decapsulate_key
 #endif
     &token_specific_get_mechanism_list,
     &token_specific_get_mechanism_info,

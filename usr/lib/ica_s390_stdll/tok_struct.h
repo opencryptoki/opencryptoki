@@ -150,6 +150,8 @@ token_spec_t token_specific = {
     NULL,                       // ml_dsa_sign
     NULL,                       // ml_dsa_verify
     NULL,                       // ml_kem_generate_keypair
+    NULL,                       // ml_kem_encapsulate_key
+    NULL,                       // ml_kem_decapsulate_key
     &token_specific_get_mechanism_list,
     &token_specific_get_mechanism_info,
     &token_specific_object_add,

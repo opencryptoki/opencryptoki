@@ -943,6 +943,264 @@ CK_RV ml_dsa_hash_verify_final(STDLL_TokData_t *tokdata, SESSION *sess,
     return rc;
 }
 
+static CK_RV ml_kem_get_key_type_key_len(CK_ATTRIBUTE *pTemplate,
+                                         CK_ULONG ulAttributeCount,
+                                         CK_KEY_TYPE *key_type,
+                                         CK_ULONG *key_len)
+{
+    CK_ULONG allowed_keylen;
+    CK_RV rc;
+
+    *key_len = 0;
+    rc = get_ulong_attribute_by_type(pTemplate, ulAttributeCount,
+                                     CKA_VALUE_LEN, key_len);
+    if (rc == CKR_ATTRIBUTE_VALUE_INVALID) {
+        TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
+        return rc;
+    }
+
+    *key_type = 0;
+    rc = get_ulong_attribute_by_type(pTemplate, ulAttributeCount,
+                                     CKA_KEY_TYPE, key_type);
+    if (rc == CKR_ATTRIBUTE_VALUE_INVALID) {
+        TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
+        return rc;
+    }
+
+    /*
+     * - no key length and no key type: CKR_TEMPLATE_INCOMPLETE
+     * - no key type, but length given: CKK_GENERIC_SECRET of specified length.
+     * - no key length but key type specified: key must have a well-defined
+     *                                         length, otherwise error.
+     * - key length and key type specified: length must be compatible with key
+     *                                      type, otherwise error.
+     */
+    if (*key_type == 0 && *key_len == 0) {
+        TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCOMPLETE));
+        return CKR_TEMPLATE_INCOMPLETE;
+    }
+
+    if (*key_type == 0)
+        *key_type = CKK_GENERIC_SECRET;
+
+    switch (*key_type) {
+    case CKK_GENERIC_SECRET:
+        if (*key_len == 0) {
+            TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCONSISTENT));
+            return CKR_TEMPLATE_INCONSISTENT;
+        }
+        allowed_keylen = *key_len;
+        break;
+    case CKK_DES:
+        allowed_keylen = DES_KEY_SIZE;
+        break;
+    case CKK_DES2:
+        allowed_keylen = 2 * DES_KEY_SIZE;
+        break;
+    case CKK_DES3:
+        allowed_keylen = 3 * DES_KEY_SIZE;
+        break;
+    case CKK_AES:
+        switch (*key_len) {
+        case AES_KEY_SIZE_128:
+        case AES_KEY_SIZE_192:
+        case AES_KEY_SIZE_256:
+            allowed_keylen = *key_len;
+            break;
+        default:
+            TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCONSISTENT));
+            return CKR_TEMPLATE_INCONSISTENT;
+        }
+        break;
+    case CKK_AES_XTS:
+        switch (*key_len) {
+        case 2 * AES_KEY_SIZE_128:
+        case 2 * AES_KEY_SIZE_256:
+            allowed_keylen = *key_len;
+            break;
+        default:
+            TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCONSISTENT));
+            return CKR_TEMPLATE_INCONSISTENT;
+        }
+        break;
+    default:
+        TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCONSISTENT));
+        return CKR_TEMPLATE_INCONSISTENT;
+    }
+
+    if (*key_len == 0)
+        *key_len = allowed_keylen;
+
+    if (*key_len != allowed_keylen) {
+        TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCONSISTENT));
+        return CKR_TEMPLATE_INCONSISTENT;
+    }
+
+    if (*key_len > 32) {
+        TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCONSISTENT));
+        return CKR_TEMPLATE_INCONSISTENT;
+    }
+
+    return CKR_OK;
+}
+
+CK_RV ml_kem_encapsulate_key(STDLL_TokData_t *tokdata, SESSION *sess,
+                             CK_BBOOL length_only, CK_MECHANISM *mech,
+                             OBJECT *public_key,
+                             CK_ATTRIBUTE *pTemplate, CK_ULONG ulAttributeCount,
+                             CK_BYTE *pCiphertext, CK_ULONG *pulCiphertextLen,
+                             CK_OBJECT_HANDLE *phKey)
+{
+    CK_OBJECT_CLASS class;
+    CK_KEY_TYPE keytype;
+    CK_ULONG keylen;
+    const struct pqc_oid *oid;
+    CK_RV rc;
+
+    if (token_specific.t_ml_kem_encapsulate_key == NULL) {
+        TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
+        return CKR_MECHANISM_INVALID;
+    }
+
+    rc = template_attribute_get_ulong(public_key->template, CKA_CLASS, &class);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_CLASS for the key.\n");
+        return rc;
+    }
+
+    if (class != CKO_PUBLIC_KEY) {
+        TRACE_ERROR("This operation requires a public key.\n");
+        return CKR_KEY_FUNCTION_NOT_PERMITTED;
+    }
+
+    rc = template_attribute_get_ulong(public_key->template, CKA_KEY_TYPE,
+                                      &keytype);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_KEY_TYPE for the key.\n");
+        return rc;
+    }
+
+    switch (mech->mechanism) {
+    case CKM_ML_KEM:
+        if (keytype != CKK_ML_KEM) {
+            TRACE_ERROR("This operation requires a ML-KEM key.\n");
+            return CKR_KEY_FUNCTION_NOT_PERMITTED;
+        }
+
+        if (mech->ulParameterLen != 0 || mech->pParameter != NULL) {
+            TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
+            return CKR_MECHANISM_PARAM_INVALID;
+        }
+        break;
+    default:
+        TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
+        return CKR_MECHANISM_INVALID;
+    }
+
+    oid = pqc_get_keyform_mode(public_key->template, mech->mechanism);
+    if (oid == NULL) {
+        TRACE_DEVEL("No keyform/mode found in key object\n");
+        return CKR_TEMPLATE_INCOMPLETE;
+    }
+
+    rc = ml_kem_get_key_type_key_len(pTemplate, ulAttributeCount,
+                                     &keytype, &keylen);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("ml_kem_get_key_type_key_len failed.\n");
+        return rc;
+    }
+
+    rc = token_specific.t_ml_kem_encapsulate_key(tokdata, sess, length_only,
+                                                 oid, mech, public_key,
+                                                 pTemplate, ulAttributeCount,
+                                                 pCiphertext, pulCiphertextLen,
+                                                 keytype, keylen, phKey);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("Token specific ML-KEM encapsulate failed.\n");
+        return rc;
+    }
+
+    return CKR_OK;
+}
+
+CK_RV ml_kem_decapsulate_key(STDLL_TokData_t *tokdata, SESSION *sess,
+                             CK_MECHANISM *mech, OBJECT *private_key,
+                             CK_ATTRIBUTE *pTemplate, CK_ULONG ulAttributeCount,
+                             CK_BYTE *pCiphertext, CK_ULONG ulCiphertextLen,
+                             CK_OBJECT_HANDLE *phKey)
+{
+    CK_OBJECT_CLASS class;
+    CK_KEY_TYPE keytype;
+    CK_ULONG keylen;
+    const struct pqc_oid *oid;
+    CK_RV rc;
+
+    if (token_specific.t_ml_kem_decapsulate_key == NULL) {
+        TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
+        return CKR_MECHANISM_INVALID;
+    }
+
+    rc = template_attribute_get_ulong(private_key->template, CKA_CLASS, &class);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_CLASS for the key.\n");
+        return rc;
+    }
+
+    if (class != CKO_PRIVATE_KEY) {
+        TRACE_ERROR("This operation requires a private key.\n");
+        return CKR_KEY_FUNCTION_NOT_PERMITTED;
+    }
+
+    rc = template_attribute_get_ulong(private_key->template, CKA_KEY_TYPE,
+                                      &keytype);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_KEY_TYPE for the key.\n");
+        return rc;
+    }
+
+    switch (mech->mechanism) {
+    case CKM_ML_KEM:
+        if (keytype != CKK_ML_KEM) {
+            TRACE_ERROR("This operation requires a ML-KEM key.\n");
+            return CKR_KEY_FUNCTION_NOT_PERMITTED;
+        }
+
+        if (mech->ulParameterLen != 0 || mech->pParameter != NULL) {
+            TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
+            return CKR_MECHANISM_PARAM_INVALID;
+        }
+        break;
+    default:
+        TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
+        return CKR_MECHANISM_INVALID;
+    }
+
+    oid = pqc_get_keyform_mode(private_key->template, mech->mechanism);
+    if (oid == NULL) {
+        TRACE_DEVEL("No keyform/mode found in key object\n");
+        return CKR_TEMPLATE_INCOMPLETE;
+    }
+
+    rc = ml_kem_get_key_type_key_len(pTemplate, ulAttributeCount,
+                                     &keytype, &keylen);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("ml_kem_get_key_type_key_len failed.\n");
+        return rc;
+    }
+
+    rc = token_specific.t_ml_kem_decapsulate_key(tokdata, sess,
+                                                 oid, mech, private_key,
+                                                 pTemplate, ulAttributeCount,
+                                                 pCiphertext, ulCiphertextLen,
+                                                 keytype, keylen, phKey);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("Token specific ML-KEM decapsulate failed.\n");
+        return rc;
+    }
+
+    return CKR_OK;
+}
+
 #define PACK_PART(attr, explen, buf, buflen, ofs)                       \
     if ((attr)->ulValueLen != (explen)) {                               \
         TRACE_ERROR("Key part #attr length not as expected\n");         \
