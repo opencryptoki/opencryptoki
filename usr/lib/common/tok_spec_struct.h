@@ -335,6 +335,20 @@ struct token_specific_struct {
                                        const struct pqc_oid *,
                                        TEMPLATE *, TEMPLATE *);
 
+    CK_RV (*t_ml_kem_encapsulate_key)(STDLL_TokData_t *, SESSION *, CK_BBOOL,
+                                      const struct pqc_oid *, CK_MECHANISM *,
+                                      OBJECT *, CK_ATTRIBUTE *, CK_ULONG,
+                                      CK_BYTE *, CK_ULONG *,
+                                      CK_KEY_TYPE, CK_ULONG,
+                                      CK_OBJECT_HANDLE *);
+
+    CK_RV (*t_ml_kem_decapsulate_key)(STDLL_TokData_t *, SESSION *,
+                                      const struct pqc_oid *, CK_MECHANISM *,
+                                      OBJECT *, CK_ATTRIBUTE *, CK_ULONG,
+                                      CK_BYTE *, CK_ULONG,
+                                      CK_KEY_TYPE, CK_ULONG,
+                                      CK_OBJECT_HANDLE *);
+
     CK_RV(*t_get_mechanism_list) (STDLL_TokData_t *, CK_MECHANISM_TYPE_PTR,
                                   CK_ULONG_PTR);
     CK_RV(*t_get_mechanism_info) (STDLL_TokData_t *, CK_MECHANISM_TYPE,

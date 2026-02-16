@@ -1025,6 +1025,19 @@ CK_RV ml_dsa_translate_hash_sign_mech_param_from_sign(
                             CK_HASH_SIGN_ADDITIONAL_CONTEXT *to,
                             CK_MECHANISM_TYPE hash_mech);
 
+CK_RV ml_kem_encapsulate_key(STDLL_TokData_t *tokdata, SESSION *sess,
+                             CK_BBOOL length_only, CK_MECHANISM *mech,
+                             OBJECT *public_key,
+                             CK_ATTRIBUTE *pTemplate, CK_ULONG ulAttributeCount,
+                             CK_BYTE *pCiphertext, CK_ULONG *pulCiphertextLen,
+                             CK_OBJECT_HANDLE *phKey);
+
+CK_RV ml_kem_decapsulate_key(STDLL_TokData_t *tokdata, SESSION *sess,
+                             CK_MECHANISM *mech, OBJECT *private_key,
+                             CK_ATTRIBUTE *pTemplate, CK_ULONG ulAttributeCount,
+                             CK_BYTE *pCiphertext, CK_ULONG ulCiphertextLen,
+                             CK_OBJECT_HANDLE *phKey);
+
 CK_RV digest_from_kdf(CK_EC_KDF_TYPE kdf, CK_MECHANISM_TYPE *mech);
 CK_RV get_digest_from_mech(CK_MECHANISM_TYPE mech, CK_MECHANISM_TYPE *digest);
 

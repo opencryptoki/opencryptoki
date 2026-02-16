@@ -380,6 +380,22 @@ CK_RV token_specific_ml_kem_generate_keypair(STDLL_TokData_t *,
                                              const struct pqc_oid *,
                                              TEMPLATE *, TEMPLATE *);
 
+CK_RV token_specific_ml_kem_encapsulate_key(STDLL_TokData_t *, SESSION *,
+                                            CK_BBOOL, const struct pqc_oid *,
+                                            CK_MECHANISM *, OBJECT *,
+                                            CK_ATTRIBUTE *, CK_ULONG,
+                                            CK_BYTE *, CK_ULONG *,
+                                            CK_KEY_TYPE, CK_ULONG,
+                                            CK_OBJECT_HANDLE *);
+
+CK_RV token_specific_ml_kem_decapsulate_key(STDLL_TokData_t *, SESSION *,
+                                            const struct pqc_oid *,
+                                            CK_MECHANISM *, OBJECT *,
+                                            CK_ATTRIBUTE *, CK_ULONG,
+                                            CK_BYTE *, CK_ULONG,
+                                            CK_KEY_TYPE, CK_ULONG,
+                                            CK_OBJECT_HANDLE *);
+
 CK_RV token_specific_get_mechanism_list(STDLL_TokData_t *,
                                         CK_MECHANISM_TYPE_PTR pMechanismList,
                                         CK_ULONG_PTR pulCount);
