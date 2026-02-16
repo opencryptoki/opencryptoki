@@ -20,6 +20,7 @@ testcases/crypto/ec_tests
 testcases/crypto/ibm_ml_dsa_tests
 testcases/crypto/ibm_ml_kem_tests
 testcases/crypto/ml_dsa_tests
+testcases/crypto/ml_kem_tests
 testcases/crypto/rsa_tests
 testcases/crypto/rsaupdate_tests
 testcases/crypto/ssl3_tests
