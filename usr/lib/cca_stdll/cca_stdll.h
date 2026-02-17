@@ -346,6 +346,9 @@ struct cca_mk_change_op {
 #define AES_KEY_MODE_DATA           0
 #define AES_KEY_MODE_CIPHER         1
 
+#define ML_DSA_KEY_MODE_PURE        0
+#define ML_DSA_KEY_MODE_PREHASH     1
+
 struct cca_version {
     unsigned int ver;
     unsigned int rel;
@@ -382,6 +385,7 @@ struct cca_private_data {
     int msa_level;
     CK_BBOOL cka_sensitive_default_true;
     int aes_key_mode;
+    int ml_dsa_key_mode;
     pthread_rwlock_t acp_info_rwlock;
     struct cca_acp_info acp_info;
 };

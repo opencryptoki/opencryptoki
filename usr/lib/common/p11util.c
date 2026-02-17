@@ -258,6 +258,7 @@ const char *p11_get_cka(CK_ATTRIBUTE_TYPE atype)
         _sym2str(CKA_IBM_ML_KEM_SK);
         _sym2str(CKA_IBM_ML_KEM_PRIVATE_SEED);
         _sym2str(CKA_IBM_CCA_AES_KEY_MODE);
+        _sym2str(CKA_IBM_CCA_ML_DSA_KEY_MODE);
         _sym2str(CKA_IBM_PARAMETER_SET);
     default:
         sprintf(buf, "unknown attribute type 0x%08lx", atype);
