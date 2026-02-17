@@ -7010,6 +7010,8 @@ CK_RV ml_dsa_publ_validate_attribute(STDLL_TokData_t *tokdata,
                                      CK_ULONG mode)
 {
     CK_RV rc;
+    extern const char manuf[];
+    extern const char model[];
 
     switch (attr->type) {
     case CKA_PARAMETER_SET:
@@ -7022,6 +7024,40 @@ CK_RV ml_dsa_publ_validate_attribute(STDLL_TokData_t *tokdata,
             return CKR_OK;
         TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_READ_ONLY));
         return CKR_ATTRIBUTE_READ_ONLY;
+    case CKA_IBM_CCA_ML_DSA_KEY_MODE:
+        if (strcmp(manuf, "IBM") != 0 || strcmp(model, "CCA") != 0) {
+            TRACE_ERROR("%s (only valid for the CCA token)\n",
+                        ock_err(ERR_ATTRIBUTE_TYPE_INVALID));
+            return CKR_ATTRIBUTE_TYPE_INVALID;
+        }
+        /*
+         * CKA_IBM_CCA_ML_DSA_KEY_MODE can not be specified for the public key,
+         * but only for the private key when generating a ML-DSA key pair
+         * (MODE_KEYGEN). Nevertheless, both generated keys, private and public
+         * key, get the CKA_IBM_CCA_ML_DSA_KEY_MODE attribute with the same
+         * value.
+         * For other modes, only the public key is created/derived/etc, and
+         * thus attribute CKA_IBM_CCA_ML_DSA_KEY_MODE can be specified here.
+         */
+        if (mode == MODE_CREATE || mode == MODE_DERIVE ||
+            mode == MODE_UNWRAP ||mode == MODE_ENCAPS ||
+            mode == MODE_DECAPS) {
+            if (attr->ulValueLen != sizeof(CK_IBM_CCA_AES_KEY_MODE_TYPE) ||
+                attr->pValue == NULL) {
+                TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
+                return CKR_ATTRIBUTE_VALUE_INVALID;
+            }
+            switch (*(CK_IBM_CCA_ML_DSA_KEY_MODE_TYPE *)attr->pValue) {
+            case CK_IBM_CCA_ML_DSA_PURE_KEY:
+            case CK_IBM_CCA_ML_DSA_PREHASH_KEY:
+                return CKR_OK;
+            default:
+                TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
+                return CKR_ATTRIBUTE_VALUE_INVALID;
+            }
+        }
+        TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_READ_ONLY));
+        return CKR_ATTRIBUTE_READ_ONLY;
     default:
         return publ_key_validate_attribute(tokdata, tmpl, attr, mode);
     }
@@ -7032,6 +7068,8 @@ CK_RV ml_dsa_priv_validate_attribute(STDLL_TokData_t *tokdata,
                                      CK_ULONG mode)
 {
     CK_RV rc;
+    extern const char manuf[];
+    extern const char model[];
 
     switch (attr->type) {
     case CKA_PARAMETER_SET:
@@ -7043,6 +7081,31 @@ CK_RV ml_dsa_priv_validate_attribute(STDLL_TokData_t *tokdata,
     case CKA_SEED:
         if (mode == MODE_CREATE)
             return CKR_OK;
+        TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_READ_ONLY));
+        return CKR_ATTRIBUTE_READ_ONLY;
+    case CKA_IBM_CCA_ML_DSA_KEY_MODE:
+        if (strcmp(manuf, "IBM") != 0 || strcmp(model, "CCA") != 0) {
+            TRACE_ERROR("%s (only valid for the CCA token)\n",
+                        ock_err(ERR_ATTRIBUTE_TYPE_INVALID));
+            return CKR_ATTRIBUTE_TYPE_INVALID;
+        }
+        if (mode == MODE_CREATE || mode == MODE_DERIVE ||
+            mode == MODE_KEYGEN || mode == MODE_UNWRAP ||
+            mode == MODE_ENCAPS || mode == MODE_DECAPS) {
+            if (attr->ulValueLen != sizeof(CK_IBM_CCA_AES_KEY_MODE_TYPE) ||
+                attr->pValue == NULL) {
+                TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
+                return CKR_ATTRIBUTE_VALUE_INVALID;
+            }
+            switch (*(CK_IBM_CCA_ML_DSA_KEY_MODE_TYPE *)attr->pValue) {
+            case CK_IBM_CCA_ML_DSA_PURE_KEY:
+            case CK_IBM_CCA_ML_DSA_PREHASH_KEY:
+                return CKR_OK;
+            default:
+                TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
+                return CKR_ATTRIBUTE_VALUE_INVALID;
+            }
+        }
         TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_READ_ONLY));
         return CKR_ATTRIBUTE_READ_ONLY;
     default:
