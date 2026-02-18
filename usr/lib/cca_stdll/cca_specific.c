@@ -326,6 +326,9 @@ static const MECH_LIST_ELEMENT cca_mech_list[] = {
     {CKM_IBM_ML_KEM_KEY_PAIR_GEN, {800, 1568, CKF_HW | CKF_GENERATE_KEY_PAIR}},
     {CKM_IBM_ML_KEM_WITH_ECDH, {800, 1568, CKF_HW | CKF_DERIVE}},
     {CKM_ML_DSA_KEY_PAIR_GEN, {1312, 2592, CKF_HW | CKF_GENERATE_KEY_PAIR}},
+    {CKM_ML_DSA, {1312, 2592, CKF_HW | CKF_SIGN | CKF_VERIFY}},
+    {CKM_HASH_ML_DSA, {1312, 2592, CKF_HW | CKF_SIGN | CKF_VERIFY}},
+    {CKM_HASH_ML_DSA_SHA512, {1312, 2592, CKF_HW | CKF_SIGN | CKF_VERIFY}},
     {CKM_RSA_AES_KEY_WRAP, {2048, 4096, CKF_HW | CKF_WRAP | CKF_UNWRAP}},
     {CKM_EC_EDWARDS_KEY_PAIR_GEN, {255, 448, CKF_HW | CKF_GENERATE_KEY_PAIR |
                                    CKF_EC_OID | CKF_EC_F_P | CKF_EC_COMPRESS}},
@@ -4794,6 +4797,9 @@ static CK_BBOOL cca_pqc_strength_supported(STDLL_TokData_t * tokdata,
     case CKM_IBM_ML_KEM_KEY_PAIR_GEN:
     case CKM_IBM_ML_KEM_WITH_ECDH:
     case CKM_ML_DSA_KEY_PAIR_GEN:
+    case CKM_ML_DSA:
+    case CKM_HASH_ML_DSA:
+    case CKM_HASH_ML_DSA_SHA512:
         required = &cca_v8_4;
         break;
     default:
@@ -7652,7 +7658,10 @@ static CK_BBOOL token_specific_filter_mechanism(STDLL_TokData_t *tokdata,
         break;
     case CKM_IBM_ML_DSA_KEY_PAIR_GEN:
     case CKM_IBM_ML_DSA:
-        rc = cca_pqc_strength_supported(tokdata, mechanism, CKP_IBM_ML_DSA_65);
+    case CKM_ML_DSA:
+    case CKM_HASH_ML_DSA:
+    case CKM_HASH_ML_DSA_SHA512:
+        rc = cca_pqc_strength_supported(tokdata, mechanism, CKP_ML_DSA_65);
         break;
     case CKM_IBM_ML_KEM_KEY_PAIR_GEN:
     case CKM_IBM_ML_KEM_WITH_ECDH:
@@ -10176,21 +10185,18 @@ static CK_RV token_create_pqc_privkey(CK_MECHANISM_TYPE mech,
         }
         break;
     case CKM_ML_DSA_KEY_PAIR_GEN:
-        /* Add SPKI as CKA_PUBLIC_KEY_INFO to private template */
+        /* Try to add SPKI as CKA_PUBLIC_KEY_INFO to private template */
         rc = pqc_publ_get_spki(priv_tmpl, CKK_ML_DSA, FALSE, &spki, &spki_len,
                                TRUE);
-        if (rc != CKR_OK) {
-            TRACE_ERROR("pqc_publ_get_spki failed\n");
-            return rc;
-        }
-
-        rc = build_update_attribute(priv_tmpl, CKA_PUBLIC_KEY_INFO,
-                                    spki, spki_len);
-        free(spki);
-        if (rc != CKR_OK) {
-            TRACE_ERROR("build_update_attribute for CKA_PUBLIC_KEY_INFO failed "
-                        "rv=0x%lx\n", rc);
-            return rc;
+        if (rc == CKR_OK) {
+            rc = build_update_attribute(priv_tmpl, CKA_PUBLIC_KEY_INFO,
+                                        spki, spki_len);
+            free(spki);
+            if (rc != CKR_OK) {
+                TRACE_ERROR("build_update_attribute for CKA_PUBLIC_KEY_INFO"
+                            " failed rv=0x%lx\n", rc);
+                return rc;
+            }
         }
         break;
     default:
@@ -10551,10 +10557,10 @@ CK_RV token_specific_ml_dsa_generate_keypair(STDLL_TokData_t *tokdata,
                                        publ_tmpl, priv_tmpl);
 }
 
-static CK_RV check_ibm_ml_dsa_data_len(STDLL_TokData_t *tokdata,
-                                       CK_MECHANISM_TYPE mech,
-                                       const struct pqc_oid *oid,
-                                       CK_ULONG in_data_len)
+static CK_RV check_ml_dsa_data_len(STDLL_TokData_t *tokdata,
+                                   CK_MECHANISM_TYPE mech,
+                                   const struct pqc_oid *oid,
+                                   CK_ULONG in_data_len)
 {
     struct cca_private_data *cca_private = tokdata->private_data;
     const struct cca_version cca_v8_0 = { .ver = 8, .rel = 0, .mod = 0 };
@@ -10605,22 +10611,24 @@ static CK_RV check_ibm_ml_dsa_data_len(STDLL_TokData_t *tokdata,
         break;
 
     case CKM_IBM_ML_DSA: /* CEX8 or later only */
+    case CKM_ML_DSA: /* CEX8 or later only */
+    case CKM_HASH_ML_DSA: /* CEX8 or later only */
         switch (oid->keyform) {
-        case CKP_IBM_ML_DSA_44:
+        case CKP_ML_DSA_44:
             if (in_data_len > CCA_MAX_CEX8_ML_DSA_44_DATA_LEN) {
                 TRACE_DEVEL("Input too large for ML-DSA keyform %lu\n",
                             oid->keyform);
                 return CKR_DATA_LEN_RANGE;
             }
             break;
-        case CKP_IBM_ML_DSA_65:
+        case CKP_ML_DSA_65:
             if (in_data_len > CCA_MAX_CEX8_ML_DSA_65_DATA_LEN) {
                 TRACE_DEVEL("Input too large for ML-DSA keyform %lu\n",
                             oid->keyform);
                 return CKR_DATA_LEN_RANGE;
             }
             break;
-        case CKP_IBM_ML_DSA_87:
+        case CKP_ML_DSA_87:
             if (in_data_len > CCA_MAX_CEX8_ML_DSA_87_DATA_LEN) {
                 TRACE_DEVEL("Input too large for ML-DSA keyform %lu\n",
                             oid->keyform);
@@ -10641,22 +10649,213 @@ static CK_RV check_ibm_ml_dsa_data_len(STDLL_TokData_t *tokdata,
     return CKR_OK;
 }
 
-CK_RV token_specific_ibm_ml_dsa_sign(STDLL_TokData_t *tokdata,
-                                     SESSION *sess,
-                                     CK_BBOOL length_only,
-                                     const struct pqc_oid *oid,
-                                     CK_MECHANISM *mech,
-                                     CK_BYTE *in_data,
-                                     CK_ULONG in_data_len,
-                                     CK_BYTE *signature,
-                                     CK_ULONG *signature_len,
-                                     OBJECT *key_obj)
+static CK_RV ccatok_ml_dsa_build_context_msg(CK_BYTE *in_data,
+                                             CK_ULONG in_data_len,
+                                             CK_BYTE *context,
+                                             CK_ULONG context_len,
+                                             CK_BYTE **context_msg,
+                                             CK_ULONG *context_msg_len)
+{
+    uint16_t ctx_len = htobe16(context_len);
+
+    if (context_len > 255) {
+        TRACE_ERROR("Context can only be up to 255 bytes\n");
+        return CKR_MECHANISM_PARAM_INVALID;
+    }
+
+    *context_msg_len = sizeof(ctx_len) + context_len + in_data_len;
+    *context_msg = malloc(*context_msg_len);
+    if (*context_msg == NULL) {
+        TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+        return CKR_HOST_MEMORY;
+    }
+
+    memcpy(*context_msg, &ctx_len, sizeof(ctx_len));
+    memcpy(*context_msg + sizeof(ctx_len), context, context_len);
+    memcpy(*context_msg + sizeof(ctx_len) + context_len, in_data, in_data_len);
+
+    return CKR_OK;
+}
+
+static CK_RV ccatok_ml_dsa_build_rule_array(CK_MECHANISM *mech,
+                                            CK_BBOOL sign,
+                                            OBJECT *key_obj,
+                                            unsigned char* rule_array,
+                                            long *rule_array_count,
+                                            CK_BYTE *in_data,
+                                            CK_ULONG in_data_len,
+                                            CK_BYTE **context_msg,
+                                            CK_ULONG *context_msg_len)
+{
+    CK_SIGN_ADDITIONAL_CONTEXT sign_param = { CKH_HEDGE_PREFERRED, NULL, 0 };
+    CK_MECHANISM_TYPE hash_mech = 0;
+    CK_IBM_CCA_ML_DSA_KEY_MODE_TYPE mode;
+    CK_RV rc;
+
+    /* Check if ML-DSA key mode fits to mechanism */
+    switch (mech->mechanism) {
+    case CKM_ML_DSA:
+    case CKM_HASH_ML_DSA:
+        rc = template_attribute_get_ulong(key_obj->template,
+                                          CKA_IBM_CCA_ML_DSA_KEY_MODE,
+                                          &mode);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("Could not find CKA_IBM_CCA_ML_DSA_KEY_MODE for "
+                        "the key.\n");
+            return rc;
+        }
+
+        if ((mech->mechanism == CKM_ML_DSA &&
+             mode == CK_IBM_CCA_ML_DSA_PREHASH_KEY) ||
+           (mech->mechanism == CKM_HASH_ML_DSA &&
+            mode == CK_IBM_CCA_ML_DSA_PURE_KEY)) {
+            TRACE_ERROR("The CCA key mode does not fit to the mechanism\n");
+            return CKR_KEY_TYPE_INCONSISTENT;
+        }
+        break;
+    default:
+        break;
+    }
+
+    /* Unify and translate mechanism parameter */
+    switch (mech->mechanism) {
+    case CKM_IBM_DILITHIUM:
+        break;
+
+    case CKM_IBM_ML_DSA:
+        if (mech->pParameter != NULL &&
+            mech->ulParameterLen != sizeof(CK_IBM_SIGN_ADDITIONAL_CONTEXT)) {
+            TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
+            return CKR_MECHANISM_PARAM_INVALID;
+        }
+
+        rc = ml_dsa_translate_sign_mech_param_from_ibm(mech->pParameter,
+                                                       &sign_param);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("ml_dsa_translate_sign_mech_param_from_ibm failed.\n");
+            return rc;
+        }
+        break;
+
+    case CKM_ML_DSA:
+        if (mech->pParameter != NULL &&
+            mech->ulParameterLen != sizeof(CK_SIGN_ADDITIONAL_CONTEXT)) {
+            TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
+            return CKR_MECHANISM_PARAM_INVALID;
+        }
+
+        if (mech->pParameter != NULL)
+            memcpy(&sign_param, mech->pParameter, sizeof(sign_param));
+        break;
+
+    case CKM_HASH_ML_DSA:
+        if (mech->pParameter == NULL ||
+            mech->ulParameterLen != sizeof(CK_HASH_SIGN_ADDITIONAL_CONTEXT)) {
+            TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
+            return CKR_MECHANISM_PARAM_INVALID;
+        }
+
+        rc = ml_dsa_translate_sign_mech_param_from_hash(mech->pParameter,
+                                                        &sign_param,
+                                                        &hash_mech);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("ml_dsa_translate_sign_mech_param_from_hash failed.\n");
+            return rc;
+        }
+        break;
+
+    default:
+        TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
+        return CKR_MECHANISM_INVALID;
+    }
+
+    /* Setup rule array according to mech */
+    switch (mech->mechanism) {
+    case CKM_IBM_DILITHIUM:
+    case CKM_IBM_ML_DSA:
+    case CKM_ML_DSA:
+        *rule_array_count = 3;
+        memcpy(rule_array, "CRDL-DSAMESSAGE CRDLHASH", CCA_KEYWORD_SIZE * 3);
+        break;
+    case CKM_HASH_ML_DSA:
+        *rule_array_count = 2;
+        memcpy(rule_array, "CRDL-DSAHASH    ", CCA_KEYWORD_SIZE * 2);
+
+        switch (hash_mech) {
+        case CKM_SHA512:
+            memcpy(rule_array + (*rule_array_count * CCA_KEYWORD_SIZE),
+                   "SHA-512 ", CCA_KEYWORD_SIZE);
+            (*rule_array_count)++;
+            break;
+        default:
+            TRACE_ERROR("CCA only supports SHA-512 as prehash mechanism\n");
+            return CKR_MECHANISM_PARAM_INVALID;
+        }
+        break;
+    default:
+        break;
+    }
+
+    /* Process hedge type (for sign only) and context */
+    switch (mech->mechanism) {
+    case CKM_IBM_ML_DSA:
+    case CKM_ML_DSA:
+    case CKM_HASH_ML_DSA:
+        if (sign) {
+            switch (sign_param.hedgeVariant) {
+            case CKH_HEDGE_PREFERRED:
+            case CKH_HEDGE_REQUIRED:
+                memcpy(rule_array + (*rule_array_count * CCA_KEYWORD_SIZE),
+                       "NONDETER", CCA_KEYWORD_SIZE);
+                (*rule_array_count)++;
+                break;
+            case CKH_DETERMINISTIC_REQUIRED:
+                memcpy(rule_array + (*rule_array_count * CCA_KEYWORD_SIZE),
+                       "DETER   ", CCA_KEYWORD_SIZE);
+                (*rule_array_count)++;
+                break;
+            default:
+                TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
+                return CKR_MECHANISM_PARAM_INVALID;
+            }
+        }
+
+        if (sign_param.pContext != NULL && sign_param.ulContextLen > 0) {
+            rc = ccatok_ml_dsa_build_context_msg(in_data, in_data_len,
+                                                 sign_param.pContext,
+                                                 sign_param.ulContextLen,
+                                                 context_msg, context_msg_len);
+            if (rc != CKR_OK) {
+                TRACE_ERROR("ccatok_ml_dsa_build_context_msg failed.\n");
+                return rc;
+            }
+
+            memcpy(rule_array + (*rule_array_count * CCA_KEYWORD_SIZE),
+                   "CONTEXT ", CCA_KEYWORD_SIZE);
+            (*rule_array_count)++;
+        }
+        break;
+    default:
+        break;
+    }
+
+    return CKR_OK;
+}
+
+static CK_RV ccatok_ml_dsa_sign(STDLL_TokData_t *tokdata, SESSION *sess,
+                                CK_BBOOL length_only, const struct pqc_oid *oid,
+                                CK_MECHANISM *mech,
+                                CK_BYTE *in_data, CK_ULONG in_data_len,
+                                CK_BYTE *signature, CK_ULONG *signature_len,
+                                OBJECT *key_obj, CK_BBOOL final_part)
 {
     long return_code, reason_code, rule_array_count;
     unsigned char rule_array[CCA_RULE_ARRAY_SIZE] = { 0, };
     long signature_bit_length;
     CK_ATTRIBUTE *attr;
-    CK_IBM_SIGN_ADDITIONAL_CONTEXT *sign_param = mech->pParameter;
+    CK_BYTE *context_msg = NULL;
+    CK_ULONG context_msg_len;
+    CK_BYTE *tmp;
     CK_RV rc;
 
     UNUSED(sess);
@@ -10672,50 +10871,68 @@ CK_RV token_specific_ibm_ml_dsa_sign(STDLL_TokData_t *tokdata,
         return CKR_KEY_SIZE_RANGE;
     }
 
-    rc = check_ibm_ml_dsa_data_len(tokdata, mech->mechanism, oid, in_data_len);
+    if (mech->mechanism == CKM_HASH_ML_DSA && !final_part) {
+        /* CKM_HASH_ML_DSA does not support multipart */
+        TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
+        return CKR_MECHANISM_INVALID;
+    }
+
+    if (!final_part ||
+        (mech->mechanism == CKM_ML_DSA && sess->sign_ctx.context != NULL &&
+         in_data_len > 0)) {
+        /* Collect the input data in the context */
+        if (in_data_len == 0)
+            return CKR_OK;
+
+        tmp = (CK_BYTE *)realloc(sess->sign_ctx.context,
+                                 sess->sign_ctx.context_len + in_data_len);
+        if (tmp == NULL) {
+            TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+            return CKR_HOST_MEMORY;
+        }
+
+        memcpy(tmp + sess->sign_ctx.context_len, in_data, in_data_len);
+
+        sess->sign_ctx.context = tmp;
+        sess->sign_ctx.context_len += in_data_len;
+
+        if (!final_part)
+            return CKR_OK;
+    }
+
+    if (mech->mechanism == CKM_ML_DSA &&
+        sess->sign_ctx.context != NULL && sess->sign_ctx.context_len > 0) {
+        in_data = sess->sign_ctx.context;
+        in_data_len = sess->sign_ctx.context_len;
+    }
+
+    rc = check_ml_dsa_data_len(tokdata, mech->mechanism, oid, in_data_len);
     if (rc != CKR_OK)
         return rc;
+
+    rc = ccatok_ml_dsa_build_rule_array(mech, TRUE, key_obj,
+                                        rule_array, &rule_array_count,
+                                        in_data, in_data_len,
+                                        &context_msg, &context_msg_len);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("ccatok_ml_dsa_build_rule_array failed.\n");
+        return rc;
+    }
 
     /* Find the secure key token */
     rc = template_attribute_get_non_empty(key_obj->template, CKA_IBM_OPAQUE,
                                           &attr);
     if (rc != CKR_OK) {
         TRACE_ERROR("Could not find CKA_IBM_OPAQUE for the key.\n");
+        if (context_msg != NULL)
+            free(context_msg);
         return rc;
-    }
-
-    rule_array_count = 3;
-    memcpy(rule_array, "CRDL-DSAMESSAGE CRDLHASH", CCA_KEYWORD_SIZE * 3);
-
-    switch (mech->mechanism) {
-    case CKM_IBM_ML_DSA:
-        if (mech->pParameter == NULL ||
-            mech->ulParameterLen != sizeof(CK_IBM_SIGN_ADDITIONAL_CONTEXT))
-            break;
-
-        if (sign_param->pContext != NULL && sign_param->ulContextLen != 0) {
-            TRACE_ERROR("CCA does not support ML-DSA with context\n");
-            return CKR_MECHANISM_PARAM_INVALID;
-        }
-
-        switch (sign_param->hedgeVariant) {
-        case CKH_IBM_HEDGE_PREFERRED:
-        case CKH_IBM_HEDGE_REQUIRED:
-            memcpy(rule_array + (rule_array_count * CCA_KEYWORD_SIZE),
-                   "NONDETER", CCA_KEYWORD_SIZE);
-            rule_array_count++;
-            break;
-        case CKH_IBM_DETERMINISTIC_REQUIRED:
-            memcpy(rule_array + (rule_array_count * CCA_KEYWORD_SIZE),
-                   "DETER   ", CCA_KEYWORD_SIZE);
-            rule_array_count++;
-            break;
-        }
-        break;
     }
 
     if (length_only) {
         *signature_len = CCA_MAX_ML_DSA_SIGNATURE_LEN;
+        if (context_msg != NULL)
+            free(context_msg);
         return CKR_OK;
     }
 
@@ -10732,12 +10949,17 @@ CK_RV token_specific_ibm_ml_dsa_sign(STDLL_TokData_t *tokdata,
                     rule_array,
                     (long *)&(attr->ulValueLen),
                     attr->pValue,
-                    (long *)&in_data_len,
-                    in_data,
+                    (long *)(context_msg != NULL ?
+                            &context_msg_len : &in_data_len),
+                    context_msg != NULL ?
+                            context_msg : in_data,
                     (long *)signature_len, &signature_bit_length, signature);
     RETRY_NEW_MK_BLOB_END(tokdata, return_code, reason_code,
                           attr->pValue, attr->ulValueLen)
     USE_CCA_ADAPTER_END(tokdata, return_code, reason_code)
+
+    if (context_msg != NULL)
+        free(context_msg);
 
     if (return_code != CCA_SUCCESS) {
         TRACE_ERROR("CSNDDSG (QSA SIGN) failed. return:%ld,"
@@ -10748,22 +10970,27 @@ CK_RV token_specific_ibm_ml_dsa_sign(STDLL_TokData_t *tokdata,
                       " returned reason:%ld\n", reason_code);
     }
 
+    if (final_part && sess->sign_ctx.context != NULL) {
+        free(sess->sign_ctx.context);
+        sess->sign_ctx.context = NULL;
+        sess->sign_ctx.context_len = 0;
+    }
+
     return CKR_OK;
 }
 
-CK_RV token_specific_ibm_ml_dsa_verify(STDLL_TokData_t *tokdata,
-                                       SESSION *sess,
-                                       const struct pqc_oid *oid,
-                                       CK_MECHANISM *mech,
-                                       CK_BYTE *in_data,
-                                       CK_ULONG in_data_len,
-                                       CK_BYTE *signature,
-                                       CK_ULONG signature_len,
-                                       OBJECT *key_obj)
+static CK_RV ccatok_ml_dsa_verify(STDLL_TokData_t *tokdata, SESSION *sess,
+                                  const struct pqc_oid *oid, CK_MECHANISM *mech,
+                                  CK_BYTE *in_data, CK_ULONG in_data_len,
+                                  CK_BYTE *signature, CK_ULONG signature_len,
+                                  OBJECT *key_obj, CK_BBOOL final_part)
 {
     long return_code, reason_code, rule_array_count;
     unsigned char rule_array[CCA_RULE_ARRAY_SIZE] = { 0, };
     CK_ATTRIBUTE *attr;
+    CK_BYTE *context_msg = NULL;
+    CK_ULONG context_msg_len;
+    CK_BYTE *tmp;
     CK_RV rc;
 
     UNUSED(sess);
@@ -10779,20 +11006,63 @@ CK_RV token_specific_ibm_ml_dsa_verify(STDLL_TokData_t *tokdata,
         return CKR_KEY_SIZE_RANGE;
     }
 
-    rc = check_ibm_ml_dsa_data_len(tokdata, mech->mechanism, oid, in_data_len);
+    if (mech->mechanism == CKM_HASH_ML_DSA && !final_part) {
+        /* CKM_HASH_ML_DSA does not support multipart */
+        TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
+        return CKR_MECHANISM_INVALID;
+    }
+
+    if (!final_part ||
+        (mech->mechanism == CKM_ML_DSA && sess->verify_ctx.context != NULL &&
+         in_data_len > 0)) {
+        /* Collect the input data in the context */
+        if (in_data_len == 0)
+            return CKR_OK;
+
+        tmp = (CK_BYTE *)realloc(sess->verify_ctx.context,
+                                 sess->verify_ctx.context_len + in_data_len);
+        if (tmp == NULL) {
+            TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+            return CKR_HOST_MEMORY;
+        }
+
+        memcpy(tmp + sess->verify_ctx.context_len, in_data, in_data_len);
+
+        sess->verify_ctx.context = tmp;
+        sess->verify_ctx.context_len += in_data_len;
+
+        if (!final_part)
+            return CKR_OK;
+    }
+
+    if (mech->mechanism == CKM_ML_DSA &&
+        sess->verify_ctx.context != NULL && sess->verify_ctx.context_len > 0) {
+        in_data = sess->verify_ctx.context;
+        in_data_len = sess->verify_ctx.context_len;
+    }
+
+    rc = check_ml_dsa_data_len(tokdata, mech->mechanism, oid, in_data_len);
     if (rc != CKR_OK)
         return rc;
+
+    rc = ccatok_ml_dsa_build_rule_array(mech, FALSE, key_obj,
+                                        rule_array, &rule_array_count,
+                                        in_data, in_data_len,
+                                        &context_msg, &context_msg_len);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("ccatok_ml_dsa_build_rule_array failed.\n");
+        return rc;
+    }
 
     /* Find the secure key token */
     rc = template_attribute_get_non_empty(key_obj->template, CKA_IBM_OPAQUE,
                                           &attr);
     if (rc != CKR_OK) {
         TRACE_ERROR("Could not find CKA_IBM_OPAQUE for the key.\n");
+        if (context_msg != NULL)
+            free(context_msg);
         return rc;
     }
-
-    rule_array_count = 3;
-    memcpy(rule_array, "CRDL-DSAMESSAGE CRDLHASH", CCA_KEYWORD_SIZE * 3);
 
     USE_CCA_ADAPTER_START(tokdata, return_code, reason_code)
     RETRY_NEW_MK_BLOB_START()
@@ -10804,11 +11074,17 @@ CK_RV token_specific_ibm_ml_dsa_verify(STDLL_TokData_t *tokdata,
                     rule_array,
                     (long *)&(attr->ulValueLen),
                     attr->pValue,
-                    (long *)&in_data_len,
-                    in_data, (long *)&signature_len, signature);
+                    (long *)(context_msg != NULL ?
+                            &context_msg_len : &in_data_len),
+                    context_msg != NULL ?
+                            context_msg : in_data,
+                    (long *)&signature_len, signature);
     RETRY_NEW_MK_BLOB_END(tokdata, return_code, reason_code,
                           attr->pValue, attr->ulValueLen)
     USE_CCA_ADAPTER_END(tokdata, return_code, reason_code)
+
+    if (context_msg != NULL)
+        free(context_msg);
 
     if (return_code == 4 && reason_code == 429) {
         return CKR_SIGNATURE_INVALID;
@@ -10823,7 +11099,77 @@ CK_RV token_specific_ibm_ml_dsa_verify(STDLL_TokData_t *tokdata,
                       " returned reason:%ld\n", reason_code);
     }
 
+    if (final_part && sess->verify_ctx.context != NULL) {
+        free(sess->verify_ctx.context);
+        sess->verify_ctx.context = NULL;
+        sess->verify_ctx.context_len = 0;
+    }
+
     return CKR_OK;
+}
+
+CK_RV token_specific_ibm_ml_dsa_sign(STDLL_TokData_t *tokdata,
+                                     SESSION *sess,
+                                     CK_BBOOL length_only,
+                                     const struct pqc_oid *oid,
+                                     CK_MECHANISM *mech,
+                                     CK_BYTE *in_data,
+                                     CK_ULONG in_data_len,
+                                     CK_BYTE *signature,
+                                     CK_ULONG *signature_len,
+                                     OBJECT *key_obj)
+{
+    return ccatok_ml_dsa_sign(tokdata, sess, length_only, oid, mech,
+                              in_data, in_data_len, signature, signature_len,
+                              key_obj, TRUE);
+}
+
+CK_RV token_specific_ibm_ml_dsa_verify(STDLL_TokData_t *tokdata,
+                                       SESSION *sess,
+                                       const struct pqc_oid *oid,
+                                       CK_MECHANISM *mech,
+                                       CK_BYTE *in_data,
+                                       CK_ULONG in_data_len,
+                                       CK_BYTE *signature,
+                                       CK_ULONG signature_len,
+                                       OBJECT *key_obj)
+{
+    return ccatok_ml_dsa_verify(tokdata, sess, oid, mech,
+                                in_data, in_data_len, signature, signature_len,
+                                key_obj, TRUE);
+}
+
+CK_RV token_specific_ml_dsa_sign(STDLL_TokData_t *tokdata,
+                                 SESSION *sess,
+                                 CK_BBOOL length_only,
+                                 const struct pqc_oid *oid,
+                                 CK_MECHANISM *mech,
+                                 CK_BYTE *in_data,
+                                 CK_ULONG in_data_len,
+                                 CK_BYTE *signature,
+                                 CK_ULONG *signature_len,
+                                 OBJECT *key_obj,
+                                 CK_BBOOL final_part)
+{
+    return ccatok_ml_dsa_sign(tokdata, sess, length_only, oid, mech,
+                              in_data, in_data_len, signature, signature_len,
+                              key_obj, final_part);
+}
+
+CK_RV token_specific_ml_dsa_verify(STDLL_TokData_t *tokdata,
+                                   SESSION *sess,
+                                   const struct pqc_oid *oid,
+                                   CK_MECHANISM *mech,
+                                   CK_BYTE *in_data,
+                                   CK_ULONG in_data_len,
+                                   CK_BYTE *signature,
+                                   CK_ULONG signature_len,
+                                   OBJECT *key_obj,
+                                   CK_BBOOL final_part)
+{
+    return ccatok_ml_dsa_verify(tokdata, sess, oid, mech,
+                                in_data, in_data_len, signature, signature_len,
+                                key_obj, final_part);
 }
 
 CK_RV token_specific_ibm_ml_kem_generate_keypair(STDLL_TokData_t *tokdata,
@@ -13431,7 +13777,9 @@ static CK_RV build_pqc_import_key_value_struct(
     uint8_t clear_format;
     uint16_t clear_len;
     long ofs = *key_value_structure_length;
+#if OPENSSL_VERSION_PREREQ(3, 0)
     CK_ATTRIBUTE val_attr = { 0, NULL, 0 };
+#endif
     CK_ULONG len;
 
     rc = build_pqc_key_value_struct(mech, mode, oid, key_value_structure, &ofs);
