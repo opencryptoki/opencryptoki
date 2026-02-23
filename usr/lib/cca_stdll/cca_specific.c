@@ -311,7 +311,8 @@ static const MECH_LIST_ELEMENT cca_mech_list[] = {
                           CKF_EC_OID | CKF_EC_F_P | CKF_EC_UNCOMPRESS |
                           CKF_EC_COMPRESS}},
     {CKM_ECDH1_DERIVE, {160, 521, CKF_DERIVE | CKF_EC_OID | CKF_EC_F_P |
-                        CKF_EC_UNCOMPRESS | CKF_EC_COMPRESS}},
+                        CKF_EC_UNCOMPRESS | CKF_EC_COMPRESS | CKF_ENCAPSULATE |
+                        CKF_DECAPSULATE}},
     {CKM_GENERIC_SECRET_KEY_GEN, {80, 2048, CKF_HW | CKF_GENERATE}},
     {CKM_SHA_1_KEY_GEN, {80, 2048, CKF_HW | CKF_GENERATE}},
     {CKM_SHA224_KEY_GEN, {80, 2048, CKF_HW | CKF_GENERATE}},
@@ -7915,38 +7916,38 @@ CK_RV token_create_ec_keypair(TEMPLATE * publ_tmpl,
     return CKR_OK;
 }
 
-static CK_RV ccatok_get_key_info_from_derive_template(TEMPLATE *priv_tmpl,
-                                                      CK_KEY_TYPE *key_type,
-                                                      CK_ULONG *value_len,
+static CK_RV ccatok_get_key_info_from_template_attr(TEMPLATE *priv_tmpl,
+                                                    CK_ATTRIBUTE_TYPE attr_type,
+                                                    CK_KEY_TYPE *key_type,
+                                                    CK_ULONG *value_len,
                                       CK_IBM_CCA_AES_KEY_MODE_TYPE *key_mode)
 {
-    CK_ATTRIBUTE *derive_tmpl_attr = NULL;
+    CK_ATTRIBUTE *tmpl_attr = NULL;
     CK_RV rv;
 
     *key_type = (CK_ULONG)-1;
     *value_len = 0;
     *key_mode = (CK_ULONG)-1;
 
-    if (template_attribute_find(priv_tmpl, CKA_DERIVE_TEMPLATE,
-                                &derive_tmpl_attr) != TRUE)
+    if (template_attribute_find(priv_tmpl, attr_type, &tmpl_attr) != TRUE)
         return CKR_OK;
 
-    rv = get_ulong_attribute_by_type((CK_ATTRIBUTE_PTR)derive_tmpl_attr->pValue,
-                                     derive_tmpl_attr->ulValueLen /
+    rv = get_ulong_attribute_by_type((CK_ATTRIBUTE_PTR)tmpl_attr->pValue,
+                                     tmpl_attr->ulValueLen /
                                                          sizeof(CK_ATTRIBUTE),
                                      CKA_KEY_TYPE, key_type);
     if (rv != CKR_OK && rv != CKR_TEMPLATE_INCOMPLETE)
         return rv;
 
-    rv = get_ulong_attribute_by_type((CK_ATTRIBUTE_PTR)derive_tmpl_attr->pValue,
-                                     derive_tmpl_attr->ulValueLen /
+    rv = get_ulong_attribute_by_type((CK_ATTRIBUTE_PTR)tmpl_attr->pValue,
+                                     tmpl_attr->ulValueLen /
                                                 sizeof(CK_ATTRIBUTE),
                                      CKA_VALUE_LEN, value_len);
     if (rv != CKR_OK && rv != CKR_TEMPLATE_INCOMPLETE)
         return rv;
 
-    rv = get_ulong_attribute_by_type((CK_ATTRIBUTE_PTR)derive_tmpl_attr->pValue,
-                                     derive_tmpl_attr->ulValueLen /
+    rv = get_ulong_attribute_by_type((CK_ATTRIBUTE_PTR)tmpl_attr->pValue,
+                                     tmpl_attr->ulValueLen /
                                                 sizeof(CK_ATTRIBUTE),
                                      CKA_IBM_CCA_AES_KEY_MODE, key_mode);
     if (rv != CKR_OK && rv != CKR_TEMPLATE_INCOMPLETE)
@@ -7955,9 +7956,76 @@ static CK_RV ccatok_get_key_info_from_derive_template(TEMPLATE *priv_tmpl,
     return CKR_OK;
 }
 
+static CK_RV ccatok_get_key_info_from_template_attrs(TEMPLATE *priv_tmpl,
+                                                     CK_KEY_TYPE *key_type,
+                                                     CK_ULONG *value_len,
+                                      CK_IBM_CCA_AES_KEY_MODE_TYPE *key_mode)
+{
+    CK_ATTRIBUTE_TYPE tmpl_attr[2] = { CKA_DERIVE_TEMPLATE,
+                                       CKA_DECAPSULATE_TEMPLATE };
+    CK_KEY_TYPE tmpl_key_type[2] = { (CK_KEY_TYPE)-1,
+                                     (CK_KEY_TYPE)-1 };
+    CK_ULONG tmpl_value_len[2] = { 0, 0 };
+    CK_IBM_CCA_AES_KEY_MODE_TYPE tmpl_key_mode[2] =
+                                    { (CK_IBM_CCA_AES_KEY_MODE_TYPE)-1,
+                                      (CK_IBM_CCA_AES_KEY_MODE_TYPE)-1 };
+    CK_ULONG i;
+    CK_RV rc;
+
+    *key_type = (CK_KEY_TYPE)-1;
+    *value_len = 0;
+    *key_mode = (CK_IBM_CCA_AES_KEY_MODE_TYPE)-1;
+
+    for (i = 0; i < 2; i++) {
+        rc = ccatok_get_key_info_from_template_attr(priv_tmpl, tmpl_attr[i],
+                                                    &tmpl_key_type[i],
+                                                    &tmpl_value_len[i],
+                                                    &tmpl_key_mode[i]);
+        if (rc != CKR_OK)
+            return rc;
+    }
+
+    for (i = 0; i < 2; i++) {
+        if (tmpl_key_type[i] != (CK_KEY_TYPE)-1) {
+            if (*key_type == (CK_KEY_TYPE)-1) {
+                *key_type = tmpl_key_type[i];
+            } else if (*key_type != tmpl_key_type[i]) {
+                TRACE_ERROR("CKA_KEY_TYPE is inconsistent in template attrs "
+                            "CKA_DERIVE_TEMPLATE, CKA_DECAPSULATE_TEMPLATE\n");
+                return CKR_TEMPLATE_INCONSISTENT;
+            }
+        }
+
+        if (tmpl_value_len[i] != 0) {
+            if (*value_len == 0) {
+                *value_len = tmpl_value_len[i];
+            } else if (*value_len != tmpl_value_len[i]) {
+                TRACE_ERROR("CKA_VALUE_LEN is inconsistent in template attrs "
+                            "CKA_DERIVE_TEMPLATE, CKA_DECAPSULATE_TEMPLATE\n");
+
+                return CKR_TEMPLATE_INCONSISTENT;
+            }
+        }
+
+        if (tmpl_key_mode[i] != (CK_IBM_CCA_AES_KEY_MODE_TYPE)-1) {
+            if (*key_mode == (CK_IBM_CCA_AES_KEY_MODE_TYPE)-1) {
+                *key_mode = tmpl_key_mode[i];
+            } else if (*key_mode != tmpl_key_mode[i]) {
+                TRACE_ERROR("CKA_IBM_CCA_AES_KEY_MODE is inconsistent in "
+                            "template attrs CKA_DERIVE_TEMPLATE, "
+                            "CKA_DECAPSULATE_TEMPLATE\n");
+                return CKR_TEMPLATE_INCONSISTENT;
+            }
+        }
+    }
+
+    return CKR_OK;
+}
+
 /*
- * Try to get derive key type and size for CKA_DERIVE_TEMPLATE.
- * If CKA_DERIVE_TEMPLATE is not available, or it does not contain attribute
+ * Try to get derive key type and size from CKA_DERIVE_TEMPLATE or
+ * CKA_DECAPSULATE_TEMPLATE. If neither CKA_DERIVE_TEMPLATE nor
+ * CKA_DECAPSULATE_TEMPLATE is not available, or they do not contain attribute
  * CKA_KEY_TYPE, then the default is AES-256.
  * If CKA_KEY_TYPE is contained and is CKK_AES, it also checks if attribute
  * CKA_VALUE_LEN is contained and specifies a valid AES key size.
@@ -7992,9 +8060,9 @@ static CK_RV ccatok_build_ec_derive_info(STDLL_TokData_t *tokdata,
     derive_info->key_algorithm = CCA_AES_KEY;
     derive_info->key_size = 256;
 
-    rv = ccatok_get_key_info_from_derive_template(priv_tmpl,
-                                                  &key_type, &value_len,
-                                                  &key_mode);
+    rv = ccatok_get_key_info_from_template_attrs(priv_tmpl,
+                                                 &key_type, &value_len,
+                                                 &key_mode);
     if (rv != CKR_OK)
         return rv;
 
@@ -8030,8 +8098,8 @@ static CK_RV ccatok_build_ec_derive_info(STDLL_TokData_t *tokdata,
         }
         break;
     default:
-        TRACE_ERROR("CCA does not support to derive keys of type 0x%lx as "
-                    "DATA keys\n", key_type);
+        TRACE_ERROR("CCA does not support to derive/decaps keys of type "
+                    "0x%lx as DATA keys\n", key_type);
         return CKR_ATTRIBUTE_VALUE_INVALID;
     }
 
@@ -8041,11 +8109,12 @@ static CK_RV ccatok_build_ec_derive_info(STDLL_TokData_t *tokdata,
 static CK_RV ccatok_check_ec_derive_info(STDLL_TokData_t *tokdata, OBJECT *obj,
                                          TEMPLATE *new_tmpl)
 {
-    CK_ATTRIBUTE *opaque_attr, *derive_tmpl_attr = NULL;
+    CK_ATTRIBUTE *opaque_attr, *tmpl_attr = NULL;
     CK_IBM_CCA_AES_KEY_MODE_TYPE derive_key_mode;
     CK_KEY_TYPE derive_key_type;
     CK_ULONG derive_value_len;
     CK_BBOOL derive = FALSE;
+    CK_BBOOL decaps = FALSE;
     struct cca_key_derivation_data *ecc_info;
     CK_RV rc;
 
@@ -8061,9 +8130,10 @@ static CK_RV ccatok_check_ec_derive_info(STDLL_TokData_t *tokdata, OBJECT *obj,
     ecc_info = cca_ec_ecc_key_derivation_info(opaque_attr->pValue);
 
     rc = template_attribute_get_bool(new_tmpl, CKA_DERIVE, &derive);
-    if (rc == CKR_OK && derive == TRUE) {
+    rc |= template_attribute_get_bool(new_tmpl, CKA_DECAPSULATE, &decaps);
+    if (rc == CKR_OK && (derive == TRUE || decaps == TRUE)) {
         /*
-         * CKA_DERIVE of an ECC private key is set to TRUE.
+         * CKA_DERIVE or CKA_DECAPSULATE of an ECC private key is set to TRUE.
          * Check if the key has an ECC key derivation section (X'23').
          * This is required to be able to support ECDH key derivation.
          */
@@ -8076,45 +8146,47 @@ static CK_RV ccatok_check_ec_derive_info(STDLL_TokData_t *tokdata, OBJECT *obj,
         if (ecc_info->key_type != CCA_KEY_DERIVE_TYPE_DATA &&
             ecc_info->key_type != CCA_KEY_DERIVE_TYPE_CIPHER &&
             ecc_info->key_algorithm != CCA_AES_KEY) {
-            TRACE_ERROR("CCA can not derive keys other than AES DATA or "
+            TRACE_ERROR("CCA can not derive/decaps keys other than AES DATA or "
                         "AES CIPHER key tokens\n");
             return CKR_ATTRIBUTE_VALUE_INVALID;
         }
     }
 
     if (template_attribute_find(new_tmpl, CKA_DERIVE_TEMPLATE,
-                                &derive_tmpl_attr)) {
+                                &tmpl_attr) ||
+        template_attribute_find(new_tmpl, CKA_DECAPSULATE_TEMPLATE,
+                                &tmpl_attr)) {
         /*
-         * CKA_DERIVE_TEMPLATE is changed.
+         * CKA_DERIVE_TEMPLATE or CKA_DECAPSULATE_TEMPLATE is changed.
          * Check if the key has an ECC key derivation section (X'23'),
          * and if it matches the CKA_KEY_TYPE, CKA_VALUE_LEN and
-         * CKA_IBM_CCA_AES_KEY_MODE attributes in the derive template.
+         * CKA_IBM_CCA_AES_KEY_MODE attributes in these templates.
          */
-        rc = ccatok_get_key_info_from_derive_template(new_tmpl,
-                                                      &derive_key_type,
-                                                      &derive_value_len,
-                                                      &derive_key_mode);
+        rc = ccatok_get_key_info_from_template_attrs(new_tmpl,
+                                                     &derive_key_type,
+                                                     &derive_value_len,
+                                                     &derive_key_mode);
         if (rc == CKR_OK && ecc_info != NULL) {
             switch (derive_key_type) {
             case (CK_ULONG)-1:
             case CKK_AES:
                 if (ecc_info->key_algorithm != CCA_AES_KEY) {
-                    TRACE_ERROR("The EC private key can not derive keys "
+                    TRACE_ERROR("The EC private key can not derive/decaps keys "
                                 "other than AES keys\n");
                     return CKR_ATTRIBUTE_VALUE_INVALID;
                 }
                 /* Also check key size, if specified in template */
                 if (derive_value_len != 0 &&
                     derive_value_len * 8 != ecc_info->key_size) {
-                    TRACE_ERROR("The EC private key can not derive keys "
+                    TRACE_ERROR("The EC private key can not derive/decaps keys "
                                 "other than AES-%u keys\n",
                                 ecc_info->key_size);
                     return CKR_ATTRIBUTE_VALUE_INVALID;
                 }
                 break;
             default:
-                TRACE_ERROR("CCA does not support to derive keys of type "
-                            "0x%lx\n", derive_key_type);
+                TRACE_ERROR("CCA does not support to derive/decaps keys of "
+                            "type 0x%lx\n", derive_key_type);
                 return CKR_ATTRIBUTE_VALUE_INVALID;
             }
 
@@ -8122,28 +8194,28 @@ static CK_RV ccatok_check_ec_derive_info(STDLL_TokData_t *tokdata, OBJECT *obj,
             case (CK_ULONG)-1:
                 if (ecc_info->key_type != CCA_KEY_DERIVE_TYPE_DATA &&
                     ecc_info->key_type != CCA_KEY_DERIVE_TYPE_CIPHER) {
-                    TRACE_ERROR("The EC private key can not derive keys "
+                    TRACE_ERROR("The EC private key can not derive/decaps keys "
                                 "other than AES DATA or AES CIPHER keys\n");
                     return CKR_ATTRIBUTE_VALUE_INVALID;
                 }
                 break;
             case CK_IBM_CCA_AES_DATA_KEY:
                 if (ecc_info->key_type != CCA_KEY_DERIVE_TYPE_DATA) {
-                    TRACE_ERROR("The EC private key can not derive keys "
+                    TRACE_ERROR("The EC private key can not derive/decaps keys "
                                 "other than AES DATA keys\n");
                     return CKR_ATTRIBUTE_VALUE_INVALID;
                 }
                 break;
             case CK_IBM_CCA_AES_CIPHER_KEY:
                 if (ecc_info->key_type != CCA_KEY_DERIVE_TYPE_CIPHER) {
-                    TRACE_ERROR("The EC private key can not derive keys "
+                    TRACE_ERROR("The EC private key can not derive/decaps keys "
                                 "other than AES CIPHER keys\n");
                     return CKR_ATTRIBUTE_VALUE_INVALID;
                 }
                 break;
             default:
-                TRACE_ERROR("CCA does not support to derive keys of mode "
-                            "0x%lx\n", derive_key_mode);
+                TRACE_ERROR("CCA does not support to derive/decaps keys of "
+                            "mode 0x%lx\n", derive_key_mode);
                 return CKR_ATTRIBUTE_VALUE_INVALID;
             }
         }
@@ -12740,11 +12812,11 @@ static CK_RV import_ec_pubkey(STDLL_TokData_t *tokdata, TEMPLATE *pub_templ)
  * to just that one key type and size that is contained in the private key's
  * ECC key derivation section.
  * For ECC key generation, the to be derived key type and size can be specified
- * using the CKA_DERIVE_TEMPLATE containing CKA_KEY_TYPE, CKA_VALUE_LEN and
- * CKA_IBM_CCA_AES_KEY_MODE. This information will then be added as ECC key
- * derivation section to the private key. The default derivation key type and
- * size is is AES-256. The default CCA key mode is determined by the global
- * configuration setting.
+ * using the CKA_DERIVE_TEMPLATE or CKA_DECAPSULATE_TEMPLATE containing
+ * CKA_KEY_TYPE, CKA_VALUE_LEN and CKA_IBM_CCA_AES_KEY_MODE.
+ * This information will then be added as ECC key derivation section to the
+ * private key. The default derivation key type and size is is AES-256.
+ * The default CCA key mode is determined by the global configuration setting.
  * Furthermore, CCA allows ECDH key derivation with keyword DERIV02 only
  * with ECC private keys that were generated by random. Keys imported from
  * clear can not be used for ECDH.
