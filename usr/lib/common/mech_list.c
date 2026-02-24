@@ -17,6 +17,8 @@
 #include "h_extern.h"
 #include "tok_spec_struct.h"
 #include "trace.h"
+#include "p11util.h"
+#include "mechtable.h"
 
 CK_RV ock_generic_filter_mechanism_list(STDLL_TokData_t *tokdata,
                                         const MECH_LIST_ELEMENT *list,
@@ -132,8 +134,51 @@ static void netscape_hack(CK_MECHANISM_TYPE_PTR mech_arr_ptr, CK_ULONG count)
     }
 }
 
-void mechanism_list_transformations(CK_MECHANISM_TYPE_PTR mech_arr_ptr,
+/*
+ * Compare the 2 mechanisms alphabetically, this gives the best sorting result.
+ */
+static int compare_mech(const void *p1, const void *p2, void *arg)
+{
+    const struct mechtable_funcs *mechtable_funcs = arg;
+
+    return strcmp(p11_get_ckm(mechtable_funcs, *((CK_MECHANISM_TYPE *)p1)),
+                  p11_get_ckm(mechtable_funcs, *((CK_MECHANISM_TYPE *)p2)));
+}
+
+#if defined(_AIX)
+/* This must be a thread local variable ! */
+__thread const struct mechtable_funcs *thread_local_mechtable_funcs = NULL;
+
+static int compare_mech_aix(const void *p1, const void *p2)
+{
+    if (thread_local_mechtable_funcs == NULL)
+        return 0;
+
+    return compare_mech(p1, p2, (void *)thread_local_mechtable_funcs);
+}
+#endif
+
+static void sort_mech_list(STDLL_TokData_t *tokdata,
+                           CK_MECHANISM_TYPE_PTR mech_arr_ptr, CK_ULONG count)
+{
+#if defined(_AIX)
+    thread_local_mechtable_funcs = tokdata->mechtable_funcs;
+    qsort(mech_arr_ptr, count, sizeof(CK_MECHANISM_TYPE), compare_mech_aix);
+    thread_local_mechtable_funcs = NULL;
+#else
+    qsort_r(mech_arr_ptr, count, sizeof(CK_MECHANISM_TYPE),
+            compare_mech, (void *)tokdata->mechtable_funcs);
+#endif
+}
+
+void mechanism_list_transformations(STDLL_TokData_t *tokdata,
+                                    CK_MECHANISM_TYPE_PTR mech_arr_ptr,
                                     CK_ULONG_PTR count_ptr)
 {
+    if (mech_arr_ptr == NULL)
+        return;
+
     netscape_hack(mech_arr_ptr, (*count_ptr));
+
+    sort_mech_list(tokdata, mech_arr_ptr, (*count_ptr));
 }

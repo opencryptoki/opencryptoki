@@ -1989,7 +1989,8 @@ void CloseXProcLock(STDLL_TokData_t *tokdata);
 
 //list mechanisms
 //
-void mechanism_list_transformations(CK_MECHANISM_TYPE_PTR mech_arr_ptr,
+void mechanism_list_transformations(STDLL_TokData_t *tokdata,
+                                    CK_MECHANISM_TYPE_PTR mech_arr_ptr,
                                     CK_ULONG_PTR count_ptr);
 
 // encryption manager routines
