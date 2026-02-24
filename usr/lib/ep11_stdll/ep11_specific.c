@@ -462,14 +462,15 @@ static CK_BBOOL ep11_pqc_strength_supported(ep11_target_info_t *target_info,
         break;
     case CKM_IBM_ML_DSA:
     case CKM_IBM_ML_DSA_KEY_PAIR_GEN:
+    case CKM_ML_DSA_KEY_PAIR_GEN:
         switch (oid->keyform) {
-        case CKP_IBM_ML_DSA_44:
+        case CKP_ML_DSA_44:
             strength = XCP_PQC_S_ML_DSA_44;
             break;
-        case CKP_IBM_ML_DSA_65:
+        case CKP_ML_DSA_65:
             strength = XCP_PQC_S_ML_DSA_65;
             break;
-        case CKP_IBM_ML_DSA_87:
+        case CKP_ML_DSA_87:
             strength = XCP_PQC_S_ML_DSA_87;
             break;
         default:
@@ -480,14 +481,15 @@ static CK_BBOOL ep11_pqc_strength_supported(ep11_target_info_t *target_info,
         break;
     case CKM_IBM_ML_KEM:
     case CKM_IBM_ML_KEM_KEY_PAIR_GEN:
+    case CKM_ML_KEM_KEY_PAIR_GEN:
         switch (oid->keyform) {
-        case CKP_IBM_ML_KEM_512:
+        case CKP_ML_KEM_512:
             strength = XCP_PQC_S_ML_KEM_512;
             break;
-        case CKP_IBM_ML_KEM_768:
+        case CKP_ML_KEM_768:
             strength = XCP_PQC_S_ML_KEM_768;
             break;
-        case CKP_IBM_ML_KEM_1024:
+        case CKP_ML_KEM_1024:
             strength = XCP_PQC_S_ML_KEM_1024;
             break;
         default:
@@ -523,6 +525,8 @@ static CK_BBOOL ep11_pqc_obj_strength_supported(ep11_target_info_t *target_info,
     case CKM_IBM_ML_DSA_KEY_PAIR_GEN:
     case CKM_IBM_ML_KEM:
     case CKM_IBM_ML_KEM_KEY_PAIR_GEN:
+    case CKM_ML_DSA_KEY_PAIR_GEN:
+    case CKM_ML_KEM_KEY_PAIR_GEN:
         break;
     default:
         return TRUE;
@@ -1745,14 +1749,16 @@ static void ep11tok_endecaps_combine_attrs(TEMPLATE *tmpl, CK_KEY_TYPE keytype,
     case CKK_EC:
     case CKK_EC_MONTGOMERY:
     case CKK_DH:
-        /* EC/DH: Combine DERIVE and ENCAPS and DECAPS */
+    case CKK_ML_KEM:
+        /* EC/DH/ML-KEM: Combine DERIVE and ENCAPS and DECAPS */
         if (pkcs11_attr == CKA_DERIVE) {
             if (class == CKO_PUBLIC_KEY &&
                 template_attribute_find(tmpl, CKA_ENCAPSULATE, &attr) &&
                 attr->ulValueLen == sizeof(CK_BBOOL) &&
                 attr->pValue != NULL) {
-                TRACE_DEVEL("%s EC/DH pub key: CKA_DERIVE (%d) = CKA_DERIVE "
-                            "(%d) OR CKA_ENCAPSULATE (%d)\n", __func__,
+                TRACE_DEVEL("%s EC/DH/ML-KEM pub key: CKA_DERIVE (%d) = "
+                            "CKA_DERIVE (%d) OR CKA_ENCAPSULATE (%d)\n",
+                            __func__,
                             *user_val | *((CK_BBOOL *)attr->pValue),
                             *user_val, *((CK_BBOOL *)attr->pValue));
                 *user_val |= *((CK_BBOOL *)attr->pValue);
@@ -1761,8 +1767,9 @@ static void ep11tok_endecaps_combine_attrs(TEMPLATE *tmpl, CK_KEY_TYPE keytype,
                 template_attribute_find(tmpl, CKA_DECAPSULATE, &attr) &&
                 attr->ulValueLen == sizeof(CK_BBOOL) &&
                 attr->pValue != NULL) {
-                TRACE_DEVEL("%s EC/DH prv key: CKA_DERIVE (%d) = CKA_DERIVE "
-                            "(%d) OR CKA_DECAPSULATE (%d)\n", __func__,
+                TRACE_DEVEL("%s EC/DH/ML-KEM prv key: CKA_DERIVE (%d) = "
+                            "CKA_DERIVE (%d) OR CKA_DECAPSULATE (%d)\n",
+                            __func__,
                             *user_val | *((CK_BBOOL *)attr->pValue),
                             *user_val, *((CK_BBOOL *)attr->pValue));
                 *user_val |= *((CK_BBOOL *)attr->pValue);
@@ -1819,12 +1826,13 @@ static CK_RV ep11tok_endecaps_combine_attrs_import(TEMPLATE *tmpl,
     case CKK_EC:
     case CKK_EC_MONTGOMERY:
     case CKK_DH:
-        /* EC/DH: Set ENCAPS = DERIVE, DECAPS = DERIVE */
+    case CKK_ML_KEM:
+        /* EC/DH/ML-KEM: Set ENCAPS = DERIVE, DECAPS = DERIVE */
         if(class == CKO_PUBLIC_KEY &&
            (add_always ||
             !template_attribute_find(tmpl, CKA_ENCAPSULATE, &attr))) {
-            TRACE_DEVEL("%s EC/DH pub key: Add CKA_ENCAPSULATE = CKA_DERIVE "
-                        "(%d)\n", __func__, derive);
+            TRACE_DEVEL("%s EC/DH/ML-KEM pub key: Add CKA_ENCAPSULATE = "
+                        "CKA_DERIVE (%d)\n", __func__, derive);
 
             rc = template_build_update_attribute(tmpl, CKA_ENCAPSULATE,
                                                  &derive, sizeof(CK_BBOOL));
@@ -1837,8 +1845,8 @@ static CK_RV ep11tok_endecaps_combine_attrs_import(TEMPLATE *tmpl,
         if (class == CKO_PRIVATE_KEY &&
             (add_always ||
              !template_attribute_find(tmpl, CKA_DECAPSULATE, &attr))) {
-            TRACE_DEVEL("%s EC/DH prv key: Add CKA_DECAPSULATE = CKA_DERIVE "
-                        "(%d)\n", __func__, derive);
+            TRACE_DEVEL("%s EC/DH/ML-KEM prv key: Add CKA_DECAPSULATE = "
+                        "CKA_DERIVE (%d)\n", __func__, derive);
 
             rc = template_build_update_attribute(tmpl, CKA_DECAPSULATE,
                                                  &derive, sizeof(CK_BBOOL));
@@ -2733,7 +2741,8 @@ static CK_RV check_key_attributes(STDLL_TokData_t * tokdata,
             attr_cnt = sizeof(check_types_pub) / sizeof(CK_ULONG);
         }
         /* do nothing for CKM_DH_PKCS_KEY_PAIR_GEN, CKK_IBM_PQC_DILITHIUM,
-           CKK_IBM_PQC_KYBER, CKK_IBM_ML_DSA and CKK_IBM_ML_KEM */
+           CKK_IBM_PQC_KYBER, CKK_IBM_ML_DSA, CKK_IBM_ML_KEM, CKK_ML_DSA, and
+           CKK_ML_KEM */
         break;
     case CKO_PRIVATE_KEY:
         if ((kt == CKK_EC) || (kt == CKK_ECDSA) || (kt == CKK_DSA)) {
@@ -2749,7 +2758,7 @@ static CK_RV check_key_attributes(STDLL_TokData_t * tokdata,
             attr_cnt = sizeof(check_types_derive) / sizeof(CK_ULONG);
         }
         /* Do nothing for CKK_IBM_PQC_DILITHIUM, CKK_IBM_PQC_KYBER and
-         * CKK_IBM_ML_DSA and CKK_IBM_ML_KEM */
+         * CKK_IBM_ML_DSA, CKK_IBM_ML_KEM, CKK_ML_DSA, and CKK_ML_KEM */
         break;
     default:
         return CKR_OK;
@@ -2899,6 +2908,9 @@ static CK_BBOOL attr_applicable_for_ep11(STDLL_TokData_t * tokdata,
     /* EP11 does not support sign/verify recover */
     if (attr->type == CKA_SIGN_RECOVER || attr->type == CKA_VERIFY_RECOVER)
         return CK_FALSE;
+    /* EP11 does not support encapsulate/decapsulate recover */
+    if (attr->type == CKA_ENCAPSULATE || attr->type == CKA_DECAPSULATE)
+        return CK_FALSE;
 
     switch (ktype) {
     case CKK_RSA:
@@ -2969,6 +2981,21 @@ static CK_BBOOL attr_applicable_for_ep11(STDLL_TokData_t * tokdata,
             attr->type == CKA_WRAP || attr->type == CKA_UNWRAP ||
             attr->type == CKA_ENCRYPT || attr->type == CKA_DECRYPT ||
             attr->type == CKA_IBM_PARAMETER_SET)
+            return CK_FALSE;
+        break;
+    case CKK_ML_DSA:
+        /* CKA_PARAMETER_SET will be added later */
+        if (attr->type == CKA_ENCRYPT || attr->type == CKA_DECRYPT ||
+            attr->type == CKA_WRAP || attr->type == CKA_UNWRAP ||
+            attr->type == CKA_DERIVE || attr->type == CKA_PARAMETER_SET)
+            return CK_FALSE;
+        break;
+    case CKK_ML_KEM:
+        /* CKA_PARAMETER_SET will be added later */
+        if (attr->type == CKA_SIGN || attr->type == CKA_VERIFY ||
+            attr->type == CKA_WRAP || attr->type == CKA_UNWRAP ||
+            attr->type == CKA_ENCRYPT || attr->type == CKA_DECRYPT ||
+            attr->type == CKA_PARAMETER_SET)
             return CK_FALSE;
         break;
     default:
@@ -3080,10 +3107,11 @@ static CK_RV ep11tok_endecaps_combine_attrs_apply(
     case CKK_EC:
     case CKK_EC_MONTGOMERY:
     case CKK_DH:
-        /* EC/DH: Combine Encaps and Derive, Decaps and Derive */
+    case CKK_ML_KEM:
+        /* EC/DH/ML-KEM: Combine Encaps and Derive, Decaps and Derive */
         if (data->encaps_found && class == CKO_PUBLIC_KEY) {
-            TRACE_DEVEL("%s EC/DH pub key: CKA_DERIVE (%d) = CKA_DERIVE (%d) "
-                        "OR CKA_ENCAPSULATE (%d)\n", __func__,
+            TRACE_DEVEL("%s EC/DH/ML-KEM pub key: CKA_DERIVE (%d) = CKA_DERIVE "
+                        "(%d) OR CKA_ENCAPSULATE (%d)\n", __func__,
                         data->derive | data->encaps,
                         data->derive, data->encaps);
 
@@ -3091,8 +3119,8 @@ static CK_RV ep11tok_endecaps_combine_attrs_apply(
             data->derive_found = CK_TRUE;
         }
         if (data->decaps_found && class == CKO_PRIVATE_KEY) {
-            TRACE_DEVEL("%s EC/DH prv key: CKA_DERIVE (%d) = CKA_DERIVE (%d) "
-                        "OR CKA_DECAPSULATE (%d)\n", __func__,
+            TRACE_DEVEL("%s EC/DH/ML-KEM prv key: CKA_DERIVE (%d) = CKA_DERIVE "
+                        "(%d) OR CKA_DECAPSULATE (%d)\n", __func__,
                         data->derive | data->decaps,
                         data->derive, data->decaps);
 
@@ -5454,6 +5482,14 @@ static CK_RV import_pqc_key(STDLL_TokData_t *tokdata, SESSION *sess,
         key_type_str = "ML-KEM";
         pqc_mech = CKM_IBM_ML_KEM;
         break;
+    case CKK_ML_DSA:
+        key_type_str = "ML-DSA";
+        pqc_mech = CKM_ML_DSA;
+        break;
+    case CKK_ML_KEM:
+        key_type_str = "ML-KEM";
+        pqc_mech = CKM_ML_KEM;
+        break;
     default:
         TRACE_ERROR("Invalid key type provided for %s\n ", __func__);
         return CKR_KEY_TYPE_INCONSISTENT;
@@ -5482,10 +5518,11 @@ static CK_RV import_pqc_key(STDLL_TokData_t *tokdata, SESSION *sess,
         /* Make an SPKI for the public PQC key */
 
         /* A public PQC key must either have a CKA_VALUE containing
-         * the SPKI, or must have a keyform/mode value and the individual
-         * attributes
+         * the SPKI (IBM specific key types only), or must have a keyform/mode
+         * value and the individual attributes
          */
-        if (template_attribute_find(pqc_key_obj->template,
+        if (keytype != CKK_ML_DSA && keytype != CKK_ML_KEM &&
+            template_attribute_find(pqc_key_obj->template,
                                     CKA_VALUE, &value_attr) &&
             value_attr->ulValueLen > 0 && value_attr ->pValue != NULL) {
             /* CKA_VALUE with SPKI */
@@ -5529,22 +5566,26 @@ static CK_RV import_pqc_key(STDLL_TokData_t *tokdata, SESSION *sess,
                 goto done;
             }
 
-            /* Add SPKI as CKA_VALUE to public key (z/OS ICSF compatibility) */
-            rc = build_attribute(CKA_VALUE, data, data_len, &value_attr);
-            if (rc != CKR_OK) {
-                TRACE_DEVEL("build_attribute failed\n");
-                goto done;
-            }
+            if (keytype != CKK_ML_DSA && keytype != CKK_ML_KEM) {
+                /*
+                 * Add SPKI as CKA_VALUE to public key (z/OS ICSF compatibility)
+                 */
+                rc = build_attribute(CKA_VALUE, data, data_len, &value_attr);
+                if (rc != CKR_OK) {
+                    TRACE_DEVEL("build_attribute failed\n");
+                    goto done;
+                }
 
-            rc = template_update_attribute(pqc_key_obj->template,
-                                           value_attr);
-            if (rc != CKR_OK) {
-                TRACE_ERROR("%s template_update_attribute failed with rc=0x%lx\n",
-                            __func__, rc);
-                free(value_attr);
-                goto done;
+                rc = template_update_attribute(pqc_key_obj->template,
+                                               value_attr);
+                if (rc != CKR_OK) {
+                    TRACE_ERROR("%s template_update_attribute failed with "
+                                "rc=0x%lx\n", __func__, rc);
+                    free(value_attr);
+                    goto done;
+                }
+                value_attr = NULL;
             }
-            value_attr = NULL;
         }
 
         /* save the SPKI as blob although it is not a blob.
@@ -5566,10 +5607,11 @@ static CK_RV import_pqc_key(STDLL_TokData_t *tokdata, SESSION *sess,
         /* imported private PQC key goes here */
 
         /* A public PQC key must either have a CKA_VALUE containing
-         * the PKCS#8 encoded private key, or must have a keyform/mode value
-         * and the individual attributes
+         * the PKCS#8 encoded private key (IBM specific key types only), or
+         * must have a keyform/mode value and the individual attributes
          */
-        if (template_attribute_find(pqc_key_obj->template,
+        if (keytype != CKK_ML_DSA && keytype != CKK_ML_KEM &&
+            template_attribute_find(pqc_key_obj->template,
                                     CKA_VALUE, &value_attr) &&
             value_attr->ulValueLen > 0 && value_attr ->pValue != NULL) {
             /* CKA_VALUE with PKCS#8 */
@@ -5682,6 +5724,8 @@ static CK_RV import_pqc_key(STDLL_TokData_t *tokdata, SESSION *sess,
         switch (keytype) {
         case CKK_IBM_ML_DSA:
         case CKK_IBM_ML_KEM:
+        case CKK_ML_DSA:
+        case CKK_ML_KEM:
             /*
              * ML-DSA/ML-KEM private key does not contain the public key,
              * get pub key attrs from SPKI
@@ -5713,6 +5757,10 @@ static CK_RV import_pqc_key(STDLL_TokData_t *tokdata, SESSION *sess,
             cleanse_attribute(pqc_key_obj->template, CKA_IBM_ML_KEM_SK);
             cleanse_attribute(pqc_key_obj->template,
                               CKA_IBM_ML_KEM_PRIVATE_SEED);
+            break;
+        case CKK_ML_DSA:
+        case CKK_ML_KEM:
+            cleanse_attribute(pqc_key_obj->template, CKA_VALUE);
             break;
         }
     }
@@ -5764,6 +5812,8 @@ static CK_RV import_blob_private_public(STDLL_TokData_t *tokdata, SESSION *sess,
     case CKK_IBM_PQC_KYBER:
     case CKK_IBM_ML_DSA:
     case CKK_IBM_ML_KEM:
+    case CKK_ML_DSA:
+    case CKK_ML_KEM:
         rc = pqc_priv_unwrap_get_data(obj->template, keytype, spki, spki_len,
                                       is_public);
         break;
@@ -6601,6 +6651,8 @@ CK_RV token_specific_object_add(STDLL_TokData_t * tokdata, SESSION * sess,
     case CKK_IBM_PQC_KYBER:
     case CKK_IBM_ML_DSA:
     case CKK_IBM_ML_KEM:
+    case CKK_ML_DSA:
+    case CKK_ML_KEM:
         rc = import_pqc_key(tokdata, sess, obj, keytype, blob, blobreenc,
                             &blobsize, spki, &spkisize);
         if (rc != CKR_OK) {
@@ -11360,6 +11412,10 @@ static CK_RV pqc_generate_keypair(STDLL_TokData_t *tokdata,
     CK_ATTRIBUTE_TYPE param_attr;
     CK_BYTE *param_val;
     CK_ULONG param_len;
+    CK_MECHANISM ep11_mech = *pMechanism;
+
+    ep11tok_pkcs11_mech_translate(tokdata, pMechanism->mechanism,
+                                  &ep11_mech.mechanism);
 
     switch (pMechanism->mechanism) {
     case CKM_IBM_DILITHIUM:
@@ -11378,6 +11434,14 @@ static CK_RV pqc_generate_keypair(STDLL_TokData_t *tokdata,
         key_type_str = "ML-KEM";
         ktype = CKK_IBM_ML_KEM;
         break;
+    case CKM_ML_DSA_KEY_PAIR_GEN:
+        key_type_str = "ML-DSA";
+        ktype = CKK_ML_DSA;
+        break;
+    case CKM_ML_KEM_KEY_PAIR_GEN:
+        key_type_str = "ML-KEM";
+        ktype = CKK_ML_KEM;
+        break;
     default:
         TRACE_ERROR("Invalid mechanism provided for %s\n ", __func__);
         return CKR_MECHANISM_INVALID;
@@ -11385,7 +11449,7 @@ static CK_RV pqc_generate_keypair(STDLL_TokData_t *tokdata,
 
     rc = build_ep11_attrs(tokdata, publ_tmpl,
                           &new_publ_attrs, &new_publ_attrs_len,
-                          ktype, CKO_PUBLIC_KEY, -1, pMechanism);
+                          ktype, CKO_PUBLIC_KEY, -1, &ep11_mech);
     if (rc != CKR_OK) {
         TRACE_ERROR("%s build_ep11_attrs failed with rc=0x%lx\n", __func__, rc);
         goto error;
@@ -11393,7 +11457,7 @@ static CK_RV pqc_generate_keypair(STDLL_TokData_t *tokdata,
 
     rc = build_ep11_attrs(tokdata, priv_tmpl,
                           &new_priv_attrs, &new_priv_attrs_len,
-                          ktype, CKO_PRIVATE_KEY, -1, pMechanism);
+                          ktype, CKO_PRIVATE_KEY, -1, &ep11_mech);
     if (rc != CKR_OK) {
         TRACE_ERROR("%s build_ep11_attrs failed with rc=0x%lx\n", __func__, rc);
         goto error;
@@ -11414,6 +11478,8 @@ static CK_RV pqc_generate_keypair(STDLL_TokData_t *tokdata,
             break;
         case CKM_IBM_ML_DSA_KEY_PAIR_GEN:
         case CKM_IBM_ML_KEM_KEY_PAIR_GEN:
+        case CKM_ML_DSA_KEY_PAIR_GEN:
+        case CKM_ML_KEM_KEY_PAIR_GEN:
             /* No default for ML-DSA and ML-KEM */
             /* fallthrough */
         default:
@@ -11439,6 +11505,8 @@ static CK_RV pqc_generate_keypair(STDLL_TokData_t *tokdata,
         break;
     case CKM_IBM_ML_DSA_KEY_PAIR_GEN:
     case CKM_IBM_ML_KEM_KEY_PAIR_GEN:
+    case CKM_ML_DSA_KEY_PAIR_GEN:
+    case CKM_ML_KEM_KEY_PAIR_GEN:
         param_attr = CKA_IBM_PARAMETER_SET;
         param_val = (CK_BYTE *)&pqc_oid->keyform;
         param_len = sizeof(pqc_oid->keyform);
@@ -11503,7 +11571,7 @@ static CK_RV pqc_generate_keypair(STDLL_TokData_t *tokdata,
     RETRY_REENC_CREATE_KEY2_START()
         if (ep11_pqc_strength_supported(target_info, pMechanism->mechanism,
                                         pqc_oid))
-            rc = dll_m_GenerateKeyPair(pMechanism,
+            rc = dll_m_GenerateKeyPair(&ep11_mech,
                                        new_publ_attrs2, new_publ_attrs2_len,
                                        new_priv_attrs2, new_priv_attrs2_len,
                                        priv_ep11_pin_blob, priv_ep11_pin_blob_len,
@@ -11520,13 +11588,13 @@ static CK_RV pqc_generate_keypair(STDLL_TokData_t *tokdata,
         TRACE_ERROR("%s m_GenerateKeyPair rc=0x%lx spki_len=0x%zx "
                     "privkey_blob_len=0x%zx mech='%s'\n",
                     __func__, rc, spki_len, privkey_blob_len,
-                    ep11_get_ckm(tokdata, pMechanism->mechanism));
+                    ep11_get_ckm(tokdata, ep11_mech.mechanism));
         goto error;
     }
     TRACE_INFO("%s m_GenerateKeyPair rc=0x%lx spki_len=0x%zx "
                "privkey_blob_len=0x%zx mech='%s'\n",
                __func__, rc, spki_len, privkey_blob_len,
-              ep11_get_ckm(tokdata, pMechanism->mechanism));
+              ep11_get_ckm(tokdata, ep11_mech.mechanism));
 
     if (check_expected_mkvp(tokdata, privkey_blob, privkey_blob_len,
                             NULL) != CKR_OK) {
@@ -11751,6 +11819,8 @@ CK_RV ep11tok_generate_key_pair(STDLL_TokData_t * tokdata, SESSION * sess,
     case CKM_IBM_KYBER:
     case CKM_IBM_ML_DSA_KEY_PAIR_GEN:
     case CKM_IBM_ML_KEM_KEY_PAIR_GEN:
+    case CKM_ML_DSA_KEY_PAIR_GEN:
+    case CKM_ML_KEM_KEY_PAIR_GEN:
         rc = pqc_generate_keypair(tokdata, sess, pMechanism,
                                   public_key_obj->template,
                                   private_key_obj->template);
@@ -14936,6 +15006,8 @@ CK_RV ep11tok_unwrap_key(STDLL_TokData_t * tokdata, SESSION * session,
         case CKK_IBM_PQC_KYBER:
         case CKK_IBM_ML_DSA:
         case CKK_IBM_ML_KEM:
+        case CKK_ML_DSA:
+        case CKK_ML_KEM:
             rc = pqc_priv_unwrap_get_data(key_obj->template,
                                           *(CK_KEY_TYPE *)keytype_attr->pValue,
                                           csum, cslen, FALSE);
@@ -15198,6 +15270,8 @@ static const CK_MECHANISM_TYPE ep11_supported_mech_list[] = {
     CKM_EC_EDWARDS_KEY_PAIR_GEN,
     CKM_EC_MONTGOMERY_KEY_PAIR_GEN,
     CKM_EDDSA,
+    CKM_ML_DSA_KEY_PAIR_GEN,
+    CKM_ML_KEM_KEY_PAIR_GEN
 };
 
 static const CK_ULONG supported_mech_list_len =
@@ -15208,7 +15282,7 @@ struct mech_translate {
     CK_MECHANISM_TYPE ep11_mech;
 };
 
-/* Translate PKCS#11 v3.0 SHA3 mechs to IBM-specific SHA3 mechs */
+/* Translate PKCS#11 mechs to mechs supported by EP11 */
 static const struct mech_translate pkcs11_mechanism_translation[] = {
     { CKM_SHA3_224,           CKM_IBM_SHA3_224 },
     { CKM_SHA3_224_HMAC,      CKM_IBM_SHA3_224_HMAC },
@@ -15231,6 +15305,8 @@ static const struct mech_translate pkcs11_mechanism_translation[] = {
     { CKM_SHA3_512_KEY_GEN,   CKM_GENERIC_SECRET_KEY_GEN },
     { CKM_EC_EDWARDS_KEY_PAIR_GEN,      CKM_EC_KEY_PAIR_GEN },
     { CKM_EC_MONTGOMERY_KEY_PAIR_GEN,   CKM_EC_KEY_PAIR_GEN },
+    { CKM_ML_DSA_KEY_PAIR_GEN, CKM_IBM_ML_DSA_KEY_PAIR_GEN },
+    { CKM_ML_KEM_KEY_PAIR_GEN, CKM_IBM_ML_KEM_KEY_PAIR_GEN },
 };
 
 static const CK_ULONG pkcs11_mechanism_translation_len =
@@ -15257,7 +15333,7 @@ struct keytype_translate {
     CK_KEY_TYPE ep11_keytype;
 };
 
-/* Translate PKCS#11 SHA-HMAC key types to generic secrets */
+/* Translate PKCS#11 key types to key types supported by EP11 */
 static const struct keytype_translate pkcs11_keytype_translation[] = {
     { CKK_SHA_1_HMAC, CKK_GENERIC_SECRET },
     { CKK_SHA224_HMAC, CKK_GENERIC_SECRET },
@@ -15272,6 +15348,8 @@ static const struct keytype_translate pkcs11_keytype_translation[] = {
     { CKK_SHA3_512_HMAC, CKK_GENERIC_SECRET },
     { CKK_EC_EDWARDS, CKK_EC },
     { CKK_EC_MONTGOMERY, CKK_EC },
+    { CKK_ML_DSA, CKK_IBM_ML_DSA },
+    { CKK_ML_KEM, CKK_IBM_ML_KEM },
 };
 
 static const CK_ULONG pkcs11_keytype_translation_len =
@@ -15889,6 +15967,8 @@ CK_RV ep11tok_is_mechanism_supported(STDLL_TokData_t *tokdata,
     case CKM_IBM_ML_DSA_KEY_PAIR_GEN:
     case CKM_IBM_ML_KEM:
     case CKM_IBM_ML_KEM_KEY_PAIR_GEN:
+    case CKM_ML_DSA_KEY_PAIR_GEN:
+    case CKM_ML_KEM_KEY_PAIR_GEN:
         if (compare_ck_version(&ep11_data->ep11_lib_version, &ver4_2) < 0) {
             TRACE_INFO("%s Mech '%s' banned due to host library version\n",
                        __func__, ep11_get_ckm(tokdata, orig_mech));
