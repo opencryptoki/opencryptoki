@@ -347,7 +347,7 @@ CK_RV SC_GetMechanismList(STDLL_TokData_t *tokdata, CK_SLOT_ID sid,
         /* To accomodate certain special cases, we may need to
          * make adjustments to the token's mechanism list.
          */
-        mechanism_list_transformations(pMechList, count);
+        mechanism_list_transformations(tokdata, pMechList, count);
     }
 
 out:

@@ -789,7 +789,7 @@ AC_DEFINE([_XOPEN_SOURCE], [600], [POSIX 2004])
 AC_PROG_CC([xlc xlc_r gcc clang])
 AC_PROG_CC_STDC
 if test "x$build_aix" = "xyes"; then
-	CFLAGS="$CFLAGS -qinfo=pro:cns:lan:nocmp:nocnv:nogot:notrd -qalign=natural -qarch=pwr7 -qsuppress=1506-1527:1500-029 -qlanglvl=stdc99 -qsrcmsg -lbsd -q64"
+	CFLAGS="$CFLAGS -qinfo=pro:cns:lan:nocmp:nocnv:nogot:notrd -qalign=natural -qarch=pwr7 -qsuppress=1506-1527:1500-029 -qlanglvl=stdc99 -qsrcmsg -lbsd -q64 -qtls"
 	# msg is used to ensure compilers that ignore the error pragma are still caught
 	AC_COMPILE_IFELSE([AC_LANG_PROGRAM(
 		[[#if (__xlC__ >> 8) < 16
