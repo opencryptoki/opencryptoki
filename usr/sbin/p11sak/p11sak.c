@@ -7313,7 +7313,7 @@ static CK_RV p11sak_import_ml_kem_pkey(const struct p11tool_objtype *keytype,
             goto out;
 
         if (priv_seed != NULL &&
-            seed_len == oid->len_info.ml_dsa.priv_seed_len) {
+            seed_len == oid->len_info.ml_kem.priv_seed_len) {
             rc = p11tool_add_attribute(CKA_IBM_ML_KEM_PRIVATE_SEED,
                                        priv_seed, seed_len,
                                        attrs, num_attrs);

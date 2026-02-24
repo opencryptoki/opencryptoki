@@ -2674,12 +2674,12 @@ CK_RV p11tool_get_octet_string_param_from_pkey(EVP_PKEY *pkey,
                                                CK_BYTE **key, size_t *key_len,
                                                CK_BBOOL check)
 {
-    const OSSL_PARAM *settable, *p;
+    const OSSL_PARAM *gettable, *p;
     CK_BBOOL found = FALSE;
 
     if (check) {
-        settable = EVP_PKEY_gettable_params(pkey);
-        for (p = settable; p != NULL && p->key != NULL; p++) {
+        gettable = EVP_PKEY_gettable_params(pkey);
+        for (p = gettable; p != NULL && p->key != NULL; p++) {
             if (strcmp(p->key, param) == 0) {
                 found = TRUE;
                 break;
