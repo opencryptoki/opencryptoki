@@ -1193,8 +1193,12 @@ int p11kmip_check_certificate(const char *cert_file,
     *self_signed = (X509_NAME_cmp(X509_get_subject_name(cert),
                                   X509_get_issuer_name(cert)) == 0);
 
+#if OPENSSL_VERSION_PREREQ(4, 0)
+    *valid = X509_check_certificate_times(NULL, cert, NULL);
+#else
     *valid = (X509_cmp_current_time(X509_get0_notBefore(cert)) < 0 &&
               X509_cmp_current_time(X509_get0_notAfter(cert)) > 0);
+#endif
 
     X509_free(cert);
 

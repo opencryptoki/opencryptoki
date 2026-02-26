@@ -379,8 +379,14 @@ int kmip_connection_tls_init(struct kmip_connection *conn, bool debug)
 	if (conn->config.tls_verify_host) {
 		SSL_set_hostflags(conn->plain_tls.ssl,
 				  X509_CHECK_FLAG_NO_PARTIAL_WILDCARDS);
+#if OPENSSL_VERSION_PREREQ(4, 0)
+		if (SSL_set1_ipaddr(conn->plain_tls.ssl, hostname) != 1 &&
+		    SSL_set1_dnsname(conn->plain_tls.ssl, hostname) != 1) {
+			kmip_debug(debug, "SSL_set1_ipaddr/dnsname failed");
+#else
 		if (SSL_set1_host(conn->plain_tls.ssl, hostname) != 1) {
 			kmip_debug(debug, "SSL_set1_host failed");
+#endif
 			if (debug)
 				ERR_print_errors_fp(stderr);
 			rc = -EIO;
