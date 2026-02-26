@@ -6373,7 +6373,11 @@ static CK_RV p11sak_import_x509_attrs(const struct p11tool_objtype *certtype,
 {
     ASN1_INTEGER *serialno;
     unsigned char *serial_buf = NULL;
+#if OPENSSL_VERSION_PREREQ(4, 0)
+    const X509_NAME *name;
+#else
     X509_NAME *name;
+#endif
     const unsigned char *subj_name = NULL, *issuer_name = NULL;
     size_t subj_name_len, issuer_name_len;
     CK_BYTE *value_buf = NULL;
@@ -6505,7 +6509,11 @@ static CK_RV p11sak_extract_x509_pk(const struct p11tool_objtype *certtype,
     CK_ATTRIBUTE id_attr = { CKA_ID, NULL, 0 };
     const CK_BYTE *tmp_ptr;
     const unsigned char *subj_name = NULL;
+#if OPENSSL_VERSION_PREREQ(4, 0)
+    const X509_NAME *name = NULL;
+#else
     X509_NAME *name = NULL;
+#endif
     size_t subj_name_len;
     char *pubkey_label = NULL;
     X509 *x509 = NULL;
