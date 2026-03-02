@@ -464,11 +464,11 @@ static CK_RV import_ml_dsa_publ_key(CK_SESSION_HANDLE session,
     return rc;
 }
 
-static CK_RV import_ibm_ml_kem_priv_key(CK_SESSION_HANDLE session,
-                                        CK_KEY_TYPE keyType,
-                                        const char *label,
-                                        CK_BYTE *blob, CK_ULONG bloblen,
-                                        CK_OBJECT_HANDLE *handle)
+static CK_RV import_ml_kem_priv_key(CK_SESSION_HANDLE session,
+                                    CK_KEY_TYPE keyType,
+                                    const char *label,
+                                    CK_BYTE *blob, CK_ULONG bloblen,
+                                    CK_OBJECT_HANDLE *handle)
 {
     CK_RV rc;
     CK_OBJECT_CLASS keyClass = CKO_PRIVATE_KEY;
@@ -477,7 +477,8 @@ static CK_RV import_ibm_ml_kem_priv_key(CK_SESSION_HANDLE session,
         {CKA_CLASS, &keyClass, sizeof(keyClass)},
         {CKA_KEY_TYPE, &keyType, sizeof(keyType)},
         {CKA_LABEL, (char *) label, strlen(label) + 1},
-        {CKA_DERIVE, &true, sizeof(true)},
+        {keyType == CKK_ML_KEM ? CKA_DECAPSULATE : CKA_DERIVE,
+                    &true, sizeof(true)},
         {CKA_TOKEN, &true, sizeof(true)},
         {CKA_PRIVATE, &true, sizeof(true)},
         {CKA_IBM_OPAQUE, blob, bloblen}
@@ -492,11 +493,11 @@ static CK_RV import_ibm_ml_kem_priv_key(CK_SESSION_HANDLE session,
     return rc;
 }
 
-static CK_RV import_ibm_ml_kem_publ_key(CK_SESSION_HANDLE session,
-                                        CK_KEY_TYPE keyType,
-                                        const char *label,
-                                        CK_BYTE *blob, CK_ULONG bloblen,
-                                        CK_OBJECT_HANDLE *handle)
+static CK_RV import_ml_kem_publ_key(CK_SESSION_HANDLE session,
+                                    CK_KEY_TYPE keyType,
+                                    const char *label,
+                                    CK_BYTE *blob, CK_ULONG bloblen,
+                                    CK_OBJECT_HANDLE *handle)
 {
     CK_RV rc;
     CK_OBJECT_CLASS keyClass = CKO_PUBLIC_KEY;
@@ -506,7 +507,8 @@ static CK_RV import_ibm_ml_kem_publ_key(CK_SESSION_HANDLE session,
         {CKA_CLASS, &keyClass, sizeof(keyClass)},
         {CKA_KEY_TYPE, &keyType, sizeof(keyType)},
         {CKA_LABEL, (char *) label, strlen(label) + 1},
-        {CKA_DERIVE, &true, sizeof(true)},
+        {keyType == CKK_ML_KEM ? CKA_ENCAPSULATE : CKA_DERIVE,
+                    &true, sizeof(true)},
         {CKA_TOKEN, &false, sizeof(false)},
         {CKA_PRIVATE, &false, sizeof(false)},
         {CKA_IBM_OPAQUE, blob, bloblen}
@@ -2656,9 +2658,9 @@ static CK_RV ibm_ml_kem_export_import_tests(void)
 
         snprintf(label, sizeof(label), "re-imported_ml_kem_%s_public_key",
                  ml_kem_variants[i].name);
-        rc = import_ibm_ml_kem_publ_key(session, CKK_IBM_ML_KEM,
-                                        label, publ_opaquekey,
-                                        publ_opaquekeylen, &imp_publ_key);
+        rc = import_ml_kem_publ_key(session, CKK_IBM_ML_KEM,
+                                    label, publ_opaquekey,
+                                    publ_opaquekeylen, &imp_publ_key);
         if (rc != CKR_OK) {
             if (rc == CKR_PUBLIC_KEY_INVALID && is_ep11_token(SLOT_ID)) {
                 testcase_skip("import_ibm_ml_kem_publ_key on exported CCA/EP11 ML-KEM key blob failed due to missing EP11 FW fix");
@@ -2683,9 +2685,9 @@ static CK_RV ibm_ml_kem_export_import_tests(void)
 
         snprintf(label, sizeof(label), "re-imported_ml_kem_%s_private_key",
                  ml_kem_variants[i].name);
-        rc = import_ibm_ml_kem_priv_key(session, CKK_IBM_ML_KEM,
-                                        label, priv_opaquekey,
-                                        priv_opaquekeylen, &imp_priv_key);
+        rc = import_ml_kem_priv_key(session, CKK_IBM_ML_KEM,
+                                    label, priv_opaquekey,
+                                    priv_opaquekeylen, &imp_priv_key);
         if (rc != CKR_OK) {
             if (rc == CKR_PUBLIC_KEY_INVALID && is_ep11_token(SLOT_ID)) {
                 testcase_skip("import_ibm_ml_kem_priv_key on exported CCA/EP11 ML-KEM key blob failed due to missing EP11 FW fix");
@@ -3071,6 +3073,413 @@ out:
     return rc;
 }
 
+static CK_RV ml_kem_export_import_tests(void)
+{
+    CK_RV rc = CKR_OK;
+    CK_FLAGS flags;
+    CK_SESSION_HANDLE session;
+    CK_BYTE user_pin[PKCS11_MAX_PIN_LEN];
+    CK_ULONG user_pin_len;
+    CK_BBOOL attr_encaps = TRUE;
+    CK_BBOOL attr_decaps = TRUE;
+    CK_BBOOL true = CK_TRUE;
+    CK_BBOOL false = CK_FALSE;
+    CK_OBJECT_HANDLE publ_key = CK_INVALID_HANDLE, priv_key = CK_INVALID_HANDLE;
+    CK_OBJECT_HANDLE imp_priv_key = CK_INVALID_HANDLE, imp_publ_key = CK_INVALID_HANDLE;
+    CK_MECHANISM mech = { CKM_ML_KEM, 0, 0};
+    CK_MECHANISM keygen_mech = { CKM_ML_KEM_KEY_PAIR_GEN, 0, 0};
+    CK_BYTE *priv_opaquekey = NULL, *publ_opaquekey = NULL;
+    CK_ULONG priv_opaquekeylen, publ_opaquekeylen;
+    CK_BYTE *cipher = NULL;
+    CK_ULONG cipher_len = 0;
+    CK_OBJECT_HANDLE secret_key1 = CK_INVALID_HANDLE;
+    CK_OBJECT_HANDLE secret_key2 = CK_INVALID_HANDLE;
+    CK_OBJECT_HANDLE secret_key3 = CK_INVALID_HANDLE;
+    CK_OBJECT_HANDLE secret_key4 = CK_INVALID_HANDLE;
+    CK_OBJECT_HANDLE secret_key5 = CK_INVALID_HANDLE;
+    CK_BYTE iv[] = { 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
+                     0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f };
+    CK_MECHANISM aes_mech = { CKM_AES_CBC, iv, sizeof(iv) };
+    CK_BYTE data[160], encdata1[160], encdata2[160], encdata3[160];
+    CK_BYTE encdata4[160], encdata5[160];
+    CK_ULONG ilen, len;
+    char label[80];
+    int i;
+
+    if (!is_cca_token(SLOT_ID) && !is_ep11_token(SLOT_ID)) {
+        testcase_skip("this slot is not a CCA or EP11 token");
+        goto out;
+    }
+    if (!mech_supported(SLOT_ID, CKM_ML_KEM_KEY_PAIR_GEN)) {
+        testcase_skip("this slot does not support CKM_ML_KEM_KEY_PAIR_GEN");
+        goto out;
+    }
+    if (!mech_supported(SLOT_ID, CKM_ML_KEM)) {
+        testcase_skip("this slot does not support CKM_ML_KEM");
+        goto out;
+    }
+
+    testcase_rw_session();
+    testcase_user_login();
+
+    for (i = 0; ml_kem_variants[i].parameter_set != 0; i++) {
+        CK_ATTRIBUTE ml_kem_attr_private[] = {
+            {CKA_DECAPSULATE, &attr_decaps, sizeof(CK_BBOOL)},
+            {CKA_PARAMETER_SET,
+             (CK_BYTE *)&ml_kem_variants[i].parameter_set, sizeof(CK_ULONG)},
+             {CKA_TOKEN, &true, sizeof(true)},
+             {CKA_PRIVATE, &true, sizeof(true)},
+        };
+        CK_ATTRIBUTE ml_kem_attr_public[] = {
+            {CKA_ENCAPSULATE, &attr_encaps, sizeof(CK_BBOOL)},
+            {CKA_PARAMETER_SET,
+             (CK_BYTE *)&ml_kem_variants[i].parameter_set, sizeof(CK_ULONG)},
+             {CKA_TOKEN, &false, sizeof(false)},
+             {CKA_PRIVATE, &false, sizeof(false)},
+        };
+        CK_ULONG num_ml_kem_attrs =
+                sizeof(ml_kem_attr_public) / sizeof(CK_ATTRIBUTE);
+        CK_OBJECT_CLASS class = CKO_SECRET_KEY;
+        CK_KEY_TYPE key_type = CKK_AES;
+        CK_ULONG key_len = 32;
+        CK_BBOOL ck_true = CK_TRUE;
+        CK_BBOOL ck_false = CK_FALSE;
+        CK_ATTRIBUTE  sym_key_tmpl[] = {
+            {CKA_CLASS, &class, sizeof(class)},
+            {CKA_KEY_TYPE, &key_type, sizeof(key_type)},
+            {CKA_SENSITIVE, &ck_false, sizeof(ck_false)},
+            {CKA_VALUE_LEN, &key_len, sizeof(key_len)},
+            {CKA_SIGN, &ck_true, sizeof(ck_true)},
+            {CKA_VERIFY, &ck_true, sizeof(ck_true)},
+        };
+        CK_ULONG sym_key_tmpl_len = sizeof(sym_key_tmpl) / sizeof(CK_ATTRIBUTE);
+
+        testcase_begin("CCA/EP11 export/import test with public/private ML-KEM %s keys",
+                       ml_kem_variants[i].name);
+
+        /* Generate ML-DSA key pair */
+        rc = funcs->C_GenerateKeyPair(session, &keygen_mech,
+                       ml_kem_attr_public, num_ml_kem_attrs,
+                       ml_kem_attr_private, num_ml_kem_attrs,
+                       &publ_key, &priv_key);
+        if (rc != CKR_OK) {
+            if (rc == CKR_KEY_SIZE_RANGE) {
+                testcase_skip("ML-KEM variant %s is not supported",
+                              ml_kem_variants[i].name);
+                goto error;
+            } else if (rc == CKR_POLICY_VIOLATION) {
+                testcase_skip("ML-KEM key generation is not allowed by policy");
+                goto error;
+            } else {
+                testcase_new_assertion();
+                testcase_fail("C_GenerateKeyPair with %s failed, rc=%s",
+                              ml_kem_variants[i].name, p11_get_ckr(rc));
+                goto error;
+            }
+        }
+
+        testcase_new_assertion();
+
+        // encapsulate with original public key
+        rc = funcs3_2->C_EncapsulateKey(session, &mech, publ_key, sym_key_tmpl,
+                                        sym_key_tmpl_len, cipher, &cipher_len,
+                                        NULL);
+        if (rc != CKR_OK) {
+            testcase_error("C_EncapsulateKey (size query) rc=%s",
+                            p11_get_ckr(rc));
+            goto error;
+        }
+
+        cipher = calloc(cipher_len, sizeof(CK_BYTE));
+        if (cipher == NULL) {
+            testcase_error("Can't allocate memory for %lu bytes",
+                           sizeof(CK_BYTE) * cipher_len);
+            rc = CKR_HOST_MEMORY;
+            goto error;
+        }
+
+        rc = funcs3_2->C_EncapsulateKey(session, &mech, publ_key, sym_key_tmpl,
+                                        sym_key_tmpl_len, cipher, &cipher_len,
+                                        &secret_key1);
+        if (rc != CKR_OK) {
+            testcase_error("C_EncapsulateKey rc=%s", p11_get_ckr(rc));
+            goto error;
+        }
+
+        // Decapsulate with original private key
+        rc = funcs3_2->C_DecapsulateKey(session, &mech, priv_key, sym_key_tmpl,
+                                        sym_key_tmpl_len, cipher, cipher_len,
+                                        &secret_key2);
+        if (rc != CKR_OK) {
+            testcase_error("C_DecapsulateKey rc=%s", p11_get_ckr(rc));
+            goto error;
+        }
+
+        // encrypt some data with secret key 1
+        rc = funcs->C_EncryptInit(session, &aes_mech, secret_key1);
+        if (rc != CKR_OK) {
+            testcase_error("C_EncryptInit rc=%s", p11_get_ckr(rc));
+            goto error;
+        }
+        ilen = len = sizeof(data);
+        rc = funcs->C_Encrypt(session, data, ilen, encdata1, &len);
+        if (rc != CKR_OK) {
+            testcase_error("C_Encrypt rc=%s", p11_get_ckr(rc));
+            goto error;
+        }
+        if (ilen != len) {
+            testcase_fail("plain and encrypted data len does not match");
+            goto error;
+        }
+
+        // encrypt some data with secret key 2
+        rc = funcs->C_EncryptInit(session, &aes_mech, secret_key2);
+        if (rc != CKR_OK) {
+            testcase_error("C_EncryptInit rc=%s", p11_get_ckr(rc));
+            goto error;
+        }
+        ilen = len = sizeof(data);
+        rc = funcs->C_Encrypt(session, data, ilen, encdata2, &len);
+        if (rc != CKR_OK) {
+            testcase_error("C_Encrypt rc=%s", p11_get_ckr(rc));
+            goto error;
+        }
+        if (ilen != len) {
+            testcase_fail("plain and encrypted data len does not match");
+            goto error;
+        }
+
+        // and check the encrypted data to be equal
+        if (memcmp(encdata1, encdata2, len) != 0) {
+            testcase_fail("encrypted data from en/decapsulate with original keys is NOT the same");
+            goto error;
+        }
+
+        // export original public key's CCA/EP11 blob
+
+        rc = export_ibm_opaque(session, publ_key, &publ_opaquekey,
+                               &publ_opaquekeylen);
+        if (rc != CKR_OK) {
+            testcase_fail("export_ibm_opaque on public key failed rc=%s",
+                           p11_get_ckr(rc));
+            goto error;
+        }
+
+        // re-import this CCA/EP11 public ML-KEM key blob as new public ML-KEM key
+
+        snprintf(label, sizeof(label), "re-imported_ml_kem_%s_public_key",
+                 ml_kem_variants[i].name);
+        rc = import_ml_kem_publ_key(session, CKK_ML_KEM,
+                                    label, publ_opaquekey,
+                                    publ_opaquekeylen, &imp_publ_key);
+        if (rc != CKR_OK) {
+            if (rc == CKR_PUBLIC_KEY_INVALID && is_ep11_token(SLOT_ID)) {
+                testcase_skip("import_ml_kem_publ_key on exported CCA/EP11 ML-KEM key blob failed due to missing EP11 FW fix");
+            } else {
+                testcase_fail("import_ml_kem_publ_key on exported CCA/EP11 ML-KEM key blob failed rc=%s",
+                              p11_get_ckr(rc));
+            }
+            goto error;
+        }
+
+        // export original private key's CCA/EP11 blob
+
+        rc = export_ibm_opaque(session, priv_key, &priv_opaquekey,
+                               &priv_opaquekeylen);
+        if (rc != CKR_OK) {
+            testcase_fail("export_ibm_opaque on private key failed rc=%s",
+                          p11_get_ckr(rc));
+            goto error;
+        }
+
+        // re-import this CCA/EP11 private ML-KEM key blob as new private ML-KEM key
+
+        snprintf(label, sizeof(label), "re-imported_ml_kem_%s_private_key",
+                 ml_kem_variants[i].name);
+        rc = import_ml_kem_priv_key(session, CKK_ML_KEM,
+                                    label, priv_opaquekey,
+                                    priv_opaquekeylen, &imp_priv_key);
+        if (rc != CKR_OK) {
+            if (rc == CKR_PUBLIC_KEY_INVALID && is_ep11_token(SLOT_ID)) {
+                testcase_skip("import_ml_kem_priv_key on exported CCA/EP11 ML-KEM key blob failed due to missing EP11 FW fix");
+            } else {
+                testcase_fail("import_ml_kem_priv_key on exported CCA/EP11 ML-KEM key blob failed rc=%s",
+                              p11_get_ckr(rc));
+            }
+            goto error;
+        }
+
+        // Decapsulate with re-imported private key
+        rc = funcs3_2->C_DecapsulateKey(session, &mech, imp_priv_key, sym_key_tmpl,
+                                        sym_key_tmpl_len, cipher, cipher_len,
+                                        &secret_key3);
+        if (rc != CKR_OK) {
+            testcase_error("C_DecapsulateKey rc=%s", p11_get_ckr(rc));
+            goto error;
+        }
+
+        // encrypt some data with secret key 3
+        rc = funcs->C_EncryptInit(session, &aes_mech, secret_key3);
+        if (rc != CKR_OK) {
+            testcase_error("C_EncryptInit rc=%s", p11_get_ckr(rc));
+            goto error;
+        }
+        ilen = len = sizeof(data);
+        rc = funcs->C_Encrypt(session, data, ilen, encdata3, &len);
+        if (rc != CKR_OK) {
+            testcase_error("C_Encrypt rc=%s", p11_get_ckr(rc));
+            goto error;
+        }
+        if (ilen != len) {
+            testcase_fail("plain and encrypted data len does not match");
+            goto error;
+        }
+
+        // and check the encrypted data to be equal
+        if (memcmp(encdata1, encdata3, len) != 0) {
+            testcase_fail("encrypted data from en/decapsulate with original and exported/imported key is NOT the same");
+            goto error;
+        }
+
+        free(cipher);
+        cipher = NULL;
+        cipher_len = 0;
+
+        // encapsulate with re-imported public key
+        rc = funcs3_2->C_EncapsulateKey(session, &mech, imp_publ_key, sym_key_tmpl,
+                                        sym_key_tmpl_len, cipher, &cipher_len,
+                                        NULL);
+        if (rc != CKR_OK) {
+            testcase_error("C_EncapsulateKey (size query) rc=%s",
+                            p11_get_ckr(rc));
+            goto error;
+        }
+
+        cipher = calloc(cipher_len, sizeof(CK_BYTE));
+        if (cipher == NULL) {
+            testcase_error("Can't allocate memory for %lu bytes",
+                           sizeof(CK_BYTE) * cipher_len);
+            rc = CKR_HOST_MEMORY;
+            goto error;
+        }
+
+        rc = funcs3_2->C_EncapsulateKey(session, &mech, imp_publ_key, sym_key_tmpl,
+                                        sym_key_tmpl_len, cipher, &cipher_len,
+                                        &secret_key4);
+        if (rc != CKR_OK) {
+            testcase_error("C_EncapsulateKey rc=%s", p11_get_ckr(rc));
+            goto error;
+        }
+
+        // Decapsulate with re-imported private key
+        rc = funcs3_2->C_DecapsulateKey(session, &mech, imp_priv_key, sym_key_tmpl,
+                                        sym_key_tmpl_len, cipher, cipher_len,
+                                        &secret_key5);
+        if (rc != CKR_OK) {
+            testcase_error("C_DecapsulateKey rc=%s", p11_get_ckr(rc));
+            goto error;
+        }
+
+        free(cipher);
+        cipher = NULL;
+        cipher_len = 0;
+
+        // encrypt some data with secret key 4
+        rc = funcs->C_EncryptInit(session, &aes_mech, secret_key4);
+        if (rc != CKR_OK) {
+            testcase_error("C_EncryptInit rc=%s", p11_get_ckr(rc));
+            goto error;
+        }
+        ilen = len = sizeof(data);
+        rc = funcs->C_Encrypt(session, data, ilen, encdata4, &len);
+        if (rc != CKR_OK) {
+            testcase_error("C_Encrypt rc=%s", p11_get_ckr(rc));
+            goto error;
+        }
+        if (ilen != len) {
+            testcase_fail("plain and encrypted data len does not match");
+            goto error;
+        }
+
+        // encrypt some data with secret key 5
+        rc = funcs->C_EncryptInit(session, &aes_mech, secret_key5);
+        if (rc != CKR_OK) {
+            testcase_error("C_EncryptInit rc=%s", p11_get_ckr(rc));
+            goto error;
+        }
+        ilen = len = sizeof(data);
+        rc = funcs->C_Encrypt(session, data, ilen, encdata5, &len);
+        if (rc != CKR_OK) {
+            testcase_error("C_Encrypt rc=%s", p11_get_ckr(rc));
+            goto error;
+        }
+        if (ilen != len) {
+            testcase_fail("plain and encrypted data len does not match");
+            goto error;
+        }
+
+        // and check the encrypted data to be equal
+        if (memcmp(encdata4, encdata5, len) != 0) {
+            testcase_fail("encrypted data from en/decapsulate with original and exported/imported key is NOT the same");
+            goto error;
+        }
+
+        testcase_pass("CCA/EP11 export/import test with public/private ML-DSA %s keys",
+                      ml_kem_variants[i].name);
+
+error:
+        free(priv_opaquekey);
+        priv_opaquekey = NULL;
+        free(publ_opaquekey);
+        publ_opaquekey = NULL;
+        free(cipher);
+        cipher = NULL;
+        cipher_len = 0;
+
+        if (publ_key != CK_INVALID_HANDLE) {
+            funcs->C_DestroyObject(session, publ_key);
+            publ_key = CK_INVALID_HANDLE;
+        }
+        if (priv_key != CK_INVALID_HANDLE) {
+            funcs->C_DestroyObject(session, priv_key);
+            priv_key = CK_INVALID_HANDLE;
+        }
+        if (imp_publ_key != CK_INVALID_HANDLE) {
+            funcs->C_DestroyObject(session, imp_publ_key);
+            imp_publ_key = CK_INVALID_HANDLE;
+        }
+        if (imp_priv_key != CK_INVALID_HANDLE) {
+            funcs->C_DestroyObject(session, imp_priv_key);
+            imp_priv_key = CK_INVALID_HANDLE;
+        }
+        if (secret_key1 != CK_INVALID_HANDLE) {
+            funcs->C_DestroyObject(session, secret_key1);
+            secret_key1 = CK_INVALID_HANDLE;
+        }
+        if (secret_key2 != CK_INVALID_HANDLE) {
+            funcs->C_DestroyObject(session, secret_key2);
+            secret_key2 = CK_INVALID_HANDLE;
+        }
+        if (secret_key3 != CK_INVALID_HANDLE) {
+            funcs->C_DestroyObject(session, secret_key3);
+            secret_key3 = CK_INVALID_HANDLE;
+        }
+        if (secret_key4 != CK_INVALID_HANDLE) {
+            funcs->C_DestroyObject(session, secret_key4);
+            secret_key4 = CK_INVALID_HANDLE;
+        }
+        if (secret_key5 != CK_INVALID_HANDLE) {
+            funcs->C_DestroyObject(session, secret_key5);
+            secret_key5 = CK_INVALID_HANDLE;
+        }
+    }
+
+testcase_cleanup:
+    testcase_close_session();
+out:
+    return rc;
+}
+
 static CK_RV cca_ep11_export_import_tests(void)
 {
     CK_RV rc = CKR_OK, rv = CKR_OK;
@@ -3130,6 +3539,10 @@ static CK_RV cca_ep11_export_import_tests(void)
         rv = rc;
 
     rc = ml_dsa_export_import_tests(TRUE);
+    if (rc != CKR_OK && rv == CKR_OK)
+        rv = rc;
+
+    rc = ml_kem_export_import_tests();
     if (rc != CKR_OK && rv == CKR_OK)
         rv = rc;
 
