@@ -462,6 +462,7 @@ static CK_BBOOL ep11_pqc_strength_supported(ep11_target_info_t *target_info,
         break;
     case CKM_IBM_ML_DSA:
     case CKM_IBM_ML_DSA_KEY_PAIR_GEN:
+    case CKM_ML_DSA:
     case CKM_ML_DSA_KEY_PAIR_GEN:
         switch (oid->keyform) {
         case CKP_ML_DSA_44:
@@ -526,6 +527,7 @@ static CK_BBOOL ep11_pqc_obj_strength_supported(ep11_target_info_t *target_info,
     case CKM_IBM_ML_KEM:
     case CKM_IBM_ML_KEM_KEY_PAIR_GEN:
     case CKM_ML_DSA_KEY_PAIR_GEN:
+    case CKM_ML_DSA:
     case CKM_ML_KEM_KEY_PAIR_GEN:
         break;
     default:
@@ -12514,6 +12516,16 @@ static CK_RV ep11tok_rsa_oaep_mech_adjust(STDLL_TokData_t *tokdata,
     return CKR_OK;
 }
 
+CK_BBOOL ep11tok_is_common_code_sign_verify_mech(CK_MECHANISM *mech)
+{
+    switch (mech->mechanism) {
+    case CKM_ML_DSA:
+        return CK_TRUE;
+    default:
+        return CK_FALSE;
+    }
+}
+
 CK_BOOL ep11tok_mech_single_only(CK_MECHANISM *mech)
 {
     switch (mech->mechanism) {
@@ -13582,6 +13594,187 @@ CK_RV ep11tok_verify_single(STDLL_TokData_t *tokdata, SESSION *session,
 done:
     object_put(tokdata, key_obj, TRUE);
     key_obj = NULL;
+
+    return rc;
+}
+
+CK_RV token_specific_ml_dsa_sign(STDLL_TokData_t *tokdata, SESSION *sess,
+                                 CK_BBOOL length_only,
+                                 const struct pqc_oid *oid,
+                                 CK_MECHANISM *mech,
+                                 CK_BYTE *in_data, CK_ULONG in_data_len,
+                                 CK_BYTE *signature, CK_ULONG *signature_len,
+                                 OBJECT *key_obj, CK_BBOOL final_part)
+{
+    size_t keyblobsize = 0;
+    CK_BYTE *keyblob;
+    CK_BYTE *useblob = NULL;
+    size_t useblobsize = 0;
+    CK_IBM_SIGN_ADDITIONAL_CONTEXT ep11_mech_param;
+    CK_MECHANISM ep11_mech = { CKM_IBM_ML_DSA,
+                               &ep11_mech_param, sizeof(ep11_mech_param) };
+    CK_BYTE *tmp;
+    CK_RV rc;
+
+    if (mech->mechanism != CKM_ML_DSA) {
+        TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
+        return CKR_MECHANISM_INVALID;
+    }
+
+    if (!final_part || (sess->sign_ctx.context != NULL && in_data_len > 0)) {
+        /* Collect the input data in the context */
+        if (in_data_len == 0)
+            return CKR_OK;
+
+        tmp = (CK_BYTE *)realloc(sess->sign_ctx.context,
+                                 sess->sign_ctx.context_len + in_data_len);
+        if (tmp == NULL) {
+            TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+            return CKR_HOST_MEMORY;
+        }
+
+        memcpy(tmp + sess->sign_ctx.context_len, in_data, in_data_len);
+
+        sess->sign_ctx.context = tmp;
+        sess->sign_ctx.context_len += in_data_len;
+
+        if (!final_part)
+            return CKR_OK;
+    }
+
+    if (sess->sign_ctx.context != NULL && sess->sign_ctx.context_len > 0) {
+        in_data = sess->sign_ctx.context;
+        in_data_len = sess->sign_ctx.context_len;
+    }
+
+    rc = obj_opaque_2_blob(tokdata, key_obj, &keyblob, &keyblobsize);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s no key-blob rc=0x%lx\n", __func__, rc);
+        return rc;
+    }
+
+    rc = ml_dsa_translate_ibm_sign_mech_param_from_sign(
+                                (CK_SIGN_ADDITIONAL_CONTEXT *)mech->pParameter,
+                                &ep11_mech_param);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("ml_dsa_translate_ibm_sign_mech_param_from_sign failed\n");
+        return rc;
+    }
+
+    RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
+    RETRY_REENC_BLOB_START(tokdata, target_info, key_obj, keyblob, keyblobsize,
+                           useblob, useblobsize, rc)
+        if (ep11_pqc_strength_supported(target_info, ep11_mech.mechanism, oid))
+            rc = dll_m_SignSingle(useblob, useblobsize, &ep11_mech,
+                                  in_data, in_data_len,
+                                  signature, signature_len,
+                                  target_info->target);
+        else
+            rc = CKR_KEY_SIZE_RANGE;
+    RETRY_REENC_BLOB_END(tokdata, target_info, useblob, useblobsize, rc)
+    RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, sess)
+    if (rc != CKR_OK) {
+        rc = ep11_error_to_pkcs11_error(rc, sess);
+        TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
+    } else {
+        TRACE_INFO("%s rc=0x%lx\n", __func__, rc);
+    }
+
+    if (final_part && sess->sign_ctx.context != NULL && !length_only) {
+        free(sess->sign_ctx.context);
+        sess->sign_ctx.context = NULL;
+        sess->sign_ctx.context_len = 0;
+    }
+
+    return rc;
+}
+
+CK_RV token_specific_ml_dsa_verify(STDLL_TokData_t *tokdata, SESSION *sess,
+                                   const struct pqc_oid *oid,
+                                   CK_MECHANISM *mech,
+                                   CK_BYTE *in_data, CK_ULONG in_data_len,
+                                   CK_BYTE *signature, CK_ULONG signature_len,
+                                   OBJECT *key_obj, CK_BBOOL final_part)
+{
+    size_t keyblobsize = 0;
+    CK_BYTE *keyblob;
+    CK_BYTE *useblob = NULL;
+    size_t useblobsize = 0;
+    CK_IBM_SIGN_ADDITIONAL_CONTEXT ep11_mech_param;
+    CK_MECHANISM ep11_mech = { CKM_IBM_ML_DSA,
+                               &ep11_mech_param, sizeof(ep11_mech_param) };
+    CK_BYTE *tmp;
+    CK_RV rc;
+
+    if (mech->mechanism != CKM_ML_DSA) {
+        TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
+        return CKR_MECHANISM_INVALID;
+    }
+
+    if (!final_part || (sess->verify_ctx.context != NULL && in_data_len > 0)) {
+        /* Collect the input data in the context */
+        if (in_data_len == 0)
+            return CKR_OK;
+
+        tmp = (CK_BYTE *)realloc(sess->verify_ctx.context,
+                                 sess->verify_ctx.context_len + in_data_len);
+        if (tmp == NULL) {
+            TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+            return CKR_HOST_MEMORY;
+        }
+
+        memcpy(tmp + sess->verify_ctx.context_len, in_data, in_data_len);
+
+        sess->verify_ctx.context = tmp;
+        sess->verify_ctx.context_len += in_data_len;
+
+        if (!final_part)
+            return CKR_OK;
+    }
+
+    if (sess->verify_ctx.context != NULL && sess->verify_ctx.context_len > 0) {
+        in_data = sess->verify_ctx.context;
+        in_data_len = sess->verify_ctx.context_len;
+    }
+
+    rc = obj_opaque_2_blob(tokdata, key_obj, &keyblob, &keyblobsize);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s no key-blob rc=0x%lx\n", __func__, rc);
+        return rc;
+    }
+
+    rc = ml_dsa_translate_ibm_sign_mech_param_from_sign(
+                                (CK_SIGN_ADDITIONAL_CONTEXT *)mech->pParameter,
+                                &ep11_mech_param);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("ml_dsa_translate_ibm_sign_mech_param_from_sign failed\n");
+        return rc;
+    }
+
+    RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
+    RETRY_REENC_BLOB_START(tokdata, target_info, key_obj, keyblob, keyblobsize,
+                           useblob, useblobsize, rc)
+    if (ep11_pqc_strength_supported(target_info, ep11_mech.mechanism, oid))
+            rc = dll_m_VerifySingle(useblob, useblobsize, &ep11_mech,
+                                    in_data, in_data_len,
+                                    signature, signature_len,
+                                    target_info->target);
+        else
+            rc = CKR_KEY_SIZE_RANGE;
+    RETRY_REENC_BLOB_END(tokdata, target_info, useblob, useblobsize, rc)
+    RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, sess)
+    if (rc != CKR_OK) {
+        rc = ep11_error_to_pkcs11_error(rc, sess);
+        TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
+    } else {
+        TRACE_INFO("%s rc=0x%lx\n", __func__, rc);
+    }
+
+    if (final_part && sess->verify_ctx.context != NULL) {
+        free(sess->verify_ctx.context);
+        sess->verify_ctx.context = NULL;
+        sess->verify_ctx.context_len = 0;
+    }
 
     return rc;
 }
@@ -15271,6 +15464,7 @@ static const CK_MECHANISM_TYPE ep11_supported_mech_list[] = {
     CKM_EC_MONTGOMERY_KEY_PAIR_GEN,
     CKM_EDDSA,
     CKM_ML_DSA_KEY_PAIR_GEN,
+    CKM_ML_DSA,
     CKM_ML_KEM_KEY_PAIR_GEN
 };
 
@@ -15306,6 +15500,7 @@ static const struct mech_translate pkcs11_mechanism_translation[] = {
     { CKM_EC_EDWARDS_KEY_PAIR_GEN,      CKM_EC_KEY_PAIR_GEN },
     { CKM_EC_MONTGOMERY_KEY_PAIR_GEN,   CKM_EC_KEY_PAIR_GEN },
     { CKM_ML_DSA_KEY_PAIR_GEN, CKM_IBM_ML_DSA_KEY_PAIR_GEN },
+    { CKM_ML_DSA,              CKM_IBM_ML_DSA },
     { CKM_ML_KEM_KEY_PAIR_GEN, CKM_IBM_ML_KEM_KEY_PAIR_GEN },
 };
 
@@ -15968,6 +16163,7 @@ CK_RV ep11tok_is_mechanism_supported(STDLL_TokData_t *tokdata,
     case CKM_IBM_ML_KEM:
     case CKM_IBM_ML_KEM_KEY_PAIR_GEN:
     case CKM_ML_DSA_KEY_PAIR_GEN:
+    case CKM_ML_DSA:
     case CKM_ML_KEM_KEY_PAIR_GEN:
         if (compare_ck_version(&ep11_data->ep11_lib_version, &ver4_2) < 0) {
             TRACE_INFO("%s Mech '%s' banned due to host library version\n",

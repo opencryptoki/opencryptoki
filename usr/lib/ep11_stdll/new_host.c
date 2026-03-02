@@ -3140,7 +3140,8 @@ CK_RV SC_SignInit(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
         goto done;
     }
 
-    if (ep11tok_libica_mech_available(tokdata, pMechanism->mechanism, hKey)) {
+    if (ep11tok_is_common_code_sign_verify_mech(pMechanism) ||
+        ep11tok_libica_mech_available(tokdata, pMechanism->mechanism, hKey)) {
         sess->sign_ctx.count_statistics = TRUE;
         rc = sign_mgr_init(tokdata, sess, &sess->sign_ctx, pMechanism, FALSE,
                            hKey, TRUE, TRUE);
@@ -3309,7 +3310,8 @@ CK_RV SC_Sign(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
     if (!pSignature)
         length_only = TRUE;
 
-    if (ep11tok_libica_mech_available(tokdata, sess->sign_ctx.mech.mechanism,
+    if (ep11tok_is_common_code_sign_verify_mech(&sess->sign_ctx.mech) ||
+        ep11tok_libica_mech_available(tokdata, sess->sign_ctx.mech.mechanism,
                                       sess->sign_ctx.key)) {
         rc = sign_mgr_sign(tokdata, sess, length_only, &sess->sign_ctx, pData,
                            ulDataLen, pSignature, pulSignatureLen);
@@ -3409,7 +3411,8 @@ CK_RV SC_SignUpdate(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
         goto done;
     }
 
-    if (ep11tok_libica_mech_available(tokdata, sess->sign_ctx.mech.mechanism,
+    if (ep11tok_is_common_code_sign_verify_mech(&sess->sign_ctx.mech) ||
+        ep11tok_libica_mech_available(tokdata, sess->sign_ctx.mech.mechanism,
                                       sess->sign_ctx.key)) {
         rc = sign_mgr_sign_update(tokdata, sess, &sess->sign_ctx, pPart,
                                   ulPartLen);
@@ -3500,7 +3503,8 @@ CK_RV SC_SignFinal(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
     if (!pSignature)
         length_only = TRUE;
 
-    if (ep11tok_libica_mech_available(tokdata, sess->sign_ctx.mech.mechanism,
+    if (ep11tok_is_common_code_sign_verify_mech(&sess->sign_ctx.mech) ||
+        ep11tok_libica_mech_available(tokdata, sess->sign_ctx.mech.mechanism,
                                       sess->sign_ctx.key)) {
         rc = sign_mgr_sign_final(tokdata, sess, length_only, &sess->sign_ctx,
                                  pSignature, pulSignatureLen);
@@ -3643,7 +3647,8 @@ static CK_RV VerifyInit(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
         sess->verify_ctx.saved_signature_len = ulSignatureLen;
     }
 
-    if (ep11tok_libica_mech_available(tokdata, pMechanism->mechanism, hKey)) {
+    if (ep11tok_is_common_code_sign_verify_mech(pMechanism) ||
+        ep11tok_libica_mech_available(tokdata, pMechanism->mechanism, hKey)) {
         sess->verify_ctx.count_statistics = TRUE;
         rc = verify_mgr_init(tokdata, sess, &sess->verify_ctx, pMechanism,
                              FALSE, hKey, TRUE);
@@ -3784,7 +3789,8 @@ static CK_RV Verify(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
         goto done;
     }
 
-    if (ep11tok_libica_mech_available(tokdata, sess->verify_ctx.mech.mechanism,
+    if (ep11tok_is_common_code_sign_verify_mech(&sess->verify_ctx.mech) ||
+        ep11tok_libica_mech_available(tokdata, sess->verify_ctx.mech.mechanism,
                                       sess->verify_ctx.key)) {
         rc = verify_mgr_verify(tokdata, sess, &sess->verify_ctx, pData,
                                ulDataLen,
@@ -3904,7 +3910,8 @@ static CK_RV VerifyUpdate(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
         goto done;
     }
 
-    if (ep11tok_libica_mech_available(tokdata, sess->verify_ctx.mech.mechanism,
+    if (ep11tok_is_common_code_sign_verify_mech(&sess->verify_ctx.mech) ||
+        ep11tok_libica_mech_available(tokdata, sess->verify_ctx.mech.mechanism,
                                       sess->verify_ctx.key)) {
         rc = verify_mgr_verify_update(tokdata, sess, &sess->verify_ctx, pPart,
                                       ulPartLen);
@@ -4001,7 +4008,8 @@ static CK_RV VerifyFinal(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
         goto done;
     }
 
-    if (ep11tok_libica_mech_available(tokdata, sess->verify_ctx.mech.mechanism,
+    if (ep11tok_is_common_code_sign_verify_mech(&sess->verify_ctx.mech) ||
+        ep11tok_libica_mech_available(tokdata, sess->verify_ctx.mech.mechanism,
                                       sess->verify_ctx.key)) {
         rc = verify_mgr_verify_final(tokdata, sess, &sess->verify_ctx,
                                      sess->verify_ctx.saved_signature != NULL ?
