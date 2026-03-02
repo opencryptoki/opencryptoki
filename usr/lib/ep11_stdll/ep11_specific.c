@@ -482,6 +482,7 @@ static CK_BBOOL ep11_pqc_strength_supported(ep11_target_info_t *target_info,
         break;
     case CKM_IBM_ML_KEM:
     case CKM_IBM_ML_KEM_KEY_PAIR_GEN:
+    case CKM_ML_KEM:
     case CKM_ML_KEM_KEY_PAIR_GEN:
         switch (oid->keyform) {
         case CKP_ML_KEM_512:
@@ -529,6 +530,7 @@ static CK_BBOOL ep11_pqc_obj_strength_supported(ep11_target_info_t *target_info,
     case CKM_ML_DSA_KEY_PAIR_GEN:
     case CKM_ML_DSA:
     case CKM_ML_KEM_KEY_PAIR_GEN:
+    case CKM_ML_KEM:
         break;
     default:
         return TRUE;
@@ -8483,6 +8485,8 @@ static CK_RV ep11tok_ml_kem_mech_pre_process(STDLL_TokData_t *tokdata,
     }
 
     mech_ep11->mech.mechanism = mech->mechanism;
+    ep11tok_pkcs11_mech_translate(tokdata, mech_ep11->mech.mechanism,
+                                  &mech_ep11->mech.mechanism);
     mech_ep11->mech.pParameter = &mech_ep11->params;
     mech_ep11->mech.ulParameterLen = sizeof(mech_ep11->params);
 
@@ -9967,6 +9971,7 @@ do_retry:
 
     case CKM_IBM_KYBER:
     case CKM_IBM_ML_KEM:
+    case CKM_ML_KEM:
         rc = ep11tok_ml_kem_mech_pre_process(tokdata, mech_orig, &mech_ep11,
                                              &kem_secret_obj,
                                              retry_mech_param_blob != 0);
@@ -10015,7 +10020,7 @@ do_retry:
     RETRY_REENC_BLOB_START(tokdata, target_info, base_key_obj, keyblob,
                            keyblobsize, useblob, useblobsize, rc)
     RETRY_REENC_CREATE_KEY_START()
-        if (ep11_pqc_obj_strength_supported(target_info, mech->mechanism,
+        if (ep11_pqc_obj_strength_supported(target_info, mech_orig->mechanism,
                                             base_key_obj))
             rc = dll_m_DeriveKey(mech, new_attrs2, new_attrs2_len,
                                  useblob, useblobsize, NULL, 0,
@@ -10095,6 +10100,7 @@ do_retry:
 
     case CKM_IBM_KYBER:
     case CKM_IBM_ML_KEM:
+    case CKM_ML_KEM:
         rc = ep11tok_ml_kem_mech_post_process(tokdata, mech_orig, csum, cslen);
         if (rc != CKR_OK)
             goto error;
@@ -15368,6 +15374,93 @@ CK_RV token_specific_en_decapsulate_dh_ecdh_derive_key(
                               pTemplate, ulCount, FALSE, operation);
 }
 
+CK_RV token_specific_ml_kem_encapsulate_key(STDLL_TokData_t *tokdata,
+                                            SESSION *sess,
+                                            CK_BBOOL length_only,
+                                            const struct pqc_oid *oid,
+                                            CK_MECHANISM *mech,
+                                            OBJECT *key_obj,
+                                            CK_ATTRIBUTE *pTemplate,
+                                            CK_ULONG ulAttributeCount,
+                                            CK_BYTE *pCiphertext,
+                                            CK_ULONG *pulCiphertextLen,
+                                            CK_KEY_TYPE keytype,
+                                            CK_ULONG keylen,
+                                            CK_OBJECT_HANDLE *phKey)
+{
+    CK_IBM_ML_KEM_PARAMS ep11_mech_param = { 0 };
+    CK_MECHANISM ep11_mech = { mech->mechanism,
+                               &ep11_mech_param, sizeof(ep11_mech_param) };
+    CK_OBJECT_HANDLE htmp = CK_INVALID_HANDLE;
+    CK_RV rc;
+
+    UNUSED(oid);
+    UNUSED(keytype);
+    UNUSED(keylen);
+
+    if (mech->mechanism != CKM_ML_KEM)
+        return CKR_MECHANISM_INVALID;
+
+    /* Translate to Derive using orig mech but IBM-specific ML-KEM mech param */
+    ep11_mech_param.ulVersion = CK_IBM_ML_KEM_VERSION;
+    ep11_mech_param.mode = CK_IBM_ML_KEM_ENCAPSULATE;
+    ep11_mech_param.kdf = CKD_NULL;
+    ep11_mech_param.pCipher = pCiphertext;
+    ep11_mech_param.ulCipherLen = *pulCiphertextLen;
+    ep11_mech_param.hSecret = CK_INVALID_HANDLE;
+
+    if (length_only && phKey == NULL)
+        phKey = &htmp;
+
+    rc = ep11tok_derive_key(tokdata, sess, &ep11_mech, key_obj->map_handle,
+                            phKey, pTemplate, ulAttributeCount, FALSE,
+                            OP_ENCAPSULATE);
+
+    if (length_only && rc == CKR_BUFFER_TOO_SMALL)
+        rc = CKR_OK;
+
+    *pulCiphertextLen = ep11_mech_param.ulCipherLen;
+
+    return rc;
+}
+
+CK_RV token_specific_ml_kem_decapsulate_key(STDLL_TokData_t *tokdata,
+                                            SESSION *sess,
+                                            const struct pqc_oid *oid,
+                                            CK_MECHANISM *mech,
+                                            OBJECT *key_obj,
+                                            CK_ATTRIBUTE *pTemplate,
+                                            CK_ULONG ulAttributeCount,
+                                            CK_BYTE *pCiphertext,
+                                            CK_ULONG ulCiphertextLen,
+                                            CK_KEY_TYPE keytype,
+                                            CK_ULONG keylen,
+                                            CK_OBJECT_HANDLE *phKey)
+{
+    CK_IBM_ML_KEM_PARAMS ep11_mech_param = { 0 };
+    CK_MECHANISM ep11_mech = { mech->mechanism,
+                               &ep11_mech_param, sizeof(ep11_mech_param) };
+
+    UNUSED(oid);
+    UNUSED(keytype);
+    UNUSED(keylen);
+
+    if (mech->mechanism != CKM_ML_KEM)
+        return CKR_MECHANISM_INVALID;
+
+    /* Translate to Derive using orig mech but IBM-specific ML-KEM mech param */
+    ep11_mech_param.ulVersion = CK_IBM_ML_KEM_VERSION;
+    ep11_mech_param.mode = CK_IBM_ML_KEM_DECAPSULATE;
+    ep11_mech_param.kdf = CKD_NULL;
+    ep11_mech_param.pCipher = pCiphertext;
+    ep11_mech_param.ulCipherLen = ulCiphertextLen;
+    ep11_mech_param.hSecret = CK_INVALID_HANDLE;
+
+    return ep11tok_derive_key(tokdata, sess, &ep11_mech, key_obj->map_handle,
+                              phKey, pTemplate, ulAttributeCount, FALSE,
+                              OP_DECAPSULATE);
+}
+
 static const CK_MECHANISM_TYPE ep11_supported_mech_list[] = {
     CKM_AES_CBC,
     CKM_AES_CBC_PAD,
@@ -15465,7 +15558,8 @@ static const CK_MECHANISM_TYPE ep11_supported_mech_list[] = {
     CKM_EDDSA,
     CKM_ML_DSA_KEY_PAIR_GEN,
     CKM_ML_DSA,
-    CKM_ML_KEM_KEY_PAIR_GEN
+    CKM_ML_KEM_KEY_PAIR_GEN,
+    CKM_ML_KEM
 };
 
 static const CK_ULONG supported_mech_list_len =
@@ -15502,6 +15596,7 @@ static const struct mech_translate pkcs11_mechanism_translation[] = {
     { CKM_ML_DSA_KEY_PAIR_GEN, CKM_IBM_ML_DSA_KEY_PAIR_GEN },
     { CKM_ML_DSA,              CKM_IBM_ML_DSA },
     { CKM_ML_KEM_KEY_PAIR_GEN, CKM_IBM_ML_KEM_KEY_PAIR_GEN },
+    { CKM_ML_KEM,              CKM_IBM_ML_KEM },
 };
 
 static const CK_ULONG pkcs11_mechanism_translation_len =
@@ -16165,6 +16260,7 @@ CK_RV ep11tok_is_mechanism_supported(STDLL_TokData_t *tokdata,
     case CKM_ML_DSA_KEY_PAIR_GEN:
     case CKM_ML_DSA:
     case CKM_ML_KEM_KEY_PAIR_GEN:
+    case CKM_ML_KEM:
         if (compare_ck_version(&ep11_data->ep11_lib_version, &ver4_2) < 0) {
             TRACE_INFO("%s Mech '%s' banned due to host library version\n",
                        __func__, ep11_get_ckm(tokdata, orig_mech));
@@ -16520,6 +16616,12 @@ CK_RV ep11tok_get_mechanism_info(STDLL_TokData_t * tokdata,
         /* En/Decapsulate is not known by EP11, but we support it anyway */
         if (pInfo->flags & CKF_DERIVE)
             pInfo->flags |= CKF_ENCAPSULATE | CKF_DECAPSULATE;
+        break;
+    case CKM_ML_KEM:
+        /* En/Decapsulate is not known by EP11, but we support it anyway */
+        if (pInfo->flags & CKF_DERIVE)
+            pInfo->flags |= CKF_ENCAPSULATE | CKF_DECAPSULATE;
+        pInfo->flags &= ~CKF_DERIVE; /* Don't report CKF_DERIVE */
         break;
 
     default:
