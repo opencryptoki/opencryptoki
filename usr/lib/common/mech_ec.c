@@ -1780,8 +1780,7 @@ CK_RV ecdh_aes_key_wrap(STDLL_TokData_t *tokdata, SESSION *sess,
     CK_ATTRIBUTE *ec_params = NULL, *ec_point = NULL;
     CK_MECHANISM ec_keygen_mech = { 0, NULL, 0 };
     CK_ECDH1_DERIVE_PARAMS ecdh_params = { 0 };
-    CK_MECHANISM ecdh_mech = { CKM_ECDH1_DERIVE, &ecdh_params,
-                               sizeof(ecdh_params) };
+    CK_MECHANISM ecdh_mech = { 0, &ecdh_params, sizeof(ecdh_params) };
     CK_MECHANISM aeskw_kwm_mech = { CKM_AES_KEY_WRAP_KWP, NULL, 0 };
     ENCR_DECR_CONTEXT aeskw_ctx = { 0 };
     CK_OBJECT_HANDLE ec_publ_key_handle = CK_INVALID_HANDLE;
@@ -1862,6 +1861,43 @@ CK_RV ecdh_aes_key_wrap(STDLL_TokData_t *tokdata, SESSION *sess,
         TRACE_DEVEL("Failed to get CKA_EC_PARAMS.\n");
         rc = CKR_CURVE_NOT_SUPPORTED;
         goto done;
+    }
+
+    switch (ctx->mech.mechanism) {
+    case CKM_ECDH_AES_KEY_WRAP:
+        if (curve_type != PRIME_CURVE && curve_type != BRAINPOOL_CURVE &&
+            curve_type != KOBLITZ_CURVE && curve_type != MONTGOMERY_CURVE) {
+            TRACE_DEVEL("Curve not supported for CKM_ECDH_AES_KEY_WRAP.\n");
+            rc = CKR_CURVE_NOT_SUPPORTED;
+            goto done;
+        }
+
+        ecdh_mech.mechanism = CKM_ECDH1_DERIVE;
+        break;
+    case CKM_ECDH_COF_AES_KEY_WRAP:
+        if (curve_type != PRIME_CURVE && curve_type != BRAINPOOL_CURVE &&
+            curve_type != KOBLITZ_CURVE) {
+            TRACE_DEVEL("Curve not supported for CKM_ECDH_COF_AES_KEY_WRAP.\n");
+            rc = CKR_CURVE_NOT_SUPPORTED;
+            goto done;
+        }
+
+        ecdh_mech.mechanism = CKM_ECDH1_COFACTOR_DERIVE;
+        break;
+    case CKM_ECDH_X_AES_KEY_WRAP:
+        if (curve_type != MONTGOMERY_CURVE) {
+            TRACE_DEVEL("Curve not supported for CKM_ECDH_X_AES_KEY_WRAP.\n");
+            rc = CKR_CURVE_NOT_SUPPORTED;
+            goto done;
+        }
+
+        ecdh_mech.mechanism = CKM_ECDH1_DERIVE;
+        break;
+    default:
+        TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
+        rc = CKR_MECHANISM_INVALID;
+        goto done;
+        break;
     }
 
     /* Generate a temporary EC key pair using the same EC parameters */
@@ -2058,8 +2094,7 @@ CK_RV ecdh_aes_key_unwrap(STDLL_TokData_t *tokdata, SESSION *sess,
 {
     CK_ECDH_AES_KEY_WRAP_PARAMS *params;
     CK_ECDH1_DERIVE_PARAMS ecdh_params = { 0 };
-    CK_MECHANISM ecdh_mech = { CKM_ECDH1_DERIVE, &ecdh_params,
-                               sizeof(ecdh_params) };
+    CK_MECHANISM ecdh_mech = { 0, &ecdh_params, sizeof(ecdh_params) };
     CK_MECHANISM aeskw_kwm_mech = { CKM_AES_KEY_WRAP_KWP, NULL, 0 };
     CK_OBJECT_HANDLE aes_key_handle = CK_INVALID_HANDLE;
     ENCR_DECR_CONTEXT aeskw_ctx = { 0 };
@@ -2117,6 +2152,43 @@ CK_RV ecdh_aes_key_unwrap(STDLL_TokData_t *tokdata, SESSION *sess,
         TRACE_DEVEL("Failed to get CKA_EC_PARAMS.\n");
         rc = CKR_CURVE_NOT_SUPPORTED;
         goto done;
+    }
+
+    switch (ctx->mech.mechanism) {
+    case CKM_ECDH_AES_KEY_WRAP:
+        if (curve_type != PRIME_CURVE && curve_type != BRAINPOOL_CURVE &&
+            curve_type != KOBLITZ_CURVE && curve_type != MONTGOMERY_CURVE) {
+            TRACE_DEVEL("Curve not supported for CKM_ECDH_AES_KEY_WRAP.\n");
+            rc = CKR_CURVE_NOT_SUPPORTED;
+            goto done;
+        }
+
+        ecdh_mech.mechanism = CKM_ECDH1_DERIVE;
+        break;
+    case CKM_ECDH_COF_AES_KEY_WRAP:
+        if (curve_type != PRIME_CURVE && curve_type != BRAINPOOL_CURVE &&
+            curve_type != KOBLITZ_CURVE) {
+            TRACE_DEVEL("Curve not supported for CKM_ECDH_COF_AES_KEY_WRAP.\n");
+            rc = CKR_CURVE_NOT_SUPPORTED;
+            goto done;
+        }
+
+        ecdh_mech.mechanism = CKM_ECDH1_COFACTOR_DERIVE;
+        break;
+    case CKM_ECDH_X_AES_KEY_WRAP:
+        if (curve_type != MONTGOMERY_CURVE) {
+            TRACE_DEVEL("Curve not supported for CKM_ECDH_X_AES_KEY_WRAP.\n");
+            rc = CKR_CURVE_NOT_SUPPORTED;
+            goto done;
+        }
+
+        ecdh_mech.mechanism = CKM_ECDH1_DERIVE;
+        break;
+    default:
+        TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
+        rc = CKR_MECHANISM_INVALID;
+        goto done;
+        break;
     }
 
     rc = get_ecsiglen(key_obj, &prime_len);
