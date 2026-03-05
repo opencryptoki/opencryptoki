@@ -157,6 +157,8 @@ static CK_RV statistics_increment(struct statistics *statistics,
             return rc;
         break;
     case CKM_ECDH_AES_KEY_WRAP:
+    case CKM_ECDH_COF_AES_KEY_WRAP:
+    case CKM_ECDH_X_AES_KEY_WRAP:
         if (mech->pParameter == NULL ||
             mech->ulParameterLen != sizeof(CK_ECDH_AES_KEY_WRAP_PARAMS))
             return CKR_MECHANISM_PARAM_INVALID;
@@ -174,7 +176,8 @@ static CK_RV statistics_increment(struct statistics *statistics,
         }
         ecdh_params.kdf =
                 ((CK_ECDH_AES_KEY_WRAP_PARAMS *)mech->pParameter)->kdf;
-        implicit_mech.mechanism = CKM_ECDH1_DERIVE;
+        implicit_mech.mechanism = mech->mechanism == CKM_ECDH_COF_AES_KEY_WRAP ?
+                                CKM_ECDH1_COFACTOR_DERIVE : CKM_ECDH1_DERIVE;
         implicit_mech.pParameter = &ecdh_params;
         implicit_mech.ulParameterLen = sizeof(ecdh_params);
         rc = statistics_increment(statistics, slot, &implicit_mech,

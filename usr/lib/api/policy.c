@@ -1241,6 +1241,8 @@ static CK_RV policy_is_mech_allowed(policy_t p, CK_MECHANISM_PTR mech,
             }
             break;
         case CKM_ECDH_AES_KEY_WRAP:
+        case CKM_ECDH_COF_AES_KEY_WRAP:
+        case CKM_ECDH_X_AES_KEY_WRAP:
             if (mech->ulParameterLen != sizeof(CK_ECDH_AES_KEY_WRAP_PARAMS) ||
                 mech->pParameter == NULL) {
                 TRACE_ERROR("Invalid mechanism parameter\n");
@@ -1439,6 +1441,8 @@ static CK_RV policy_update_mech_info(policy_t p, CK_MECHANISM_TYPE mech,
         case CKM_IBM_ECDSA_OTHER:
         case CKM_IBM_BTC_DERIVE:
         case CKM_ECDH_AES_KEY_WRAP:
+        case CKM_ECDH_COF_AES_KEY_WRAP:
+        case CKM_ECDH_X_AES_KEY_WRAP:
         case CKM_IBM_EC_AGGREGATE:
         case CKM_EDDSA:
             if (policy_update_ec(pp, info) != CKR_OK) {
