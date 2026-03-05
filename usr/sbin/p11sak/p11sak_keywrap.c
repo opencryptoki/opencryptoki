@@ -181,6 +181,36 @@ static const struct p11sak_wrap_mech p11sak_wrap_mech_ecdh_aeskw = {
     .prepare_pem_header = p11sak_ecdh_aeskw_prepare_pem_header,
 };
 
+static const struct p11sak_wrap_mech p11sak_wrap_mech_ecdh_cof_aeskw = {
+    .name = "ECDH-COF-AESKW",
+    .mech = CKM_ECDH_COF_AES_KEY_WRAP,
+    .mech_param_size = sizeof(CK_ECDH_AES_KEY_WRAP_PARAMS),
+    .wrap_class = CKO_PUBLIC_KEY,
+    .unwrap_class = CKO_PRIVATE_KEY,
+    .key_type = CKK_EC,
+    .prepare_mech_param_from_opts =
+                        p11sak_ecdh_aeskw_prepare_mech_param_from_opts,
+    .prepare_mech_param_from_pem =
+                        p11sak_ecdh_aeskw_prepare_mech_param_from_pem,
+    .cleanup_mech_param = p11sak_ecdh_aeskw_cleanup_mech_param,
+    .prepare_pem_header = p11sak_ecdh_aeskw_prepare_pem_header,
+};
+
+static const struct p11sak_wrap_mech p11sak_wrap_mech_ecdh_x_aeskw = {
+    .name = "ECDH-X-AESKW",
+    .mech = CKM_ECDH_X_AES_KEY_WRAP,
+    .mech_param_size = sizeof(CK_ECDH_AES_KEY_WRAP_PARAMS),
+    .wrap_class = CKO_PUBLIC_KEY,
+    .unwrap_class = CKO_PRIVATE_KEY,
+    .key_type = CKK_EC_MONTGOMERY,
+    .prepare_mech_param_from_opts =
+                        p11sak_ecdh_aeskw_prepare_mech_param_from_opts,
+    .prepare_mech_param_from_pem =
+                        p11sak_ecdh_aeskw_prepare_mech_param_from_pem,
+    .cleanup_mech_param = p11sak_ecdh_aeskw_cleanup_mech_param,
+    .prepare_pem_header = p11sak_ecdh_aeskw_prepare_pem_header,
+};
+
 static const struct p11tool_opt p11sak_wrap_mech_aes_cbc_opts[] = {
     { .short_opt = 'I', .long_opt = "iv", .required = false,
       .arg =  { .type = ARG_TYPE_STRING, .required = true,
@@ -432,6 +462,20 @@ const struct p11tool_enum_value p11sak_wrap_mech_values[] = {
                      "unwrapping is done with the corresponding EC or "
                      "EC-Montgomery private key.",
       .private = { .ptr = &p11sak_wrap_mech_ecdh_aeskw, }, },
+    { .value = "ecdh-cof-aeskw", .args = NULL,
+      .opts = p11sak_wrap_mech_ecdh_aeskw_opts,
+      .description = "Use mechanism CKM_ECDH_COF_AES_KEY_WRAP for key "
+                     "wrapping. Wrapping is done with an EC public key, "
+                     "unwrapping is done with the corresponding EC private "
+                     "key.",
+      .private = { .ptr = &p11sak_wrap_mech_ecdh_cof_aeskw, }, },
+    { .value = "ecdh-x-aeskw", .args = NULL,
+      .opts = p11sak_wrap_mech_ecdh_aeskw_opts,
+      .description = "Use mechanism CKM_ECDH_X_AES_KEY_WRAP for key wrapping. "
+                     "Wrapping is done with an EC-Montgomery public key, "
+                     "unwrapping is done with the corresponding "
+                     "EC-Montgomery private key.",
+      .private = { .ptr = &p11sak_wrap_mech_ecdh_x_aeskw, }, },
     { .value = NULL, },
 };
 
