@@ -1875,11 +1875,28 @@ and
 .IR SOURCE\-DATA ,
 options to specify the OAEP mechanism parameters.
 .IP "\(bu" 2
-.BR ecdh\-aeskw :
-Use mechanism 
-.B CKM_ECDH_AES_KEY_WRAP
-for key wrapping. Wrapping is done with an EC or EC-Montgomery public key,
-unwrapping is done with the corresponding EC or EC-Montgomery private key.
+.BR ecdh\-aeskw , 
+.BR ecdh\-cof\-aeskw ,
+and
+.BR ecdh\-x\-aeskw :
+Use mechanisms 
+.BR CKM_ECDH_AES_KEY_WRAP ,
+.BR CKM_ECDH_COF_AES_KEY_WRAP ,
+and
+.B CKM_ECDH_X_AES_KEY_WRAP
+respectively for key wrapping. Wrapping is done with an EC or EC-Montgomery
+public key (for
+.BR ecdh\-aeskw ),
+an EC public key (for
+.BR ecdh\-cof\-aeskw ),
+or an EC-Montgomery public key (for
+.BR ecdh\-x\-aeskw ).
+Unwrapping is done with the corresponding EC or EC-Montgomery private key (for
+.BR ecdh\-aeskw ),
+an EC private key (for
+.BR ecdh\-cof\-aeskw ),
+or an EC-Montgomery private key (for
+.BR ecdh\-x\-aeskw ).
 Use the
 .BR \-\-aes\-key\-size
 .I AES\-KEYBITS
@@ -2093,11 +2110,28 @@ and
 .IR SOURCE\-DATA ,
 options to specify the OAEP mechanism parameters.
 .IP "\(bu" 2
-.BR ecdh\-aeskw :
-Use mechanism 
-.B CKM_ECDH_AES_KEY_WRAP
-for key wrapping. Wrapping is done with an EC or EC-Montgomery public key
-unwrapping is done with the corresponding EC or EC-Montgomery private key.
+.BR ecdh\-aeskw , 
+.BR ecdh\-cof\-aeskw ,
+and
+.BR ecdh\-x\-aeskw :
+Use mechanisms 
+.BR CKM_ECDH_AES_KEY_WRAP ,
+.BR CKM_ECDH_COF_AES_KEY_WRAP ,
+and
+.B CKM_ECDH_X_AES_KEY_WRAP
+respectively for key wrapping. Wrapping is done with an EC or EC-Montgomery
+public key (for
+.BR ecdh\-aeskw ),
+an EC public key (for
+.BR ecdh\-cof\-aeskw ),
+or an EC-Montgomery public key (for
+.BR ecdh\-x\-aeskw ).
+Unwrapping is done with the corresponding EC or EC-Montgomery private key (for
+.BR ecdh\-aeskw ),
+an EC private key (for
+.BR ecdh\-cof\-aeskw ),
+or an EC-Montgomery private key (for
+.BR ecdh\-x\-aeskw ).
 Use the
 .BR \-\-aes\-key\-size
 .I AES\-KEYBITS
@@ -2913,8 +2947,8 @@ Specifies the kind of the asymmetric key to import. Possible values are
 .
 Specifies the wrapping mechanism for use with exporting or importing a key by
 wrapping it with a key encrypting key. Possible values are
-.BR aes\-cbc\-pad |\: aeskw\-kwp |\: aeskw\-pkcs7 |\: rsa\-pkcs |\: rsa\-oaep |\:
-rsa\-aeskw |\: ecdh\-aeskw .
+.BR aes\-cbc\-pad |\: aeskw\-kwp |\: aeskw\-pkcs7 |\: rsa\-pkcs |\: rsa\-oaep \
+|\: rsa\-aeskw |\: ecdh\-aeskw |\: ecdh\-cof\-aeskw |\: ecdh\-x\-aeskw .
 Dependent on the key wrapping mechanism, additional options may be supported
 to specify mechanism parameters. See sections
 .B Exporting a key by wrapping it with a key encrypting key
@@ -3745,7 +3779,8 @@ with 0x) of any number of bytes. The default is that no source data is used.
 .
 .
 .
-.SS OPTIONS FOR ARGUMENT \fIWRAP\-MECH\fB VALUE ecdh\-aeskw:
+.SS OPTIONS FOR ARGUMENT \fIWRAP\-MECH\fB VALUE ecdh\-aeskw, ecdh\-cof\-aeskw, \
+and ecdh\-x\-aeskw:
 .
 .TP 8
 .BR \-\-aes\-key\-size\~\fIAES\-KEYBITS\fP
