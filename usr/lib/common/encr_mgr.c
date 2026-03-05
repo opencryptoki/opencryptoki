@@ -363,7 +363,9 @@ CK_RV encr_mgr_init(STDLL_TokData_t *tokdata,
         ctx->context = NULL;
         break;
     case CKM_ECDH_AES_KEY_WRAP:
-        /* CKM_ECDH_AES_KEY_WRAP can only be used for wrap/unwrap */
+    case CKM_ECDH_COF_AES_KEY_WRAP:
+    case CKM_ECDH_X_AES_KEY_WRAP:
+        /* CKM_ECDH_[COF_|X_]AES_KEY_WRAP can only be used for wrap/unwrap */
         if (operation != OP_WRAP) {
             TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
             rc = CKR_MECHANISM_INVALID;
@@ -384,11 +386,34 @@ CK_RV encr_mgr_init(STDLL_TokData_t *tokdata,
             goto done;
         }
 
-        if (keytype != CKK_EC && keytype != CKK_EC_MONTGOMERY) {
-            TRACE_ERROR("%s\n", ock_err(ERR_KEY_TYPE_INCONSISTENT));
-            rc = CKR_KEY_TYPE_INCONSISTENT;
+        switch (mech->mechanism) {
+        case CKM_ECDH_AES_KEY_WRAP:
+            if (keytype != CKK_EC && keytype != CKK_EC_MONTGOMERY) {
+                TRACE_ERROR("%s\n", ock_err(ERR_KEY_TYPE_INCONSISTENT));
+                rc = CKR_KEY_TYPE_INCONSISTENT;
+                goto done;
+            }
+            break;
+        case CKM_ECDH_COF_AES_KEY_WRAP:
+            if (keytype != CKK_EC) {
+                TRACE_ERROR("%s\n", ock_err(ERR_KEY_TYPE_INCONSISTENT));
+                rc = CKR_KEY_TYPE_INCONSISTENT;
+                goto done;
+            }
+            break;
+        case CKM_ECDH_X_AES_KEY_WRAP:
+            if (keytype != CKK_EC_MONTGOMERY) {
+                TRACE_ERROR("%s\n", ock_err(ERR_KEY_TYPE_INCONSISTENT));
+                rc = CKR_KEY_TYPE_INCONSISTENT;
+                goto done;
+            }
+            break;
+        default:
+            TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
+            rc = CKR_MECHANISM_INVALID;
             goto done;
         }
+
         // cannot be used for multi-part operations
         //
         ctx->context_len = 0;
@@ -874,6 +899,8 @@ CK_RV encr_mgr_encrypt(STDLL_TokData_t *tokdata,
                                 in_data, in_data_len,
                                 out_data, out_data_len);
     case CKM_ECDH_AES_KEY_WRAP:
+    case CKM_ECDH_COF_AES_KEY_WRAP:
+    case CKM_ECDH_X_AES_KEY_WRAP:
         return ecdh_aes_key_wrap(tokdata, sess, length_only, ctx,
                                  in_data, in_data_len,
                                  out_data, out_data_len);
