@@ -5245,6 +5245,10 @@ static const REF_MECH_LIST_ELEMENT ref_mech_list[] = {
      {255, 448, CKF_SIGN | CKF_VERIFY | CKF_EC_OID | CKF_EC_F_P |
                 CKF_EC_COMPRESS}
     },
+    {ED25519_SIGN, CKM_ECDH_X_AES_KEY_WRAP, 
+     {255, 448, CKF_WRAP | CKF_UNWRAP | CKF_EC_OID | CKF_EC_F_P |
+                CKF_EC_COMPRESS}
+    },
 #endif
 #endif
 #endif
