@@ -334,6 +334,7 @@ static const MECH_LIST_ELEMENT cca_mech_list[] = {
                                    CKF_EC_OID | CKF_EC_F_P | CKF_EC_COMPRESS}},
     {CKM_EDDSA, {255, 448, CKF_HW | CKF_SIGN | CKF_VERIFY | CKF_EC_OID |
                  CKF_EC_F_P | CKF_EC_COMPRESS}},
+    {CKM_PUB_KEY_FROM_PRIV_KEY,{ 0, 0, CKF_DERIVE}},
 };
 
 static const CK_ULONG cca_mech_list_len =
