@@ -500,6 +500,7 @@ CK_RV ep11tok_check_single_mech_key(STDLL_TokData_t *tokdata, SESSION * session,
 
 CK_BOOL ep11tok_mech_single_only(CK_MECHANISM *mech);
 
+CK_BBOOL ep11tok_is_common_code_derive_mech(CK_MECHANISM *mech);
 CK_BBOOL ep11tok_is_common_code_sign_verify_mech(CK_MECHANISM *mech);
 
 CK_RV ep11tok_sign_init(STDLL_TokData_t * tokdata, SESSION * session,
