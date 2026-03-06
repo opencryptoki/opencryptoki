@@ -4575,10 +4575,17 @@ CK_RV SC_DeriveKey(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
         goto done;
     }
 
-    rc = ep11tok_derive_key(tokdata, sess, pMechanism, hBaseKey, phKey,
-                            pTemplate, ulCount, TRUE, OP_DERIVE);
-    if (rc != CKR_OK)
-        TRACE_DEVEL("epl11tok_derive_key() failed.\n");
+    if (ep11tok_is_common_code_derive_mech(pMechanism)) {
+        rc = key_mgr_derive_key(tokdata, sess, pMechanism, hBaseKey, phKey,
+                                pTemplate, ulCount, TRUE, OP_DERIVE);
+        if (rc != CKR_OK)
+            TRACE_DEVEL("key_mgr_derive_key() failed.\n");
+    } else {
+        rc = ep11tok_derive_key(tokdata, sess, pMechanism, hBaseKey, phKey,
+                                pTemplate, ulCount, TRUE, OP_DERIVE);
+        if (rc != CKR_OK)
+            TRACE_DEVEL("epl11tok_derive_key() failed.\n");
+    }
 
 done:
     TRACE_INFO("C_DeriveKey: rc = 0x%08lx, sess = %ld, mech = 0x%lx\n",
