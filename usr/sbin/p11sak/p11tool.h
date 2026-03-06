@@ -405,6 +405,7 @@ CK_RV p11tool_check_wrap_mech_supported(CK_SLOT_ID slot,
 CK_RV p11tool_check_keygen_mech_supported(CK_SLOT_ID slot,
                                           CK_MECHANISM_TYPE mechanism,
                                           bool is_asymmetric, CK_ULONG keysize);
+CK_RV p11tool_check_pub_from_priv_mech_supported(CK_SLOT_ID slot);
 
 char p11tool_prompt_user(const char *message, char* allowed_chars);
 
