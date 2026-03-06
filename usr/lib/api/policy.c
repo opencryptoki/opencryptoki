@@ -1557,6 +1557,7 @@ static CK_RV policy_update_mech_info(policy_t p, CK_MECHANISM_TYPE mech,
         case CKM_SSL3_KEY_AND_MAC_DERIVE:
         case CKM_TLS_KEY_AND_MAC_DERIVE:
         case CKM_IBM_ATTRIBUTEBOUND_WRAP:
+        case CKM_PUB_KEY_FROM_PRIV_KEY:
             /* For these mechanisms, the standard does not specify a
                value for info.  So we only pass them to the generic
                check for signature size. */
