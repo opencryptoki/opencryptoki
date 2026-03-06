@@ -2147,6 +2147,15 @@ CK_RV key_mgr_derive_key(STDLL_TokData_t *tokdata,
         rc = ibm_ml_kem_derive(tokdata, sess, mech, base_key_obj, new_attrs,
                                new_attr_count, derived_key);
         break;
+    case CKM_PUB_KEY_FROM_PRIV_KEY:
+        if (!derived_key) {
+            TRACE_ERROR("%s received bad argument(s)\n", __func__);
+            rc = CKR_FUNCTION_FAILED;
+            break;
+        }
+        rc = key_pub_from_priv(tokdata, sess, base_key_obj, new_attrs,
+                               new_attr_count, derived_key);
+        break;
     default:
         TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
         rc = CKR_MECHANISM_INVALID;

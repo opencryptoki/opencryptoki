@@ -68,6 +68,7 @@
 #define MODE_UNWRAPPED  (1 << 6)
 #define MODE_ENCAPS     (1 << 7)
 #define MODE_DECAPS     (1 << 8)
+#define MODE_EXTRACT    (1 << 9)
 
 // RSA block formatting types
 //
