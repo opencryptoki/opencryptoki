@@ -586,7 +586,7 @@ CK_RV template_check_required_base_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     CK_RV rc;
 
     rc = template_attribute_get_ulong(tmpl, CKA_CLASS, &val);
-    if (mode == MODE_CREATE && rc != CKR_OK)
+    if ((mode == MODE_CREATE || mode == MODE_EXTRACT) && rc != CKR_OK)
         return CKR_TEMPLATE_INCOMPLETE;
 
     return CKR_OK;
@@ -1954,8 +1954,7 @@ CK_RV template_validate_base_attribute(TEMPLATE *tmpl, CK_ATTRIBUTE *attr,
             return CKR_ATTRIBUTE_VALUE_INVALID;
         }
         if ((mode & (MODE_CREATE | MODE_DERIVE | MODE_KEYGEN | MODE_UNWRAP |
-                     MODE_ENCAPS | MODE_DECAPS)) !=
-            0)
+                     MODE_ENCAPS | MODE_DECAPS | MODE_EXTRACT)) != 0)
             return CKR_OK;
         break;
     case CKA_TOKEN:
@@ -1964,7 +1963,8 @@ CK_RV template_validate_base_attribute(TEMPLATE *tmpl, CK_ATTRIBUTE *attr,
             return CKR_ATTRIBUTE_VALUE_INVALID;
         }
         if ((mode & (MODE_CREATE | MODE_COPY | MODE_DERIVE | MODE_KEYGEN |
-                     MODE_UNWRAP | MODE_ENCAPS | MODE_DECAPS)) != 0)
+                     MODE_UNWRAP | MODE_ENCAPS | MODE_DECAPS |
+                     MODE_EXTRACT)) != 0)
             return CKR_OK;
         break;
     case CKA_PRIVATE:
@@ -1973,7 +1973,8 @@ CK_RV template_validate_base_attribute(TEMPLATE *tmpl, CK_ATTRIBUTE *attr,
             return CKR_ATTRIBUTE_VALUE_INVALID;
         }
         if ((mode & (MODE_CREATE | MODE_COPY | MODE_DERIVE | MODE_KEYGEN |
-                     MODE_UNWRAP | MODE_ENCAPS | MODE_DECAPS)) != 0)
+                     MODE_UNWRAP | MODE_ENCAPS | MODE_DECAPS |
+                     MODE_EXTRACT)) != 0)
             return CKR_OK;
         break;
     case CKA_LABEL:
@@ -1984,7 +1985,8 @@ CK_RV template_validate_base_attribute(TEMPLATE *tmpl, CK_ATTRIBUTE *attr,
         /* Allow this attribute to be modified in order to support
          * migratable keys on secure key tokens.
          */
-        if ((mode & (MODE_CREATE | MODE_COPY | MODE_MODIFY)) != 0)
+        if ((mode & (MODE_CREATE | MODE_COPY | MODE_MODIFY |
+                     MODE_EXTRACT)) != 0)
             return CKR_OK;
         break;
     case CKA_MODIFIABLE:
@@ -1994,7 +1996,8 @@ CK_RV template_validate_base_attribute(TEMPLATE *tmpl, CK_ATTRIBUTE *attr,
         }
         /* CKA_MODIFIABLE can only be set on creation and copy */
         if ((mode & (MODE_CREATE | MODE_COPY | MODE_DERIVE | MODE_KEYGEN |
-                     MODE_UNWRAP | MODE_ENCAPS | MODE_DECAPS)) != 0)
+                     MODE_UNWRAP | MODE_ENCAPS | MODE_DECAPS |
+                     MODE_EXTRACT)) != 0)
             return CKR_OK;
         break;
     case CKA_DESTROYABLE:
@@ -2010,7 +2013,8 @@ CK_RV template_validate_base_attribute(TEMPLATE *tmpl, CK_ATTRIBUTE *attr,
             return CKR_ATTRIBUTE_VALUE_INVALID;
         }
         if ((mode & (MODE_CREATE | MODE_DERIVE | MODE_KEYGEN |
-                     MODE_UNWRAP | MODE_ENCAPS | MODE_DECAPS)) != 0)
+                     MODE_UNWRAP | MODE_ENCAPS | MODE_DECAPS |
+                     MODE_EXTRACT)) != 0)
             return CKR_OK;
         if (attr->pValue != NULL && *(CK_BBOOL *)attr->pValue == FALSE)
             return CKR_OK;
@@ -2019,7 +2023,8 @@ CK_RV template_validate_base_attribute(TEMPLATE *tmpl, CK_ATTRIBUTE *attr,
         break;
     case CKA_HIDDEN:
         if ((mode & (MODE_CREATE | MODE_DERIVE | MODE_KEYGEN |
-                     MODE_UNWRAP | MODE_ENCAPS | MODE_DECAPS)) != 0)
+                     MODE_UNWRAP | MODE_ENCAPS | MODE_DECAPS |
+                     MODE_EXTRACT)) != 0)
             return CKR_OK;
         break;
     default:

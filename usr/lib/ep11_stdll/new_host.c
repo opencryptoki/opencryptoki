@@ -1722,7 +1722,8 @@ CK_RV SC_CreateObject(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
     }
 
     /* Enforces policy */
-    rc = object_mgr_add(tokdata, sess, pTemplate, ulCount, phObject);
+    rc = object_mgr_add(tokdata, sess, pTemplate, ulCount, phObject,
+                        MODE_CREATE);
     if (rc != CKR_OK)
         TRACE_DEVEL("object_mgr_add() failed.\n");
 

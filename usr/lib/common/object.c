@@ -51,7 +51,8 @@
 // (see object_mgr_create())
 //
 CK_RV object_create(STDLL_TokData_t * tokdata,
-                    CK_ATTRIBUTE * pTemplate, CK_ULONG ulCount, OBJECT ** obj)
+                    CK_ATTRIBUTE * pTemplate, CK_ULONG ulCount, OBJECT ** obj,
+                    CK_ULONG mode)
 {
     OBJECT *o = NULL;
     CK_BBOOL subclass_given = FALSE;
@@ -112,7 +113,7 @@ CK_RV object_create(STDLL_TokData_t * tokdata,
     }
 
     rc = object_create_skel(tokdata, pTemplate, ulCount,
-                            MODE_CREATE, class, subclass, &o);
+                            mode, class, subclass, &o);
     if (rc != CKR_OK) {
         TRACE_DEVEL("object_create_skel failed.\n");
         return rc;
