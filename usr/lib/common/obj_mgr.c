@@ -85,7 +85,8 @@ static CK_RV object_mgr_check_session(SESSION *sess, CK_BBOOL priv_obj,
 CK_RV object_mgr_add(STDLL_TokData_t *tokdata,
                      SESSION *sess,
                      CK_ATTRIBUTE *pTemplate,
-                     CK_ULONG ulCount, CK_OBJECT_HANDLE *handle)
+                     CK_ULONG ulCount, CK_OBJECT_HANDLE *handle,
+                     CK_ULONG mode)
 {
     OBJECT *o = NULL;
     CK_BBOOL priv_obj, sess_obj;
@@ -101,7 +102,7 @@ CK_RV object_mgr_add(STDLL_TokData_t *tokdata,
         return CKR_ARGUMENTS_BAD;
     }
 
-    rc = object_create(tokdata, pTemplate, ulCount, &o);
+    rc = object_create(tokdata, pTemplate, ulCount, &o, mode);
     if (rc != CKR_OK) {
         TRACE_DEVEL("Object Create failed.\n");
         goto done;

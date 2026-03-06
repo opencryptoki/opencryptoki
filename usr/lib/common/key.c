@@ -99,7 +99,7 @@ CK_RV key_object_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode)
 
     rc = template_attribute_get_ulong(tmpl, CKA_KEY_TYPE, &val);
     if (rc != CKR_OK) {
-        if (mode == MODE_CREATE) {
+        if (mode == MODE_CREATE || mode == MODE_EXTRACT) {
             TRACE_ERROR("Could not find CKA_KEY_TYPE\n");
             return rc;
         }
@@ -288,7 +288,8 @@ CK_RV key_object_validate_attribute(TEMPLATE *tmpl, CK_ATTRIBUTE *attr,
 
         if (mode == MODE_CREATE || mode == MODE_DERIVE ||
             mode == MODE_KEYGEN || mode == MODE_UNWRAP ||
-            mode == MODE_ENCAPS || mode == MODE_DECAPS)
+            mode == MODE_ENCAPS || mode == MODE_DECAPS ||
+            mode == MODE_EXTRACT)
             return CKR_OK;
 
         TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_READ_ONLY));
@@ -305,7 +306,8 @@ CK_RV key_object_validate_attribute(TEMPLATE *tmpl, CK_ATTRIBUTE *attr,
         }
         if (mode == MODE_CREATE || mode == MODE_KEYGEN ||
             mode == MODE_DERIVE || mode == MODE_UNWRAP ||
-            mode == MODE_ENCAPS || mode == MODE_DECAPS)
+            mode == MODE_ENCAPS || mode == MODE_DECAPS ||
+            mode == MODE_EXTRACT)
             return CKR_OK;
         TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_READ_ONLY));
         return CKR_ATTRIBUTE_READ_ONLY;
@@ -319,8 +321,10 @@ CK_RV key_object_validate_attribute(TEMPLATE *tmpl, CK_ATTRIBUTE *attr,
     case CKA_LOCAL:
         /*
          * CKA_LOCAL and CKA_KEY_GEN_MECHANISM are only set by the
-         * key-generate routine
+         * key-generate routine, but for extract it is allowed to be set.
          */
+        if (mode == MODE_EXTRACT)
+            return CKR_OK;
         TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_READ_ONLY));
         return CKR_ATTRIBUTE_READ_ONLY;
     case CKA_IBM_PROTKEY_EXTRACTABLE:
@@ -332,7 +336,7 @@ CK_RV key_object_validate_attribute(TEMPLATE *tmpl, CK_ATTRIBUTE *attr,
         if (mode != MODE_CREATE && mode != MODE_DERIVE &&
             mode != MODE_KEYGEN && mode != MODE_UNWRAP &&
             mode != MODE_ENCAPS && mode != MODE_DECAPS &&
-            value != FALSE) {
+            mode != MODE_EXTRACT && value != FALSE) {
             TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_READ_ONLY));
             return CKR_ATTRIBUTE_READ_ONLY;
         }
@@ -357,7 +361,7 @@ CK_RV key_object_validate_attribute(TEMPLATE *tmpl, CK_ATTRIBUTE *attr,
         }
         if (mode == MODE_CREATE || mode == MODE_DERIVE || mode == MODE_KEYGEN
             || mode == MODE_UNWRAP || mode == MODE_ENCAPS ||
-            mode == MODE_DECAPS)
+            mode == MODE_DECAPS || mode == MODE_EXTRACT)
             return CKR_OK;
         TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_READ_ONLY));
         return CKR_ATTRIBUTE_READ_ONLY;
@@ -368,7 +372,7 @@ CK_RV key_object_validate_attribute(TEMPLATE *tmpl, CK_ATTRIBUTE *attr,
         }
         if (mode == MODE_CREATE || mode == MODE_DERIVE || mode == MODE_KEYGEN
             || mode == MODE_UNWRAP || mode == MODE_ENCAPS ||
-            mode == MODE_DECAPS)
+            mode == MODE_DECAPS || mode == MODE_EXTRACT)
             return CKR_OK;
         TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_READ_ONLY));
         return CKR_ATTRIBUTE_READ_ONLY;
@@ -521,6 +525,217 @@ CK_RV key_object_is_always_authenticate(TEMPLATE *tmpl, CK_BBOOL *auth)
     }
 
     return CKR_OK;
+}
+
+CK_RV key_pub_from_priv(STDLL_TokData_t *tokdata, SESSION *sess,
+                        OBJECT *priv_key_obj,
+                        CK_ATTRIBUTE *pTemplate, CK_ULONG ulCount,
+                        CK_OBJECT_HANDLE *pub_key_handle)
+{
+    CK_ATTRIBUTE *attrs = NULL;
+    CK_ULONG num_attrs = 0;
+    CK_ATTRIBUTE *attr, *spki_attr;
+    CK_OBJECT_CLASS class;
+    CK_KEY_TYPE keytype;
+    CK_BBOOL ck_true = CK_TRUE, ck_false = CK_FALSE;
+    CK_ULONG i;
+    TEMPLATE *tmpl = NULL;
+    DL_NODE *node;
+    CK_RV rc;
+
+    const struct default_attr {
+        CK_ATTRIBUTE attr;
+        CK_BBOOL copy_from_priv;
+        CK_ATTRIBUTE_TYPE priv_attr_type;
+    } default_attrs[] = {
+        { .attr = { CKA_TOKEN, &ck_false, sizeof(ck_false)} },
+        { .attr = { CKA_PRIVATE, &ck_false, sizeof(ck_false) } },
+        { .attr = { CKA_MODIFIABLE, &ck_true, sizeof(ck_true) } },
+        { .attr = { CKA_LOCAL, &ck_false, sizeof(ck_false) } },
+        { .attr = { CKA_COPYABLE, &ck_true, sizeof(ck_true) } },
+        { .attr = { CKA_DESTROYABLE, &ck_true, sizeof(ck_true) } },
+        { .attr = { CKA_LABEL, NULL, 0 } },
+        { .attr = { CKA_WRAP_TEMPLATE, NULL, 0 } },
+        { .attr = { CKA_ENCRYPT, &ck_false, sizeof(ck_false) },
+          .copy_from_priv = CK_TRUE, .priv_attr_type = CKA_DECRYPT },
+        { .attr = { CKA_VERIFY,  &ck_false, sizeof(ck_false) },
+          .copy_from_priv = CK_TRUE, .priv_attr_type = CKA_SIGN },
+        { .attr = { CKA_VERIFY_RECOVER, &ck_false, sizeof(ck_false) },
+          .copy_from_priv = CK_TRUE, .priv_attr_type = CKA_SIGN_RECOVER },
+        { .attr = { CKA_WRAP, &ck_false, sizeof(ck_false) },
+          .copy_from_priv = CK_TRUE, .priv_attr_type = CKA_UNWRAP },
+        { .attr = { CKA_DERIVE, &ck_false, sizeof(ck_false) },
+          .copy_from_priv = CK_TRUE, .priv_attr_type = CKA_DERIVE },
+        { .attr = { CKA_ID, NULL, 0 },
+          .copy_from_priv = CK_TRUE, .priv_attr_type = CKA_ID },
+        { .attr = { CKA_START_DATE, NULL, 0 },
+          .copy_from_priv = CK_TRUE, .priv_attr_type = CKA_START_DATE },
+        { .attr = { CKA_END_DATE, NULL, 0 },
+          .copy_from_priv = CK_TRUE, .priv_attr_type = CKA_END_DATE },
+        { .attr = { CKA_SUBJECT, NULL, 0 },
+          .copy_from_priv = CK_TRUE, .priv_attr_type = CKA_SUBJECT },
+        { .attr = { CKA_PUBLIC_KEY_INFO, NULL, 0 },
+          .copy_from_priv = CK_TRUE, .priv_attr_type = CKA_PUBLIC_KEY_INFO },
+        { .attr = { CKA_KEY_GEN_MECHANISM, NULL, 0 },
+          .copy_from_priv = CK_TRUE, .priv_attr_type = CKA_KEY_GEN_MECHANISM },
+        { .attr = { CKA_ALLOWED_MECHANISMS, NULL, 0 },
+          .copy_from_priv = CK_TRUE, .priv_attr_type = CKA_ALLOWED_MECHANISMS },
+    };
+
+    rc = template_attribute_get_ulong(priv_key_obj->template,
+                                      CKA_CLASS, &class);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("Can not find CKA_CLASS in object\n");
+        return rc;
+    }
+
+    if (class != CKO_PRIVATE_KEY) {
+        TRACE_DEVEL("Base key is not a private key\n");
+        return CKR_KEY_TYPE_INCONSISTENT;
+    }
+
+    rc = template_attribute_get_ulong(priv_key_obj->template,
+                                      CKA_KEY_TYPE, &keytype);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("Can not find CKA_KEY_TYPE in object\n");
+        return rc;
+    }
+
+    rc = template_attribute_get_non_empty(priv_key_obj->template,
+                                          CKA_PUBLIC_KEY_INFO, &spki_attr);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("Can not find CKA_PUBLIC_KEY_INFO in object\n");
+        return CKR_PUBLIC_KEY_INVALID;
+    }
+
+    rc = dup_attribute_array(pTemplate, ulCount, &attrs, &num_attrs);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("dup_attribute_array failed\n");
+        return rc;
+    }
+
+    /* Add class and key type attributes */
+    class = CKO_PUBLIC_KEY;
+    rc = add_to_attribute_array(&attrs, &num_attrs, CKA_CLASS,
+                                (CK_BYTE *)&class, sizeof(class));
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("add_to_attribute_array failed\n");
+        goto done;
+    }
+
+    rc = add_to_attribute_array(&attrs, &num_attrs, CKA_KEY_TYPE,
+                                (CK_BYTE *)&keytype, sizeof(keytype));
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("add_to_attribute_array failed\n");
+        goto done;
+    }
+
+    /* Apply defaults for public key object, if not in the template */
+    for (i = 0; i < sizeof(default_attrs) /
+                            sizeof(struct default_attr); i++) {
+        attr = get_attribute_by_type(pTemplate, ulCount,
+                                     default_attrs[i].attr.type);
+        if (attr == NULL) {
+            attr = (CK_ATTRIBUTE *)&default_attrs[i].attr;
+
+            if (default_attrs[i].copy_from_priv) {
+                if (template_attribute_find(priv_key_obj->template,
+                                            default_attrs[i].priv_attr_type,
+                                            &attr) == CK_FALSE) {
+                    TRACE_DEVEL("Can not find %s in object\n",
+                                p11_get_cka(
+                                        default_attrs[i].priv_attr_type));
+                    rc = CKR_TEMPLATE_INCOMPLETE;
+                    goto done;
+                }
+            }
+
+            rc = add_to_attribute_array(&attrs, &num_attrs,
+                                        default_attrs[i].attr.type,
+                                        attr->pValue, attr->ulValueLen);
+            if (rc != CKR_OK) {
+                TRACE_DEVEL("add_to_attribute_array failed\n");
+                goto done;
+            }
+        }
+    }
+
+    /* Get the public key attributes from SPKI into temporary template */
+    tmpl = calloc(1, sizeof(TEMPLATE));
+    if (tmpl == NULL) {
+        TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+        rc = CKR_HOST_MEMORY;
+        goto done;
+    }
+
+    switch (keytype) {
+    case CKK_EC:
+    case CKK_EC_EDWARDS:
+    case CKK_EC_MONTGOMERY:
+        rc = ec_priv_unwrap_get_data(tmpl, spki_attr->pValue,
+                                     spki_attr->ulValueLen, CK_TRUE, keytype);
+        break;
+    case CKK_RSA:
+        rc = rsa_priv_unwrap_get_data(tmpl, spki_attr->pValue,
+                                      spki_attr->ulValueLen, CK_TRUE);
+        break;
+    case CKK_DSA:
+        rc = dsa_priv_unwrap_get_data(tmpl, spki_attr->pValue,
+                                      spki_attr->ulValueLen, CK_TRUE);
+        break;
+    case CKK_DH:
+        rc = dh_priv_unwrap_get_data(tmpl, spki_attr->pValue,
+                                     spki_attr->ulValueLen, CK_TRUE);
+        break;
+    case CKK_IBM_PQC_DILITHIUM:
+    case CKK_IBM_PQC_KYBER:
+    case CKK_IBM_ML_DSA:
+    case CKK_IBM_ML_KEM:
+    case CKK_ML_DSA:
+    case CKK_ML_KEM:
+        rc = pqc_priv_unwrap_get_data(tmpl, keytype, spki_attr->pValue,
+                                      spki_attr->ulValueLen, CK_TRUE);
+        break;
+    default:
+        rc = CKR_KEY_TYPE_INCONSISTENT;
+        break;
+    }
+    if (rc != 0) {
+        TRACE_ERROR("xxx_priv_unwrap_get_data failed (keytype 0x%lx): 0x%lx\n",
+                    keytype, rc);
+        goto done;
+    }
+
+    /* Add public key attributes to array of attributes */
+    node = tmpl->attribute_list;
+    while (node != NULL) {
+        attr = (CK_ATTRIBUTE *)node->data;
+
+        rc = add_to_attribute_array(&attrs, &num_attrs, attr->type,
+                                    attr->pValue, attr->ulValueLen);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("add_to_attribute_array failed\n");
+            goto done;
+        }
+
+        node = node->next;
+    }
+
+    /* Create the public key object */
+    rc = object_mgr_add(tokdata, sess, attrs, num_attrs, pub_key_handle,
+                        MODE_EXTRACT);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("object_mgr_add failed\n");
+        goto done;
+    }
+
+done:
+    if (attrs != NULL && num_attrs > 0)
+        free_attribute_array(attrs, num_attrs);
+    if (tmpl != NULL)
+        template_free(tmpl);
+
+    return rc;
 }
 
 // publ_key_check_required_attributes()
@@ -778,7 +993,8 @@ CK_RV publ_key_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
         return CKR_OK;
     case CKA_PUBLIC_KEY_INFO:
         if (mode == MODE_CREATE || mode == MODE_UNWRAP ||
-            mode == MODE_ENCAPS || mode == MODE_DECAPS)
+            mode == MODE_ENCAPS || mode == MODE_DECAPS ||
+            mode == MODE_EXTRACT)
             return CKR_OK;
         return CKR_ATTRIBUTE_READ_ONLY;
     case CKA_WRAP_TEMPLATE:
@@ -796,7 +1012,8 @@ CK_RV publ_key_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
         }
         if (mode == MODE_CREATE || mode == MODE_KEYGEN ||
             mode == MODE_DERIVE || mode == MODE_UNWRAP ||
-            mode == MODE_ENCAPS || mode == MODE_DECAPS)
+            mode == MODE_ENCAPS || mode == MODE_DECAPS ||
+            mode == MODE_EXTRACT)
             return CKR_OK;
         TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_READ_ONLY));
         return CKR_ATTRIBUTE_READ_ONLY;
@@ -2153,7 +2370,7 @@ CK_RV rsa_publ_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode)
 
     rc = template_attribute_get_non_empty(tmpl, CKA_MODULUS, &attr);
     if (rc != CKR_OK) {
-        if (mode == MODE_CREATE) {
+        if (mode == MODE_CREATE || mode == MODE_EXTRACT) {
             TRACE_ERROR("Could not find CKA_MODULUS\n");
             return rc;
         }
@@ -2169,7 +2386,7 @@ CK_RV rsa_publ_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode)
 
     rc = template_attribute_get_non_empty(tmpl, CKA_PUBLIC_EXPONENT, &attr);
     if (rc != CKR_OK) {
-        if (mode == MODE_CREATE) {
+        if (mode == MODE_CREATE || mode == MODE_EXTRACT) {
             TRACE_ERROR("Could not find CKA_PUBLIC_EXPONENT\n");
             return rc;
         }
@@ -2283,7 +2500,8 @@ CK_RV rsa_publ_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
 {
     switch (attr->type) {
     case CKA_MODULUS_BITS:
-        if (mode == MODE_KEYGEN || mode == MODE_ENCAPS) {
+        if (mode == MODE_KEYGEN || mode == MODE_ENCAPS ||
+            mode == MODE_EXTRACT) {
             if (attr->ulValueLen != sizeof(CK_ULONG) ||
                 attr->pValue == NULL) {
                 TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
@@ -2306,14 +2524,15 @@ CK_RV rsa_publ_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
         TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_READ_ONLY));
         return CKR_ATTRIBUTE_READ_ONLY;
     case CKA_MODULUS:
-        if (mode == MODE_CREATE) {
+        if (mode == MODE_CREATE || mode == MODE_EXTRACT) {
             p11_attribute_trim(attr);
             return CKR_OK;
         }
         TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_READ_ONLY));
         return CKR_ATTRIBUTE_READ_ONLY;
     case CKA_PUBLIC_EXPONENT:
-        if (mode == MODE_CREATE || mode == MODE_KEYGEN || mode == MODE_ENCAPS) {
+        if (mode == MODE_CREATE || mode == MODE_KEYGEN ||
+            mode == MODE_ENCAPS || mode == MODE_EXTRACT) {
             p11_attribute_trim(attr);
             return CKR_OK;
         }
@@ -4108,7 +4327,7 @@ CK_RV dsa_publ_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode)
 
     rc = template_attribute_get_non_empty(tmpl, CKA_PRIME, &attr);
     if (rc != CKR_OK) {
-        if (mode == MODE_CREATE) {
+        if (mode == MODE_CREATE || mode == MODE_EXTRACT) {
             TRACE_ERROR("Could not find CKA_PRIME\n");
             return rc;
         }
@@ -4116,7 +4335,7 @@ CK_RV dsa_publ_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode)
 
     rc = template_attribute_get_non_empty(tmpl, CKA_SUBPRIME, &attr);
     if (rc != CKR_OK) {
-        if (mode == MODE_CREATE) {
+        if (mode == MODE_CREATE || mode == MODE_EXTRACT) {
             TRACE_ERROR("Could not find CKA_SUBPRIME\n");
             return rc;
         }
@@ -4124,7 +4343,7 @@ CK_RV dsa_publ_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode)
 
     rc = template_attribute_get_non_empty(tmpl, CKA_BASE, &attr);
     if (rc != CKR_OK) {
-        if (mode == MODE_CREATE) {
+        if (mode == MODE_CREATE || mode == MODE_EXTRACT) {
             TRACE_ERROR("Could not find CKA_BASE\n");
             return rc;
         }
@@ -4132,7 +4351,7 @@ CK_RV dsa_publ_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode)
 
     rc = template_attribute_get_non_empty(tmpl, CKA_VALUE, &attr);
     if (rc != CKR_OK) {
-        if (mode == MODE_CREATE) {
+        if (mode == MODE_CREATE || mode == MODE_EXTRACT) {
             TRACE_ERROR("Could not find CKA_VALUE\n");
             return rc;
         }
@@ -4250,7 +4469,7 @@ CK_RV dsa_publ_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
             CK_ULONG size;
 
             if (mode != MODE_CREATE && mode != MODE_KEYGEN &&
-                mode != MODE_ENCAPS) {
+                mode != MODE_ENCAPS && mode != MODE_EXTRACT) {
                 TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_READ_ONLY));
                 return CKR_ATTRIBUTE_READ_ONLY;
             }
@@ -4265,7 +4484,8 @@ CK_RV dsa_publ_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
             return CKR_OK;
         }
     case CKA_SUBPRIME:
-        if (mode != MODE_CREATE && mode != MODE_KEYGEN && mode != MODE_ENCAPS) {
+        if (mode != MODE_CREATE && mode != MODE_KEYGEN &&
+            mode != MODE_ENCAPS && mode != MODE_EXTRACT) {
             TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_READ_ONLY));
             return CKR_ATTRIBUTE_READ_ONLY;
         }
@@ -4278,14 +4498,15 @@ CK_RV dsa_publ_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
         p11_attribute_trim(attr);
         return CKR_OK;
     case CKA_BASE:
-        if (mode == MODE_CREATE || mode == MODE_KEYGEN || mode == MODE_ENCAPS) {
+        if (mode == MODE_CREATE || mode == MODE_KEYGEN ||
+            mode == MODE_ENCAPS || mode == MODE_EXTRACT) {
             p11_attribute_trim(attr);
             return CKR_OK;
         }
         TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_READ_ONLY));
         return CKR_ATTRIBUTE_READ_ONLY;
     case CKA_VALUE:
-        if (mode == MODE_CREATE) {
+        if (mode == MODE_CREATE || mode == MODE_EXTRACT) {
             p11_attribute_trim(attr);
             return CKR_OK;
         }
@@ -4770,7 +4991,8 @@ CK_RV ec_publ_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode)
 
     rc = template_attribute_get_non_empty(tmpl, CKA_EC_PARAMS, &attr);
     if (rc != CKR_OK) {
-        if (mode == MODE_CREATE || mode == MODE_KEYGEN || mode == MODE_ENCAPS) {
+        if (mode == MODE_CREATE || mode == MODE_KEYGEN ||
+            mode == MODE_ENCAPS || mode == MODE_EXTRACT) {
             TRACE_ERROR("Could not find CKA_EC_PARAMS\n");
             return rc;
         }
@@ -4778,7 +5000,7 @@ CK_RV ec_publ_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode)
 
     rc = template_attribute_get_non_empty(tmpl, CKA_EC_POINT, &attr);
     if (rc != CKR_OK) {
-        if (mode == MODE_CREATE) {
+        if (mode == MODE_CREATE || mode == MODE_EXTRACT) {
             TRACE_ERROR("Could not find CKA_EC_POINT\n");
             return rc;
         }
@@ -4865,13 +5087,13 @@ CK_RV ec_publ_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
     switch (attr->type) {
     case CKA_EC_PARAMS:
         if (mode == MODE_CREATE || mode == MODE_KEYGEN || mode == MODE_DERIVE ||
-            mode == MODE_ENCAPS)
+            mode == MODE_ENCAPS || mode == MODE_EXTRACT)
             return CKR_OK;
 
         TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_READ_ONLY));
         return CKR_ATTRIBUTE_READ_ONLY;
     case CKA_EC_POINT:
-        if (mode == MODE_CREATE)
+        if (mode == MODE_CREATE || mode == MODE_EXTRACT)
             return CKR_OK;
 
         TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_READ_ONLY));
@@ -5311,7 +5533,8 @@ CK_RV dh_publ_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode)
 
     rc = template_attribute_get_non_empty(tmpl, CKA_PRIME, &attr);
     if (rc != CKR_OK) {
-        if (mode == MODE_CREATE || mode == MODE_KEYGEN || mode == MODE_ENCAPS) {
+        if (mode == MODE_CREATE || mode == MODE_KEYGEN ||
+            mode == MODE_ENCAPS || mode == MODE_EXTRACT) {
             TRACE_ERROR("Could not find CKA_PRIME\n");
             return rc;
         }
@@ -5319,7 +5542,8 @@ CK_RV dh_publ_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode)
 
     rc = template_attribute_get_non_empty(tmpl, CKA_BASE, &attr);
     if (rc != CKR_OK) {
-        if (mode == MODE_CREATE || mode == MODE_KEYGEN || mode == MODE_ENCAPS) {
+        if (mode == MODE_CREATE || mode == MODE_KEYGEN ||
+            mode == MODE_ENCAPS || mode == MODE_EXTRACT) {
             TRACE_ERROR("Could not find CKA_BASE\n");
             return rc;
         }
@@ -5327,7 +5551,7 @@ CK_RV dh_publ_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode)
 
     rc = template_attribute_get_non_empty(tmpl, CKA_VALUE, &attr);
     if (rc != CKR_OK) {
-        if (mode == MODE_CREATE) {
+        if (mode == MODE_CREATE || mode == MODE_EXTRACT) {
             TRACE_ERROR("Could not find CKA_VALUE\n");
             return rc;
         }
@@ -5429,14 +5653,15 @@ CK_RV dh_publ_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
     switch (attr->type) {
     case CKA_PRIME:
     case CKA_BASE:
-        if (mode == MODE_CREATE || mode == MODE_KEYGEN || mode == MODE_ENCAPS) {
+        if (mode == MODE_CREATE || mode == MODE_KEYGEN ||
+            mode == MODE_ENCAPS || mode == MODE_EXTRACT) {
             p11_attribute_trim(attr);
             return CKR_OK;
         }
         TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_READ_ONLY));
         return CKR_ATTRIBUTE_READ_ONLY;
     case CKA_VALUE:
-        if (mode == MODE_CREATE) {
+        if (mode == MODE_CREATE || mode == MODE_EXTRACT) {
             p11_attribute_trim(attr);
             return CKR_OK;
         }
@@ -6587,6 +6812,7 @@ static CK_RV pqc_check_attributes(TEMPLATE *tmpl, CK_ULONG mode,
 
     switch (mode) {
     case MODE_CREATE:
+    case MODE_EXTRACT:
         /* Import of an already existing secure key via CKA_IBM_OPAQUE */
         if (token_specific.secure_key_token == TRUE &&
             template_attribute_get_non_empty(tmpl, CKA_IBM_OPAQUE,
@@ -6818,7 +7044,8 @@ static CK_RV pqc_validate_keyform_mode(CK_ATTRIBUTE *attr, CK_ULONG mode,
         return CKR_MECHANISM_INVALID;
 
     if (attr->type == keyform_attr) {
-        if (mode == MODE_CREATE || mode == MODE_KEYGEN || mode == MODE_ENCAPS) {
+        if (mode == MODE_CREATE || mode == MODE_KEYGEN ||
+            mode == MODE_ENCAPS || mode == MODE_EXTRACT) {
             if (attr->ulValueLen != sizeof(CK_ULONG) || attr->pValue == NULL) {
                 TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
                 return CKR_ATTRIBUTE_VALUE_INVALID;
@@ -6834,7 +7061,8 @@ static CK_RV pqc_validate_keyform_mode(CK_ATTRIBUTE *attr, CK_ULONG mode,
         return CKR_ATTRIBUTE_READ_ONLY;
     }
     if (attr->type == mode_attr) {
-        if (mode == MODE_CREATE || mode == MODE_KEYGEN || mode == MODE_ENCAPS) {
+        if (mode == MODE_CREATE || mode == MODE_KEYGEN ||
+            mode == MODE_ENCAPS || mode == MODE_EXTRACT) {
             if (attr->ulValueLen == 0 || attr->pValue == NULL) {
                 TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
                 return CKR_ATTRIBUTE_VALUE_INVALID;
@@ -6872,7 +7100,7 @@ CK_RV ibm_ml_dsa_publ_validate_attribute(STDLL_TokData_t *tokdata,
     case CKA_IBM_ML_DSA_RHO:
     case CKA_IBM_ML_DSA_T1:
     case CKA_VALUE:
-        if (mode == MODE_CREATE)
+        if (mode == MODE_CREATE || mode == MODE_EXTRACT)
             return CKR_OK;
         TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_READ_ONLY));
         return CKR_ATTRIBUTE_READ_ONLY;
@@ -6952,7 +7180,7 @@ CK_RV ibm_ml_kem_publ_validate_attribute(STDLL_TokData_t *tokdata,
         return CKR_OK;
     case CKA_IBM_KYBER_PK:
     case CKA_VALUE:
-        if (mode == MODE_CREATE)
+        if (mode == MODE_CREATE || mode == MODE_EXTRACT)
             return CKR_OK;
         TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_READ_ONLY));
         return CKR_ATTRIBUTE_READ_ONLY;
@@ -7020,7 +7248,7 @@ CK_RV ml_dsa_publ_validate_attribute(STDLL_TokData_t *tokdata,
             return rc;
         return CKR_OK;
     case CKA_VALUE:
-        if (mode == MODE_CREATE)
+        if (mode == MODE_CREATE || mode == MODE_EXTRACT)
             return CKR_OK;
         TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_READ_ONLY));
         return CKR_ATTRIBUTE_READ_ONLY;
@@ -7041,7 +7269,7 @@ CK_RV ml_dsa_publ_validate_attribute(STDLL_TokData_t *tokdata,
          */
         if (mode == MODE_CREATE || mode == MODE_DERIVE ||
             mode == MODE_UNWRAP ||mode == MODE_ENCAPS ||
-            mode == MODE_DECAPS) {
+            mode == MODE_DECAPS || mode == MODE_EXTRACT) {
             if (attr->ulValueLen != sizeof(CK_IBM_CCA_AES_KEY_MODE_TYPE) ||
                 attr->pValue == NULL) {
                 TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
@@ -7137,7 +7365,7 @@ CK_RV ml_kem_publ_validate_attribute(STDLL_TokData_t *tokdata,
             return rc;
         return CKR_OK;
     case CKA_VALUE:
-        if (mode == MODE_CREATE)
+        if (mode == MODE_CREATE || mode == MODE_EXTRACT)
             return CKR_OK;
         TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_READ_ONLY));
         return CKR_ATTRIBUTE_READ_ONLY;
