@@ -2402,6 +2402,8 @@ CK_RV ber_decode_DSAPublicKey(CK_BYTE *data,
     CK_ULONG sp_len;
     CK_BYTE *b;
     CK_ULONG b_len;
+    CK_BYTE *v;
+    CK_ULONG v_len;
     CK_ULONG field_len, offset;
     CK_RV rc;
 
@@ -2448,6 +2450,12 @@ CK_RV ber_decode_DSAPublicKey(CK_BYTE *data,
         return rc;
     }
 
+    rc = ber_decode_INTEGER(val, &v, &v_len, &field_len);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("ber_decode_INTEGER failed\n");
+        return rc;
+    }
+
     // build prime attribute
     rc = build_attribute(CKA_PRIME, p, p_len, &prime_attr);
     if (rc != CKR_OK) {
@@ -2467,7 +2475,7 @@ CK_RV ber_decode_DSAPublicKey(CK_BYTE *data,
         goto cleanup;
     }
     // build value attribute
-    rc = build_attribute(CKA_VALUE, val, val_len, &value_attr);
+    rc = build_attribute(CKA_VALUE, v, v_len, &value_attr);
     if (rc != CKR_OK) {
         TRACE_DEVEL("build_attribute failed\n");
         goto cleanup;
@@ -3701,6 +3709,8 @@ CK_RV ber_decode_DHPublicKey(CK_BYTE *data,
     CK_ULONG p_len;
     CK_BYTE *b;
     CK_ULONG b_len;
+    CK_BYTE *v;
+    CK_ULONG v_len;
     CK_ULONG field_len, offset;
     CK_RV rc;
 
@@ -3740,6 +3750,12 @@ CK_RV ber_decode_DHPublicKey(CK_BYTE *data,
         return rc;
     }
 
+    rc = ber_decode_INTEGER(val, &v, &v_len, &field_len);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("ber_decode_INTEGER failed\n");
+        return rc;
+    }
+
     // build prime attribute
     rc = build_attribute(CKA_PRIME, p, p_len, &prime_attr);
     if (rc != CKR_OK) {
@@ -3753,7 +3769,7 @@ CK_RV ber_decode_DHPublicKey(CK_BYTE *data,
         goto cleanup;
     }
     // build value attribute
-    rc = build_attribute(CKA_VALUE, val, val_len, &value_attr);
+    rc = build_attribute(CKA_VALUE, v, v_len, &value_attr);
     if (rc != CKR_OK) {
         TRACE_DEVEL("build_attribute failed\n");
         goto cleanup;
