@@ -3217,7 +3217,8 @@ CK_RV der_decode_ECPublicKey(CK_BYTE *data,
         goto cleanup;
     }
 
-    free(ecpoint);
+    if (ecpoint_allocated && ecpoint)
+        free(ecpoint);
     *ec_params = params_attr;
     *ec_point = point_attr;
     return CKR_OK;
