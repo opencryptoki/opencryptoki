@@ -932,9 +932,9 @@ CK_RV token_specific_dh_pkcs_derive(STDLL_TokData_t *tokdata,
                                     CK_BYTE *x,
                                     CK_ULONG x_len, CK_BYTE *p, CK_ULONG p_len)
 {
-    CK_RV rc;
-    BIGNUM *bn_z, *bn_y, *bn_x, *bn_p;
-    BN_CTX *ctx;
+    CK_RV rc = CKR_OK;
+    BIGNUM *bn_z, *bn_y, *bn_x, *bn_p, *bn_tmp;
+    BN_CTX *ctx = NULL;
 
     UNUSED(tokdata);
 
@@ -943,67 +943,77 @@ CK_RV token_specific_dh_pkcs_derive(STDLL_TokData_t *tokdata,
     bn_x = BN_secure_new();
     bn_p = BN_new();
     bn_z = BN_new();
+    bn_tmp = BN_new();
 
-    if (bn_z == NULL || bn_p == NULL || bn_x == NULL || bn_y == NULL) {
-        if (bn_y)
-            BN_free(bn_y);
-        if (bn_x)
-            BN_clear_free(bn_x);
-        if (bn_p)
-            BN_free(bn_p);
-        if (bn_z)
-            BN_free(bn_z);
+    if (bn_z == NULL || bn_p == NULL || bn_x == NULL || bn_y == NULL ||
+            bn_tmp == NULL) {
         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-        return CKR_HOST_MEMORY;
+        rc = CKR_HOST_MEMORY;
+        goto out;
     }
+
     // Initialize context
     ctx = BN_CTX_new();
     if (ctx == NULL) {
-        BN_free(bn_z);
-        BN_free(bn_y);
-        BN_clear_free(bn_x);
-        BN_free(bn_p);
-
         TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
-        return CKR_FUNCTION_FAILED;
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
     }
 
     // Add data into these new BN structures
     if (BN_bin2bn((unsigned char *) y, y_len, bn_y) == NULL ||
         BN_bin2bn((unsigned char *) x, x_len, bn_x) == NULL ||
         BN_bin2bn((unsigned char *) p, p_len, bn_p) == NULL) {
-        BN_free(bn_z);
-        BN_free(bn_y);
-        BN_clear_free(bn_x);
-        BN_free(bn_p);
-        BN_CTX_free(ctx);
-
         TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
-        return CKR_FUNCTION_FAILED;
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
     }
 
-    rc = BN_mod_exp(bn_z, bn_y, bn_x, bn_p, ctx);
-    if (rc == 0) {
-        BN_free(bn_z);
-        BN_free(bn_y);
-        BN_clear_free(bn_x);
-        BN_free(bn_p);
-        BN_CTX_free(ctx);
-
+    if (BN_mod_exp(bn_z, bn_y, bn_x, bn_p, ctx) == 0) {
         TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
-        return CKR_FUNCTION_FAILED;
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
     }
 
-    *z_len = BN_num_bytes(bn_z);
-    BN_bn2bin(bn_z, z);
+    /* Error if z <= 1 or z = p - 1 as per SP800-56Ar3 Section 5.7.1.1 */
+    if (BN_copy(bn_tmp, bn_p) == NULL ||
+        !BN_sub_word(bn_tmp, 1) ||
+        BN_cmp(bn_z, BN_value_one()) <= 0 ||
+        BN_cmp(bn_z, bn_tmp) == 0) {
+        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
 
-    BN_free(bn_z);
-    BN_free(bn_y);
-    BN_clear_free(bn_x);
-    BN_free(bn_p);
-    BN_CTX_free(ctx);
+    /* Derived secret is the same number of bytes as the modulus p */
+    if (*z_len < (CK_ULONG)BN_num_bytes(bn_p)) {
+        TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
+        rc = CKR_BUFFER_TOO_SMALL;
+        goto out;
+    }
 
-    return CKR_OK;
+    *z_len = BN_num_bytes(bn_p);
+    if (BN_bn2binpad(bn_z, z, *z_len) <= 0) {
+        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+
+out:
+    if (bn_y != NULL)
+        BN_free(bn_y);
+    if (bn_x != NULL)
+        BN_clear_free(bn_x);
+    if (bn_p != NULL)
+        BN_free(bn_p);
+    if (bn_z != NULL)
+        BN_free(bn_z);
+    if (bn_tmp != NULL)
+        BN_free(bn_tmp);
+    if (ctx != NULL)
+        BN_CTX_free(ctx);
+
+    return rc;
 }                               /* end token_specific_dh_pkcs_derive() */
 
 // This computes DH key pair, where:
