@@ -140,8 +140,9 @@ CK_RV dh_pkcs_derive(STDLL_TokData_t *tokdata,
     }
 
     // Build the attribute from the vales that were returned back
-    rc = build_attribute(CKA_VALUE, secret_key_value, secret_len,
-                         &new_attr);
+    rc = build_attribute(CKA_VALUE, secret_key_value +
+                                        secret_key_value_len - secret_len,
+                         secret_len, &new_attr);
     if (rc != CKR_OK) {
         TRACE_DEVEL("Failed to build the new attribute.\n");
         return rc;
