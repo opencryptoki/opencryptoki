@@ -15653,6 +15653,10 @@ CK_RV ep11tok_get_mechanism_info(STDLL_TokData_t * tokdata,
             pInfo->ulMinKeySize = 16;
         break;
 
+    case CKM_GENERIC_SECRET_KEY_GEN:
+        /* Older EP11 firmware may report CKF_DERIVE, mask it */
+        pInfo->flags &= ~CKF_DERIVE;
+        break;
     case CKM_SHA1_KEY_DERIVATION:
         pInfo->ulMinKeySize = 8;
         pInfo->ulMaxKeySize = SHA1_HASH_SIZE * 8;
