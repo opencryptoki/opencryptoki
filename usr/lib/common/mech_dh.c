@@ -198,55 +198,33 @@ CK_RV ckm_dh_pkcs_derive(STDLL_TokData_t *tokdata,
                          CK_BBOOL count_statistic)
 {
     CK_RV rc;
-    CK_BYTE p[256];
-    CK_ULONG p_len;
-    CK_BYTE x[256];
-    CK_ULONG x_len;
-    CK_ATTRIBUTE *temp_attr;
-    CK_BYTE *p_other_pubkey;
+    CK_ATTRIBUTE *x_attr, *p_attr;
 
     // Extract secret (x) from base_key
     rc = template_attribute_get_non_empty(base_key_obj->template, CKA_VALUE,
-                                          &temp_attr);
+                                          &x_attr);
     if (rc != CKR_OK) {
         TRACE_ERROR("Could not find CKA_VALUE for the base key\n");
         goto done;
     }
 
-    if (temp_attr->ulValueLen > sizeof(x)) {
-        TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
-        rc = CKR_ATTRIBUTE_VALUE_INVALID;
-        goto done;
-    }
-
-    memset(x, 0, sizeof(x));
-    x_len = temp_attr->ulValueLen;
-    memcpy(x, (CK_BYTE *) temp_attr->pValue, x_len);
-
     // Extract prime (p) from base_key
     rc = template_attribute_get_non_empty(base_key_obj->template, CKA_PRIME,
-                                          &temp_attr);
+                                          &p_attr);
     if (rc != CKR_OK) {
         TRACE_ERROR("Could not find CKA_PRIME for the base key\n");
         goto done;
     }
 
-    if (temp_attr->ulValueLen > sizeof(p)) {
-        TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
-        rc = CKR_ATTRIBUTE_VALUE_INVALID;
-        goto done;
-    }
-
-    memset(p, 0, sizeof(p));
-    p_len = temp_attr->ulValueLen;
-    memcpy(p, (CK_BYTE *) temp_attr->pValue, p_len);
-
-    p_other_pubkey = (CK_BYTE *) other_pubkey;
-
     // Perform: z = other_pubkey^x mod p
     rc = token_specific.t_dh_pkcs_derive(tokdata, secret_value,
-                                         secret_value_len, p_other_pubkey,
-                                         other_pubkey_len, x, x_len, p, p_len);
+                                         secret_value_len,
+                                         (CK_BYTE *)other_pubkey,
+                                         other_pubkey_len,
+                                         (CK_BYTE *)x_attr->pValue,
+                                         x_attr->ulValueLen,
+                                         (CK_BYTE *)p_attr->pValue,
+                                         p_attr->ulValueLen);
     if (rc != CKR_OK)
         TRACE_DEVEL("Token specific dh pkcs derive failed.\n");
 
