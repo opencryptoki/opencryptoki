@@ -2676,7 +2676,8 @@ CK_RV der_encode_ECPrivateKey(CK_BBOOL length_only,
         rc = ber_encode_BIT_STRING(FALSE, &buf3, &len, ecpoint, ecpoint_len, 0);
         if (rc != CKR_OK) {
             TRACE_DEVEL("ber_encode_BIT_STRING failed\n");
-            return CKR_ATTRIBUTE_VALUE_INVALID;
+            rc = CKR_ATTRIBUTE_VALUE_INVALID;
+            goto error;
         }
 
         rc = ber_encode_CHOICE(FALSE, 1, &buf2, &len, buf3, len, TRUE);
@@ -2719,7 +2720,8 @@ CK_RV der_encode_ECPrivateKey(CK_BBOOL length_only,
         break;
     default:
         TRACE_DEVEL("Key type 0x%lx not supported.\n", key_type);
-        return CKR_KEY_TYPE_INCONSISTENT;
+        rc= CKR_KEY_TYPE_INCONSISTENT;
+        goto error;
     }
 
     rc = ber_encode_PrivateKeyInfo(FALSE, data, data_len, der_AlgIdEC,

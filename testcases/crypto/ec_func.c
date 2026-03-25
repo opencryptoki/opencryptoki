@@ -4220,7 +4220,7 @@ CK_RV run_TransferEdwardsMontgomeryKeyPair(void)
                 if (rc == CKR_CURVE_NOT_SUPPORTED) {
                     testcase_skip("Slot %u doesn't support this curve: %s",
                                   (unsigned int) SLOT_ID,
-                                  montgomery_ecdh_tv[i].name);
+                                  der_ec_edwards_supported[i].name);
                     goto testcase_cleanup;
                 }
 
