@@ -640,6 +640,42 @@ struct wrapped_mech_info wrapped_key_tests[] = {
         .operation_mech = { CKM_IBM_ML_KEM_WITH_ECDH, 0, 0 },
         .pqc_keyform = CKP_IBM_ML_KEM_1024,
     },
+    {
+        .name = "key type ML-DSA 44",
+        .wrapped_key_gen_mech = { CKM_ML_DSA_KEY_PAIR_GEN, 0, 0 },
+        .operation_mech = { CKM_ML_DSA, 0, 0 },
+        .pqc_keyform = CKP_ML_DSA_44,
+    },
+    {
+        .name = "key type ML-DSA 65",
+        .wrapped_key_gen_mech = { CKM_ML_DSA_KEY_PAIR_GEN, 0, 0 },
+        .operation_mech = { CKM_ML_DSA, 0, 0 },
+        .pqc_keyform = CKP_ML_DSA_65,
+    },
+    {
+        .name = "key type ML-DSA 87",
+        .wrapped_key_gen_mech = { CKM_ML_DSA_KEY_PAIR_GEN, 0, 0 },
+        .operation_mech = { CKM_ML_DSA, 0, 0 },
+        .pqc_keyform = CKP_ML_DSA_87,
+    },
+    {
+        .name = "key type ML-KEM 512",
+        .wrapped_key_gen_mech = { CKM_ML_KEM_KEY_PAIR_GEN, 0, 0 },
+        .operation_mech = { CKM_ML_KEM, 0, 0 },
+        .pqc_keyform = CKP_ML_KEM_512,
+    },
+    {
+        .name = "key type ML-KEM 768",
+        .wrapped_key_gen_mech = { CKM_ML_KEM_KEY_PAIR_GEN, 0, 0 },
+        .operation_mech = { CKM_ML_KEM, 0, 0 },
+        .pqc_keyform = CKP_ML_KEM_768,
+    },
+    {
+        .name = "key type ML-KEM 1024",
+        .wrapped_key_gen_mech = { CKM_ML_KEM_KEY_PAIR_GEN, 0, 0 },
+        .operation_mech = { CKM_ML_KEM, 0, 0 },
+        .pqc_keyform = CKP_ML_KEM_1024,
+    },
 };
 
 #define NUM_WRAPPED_KEY_TESTS sizeof(wrapped_key_tests) / \
@@ -668,6 +704,7 @@ CK_RV do_perform_operation(CK_MECHANISM *mech,
     CK_RV rc;
     CK_MECHANISM_INFO mech_info;
     CK_BBOOL encr = FALSE, decr = FALSE, sign = FALSE, verify = FALSE;
+    CK_BBOOL encaps = FALSE, decaps = FALSE;
     CK_BBOOL derive = FALSE;
     CK_ULONG input_size, cipher_size, output_size;
     CK_BYTE input_data[32] = { 0x00,0x01,0x02,0x03,0x04,0x05,0x06,0x07,
@@ -728,6 +765,7 @@ CK_RV do_perform_operation(CK_MECHANISM *mech,
     encr = (mech_info.flags & CKF_ENCRYPT) != 0;
     sign = (mech_info.flags & CKF_SIGN) != 0;
     derive = (mech_info.flags & CKF_DERIVE) != 0;
+    encaps = (mech_info.flags & CKF_ENCAPSULATE) != 0;
 
     rc = funcs->C_GetMechanismInfo(slot2, mech->mechanism, &mech_info);
     if (rc != CKR_OK) {
@@ -739,6 +777,7 @@ CK_RV do_perform_operation(CK_MECHANISM *mech,
     decr = (mech_info.flags & CKF_DECRYPT) != 0;
     verify = (mech_info.flags & CKF_VERIFY) != 0;
     derive &= ((mech_info.flags & CKF_DERIVE) != 0);
+    decaps = (mech_info.flags & CKF_DECAPSULATE) != 0;
 
     if (encr && decr) {
         /* Perform Encrypt/Decrypt operation */
@@ -820,6 +859,7 @@ CK_RV do_perform_operation(CK_MECHANISM *mech,
         case CKM_EDDSA:
         case CKM_IBM_DILITHIUM:
         case CKM_IBM_ML_DSA:
+        case CKM_ML_DSA:
             sign_key = priv_key2;
             verify_key = publ_key1;
             input_size = 20;
@@ -841,9 +881,10 @@ CK_RV do_perform_operation(CK_MECHANISM *mech,
                            &output_size);
         if (rc != CKR_OK) {
             if ((mech->mechanism == CKM_IBM_DILITHIUM ||
-                 mech->mechanism == CKM_IBM_ML_DSA) &&
+                 mech->mechanism == CKM_IBM_ML_DSA ||
+                 mech->mechanism == CKM_ML_DSA) &&
                 rc == CKR_KEY_SIZE_RANGE) {
-                testcase_skip("IBM Dilithium key form not supported by slot %lu",
+                testcase_skip("IBM Dilithium/ML-DSA key form not supported by slot %lu",
                               slot2);
                 return CKR_OK;
             }
@@ -1082,6 +1123,48 @@ CK_RV do_perform_operation(CK_MECHANISM *mech,
                                       CK_INVALID_HANDLE,
                                       slot2, sess2, key2, CK_INVALID_HANDLE);
             funcs->C_DestroyObject(sess2, key1);
+            funcs->C_DestroyObject(sess2, key2);
+            if (rc != CKR_OK)
+                return rc;
+            break;
+
+        default:
+            testcase_error("Operation not supported by testcase");
+            return CKR_FUNCTION_NOT_SUPPORTED;
+        }
+    } else if (encaps && decaps) {
+        /* Perform Encaps/Decaps/KEM operation */
+        switch (mech->mechanism) {
+        case CKM_ML_KEM:
+            kem_mech.mechanism = mech->mechanism;
+            kem_mech.pParameter = NULL;
+            kem_mech.ulParameterLen = 0;
+
+            /* Perform encapsulation with public key */
+            output_size = sizeof(output_data);
+            rc = funcs3_2->C_EncapsulateKey(sess1, &kem_mech, publ_key1,
+                                            derive_tmpl, derive_tmpl_len,
+                                            output_data, &output_size, &key1);
+            if (rc != CKR_OK) {
+                testcase_error("C_EncapsulateKey on slot %lu rc=%s",
+                               slot1, p11_get_ckr(rc));
+                return rc;
+            }
+
+            /* Perform Decapsulation with private key */
+            rc = funcs3_2->C_DecapsulateKey(sess2, &kem_mech, priv_key2,
+                                            derive_tmpl, derive_tmpl_len,
+                                            output_data, output_size, &key2);
+            if (rc != CKR_OK) {
+                testcase_error("C_DecapsulateKey on slot %lu rc=%s",
+                               slot1, p11_get_ckr(rc));
+                return rc;
+            }
+
+            rc = do_perform_operation(&aes_ebc_mech,
+                                      slot1, sess1, key1, CK_INVALID_HANDLE,
+                                      CK_INVALID_HANDLE,
+                                      slot2, sess2, key2, CK_INVALID_HANDLE);
             funcs->C_DestroyObject(sess2, key2);
             if (rc != CKR_OK)
                 return rc;
@@ -1348,6 +1431,40 @@ CK_RV do_wrap_key_test(struct wrapped_mech_info *tsuite,
         }
         break;
 
+    case CKM_ML_DSA_KEY_PAIR_GEN:
+        rc = generate_ML_DSA_KeyPair(session1, tsuite->pqc_keyform,
+                                     &publ_key, &priv_key,
+                                     CK_TRUE); // must be extractable for Wrap/Unwrap
+
+        if (rc == CKR_KEY_SIZE_RANGE) {
+            testcase_skip("generate to be wrapped key %s with mech %s (%u) in "
+                          "slot %lu is not supported",
+                          tsuite->name,
+                          mech_to_str(tsuite->wrapped_key_gen_mech.mechanism),
+                          (unsigned int)tsuite->wrapped_key_gen_mech.mechanism,
+                          slot_id1);
+            rc = CKR_OK;
+            goto testcase_cleanup;
+        }
+        break;
+
+    case CKM_ML_KEM_KEY_PAIR_GEN:
+        rc = generate_ML_KEM_KeyPair(session1, tsuite->pqc_keyform,
+                                     &publ_key, &priv_key,
+                                     CK_TRUE); // must be extractable for Wrap/Unwrap
+
+        if (rc == CKR_KEY_SIZE_RANGE) {
+            testcase_skip("generate to be wrapped key %s with mech %s (%u) in "
+                          "slot %lu is not supported",
+                          tsuite->name,
+                          mech_to_str(tsuite->wrapped_key_gen_mech.mechanism),
+                          (unsigned int)tsuite->wrapped_key_gen_mech.mechanism,
+                          slot_id1);
+            rc = CKR_OK;
+            goto testcase_cleanup;
+        }
+        break;
+
     default:
         testcase_error("Testcase does not support %s (%u)",
                        mech_to_str(tsuite->wrapped_key_gen_mech.mechanism),
@@ -1507,6 +1624,13 @@ do_wrap:
         unwrap_tmpl[unwrap_tmpl_num].ulValueLen = sizeof(ck_true);
         unwrap_tmpl_num++;
     }
+    if (tsuite->operation_mech.mechanism == CKM_ML_KEM) {
+        /* KEM needs CKA_DECAPSULATE=TRUE in unwrap template */
+        unwrap_tmpl[unwrap_tmpl_num].type = CKA_DECAPSULATE;
+        unwrap_tmpl[unwrap_tmpl_num].pValue = &ck_true;
+        unwrap_tmpl[unwrap_tmpl_num].ulValueLen = sizeof(ck_true);
+        unwrap_tmpl_num++;
+    }
 
     /* Unwrap the key on slot 2 */
     rc = funcs->C_UnwrapKey(session2, wrap_mech,
@@ -1555,7 +1679,8 @@ do_wrap:
             is_ep11_token(slot_id2) && wrap_mech->mechanism == CKM_DES3_CBC &&
             (key_type == CKK_EC || key_type == CKK_RSA ||
              key_type == CKK_IBM_PQC_DILITHIUM || key_type == CKK_IBM_ML_DSA ||
-             key_type == CKK_IBM_ML_KEM)) {
+             key_type == CKK_IBM_ML_KEM || key_type == CKK_ML_DSA ||
+             key_type == CKK_ML_KEM)) {
             testcase_skip("EP11 does not support unwrap of EC, RSA, or PQC keys with DES3 CBC");
             rc = CKR_OK;
             goto testcase_cleanup;
@@ -1564,7 +1689,9 @@ do_wrap:
             (key_type == CKK_IBM_PQC_DILITHIUM ||
              key_type == CKK_IBM_PQC_KYBER ||
              key_type == CKK_IBM_ML_DSA ||
-             key_type == CKK_IBM_ML_KEM)) {
+             key_type == CKK_IBM_ML_KEM ||
+             key_type == CKK_ML_DSA ||
+             key_type == CKK_ML_KEM)) {
             testcase_skip("EP11 does not supported the PQC variant");
             rc = CKR_OK;
             goto testcase_cleanup;

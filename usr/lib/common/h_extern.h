@@ -742,6 +742,19 @@ CK_RV rsa_aes_key_unwrap(STDLL_TokData_t *tokdata, SESSION *sess,
                          CK_BYTE *in_data, CK_ULONG in_data_len,
                          CK_BYTE *out_data, CK_ULONG *out_data_len);
 
+CK_RV rsa_encapsulate_key(STDLL_TokData_t *tokdata, SESSION *sess,
+                          CK_BBOOL length_only, CK_MECHANISM *mech,
+                          OBJECT *public_key,
+                          CK_ATTRIBUTE *pTemplate, CK_ULONG ulAttributeCount,
+                          CK_BYTE *pCiphertext, CK_ULONG *pulCiphertextLen,
+                          CK_OBJECT_HANDLE *phKey);
+
+CK_RV rsa_decapsulate_key(STDLL_TokData_t *tokdata, SESSION *sess,
+                          CK_MECHANISM *mech, OBJECT *private_key,
+                          CK_ATTRIBUTE *pTemplate, CK_ULONG ulAttributeCount,
+                          CK_BYTE *pCiphertext, CK_ULONG ulCiphertextLen,
+                          CK_OBJECT_HANDLE *phKey);
+
 CK_RV ecdh_aes_key_wrap(STDLL_TokData_t *tokdata, SESSION *sess,
                         CK_BBOOL length_only, ENCR_DECR_CONTEXT *ctx,
                         CK_BYTE *in_data, CK_ULONG in_data_len,
@@ -751,6 +764,19 @@ CK_RV ecdh_aes_key_unwrap(STDLL_TokData_t *tokdata, SESSION *sess,
                           CK_BBOOL length_only, ENCR_DECR_CONTEXT *ctx,
                           CK_BYTE *in_data, CK_ULONG in_data_len,
                           CK_BYTE *out_data, CK_ULONG *out_data_len);
+
+CK_RV ecdh_encapsulate_key(STDLL_TokData_t *tokdata, SESSION *sess,
+                           CK_BBOOL length_only, CK_MECHANISM *mech,
+                           OBJECT *public_key,
+                           CK_ATTRIBUTE *pTemplate, CK_ULONG ulAttributeCount,
+                           CK_BYTE *pCiphertext, CK_ULONG *pulCiphertextLen,
+                           CK_OBJECT_HANDLE *phKey);
+
+CK_RV ecdh_decapsulate_key(STDLL_TokData_t *tokdata, SESSION *sess,
+                           CK_MECHANISM *mech, OBJECT *private_key,
+                           CK_ATTRIBUTE *pTemplate, CK_ULONG ulAttributeCount,
+                           CK_BYTE *pCiphertext, CK_ULONG ulCiphertextLen,
+                           CK_OBJECT_HANDLE *phKey);
 
 CK_RV rsa_format_block(STDLL_TokData_t *tokdata,
                        CK_BYTE *in_data,
@@ -882,6 +908,19 @@ CK_RV ckm_dh_key_pair_gen(STDLL_TokData_t *tokdata, TEMPLATE *publ_tmpl,
 
 CK_RV ckm_dh_pkcs_key_pair_gen(STDLL_TokData_t *tokdata,
                                TEMPLATE *publ_tmpl, TEMPLATE *priv_tmpl);
+
+CK_RV dh_encapsulate_key(STDLL_TokData_t *tokdata, SESSION *sess,
+                         CK_BBOOL length_only, CK_MECHANISM *mech,
+                         OBJECT *public_key,
+                         CK_ATTRIBUTE *pTemplate, CK_ULONG ulAttributeCount,
+                         CK_BYTE *pCiphertext, CK_ULONG *pulCiphertextLen,
+                         CK_OBJECT_HANDLE *phKey);
+
+CK_RV dh_decapsulate_key(STDLL_TokData_t *tokdata, SESSION *sess,
+                         CK_MECHANISM *mech, OBJECT *private_key,
+                         CK_ATTRIBUTE *pTemplate, CK_ULONG ulAttributeCount,
+                         CK_BYTE *pCiphertext, CK_ULONG ulCiphertextLen,
+                         CK_OBJECT_HANDLE *phKey);
 #endif
 /* End code contributed by Corrent corp. */
 
@@ -925,6 +964,80 @@ CK_RV pqc_unpack_pub_key(CK_BYTE *pub, CK_ULONG pub_len,
 CK_RV ibm_ml_dsa_dup_param(CK_VOID_PTR src, CK_VOID_PTR dst, CK_ULONG len);
 CK_RV ibm_ml_dsa_free_param(CK_VOID_PTR p, CK_ULONG len);
 
+CK_RV ckm_ml_dsa_key_pair_gen(STDLL_TokData_t *tokdata,
+                              TEMPLATE *publ_tmpl, TEMPLATE *priv_tmpl);
+
+CK_RV ckm_ml_kem_key_pair_gen(STDLL_TokData_t *tokdata,
+                              TEMPLATE *publ_tmpl, TEMPLATE *priv_tmpl);
+
+CK_RV ml_dsa_sign(STDLL_TokData_t *tokdata, SESSION *sess,
+                  CK_BBOOL length_only, SIGN_VERIFY_CONTEXT *ctx,
+                  CK_BYTE *in_data, CK_ULONG in_data_len,
+                  CK_BYTE *signature, CK_ULONG *sig_len,
+                  CK_BBOOL final_part);
+
+CK_RV ml_dsa_hash_sign(STDLL_TokData_t *tokdata, SESSION *sess,
+                       CK_BBOOL length_only, SIGN_VERIFY_CONTEXT *ctx,
+                       CK_BYTE *in_data, CK_ULONG in_data_len,
+                       CK_BYTE *signature, CK_ULONG *sig_len);
+
+CK_RV ml_dsa_hash_sign_verify_update(STDLL_TokData_t *tokdata, SESSION *sess,
+                                     SIGN_VERIFY_CONTEXT *ctx,
+                                     CK_BYTE *in_data, CK_ULONG in_data_len);
+
+CK_RV ml_dsa_hash_sign_final(STDLL_TokData_t *tokdata, SESSION *sess,
+                             CK_BBOOL length_only, SIGN_VERIFY_CONTEXT *ctx,
+                             CK_BYTE *signature, CK_ULONG *sig_len);
+
+CK_RV ml_dsa_verify(STDLL_TokData_t *tokdata, SESSION *sess,
+                    SIGN_VERIFY_CONTEXT *ctx,
+                    CK_BYTE *in_data, CK_ULONG in_data_len,
+                    CK_BYTE *signature, CK_ULONG sig_len,
+                    CK_BBOOL final_part);
+
+CK_RV ml_dsa_hash_verify(STDLL_TokData_t *tokdata, SESSION *sess,
+                         SIGN_VERIFY_CONTEXT *ctx,
+                         CK_BYTE *in_data, CK_ULONG in_data_len,
+                         CK_BYTE *signature, CK_ULONG sig_len);
+
+CK_RV ml_dsa_hash_verify_final(STDLL_TokData_t *tokdata, SESSION *sess,
+                               SIGN_VERIFY_CONTEXT *ctx,
+                               CK_BYTE *signature, CK_ULONG sig_len);
+
+CK_RV ml_dsa_dup_param(CK_VOID_PTR src, CK_VOID_PTR dst, CK_ULONG len);
+CK_RV ml_dsa_free_param(CK_VOID_PTR p, CK_ULONG len);
+CK_RV ml_dsa_hash_dup_param(CK_VOID_PTR src, CK_VOID_PTR dst, CK_ULONG len);
+CK_RV ml_dsa_hash_free_param(CK_VOID_PTR p, CK_ULONG len);
+
+struct CK_IBM_SIGN_ADDITIONAL_CONTEXT;
+CK_RV ml_dsa_translate_sign_mech_param_from_ibm(
+                            struct CK_IBM_SIGN_ADDITIONAL_CONTEXT *from,
+                            CK_SIGN_ADDITIONAL_CONTEXT *to);
+CK_RV ml_dsa_translate_ibm_sign_mech_param_from_sign(
+                            CK_SIGN_ADDITIONAL_CONTEXT *from,
+                            struct CK_IBM_SIGN_ADDITIONAL_CONTEXT *to);
+CK_RV ml_dsa_translate_sign_mech_param_from_hash(
+                            CK_HASH_SIGN_ADDITIONAL_CONTEXT *from,
+                            CK_SIGN_ADDITIONAL_CONTEXT *to,
+                            CK_MECHANISM_TYPE *hash_mech);
+CK_RV ml_dsa_translate_hash_sign_mech_param_from_sign(
+                            CK_SIGN_ADDITIONAL_CONTEXT *from,
+                            CK_HASH_SIGN_ADDITIONAL_CONTEXT *to,
+                            CK_MECHANISM_TYPE hash_mech);
+
+CK_RV ml_kem_encapsulate_key(STDLL_TokData_t *tokdata, SESSION *sess,
+                             CK_BBOOL length_only, CK_MECHANISM *mech,
+                             OBJECT *public_key,
+                             CK_ATTRIBUTE *pTemplate, CK_ULONG ulAttributeCount,
+                             CK_BYTE *pCiphertext, CK_ULONG *pulCiphertextLen,
+                             CK_OBJECT_HANDLE *phKey);
+
+CK_RV ml_kem_decapsulate_key(STDLL_TokData_t *tokdata, SESSION *sess,
+                             CK_MECHANISM *mech, OBJECT *private_key,
+                             CK_ATTRIBUTE *pTemplate, CK_ULONG ulAttributeCount,
+                             CK_BYTE *pCiphertext, CK_ULONG ulCiphertextLen,
+                             CK_OBJECT_HANDLE *phKey);
+
 CK_RV digest_from_kdf(CK_EC_KDF_TYPE kdf, CK_MECHANISM_TYPE *mech);
 CK_RV get_digest_from_mech(CK_MECHANISM_TYPE mech, CK_MECHANISM_TYPE *digest);
 
@@ -943,7 +1056,7 @@ CK_RV ecdh_pkcs_derive(STDLL_TokData_t *tokdata, SESSION *sess,
                  CK_MECHANISM *mech, OBJECT *base_key_obj,
                  CK_ATTRIBUTE *pTemplate, CK_ULONG ulCount,
                  CK_OBJECT_HANDLE *derived_key_obj,
-                 CK_BBOOL count_statistic);
+                 CK_BBOOL count_statistic, CK_ULONG mode);
 
 // DES routines - I have to provide two different versions of these
 //                because encryption routines are also used internally
@@ -2125,7 +2238,7 @@ CK_RV key_mgr_generate_key(STDLL_TokData_t *tokdata,
                            CK_MECHANISM *mech,
                            CK_ATTRIBUTE *pTemplate, CK_ULONG ulCount,
                            CK_OBJECT_HANDLE *key_handle,
-                           CK_BBOOL count_statistics);
+                           CK_BBOOL count_statistics, CK_ULONG operation);
 
 CK_RV key_mgr_generate_key_pair(STDLL_TokData_t *tokdata,
                                 SESSION *sess,
@@ -2134,10 +2247,11 @@ CK_RV key_mgr_generate_key_pair(STDLL_TokData_t *tokdata,
                                 CK_ATTRIBUTE *priv_tmpl, CK_ULONG priv_count,
                                 CK_OBJECT_HANDLE *publ_key_handle,
                                 CK_OBJECT_HANDLE *priv_key_handle,
-                                CK_BBOOL count_statistics);
+                                CK_BBOOL count_statistics, CK_ULONG operation);
 
 CK_RV key_mgr_get_private_key_type(CK_BYTE *keydata,
-                                   CK_ULONG keylen, CK_KEY_TYPE *keytype);
+                                   CK_ULONG keylen, CK_KEY_TYPE *keytype,
+                                   CK_KEY_TYPE *alt_keytype);
 
 CK_RV key_mgr_derive_key(STDLL_TokData_t *tokdata,
                          SESSION *sess,
@@ -2145,7 +2259,7 @@ CK_RV key_mgr_derive_key(STDLL_TokData_t *tokdata,
                          CK_OBJECT_HANDLE base_key,
                          CK_OBJECT_HANDLE *derived_key,
                          CK_ATTRIBUTE *pTemplate, CK_ULONG ulCount,
-                         CK_BBOOL count_statistics);
+                         CK_BBOOL count_statistics, CK_ULONG operation);
 
 CK_RV key_mgr_wrap_key(STDLL_TokData_t *tokdata,
                        SESSION *sess,
@@ -2154,7 +2268,7 @@ CK_RV key_mgr_wrap_key(STDLL_TokData_t *tokdata,
                        CK_OBJECT_HANDLE h_wrapping_key,
                        CK_OBJECT_HANDLE h_key,
                        CK_BYTE *wrapped_key, CK_ULONG *wrapped_key_len,
-                       CK_BBOOL count_statistics);
+                       CK_BBOOL count_statistics, CK_ULONG operation);
 
 CK_RV key_mgr_unwrap_key(STDLL_TokData_t *tokdata,
                          SESSION *sess,
@@ -2165,17 +2279,25 @@ CK_RV key_mgr_unwrap_key(STDLL_TokData_t *tokdata,
                          CK_ULONG wrapped_key_len,
                          CK_OBJECT_HANDLE unwrapping_key,
                          CK_OBJECT_HANDLE *unwrapped_key,
-                         CK_BBOOL count_statistics);
+                         CK_BBOOL count_statistics, CK_ULONG operation);
 
-CK_RV key_mgr_derive_prolog(SESSION *sess,
-                            CK_ATTRIBUTE *attributes,
-                            CK_ULONG attrcount,
-                            CK_OBJECT_HANDLE base_key,
-                            OBJECT *base_key_obj,
-                            CK_BYTE *base_key_value,
-                            CK_KEY_TYPE base_key_type,
-                            ATTRIBUTE_PARSE_LIST *parselist, CK_ULONG plcount);
+CK_RV key_mgr_encapsulate_key(STDLL_TokData_t *tokdata, SESSION *sess,
+                              CK_BBOOL length_only, CK_MECHANISM *pMechanism,
+                              CK_OBJECT_HANDLE hPublicKey,
+                              CK_ATTRIBUTE *pTemplate,
+                              CK_ULONG ulAttributeCount,
+                              CK_BYTE *pCiphertext, CK_ULONG *pulCiphertextLen,
+                              CK_OBJECT_HANDLE *phKey,
+                              CK_BBOOL count_statistics);
 
+CK_RV key_mgr_decapsulate_key(STDLL_TokData_t *tokdata, SESSION *sess,
+                              CK_MECHANISM *pMechanism,
+                              CK_OBJECT_HANDLE hPrivateKey,
+                              CK_ATTRIBUTE *pTemplate,
+                              CK_ULONG ulAttributeCount,
+                              CK_BYTE *pCiphertext, CK_ULONG ulCiphertextLen,
+                              CK_OBJECT_HANDLE *phKey,
+                              CK_BBOOL count_statistics);
 
 // signature manager routines
 //
@@ -2682,7 +2804,8 @@ CK_RV publ_key_validate_attribute(STDLL_TokData_t *tokdata,
                                   TEMPLATE *tmpl,
                                   CK_ATTRIBUTE *attr, CK_ULONG mode);
 CK_RV publ_key_get_spki(TEMPLATE *tmpl, CK_ULONG keytype, CK_BBOOL length_only,
-                        CK_BYTE **data, CK_ULONG *data_len);
+                        CK_BYTE **data, CK_ULONG *data_len,
+                        CK_BBOOL is_priv_tmpl);
 
 CK_RV priv_key_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode);
 CK_RV priv_key_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode);
@@ -2830,11 +2953,58 @@ CK_RV ibm_ml_kem_priv_unwrap_get_data(TEMPLATE *tmpl,
                                       CK_BBOOL is_public,
                                       CK_MECHANISM_TYPE mech);
 
+// ML-DSA routines
+//
+CK_RV ml_dsa_publ_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode);
+CK_RV ml_dsa_priv_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode);
+CK_RV ml_dsa_publ_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode);
+CK_RV ml_dsa_priv_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode);
+CK_RV ml_dsa_publ_validate_attribute(STDLL_TokData_t *tokdata,
+                                     TEMPLATE *tmpl, CK_ATTRIBUTE *attr,
+                                     CK_ULONG mode);
+CK_RV ml_dsa_priv_validate_attribute(STDLL_TokData_t *tokdata,
+                                     TEMPLATE *tmpl, CK_ATTRIBUTE *attr,
+                                     CK_ULONG mode);
+CK_BBOOL ml_dsa_priv_check_exportability(CK_ATTRIBUTE_TYPE type);
+CK_RV ml_dsa_publ_get_spki(TEMPLATE *tmpl, CK_BBOOL length_only,
+                           CK_BYTE **data, CK_ULONG *data_len,
+                           CK_BBOOL is_priv_tmpl);
+CK_RV ml_dsa_priv_wrap_get_data(TEMPLATE *tmpl, CK_BBOOL length_only,
+                                CK_BYTE **data, CK_ULONG *data_len);
+CK_RV ml_dsa_priv_unwrap_get_data(TEMPLATE *tmpl, CK_BYTE *data,
+                                  CK_ULONG total_length, CK_BBOOL is_public);
+CK_RV ml_dsa_priv_unwrap(TEMPLATE *tmpl, CK_BYTE *data,
+                         CK_ULONG total_length, CK_BBOOL add_value);
+
+// ML-KEM routines
+//
+CK_RV ml_kem_publ_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode);
+CK_RV ml_kem_priv_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode);
+CK_RV ml_kem_publ_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode);
+CK_RV ml_kem_priv_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode);
+CK_RV ml_kem_publ_validate_attribute(STDLL_TokData_t *tokdata,
+                                     TEMPLATE *tmpl, CK_ATTRIBUTE *attr,
+                                     CK_ULONG mode);
+CK_RV ml_kem_priv_validate_attribute(STDLL_TokData_t *tokdata,
+                                     TEMPLATE *tmpl, CK_ATTRIBUTE *attr,
+                                     CK_ULONG mode);
+CK_BBOOL ml_kem_priv_check_exportability(CK_ATTRIBUTE_TYPE type);
+CK_RV ml_kem_publ_get_spki(TEMPLATE *tmpl, CK_BBOOL length_only,
+                           CK_BYTE **data, CK_ULONG *data_len,
+                           CK_BBOOL is_priv_tmpl);
+CK_RV ml_kem_priv_wrap_get_data(TEMPLATE *tmpl, CK_BBOOL length_only,
+                                CK_BYTE **data, CK_ULONG *data_len);
+CK_RV ml_kem_priv_unwrap_get_data(TEMPLATE *tmpl, CK_BYTE *data,
+                                  CK_ULONG total_length, CK_BBOOL is_public);
+CK_RV ml_kem_priv_unwrap(TEMPLATE *tmpl, CK_BYTE *data,
+                         CK_ULONG total_length, CK_BBOOL add_value);
+
 // PQC helper routines
 //
 CK_RV pqc_publ_get_spki(TEMPLATE *tmpl, CK_KEY_TYPE keytype,
                         CK_BBOOL length_only,
-                        CK_BYTE **data, CK_ULONG *data_len);
+                        CK_BYTE **data, CK_ULONG *data_len,
+                        CK_BBOOL is_priv_tmpl);
 CK_RV pqc_priv_wrap_get_data(TEMPLATE *tmpl, CK_KEY_TYPE keytype,
                              CK_BBOOL length_only,
                              CK_BYTE **data, CK_ULONG *data_len);
@@ -3180,6 +3350,45 @@ CK_RV ber_decode_IBM_ML_KEM_PrivateKey(CK_MECHANISM_TYPE mech,
                                        CK_ATTRIBUTE **value,
                                        const struct pqc_oid **oid);
 
+CK_RV ber_encode_ML_DSA_PublicKey(CK_BBOOL length_only,
+                                  CK_BYTE **data, CK_ULONG *data_len,
+                                  const CK_BYTE *oid, CK_ULONG oid_len,
+                                  CK_ATTRIBUTE *value);
+
+CK_RV ber_decode_ML_DSA_PublicKey(CK_BYTE *data, CK_ULONG data_len,
+                                  CK_ATTRIBUTE **value_attr,
+                                  const struct pqc_oid **oid);
+
+CK_RV ber_encode_ML_DSA_PrivateKey(CK_BBOOL length_only,
+                                   CK_BYTE **data, CK_ULONG *data_len,
+                                   const CK_BYTE *oid, CK_ULONG oid_len,
+                                   CK_ATTRIBUTE *value,
+                                   CK_ATTRIBUTE *seed);
+CK_RV ber_decode_ML_DSA_PrivateKey(CK_BYTE *data, CK_ULONG data_len,
+                                       CK_ATTRIBUTE **value,
+                                       CK_ATTRIBUTE **seed,
+                                       const struct pqc_oid **oid);
+
+CK_RV ber_encode_ML_KEM_PublicKey(CK_BBOOL length_only,
+                                  CK_BYTE **data, CK_ULONG *data_len,
+                                  const CK_BYTE *oid, CK_ULONG oid_len,
+                                  CK_ATTRIBUTE *value);
+
+CK_RV ber_decode_ML_KEM_PublicKey(CK_BYTE *data, CK_ULONG data_len,
+                                  CK_ATTRIBUTE **value_attr,
+                                  const struct pqc_oid **oid);
+
+CK_RV ber_encode_ML_KEM_PrivateKey(CK_BBOOL length_only,
+                                   CK_BYTE **data, CK_ULONG *data_len,
+                                   const CK_BYTE *oid, CK_ULONG oid_len,
+                                   CK_ATTRIBUTE *value,
+                                   CK_ATTRIBUTE *seed);
+
+CK_RV ber_decode_ML_KEM_PrivateKey(CK_BYTE *data, CK_ULONG data_len,
+                                   CK_ATTRIBUTE **value,
+                                   CK_ATTRIBUTE **seed,
+                                   const struct pqc_oid **oid);
+
 typedef CK_RV (*t_rsa_encrypt)(STDLL_TokData_t *, CK_BYTE *in_data,
                                CK_ULONG in_data_len, CK_BYTE *out_data,
                                OBJECT *key_obj);
@@ -3462,6 +3671,10 @@ CK_RV openssl_make_pqc_key_from_template(TEMPLATE *tmpl,
                                          CK_BBOOL private_key,
                                          const char *alg_name,
                                          EVP_PKEY **pkey);
+CK_RV openssl_specific_pqc_get_pub_key_from_priv_key(TEMPLATE *priv_tmpl,
+                                                     const struct pqc_oid *oid,
+                                                     CK_MECHANISM_TYPE mech,
+                                                     CK_ATTRIBUTE *pub_value);
 CK_RV openssl_specific_pqc_sign(STDLL_TokData_t *tokdata,
                                 SESSION *sess,
                                 CK_BBOOL length_only,
@@ -3471,7 +3684,8 @@ CK_RV openssl_specific_pqc_sign(STDLL_TokData_t *tokdata,
                                 CK_ULONG in_data_len,
                                 CK_BYTE *signature,
                                 CK_ULONG *signature_len,
-                                OBJECT *key_obj);
+                                OBJECT *key_obj,
+                                CK_BBOOL final_part);
 CK_RV openssl_specific_pqc_verify(STDLL_TokData_t *tokdata,
                                   SESSION *sess,
                                   const struct pqc_oid *oid,
@@ -3480,7 +3694,8 @@ CK_RV openssl_specific_pqc_verify(STDLL_TokData_t *tokdata,
                                   CK_ULONG in_data_len,
                                   CK_BYTE *signature,
                                   CK_ULONG signature_len,
-                                  OBJECT *key_obj);
+                                  OBJECT *key_obj,
+                                  CK_BBOOL final_part);
 CK_RV openssl_specific_pqc_kem_derive(STDLL_TokData_t *tokdata, SESSION *sess,
                                       const struct pqc_oid *oid,
                                       CK_MECHANISM *mech,
@@ -3490,6 +3705,28 @@ CK_RV openssl_specific_pqc_kem_derive(STDLL_TokData_t *tokdata, SESSION *sess,
                                       OBJECT *derived_object,
                                       CK_KEY_TYPE derived_key_type,
                                       CK_ULONG derived_keylen);
+CK_RV openssl_specific_pqc_encapsulate_key(STDLL_TokData_t *tokdata,
+                                           SESSION *sess, CK_BBOOL length_only,
+                                           const struct pqc_oid *oid,
+                                           CK_MECHANISM *mech, OBJECT *key_obj,
+                                           CK_ATTRIBUTE *pTemplate,
+                                           CK_ULONG ulAttributeCount,
+                                           CK_BYTE *pCiphertext,
+                                           CK_ULONG *pulCiphertextLen,
+                                           CK_KEY_TYPE keytype,
+                                           CK_ULONG keylen,
+                                           CK_OBJECT_HANDLE *phKey);
+CK_RV openssl_specific_pqc_decapsulate_key(STDLL_TokData_t *tokdata,
+                                           SESSION *sess,
+                                           const struct pqc_oid *oid,
+                                           CK_MECHANISM *mech, OBJECT *key_obj,
+                                           CK_ATTRIBUTE *pTemplate,
+                                           CK_ULONG ulAttributeCount,
+                                           CK_BYTE *pCiphertext,
+                                           CK_ULONG ulCiphertextLen,
+                                           CK_KEY_TYPE keytype,
+                                           CK_ULONG keylen,
+                                           CK_OBJECT_HANDLE *phKey);
 #endif
 
 #include "tok_spec_struct.h"
@@ -3499,5 +3736,12 @@ extern token_spec_t token_specific;
 /* CKA_HIDDEN will be used to filter return results on a C_FindObjects call.
  * Used for objects internal to a token for management of that token */
 #define CKA_HIDDEN              CKA_VENDOR_DEFINED + 0x01000000
+
+/*
+ * Opencryptoki internal mechanisms for SHAKE, not defined by PKCS#11.
+ * The have a CK_ULONG mechanism parameter specifying the output size.
+ */
+#define CKM_OCK_SHAKE128        CKM_VENDOR_DEFINED + 0x01000001
+#define CKM_OCK_SHAKE256        CKM_VENDOR_DEFINED + 0x01000002
 
 #endif

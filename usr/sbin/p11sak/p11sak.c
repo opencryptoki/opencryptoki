@@ -197,6 +197,10 @@ static CK_RV ibm_ml_dsa_kem_add_public_attrs(
                                          CK_ATTRIBUTE **attrs,
                                          CK_ULONG *num_attrs,
                                          void *private);
+static CK_RV ml_dsa_kem_add_public_attrs(const struct p11tool_objtype *keytype,
+                                         CK_ATTRIBUTE **attrs,
+                                         CK_ULONG *num_attrs,
+                                         void *private);
 
 static CK_RV p11sak_import_check_des_keysize(
                                         const struct p11tool_objtype *keytype,
@@ -245,6 +249,15 @@ static CK_RV p11sak_import_dilithium_ml_dsa_pkey(const struct p11tool_objtype *k
                                           EVP_PKEY *pkey, bool private,
                                           CK_ATTRIBUTE **attrs,
                                           CK_ULONG *num_attrs);
+static CK_RV p11sak_import_ibm_ml_kem_pkey(
+                                       const struct p11tool_objtype *keytype,
+                                       EVP_PKEY *pkey, bool private,
+                                       CK_ATTRIBUTE **attrs,
+                                       CK_ULONG *num_attrs);
+static CK_RV p11sak_import_ml_dsa_pkey(const struct p11tool_objtype *keytype,
+                                       EVP_PKEY *pkey, bool private,
+                                       CK_ATTRIBUTE **attrs,
+                                       CK_ULONG *num_attrs);
 static CK_RV p11sak_import_ml_kem_pkey(const struct p11tool_objtype *keytype,
                                        EVP_PKEY *pkey, bool private,
                                        CK_ATTRIBUTE **attrs,
@@ -274,6 +287,15 @@ static CK_RV p11sak_export_dilithium_ml_dsa_pkey(const struct p11tool_objtype *k
                                           EVP_PKEY **pkey, bool private,
                                           CK_OBJECT_HANDLE key,
                                           const char *label);
+static CK_RV p11sak_export_ibm_ml_kem_pkey(
+                                       const struct p11tool_objtype *keytype,
+                                       EVP_PKEY **pkey, bool private,
+                                       CK_OBJECT_HANDLE key,
+                                       const char *label);
+static CK_RV p11sak_export_ml_dsa_pkey(const struct p11tool_objtype *keytype,
+                                       EVP_PKEY **pkey, bool private,
+                                       CK_OBJECT_HANDLE key,
+                                       const char *label);
 static CK_RV p11sak_export_ml_kem_pkey(const struct p11tool_objtype *keytype,
                                        EVP_PKEY **pkey, bool private,
                                        CK_OBJECT_HANDLE key,
@@ -426,7 +448,10 @@ static const struct p11tool_attr p11sak_x509_attrs[] = {
       .print_long = print_attr_array_attr, },                                  \
     { .name = "CKA_PUBLIC_KEY_INFO", .type = CKA_PUBLIC_KEY_INFO,              \
       .secret = false, .public = true, .private = true, .settable = true,      \
-      .print_long = p11tool_print_byte_array_attr, }
+      .print_long = p11tool_print_byte_array_attr, },                          \
+    { .name = "CKA_ENCAPSULATE_TEMPLATE", .type = CKA_ENCAPSULATE_TEMPLATE,    \
+      .secret = false, .public = true, .private = false, .settable = true,     \
+      .print_long = print_attr_array_attr, }
 
 #define DECLARE_PRIVATE_KEY_ATTRS                                              \
     { .name = "CKA_SUBJECT", .type = CKA_SUBJECT,                              \
@@ -440,6 +465,9 @@ static const struct p11tool_attr p11sak_x509_attrs[] = {
       .print_long = p11tool_print_byte_array_attr, },                          \
     { .name = "CKA_DERIVE_TEMPLATE", .type = CKA_DERIVE_TEMPLATE,              \
       .secret = true, .public = false, .private = true, .settable = true,      \
+      .print_long = print_attr_array_attr, },                                  \
+    { .name = "CKA_DECAPSULATE_TEMPLATE", .type = CKA_DECAPSULATE_TEMPLATE,    \
+      .secret = false, .public = false, .private = true, .settable = true,     \
       .print_long = print_attr_array_attr, }
 
 static const struct p11tool_attr p11sak_des_attrs[] = {
@@ -776,6 +804,63 @@ static const struct p11tool_attr p11sak_private_ibm_ml_kem_attrs[] = {
     { .name = NULL },
 };
 
+#define DECLARE_PUBLIC_PRIVATE_ML_DSA_ATTRS                                    \
+    { .name = "CKA_PARAMETER_SET", .type = CKA_PARAMETER_SET,                  \
+      .secret = false, .public = true, .private = true, .settable = true,      \
+      .print_long = p11tool_print_ibm_ml_dsa_parameter_set_attr, }
+
+static const struct p11tool_attr p11sak_public_ml_dsa_attrs[] = {
+    DECLARE_KEY_ATTRS,
+    DECLARE_PUBLIC_KEY_ATTRS,
+    DECLARE_PUBLIC_PRIVATE_ML_DSA_ATTRS,
+    { .name = "CKA_VALUE", .type = CKA_VALUE,
+      .secret = false, .public = true, .private = false, .settable = true,
+      .print_long = p11tool_print_byte_array_attr, },
+    { .name = NULL },
+};
+
+static const struct p11tool_attr p11sak_private_ml_dsa_attrs[] = {
+    DECLARE_KEY_ATTRS,
+    DECLARE_PRIVATE_KEY_ATTRS,
+    DECLARE_PUBLIC_PRIVATE_ML_DSA_ATTRS,
+    { .name = "CKA_VALUE", .type = CKA_VALUE,
+      .secret = false, .public = false, .private = true, .settable = true,
+      .print_long = p11tool_print_byte_array_attr, },
+    { .name = "CKA_SEED", .type = CKA_SEED,
+      .secret = false, .public = false, .private = true, .settable = true,
+      .print_long = p11tool_print_byte_array_attr, },
+    { .name = NULL },
+};
+
+#define DECLARE_PUBLIC_PRIVATE_ML_KEM_ATTRS                                    \
+    { .name = "CKA_PARAMETER_SET", .type = CKA_PARAMETER_SET,                  \
+      .secret = false, .public = true, .private = true, .settable = true,      \
+      .print_long = p11tool_print_ibm_ml_kem_parameter_set_attr, }
+
+static const struct p11tool_attr p11sak_public_ml_kem_attrs[] = {
+    DECLARE_KEY_ATTRS,
+    DECLARE_PUBLIC_KEY_ATTRS,
+    DECLARE_PUBLIC_PRIVATE_ML_KEM_ATTRS,
+    { .name = "CKA_VALUE", .type = CKA_VALUE,
+      .secret = false, .public = true, .private = false, .settable = true,
+      .print_long = p11tool_print_byte_array_attr, },
+    { .name = NULL },
+};
+
+static const struct p11tool_attr p11sak_private_ml_kem_attrs[] = {
+    DECLARE_KEY_ATTRS,
+    DECLARE_PRIVATE_KEY_ATTRS,
+    DECLARE_PUBLIC_PRIVATE_ML_KEM_ATTRS,
+    { .name = "CKA_VALUE", .type = CKA_VALUE,
+      .secret = false, .public = false, .private = true, .settable = true,
+      .print_long = p11tool_print_byte_array_attr, },
+    { .name = "CKA_SEED",
+      .type = CKA_SEED,
+      .secret = false, .public = false, .private = true, .settable = true,
+      .print_long = p11tool_print_byte_array_attr, },
+    { .name = NULL },
+};
+
 static const struct p11tool_objtype p11sak_des_keytype = {
     .obj_typestr = "key", .obj_liststr = "Key",
     .name = "DES", .type = CKK_DES, .ck_name = "CKK_DES",
@@ -783,6 +868,7 @@ static const struct p11tool_objtype p11sak_des_keytype = {
     .is_asymmetric = false,
     .sign_verify = true, .encrypt_decrypt = true,
     .wrap_unwrap = true, .derive = true,
+    .encaps_decaps = false,
     .filter_attr = CKA_KEY_TYPE, .filter_value = CKK_DES,
     .keysize_attr = (CK_ATTRIBUTE_TYPE)-1,
     .secret_attrs = p11sak_des_attrs,
@@ -798,6 +884,7 @@ static const struct p11tool_objtype p11sak_3des_keytype = {
     .is_asymmetric = false,
     .sign_verify = true, .encrypt_decrypt = true,
     .wrap_unwrap = true, .derive = true,
+    .encaps_decaps = false,
     .filter_attr = CKA_KEY_TYPE, .filter_value = CKK_DES3,
     .keysize_attr = (CK_ATTRIBUTE_TYPE)-1,
     .secret_attrs = p11sak_3des_attrs,
@@ -816,6 +903,7 @@ static const struct p11tool_objtype p11sak_generic_keytype = {
     .keygen_add_secret_attrs = generic_add_secret_attrs,
     .sign_verify = true, .encrypt_decrypt = false,
     .wrap_unwrap = false, .derive = true,
+    .encaps_decaps = false,
     .filter_attr = CKA_KEY_TYPE, .filter_value = CKK_GENERIC_SECRET,
     .keysize_attr = CKA_VALUE_LEN, .key_keysize_adjust = generic_keysize_adjust,
     .secret_attrs = p11sak_generic_attrs,
@@ -834,6 +922,7 @@ static const struct p11tool_objtype p11sak_sha_1_hmac_keytype = {
     .keygen_add_secret_attrs = generic_add_secret_attrs,
     .sign_verify = true, .encrypt_decrypt = false,
     .wrap_unwrap = false, .derive = true,
+    .encaps_decaps = false,
     .filter_attr = CKA_KEY_TYPE, .filter_value = CKK_SHA_1_HMAC,
     .keysize_attr = CKA_VALUE_LEN, .key_keysize_adjust = generic_keysize_adjust,
     .secret_attrs = p11sak_generic_attrs,
@@ -852,6 +941,7 @@ static const struct p11tool_objtype p11sak_sha224_hmac_keytype = {
     .keygen_add_secret_attrs = generic_add_secret_attrs,
     .sign_verify = true, .encrypt_decrypt = false,
     .wrap_unwrap = false, .derive = true,
+    .encaps_decaps = false,
     .filter_attr = CKA_KEY_TYPE, .filter_value = CKK_SHA224_HMAC,
     .keysize_attr = CKA_VALUE_LEN, .key_keysize_adjust = generic_keysize_adjust,
     .secret_attrs = p11sak_generic_attrs,
@@ -870,6 +960,7 @@ static const struct p11tool_objtype p11sak_sha256_hmac_keytype = {
     .keygen_add_secret_attrs = generic_add_secret_attrs,
     .sign_verify = true, .encrypt_decrypt = false,
     .wrap_unwrap = false, .derive = true,
+    .encaps_decaps = false,
     .filter_attr = CKA_KEY_TYPE, .filter_value = CKK_SHA256_HMAC,
     .keysize_attr = CKA_VALUE_LEN, .key_keysize_adjust = generic_keysize_adjust,
     .secret_attrs = p11sak_generic_attrs,
@@ -888,6 +979,7 @@ static const struct p11tool_objtype p11sak_sha384_hmac_keytype = {
     .keygen_add_secret_attrs = generic_add_secret_attrs,
     .sign_verify = true, .encrypt_decrypt = false,
     .wrap_unwrap = false, .derive = true,
+    .encaps_decaps = false,
     .filter_attr = CKA_KEY_TYPE, .filter_value = CKK_SHA384_HMAC,
     .keysize_attr = CKA_VALUE_LEN, .key_keysize_adjust = generic_keysize_adjust,
     .secret_attrs = p11sak_generic_attrs,
@@ -906,6 +998,7 @@ static const struct p11tool_objtype p11sak_sha512_hmac_keytype = {
     .keygen_add_secret_attrs = generic_add_secret_attrs,
     .sign_verify = true, .encrypt_decrypt = false,
     .wrap_unwrap = false, .derive = true,
+    .encaps_decaps = false,
     .filter_attr = CKA_KEY_TYPE, .filter_value = CKK_SHA512_HMAC,
     .keysize_attr = CKA_VALUE_LEN, .key_keysize_adjust = generic_keysize_adjust,
     .secret_attrs = p11sak_generic_attrs,
@@ -924,6 +1017,7 @@ static const struct p11tool_objtype p11sak_sha512_224_hmac_keytype = {
     .keygen_add_secret_attrs = generic_add_secret_attrs,
     .sign_verify = true, .encrypt_decrypt = false,
     .wrap_unwrap = false, .derive = true,
+    .encaps_decaps = false,
     .filter_attr = CKA_KEY_TYPE, .filter_value = CKK_SHA512_224_HMAC,
     .keysize_attr = CKA_VALUE_LEN, .key_keysize_adjust = generic_keysize_adjust,
     .secret_attrs = p11sak_generic_attrs,
@@ -942,6 +1036,7 @@ static const struct p11tool_objtype p11sak_sha512_256_hmac_keytype = {
     .keygen_add_secret_attrs = generic_add_secret_attrs,
     .sign_verify = true, .encrypt_decrypt = false,
     .wrap_unwrap = false, .derive = true,
+    .encaps_decaps = false,
     .filter_attr = CKA_KEY_TYPE, .filter_value = CKK_SHA512_256_HMAC,
     .keysize_attr = CKA_VALUE_LEN, .key_keysize_adjust = generic_keysize_adjust,
     .secret_attrs = p11sak_generic_attrs,
@@ -960,6 +1055,7 @@ static const struct p11tool_objtype p11sak_sha3_224_hmac_keytype = {
     .keygen_add_secret_attrs = generic_add_secret_attrs,
     .sign_verify = true, .encrypt_decrypt = false,
     .wrap_unwrap = false, .derive = true,
+    .encaps_decaps = false,
     .filter_attr = CKA_KEY_TYPE, .filter_value = CKK_SHA3_224_HMAC,
     .keysize_attr = CKA_VALUE_LEN, .key_keysize_adjust = generic_keysize_adjust,
     .secret_attrs = p11sak_generic_attrs,
@@ -978,6 +1074,7 @@ static const struct p11tool_objtype p11sak_sha3_256_hmac_keytype = {
     .keygen_add_secret_attrs = generic_add_secret_attrs,
     .sign_verify = true, .encrypt_decrypt = false,
     .wrap_unwrap = false, .derive = true,
+    .encaps_decaps = false,
     .filter_attr = CKA_KEY_TYPE, .filter_value = CKK_SHA3_256_HMAC,
     .keysize_attr = CKA_VALUE_LEN, .key_keysize_adjust = generic_keysize_adjust,
     .secret_attrs = p11sak_generic_attrs,
@@ -996,6 +1093,7 @@ static const struct p11tool_objtype p11sak_sha3_384_hmac_keytype = {
     .keygen_add_secret_attrs = generic_add_secret_attrs,
     .sign_verify = true, .encrypt_decrypt = false,
     .wrap_unwrap = false, .derive = true,
+    .encaps_decaps = false,
     .filter_attr = CKA_KEY_TYPE, .filter_value = CKK_SHA3_384_HMAC,
     .keysize_attr = CKA_VALUE_LEN, .key_keysize_adjust = generic_keysize_adjust,
     .secret_attrs = p11sak_generic_attrs,
@@ -1014,6 +1112,7 @@ static const struct p11tool_objtype p11sak_sha3_512_hmac_keytype = {
     .keygen_add_secret_attrs = generic_add_secret_attrs,
     .sign_verify = true, .encrypt_decrypt = false,
     .wrap_unwrap = false, .derive = true,
+    .encaps_decaps = false,
     .filter_attr = CKA_KEY_TYPE, .filter_value = CKK_SHA3_512_HMAC,
     .keysize_attr = CKA_VALUE_LEN, .key_keysize_adjust = generic_keysize_adjust,
     .secret_attrs = p11sak_generic_attrs,
@@ -1031,6 +1130,7 @@ static const struct p11tool_objtype p11sak_aes_keytype = {
     .keygen_add_secret_attrs = aes_add_secret_attrs,
     .sign_verify = true, .encrypt_decrypt = true,
     .wrap_unwrap = true, .derive = true,
+    .encaps_decaps = false,
     .filter_attr = CKA_KEY_TYPE, .filter_value = CKK_AES,
     .keysize_attr = CKA_VALUE_LEN, .key_keysize_adjust = aes_keysize_adjust,
     .secret_attrs = p11sak_aes_attrs,
@@ -1048,6 +1148,7 @@ static const struct p11tool_objtype p11sak_aes_xts_keytype = {
     .keygen_add_secret_attrs = aes_add_secret_attrs,
     .sign_verify = true, .encrypt_decrypt = true,
     .wrap_unwrap = true, .derive = true,
+    .encaps_decaps = false,
     .filter_attr = CKA_KEY_TYPE, .filter_value = CKK_AES_XTS,
     .keysize_attr = CKA_VALUE_LEN, .key_keysize_adjust = aes_xts_keysize_adjust,
     .secret_attrs = p11sak_aes_attrs,
@@ -1065,6 +1166,7 @@ static const struct p11tool_objtype p11sak_rsa_keytype = {
     .keygen_add_public_attrs = rsa_add_public_attrs,
     .sign_verify = true, .encrypt_decrypt = true,
     .wrap_unwrap = true, .derive = false,
+    .encaps_decaps = true,
     .filter_attr = CKA_KEY_TYPE, .filter_value = CKK_RSA,
     .keysize_attr = CKA_MODULUS, .keysize_attr_value_len = true,
     .key_keysize_adjust = rsa_keysize_adjust,
@@ -1086,6 +1188,7 @@ static const struct p11tool_objtype p11sak_dh_keytype = {
     .keygen_add_private_attrs = dh_add_private_attrs,
     .sign_verify = false, .encrypt_decrypt = false,
     .wrap_unwrap = false, .derive = true,
+    .encaps_decaps = true,
     .filter_attr = CKA_KEY_TYPE, .filter_value = CKK_DH,
     .keysize_attr = CKA_PRIME, .keysize_attr_value_len = true,
     .key_keysize_adjust = dh_keysize_adjust,
@@ -1106,6 +1209,7 @@ static const struct p11tool_objtype p11sak_dsa_keytype = {
     .keygen_add_public_attrs = dsa_add_public_attrs,
     .sign_verify = true, .encrypt_decrypt = false,
     .wrap_unwrap = false, .derive = false,
+    .encaps_decaps = false,
     .filter_attr = CKA_KEY_TYPE, .filter_value = CKK_DSA,
     .keysize_attr = CKA_PRIME, .keysize_attr_value_len = true,
     .key_keysize_adjust = dsa_keysize_adjust,
@@ -1124,6 +1228,7 @@ static const struct p11tool_objtype p11sak_ec_keytype = {
     .keygen_add_public_attrs = ec_add_public_attrs,
     .sign_verify = true, .encrypt_decrypt = false,
     .wrap_unwrap = false, .derive = true,
+    .encaps_decaps = true,
     .filter_attr = CKA_KEY_TYPE, .filter_value = CKK_EC,
     .keysize_attr = (CK_ATTRIBUTE_TYPE)-1,
     .public_attrs = p11sak_public_ec_attrs,
@@ -1141,6 +1246,7 @@ static const struct p11tool_objtype p11sak_ec_edwards_keytype = {
     .keygen_add_public_attrs = ec_add_public_attrs,
     .sign_verify = true, .encrypt_decrypt = false,
     .wrap_unwrap = false, .derive = false,
+    .encaps_decaps = false,
     .filter_attr = CKA_KEY_TYPE, .filter_value = CKK_EC_EDWARDS,
     .keysize_attr = (CK_ATTRIBUTE_TYPE)-1,
     .public_attrs = p11sak_public_ec_attrs,
@@ -1159,6 +1265,7 @@ static const struct p11tool_objtype p11sak_ec_montgomery_keytype = {
     .keygen_add_public_attrs = ec_add_public_attrs,
     .sign_verify = true, .encrypt_decrypt = false,
     .wrap_unwrap = false, .derive = true,
+    .encaps_decaps = true,
     .filter_attr = CKA_KEY_TYPE, .filter_value = CKK_EC_MONTGOMERY,
     .keysize_attr = (CK_ATTRIBUTE_TYPE)-1,
     .public_attrs = p11sak_public_ec_attrs,
@@ -1177,6 +1284,7 @@ static const struct p11tool_objtype p11sak_ibm_dilithium_keytype = {
     .keygen_add_public_attrs = ibm_dilithium_add_public_attrs,
     .sign_verify = true, .encrypt_decrypt = false,
     .wrap_unwrap = false, .derive = false,
+    .encaps_decaps = false,
     .filter_attr = CKA_KEY_TYPE, .filter_value = CKK_IBM_PQC_DILITHIUM,
     .keysize_attr = (CK_ATTRIBUTE_TYPE)-1,
     .public_attrs = p11sak_public_ibm_dilithium_attrs,
@@ -1198,6 +1306,7 @@ static const struct p11tool_objtype p11sak_ibm_kyber_keytype = {
     .keygen_add_public_attrs = ibm_kyber_add_public_attrs,
     .sign_verify = false, .encrypt_decrypt = true,
     .wrap_unwrap = false, .derive = true,
+    .encaps_decaps = false,
     .filter_attr = CKA_KEY_TYPE, .filter_value = CKK_IBM_PQC_KYBER,
     .keysize_attr = (CK_ATTRIBUTE_TYPE)-1,
     .public_attrs = p11sak_public_ibm_kyber_attrs,
@@ -1217,6 +1326,7 @@ static const struct p11tool_objtype p11sak_ibm_ml_dsa_keytype = {
     .keygen_add_public_attrs = ibm_ml_dsa_kem_add_public_attrs,
     .sign_verify = true, .encrypt_decrypt = false,
     .wrap_unwrap = false, .derive = false,
+    .encaps_decaps = false,
     .filter_attr = CKA_KEY_TYPE, .filter_value = CKK_IBM_ML_DSA,
     .keysize_attr = (CK_ATTRIBUTE_TYPE)-1,
     .public_attrs = p11sak_public_ibm_ml_dsa_attrs,
@@ -1234,10 +1344,47 @@ static const struct p11tool_objtype p11sak_ibm_ml_kem_keytype = {
     .keygen_add_public_attrs = ibm_ml_dsa_kem_add_public_attrs,
     .sign_verify = false, .encrypt_decrypt = false,
     .wrap_unwrap = false, .derive = true,
+    .encaps_decaps = false,
     .filter_attr = CKA_KEY_TYPE, .filter_value = CKK_IBM_ML_KEM,
     .keysize_attr = (CK_ATTRIBUTE_TYPE)-1,
     .public_attrs = p11sak_public_ibm_ml_kem_attrs,
     .private_attrs = p11sak_private_ibm_ml_kem_attrs,
+    .import_asym_pkey = p11sak_import_ibm_ml_kem_pkey,
+    .export_asym_pkey = p11sak_export_ibm_ml_kem_pkey,
+};
+
+static const struct p11tool_objtype p11sak_ml_dsa_keytype = {
+    .obj_typestr = "key", .obj_liststr = "Key",
+    .name = "ML-DSA",  .type = CKK_ML_DSA,
+    .ck_name = "CKK_ML_DSA",
+    .keygen_mech = { .mechanism = CKM_ML_DSA_KEY_PAIR_GEN, },
+    .is_asymmetric = true,
+    .keygen_add_public_attrs = ml_dsa_kem_add_public_attrs,
+    .sign_verify = true, .encrypt_decrypt = false,
+    .wrap_unwrap = false, .derive = false,
+    .encaps_decaps = false,
+    .filter_attr = CKA_KEY_TYPE, .filter_value = CKK_ML_DSA,
+    .keysize_attr = (CK_ATTRIBUTE_TYPE)-1,
+    .public_attrs = p11sak_public_ml_dsa_attrs,
+    .private_attrs = p11sak_private_ml_dsa_attrs,
+    .import_asym_pkey = p11sak_import_ml_dsa_pkey,
+    .export_asym_pkey = p11sak_export_ml_dsa_pkey,
+};
+
+static const struct p11tool_objtype p11sak_ml_kem_keytype = {
+    .obj_typestr = "key", .obj_liststr = "Key",
+    .name = "ML-KEM",  .type = CKK_ML_KEM,
+    .ck_name = "CKK_ML_KEM",
+    .keygen_mech = { .mechanism = CKM_ML_KEM_KEY_PAIR_GEN, },
+    .is_asymmetric = true,
+    .keygen_add_public_attrs = ml_dsa_kem_add_public_attrs,
+    .sign_verify = false, .encrypt_decrypt = false,
+    .wrap_unwrap = false, .derive = false,
+    .encaps_decaps = true,
+    .filter_attr = CKA_KEY_TYPE, .filter_value = CKK_ML_KEM,
+    .keysize_attr = (CK_ATTRIBUTE_TYPE)-1,
+    .public_attrs = p11sak_public_ml_kem_attrs,
+    .private_attrs = p11sak_private_ml_kem_attrs,
     .import_asym_pkey = p11sak_import_ml_kem_pkey,
     .export_asym_pkey = p11sak_export_ml_kem_pkey,
 };
@@ -1306,6 +1453,8 @@ const struct p11tool_objtype *p11sak_keytypes[] = {
     &p11sak_ibm_kyber_keytype,
     &p11sak_ibm_ml_dsa_keytype,
     &p11sak_ibm_ml_kem_keytype,
+    &p11sak_ml_dsa_keytype,
+    &p11sak_ml_kem_keytype,
     NULL,
 };
 
@@ -1383,11 +1532,11 @@ static const struct p11tool_opt p11sak_generic_opts[] = {
       .arg =  { .type = ARG_TYPE_STRING, .required = true,                     \
                 .value.string = &opt_attr, .name = "ATTRS", },                 \
       .description = "Filter the key by its boolean attribute values:\n"       \
-                     "P L M B Y R E D G C V O W U S A X N T I H K Z (optional)"\
-                     ". Specify a set of these letters without any blanks in " \
-                     "between. See below for the meaning of the attribute "    \
-                     "letters. Attributes that are not specified are not "     \
-                     "used to filter the keys.", }
+                     "P L M B Y R E D G C V O W U S A X N T I H J Q K Z "      \
+                     "(optional). Specify a set of these letters without any " \
+                     "blanks in between. See below for the meaning of the "    \
+                     "attribute letters. Attributes that are not specified "   \
+                     "are not used to filter the keys.", }
 
 #define CERT_FILTER_OPTS                                                       \
     { .short_opt = 'L', .long_opt = "label", .required = false,                \
@@ -1467,7 +1616,11 @@ static const struct p11tool_opt p11sak_generic_opts[] = {
     { .value = "ibm-ml-dsa", .args = args_prefix##_ibm_ml_dsa_args,            \
       .private = { .ptr = &p11sak_ibm_ml_dsa_keytype }, },                     \
     { .value = "ibm-ml-kem", .args = args_prefix##_ibm_ml_kem_args,            \
-      .private = { .ptr = &p11sak_ibm_ml_kem_keytype }, }
+      .private = { .ptr = &p11sak_ibm_ml_kem_keytype }, },                     \
+    { .value = "ml-dsa", .args = args_prefix##_ml_dsa_args,                    \
+      .private = { .ptr = &p11sak_ml_dsa_keytype }, },                         \
+    { .value = "ml-kem", .args = args_prefix##_ml_kem_args,                    \
+      .private = { .ptr = &p11sak_ml_kem_keytype }, }
 
 #define GROUP_KEYTYPES                                                         \
     { .value = "public", .args = NULL,                                         \
@@ -1501,7 +1654,7 @@ static const struct p11tool_opt p11sak_generate_key_opts[] = {
       .arg =  { .type = ARG_TYPE_STRING, .required = true,
                 .value.string = &opt_attr, .name = "ATTRS", },
       .description = "The boolean attributes to set for the key:\n"
-                     "P M B Y R E D G C V O W U S X T I H K (optional). "
+                     "P M B Y R E D G C V O W U S X T I H J Q K (optional). "
                      "Specify a set of these letters without any blanks in "
                      "between. See below for the meaning of the attribute "
                      "letters. For asymmetric keys set individual key "
@@ -1762,6 +1915,22 @@ static const struct p11tool_arg p11sak_generate_ibm_ml_kem_args[] = {
     { .name = NULL, },
 };
 
+static const struct p11tool_arg p11sak_generate_ml_dsa_args[] = {
+    { .name = "VERSION", .type = ARG_TYPE_ENUM, .required = true,
+      .enum_values = p11tool_ml_dsa_versions,
+      .value.enum_value = &opt_pqc_version,
+      .description = "The version of the ML-DSA key pair:", },
+    { .name = NULL, },
+};
+
+static const struct p11tool_arg p11sak_generate_ml_kem_args[] = {
+    { .name = "VERSION", .type = ARG_TYPE_ENUM, .required = true,
+      .enum_values = p11tool_ml_kem_versions,
+      .value.enum_value = &opt_pqc_version,
+      .description = "The version of the ML-KEM key pair:", },
+    { .name = NULL, },
+};
+
 static const struct p11tool_enum_value p11sak_generate_key_keytypes[] = {
     KEYGEN_KEYTYPES(p11sak_generate),
     { .value = NULL, },
@@ -1859,6 +2028,8 @@ static const struct p11tool_opt p11sak_list_cert_opts[] = {
 #define null_ibm_kyber_args         NULL
 #define null_ibm_ml_dsa_args        NULL
 #define null_ibm_ml_kem_args        NULL
+#define null_ml_dsa_args            NULL
+#define null_ml_kem_args            NULL
 
 static const struct p11tool_enum_value
                         p11sak_list_remove_set_copy_export_key_keytypes[] = {
@@ -1888,6 +2059,10 @@ static const struct p11tool_enum_value p11sak_private_key_keytypes[] = {
       .private = { .ptr = &p11sak_ibm_ml_dsa_keytype }, },
     { .value = "ibm-ml-kem", .args = NULL,
       .private = { .ptr = &p11sak_ibm_ml_kem_keytype }, },
+    { .value = "ml-dsa", .args = NULL,
+      .private = { .ptr = &p11sak_ml_dsa_keytype }, },
+    { .value = "ml-kem", .args = NULL,
+      .private = { .ptr = &p11sak_ml_kem_keytype }, },
     { .value = "private", .args = NULL,
       .private = { .ptr = &p11sak_private_keytype }, },
     { .value = "all", .args = NULL,
@@ -1979,7 +2154,7 @@ static const struct p11tool_opt p11sak_set_key_attr_opts[] = {
       .arg =  { .type = ARG_TYPE_STRING, .required = true,
                 .value.string = &opt_new_attr, .name = "ATTRS", },
       .description = "The boolean attributes to set for the key (optional):\n"
-                     "P M B Y R E D G C V O W U S X T I K. "
+                     "P M B Y R E D G C V O W U S X T I J Q K. "
                      "Specify a set of these letters without any blanks in "
                      "between. See below for the meaning of the attribute "
                      "letters. Restrictions on attribute values may apply.", },
@@ -2055,8 +2230,8 @@ static const struct p11tool_opt p11sak_copy_key_opts[] = {
       .arg =  { .type = ARG_TYPE_STRING, .required = true,
                 .value.string = &opt_new_attr, .name = "ATTRS", },
       .description = "The boolean attributes to set for the copied key "
-                     "(optional):\n P L M B Y R E D G C V O W U S A X N T I. "
-                     "Specify a set of these letters without any blanks in "
+                     "(optional):\n P L M B Y R E D G C V O W U S A X N T I J "
+                     "Q. Specify a set of these letters without any blanks in "
                      "between. See below for the meaning of the attribute "
                      "letters. Restrictions on attribute values may apply.", },
     { .short_opt = 'l', .long_opt = "new-label", .required = false,
@@ -2130,7 +2305,7 @@ static const struct p11tool_opt p11sak_import_key_opts[] = {
       .arg =  { .type = ARG_TYPE_STRING, .required = true,
                 .value.string = &opt_attr, .name = "ATTRS", },
       .description = "The boolean attributes to set for the key:\n"
-                     "P M B Y R E D G C V O W U S X T I H K (optional). "
+                     "P M B Y R E D G C V O W U S X T I H J Q K (optional). "
                      "Specify a set of these letters without any blanks in "
                      "between. See below for the meaning of the attribute "
                      "letters.", },
@@ -2287,7 +2462,11 @@ static const struct p11tool_arg p11sak_import_asym_args[] = {
     { .value = "ibm-ml-dsa", .args = asym_args,                                \
       .private = { .ptr = &p11sak_ibm_ml_dsa_keytype }, },                     \
     { .value = "ibm-ml-kem", .args = asym_args,                                \
-      .private = { .ptr = &p11sak_ibm_ml_kem_keytype }, }
+      .private = { .ptr = &p11sak_ibm_ml_kem_keytype }, },                     \
+    { .value = "ml-dsa", .args = asym_args,                                    \
+      .private = { .ptr = &p11sak_ml_dsa_keytype }, },                         \
+    { .value = "ml-kem", .args = asym_args,                                    \
+      .private = { .ptr = &p11sak_ml_kem_keytype }, }
 
 static const struct p11tool_enum_value p11sak_import_key_keytypes[] = {
     IMPORT_KEYTYPES(p11sak_import_asym_args),
@@ -2445,7 +2624,7 @@ static const struct p11tool_opt p11sak_extract_pubkey_opts[] = {
       .arg =  { .type = ARG_TYPE_STRING, .required = true,
                 .value.string = &opt_new_attr, .name = "ATTRS", },
       .description = "The boolean attributes to set for the extracted public "
-                     "key (optional): P M B Y R E D G C V O W U S X T I K. "
+                     "key (optional): P M B Y R E D G C V O W U S X T I J Q K. "
                      "Specify a set of these letters without any blanks in "
                      "between. See below for the meaning of the attribute "
                      "letters. Restrictions on attribute values may apply.", },
@@ -2536,7 +2715,7 @@ static const struct p11tool_opt p11sak_extract_cert_pubkey_opts[] = {
       .arg =  { .type = ARG_TYPE_STRING, .required = true,
                 .value.string = &opt_new_attr, .name = "ATTRS", },
       .description = "The boolean attributes to set for the extracted public "
-                     "key (optional): P M B Y R E D G C V O W U S X T I K. "
+                     "key (optional): P M B Y R E D G C V O W U S X T I J Q K. "
                      "Specify a set of these letters without any blanks in "
                      "between. See below for the meaning of the attribute "
                      "letters. Restrictions on attribute values may apply.", },
@@ -2691,7 +2870,7 @@ static const struct p11tool_opt p11sak_unwrap_key_opts[] = {
       .arg =  { .type = ARG_TYPE_STRING, .required = true,
                 .value.string = &opt_attr, .name = "ATTRS", },
       .description = "The boolean attributes to set for the unwrapped key:\n"
-                     "P M B Y R E D G C V O W U S X T I H K (optional). "
+                     "P M B Y R E D G C V O W U S X T I H J Q K (optional). "
                      "Specify a set of these letters without any blanks in "
                      "between. See below for the meaning of the attribute "
                      "letters.", },
@@ -2869,6 +3048,8 @@ const struct p11tool_attr p11sak_bool_attrs[] = {
     DECLARE_BOOL_ATTR(CKA_WRAP_WITH_TRUSTED, 'I', true,  false, true,  true),
     DECLARE_BOOL_ATTR(CKA_ALWAYS_AUTHENTICATE,
                                              'H', false, false, true,  true),
+    DECLARE_BOOL_ATTR(CKA_ENCAPSULATE,       'J', false, true,  false, true),
+    DECLARE_BOOL_ATTR(CKA_DECAPSULATE,       'Q', false, false, true,  true),
     DECLARE_BOOL_ATTR(CKA_IBM_PROTKEY_EXTRACTABLE,
                                              'K', true,  false, true,  true),
     DECLARE_BOOL_ATTR(CKA_IBM_PROTKEY_NEVER_EXTRACTABLE,
@@ -3694,6 +3875,20 @@ static CK_RV ibm_ml_dsa_kem_add_public_attrs(
     UNUSED(keytype);
 
     return p11tool_add_attribute(CKA_IBM_PARAMETER_SET,
+                                 &opt_pqc_version->private.num,
+                                 sizeof(opt_pqc_version->private.num),
+                                 attrs, num_attrs);
+}
+
+static CK_RV ml_dsa_kem_add_public_attrs(const struct p11tool_objtype *keytype,
+                                         CK_ATTRIBUTE **attrs,
+                                         CK_ULONG *num_attrs,
+                                         void *private)
+{
+    UNUSED(private);
+    UNUSED(keytype);
+
+    return p11tool_add_attribute(CKA_PARAMETER_SET,
                                  &opt_pqc_version->private.num,
                                  sizeof(opt_pqc_version->private.num),
                                  attrs, num_attrs);
@@ -6369,7 +6564,7 @@ static CK_RV p11sak_extract_x509_pk(const struct p11tool_objtype *certtype,
         } else {
             oid = pqc_oid_from_pkey(pkey, ml_dsa_oids, false);
             if (oid != NULL)
-                keytype = &p11sak_ibm_ml_dsa_keytype;
+                keytype = &p11sak_ml_dsa_keytype;
         }
     }
 #endif
@@ -7260,7 +7455,8 @@ out:
 #endif
 }
 
-static CK_RV p11sak_import_ml_kem_pkey(const struct p11tool_objtype *keytype,
+static CK_RV p11sak_import_ibm_ml_kem_pkey(
+                                       const struct p11tool_objtype *keytype,
                                        EVP_PKEY *pkey, bool private,
                                        CK_ATTRIBUTE **attrs,
                                        CK_ULONG *num_attrs)
@@ -7339,6 +7535,213 @@ static CK_RV p11sak_import_ml_kem_pkey(const struct p11tool_objtype *keytype,
                                attrs, num_attrs);
     if (rc != CKR_OK)
        goto out;
+
+out:
+    if (priv_key != NULL) {
+        OPENSSL_cleanse(priv_key, priv_len);
+        free(priv_key);
+    }
+    if (pub_key != NULL)
+        free(pub_key);
+
+    return rc;
+#else
+    UNUSED(keytype);
+    UNUSED(pkey);
+    UNUSED(private);
+    UNUSED(attrs);
+    UNUSED(num_attrs);
+
+    warnx("Importing an 'oqsprovider' format PEM file is only supported with "
+          "OpenSSL 3.0 or later.");
+    return CKR_FUNCTION_NOT_SUPPORTED;
+#endif
+}
+
+static CK_RV p11sak_import_ml_dsa_pkey(const struct p11tool_objtype *keytype,
+                                       EVP_PKEY *pkey, bool private,
+                                       CK_ATTRIBUTE **attrs,
+                                       CK_ULONG *num_attrs)
+{
+#if OPENSSL_VERSION_PREREQ(3, 0)
+    const struct pqc_oid *oid;
+    size_t priv_len = 0, pub_len = 0;
+    CK_BYTE *priv_key = NULL, *pub_key = NULL;
+    size_t seed_len = 0;
+    CK_BYTE *priv_seed = NULL;
+    CK_RV rc;
+
+    UNUSED(keytype);
+
+    oid = pqc_oid_from_pkey(pkey, ml_dsa_oids, true);
+    if (oid == NULL)
+        return CKR_FUNCTION_FAILED;
+
+    /* Add keyform and attribute */
+    rc = p11tool_add_attribute(CKA_PARAMETER_SET,
+                               &oid->keyform, sizeof(oid->keyform),
+                               attrs, num_attrs);
+    if (rc != CKR_OK)
+       goto out;
+
+    if (private) {
+        rc = p11tool_get_octet_string_param_from_pkey(pkey,
+                                                      OSSL_PKEY_PARAM_PRIV_KEY,
+                                                      &priv_key, &priv_len,
+                                                      FALSE);
+        if (rc != CKR_OK)
+            goto out;
+
+        if (priv_len != oid->len_info.ml_dsa.rho_len +
+                        oid->len_info.ml_dsa.seed_len +
+                        oid->len_info.ml_dsa.tr_len +
+                        oid->len_info.ml_dsa.s1_len +
+                        oid->len_info.ml_dsa.s2_len +
+                        oid->len_info.ml_dsa.t0_len) {
+            warnx("Size of private %s key is not valid.", keytype->name);
+            rc = CKR_FUNCTION_FAILED;
+            goto out;
+        }
+
+        rc = p11tool_add_attribute(CKA_VALUE, priv_key, priv_len,
+                                   attrs, num_attrs);
+        if (rc != CKR_OK)
+           goto out;
+
+        /* Try to get private seed, but ignore if it is not available */
+        rc = p11tool_get_octet_string_param_from_pkey(pkey,
+                                              OSSL_PKEY_PARAM_ML_DSA_SEED,
+                                              &priv_seed, &seed_len, TRUE);
+        if (rc != CKR_OK)
+            goto out;
+
+        if (priv_seed != NULL &&
+            seed_len == oid->len_info.ml_dsa.priv_seed_len) {
+            rc = p11tool_add_attribute(CKA_SEED, priv_seed, seed_len,
+                                       attrs, num_attrs);
+            if (rc != CKR_OK)
+               goto out;
+        }
+    } else {
+        rc = p11tool_get_octet_string_param_from_pkey(pkey,
+                                                      OSSL_PKEY_PARAM_PUB_KEY,
+                                                      &pub_key, &pub_len,
+                                                      FALSE);
+        if (rc != CKR_OK)
+            goto out;
+
+        if (pub_len != oid->len_info.ml_dsa.rho_len +
+                       oid->len_info.ml_dsa.t1_len) {
+            warnx("Size of public %s key is not valid.", keytype->name);
+            rc = CKR_FUNCTION_FAILED;
+            goto out;
+        }
+
+        rc = p11tool_add_attribute(CKA_VALUE, pub_key, pub_len,
+                                   attrs, num_attrs);
+        if (rc != CKR_OK)
+           goto out;
+    }
+
+out:
+    if (priv_key != NULL) {
+        OPENSSL_cleanse(priv_key, priv_len);
+        free(priv_key);
+    }
+    if (pub_key != NULL)
+        free(pub_key);
+
+    return rc;
+#else
+    UNUSED(keytype);
+    UNUSED(pkey);
+    UNUSED(private);
+    UNUSED(attrs);
+    UNUSED(num_attrs);
+
+    warnx("Importing an 'oqsprovider' format PEM file is only supported with "
+          "OpenSSL 3.0 or later.");
+    return CKR_FUNCTION_NOT_SUPPORTED;
+#endif
+}
+
+static CK_RV p11sak_import_ml_kem_pkey(const struct p11tool_objtype *keytype,
+                                       EVP_PKEY *pkey, bool private,
+                                       CK_ATTRIBUTE **attrs,
+                                       CK_ULONG *num_attrs)
+{
+#if OPENSSL_VERSION_PREREQ(3, 0)
+    const struct pqc_oid *oid;
+    size_t priv_len = 0, pub_len = 0;
+    CK_BYTE *priv_key = NULL, *pub_key = NULL;
+    size_t seed_len = 0;
+    CK_BYTE *priv_seed = NULL;
+    CK_RV rc;
+
+    UNUSED(keytype);
+
+    oid = pqc_oid_from_pkey(pkey, ml_kem_oids, true);
+    if (oid == NULL)
+        return CKR_FUNCTION_FAILED;
+
+    /* Add Parameter-set and attribute */
+    rc = p11tool_add_attribute(CKA_PARAMETER_SET,
+                               &oid->keyform, sizeof(oid->keyform),
+                               attrs, num_attrs);
+    if (rc != CKR_OK)
+       goto out;
+
+    if (private) {
+        rc = p11tool_get_octet_string_param_from_pkey(pkey,
+                                                      OSSL_PKEY_PARAM_PRIV_KEY,
+                                                      &priv_key, &priv_len,
+                                                      FALSE);
+        if (rc != CKR_OK)
+            goto out;
+
+        if (priv_len != oid->len_info.ml_kem.sk_len) {
+            warnx("Size of private %s key is not valid.", keytype->name);
+            rc = CKR_FUNCTION_FAILED;
+            goto out;
+        }
+
+        rc = p11tool_add_attribute(CKA_VALUE, priv_key, priv_len,
+                                   attrs, num_attrs);
+        if (rc != CKR_OK)
+           goto out;
+
+        rc = p11tool_get_octet_string_param_from_pkey(pkey,
+                                              OSSL_PKEY_PARAM_ML_KEM_SEED,
+                                              &priv_seed, &seed_len, TRUE);
+        if (rc != CKR_OK)
+            goto out;
+
+        if (priv_seed != NULL &&
+            seed_len == oid->len_info.ml_kem.priv_seed_len) {
+            rc = p11tool_add_attribute(CKA_SEED, priv_seed, seed_len,
+                                       attrs, num_attrs);
+            if (rc != CKR_OK)
+               goto out;
+        }
+    } else {
+        rc = p11tool_get_octet_string_param_from_pkey(pkey,
+                                                      OSSL_PKEY_PARAM_PUB_KEY,
+                                                      &pub_key, &pub_len,
+                                                      FALSE);
+        if (rc != CKR_OK)
+            goto out;
+
+        if (pub_len != oid->len_info.ml_kem.pk_len) {
+            warnx("Size of public %s key is not valid.", keytype->name);
+            rc = CKR_FUNCTION_FAILED;
+            goto out;
+        }
+
+        rc = p11tool_add_attribute(CKA_VALUE, pub_key, pub_len,
+                                   attrs, num_attrs);
+        if (rc != CKR_OK)
+           goto out;
+    }
 
 out:
     if (priv_key != NULL) {
@@ -9194,7 +9597,8 @@ out:
 #endif
 }
 
-static CK_RV p11sak_export_ml_kem_pkey(const struct p11tool_objtype *keytype,
+static CK_RV p11sak_export_ibm_ml_kem_pkey(
+                                       const struct p11tool_objtype *keytype,
                                        EVP_PKEY **pkey, bool private,
                                        CK_OBJECT_HANDLE key,
                                        const char *label)
@@ -9370,6 +9774,472 @@ static CK_RV p11sak_export_ml_kem_pkey(const struct p11tool_objtype *keytype,
         ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
         rc = CKR_FUNCTION_FAILED;
         goto out;
+    }
+
+    params = OSSL_PARAM_BLD_to_param(bld);
+    if (params == NULL) {
+        warnx("OSSL_PARAM_BLD_to_param failed.");
+        ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+
+
+    if (EVP_PKEY_fromdata_init(pctx) != 1) {
+        warnx("EVP_PKEY_fromdata_init failed for '%s'.", alg_name);
+        ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+
+    if (EVP_PKEY_fromdata(pctx, pkey, private ? EVP_PKEY_KEYPAIR :
+                                                EVP_PKEY_PUBLIC_KEY,
+                          params) != 1) {
+        warnx("EVP_PKEY_fromdata failed for '%s'.", alg_name);
+        ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+
+out:
+    if (priv_key != NULL) {
+        OPENSSL_cleanse(priv_key, priv_len);
+        free(priv_key);
+    }
+    if (pub_key != NULL)
+        free(pub_key);
+    if (pctx != NULL)
+        EVP_PKEY_CTX_free(pctx);
+    if (bld != NULL)
+        OSSL_PARAM_BLD_free(bld);
+    if (params != NULL)
+        OSSL_PARAM_free(params);
+
+    return rc;
+#else
+    UNUSED(keytype);
+    UNUSED(pkey);
+    UNUSED(private);
+    UNUSED(key);
+    UNUSED(label);
+
+    warnx("Exporting an 'oqsprovider' format PEM file is only supported with "
+          "OpenSSL 3.0 or later.");
+    return CKR_FUNCTION_NOT_SUPPORTED;
+#endif
+}
+
+static CK_RV p11sak_export_ml_dsa_pkey(const struct p11tool_objtype *keytype,
+                                       EVP_PKEY **pkey, bool private,
+                                       CK_OBJECT_HANDLE key,
+                                       const char *label)
+{
+#if OPENSSL_VERSION_PREREQ(3, 0)
+    CK_ULONG parameter_set = 0;
+    CK_ATTRIBUTE parameter_set_attr = { CKA_PARAMETER_SET,
+                                        &parameter_set, sizeof(parameter_set) };
+    CK_ATTRIBUTE priv_attrs[] = {
+        { CKA_VALUE, NULL, 0 },
+        { CKA_SEED, NULL, 0 },
+    };
+    CK_ATTRIBUTE pub_attrs[] = {
+        { CKA_VALUE, NULL, 0 },
+    };
+    const struct pqc_oid *oid;
+    const char *alg_name;
+    EVP_PKEY_CTX *pctx = NULL;
+    OSSL_PARAM_BLD *bld = NULL;
+    OSSL_PARAM *params = NULL;
+    CK_ULONG priv_len = 0, pub_len = 0, seed_len = 0;
+    CK_BYTE *priv_key = NULL, *pub_key = NULL, *priv_seed = NULL;
+    CK_RV rc;
+
+    rc = p11tool_get_attribute(key, &parameter_set_attr);
+    if (rc != CKR_OK) {
+        warnx("Failed to retrieve attribute CKA_PARAMETER_SET from %s "
+              "key object \"%s\": 0x%lX: %s",
+              keytype->name, label, rc, p11_get_ckr(rc));
+        return rc;
+    }
+
+    oid = find_pqc_by_keyform(ml_dsa_oids, parameter_set);
+    if (oid == NULL) {
+        warnx("%s parameter set '%lu' is not supported by p11sak.",
+              keytype->name, parameter_set);
+        return CKR_FUNCTION_FAILED;
+    }
+
+    alg_name = get_openssl_pqc_oid_name(oid);
+    if (alg_name == NULL) {
+        warnx("%s parameter set '%lu' is not supported by OpenSSL. "
+              "Is the 'oqsprovider' configured (for OpenSSL < version 3.5)?",
+              keytype->name, parameter_set);
+        ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
+        return CKR_FUNCTION_FAILED;
+    }
+
+    if (private) {
+        priv_len = oid->len_info.ml_dsa.rho_len +
+                   oid->len_info.ml_dsa.seed_len +
+                   oid->len_info.ml_dsa.tr_len +
+                   oid->len_info.ml_dsa.s1_len +
+                   oid->len_info.ml_dsa.s2_len +
+                   oid->len_info.ml_dsa.t0_len;
+
+        priv_key = calloc(1, priv_len);
+        if (priv_key == NULL) {
+            warnx("Failed to allocate buffer for private key.");
+            rc = CKR_HOST_MEMORY;
+            goto out;
+        }
+
+        seed_len = oid->len_info.ml_dsa.priv_seed_len;
+        priv_seed = calloc(1, seed_len);
+        if (priv_seed == NULL) {
+            warnx("Failed to allocate buffer for private seed.");
+            rc = CKR_HOST_MEMORY;
+            goto out;
+        }
+
+        priv_attrs[0].pValue = priv_key;
+        priv_attrs[0].ulValueLen = priv_len;
+        priv_attrs[1].pValue = priv_seed;
+        priv_attrs[1].ulValueLen = seed_len;
+
+        rc = p11tool_pkcs11_funcs->C_GetAttributeValue(p11tool_pkcs11_session,
+                                                       key, priv_attrs, 2);
+        if (rc == CKR_ATTRIBUTE_SENSITIVE)
+            goto out;
+        if (rc != CKR_OK) {
+            warnx("Failed to retrieve private key attributes from %s key "
+                  "object \"%s\": 0x%lX: %s", keytype->name, label, rc,
+                  p11_get_ckr(rc));
+            goto out;
+        }
+
+        if (priv_attrs[0].ulValueLen != priv_len ||
+            (priv_attrs[1].ulValueLen != seed_len &&
+             priv_attrs[1].ulValueLen != 0)) {
+            warnx("Failed to retrieve private key attributes from %s key "
+                  "object \"%s\": Private key component lengths are wrong.",
+                  keytype->name, label);
+            rc = CKR_FUNCTION_FAILED;
+            goto out;
+        }
+
+        seed_len = priv_attrs[1].ulValueLen;
+    } else {
+        pub_len = oid->len_info.ml_dsa.rho_len +
+                  oid->len_info.ml_dsa.t1_len;
+
+        pub_key = calloc(1, pub_len);
+        if (pub_key == NULL) {
+            warnx("Failed to allocate buffer for public key.");
+            rc = CKR_HOST_MEMORY;
+            goto out;
+        }
+
+        pub_attrs[0].pValue = pub_key;
+        pub_attrs[0].ulValueLen = pub_len;
+
+        rc = p11tool_pkcs11_funcs->C_GetAttributeValue(p11tool_pkcs11_session,
+                                                       key, pub_attrs, 1);
+        if (rc == CKR_ATTRIBUTE_SENSITIVE)
+            goto out;
+        if (rc != CKR_OK) {
+            warnx("Failed to retrieve public key attributes from %s key "
+                  "object \"%s\": 0x%lX: %s", keytype->name, label, rc,
+                  p11_get_ckr(rc));
+            goto out;
+        }
+
+        if (pub_attrs[0].ulValueLen != pub_len) {
+            warnx("Failed to retrieve public key attributes from %s key "
+                  "object \"%s\": Public key component lengths are wrong.",
+                  keytype->name, label);
+            rc = CKR_FUNCTION_FAILED;
+            goto out;
+        }
+    }
+
+    pctx = EVP_PKEY_CTX_new_from_name(NULL, alg_name, NULL);
+    if (pctx == NULL) {
+        warnx("EVP_PKEY_CTX_new_from_name failed for '%s'. "
+              "Is the 'oqsprovider' configured (for OpenSSL < version 3.5)?",
+              alg_name);
+        ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+
+    bld = OSSL_PARAM_BLD_new();
+    if (bld == NULL) {
+        warnx("OSSL_PARAM_BLD_new failed.");
+        ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
+        rc = CKR_HOST_MEMORY;
+        goto out;
+    }
+
+    if (private) {
+        if (OSSL_PARAM_BLD_push_octet_string(bld, OSSL_PKEY_PARAM_PRIV_KEY,
+                                             priv_key, priv_len) != 1) {
+            warnx("OSSL_PARAM_BLD_push_octet_string failed.");
+            ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
+            rc = CKR_FUNCTION_FAILED;
+            goto out;
+        }
+
+        /* Try to set private seed, but ignore if it is not available */
+        if (p11tool_check_settable_fromdata_params(pctx,
+                                              OSSL_PKEY_PARAM_ML_DSA_SEED) &&
+            seed_len > 0) {
+            if (OSSL_PARAM_BLD_push_octet_string(bld,
+                                                 OSSL_PKEY_PARAM_ML_DSA_SEED,
+                                                 priv_seed, seed_len) != 1) {
+                warnx("OSSL_PARAM_BLD_push_octet_string failed.");
+                ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
+                rc = CKR_FUNCTION_FAILED;
+                goto out;
+            }
+        }
+    } else {
+        if (OSSL_PARAM_BLD_push_octet_string(bld, OSSL_PKEY_PARAM_PUB_KEY,
+                                             pub_key, pub_len) != 1) {
+            warnx("OSSL_PARAM_BLD_push_octet_string failed.");
+            ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
+            rc = CKR_FUNCTION_FAILED;
+            goto out;
+        }
+    }
+
+    params = OSSL_PARAM_BLD_to_param(bld);
+    if (params == NULL) {
+        warnx("OSSL_PARAM_BLD_to_param failed.");
+        ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+
+
+    if (EVP_PKEY_fromdata_init(pctx) != 1) {
+        warnx("EVP_PKEY_fromdata_init failed for '%s'.", alg_name);
+        ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+
+    if (EVP_PKEY_fromdata(pctx, pkey, private ? EVP_PKEY_KEYPAIR :
+                                                EVP_PKEY_PUBLIC_KEY,
+                          params) != 1) {
+        warnx("EVP_PKEY_fromdata failed for '%s'.", alg_name);
+        ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+
+out:
+    if (priv_key != NULL) {
+        OPENSSL_cleanse(priv_key, priv_len);
+        free(priv_key);
+    }
+    if (pub_key != NULL)
+        free(pub_key);
+    if (pctx != NULL)
+        EVP_PKEY_CTX_free(pctx);
+    if (bld != NULL)
+        OSSL_PARAM_BLD_free(bld);
+    if (params != NULL)
+        OSSL_PARAM_free(params);
+
+    return rc;
+#else
+    UNUSED(keytype);
+    UNUSED(pkey);
+    UNUSED(private);
+    UNUSED(key);
+    UNUSED(label);
+
+    warnx("Exporting an 'oqsprovider' format PEM file is only supported with "
+          "OpenSSL 3.0 or later.");
+    return CKR_FUNCTION_NOT_SUPPORTED;
+#endif
+}
+
+static CK_RV p11sak_export_ml_kem_pkey(const struct p11tool_objtype *keytype,
+                                       EVP_PKEY **pkey, bool private,
+                                       CK_OBJECT_HANDLE key,
+                                       const char *label)
+{
+#if OPENSSL_VERSION_PREREQ(3, 0)
+    CK_ULONG parameter_set = 0;
+    CK_ATTRIBUTE parameter_set_attr = { CKA_PARAMETER_SET,
+                                        &parameter_set, sizeof(parameter_set) };
+    CK_ATTRIBUTE priv_attrs[] = {
+        { CKA_VALUE, NULL, 0 },
+        { CKA_SEED, NULL, 0 },
+    };
+    CK_ATTRIBUTE pub_attrs[] = {
+        { CKA_VALUE, NULL, 0 },
+    };
+    const struct pqc_oid *oid;
+    const char *alg_name;
+    EVP_PKEY_CTX *pctx = NULL;
+    OSSL_PARAM_BLD *bld = NULL;
+    OSSL_PARAM *params = NULL;
+    CK_ULONG priv_len = 0, pub_len = 0, seed_len = 0;
+    CK_BYTE *priv_key = NULL, *pub_key = NULL, *priv_seed = NULL;
+    CK_RV rc;
+
+    rc = p11tool_get_attribute(key, &parameter_set_attr);
+    if (rc != CKR_OK) {
+        warnx("Failed to retrieve attribute CKA_PARAMETER_SET from %s "
+              "key object \"%s\": 0x%lX: %s",
+              keytype->name, label, rc, p11_get_ckr(rc));
+        return rc;
+    }
+
+    oid = find_pqc_by_keyform(ml_kem_oids, parameter_set);
+    if (oid == NULL) {
+        warnx("%s parameter set '%lu' is not supported by p11sak.",
+              keytype->name, parameter_set);
+        return CKR_FUNCTION_FAILED;
+    }
+
+    alg_name = get_openssl_pqc_oid_name(oid);
+    if (alg_name == NULL) {
+        warnx("%s parameter set '%lu' is not supported by OpenSSL. "
+              "Is the 'oqsprovider' configured (for OpenSSL < version 3.5)?",
+              keytype->name, parameter_set);
+        ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
+        return CKR_FUNCTION_FAILED;
+    }
+
+    if (private) {
+        priv_len = oid->len_info.ml_kem.sk_len;
+
+        priv_key = calloc(1, priv_len);
+        if (priv_key == NULL) {
+            warnx("Failed to allocate buffer for private key.");
+            rc = CKR_HOST_MEMORY;
+            goto out;
+        }
+
+        seed_len = oid->len_info.ml_kem.priv_seed_len;
+        priv_seed = calloc(1, seed_len);
+        if (priv_seed == NULL) {
+            warnx("Failed to allocate buffer for private seed.");
+            rc = CKR_HOST_MEMORY;
+            goto out;
+        }
+
+        priv_attrs[0].pValue = priv_key;
+        priv_attrs[0].ulValueLen = oid->len_info.ml_kem.sk_len;
+        priv_attrs[1].pValue = priv_seed;
+        priv_attrs[1].ulValueLen = oid->len_info.ml_kem.priv_seed_len;
+
+        rc = p11tool_pkcs11_funcs->C_GetAttributeValue(p11tool_pkcs11_session,
+                                                       key, priv_attrs, 2);
+        if (rc == CKR_ATTRIBUTE_SENSITIVE)
+            goto out;
+        if (rc != CKR_OK) {
+            warnx("Failed to retrieve private key attributes from %s key "
+                  "object \"%s\": 0x%lX: %s", keytype->name, label, rc,
+                  p11_get_ckr(rc));
+            goto out;
+        }
+
+        if (priv_attrs[0].ulValueLen != oid->len_info.ml_kem.sk_len ||
+            (priv_attrs[1].ulValueLen != oid->len_info.ml_kem.priv_seed_len &&
+             priv_attrs[1].ulValueLen != 0)) {
+            warnx("Failed to retrieve private key attributes from %s key "
+                  "object \"%s\": Private key component lengths are wrong.",
+                  keytype->name, label);
+            rc = CKR_FUNCTION_FAILED;
+            goto out;
+        }
+
+        seed_len = priv_attrs[1].ulValueLen;
+    } else {
+        pub_len = oid->len_info.ml_kem.pk_len;
+
+        pub_key = calloc(1, pub_len);
+        if (pub_key == NULL) {
+            warnx("Failed to allocate buffer for public key.");
+            rc = CKR_HOST_MEMORY;
+            goto out;
+        }
+
+        pub_attrs[0].pValue = pub_key;
+        pub_attrs[0].ulValueLen = oid->len_info.ml_kem.pk_len;
+
+        rc = p11tool_pkcs11_funcs->C_GetAttributeValue(p11tool_pkcs11_session,
+                                                       key, pub_attrs, 1);
+        if (rc == CKR_ATTRIBUTE_SENSITIVE)
+            goto out;
+        if (rc != CKR_OK) {
+            warnx("Failed to retrieve public key attributes from %s key "
+                  "object \"%s\": 0x%lX: %s", keytype->name, label, rc,
+                  p11_get_ckr(rc));
+            goto out;
+        }
+
+        if (pub_attrs[0].ulValueLen != oid->len_info.ml_kem.pk_len) {
+            warnx("Failed to retrieve public key attributes from %s key "
+                  "object \"%s\": Public key component lengths are wrong.",
+                  keytype->name, label);
+            rc = CKR_FUNCTION_FAILED;
+            goto out;
+        }
+    }
+
+    pctx = EVP_PKEY_CTX_new_from_name(NULL, alg_name, NULL);
+    if (pctx == NULL) {
+        warnx("EVP_PKEY_CTX_new_from_name failed for '%s'. "
+              "Is the 'oqsprovider' configured (for OpenSSL < version 3.5)?",
+              alg_name);
+        ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+
+    bld = OSSL_PARAM_BLD_new();
+    if (bld == NULL) {
+        warnx("OSSL_PARAM_BLD_new failed.");
+        ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
+        rc = CKR_HOST_MEMORY;
+        goto out;
+    }
+
+    if (private) {
+        if (OSSL_PARAM_BLD_push_octet_string(bld, OSSL_PKEY_PARAM_PRIV_KEY,
+                                             priv_key, priv_len) != 1) {
+            warnx("OSSL_PARAM_BLD_push_octet_string failed.");
+            ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
+            rc = CKR_FUNCTION_FAILED;
+            goto out;
+        }
+
+        /* Try to set private seed, but ignore if it is not available */
+        if (p11tool_check_settable_fromdata_params(pctx,
+                                              OSSL_PKEY_PARAM_ML_KEM_SEED) &&
+            seed_len > 0) {
+            if (OSSL_PARAM_BLD_push_octet_string(bld,
+                                                 OSSL_PKEY_PARAM_ML_KEM_SEED,
+                                                 priv_seed, seed_len) != 1) {
+                warnx("OSSL_PARAM_BLD_push_octet_string failed.");
+                ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
+                rc = CKR_FUNCTION_FAILED;
+                goto out;
+            }
+        }
+    } else {
+        if (OSSL_PARAM_BLD_push_octet_string(bld, OSSL_PKEY_PARAM_PUB_KEY,
+                                             pub_key, pub_len) != 1) {
+            warnx("OSSL_PARAM_BLD_push_octet_string failed.");
+            ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
+            rc = CKR_FUNCTION_FAILED;
+            goto out;
+        }
     }
 
     params = OSSL_PARAM_BLD_to_param(bld);

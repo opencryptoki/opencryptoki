@@ -146,11 +146,22 @@ token_spec_t token_specific = {
     &token_specific_ibm_ml_dsa_verify,
     &token_specific_ibm_ml_kem_generate_keypair,
     &token_specific_ibm_ml_kem_derive,
+    &token_specific_ml_dsa_generate_keypair,
+    &token_specific_ml_dsa_sign,
+    &token_specific_ml_dsa_verify,
+    NULL,                       // ml_kem_generate_keypair
+    NULL,                       // ml_kem_encapsulate_key
+    NULL,                       // ml_kem_decapsulate_key
     &token_specific_get_mechanism_list,
     &token_specific_get_mechanism_info,
     &token_specific_object_add,
     &token_specific_key_wrap,
     &token_specific_key_unwrap,
+    NULL,                       // encapsulate_rsa_sym_keygen
+    NULL,                       // encapsulate_rsa_key_wrap
+    NULL,                       // encapsulate_rsa_key_unwrap
+    NULL,                       // encapsulate_dh_ecdh_key_pair_gen
+    NULL,                       // en_decapsulate_dh_ecdh_derive_key
     &token_specific_reencrypt_single,
     &token_specific_set_attribute_values,
     &token_specific_set_attrs_for_new_object,

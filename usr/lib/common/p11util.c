@@ -118,6 +118,15 @@ const char *p11_get_ckr(CK_RV rc)
         _sym2str(CKR_LIBRARY_LOAD_FAILED);
         _sym2str(CKR_PIN_TOO_WEAK);
         _sym2str(CKR_PUBLIC_KEY_INVALID);
+        _sym2str(CKR_TOKEN_RESOURCE_EXCEEDED);
+        _sym2str(CKR_OPERATION_CANCEL_FAILED);
+        _sym2str(CKR_KEY_EXHAUSTED);
+        _sym2str(CKR_PENDING);
+        _sym2str(CKR_SESSION_ASYNC_NOT_SUPPORTED);
+        _sym2str(CKR_SEED_RANDOM_REQUIRED);
+        _sym2str(CKR_OPERATION_NOT_VALIDATED);
+        _sym2str(CKR_TOKEN_NOT_INITIALIZED);
+        _sym2str(CKR_PARAMETER_SET_NOT_SUPPORTED);
     default:
         return "UNKNOWN";
     }
@@ -210,6 +219,12 @@ const char *p11_get_cka(CK_ATTRIBUTE_TYPE atype)
         _sym2str(CKA_DERIVE_TEMPLATE);
         _sym2str(CKA_ALLOWED_MECHANISMS);
         _sym2str(CKA_PROFILE_ID);
+        _sym2str(CKA_PARAMETER_SET);
+        _sym2str(CKA_ENCAPSULATE_TEMPLATE);
+        _sym2str(CKA_DECAPSULATE_TEMPLATE);
+        _sym2str(CKA_ENCAPSULATE);
+        _sym2str(CKA_DECAPSULATE);
+        _sym2str(CKA_SEED);
         _sym2str(CKA_IBM_OPAQUE);
         _sym2str(CKA_IBM_OPAQUE_REENC);
         _sym2str(CKA_IBM_OPAQUE_OLD);
@@ -243,6 +258,7 @@ const char *p11_get_cka(CK_ATTRIBUTE_TYPE atype)
         _sym2str(CKA_IBM_ML_KEM_SK);
         _sym2str(CKA_IBM_ML_KEM_PRIVATE_SEED);
         _sym2str(CKA_IBM_CCA_AES_KEY_MODE);
+        _sym2str(CKA_IBM_CCA_ML_DSA_KEY_MODE);
         _sym2str(CKA_IBM_PARAMETER_SET);
     default:
         sprintf(buf, "unknown attribute type 0x%08lx", atype);
@@ -334,6 +350,12 @@ CK_BBOOL is_attribute_defined(CK_ATTRIBUTE_TYPE type)
     case CKA_DESTROYABLE:
     case CKA_ALLOWED_MECHANISMS:
     case CKA_DERIVE_TEMPLATE:
+    case CKA_PARAMETER_SET:
+    case CKA_ENCAPSULATE_TEMPLATE:
+    case CKA_DECAPSULATE_TEMPLATE:
+    case CKA_ENCAPSULATE:
+    case CKA_DECAPSULATE:
+    case CKA_SEED:
         return TRUE;
     }
 
@@ -352,6 +374,8 @@ CK_BBOOL is_attribute_attr_array(CK_ATTRIBUTE_TYPE type)
     case CKA_WRAP_TEMPLATE:
     case CKA_UNWRAP_TEMPLATE:
     case CKA_DERIVE_TEMPLATE:
+    case CKA_ENCAPSULATE_TEMPLATE:
+    case CKA_DECAPSULATE_TEMPLATE:
          return TRUE;
     }
 

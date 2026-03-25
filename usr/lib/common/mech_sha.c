@@ -195,10 +195,22 @@ CK_RV sha_hash(STDLL_TokData_t *tokdata, SESSION *sess, CK_BBOOL length_only,
         return CKR_FUNCTION_FAILED;
     }
 
-    rc = get_sha_size(ctx->mech.mechanism, &hsize);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("get_sha_size failed\n");
-        return CKR_FUNCTION_NOT_SUPPORTED;
+    switch (ctx->mech.mechanism) {
+    case CKM_OCK_SHAKE128:
+    case CKM_OCK_SHAKE256:
+        if (ctx->mech.ulParameterLen != sizeof(CK_ULONG)) {
+            TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
+            return CKR_MECHANISM_PARAM_INVALID;
+        }
+        hsize = *(CK_ULONG *)ctx->mech.pParameter;
+        break;
+    default:
+        rc = get_sha_size(ctx->mech.mechanism, &hsize);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("get_sha_size failed\n");
+            return CKR_FUNCTION_NOT_SUPPORTED;
+        }
+        break;
     }
 
     if (length_only == TRUE) {
@@ -263,10 +275,22 @@ CK_RV sha_hash_final(STDLL_TokData_t *tokdata, SESSION *sess,
         return CKR_FUNCTION_FAILED;
     }
 
-    rc = get_sha_size(ctx->mech.mechanism, &hsize);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("get_sha_size failed\n");
-        return CKR_FUNCTION_NOT_SUPPORTED;
+    switch (ctx->mech.mechanism) {
+    case CKM_OCK_SHAKE128:
+    case CKM_OCK_SHAKE256:
+        if (ctx->mech.ulParameterLen != sizeof(CK_ULONG)) {
+            TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
+            return CKR_MECHANISM_PARAM_INVALID;
+        }
+        hsize = *(CK_ULONG *)ctx->mech.pParameter;
+        break;
+    default:
+        rc = get_sha_size(ctx->mech.mechanism, &hsize);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("get_sha_size failed\n");
+            return CKR_FUNCTION_NOT_SUPPORTED;
+        }
+        break;
     }
 
     if (length_only == TRUE) {

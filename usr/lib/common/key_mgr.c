@@ -37,6 +37,7 @@
 #include "trace.h"
 #include "pqc_defs.h"
 #include "ec_defs.h"
+#include "p11util.h"
 
 #include "../api/policy.h"
 #include "../api/statistics.h"
@@ -233,12 +234,13 @@ CK_RV key_mgr_generate_key(STDLL_TokData_t *tokdata,
                            CK_MECHANISM *mech,
                            CK_ATTRIBUTE *pTemplate,
                            CK_ULONG ulCount, CK_OBJECT_HANDLE *handle,
-                           CK_BBOOL count_statistics)
+                           CK_BBOOL count_statistics, CK_ULONG operation)
 {
     OBJECT *key_obj = NULL;
     CK_ATTRIBUTE *new_attr = NULL;
     CK_ULONG keyclass, subclass = 0;
     CK_KEY_TYPE keytype1, keytype2;
+    CK_ULONG mode, check;
     CK_RV rc;
 
     if (!sess || !mech || !handle) {
@@ -249,8 +251,23 @@ CK_RV key_mgr_generate_key(STDLL_TokData_t *tokdata,
         TRACE_ERROR("%s received bad argument(s)\n", __func__);
         return CKR_FUNCTION_FAILED;
     }
+
+    switch (operation) {
+    case OP_KEYGEN:
+        check = POLICY_CHECK_KEYGEN;
+        mode = MODE_KEYGEN;
+        break;
+    case OP_ENCAPSULATE:
+        check = POLICY_CHECK_ENCAPS;
+        mode = MODE_ENCAPS;
+        break;
+    default:
+        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
+        return CKR_FUNCTION_FAILED;
+    }
+
     rc = tokdata->policy->is_mech_allowed(tokdata->policy, mech, NULL,
-                                          POLICY_CHECK_KEYGEN, sess);
+                                          check, sess);
     if (rc != CKR_OK) {
         TRACE_ERROR("POLICY VIOLATION: Key generation mechanism not allowed\n");
         return rc;
@@ -366,8 +383,7 @@ CK_RV key_mgr_generate_key(STDLL_TokData_t *tokdata,
 
 
     rc = object_mgr_create_skel(tokdata, sess,
-                                pTemplate, ulCount,
-                                MODE_KEYGEN,
+                                pTemplate, ulCount, mode,
                                 CKO_SECRET_KEY, subclass, &key_obj);
     if (rc != CKR_OK) {
         TRACE_DEVEL("object_mgr_create_skel failed.\n");
@@ -493,7 +509,8 @@ CK_RV key_mgr_generate_key_pair(STDLL_TokData_t *tokdata,
                                 CK_ULONG priv_count,
                                 CK_OBJECT_HANDLE *publ_key_handle,
                                 CK_OBJECT_HANDLE *priv_key_handle,
-                                CK_BBOOL count_statistics)
+                                CK_BBOOL count_statistics,
+                                CK_ULONG operation)
 {
     OBJECT *publ_key_obj = NULL;
     OBJECT *priv_key_obj = NULL;
@@ -501,6 +518,8 @@ CK_RV key_mgr_generate_key_pair(STDLL_TokData_t *tokdata,
     CK_ULONG keyclass, subclass = 0;
     CK_BYTE *spki = NULL;
     CK_ULONG temp, spki_length = 0;
+    CK_ULONG mode;
+    int policy_check;
     CK_RV rc;
 
     if (!sess || !mech || !publ_key_handle || !priv_key_handle) {
@@ -515,8 +534,23 @@ CK_RV key_mgr_generate_key_pair(STDLL_TokData_t *tokdata,
         TRACE_ERROR("%s received bad argument(s)\n", __func__);
         return CKR_FUNCTION_FAILED;
     }
+
+    switch (operation) {
+    case OP_KEYGEN:
+        policy_check = POLICY_CHECK_KEYGEN;
+        mode = MODE_KEYGEN;
+        break;
+    case OP_ENCAPSULATE:
+        policy_check = POLICY_CHECK_ENCAPS;
+        mode = MODE_ENCAPS;
+        break;
+    default:
+        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
+        return CKR_FUNCTION_FAILED;
+    }
+
     rc = tokdata->policy->is_mech_allowed(tokdata->policy, mech, NULL,
-                                          POLICY_CHECK_KEYGEN, sess);
+                                          policy_check, sess);
     if (rc != CKR_OK) {
         TRACE_ERROR("POLICY VIOLATION: Keypair generation mechanism not allowed\n");
         return rc;
@@ -649,6 +683,21 @@ CK_RV key_mgr_generate_key_pair(STDLL_TokData_t *tokdata,
         }
         subclass = CKK_IBM_ML_KEM;
         break;
+    case CKM_ML_DSA_KEY_PAIR_GEN:
+        if (subclass != 0 && subclass != CKK_ML_DSA) {
+            TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCONSISTENT));
+            return CKR_TEMPLATE_INCONSISTENT;
+        }
+        subclass = CKK_ML_DSA;
+        break;
+    case CKM_ML_KEM_KEY_PAIR_GEN:
+        if (subclass != 0 && subclass != CKK_ML_KEM) {
+            TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCONSISTENT));
+            return CKR_TEMPLATE_INCONSISTENT;
+        }
+        subclass = CKK_ML_KEM;
+        break;
+
     default:
         TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
         return CKR_MECHANISM_INVALID;
@@ -656,16 +705,14 @@ CK_RV key_mgr_generate_key_pair(STDLL_TokData_t *tokdata,
 
 
     rc = object_mgr_create_skel(tokdata, sess,
-                                publ_tmpl, publ_count,
-                                MODE_KEYGEN,
+                                publ_tmpl, publ_count, mode,
                                 CKO_PUBLIC_KEY, subclass, &publ_key_obj);
     if (rc != CKR_OK) {
         TRACE_DEVEL("object_mgr_create_skel failed.\n");
         goto error;
     }
     rc = object_mgr_create_skel(tokdata, sess,
-                                priv_tmpl, priv_count,
-                                MODE_KEYGEN,
+                                priv_tmpl, priv_count, mode,
                                 CKO_PRIVATE_KEY, subclass, &priv_key_obj);
     if (rc != CKR_OK) {
         TRACE_DEVEL("object_mgr_create_skel failed.\n");
@@ -717,6 +764,14 @@ CK_RV key_mgr_generate_key_pair(STDLL_TokData_t *tokdata,
     case CKM_IBM_ML_KEM_KEY_PAIR_GEN:
         rc = ckm_ibm_ml_kem_key_pair_gen(tokdata, mech, publ_key_obj->template,
                                          priv_key_obj->template);
+        break;
+    case CKM_ML_DSA_KEY_PAIR_GEN:
+        rc = ckm_ml_dsa_key_pair_gen(tokdata, publ_key_obj->template,
+                                     priv_key_obj->template);
+        break;
+    case CKM_ML_KEM_KEY_PAIR_GEN:
+        rc = ckm_ml_kem_key_pair_gen(tokdata, publ_key_obj->template,
+                                     priv_key_obj->template);
         break;
     default:
         TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
@@ -794,7 +849,7 @@ CK_RV key_mgr_generate_key_pair(STDLL_TokData_t *tokdata,
 
     /* Extract the SPKI and add CKA_PUBLIC_KEY_INFO to both keys */
     rc = publ_key_get_spki(publ_key_obj->template, subclass, FALSE,
-                           &spki, &spki_length);
+                           &spki, &spki_length, FALSE);
     if (rc != CKR_OK) {
         TRACE_DEVEL("publ_key_get_spki failed\n");
         goto error;
@@ -872,7 +927,7 @@ CK_RV key_mgr_wrap_key(STDLL_TokData_t *tokdata,
                        CK_OBJECT_HANDLE h_wrapping_key,
                        CK_OBJECT_HANDLE h_key,
                        CK_BYTE *wrapped_key, CK_ULONG *wrapped_key_len,
-                       CK_BBOOL count_statistics)
+                       CK_BBOOL count_statistics, CK_ULONG operation)
 {
     ENCR_DECR_CONTEXT *ctx = NULL;
     OBJECT *wrapping_key_obj = NULL;
@@ -882,11 +937,28 @@ CK_RV key_mgr_wrap_key(STDLL_TokData_t *tokdata,
     CK_OBJECT_CLASS class;
     CK_KEY_TYPE keytype;
     CK_BBOOL flag, not_opaque = FALSE;
+    CK_ATTRIBUTE_TYPE key_usage_attr;
+    int policy_check;
     CK_RV rc;
 
     if (!sess || !wrapped_key_len) {
         TRACE_ERROR("%s received bad argument(s)\n", __func__);
         return CKR_FUNCTION_FAILED;
+    }
+
+    switch (operation) {
+    case OP_WRAP:
+        key_usage_attr = CKA_WRAP;
+        policy_check = POLICY_CHECK_WRAP;
+        break;
+    case OP_ENCAPSULATE:
+        key_usage_attr = CKA_ENCAPSULATE;
+        policy_check = POLICY_CHECK_ENCAPS;
+        break;
+    default:
+        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
     }
 
     rc = object_mgr_find_in_map1(tokdata, h_wrapping_key, &wrapping_key_obj,
@@ -908,7 +980,7 @@ CK_RV key_mgr_wrap_key(STDLL_TokData_t *tokdata,
 
     rc = tokdata->policy->is_mech_allowed(tokdata->policy, mech,
                                           &wrapping_key_obj->strength,
-                                          POLICY_CHECK_WRAP, sess);
+                                          policy_check, sess);
     if (rc != CKR_OK) {
         TRACE_ERROR("POLICY VIOLATION: key wrap\n");
         goto done;
@@ -926,11 +998,13 @@ CK_RV key_mgr_wrap_key(STDLL_TokData_t *tokdata,
         goto done;
     }
 
-    if (!key_object_wrap_template_matches(wrapping_key_obj->template,
-                                          key_obj->template)) {
-        TRACE_ERROR("Wrap template does not match.\n");
-        rc = CKR_KEY_HANDLE_INVALID;
-        goto done;
+    if (operation == OP_WRAP) {
+        if (!key_object_wrap_template_matches(wrapping_key_obj->template,
+                                              key_obj->template)) {
+            TRACE_ERROR("Wrap template does not match.\n");
+            rc = CKR_KEY_HANDLE_INVALID;
+            goto done;
+        }
     }
 
     // is the key-to-be-wrapped EXTRACTABLE?
@@ -949,38 +1023,42 @@ CK_RV key_mgr_wrap_key(STDLL_TokData_t *tokdata,
         goto done;
     }
 
-    rc = template_attribute_get_bool(wrapping_key_obj->template, CKA_WRAP,
-                                     &flag);
+    /* is key allowed to do the desired operation? */
+    rc = template_attribute_get_bool(wrapping_key_obj->template,
+                                     key_usage_attr, &flag);
     if (rc != CKR_OK) {
-        TRACE_ERROR("Could not find CKA_WRAP for the wrapping key.\n");
+        TRACE_ERROR("Could not find %s for the wrapping key.\n",
+                    p11_get_cka(key_usage_attr));
         rc = CKR_KEY_FUNCTION_NOT_PERMITTED;
         goto done;
     }
 
     if (flag == FALSE) {
-        TRACE_ERROR("CKA_WRAP is set to FALSE.\n");
+        TRACE_ERROR("%s is set to FALSE.\n", p11_get_cka(key_usage_attr));
         rc = CKR_KEY_FUNCTION_NOT_PERMITTED;
         goto done;
     }
 
-    /* Is a wrapping key with CKA_TRUSTED = CK_TRUE required? */
-    rc = template_attribute_get_bool(key_obj->template, CKA_WRAP_WITH_TRUSTED,
-                                     &flag);
-    if (rc == CKR_ATTRIBUTE_VALUE_INVALID) {
-        TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
-        goto done;
-    }
-    if (rc == CKR_OK && flag == TRUE) {
-        rc = template_attribute_get_bool(wrapping_key_obj->template,
-                                        CKA_TRUSTED, &flag);
+    if (operation == OP_WRAP) {
+        /* Is a wrapping key with CKA_TRUSTED = CK_TRUE required? */
+        rc = template_attribute_get_bool(key_obj->template,
+                                         CKA_WRAP_WITH_TRUSTED, &flag);
         if (rc == CKR_ATTRIBUTE_VALUE_INVALID) {
             TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
             goto done;
         }
-         if (rc != CKR_OK || flag == FALSE) {
-            TRACE_ERROR("%s\n", ock_err(ERR_KEY_NOT_WRAPPABLE));
-            rc = CKR_KEY_NOT_WRAPPABLE;
-            goto done;
+        if (rc == CKR_OK && flag == TRUE) {
+            rc = template_attribute_get_bool(wrapping_key_obj->template,
+                                            CKA_TRUSTED, &flag);
+            if (rc == CKR_ATTRIBUTE_VALUE_INVALID) {
+                TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
+                goto done;
+            }
+             if (rc != CKR_OK || flag == FALSE) {
+                TRACE_ERROR("%s\n", ock_err(ERR_KEY_NOT_WRAPPABLE));
+                rc = CKR_KEY_NOT_WRAPPABLE;
+                goto done;
+            }
         }
     }
 
@@ -1166,6 +1244,8 @@ CK_RV key_mgr_wrap_key(STDLL_TokData_t *tokdata,
     case CKK_IBM_PQC_KYBER:
     case CKK_IBM_ML_DSA:
     case CKK_IBM_ML_KEM:
+    case CKK_ML_DSA:
+    case CKK_ML_KEM:
         rc = pqc_priv_wrap_get_data(key_obj->template, keytype, FALSE,
                                     &data, &data_len);
         if (rc != CKR_OK) {
@@ -1259,7 +1339,7 @@ CK_RV key_mgr_wrap_key(STDLL_TokData_t *tokdata,
     // prepare to do the encryption
     //
     /* Policy already checked */
-    rc = encr_mgr_init(tokdata, sess, ctx, OP_WRAP, mech, h_wrapping_key,
+    rc = encr_mgr_init(tokdata, sess, ctx, operation, mech, h_wrapping_key,
                        FALSE);
     if (rc != CKR_OK) {
         TRACE_DEVEL("encr_mgr_init failed.\n");
@@ -1311,22 +1391,44 @@ CK_RV key_mgr_unwrap_key(STDLL_TokData_t *tokdata,
                          CK_ULONG wrapped_key_len,
                          CK_OBJECT_HANDLE h_unwrapping_key,
                          CK_OBJECT_HANDLE *h_unwrapped_key,
-                         CK_BBOOL count_statistics)
+                         CK_BBOOL count_statistics, CK_ULONG operation)
 {
     ENCR_DECR_CONTEXT *ctx = NULL;
     OBJECT *key_obj = NULL, *unwrapping_key_obj = NULL;
     CK_BYTE *data = NULL;
     CK_ULONG data_len, value_len = 0;
-    CK_ULONG keyclass = 0, keytype = 0, priv_keytype = 0;
+    CK_ULONG keyclass = 0, keytype = 0, priv_keytype = 0, alt_priv_keytype = 0;
     CK_BBOOL fromend, not_opaque = FALSE, flag;
     CK_ATTRIBUTE *new_attrs = NULL;
     CK_ULONG new_attr_count = 0;
     CK_MECHANISM *statistics_mech = mech;
+    int policy_check;
+    CK_ATTRIBUTE_TYPE key_usage_attr, apply_tmpl_attr;
+    CK_ULONG mode;
     CK_RV rc;
 
     if (!sess || !wrapped_key || !h_unwrapped_key) {
         TRACE_ERROR("%s received bad argument(s)\n", __func__);
         return CKR_FUNCTION_FAILED;
+    }
+
+    switch (operation) {
+    case OP_UNWRAP:
+        key_usage_attr = CKA_UNWRAP;
+        apply_tmpl_attr = CKA_UNWRAP_TEMPLATE;
+        policy_check = POLICY_CHECK_UNWRAP;
+        mode = MODE_UNWRAP;
+        break;
+    case OP_DECAPSULATE:
+        key_usage_attr = CKA_DECAPSULATE;
+        apply_tmpl_attr = CKA_DECAPSULATE_TEMPLATE;
+        policy_check = POLICY_CHECK_DECAPS;
+        mode = MODE_DECAPS;
+        break;
+    default:
+        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
     }
 
     rc = object_mgr_find_in_map1(tokdata, h_unwrapping_key, &unwrapping_key_obj,
@@ -1340,7 +1442,7 @@ CK_RV key_mgr_unwrap_key(STDLL_TokData_t *tokdata,
 
     rc = tokdata->policy->is_mech_allowed(tokdata->policy, mech,
                                           &unwrapping_key_obj->strength,
-                                          POLICY_CHECK_UNWRAP, sess);
+                                          policy_check, sess);
     if (rc != CKR_OK) {
         TRACE_ERROR("POLICY VIOLATION: key unwrap\n");
         goto done;
@@ -1352,16 +1454,18 @@ CK_RV key_mgr_unwrap_key(STDLL_TokData_t *tokdata,
         goto done;
     }
 
-    rc = template_attribute_get_bool(unwrapping_key_obj->template, CKA_UNWRAP,
-                                     &flag);
+    /* is key allowed to do the desired operation? */
+    rc = template_attribute_get_bool(unwrapping_key_obj->template,
+                                     key_usage_attr, &flag);
     if (rc != CKR_OK) {
-        TRACE_ERROR("Could not find CKA_UNWRAP for the key.\n");
+        TRACE_ERROR("Could not find %s for the unwrapping key.\n",
+                    p11_get_cka(key_usage_attr));
         rc = CKR_KEY_FUNCTION_NOT_PERMITTED;
         goto done;
     }
 
     if (flag == FALSE) {
-        TRACE_ERROR("CKA_UNWRAP is set to FALSE.\n");
+        TRACE_ERROR("%s is set to FALSE.\n", p11_get_cka(key_usage_attr));
         rc = CKR_KEY_FUNCTION_NOT_PERMITTED;
         goto done;
     }
@@ -1437,7 +1541,7 @@ CK_RV key_mgr_unwrap_key(STDLL_TokData_t *tokdata,
     }
 
     rc = key_object_apply_template_attr(unwrapping_key_obj->template,
-                                        CKA_UNWRAP_TEMPLATE,
+                                        apply_tmpl_attr,
                                         attributes, attrib_count,
                                         &new_attrs, &new_attr_count);
     if (rc != CKR_OK) {
@@ -1500,7 +1604,7 @@ CK_RV key_mgr_unwrap_key(STDLL_TokData_t *tokdata,
     }
 
     rc = object_mgr_create_skel(tokdata, sess, new_attrs, new_attr_count,
-                                MODE_UNWRAP, keyclass, keytype, &key_obj);
+                                mode, keyclass, keytype, &key_obj);
     if (rc != CKR_OK) {
         TRACE_DEVEL("object_mgr_create_skel failed.\n");
         goto done;
@@ -1536,7 +1640,7 @@ CK_RV key_mgr_unwrap_key(STDLL_TokData_t *tokdata,
     memset(ctx, 0x0, sizeof(ENCR_DECR_CONTEXT));
 
     /* Policy already checked */
-    rc = decr_mgr_init(tokdata, sess, ctx, OP_UNWRAP, mech, h_unwrapping_key,
+    rc = decr_mgr_init(tokdata, sess, ctx, operation, mech, h_unwrapping_key,
                        FALSE, FALSE);
     if (rc != CKR_OK)
         goto done;
@@ -1591,16 +1695,18 @@ CK_RV key_mgr_unwrap_key(STDLL_TokData_t *tokdata,
 
     // extract the key type from the PrivateKeyInfo::AlgorithmIndicator
     if (keyclass == CKO_PRIVATE_KEY) {
-        rc = key_mgr_get_private_key_type(data, data_len, &priv_keytype);
+        rc = key_mgr_get_private_key_type(data, data_len, &priv_keytype,
+                                          &alt_priv_keytype);
         if (rc != CKR_OK) {
             TRACE_DEVEL("key_mgr_get_private_key_type failed.\n");
             goto done;
         }
 
-        if (priv_keytype != keytype) {
+        if (priv_keytype != keytype && alt_priv_keytype != keytype) {
             rc = CKR_UNWRAPPING_KEY_TYPE_INCONSISTENT;
             TRACE_DEVEL("keytype in template (%lu) does not match the unwrapped"
-                        " key (%lu).\n", keytype, priv_keytype);
+                        " key (%lu or %lu).\n", keytype, priv_keytype,
+                        alt_priv_keytype);
             goto done;
         }
     }
@@ -1679,12 +1785,15 @@ done:
 
 
 CK_RV key_mgr_get_private_key_type(CK_BYTE *keydata,
-                                   CK_ULONG keylen, CK_KEY_TYPE *keytype)
+                                   CK_ULONG keylen, CK_KEY_TYPE *keytype,
+                                   CK_KEY_TYPE *alt_keytype)
 {
     CK_BYTE *alg = NULL;
     CK_BYTE *priv_key = NULL;
     CK_ULONG alg_len, i;
     CK_RV rc;
+
+    *alt_keytype = (CK_KEY_TYPE)-1;
 
     rc = ber_decode_PrivateKeyInfo(keydata, keylen, &alg, &alg_len, &priv_key);
     if (rc != CKR_OK) {
@@ -1772,7 +1881,8 @@ CK_RV key_mgr_get_private_key_type(CK_BYTE *keydata,
     for (i = 0; ml_dsa_oids[i].oid != NULL; i++) {
         if (alg_len == ml_dsa_oids[i].oid_len &&
             memcmp(alg, ml_dsa_oids[i].oid, ml_dsa_oids[i].oid_len) == 0) {
-            *keytype = CKK_IBM_ML_DSA;
+            *keytype = CKK_ML_DSA;
+            *alt_keytype = CKK_IBM_ML_DSA;
             return CKR_OK;
         }
     }
@@ -1781,7 +1891,8 @@ CK_RV key_mgr_get_private_key_type(CK_BYTE *keydata,
     for (i = 0; ml_kem_oids[i].oid != NULL; i++) {
         if (alg_len == ml_kem_oids[i].oid_len &&
             memcmp(alg, ml_kem_oids[i].oid, ml_kem_oids[i].oid_len) == 0) {
-            *keytype = CKK_IBM_ML_KEM;
+            *keytype = CKK_ML_KEM;
+            *alt_keytype = CKK_IBM_ML_KEM;
             return CKR_OK;
         }
     }
@@ -1799,12 +1910,15 @@ CK_RV key_mgr_derive_key(STDLL_TokData_t *tokdata,
                          CK_OBJECT_HANDLE base_key,
                          CK_OBJECT_HANDLE *derived_key,
                          CK_ATTRIBUTE *pTemplate, CK_ULONG ulCount,
-                         CK_BBOOL count_statistics)
+                         CK_BBOOL count_statistics, CK_ULONG operation)
 {
     OBJECT *base_key_obj = NULL;
     CK_ATTRIBUTE *new_attrs = NULL;
     CK_ULONG new_attr_count = 0;
     CK_BBOOL flag;
+    CK_ATTRIBUTE_TYPE key_usage_attr, apply_tmpl_attr;
+    CK_ULONG mode;
+    int policy_check;
     CK_RV rc;
 
     if (!sess || !mech) {
@@ -1813,6 +1927,85 @@ CK_RV key_mgr_derive_key(STDLL_TokData_t *tokdata,
     }
     if (!pTemplate && (ulCount != 0)) {
         TRACE_ERROR("%s received bad argument(s)\n", __func__);
+        return CKR_FUNCTION_FAILED;
+    }
+
+    switch (operation) {
+    case OP_DERIVE:
+        key_usage_attr = CKA_DERIVE;
+        apply_tmpl_attr = CKA_DERIVE_TEMPLATE;
+        policy_check = POLICY_CHECK_DERIVE;
+        mode = MODE_DERIVE;
+        break;
+    case OP_ENCAPSULATE:
+        if (mech->mechanism != CKM_ECDH1_DERIVE &&
+            mech->mechanism != CKM_ECDH1_COFACTOR_DERIVE &&
+            mech->mechanism != CKM_DH_PKCS_DERIVE) {
+            TRACE_ERROR("OP_ENCAPSULATE is only supportd with "
+                        "CKM_ECDH1_DERIVE, CKM_ECDH1_COFACTOR_DERIVE, and "
+                        "CKM_DH_PKCS_DERIVE\n");
+            rc = CKR_FUNCTION_FAILED;
+            goto done;
+        }
+
+        /*
+         * Check for CKA_DECAPSULATE for OP_ENCAPSUALTE as well. Derive is
+         * always done with the private key as base key which has
+         * CKA_DECAPSULATE.
+         */
+        key_usage_attr = CKA_DECAPSULATE;
+        apply_tmpl_attr = CKA_DECAPSULATE_TEMPLATE;
+        policy_check = POLICY_CHECK_ENCAPS;
+        mode = MODE_ENCAPS;
+        break;
+    case OP_DECAPSULATE:
+        if (mech->mechanism != CKM_ECDH1_DERIVE &&
+            mech->mechanism != CKM_ECDH1_COFACTOR_DERIVE &&
+            mech->mechanism != CKM_DH_PKCS_DERIVE) {
+            TRACE_ERROR("OP_DECAPSULATE is only supportd with "
+                        "CKM_ECDH1_DERIVE, CKM_ECDH1_COFACTOR_DERIVE, and "
+                        "CKM_DH_PKCS_DERIVE\n");
+            rc = CKR_FUNCTION_FAILED;
+            goto done;
+        }
+
+        key_usage_attr = CKA_DECAPSULATE;
+        apply_tmpl_attr = CKA_DECAPSULATE_TEMPLATE;
+        policy_check = POLICY_CHECK_DECAPS;
+        mode = MODE_DECAPS;
+        break;
+    case OP_WRAP:
+        if (mech->mechanism != CKM_ECDH1_DERIVE) {
+            TRACE_ERROR("OP_WRAP/UNWRAP is only supportd with "
+                        "CKM_ECDH1_DERIVE\n");
+            rc = CKR_FUNCTION_FAILED;
+            goto done;
+        }
+
+        /*
+         * Check for CKA_UNWRAP for OP_WRAP as well, Derive is always done
+         * with the private key as base key which has CKA_UNWRAP.
+         */
+        key_usage_attr = CKA_UNWRAP;
+        apply_tmpl_attr = CKA_UNWRAP_TEMPLATE;
+        policy_check = POLICY_CHECK_WRAP;
+        mode = MODE_DERIVE; /* Use DERIVE, WRAP does not produce a key object */
+        break;
+    case OP_UNWRAP:
+        if (mech->mechanism != CKM_ECDH1_DERIVE) {
+            TRACE_ERROR("OP_WRAP/UNWRAP is only supportd with "
+                        "CKM_ECDH1_DERIVE\n");
+            rc = CKR_FUNCTION_FAILED;
+            goto done;
+        }
+
+        key_usage_attr = CKA_UNWRAP;
+        apply_tmpl_attr = CKA_UNWRAP_TEMPLATE;
+        policy_check = POLICY_CHECK_UNWRAP;
+        mode = MODE_UNWRAP;
+        break;
+    default:
+        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
         return CKR_FUNCTION_FAILED;
     }
 
@@ -1826,7 +2019,7 @@ CK_RV key_mgr_derive_key(STDLL_TokData_t *tokdata,
 
     rc = tokdata->policy->is_mech_allowed(tokdata->policy, mech,
                                           &base_key_obj->strength,
-                                          POLICY_CHECK_DERIVE, sess);
+                                          policy_check, sess);
     if (rc != CKR_OK) {
         TRACE_ERROR("POLICY VIOLATION: derive key\n");
         goto done;
@@ -1839,21 +2032,24 @@ CK_RV key_mgr_derive_key(STDLL_TokData_t *tokdata,
         goto done;
     }
 
-    rc = template_attribute_get_bool(base_key_obj->template, CKA_DERIVE, &flag);
+    /* is base key allowed to do the desired operation? */
+    rc = template_attribute_get_bool(base_key_obj->template, key_usage_attr,
+                                     &flag);
     if (rc != CKR_OK) {
-        TRACE_ERROR("Could not find CKA_DERIVE for the base key.\n");
+        TRACE_ERROR("Could not find %s for the base key.\n",
+                    p11_get_cka(key_usage_attr));
         rc = CKR_KEY_FUNCTION_NOT_PERMITTED;
         goto done;
     }
 
-    if (flag == FALSE) {
-        TRACE_ERROR("CKA_DERIVE is set to FALSE.\n");
+    if (flag != TRUE) {
+        TRACE_ERROR("%s is set to FALSE.\n", p11_get_cka(key_usage_attr));
         rc = CKR_KEY_FUNCTION_NOT_PERMITTED;
         goto done;
     }
 
     rc = key_object_apply_template_attr(base_key_obj->template,
-                                        CKA_DERIVE_TEMPLATE,
+                                        apply_tmpl_attr,
                                         pTemplate, ulCount,
                                         &new_attrs, &new_attr_count);
     if (rc != CKR_OK) {
@@ -1900,7 +2096,7 @@ CK_RV key_mgr_derive_key(STDLL_TokData_t *tokdata,
         }
         rc = ecdh_pkcs_derive(tokdata, sess, mech, base_key_obj, new_attrs,
                               new_attr_count, derived_key,
-                              count_statistics);
+                              count_statistics, mode);
         break;
     case CKM_SHA1_KEY_DERIVATION:
     case CKM_SHA224_KEY_DERIVATION:
@@ -1954,6 +2150,239 @@ done:
     if (base_key_obj != NULL) {
         object_put(tokdata, base_key_obj, TRUE);
         base_key_obj = NULL;
+    }
+
+    return rc;
+}
+
+CK_RV key_mgr_encapsulate_key(STDLL_TokData_t *tokdata, SESSION *sess,
+                              CK_BBOOL length_only, CK_MECHANISM *mech,
+                              CK_OBJECT_HANDLE hPublicKey,
+                              CK_ATTRIBUTE *pTemplate,
+                              CK_ULONG ulAttributeCount,
+                              CK_BYTE *pCiphertext, CK_ULONG *pulCiphertextLen,
+                              CK_OBJECT_HANDLE *phKey,
+                              CK_BBOOL count_statistics)
+{
+    OBJECT *public_key_obj = NULL;
+    CK_ATTRIBUTE *new_attrs = NULL;
+    CK_ULONG new_attr_count = 0;
+    CK_BBOOL flag;
+    CK_RV rc;
+
+    if (sess == NULL || mech == NULL || pulCiphertextLen == NULL) {
+        TRACE_ERROR("%s received bad argument(s)\n", __func__);
+        return CKR_FUNCTION_FAILED;
+    }
+
+    if (!length_only && (pCiphertext == NULL || phKey == NULL)) {
+        TRACE_ERROR("%s received bad argument(s)\n", __func__);
+        return CKR_FUNCTION_FAILED;
+    }
+
+    if (phKey != NULL)
+        *phKey = CK_INVALID_HANDLE;
+
+    rc = object_mgr_find_in_map1(tokdata, hPublicKey, &public_key_obj,
+                                 READ_LOCK);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s\n", ock_err(ERR_OBJECT_HANDLE_INVALID));
+        goto done;
+    }
+
+    rc = tokdata->policy->is_mech_allowed(tokdata->policy, mech,
+                                          &public_key_obj->strength,
+                                          POLICY_CHECK_ENCAPS, sess);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("POLICY VIOLATION: key encapsulation\n");
+        goto done;
+    }
+
+    if (!key_object_is_mechanism_allowed(public_key_obj->template,
+                                         mech->mechanism)) {
+        TRACE_ERROR("Mechanism not allowed per CKA_ALLOWED_MECHANISMS.\n");
+        rc = CKR_MECHANISM_INVALID;
+        goto done;
+    }
+
+    rc = template_attribute_get_bool(public_key_obj->template, CKA_ENCAPSULATE,
+                                     &flag);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_ENCAPSULATE for the public key.\n");
+        rc = CKR_KEY_FUNCTION_NOT_PERMITTED;
+        goto done;
+    }
+
+    if (flag == FALSE) {
+        TRACE_ERROR("CKA_ENCAPSULATE is set to FALSE.\n");
+        rc = CKR_KEY_FUNCTION_NOT_PERMITTED;
+        goto done;
+    }
+
+    rc = key_object_apply_template_attr(public_key_obj->template,
+                                        CKA_ENCAPSULATE_TEMPLATE,
+                                        pTemplate, ulAttributeCount,
+                                        &new_attrs, &new_attr_count);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("key_object_apply_template_attr failed.\n");
+        goto done;
+    }
+
+    switch (mech->mechanism) {
+    case CKM_RSA_PKCS_OAEP:
+    case CKM_RSA_PKCS:
+        rc = rsa_encapsulate_key(tokdata, sess, length_only, mech,
+                                 public_key_obj, new_attrs, new_attr_count,
+                                 pCiphertext, pulCiphertextLen, phKey);
+        break;
+    case CKM_ECDH1_DERIVE:
+    case CKM_ECDH1_COFACTOR_DERIVE:
+        rc = ecdh_encapsulate_key(tokdata, sess, length_only, mech,
+                                  public_key_obj, new_attrs, new_attr_count,
+                                  pCiphertext, pulCiphertextLen, phKey);
+        break;
+#ifndef NODH
+    case CKM_DH_PKCS_DERIVE:
+        rc = dh_encapsulate_key(tokdata, sess, length_only, mech,
+                                public_key_obj, new_attrs, new_attr_count,
+                                pCiphertext, pulCiphertextLen, phKey);
+        break;
+#endif
+    case CKM_ML_KEM:
+        rc = ml_kem_encapsulate_key(tokdata, sess, length_only, mech,
+                                    public_key_obj, new_attrs, new_attr_count,
+                                    pCiphertext, pulCiphertextLen, phKey);
+        break;
+    default:
+        TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
+        rc = CKR_MECHANISM_INVALID;
+        break;
+    }
+
+done:
+    if (count_statistics == TRUE && rc == CKR_OK)
+        INC_COUNTER(tokdata, sess, mech, public_key_obj,
+                    POLICY_STRENGTH_IDX_0);
+
+    if (new_attrs != NULL)
+        cleanse_and_free_attribute_array(new_attrs, new_attr_count);
+    if (public_key_obj != NULL) {
+        object_put(tokdata, public_key_obj, TRUE);
+        public_key_obj = NULL;
+    }
+
+    return rc;
+}
+
+CK_RV key_mgr_decapsulate_key(STDLL_TokData_t *tokdata, SESSION *sess,
+                              CK_MECHANISM *mech,
+                              CK_OBJECT_HANDLE hPrivateKey,
+                              CK_ATTRIBUTE *pTemplate,
+                              CK_ULONG ulAttributeCount,
+                              CK_BYTE *pCiphertext, CK_ULONG ulCiphertextLen,
+                              CK_OBJECT_HANDLE *phKey,
+                              CK_BBOOL count_statistics)
+{
+    OBJECT *private_key_obj = NULL;
+    CK_ATTRIBUTE *new_attrs = NULL;
+    CK_ULONG new_attr_count = 0;
+    CK_BBOOL flag;
+    CK_RV rc;
+
+    if (sess == NULL || mech == NULL || pCiphertext == NULL ||
+        ulCiphertextLen == 0 || phKey == NULL) {
+        TRACE_ERROR("%s received bad argument(s)\n", __func__);
+        return CKR_FUNCTION_FAILED;
+    }
+
+    *phKey = CK_INVALID_HANDLE;
+
+    rc = object_mgr_find_in_map1(tokdata, hPrivateKey, &private_key_obj,
+                                 READ_LOCK);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s\n", ock_err(ERR_OBJECT_HANDLE_INVALID));
+        goto done;
+    }
+
+    rc = tokdata->policy->is_mech_allowed(tokdata->policy, mech,
+                                          &private_key_obj->strength,
+                                          POLICY_CHECK_DECAPS, sess);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("POLICY VIOLATION: key decapsulation\n");
+        goto done;
+    }
+
+    if (!key_object_is_mechanism_allowed(private_key_obj->template,
+                                         mech->mechanism)) {
+        TRACE_ERROR("Mechanism not allowed per CKA_ALLOWED_MECHANISMS.\n");
+        rc = CKR_MECHANISM_INVALID;
+        goto done;
+    }
+
+    rc = template_attribute_get_bool(private_key_obj->template, CKA_DECAPSULATE,
+                                     &flag);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_DECAPSULATE for the public key.\n");
+        rc = CKR_KEY_FUNCTION_NOT_PERMITTED;
+        goto done;
+    }
+
+    if (flag == FALSE) {
+        TRACE_ERROR("CKA_DECAPSULATE is set to FALSE.\n");
+        rc = CKR_KEY_FUNCTION_NOT_PERMITTED;
+        goto done;
+    }
+
+    rc = key_object_apply_template_attr(private_key_obj->template,
+                                        CKA_DECAPSULATE_TEMPLATE,
+                                        pTemplate, ulAttributeCount,
+                                        &new_attrs, &new_attr_count);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("key_object_apply_template_attr failed.\n");
+        goto done;
+    }
+
+    switch (mech->mechanism) {
+    case CKM_RSA_PKCS_OAEP:
+    case CKM_RSA_PKCS:
+        rc = rsa_decapsulate_key(tokdata, sess, mech, private_key_obj,
+                                 new_attrs, new_attr_count,
+                                 pCiphertext, ulCiphertextLen, phKey);
+        break;
+    case CKM_ECDH1_DERIVE:
+    case CKM_ECDH1_COFACTOR_DERIVE:
+        rc = ecdh_decapsulate_key(tokdata, sess, mech, private_key_obj,
+                                  new_attrs, new_attr_count,
+                                  pCiphertext, ulCiphertextLen, phKey);
+        break;
+#ifndef NODH
+    case CKM_DH_PKCS_DERIVE:
+        rc = dh_decapsulate_key(tokdata, sess, mech, private_key_obj,
+                                new_attrs, new_attr_count,
+                                pCiphertext, ulCiphertextLen, phKey);
+        break;
+#endif
+    case CKM_ML_KEM:
+        rc = ml_kem_decapsulate_key(tokdata, sess, mech,private_key_obj,
+                                    new_attrs, new_attr_count,
+                                    pCiphertext, ulCiphertextLen, phKey);
+        break;
+    default:
+        TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
+        rc = CKR_MECHANISM_INVALID;
+        break;
+    }
+
+done:
+    if (count_statistics == TRUE && rc == CKR_OK)
+        INC_COUNTER(tokdata, sess, mech, private_key_obj,
+                    POLICY_STRENGTH_IDX_0);
+
+    if (new_attrs != NULL)
+        cleanse_and_free_attribute_array(new_attrs, new_attr_count);
+    if (private_key_obj != NULL) {
+        object_put(tokdata, private_key_obj, TRUE);
+        private_key_obj = NULL;
     }
 
     return rc;

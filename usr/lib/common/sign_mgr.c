@@ -925,12 +925,86 @@ CK_RV sign_mgr_init(STDLL_TokData_t *tokdata,
         ctx->context_len = 0;
         ctx->context = NULL;
         break;
+    case CKM_ML_DSA:
+    case CKM_HASH_ML_DSA:
+    case CKM_HASH_ML_DSA_SHA224:
+    case CKM_HASH_ML_DSA_SHA256:
+    case CKM_HASH_ML_DSA_SHA384:
+    case CKM_HASH_ML_DSA_SHA512:
+    case CKM_HASH_ML_DSA_SHA3_224:
+    case CKM_HASH_ML_DSA_SHA3_256:
+    case CKM_HASH_ML_DSA_SHA3_384:
+    case CKM_HASH_ML_DSA_SHA3_512:
+    case CKM_HASH_ML_DSA_SHAKE128:
+    case CKM_HASH_ML_DSA_SHAKE256:
+        if (mech->mechanism == CKM_HASH_ML_DSA) {
+            if (mech->ulParameterLen !=
+                                    sizeof(CK_HASH_SIGN_ADDITIONAL_CONTEXT) ||
+                mech->pParameter == NULL) {
+                TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
+                rc = CKR_MECHANISM_PARAM_INVALID;
+                goto done;
+            }
+        } else {
+            if (mech->ulParameterLen != 0 &&
+                mech->ulParameterLen != sizeof(CK_SIGN_ADDITIONAL_CONTEXT)) {
+                TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
+                rc = CKR_MECHANISM_PARAM_INVALID;
+                goto done;
+            }
+            if (mech->ulParameterLen == sizeof(CK_SIGN_ADDITIONAL_CONTEXT) &&
+                mech->pParameter == NULL) {
+                rc = CKR_MECHANISM_PARAM_INVALID;
+                goto done;
+            }
+        }
+
+        rc = template_attribute_get_ulong(key_obj->template, CKA_KEY_TYPE,
+                                          &keytype);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("Could not find CKA_KEY_TYPE for the key.\n");
+            goto done;
+        }
+
+        if (keytype != CKK_ML_DSA) {
+            TRACE_ERROR("%s\n", ock_err(ERR_KEY_TYPE_INCONSISTENT));
+            rc = CKR_KEY_TYPE_INCONSISTENT;
+            goto done;
+        }
+
+        rc = template_attribute_get_ulong(key_obj->template, CKA_CLASS,
+                                          &class);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("Could not find CKA_CLASS for the key.\n");
+            goto done;
+        }
+
+        if (class != CKO_PRIVATE_KEY) {
+            TRACE_ERROR("This operation requires a private key.\n");
+            rc = CKR_KEY_FUNCTION_NOT_PERMITTED;
+            goto done;
+        }
+
+        if (mech->mechanism == CKM_ML_DSA ||
+            mech->mechanism == CKM_HASH_ML_DSA) {
+            ctx->context_len = 0;
+            ctx->context = NULL;
+        } else {
+            ctx->context_len = sizeof(MP_DIGEST_CONTEXT);
+            ctx->context = (CK_BYTE *) malloc(sizeof(MP_DIGEST_CONTEXT));
+            if (!ctx->context) {
+                TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+                rc = CKR_HOST_MEMORY;
+                goto done;
+            }
+            memset(ctx->context, 0x0, sizeof(MP_DIGEST_CONTEXT));
+        }
+        break;
     default:
         TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
         rc = CKR_MECHANISM_INVALID;
         goto done;
     }
-
 
     if (mech->ulParameterLen > 0 && mech->pParameter != NULL) {
         ptr = (CK_BYTE *) malloc(mech->ulParameterLen);
@@ -949,6 +1023,32 @@ CK_RV sign_mgr_init(STDLL_TokData_t *tokdata,
                                       mech->ulParameterLen);
             if (rc != CKR_OK) {
                 TRACE_ERROR("ibm_ml_dsa_dup_param failed\n");
+                free(ptr);
+            }
+            break;
+        case CKM_ML_DSA:
+        case CKM_HASH_ML_DSA_SHA224:
+        case CKM_HASH_ML_DSA_SHA256:
+        case CKM_HASH_ML_DSA_SHA384:
+        case CKM_HASH_ML_DSA_SHA512:
+        case CKM_HASH_ML_DSA_SHA3_224:
+        case CKM_HASH_ML_DSA_SHA3_256:
+        case CKM_HASH_ML_DSA_SHA3_384:
+        case CKM_HASH_ML_DSA_SHA3_512:
+        case CKM_HASH_ML_DSA_SHAKE128:
+        case CKM_HASH_ML_DSA_SHAKE256:
+            rc = ml_dsa_dup_param(mech->pParameter, ptr,
+                                  mech->ulParameterLen);
+            if (rc != CKR_OK) {
+                TRACE_ERROR("ml_dsa_dup_param failed\n");
+                free(ptr);
+            }
+            break;
+        case CKM_HASH_ML_DSA:
+            rc = ml_dsa_hash_dup_param(mech->pParameter, ptr,
+                                       mech->ulParameterLen);
+            if (rc != CKR_OK) {
+                TRACE_ERROR("ml_dsa_hash_dup_param failed\n");
                 free(ptr);
             }
             break;
@@ -1011,6 +1111,24 @@ CK_RV sign_mgr_cleanup(STDLL_TokData_t *tokdata, SESSION *sess,
             ibm_ml_dsa_free_param(ctx->mech.pParameter,
                                   ctx->mech.ulParameterLen);
             break;
+        case CKM_ML_DSA:
+        case CKM_HASH_ML_DSA_SHA224:
+        case CKM_HASH_ML_DSA_SHA256:
+        case CKM_HASH_ML_DSA_SHA384:
+        case CKM_HASH_ML_DSA_SHA512:
+        case CKM_HASH_ML_DSA_SHA3_224:
+        case CKM_HASH_ML_DSA_SHA3_256:
+        case CKM_HASH_ML_DSA_SHA3_384:
+        case CKM_HASH_ML_DSA_SHA3_512:
+        case CKM_HASH_ML_DSA_SHAKE128:
+        case CKM_HASH_ML_DSA_SHAKE256:
+            ml_dsa_free_param(ctx->mech.pParameter,
+                              ctx->mech.ulParameterLen);
+            break;
+        case CKM_HASH_ML_DSA:
+            ml_dsa_hash_free_param(ctx->mech.pParameter,
+                                   ctx->mech.ulParameterLen);
+            break;
         default:
             break;
         }
@@ -1047,6 +1165,16 @@ CK_RV sign_mgr_cleanup(STDLL_TokData_t *tokdata, SESSION *sess,
         case CKM_ECDSA_SHA3_512:
         case CKM_SSL3_MD5_MAC:
         case CKM_SSL3_SHA1_MAC:
+        case CKM_HASH_ML_DSA_SHA224:
+        case CKM_HASH_ML_DSA_SHA256:
+        case CKM_HASH_ML_DSA_SHA384:
+        case CKM_HASH_ML_DSA_SHA512:
+        case CKM_HASH_ML_DSA_SHA3_224:
+        case CKM_HASH_ML_DSA_SHA3_256:
+        case CKM_HASH_ML_DSA_SHA3_384:
+        case CKM_HASH_ML_DSA_SHA3_512:
+        case CKM_HASH_ML_DSA_SHAKE128:
+        case CKM_HASH_ML_DSA_SHAKE256:
             /* Uses MP_DIGEST_CONTEXT as context, contains a DIGEST_CONTEXT */
             if (ctx->context_len != sizeof(MP_DIGEST_CONTEXT))
                 break;
@@ -1083,6 +1211,12 @@ CK_RV sign_mgr_cleanup(STDLL_TokData_t *tokdata, SESSION *sess,
     ctx->context_free_func = NULL;
 
     ctx->mech.mechanism = 0;
+
+    if (ctx->saved_signature) {
+        free(ctx->saved_signature);
+        ctx->saved_signature = 0;
+    }
+    ctx->saved_signature_len = 0;
 
     return CKR_OK;
 }
@@ -1249,6 +1383,22 @@ CK_RV sign_mgr_sign(STDLL_TokData_t *tokdata,
     case CKM_IBM_ML_DSA:
         return ibm_ml_dsa_sign(tokdata, sess, length_only, ctx,
                                in_data, in_data_len, out_data, out_data_len);
+    case CKM_ML_DSA:
+        return ml_dsa_sign(tokdata, sess, length_only, ctx,
+                           in_data, in_data_len, out_data, out_data_len, TRUE);
+    case CKM_HASH_ML_DSA:
+    case CKM_HASH_ML_DSA_SHA224:
+    case CKM_HASH_ML_DSA_SHA256:
+    case CKM_HASH_ML_DSA_SHA384:
+    case CKM_HASH_ML_DSA_SHA512:
+    case CKM_HASH_ML_DSA_SHA3_224:
+    case CKM_HASH_ML_DSA_SHA3_256:
+    case CKM_HASH_ML_DSA_SHA3_384:
+    case CKM_HASH_ML_DSA_SHA3_512:
+    case CKM_HASH_ML_DSA_SHAKE128:
+    case CKM_HASH_ML_DSA_SHAKE256:
+        return ml_dsa_hash_sign(tokdata, sess, length_only, ctx,
+                                in_data, in_data_len, out_data, out_data_len);
     default:
         TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
         return CKR_MECHANISM_INVALID;
@@ -1371,6 +1521,21 @@ CK_RV sign_mgr_sign_update(STDLL_TokData_t *tokdata,
     case CKM_IBM_SHA3_384_HMAC:
     case CKM_IBM_SHA3_512_HMAC:
         return hmac_sign_update(tokdata, sess, in_data, in_data_len);
+    case CKM_ML_DSA:
+        return ml_dsa_sign(tokdata, sess, FALSE, ctx,
+                           in_data, in_data_len, NULL, NULL, FALSE);
+    case CKM_HASH_ML_DSA_SHA224:
+    case CKM_HASH_ML_DSA_SHA256:
+    case CKM_HASH_ML_DSA_SHA384:
+    case CKM_HASH_ML_DSA_SHA512:
+    case CKM_HASH_ML_DSA_SHA3_224:
+    case CKM_HASH_ML_DSA_SHA3_256:
+    case CKM_HASH_ML_DSA_SHA3_384:
+    case CKM_HASH_ML_DSA_SHA3_512:
+    case CKM_HASH_ML_DSA_SHAKE128:
+    case CKM_HASH_ML_DSA_SHAKE256:
+        return ml_dsa_hash_sign_verify_update(tokdata, sess, ctx,
+                                              in_data, in_data_len);
     default:
         TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
         return CKR_MECHANISM_INVALID;
@@ -1496,6 +1661,21 @@ CK_RV sign_mgr_sign_final(STDLL_TokData_t *tokdata,
     case CKM_IBM_SHA3_384_HMAC:
     case CKM_IBM_SHA3_512_HMAC:
         return hmac_sign_final(tokdata, sess, signature, sig_len);
+    case CKM_ML_DSA:
+        return ml_dsa_sign(tokdata, sess, length_only, ctx,
+                           NULL, 0, signature, sig_len, TRUE);
+    case CKM_HASH_ML_DSA_SHA224:
+    case CKM_HASH_ML_DSA_SHA256:
+    case CKM_HASH_ML_DSA_SHA384:
+    case CKM_HASH_ML_DSA_SHA512:
+    case CKM_HASH_ML_DSA_SHA3_224:
+    case CKM_HASH_ML_DSA_SHA3_256:
+    case CKM_HASH_ML_DSA_SHA3_384:
+    case CKM_HASH_ML_DSA_SHA3_512:
+    case CKM_HASH_ML_DSA_SHAKE128:
+    case CKM_HASH_ML_DSA_SHAKE256:
+        return ml_dsa_hash_sign_final(tokdata, sess, length_only,  ctx,
+                                      signature, sig_len);
     default:
         TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
         return CKR_MECHANISM_INVALID;

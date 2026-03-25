@@ -129,11 +129,22 @@ struct token_specific_struct token_specific = {
     NULL,                       // ibm_ml_dsa_verify
     NULL,                       // ibm_ml_kem_generate_keypair
     NULL,                       // ibm_ml_kem_derive
+    NULL,                       // ml_dsa_generate_keypair
+    NULL,                       // ml_dsa_sign
+    NULL,                       // ml_dsa_verify
+    NULL,                       // ml_kem_generate_keypair
+    NULL,                       // ml_kem_encapsulate_key
+    NULL,                       // ml_kem_decapsulate_key
     &token_specific_get_mechanism_list,
     &token_specific_get_mechanism_info,
     NULL,                       // object_add
     &token_specific_key_wrap,
     &token_specific_key_unwrap,
+    NULL,                       // encapsulate_rsa_sym_keygen
+    NULL,                       // encapsulate_rsa_key_wrap
+    NULL,                       // encapsulate_rsa_key_unwrap
+    NULL,                       // encapsulate_dh_ecdh_key_pair_gen
+    NULL,                       // en_decapsulate_dh_ecdh_derive_key
     NULL,                       // reencrypt_single
     NULL,                       // set_attribute_values
     NULL,                       // set_attrs_for_new_object

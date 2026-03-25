@@ -281,10 +281,62 @@ extern "C" {
 
     CK_RV C_MessageVerifyFinal(CK_SESSION_HANDLE);
 
+    CK_RV C_EncapsulateKey(CK_SESSION_HANDLE,
+                           CK_MECHANISM_PTR, CK_OBJECT_HANDLE,
+                           CK_ATTRIBUTE_PTR, CK_ULONG,
+                           CK_BYTE_PTR, CK_ULONG_PTR,
+                           CK_OBJECT_HANDLE_PTR);
+
+    CK_RV C_DecapsulateKey(CK_SESSION_HANDLE,
+                           CK_MECHANISM_PTR, CK_OBJECT_HANDLE,
+                           CK_ATTRIBUTE_PTR, CK_ULONG,
+                           CK_BYTE_PTR, CK_ULONG,
+                           CK_OBJECT_HANDLE_PTR);
+
+    CK_RV C_VerifySignatureInit(CK_SESSION_HANDLE,
+                                CK_MECHANISM_PTR, CK_OBJECT_HANDLE,
+                                CK_BYTE_PTR, CK_ULONG);
+
+    CK_RV C_VerifySignature(CK_SESSION_HANDLE,
+                            CK_BYTE_PTR, CK_ULONG);
+
+    CK_RV C_VerifySignatureUpdate(CK_SESSION_HANDLE,
+                                  CK_BYTE_PTR, CK_ULONG);
+
+    CK_RV C_VerifySignatureFinal(CK_SESSION_HANDLE);
+
+    CK_RV C_GetSessionValidationFlags(CK_SESSION_HANDLE,
+                                      CK_SESSION_VALIDATION_FLAGS_TYPE,
+                                      CK_FLAGS_PTR);
+
+    CK_RV C_AsyncComplete(CK_SESSION_HANDLE,
+                          CK_UTF8CHAR_PTR, CK_ASYNC_DATA_PTR);
+
+    CK_RV C_AsyncGetID(CK_SESSION_HANDLE,
+                       CK_UTF8CHAR_PTR, CK_ULONG_PTR);
+
+    CK_RV C_AsyncJoin(CK_SESSION_HANDLE,
+                      CK_UTF8CHAR_PTR, CK_ULONG,
+                      CK_BYTE_PTR, CK_ULONG);
+
+    CK_RV C_WrapKeyAuthenticated(CK_SESSION_HANDLE,
+                                 CK_MECHANISM_PTR, CK_OBJECT_HANDLE,
+                                 CK_OBJECT_HANDLE,
+                                 CK_BYTE_PTR, CK_ULONG,
+                                 CK_BYTE_PTR, CK_ULONG_PTR);
+
+    CK_RV C_UnwrapKeyAuthenticated(CK_SESSION_HANDLE,
+                                   CK_MECHANISM_PTR, CK_OBJECT_HANDLE,
+                                   CK_BYTE_PTR, CK_ULONG,
+                                   CK_ATTRIBUTE_PTR, CK_ULONG,
+                                   CK_BYTE_PTR, CK_ULONG,
+                                   CK_OBJECT_HANDLE_PTR);
+
     CK_RV C_IBM_ReencryptSingle(CK_SESSION_HANDLE, CK_MECHANISM_PTR,
                                 CK_OBJECT_HANDLE, CK_MECHANISM_PTR,
                                 CK_OBJECT_HANDLE, CK_BYTE_PTR,
                                 CK_ULONG, CK_BYTE_PTR, CK_ULONG_PTR);
+
 #ifdef __cplusplus
 }
 #endif
