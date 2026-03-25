@@ -7876,7 +7876,8 @@ CK_RV token_create_ec_keypair(TEMPLATE * publ_tmpl,
     if ((rv = build_update_attribute(publ_tmpl, CKA_EC_POINT,
                                      ecpoint, ecpoint_len))) {
         TRACE_DEVEL("build_update_attribute for q failed rv=0x%lx\n", rv);
-        free(ecpoint);
+        if (curve_type != EDWARDS_CURVE)
+            free(ecpoint);
         return rv;
     }
     if (curve_type != EDWARDS_CURVE)
