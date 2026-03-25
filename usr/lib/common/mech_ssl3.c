@@ -1194,8 +1194,6 @@ CK_RV ssl3_master_key_derive(STDLL_TokData_t *tokdata,
         TRACE_DEVEL("Object Mgr create final failed.\n");
         object_free(derived_key_obj);
         derived_key_obj = NULL;
-        object_put(tokdata, base_key_obj, TRUE);
-        base_key_obj = NULL;
         return rc;              // do NOT goto error
     }
     // should we destroy the base key?  SSL3 says yes but that might
