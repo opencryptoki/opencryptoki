@@ -1481,18 +1481,10 @@ CK_BBOOL object_mgr_purge_private_token_objects(STDLL_TokData_t *tokdata)
 }
 
 //
-//
-CK_RV object_mgr_restore_obj(STDLL_TokData_t *tokdata, CK_BYTE *data,
-                             OBJECT *oldObj, const char *fname)
-{
-    return object_mgr_restore_obj_withSize(tokdata, data, oldObj, -1, fname);
-}
-
-//
 //Modified verrsion of object_mgr_restore_obj to bounds check
 //If data_size==-1, won't check bounds
 CK_RV object_mgr_restore_obj_withSize(STDLL_TokData_t *tokdata, CK_BYTE *data,
-                                      OBJECT *oldObj, int data_size,
+                                      OBJECT *oldObj, CK_ULONG data_size,
                                       const char *fname)
 {
     OBJECT *obj = NULL;

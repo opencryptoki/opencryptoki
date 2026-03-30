@@ -1658,7 +1658,8 @@ CK_RV restore_private_token_object_old(STDLL_TokData_t *tokdata, CK_BYTE *data,
     // the token object...
     //
 
-    rc = object_mgr_restore_obj(tokdata, obj_data, pObj, fname);
+    rc = object_mgr_restore_obj_withSize(tokdata, obj_data, pObj, obj_data_len,
+                                         fname);
     if (rc != CKR_OK) {
         goto done;
     }
@@ -1742,7 +1743,7 @@ CK_RV reload_token_object_old(STDLL_TokData_t *tokdata, OBJECT *obj)
         rc = restore_private_token_object_old(tokdata, buf, size_64, obj,
                                               fname);
     else
-        rc = object_mgr_restore_obj(tokdata, buf, obj, fname);
+        rc = object_mgr_restore_obj_withSize(tokdata, buf, obj, size_64, fname);
 
 done:
     if (fp)
@@ -2842,7 +2843,7 @@ CK_RV restore_private_token_object(STDLL_TokData_t *tokdata,
         goto done;
     }
 
-    rc = object_mgr_restore_obj(tokdata, buff, pObj, fname);
+    rc = object_mgr_restore_obj_withSize(tokdata, buff, pObj, len, fname);
     if (rc != CKR_OK) {
         goto done;
     }
@@ -2949,7 +2950,7 @@ CK_RV reload_token_object(STDLL_TokData_t *tokdata, OBJECT *obj)
         rc = restore_private_token_object(tokdata, header, buf, size_64,
                                           footer, obj, fname);
     } else {
-        rc = object_mgr_restore_obj(tokdata, buf, obj, fname);
+        rc = object_mgr_restore_obj_withSize(tokdata, buf, obj, size_64, fname);
     }
 done:
     if (fp)
