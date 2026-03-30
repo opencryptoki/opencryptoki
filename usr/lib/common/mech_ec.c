@@ -1623,7 +1623,7 @@ int ec_point_from_public_data(const CK_BYTE *data, CK_ULONG data_len,
 
 check_encoded:
     /* If we reach here, try to BER decode it as OCTET-STRING */
-    rc = ber_decode_OCTET_STRING((CK_BYTE *)data, &value, &value_len,
+    rc = ber_decode_OCTET_STRING((CK_BYTE *)data, data_len, &value, &value_len,
                                   &field_len);
     if (rc == CKR_OK && field_len == data_len && value_len <= data_len - 2) {
          /* Looks like a BER encoded EC Point */
@@ -1904,6 +1904,7 @@ CK_RV ecdh_aes_key_wrap(STDLL_TokData_t *tokdata, SESSION *sess,
         pub_ec_point_len = ec_point->ulValueLen;
     } else {
         rc = ber_decode_OCTET_STRING((CK_BYTE *)ec_point->pValue,
+                                      ec_point->ulValueLen,
                                       &pub_ec_point, &pub_ec_point_len,
                                       &field_len);
         if (rc != CKR_OK || field_len != ec_point->ulValueLen) {
@@ -1931,6 +1932,7 @@ CK_RV ecdh_aes_key_wrap(STDLL_TokData_t *tokdata, SESSION *sess,
         ecdh_params.ulPublicDataLen = ec_point->ulValueLen;
     } else {
         rc = ber_decode_OCTET_STRING((CK_BYTE *)ec_point->pValue,
+                                      ec_point->ulValueLen,
                                       &ecdh_params.pPublicData,
                                       &ecdh_params.ulPublicDataLen,
                                       &field_len);

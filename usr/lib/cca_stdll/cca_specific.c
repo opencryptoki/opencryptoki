@@ -12665,8 +12665,8 @@ static CK_RV import_ec_pubkey(STDLL_TokData_t *tokdata, TEMPLATE *pub_templ)
         }
 
         if (curve_type != EDWARDS_CURVE) {
-            rc = ber_decode_OCTET_STRING(attr->pValue, &pubkey, &publen,
-                                         &field_len);
+            rc = ber_decode_OCTET_STRING(attr->pValue, attr->ulValueLen,
+                                         &pubkey, &publen, &field_len);
             if (rc != CKR_OK || attr->ulValueLen != field_len) {
                 TRACE_DEVEL("ber decoding of public key failed\n");
                 return CKR_ATTRIBUTE_VALUE_INVALID;

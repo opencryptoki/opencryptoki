@@ -113,13 +113,14 @@ static CK_RV get_login_importer_key(target_t target,
      *             tcounter OCTET STRING  (16 bytes)
      */
 
-    rc = ber_decode_SEQUENCE(res, &data, &data_len, &field_len);
+    rc = ber_decode_SEQUENCE(res, reslen, &data, &data_len, &field_len);
     if (rc != CKR_OK || field_len > reslen) {
         TRACE_ERROR("%s ber_decode_SEQUENCE failed\n", __func__);
         return CKR_FUNCTION_FAILED;
     }
 
-    rc = ber_decode_OCTET_STRING(data, &ski_field, &ski_field_len, &field_len);
+    rc = ber_decode_OCTET_STRING(data, data_len, &ski_field, &ski_field_len,
+                                 &field_len);
     if (rc != CKR_OK || field_len > data_len) {
         TRACE_ERROR("%s ber_decode_OCTET_STRING (SKI) failed\n", __func__);
         return CKR_FUNCTION_FAILED;
@@ -128,7 +129,7 @@ static CK_RV get_login_importer_key(target_t target,
     data += field_len;
     data_len -= field_len;
 
-    rc = ber_decode_OCTET_STRING(data, &spki, &spki_len, &field_len);
+    rc = ber_decode_OCTET_STRING(data, data_len, &spki, &spki_len, &field_len);
     if (rc != CKR_OK || field_len > data_len) {
         TRACE_ERROR("%s ber_decode_OCTET_STRING (SPKI) failed\n", __func__);
         return CKR_FUNCTION_FAILED;
@@ -137,7 +138,7 @@ static CK_RV get_login_importer_key(target_t target,
     data += field_len;
     data_len -= field_len;
 
-    rc = ber_decode_OCTET_STRING(data, &cnt, &cnt_len, &field_len);
+    rc = ber_decode_OCTET_STRING(data, data_len, &cnt, &cnt_len, &field_len);
     if (rc != CKR_OK || field_len > data_len) {
         TRACE_ERROR("%s ber_decode_OCTET_STRING (COUNTER) failed\n", __func__);
         return CKR_FUNCTION_FAILED;
