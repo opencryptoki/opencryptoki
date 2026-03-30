@@ -6825,8 +6825,8 @@ static CK_RV ica_build_ec_pub_key(OBJECT *key_obj, ICA_EC_KEY **eckey,
     }
 
     /* CKA_EC_POINT contains the EC point as OCTET STRING */
-    ret = ber_decode_OCTET_STRING(attr->pValue, &ecpoint, &ecpoint_len,
-                                  &field_len);
+    ret = ber_decode_OCTET_STRING(attr->pValue, attr->ulValueLen,
+                                  &ecpoint, &ecpoint_len, &field_len);
     if (ret != CKR_OK || field_len != attr->ulValueLen) {
         TRACE_DEVEL("ber_decode_OCTET_STRING failed\n");
         ret = CKR_ATTRIBUTE_VALUE_INVALID;

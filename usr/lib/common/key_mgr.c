@@ -1683,10 +1683,11 @@ CK_RV key_mgr_get_private_key_type(CK_BYTE *keydata,
 {
     CK_BYTE *alg = NULL;
     CK_BYTE *priv_key = NULL;
-    CK_ULONG alg_len, i;
+    CK_ULONG alg_len, priv_key_len, i;
     CK_RV rc;
 
-    rc = ber_decode_PrivateKeyInfo(keydata, keylen, &alg, &alg_len, &priv_key);
+    rc = ber_decode_PrivateKeyInfo(keydata, keylen, &alg, &alg_len,
+                                   &priv_key, &priv_key_len);
     if (rc != CKR_OK) {
         TRACE_DEVEL("ber_decode_PrivateKeyInfo failed.\n");
         return rc;
