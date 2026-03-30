@@ -709,13 +709,9 @@ error:
     return rc;
 }
 
-
-//
-//Modified object_restore to prevent buffer overflow
-//If data_size=-1, won't do bounds checking
 CK_RV object_restore_withSize(struct policy *policy,
                               CK_BYTE * data, OBJECT ** new_obj,
-                              CK_BBOOL replace, int data_size,
+                              CK_BBOOL replace, CK_ULONG data_size,
                               const char *fname)
 {
     TEMPLATE *tmpl = NULL;
@@ -726,7 +722,8 @@ CK_RV object_restore_withSize(struct policy *policy,
     CK_OBJECT_CLASS_32 class32;
     const char *obj_name;
 
-    if (!data || !new_obj) {
+    if (!data || !new_obj ||
+        data_size < sizeof(CK_OBJECT_CLASS_32) + sizeof(CK_ULONG_32) + 8) {
         TRACE_ERROR("Invalid function arguments.\n");
         return CKR_FUNCTION_FAILED;
     }
@@ -773,7 +770,8 @@ CK_RV object_restore_withSize(struct policy *policy,
         }
     }
 
-    rc = template_unflatten_withSize(&tmpl, data + offset, count, data_size);
+    rc = template_unflatten_withSize(&tmpl, data + offset, count,
+                                     data_size - offset);
     if (rc != CKR_OK) {
         TRACE_DEVEL("template_unflatten_withSize failed.\n");
         goto error;

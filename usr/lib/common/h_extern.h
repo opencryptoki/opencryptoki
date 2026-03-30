@@ -2394,12 +2394,9 @@ CK_BBOOL object_mgr_purge_token_objects(STDLL_TokData_t *tokdata);
 
 CK_BBOOL object_mgr_purge_private_token_objects(STDLL_TokData_t *tokdata);
 
-CK_RV object_mgr_restore_obj(STDLL_TokData_t *tokdata, CK_BYTE *data,
-                             OBJECT *oldObj, const char *fname);
-
 CK_RV object_mgr_restore_obj_withSize(STDLL_TokData_t *tokdata,
                                       CK_BYTE *data, OBJECT *oldObj,
-                                      int data_size,
+                                      CK_ULONG data_size,
                                       const char *fname);
 
 CK_RV object_mgr_save_token_object(STDLL_TokData_t *tokdata, OBJECT *obj);
@@ -2509,8 +2506,8 @@ CK_RV object_get_attribute_values(OBJECT *obj,
 CK_ULONG object_get_size(OBJECT *obj);
 
 CK_RV object_restore_withSize(struct policy *policy, CK_BYTE *data,
-                              OBJECT **obj, CK_BBOOL replace, int data_size,
-                              const char *fname);
+                              OBJECT **obj, CK_BBOOL replace,
+                              CK_ULONG data_size, const char *fname);
 
 CK_RV object_set_attribute_values(STDLL_TokData_t *tokdata, SESSION *sess,
                                   OBJECT *obj,
@@ -2600,10 +2597,9 @@ CK_RV template_build_update_attribute(TEMPLATE * tmpl,
                                       CK_ATTRIBUTE_TYPE type,
                                       CK_BYTE * data, CK_ULONG data_len);
 
-CK_RV template_unflatten(TEMPLATE **tmpl, CK_BYTE *data, CK_ULONG count);
-
 CK_RV template_unflatten_withSize(TEMPLATE **new_tmpl,
-                                  CK_BYTE *buf, CK_ULONG count, int buf_size);
+                                  CK_BYTE *buf, CK_ULONG count,
+                                  CK_ULONG buf_size);
 
 CK_RV template_validate_attribute(STDLL_TokData_t *tokdata,
                                   TEMPLATE *tmpl,
