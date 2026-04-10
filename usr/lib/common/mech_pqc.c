@@ -348,6 +348,859 @@ end:
     return rc;
 }
 
+CK_RV ckm_ml_dsa_key_pair_gen(STDLL_TokData_t *tokdata,
+                              TEMPLATE *publ_tmpl, TEMPLATE *priv_tmpl)
+{
+    const struct pqc_oid *pqc_oid;
+    CK_RV rc;
+
+    if (token_specific.t_ml_dsa_generate_keypair == NULL) {
+        TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
+        return CKR_MECHANISM_INVALID;
+    }
+
+    pqc_oid = pqc_get_keyform_mode(publ_tmpl, CKM_ML_DSA_KEY_PAIR_GEN);
+    if (pqc_oid == NULL) {
+        TRACE_ERROR("%s Failed to determine ML-DSA OID\n", __func__);
+        return CKR_TEMPLATE_INCOMPLETE;
+    }
+
+    rc = token_specific.t_ml_dsa_generate_keypair(tokdata, pqc_oid,
+                                                  publ_tmpl, priv_tmpl);
+    if (rc != CKR_OK)
+        TRACE_DEVEL("Token specific ML-DSA keypair generation failed.\n");
+
+    return rc;
+}
+
+CK_RV ckm_ml_kem_key_pair_gen(STDLL_TokData_t *tokdata,
+                              TEMPLATE *publ_tmpl, TEMPLATE *priv_tmpl)
+{
+    const struct pqc_oid *pqc_oid;
+    CK_RV rc;
+
+    if (token_specific.t_ml_kem_generate_keypair == NULL) {
+        TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
+        return CKR_MECHANISM_INVALID;
+    }
+
+    pqc_oid = pqc_get_keyform_mode(publ_tmpl, CKM_ML_KEM_KEY_PAIR_GEN);
+    if (pqc_oid == NULL) {
+        TRACE_ERROR("%s Failed to determine ML-KEM OID\n", __func__);
+        return CKR_TEMPLATE_INCOMPLETE;
+    }
+
+    rc = token_specific.t_ml_kem_generate_keypair(tokdata, pqc_oid,
+                                                  publ_tmpl, priv_tmpl);
+    if (rc != CKR_OK)
+        TRACE_DEVEL("Token specific ML-KEM keypair generation failed.\n");
+
+    return rc;
+}
+
+static CK_RV ml_dsa_setup_digest_mech(CK_MECHANISM *digest_mech, CK_ULONG *hlen)
+{
+    CK_RV rc;
+
+    switch(digest_mech->mechanism) {
+    case CKM_OCK_SHAKE128:
+        *hlen = SHA3_256_HASH_SIZE;
+        digest_mech->ulParameterLen = sizeof(*hlen);
+        digest_mech->pParameter = hlen;
+        break;
+    case CKM_OCK_SHAKE256:
+        *hlen = SHA3_512_HASH_SIZE;
+        digest_mech->ulParameterLen = sizeof(*hlen);
+        digest_mech->pParameter = hlen;
+        break;
+    default:
+        digest_mech->ulParameterLen = 0;
+        digest_mech->pParameter = NULL;
+
+        rc = get_sha_size(digest_mech->mechanism, hlen);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("Get SHA Size failed.\n");
+            return rc;
+        }
+        break;
+    }
+
+    return CKR_OK;
+}
+
+static CK_RV ml_dsa_get_digest_mech(CK_MECHANISM *ml_dsa_mech,
+                                    CK_MECHANISM_TYPE *digest_mech)
+{
+    CK_RV rc;
+
+    if (ml_dsa_mech->mechanism == CKM_HASH_ML_DSA) {
+        if (ml_dsa_mech->ulParameterLen !=
+                            sizeof(CK_HASH_SIGN_ADDITIONAL_CONTEXT) ||
+            ml_dsa_mech->pParameter == NULL) {
+            TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
+            return CKR_MECHANISM_PARAM_INVALID;
+        }
+
+        *digest_mech =
+            ((CK_HASH_SIGN_ADDITIONAL_CONTEXT *)ml_dsa_mech->pParameter)->hash;
+    } else {
+        if (ml_dsa_mech->ulParameterLen != sizeof(CK_SIGN_ADDITIONAL_CONTEXT) &&
+            ml_dsa_mech->ulParameterLen != 0) {
+            TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
+            return CKR_MECHANISM_PARAM_INVALID;
+        }
+        if (ml_dsa_mech->ulParameterLen != 0 &&
+            ml_dsa_mech->pParameter == NULL) {
+            TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
+            return CKR_MECHANISM_PARAM_INVALID;
+        }
+
+        rc = get_digest_from_mech(ml_dsa_mech->mechanism, digest_mech);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s get_digest_from_mech failed\n", __func__);
+            return rc;
+        }
+    }
+
+    return CKR_OK;
+}
+
+CK_RV ml_dsa_sign(STDLL_TokData_t *tokdata, SESSION *sess,
+                  CK_BBOOL length_only, SIGN_VERIFY_CONTEXT *ctx,
+                  CK_BYTE *in_data, CK_ULONG in_data_len,
+                  CK_BYTE *signature, CK_ULONG *sig_len,
+                  CK_BBOOL final_part)
+{
+    OBJECT *key_obj = NULL;
+    CK_OBJECT_CLASS class;
+    const struct pqc_oid *oid;
+    CK_RV rc;
+
+    if (token_specific.t_ml_dsa_sign == NULL) {
+        TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
+        return CKR_MECHANISM_INVALID;
+    }
+
+    rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj, READ_LOCK);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Failed to acquire key from specified handle\n");
+        if (rc == CKR_OBJECT_HANDLE_INVALID)
+            return CKR_KEY_HANDLE_INVALID;
+        else
+            return rc;
+    }
+
+    rc = template_attribute_get_ulong(key_obj->template, CKA_CLASS, &class);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_CLASS for the key.\n");
+        goto done;
+    }
+
+    if (class != CKO_PRIVATE_KEY) {
+        TRACE_ERROR("This operation requires a private key.\n");
+        rc = CKR_KEY_FUNCTION_NOT_PERMITTED;
+        goto done;
+    }
+
+    oid = pqc_get_keyform_mode(key_obj->template, ctx->mech.mechanism);
+    if (oid == NULL) {
+        TRACE_DEVEL("No keyform/mode found in key object\n");
+        rc = CKR_TEMPLATE_INCOMPLETE;
+        goto done;
+    }
+
+    rc = token_specific.t_ml_dsa_sign(tokdata, sess, length_only, oid,
+                                      &ctx->mech, in_data, in_data_len,
+                                      signature, sig_len, key_obj,
+                                      final_part);
+    if (rc != CKR_OK)
+        TRACE_DEVEL("Token specific ML-DSA sign failed.\n");
+
+done:
+    object_put(tokdata, key_obj, TRUE);
+    key_obj = NULL;
+
+    return rc;
+}
+
+CK_RV ml_dsa_hash_sign(STDLL_TokData_t *tokdata, SESSION *sess,
+                       CK_BBOOL length_only, SIGN_VERIFY_CONTEXT *ctx,
+                       CK_BYTE *in_data, CK_ULONG in_data_len,
+                       CK_BYTE *signature, CK_ULONG *sig_len)
+{
+    CK_HASH_SIGN_ADDITIONAL_CONTEXT hash_sign_param = { 0 };
+    SIGN_VERIFY_CONTEXT sign_ctx;
+    CK_BYTE hash[MAX_SHA_HASH_SIZE];
+    CK_BYTE *hash_tbs;
+    DIGEST_CONTEXT digest_ctx = { 0 };
+    CK_MECHANISM digest_mech;
+    CK_ULONG hash_len;
+    CK_RV rc;
+
+    if (sess == NULL || ctx == NULL || in_data == NULL) {
+        TRACE_ERROR("%s received bad argument(s)\n", __func__);
+        return CKR_FUNCTION_FAILED;
+    }
+
+    rc = ml_dsa_get_digest_mech(&ctx->mech, &digest_mech.mechanism);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("ml_dsa_get_digest_mech failed.\n");
+        return rc;
+    }
+
+    rc = ml_dsa_setup_digest_mech(&digest_mech, &hash_len);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("ml_dsa_setup_digest_mech failed.\n");
+        return rc;
+    }
+
+    sign_ctx = *ctx;
+
+    if (ctx->mech.mechanism == CKM_HASH_ML_DSA) {
+        /* Input is the already hashed message PH */
+        if (in_data_len != hash_len) {
+            TRACE_ERROR("%s\n", ock_err(ERR_DATA_LEN_RANGE));
+            return CKR_DATA_LEN_RANGE;
+        }
+
+        hash_tbs = in_data;
+    } else {
+        rc = digest_mgr_init(tokdata, sess, &digest_ctx, &digest_mech, FALSE);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("Digest Mgr Init failed.\n");
+            return rc;
+        }
+
+        rc = digest_mgr_digest(tokdata, sess, FALSE, &digest_ctx, in_data,
+                               in_data_len, hash, &hash_len);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("Digest Mgr Digest failed.\n");
+            digest_mgr_cleanup(tokdata, sess, &digest_ctx);
+            return rc;
+        }
+
+        hash_tbs = hash;
+
+        /* Translate to CKM_HASH_ML_DSA mechanism */
+        sign_ctx.mech.mechanism = CKM_HASH_ML_DSA;
+        sign_ctx.mech.pParameter = &hash_sign_param;
+        sign_ctx.mech.ulParameterLen = sizeof(hash_sign_param);
+
+        rc = ml_dsa_translate_hash_sign_mech_param_from_sign(
+                                              ctx->mech.pParameter,
+                                              &hash_sign_param,
+                                              digest_mech.mechanism);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("ml_dsa_translate_hash_sign_mech_param_from_sign"
+                        " failed.\n");
+            return rc;
+        }
+    }
+
+    rc = ml_dsa_sign(tokdata, sess, length_only, &sign_ctx, hash_tbs, hash_len,
+                     signature, sig_len, TRUE);
+    if (rc != CKR_OK)
+        TRACE_DEVEL("ml_dsa_sign failed.\n");
+
+    return rc;
+}
+
+CK_RV ml_dsa_hash_sign_verify_update(STDLL_TokData_t *tokdata, SESSION *sess,
+                                     SIGN_VERIFY_CONTEXT *ctx,
+                                     CK_BYTE *in_data, CK_ULONG in_data_len)
+{
+    MP_DIGEST_CONTEXT *context = NULL;
+    CK_MECHANISM digest_mech;
+    CK_ULONG output_len;
+    CK_RV rc;
+
+    if (sess == NULL || ctx == NULL) {
+        TRACE_ERROR("%s received bad argument(s)\n", __func__);
+        return CKR_FUNCTION_FAILED;
+    }
+
+    context = (MP_DIGEST_CONTEXT *)ctx->context;
+
+    if (context->flag == FALSE) {
+        rc = get_digest_from_mech(ctx->mech.mechanism, &digest_mech.mechanism);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s get_digest_from_mech failed\n", __func__);
+            return rc;
+        }
+
+        rc = ml_dsa_setup_digest_mech(&digest_mech, &output_len);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("ml_dsa_setup_digest_mech failed.\n");
+            return rc;
+        }
+
+        rc = digest_mgr_init(tokdata, sess, &context->hash_context,
+                             &digest_mech, FALSE);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("Digest Mgr Init failed.\n");
+            return rc;
+        }
+
+        context->flag = TRUE;
+        ctx->state_unsaveable |= context->hash_context.state_unsaveable;
+    }
+
+    rc = digest_mgr_digest_update(tokdata, sess, &context->hash_context,
+                                  in_data, in_data_len);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("Digest Mgr Update failed.\n");
+        return rc;
+    }
+
+    return CKR_OK;
+}
+
+CK_RV ml_dsa_hash_sign_final(STDLL_TokData_t *tokdata, SESSION *sess,
+                             CK_BBOOL length_only, SIGN_VERIFY_CONTEXT *ctx,
+                             CK_BYTE *signature, CK_ULONG *sig_len)
+{
+    CK_HASH_SIGN_ADDITIONAL_CONTEXT hash_sign_param = { 0 };
+    SIGN_VERIFY_CONTEXT sign_ctx;
+    CK_BYTE hash[MAX_SHA_HASH_SIZE];
+    MP_DIGEST_CONTEXT *context = NULL;
+    CK_MECHANISM digest_mech;
+    CK_ULONG hash_len;
+    CK_RV rc;
+
+    if (sess == NULL || ctx == NULL || sig_len == NULL) {
+        TRACE_ERROR("%s received bad argument(s)\n", __func__);
+        return CKR_FUNCTION_FAILED;
+    }
+
+    if (ctx->mech.ulParameterLen != sizeof(CK_SIGN_ADDITIONAL_CONTEXT) &&
+        ctx->mech.ulParameterLen != 0) {
+        TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
+        return CKR_MECHANISM_PARAM_INVALID;
+    }
+    if (ctx->mech.ulParameterLen != 0 && ctx->mech.pParameter == NULL) {
+        TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
+        return CKR_MECHANISM_PARAM_INVALID;
+    }
+
+    context = (MP_DIGEST_CONTEXT *)ctx->context;
+
+    if (context->flag == FALSE) {
+        rc = ml_dsa_hash_sign_verify_update(tokdata, sess, ctx, NULL, 0);
+        TRACE_DEVEL("ml_dsa_hash_sign_verify_update\n");
+        if (rc != 0)
+            return rc;
+    }
+
+    digest_mech = context->hash_context.mech;
+    rc = ml_dsa_setup_digest_mech(&digest_mech, &hash_len);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("ml_dsa_setup_digest_mech failed.\n");
+        return rc;
+    }
+
+    rc = digest_mgr_digest_final(tokdata, sess, length_only,
+                                 &context->hash_context, hash, &hash_len);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("Digest Mgr Final failed.\n");
+        return rc;
+    }
+
+    /* Translate to CKM_HASH_ML_DSA mechanism */
+    sign_ctx = *ctx;
+    sign_ctx.mech.mechanism = CKM_HASH_ML_DSA;
+    sign_ctx.mech.pParameter = &hash_sign_param;
+    sign_ctx.mech.ulParameterLen = sizeof(hash_sign_param);
+
+    rc = ml_dsa_translate_hash_sign_mech_param_from_sign(
+                                          ctx->mech.pParameter,
+                                          &hash_sign_param,
+                                          digest_mech.mechanism);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("ml_dsa_translate_hash_sign_mech_param_from_sign"
+                    " failed.\n");
+        return rc;
+    }
+
+    rc = ml_dsa_sign(tokdata, sess, length_only, &sign_ctx, hash, hash_len,
+                     signature, sig_len, TRUE);
+    if (rc != CKR_OK)
+        TRACE_DEVEL("ml_dsa_sign failed.\n");
+
+    return rc;
+}
+
+CK_RV ml_dsa_verify(STDLL_TokData_t *tokdata, SESSION *sess,
+                    SIGN_VERIFY_CONTEXT *ctx,
+                    CK_BYTE *in_data, CK_ULONG in_data_len,
+                    CK_BYTE *signature, CK_ULONG sig_len,
+                    CK_BBOOL final_part)
+{
+    OBJECT *key_obj = NULL;
+    CK_OBJECT_CLASS class;
+    const struct pqc_oid *oid;
+    CK_RV rc;
+
+    if (token_specific.t_ml_dsa_verify == NULL) {
+        TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
+        return CKR_MECHANISM_INVALID;
+    }
+
+    rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj, READ_LOCK);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Failed to acquire key from specified handle\n");
+        if (rc == CKR_OBJECT_HANDLE_INVALID)
+            return CKR_KEY_HANDLE_INVALID;
+        else
+            return rc;
+    }
+
+    rc = template_attribute_get_ulong(key_obj->template, CKA_CLASS, &class);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_CLASS for the key.\n");
+        goto done;
+    }
+
+    if (class != CKO_PUBLIC_KEY) {
+        TRACE_ERROR("This operation requires a public key.\n");
+        rc = CKR_KEY_FUNCTION_NOT_PERMITTED;
+        goto done;
+    }
+
+    oid = pqc_get_keyform_mode(key_obj->template, ctx->mech.mechanism);
+    if (oid == NULL) {
+        TRACE_DEVEL("No keyform/mode found in key object\n");
+        rc = CKR_TEMPLATE_INCOMPLETE;
+        goto done;
+    }
+
+    rc = token_specific.t_ml_dsa_verify(tokdata, sess, oid, &ctx->mech,
+                                        in_data, in_data_len,
+                                        signature, sig_len, key_obj,
+                                        final_part);
+    if (rc != CKR_OK)
+        TRACE_DEVEL("Token specific ML-DSA verify failed.\n");
+
+done:
+    object_put(tokdata, key_obj, TRUE);
+    key_obj = NULL;
+
+    return rc;
+}
+
+CK_RV ml_dsa_hash_verify(STDLL_TokData_t *tokdata, SESSION *sess,
+                         SIGN_VERIFY_CONTEXT *ctx,
+                         CK_BYTE *in_data, CK_ULONG in_data_len,
+                         CK_BYTE *signature, CK_ULONG sig_len)
+{
+    CK_HASH_SIGN_ADDITIONAL_CONTEXT hash_verify_param = { 0 };
+    SIGN_VERIFY_CONTEXT verify_ctx;
+    CK_BYTE hash[MAX_SHA_HASH_SIZE];
+    CK_BYTE *hash_tbv = hash;
+    DIGEST_CONTEXT digest_ctx = { 0 };
+    CK_MECHANISM digest_mech;
+    CK_ULONG hash_len;
+    CK_RV rc;
+
+    if (sess == NULL || ctx == NULL || in_data == NULL) {
+        TRACE_ERROR("%s received bad argument(s)\n", __func__);
+        return CKR_FUNCTION_FAILED;
+    }
+
+    rc = ml_dsa_get_digest_mech(&ctx->mech, &digest_mech.mechanism);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("ml_dsa_get_digest_mech failed.\n");
+        return rc;
+    }
+
+    rc = ml_dsa_setup_digest_mech(&digest_mech, &hash_len);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("ml_dsa_setup_digest_mech failed.\n");
+        return rc;
+    }
+
+    verify_ctx = *ctx;
+
+    if (ctx->mech.mechanism == CKM_HASH_ML_DSA) {
+        /* Input is the already hashed message PH */
+        if (in_data_len != hash_len) {
+            TRACE_ERROR("%s\n", ock_err(ERR_DATA_LEN_RANGE));
+            return CKR_DATA_LEN_RANGE;
+        }
+
+        hash_tbv = in_data;
+    } else {
+        rc = digest_mgr_init(tokdata, sess, &digest_ctx, &digest_mech, FALSE);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("Digest Mgr Init failed.\n");
+            return rc;
+        }
+
+        rc = digest_mgr_digest(tokdata, sess, FALSE, &digest_ctx, in_data,
+                               in_data_len, hash, &hash_len);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("Digest Mgr Digest failed.\n");
+            digest_mgr_cleanup(tokdata, sess, &digest_ctx);
+            return rc;
+        }
+
+        hash_tbv = hash;
+
+        /* Translate to CKM_HASH_ML_DSA mechanism */
+        verify_ctx.mech.mechanism = CKM_HASH_ML_DSA;
+        verify_ctx.mech.pParameter = &hash_verify_param;
+        verify_ctx.mech.ulParameterLen = sizeof(hash_verify_param);
+
+        rc = ml_dsa_translate_hash_sign_mech_param_from_sign(
+                                              ctx->mech.pParameter,
+                                              &hash_verify_param,
+                                              digest_mech.mechanism);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("ml_dsa_translate_hash_sign_mech_param_from_sign"
+                        " failed.\n");
+            return rc;
+        }
+    }
+
+    rc = ml_dsa_verify(tokdata, sess, &verify_ctx, hash_tbv, hash_len,
+                       signature, sig_len, TRUE);
+    if (rc != CKR_OK)
+        TRACE_DEVEL("ml_dsa_verify failed.\n");
+
+    return rc;
+}
+
+CK_RV ml_dsa_hash_verify_final(STDLL_TokData_t *tokdata, SESSION *sess,
+                               SIGN_VERIFY_CONTEXT *ctx,
+                               CK_BYTE *signature, CK_ULONG sig_len)
+{
+    CK_HASH_SIGN_ADDITIONAL_CONTEXT hash_verify_param = { 0 };
+    SIGN_VERIFY_CONTEXT verify_ctx;
+    CK_BYTE hash[MAX_SHA_HASH_SIZE];
+    MP_DIGEST_CONTEXT *context = NULL;
+    CK_MECHANISM digest_mech;
+    CK_ULONG hash_len;
+    CK_RV rc;
+
+    if (sess == NULL || ctx == NULL || signature == NULL) {
+        TRACE_ERROR("%s received bad argument(s)\n", __func__);
+        return CKR_FUNCTION_FAILED;
+    }
+
+    if (ctx->mech.ulParameterLen != sizeof(CK_SIGN_ADDITIONAL_CONTEXT) &&
+        ctx->mech.ulParameterLen != 0) {
+        TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
+        return CKR_MECHANISM_PARAM_INVALID;
+    }
+    if (ctx->mech.ulParameterLen != 0 && ctx->mech.pParameter == NULL) {
+        TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
+        return CKR_MECHANISM_PARAM_INVALID;
+    }
+
+    context = (MP_DIGEST_CONTEXT *)ctx->context;
+
+    if (context->flag == FALSE) {
+        rc = ml_dsa_hash_sign_verify_update(tokdata, sess, ctx, NULL, 0);
+        TRACE_DEVEL("ml_dsa_hash_sign_verify_update\n");
+        if (rc != 0)
+            return rc;
+    }
+
+    digest_mech = context->hash_context.mech;
+    rc = ml_dsa_setup_digest_mech(&digest_mech, &hash_len);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("ml_dsa_setup_digest_mech failed.\n");
+        return rc;
+    }
+
+    rc = digest_mgr_digest_final(tokdata, sess, FALSE, &context->hash_context,
+                                 hash, &hash_len);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("Digest Mgr Final failed.\n");
+        return rc;
+    }
+
+    /* Translate to CKM_HASH_ML_DSA mechanism */
+    verify_ctx = *ctx;
+    verify_ctx.mech.mechanism = CKM_HASH_ML_DSA;
+    verify_ctx.mech.pParameter = &hash_verify_param;
+    verify_ctx.mech.ulParameterLen = sizeof(hash_verify_param);
+
+    rc = ml_dsa_translate_hash_sign_mech_param_from_sign(
+                                          ctx->mech.pParameter,
+                                          &hash_verify_param,
+                                          digest_mech.mechanism);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("ml_dsa_translate_hash_sign_mech_param_from_sign"
+                    " failed.\n");
+        return rc;
+    }
+
+    rc = ml_dsa_verify(tokdata, sess, &verify_ctx, hash, hash_len,
+                     signature, sig_len, TRUE);
+    if (rc != CKR_OK)
+        TRACE_DEVEL("ml_dsa_sign failed.\n");
+
+    return rc;
+}
+
+static CK_RV ml_kem_get_key_type_key_len(CK_ATTRIBUTE *pTemplate,
+                                         CK_ULONG ulAttributeCount,
+                                         CK_KEY_TYPE *key_type,
+                                         CK_ULONG *key_len)
+{
+    CK_ULONG allowed_keylen;
+    CK_RV rc;
+
+    *key_len = 0;
+    rc = get_ulong_attribute_by_type(pTemplate, ulAttributeCount,
+                                     CKA_VALUE_LEN, key_len);
+    if (rc == CKR_ATTRIBUTE_VALUE_INVALID) {
+        TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
+        return rc;
+    }
+
+    *key_type = 0;
+    rc = get_ulong_attribute_by_type(pTemplate, ulAttributeCount,
+                                     CKA_KEY_TYPE, key_type);
+    if (rc == CKR_ATTRIBUTE_VALUE_INVALID) {
+        TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
+        return rc;
+    }
+
+    /*
+     * - no key length and no key type: CKR_TEMPLATE_INCOMPLETE
+     * - no key type, but length given: CKK_GENERIC_SECRET of specified length.
+     * - no key length but key type specified: key must have a well-defined
+     *                                         length, otherwise error.
+     * - key length and key type specified: length must be compatible with key
+     *                                      type, otherwise error.
+     */
+    if (*key_type == 0 && *key_len == 0) {
+        TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCOMPLETE));
+        return CKR_TEMPLATE_INCOMPLETE;
+    }
+
+    if (*key_type == 0)
+        *key_type = CKK_GENERIC_SECRET;
+
+    switch (*key_type) {
+    case CKK_GENERIC_SECRET:
+        if (*key_len == 0) {
+            TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCONSISTENT));
+            return CKR_TEMPLATE_INCONSISTENT;
+        }
+        allowed_keylen = *key_len;
+        break;
+    case CKK_DES:
+        allowed_keylen = DES_KEY_SIZE;
+        break;
+    case CKK_DES2:
+        allowed_keylen = 2 * DES_KEY_SIZE;
+        break;
+    case CKK_DES3:
+        allowed_keylen = 3 * DES_KEY_SIZE;
+        break;
+    case CKK_AES:
+        switch (*key_len) {
+        case AES_KEY_SIZE_128:
+        case AES_KEY_SIZE_192:
+        case AES_KEY_SIZE_256:
+            allowed_keylen = *key_len;
+            break;
+        default:
+            TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCONSISTENT));
+            return CKR_TEMPLATE_INCONSISTENT;
+        }
+        break;
+    case CKK_AES_XTS:
+        switch (*key_len) {
+        case 2 * AES_KEY_SIZE_128:
+        case 2 * AES_KEY_SIZE_256:
+            allowed_keylen = *key_len;
+            break;
+        default:
+            TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCONSISTENT));
+            return CKR_TEMPLATE_INCONSISTENT;
+        }
+        break;
+    default:
+        TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCONSISTENT));
+        return CKR_TEMPLATE_INCONSISTENT;
+    }
+
+    if (*key_len == 0)
+        *key_len = allowed_keylen;
+
+    if (*key_len != allowed_keylen) {
+        TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCONSISTENT));
+        return CKR_TEMPLATE_INCONSISTENT;
+    }
+
+    if (*key_len > 32) {
+        TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCONSISTENT));
+        return CKR_TEMPLATE_INCONSISTENT;
+    }
+
+    return CKR_OK;
+}
+
+CK_RV ml_kem_encapsulate_key(STDLL_TokData_t *tokdata, SESSION *sess,
+                             CK_BBOOL length_only, CK_MECHANISM *mech,
+                             OBJECT *public_key,
+                             CK_ATTRIBUTE *pTemplate, CK_ULONG ulAttributeCount,
+                             CK_BYTE *pCiphertext, CK_ULONG *pulCiphertextLen,
+                             CK_OBJECT_HANDLE *phKey)
+{
+    CK_OBJECT_CLASS class;
+    CK_KEY_TYPE keytype;
+    CK_ULONG keylen;
+    const struct pqc_oid *oid;
+    CK_RV rc;
+
+    if (token_specific.t_ml_kem_encapsulate_key == NULL) {
+        TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
+        return CKR_MECHANISM_INVALID;
+    }
+
+    rc = template_attribute_get_ulong(public_key->template, CKA_CLASS, &class);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_CLASS for the key.\n");
+        return rc;
+    }
+
+    if (class != CKO_PUBLIC_KEY) {
+        TRACE_ERROR("This operation requires a public key.\n");
+        return CKR_KEY_FUNCTION_NOT_PERMITTED;
+    }
+
+    rc = template_attribute_get_ulong(public_key->template, CKA_KEY_TYPE,
+                                      &keytype);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_KEY_TYPE for the key.\n");
+        return rc;
+    }
+
+    switch (mech->mechanism) {
+    case CKM_ML_KEM:
+        if (keytype != CKK_ML_KEM) {
+            TRACE_ERROR("This operation requires a ML-KEM key.\n");
+            return CKR_KEY_FUNCTION_NOT_PERMITTED;
+        }
+
+        if (mech->ulParameterLen != 0 || mech->pParameter != NULL) {
+            TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
+            return CKR_MECHANISM_PARAM_INVALID;
+        }
+        break;
+    default:
+        TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
+        return CKR_MECHANISM_INVALID;
+    }
+
+    oid = pqc_get_keyform_mode(public_key->template, mech->mechanism);
+    if (oid == NULL) {
+        TRACE_DEVEL("No keyform/mode found in key object\n");
+        return CKR_TEMPLATE_INCOMPLETE;
+    }
+
+    rc = ml_kem_get_key_type_key_len(pTemplate, ulAttributeCount,
+                                     &keytype, &keylen);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("ml_kem_get_key_type_key_len failed.\n");
+        return rc;
+    }
+
+    rc = token_specific.t_ml_kem_encapsulate_key(tokdata, sess, length_only,
+                                                 oid, mech, public_key,
+                                                 pTemplate, ulAttributeCount,
+                                                 pCiphertext, pulCiphertextLen,
+                                                 keytype, keylen, phKey);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("Token specific ML-KEM encapsulate failed.\n");
+        return rc;
+    }
+
+    return CKR_OK;
+}
+
+CK_RV ml_kem_decapsulate_key(STDLL_TokData_t *tokdata, SESSION *sess,
+                             CK_MECHANISM *mech, OBJECT *private_key,
+                             CK_ATTRIBUTE *pTemplate, CK_ULONG ulAttributeCount,
+                             CK_BYTE *pCiphertext, CK_ULONG ulCiphertextLen,
+                             CK_OBJECT_HANDLE *phKey)
+{
+    CK_OBJECT_CLASS class;
+    CK_KEY_TYPE keytype;
+    CK_ULONG keylen;
+    const struct pqc_oid *oid;
+    CK_RV rc;
+
+    if (token_specific.t_ml_kem_decapsulate_key == NULL) {
+        TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
+        return CKR_MECHANISM_INVALID;
+    }
+
+    rc = template_attribute_get_ulong(private_key->template, CKA_CLASS, &class);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_CLASS for the key.\n");
+        return rc;
+    }
+
+    if (class != CKO_PRIVATE_KEY) {
+        TRACE_ERROR("This operation requires a private key.\n");
+        return CKR_KEY_FUNCTION_NOT_PERMITTED;
+    }
+
+    rc = template_attribute_get_ulong(private_key->template, CKA_KEY_TYPE,
+                                      &keytype);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_KEY_TYPE for the key.\n");
+        return rc;
+    }
+
+    switch (mech->mechanism) {
+    case CKM_ML_KEM:
+        if (keytype != CKK_ML_KEM) {
+            TRACE_ERROR("This operation requires a ML-KEM key.\n");
+            return CKR_KEY_FUNCTION_NOT_PERMITTED;
+        }
+
+        if (mech->ulParameterLen != 0 || mech->pParameter != NULL) {
+            TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
+            return CKR_MECHANISM_PARAM_INVALID;
+        }
+        break;
+    default:
+        TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
+        return CKR_MECHANISM_INVALID;
+    }
+
+    oid = pqc_get_keyform_mode(private_key->template, mech->mechanism);
+    if (oid == NULL) {
+        TRACE_DEVEL("No keyform/mode found in key object\n");
+        return CKR_TEMPLATE_INCOMPLETE;
+    }
+
+    rc = ml_kem_get_key_type_key_len(pTemplate, ulAttributeCount,
+                                     &keytype, &keylen);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("ml_kem_get_key_type_key_len failed.\n");
+        return rc;
+    }
+
+    rc = token_specific.t_ml_kem_decapsulate_key(tokdata, sess,
+                                                 oid, mech, private_key,
+                                                 pTemplate, ulAttributeCount,
+                                                 pCiphertext, ulCiphertextLen,
+                                                 keytype, keylen, phKey);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("Token specific ML-KEM decapsulate failed.\n");
+        return rc;
+    }
+
+    return CKR_OK;
+}
+
 #define PACK_PART(attr, explen, buf, buflen, ofs)                       \
     if ((attr)->ulValueLen != (explen)) {                               \
         TRACE_ERROR("Key part #attr length not as expected\n");         \
@@ -727,6 +1580,231 @@ out:
     return rc;
 }
 
+static CK_RV ml_dsa_pack_priv_key(TEMPLATE *templ,
+                                  const struct pqc_oid *oid,
+                                  CK_BYTE *priv, CK_ULONG *priv_len)
+{
+    CK_ATTRIBUTE *value = NULL;
+    CK_ULONG ofs = 0;
+    CK_RV rc;
+
+    if (priv == NULL) {
+        *priv_len = oid->len_info.ml_dsa.rho_len +
+                    oid->len_info.ml_dsa.seed_len +
+                    oid->len_info.ml_dsa.tr_len +
+                    oid->len_info.ml_dsa.s1_len +
+                    oid->len_info.ml_dsa.s2_len +
+                    oid->len_info.ml_dsa.t0_len;
+        return CKR_OK;
+    }
+
+    rc = template_attribute_get_non_empty(templ, CKA_VALUE, &value);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_VALUE for the key.\n");
+        return rc;
+    }
+
+    PACK_PART(value, oid->len_info.ml_dsa.rho_len +
+                     oid->len_info.ml_dsa.seed_len +
+                     oid->len_info.ml_dsa.tr_len +
+                     oid->len_info.ml_dsa.s1_len +
+                     oid->len_info.ml_dsa.s2_len +
+                     oid->len_info.ml_dsa.t0_len,
+              priv, *priv_len, ofs);
+
+    *priv_len = ofs;
+
+    return CKR_OK;
+}
+
+static CK_RV ml_dsa_pack_pub_key(TEMPLATE *templ,
+                                 const struct pqc_oid *oid,
+                                 CK_BYTE *pub, CK_ULONG *pub_len)
+{
+    CK_ATTRIBUTE *value = NULL;
+    CK_ULONG ofs = 0;
+    CK_RV rc;
+
+    if (pub == NULL) {
+        *pub_len = oid->len_info.ml_dsa.rho_len +
+                   oid->len_info.ml_dsa.t1_len;
+        return CKR_OK;
+    }
+
+    rc = template_attribute_get_non_empty(templ, CKA_VALUE, &value);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_VALUE for the key.\n");
+        return rc;
+    }
+
+    PACK_PART(value, oid->len_info.ml_dsa.rho_len +
+                     oid->len_info.ml_dsa.t1_len,
+              pub, *pub_len, ofs);
+
+    *pub_len = ofs;
+
+    return CKR_OK;
+}
+
+static CK_RV ml_dsa_unpack_priv_key(CK_BYTE *priv, CK_ULONG priv_len,
+                                    const struct pqc_oid *oid,
+                                    TEMPLATE *templ)
+{
+    CK_ATTRIBUTE *value = NULL;
+    CK_ULONG ofs = 0;
+    CK_RV rc;
+
+    UNPACK_PART(value, CKA_VALUE, oid->len_info.ml_dsa.rho_len +
+                                  oid->len_info.ml_dsa.seed_len +
+                                  oid->len_info.ml_dsa.tr_len +
+                                  oid->len_info.ml_dsa.s1_len +
+                                  oid->len_info.ml_dsa.s2_len +
+                                  oid->len_info.ml_dsa.t0_len,
+                priv, priv_len, ofs, rc, out);
+
+    rc = template_update_attribute(templ, value);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("Template update for CKA_VALUE failed\n");
+        goto out;
+    }
+    value = NULL;
+
+out:
+    if (value != NULL)
+        free(value);
+
+    return rc;
+}
+
+static CK_RV ml_dsa_unpack_pub_key(CK_BYTE *pub, CK_ULONG pub_len,
+                                   const struct pqc_oid *oid,
+                                   TEMPLATE *templ)
+{
+    CK_ATTRIBUTE *value = NULL;
+    CK_ULONG ofs = 0;
+    CK_RV rc;
+
+    UNPACK_PART(value, CKA_VALUE, oid->len_info.ml_dsa.rho_len +
+                                  oid->len_info.ml_dsa.t1_len,
+                pub, pub_len, ofs, rc, out);
+
+    rc = template_update_attribute(templ, value);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("Template update for CKA_VALUE failed\n");
+        goto out;
+    }
+    value = NULL;
+
+out:
+    if (value != NULL)
+        free(value);
+
+    return rc;
+}
+
+static CK_RV ml_kem_pack_priv_key(TEMPLATE *templ,
+                                  const struct pqc_oid *oid,
+                                  CK_BYTE *priv, CK_ULONG *priv_len)
+{
+    CK_ATTRIBUTE *value = NULL;
+    CK_ULONG ofs = 0;
+    CK_RV rc;
+
+    if (priv == NULL) {
+        *priv_len = oid->len_info.ml_kem.sk_len;
+        return CKR_OK;
+    }
+
+    rc = template_attribute_get_non_empty(templ, CKA_VALUE, &value);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_VALUE for the key.\n");
+        return rc;
+    }
+
+    PACK_PART(value, oid->len_info.ml_kem.sk_len, priv, *priv_len, ofs);
+
+    *priv_len = ofs;
+
+    return CKR_OK;
+}
+
+static CK_RV ml_kem_pack_pub_key(TEMPLATE *templ,
+                                 const struct pqc_oid *oid,
+                                 CK_BYTE *pub, CK_ULONG *pub_len)
+{
+    CK_ATTRIBUTE *value = NULL;
+    CK_ULONG ofs = 0;
+    CK_RV rc;
+
+    if (pub == NULL) {
+        *pub_len = oid->len_info.ml_kem.pk_len;
+        return CKR_OK;
+    }
+
+    rc = template_attribute_get_non_empty(templ, CKA_VALUE, &value);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_VALUE for the key.\n");
+        return rc;
+    }
+
+    PACK_PART(value, oid->len_info.ml_kem.pk_len, pub, *pub_len, ofs);
+
+    *pub_len = ofs;
+
+    return CKR_OK;
+}
+
+static CK_RV ml_kem_unpack_priv_key(CK_BYTE *priv, CK_ULONG priv_len,
+                                    const struct pqc_oid *oid,
+                                    TEMPLATE *templ)
+{
+    CK_ATTRIBUTE *value = NULL;
+    CK_ULONG ofs = 0;
+    CK_RV rc;
+
+    UNPACK_PART(value, CKA_VALUE, oid->len_info.ml_kem.sk_len,
+                priv, priv_len, ofs, rc, out);
+
+    rc = template_update_attribute(templ, value);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("Template update for CKA_VALUE failed\n");
+        goto out;
+    }
+    value = NULL;
+
+out:
+    if (value != NULL)
+        free(value);
+
+    return rc;
+}
+
+static CK_RV ml_kem_unpack_pub_key(CK_BYTE *pub, CK_ULONG pub_len,
+                                   const struct pqc_oid *oid,
+                                   TEMPLATE *templ)
+{
+    CK_ATTRIBUTE *value = NULL;
+    CK_ULONG ofs = 0;
+    CK_RV rc;
+
+    UNPACK_PART(value, CKA_VALUE, oid->len_info.ml_kem.pk_len,
+                pub, pub_len, ofs, rc, out);
+
+    rc = template_update_attribute(templ, value);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("Template update for CKA_VALUE failed\n");
+        goto out;
+    }
+    value = NULL;
+
+out:
+    if (value != NULL)
+        free(value);
+
+    return rc;
+}
+
+
 #undef PACK_PART
 #undef UNPACK_PART
 
@@ -743,6 +1821,13 @@ CK_RV pqc_pack_priv_key(TEMPLATE *templ, const struct pqc_oid *oid,
     case CKM_IBM_ML_KEM_KEY_PAIR_GEN:
     case CKM_IBM_ML_KEM_WITH_ECDH:
         return ibm_ml_kem_pack_priv_key(templ, oid, mech, priv, priv_len);
+    case CKM_ML_DSA:
+    case CKM_ML_DSA_KEY_PAIR_GEN:
+    case CKM_HASH_ML_DSA:
+        return ml_dsa_pack_priv_key(templ, oid, priv, priv_len);
+    case CKM_ML_KEM:
+    case CKM_ML_KEM_KEY_PAIR_GEN:
+        return ml_kem_pack_priv_key(templ, oid, priv, priv_len);
     default:
         return CKR_MECHANISM_INVALID;
     }
@@ -761,6 +1846,13 @@ CK_RV pqc_pack_pub_key(TEMPLATE *templ, const struct pqc_oid *oid,
     case CKM_IBM_ML_KEM_KEY_PAIR_GEN:
     case CKM_IBM_ML_KEM_WITH_ECDH:
         return ibm_ml_kem_pack_pub_key(templ, oid, mech, pub, pub_len);
+    case CKM_ML_DSA:
+    case CKM_ML_DSA_KEY_PAIR_GEN:
+    case CKM_HASH_ML_DSA:
+        return ml_dsa_pack_pub_key(templ, oid, pub, pub_len);
+    case CKM_ML_KEM:
+    case CKM_ML_KEM_KEY_PAIR_GEN:
+        return ml_kem_pack_pub_key(templ, oid, pub, pub_len);
     default:
         return CKR_MECHANISM_INVALID;
     }
@@ -779,6 +1871,13 @@ CK_RV pqc_unpack_priv_key(CK_BYTE *priv, CK_ULONG priv_len,
     case CKM_IBM_ML_KEM_KEY_PAIR_GEN:
     case CKM_IBM_ML_KEM_WITH_ECDH:
         return ibm_ml_kem_unpack_priv_key(priv, priv_len, oid, mech, templ);
+    case CKM_ML_DSA:
+    case CKM_ML_DSA_KEY_PAIR_GEN:
+    case CKM_HASH_ML_DSA:
+        return ml_dsa_unpack_priv_key(priv, priv_len, oid, templ);
+    case CKM_ML_KEM:
+    case CKM_ML_KEM_KEY_PAIR_GEN:
+        return ml_kem_unpack_priv_key(priv, priv_len, oid, templ);
     default:
         return CKR_MECHANISM_INVALID;
     }
@@ -797,6 +1896,13 @@ CK_RV pqc_unpack_pub_key(CK_BYTE *pub, CK_ULONG pub_len,
     case CKM_IBM_ML_KEM_KEY_PAIR_GEN:
     case CKM_IBM_ML_KEM_WITH_ECDH:
         return ibm_ml_kem_unpack_pub_key(pub, pub_len, oid, mech, templ);
+    case CKM_ML_DSA:
+    case CKM_ML_DSA_KEY_PAIR_GEN:
+    case CKM_HASH_ML_DSA:
+        return ml_dsa_unpack_pub_key(pub, pub_len, oid, templ);
+    case CKM_ML_KEM:
+    case CKM_ML_KEM_KEY_PAIR_GEN:
+        return ml_kem_unpack_pub_key(pub, pub_len, oid, templ);
     default:
         return CKR_MECHANISM_INVALID;
     }
@@ -845,6 +1951,209 @@ CK_RV ibm_ml_dsa_free_param(CK_VOID_PTR p, CK_ULONG len)
         free(param->pContext);
 
     memset(param, 0, sizeof(*param));
+
+    return CKR_OK;
+}
+
+CK_RV ml_dsa_dup_param(CK_VOID_PTR src, CK_VOID_PTR dst, CK_ULONG len)
+{
+    CK_SIGN_ADDITIONAL_CONTEXT *param_src = src;
+    CK_SIGN_ADDITIONAL_CONTEXT *param_dst = dst;
+
+    if (param_src == NULL || len == 0)
+        return CKR_OK;
+
+    if (len != sizeof(CK_SIGN_ADDITIONAL_CONTEXT))
+        return CKR_MECHANISM_PARAM_INVALID;
+
+    if(param_src->pContext == NULL || param_src->ulContextLen == 0)
+        return CKR_OK;
+
+    if (param_dst == NULL)
+        return CKR_ARGUMENTS_BAD;
+
+    param_dst->pContext = malloc(param_src->ulContextLen);
+    if (param_dst->pContext == NULL) {
+        TRACE_ERROR("%s Memory allocation failed\n", __func__);
+        return CKR_HOST_MEMORY;
+    }
+
+    memcpy(param_dst->pContext, param_src->pContext, param_src->ulContextLen);
+    param_dst->ulContextLen = param_src->ulContextLen;
+
+    return CKR_OK;
+}
+
+CK_RV ml_dsa_free_param(CK_VOID_PTR p, CK_ULONG len)
+{
+    CK_SIGN_ADDITIONAL_CONTEXT *param = p;
+
+    if (param == NULL || len == 0)
+        return CKR_OK;
+
+    if (len != sizeof(CK_SIGN_ADDITIONAL_CONTEXT))
+        return CKR_MECHANISM_PARAM_INVALID;
+
+    if (param->pContext != NULL)
+        free(param->pContext);
+
+    memset(param, 0, sizeof(*param));
+
+    return CKR_OK;
+}
+
+CK_RV ml_dsa_hash_dup_param(CK_VOID_PTR src, CK_VOID_PTR dst, CK_ULONG len)
+{
+    CK_HASH_SIGN_ADDITIONAL_CONTEXT *param_src = src;
+    CK_HASH_SIGN_ADDITIONAL_CONTEXT *param_dst = dst;
+
+    if (param_src == NULL || len == 0)
+        return CKR_MECHANISM_PARAM_INVALID;
+
+    if (len != sizeof(CK_HASH_SIGN_ADDITIONAL_CONTEXT))
+        return CKR_MECHANISM_PARAM_INVALID;
+
+    if(param_src->pContext == NULL || param_src->ulContextLen == 0)
+        return CKR_OK;
+
+    if (param_dst == NULL)
+        return CKR_ARGUMENTS_BAD;
+
+    param_dst->pContext = malloc(param_src->ulContextLen);
+    if (param_dst->pContext == NULL) {
+        TRACE_ERROR("%s Memory allocation failed\n", __func__);
+        return CKR_HOST_MEMORY;
+    }
+
+    memcpy(param_dst->pContext, param_src->pContext, param_src->ulContextLen);
+    param_dst->ulContextLen = param_src->ulContextLen;
+
+    return CKR_OK;
+}
+
+CK_RV ml_dsa_hash_free_param(CK_VOID_PTR p, CK_ULONG len)
+{
+    CK_HASH_SIGN_ADDITIONAL_CONTEXT *param = p;
+
+    if (param == NULL || len == 0)
+        return CKR_MECHANISM_PARAM_INVALID;
+
+    if (len != sizeof(CK_HASH_SIGN_ADDITIONAL_CONTEXT))
+        return CKR_MECHANISM_PARAM_INVALID;
+
+    if (param->pContext != NULL)
+        free(param->pContext);
+
+    memset(param, 0, sizeof(*param));
+
+    return CKR_OK;
+}
+
+CK_RV ml_dsa_translate_sign_mech_param_from_ibm(
+                            CK_IBM_SIGN_ADDITIONAL_CONTEXT *from,
+                            CK_SIGN_ADDITIONAL_CONTEXT *to)
+{
+    if (to == NULL)
+        return CKR_ARGUMENTS_BAD;
+
+    if (from != NULL) {
+        switch (from->hedgeVariant) {
+        case CKH_IBM_HEDGE_PREFERRED:
+            to->hedgeVariant = CKH_HEDGE_PREFERRED;
+            break;
+        case CKH_IBM_HEDGE_REQUIRED:
+            to->hedgeVariant = CKH_HEDGE_REQUIRED;
+            break;
+        case CKH_IBM_DETERMINISTIC_REQUIRED:
+            to->hedgeVariant = CKH_DETERMINISTIC_REQUIRED;
+            break;
+        default:
+            TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
+            return CKR_MECHANISM_PARAM_INVALID;
+        }
+
+        to->pContext = from->pContext;
+        to->ulContextLen = from->ulContextLen;
+    } else {
+        to->hedgeVariant = CKH_HEDGE_PREFERRED;
+        to->pContext = NULL;
+        to->ulContextLen = 0;
+    }
+
+    return CKR_OK;
+}
+
+CK_RV ml_dsa_translate_ibm_sign_mech_param_from_sign(
+                            CK_SIGN_ADDITIONAL_CONTEXT *from,
+                            CK_IBM_SIGN_ADDITIONAL_CONTEXT *to)
+{
+    if (to == NULL)
+        return CKR_ARGUMENTS_BAD;
+
+    if (from != NULL) {
+        switch (from->hedgeVariant) {
+        case CKH_HEDGE_PREFERRED:
+            to->hedgeVariant = CKH_IBM_HEDGE_PREFERRED;
+            break;
+        case CKH_HEDGE_REQUIRED:
+            to->hedgeVariant = CKH_IBM_HEDGE_REQUIRED;
+            break;
+        case CKH_DETERMINISTIC_REQUIRED:
+            to->hedgeVariant = CKH_IBM_DETERMINISTIC_REQUIRED;
+            break;
+        default:
+            TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
+            return CKR_MECHANISM_PARAM_INVALID;
+        }
+
+        to->pContext = from->pContext;
+        to->ulContextLen = from->ulContextLen;
+    } else {
+        to->hedgeVariant = CKH_IBM_HEDGE_PREFERRED;
+        to->pContext = NULL;
+        to->ulContextLen = 0;
+    }
+
+    return CKR_OK;
+}
+
+CK_RV ml_dsa_translate_sign_mech_param_from_hash(
+                            CK_HASH_SIGN_ADDITIONAL_CONTEXT *from,
+                            CK_SIGN_ADDITIONAL_CONTEXT *to,
+                            CK_MECHANISM_TYPE *hash_mech)
+{
+    if (to == NULL || from == NULL)
+        return CKR_ARGUMENTS_BAD;
+
+    to->hedgeVariant = from->hedgeVariant;
+    to->pContext = from->pContext;
+    to->ulContextLen = from->ulContextLen;
+
+    if (hash_mech != NULL)
+        *hash_mech = from->hash;
+
+    return CKR_OK;
+}
+
+CK_RV ml_dsa_translate_hash_sign_mech_param_from_sign(
+                            CK_SIGN_ADDITIONAL_CONTEXT *from,
+                            CK_HASH_SIGN_ADDITIONAL_CONTEXT *to,
+                            CK_MECHANISM_TYPE hash_mech)
+{
+    if (to == NULL)
+        return CKR_ARGUMENTS_BAD;
+
+    if (from != NULL) {
+        to->hedgeVariant = from->hedgeVariant;
+        to->pContext = from->pContext;
+        to->ulContextLen = from->ulContextLen;
+    } else {
+        to->hedgeVariant = CKH_HEDGE_PREFERRED;
+        to->pContext = NULL;
+        to->ulContextLen = 0;
+    }
+
+    to->hash = hash_mech;
 
     return CKR_OK;
 }

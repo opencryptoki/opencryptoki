@@ -23,6 +23,7 @@
 #include "h_extern.h"
 #include "tok_spec_struct.h"
 #include "trace.h"
+#include "p11util.h"
 
 #include "../api/policy.h"
 #include "../api/statistics.h"
@@ -43,7 +44,8 @@ CK_RV encr_mgr_init(STDLL_TokData_t *tokdata,
     CK_KEY_TYPE keytype;
     CK_BBOOL flag;
     CK_RV rc;
-    int check;
+    int poilicy_check;
+    CK_ATTRIBUTE_TYPE key_usage_attr;
     CK_ULONG strength = POLICY_STRENGTH_IDX_0;
     CK_GCM_PARAMS gcm_params;
     CK_MECHANISM temp_mech;
@@ -57,65 +59,56 @@ CK_RV encr_mgr_init(STDLL_TokData_t *tokdata,
         TRACE_ERROR("%s\n", ock_err(ERR_OPERATION_ACTIVE));
         return CKR_OPERATION_ACTIVE;
     }
-    // key usage restrictions
-    //
-    if (operation == OP_ENCRYPT_INIT) {
-        rc = object_mgr_find_in_map1(tokdata, key_handle, &key_obj, READ_LOCK);
-        if (rc != CKR_OK) {
-            TRACE_ERROR("Failed to acquire key from specified handle.\n");
-            if (rc == CKR_OBJECT_HANDLE_INVALID)
-                return CKR_KEY_HANDLE_INVALID;
-            else
-                return rc;
-        }
-        // is key allowed to do general encryption?
-        //
-        rc = template_attribute_get_bool(key_obj->template, CKA_ENCRYPT, &flag);
-        if (rc != CKR_OK) {
-            TRACE_ERROR("Could not find CKA_ENCRYPT for the key.\n");
-            rc = CKR_KEY_FUNCTION_NOT_PERMITTED;
-            goto done;
-        }
 
-        if (flag != TRUE) {
-            TRACE_ERROR("%s\n", ock_err(ERR_KEY_FUNCTION_NOT_PERMITTED));
-            rc = CKR_KEY_FUNCTION_NOT_PERMITTED;
-            goto done;
-        }
-        check = POLICY_CHECK_ENCRYPT;
-    } else if (operation == OP_WRAP) {
-        rc = object_mgr_find_in_map1(tokdata, key_handle, &key_obj, READ_LOCK);
-        if (rc != CKR_OK) {
-            TRACE_ERROR("Failed to acquire key from specified handle.\n");
-            if (rc == CKR_OBJECT_HANDLE_INVALID)
-                return CKR_WRAPPING_KEY_HANDLE_INVALID;
-            else
-                return rc;
-        }
-        // is key allowed to wrap other keys?
-        //
-        rc = template_attribute_get_bool(key_obj->template, CKA_WRAP, &flag);
-        if (rc != CKR_OK) {
-            TRACE_ERROR("Could not find CKA_WRAP for the key.\n");
-            rc = CKR_KEY_FUNCTION_NOT_PERMITTED;
-            goto done;
-        }
-
-        if (flag == FALSE) {
-            TRACE_ERROR("CKA_WRAP is set to FALSE.\n");
-            rc = CKR_KEY_FUNCTION_NOT_PERMITTED;
-            goto done;
-        }
-        check = POLICY_CHECK_WRAP;
-    } else {
+    switch (operation) {
+    case OP_ENCRYPT_INIT:
+        key_usage_attr = CKA_ENCRYPT;
+        poilicy_check = POLICY_CHECK_ENCRYPT;
+        break;
+    case OP_WRAP:
+        key_usage_attr = CKA_WRAP;
+        poilicy_check = POLICY_CHECK_WRAP;
+        break;
+    case OP_ENCAPSULATE:
+        key_usage_attr = CKA_ENCAPSULATE;
+        poilicy_check = POLICY_CHECK_ENCAPS;
+        break;
+    default:
         TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
         rc = CKR_FUNCTION_FAILED;
         goto done;
     }
 
+    /* key usage restrictions */
+    rc = object_mgr_find_in_map1(tokdata, key_handle, &key_obj, READ_LOCK);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Failed to acquire key from specified handle.\n");
+        if (rc == CKR_OBJECT_HANDLE_INVALID)
+            return operation == OP_WRAP ?
+                    CKR_WRAPPING_KEY_HANDLE_INVALID : CKR_KEY_HANDLE_INVALID;
+        else
+            return rc;
+    }
+
+    /* is key allowed to do the desired operation? */
+    rc = template_attribute_get_bool(key_obj->template, key_usage_attr, &flag);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find %s for the key.\n",
+                    p11_get_cka(key_usage_attr));
+        rc = CKR_KEY_FUNCTION_NOT_PERMITTED;
+        goto done;
+    }
+
+    if (flag != TRUE) {
+        TRACE_ERROR("%s is set to FALSE.\n", p11_get_cka(key_usage_attr));
+        rc = CKR_KEY_FUNCTION_NOT_PERMITTED;
+        goto done;
+    }
+
     if (checkpolicy) {
         rc = tokdata->policy->is_mech_allowed(tokdata->policy, mech,
-                                              &key_obj->strength, check, sess);
+                                              &key_obj->strength, poilicy_check,
+                                              sess);
         if (rc != CKR_OK) {
             TRACE_ERROR("POLICY VIOLATION: encrypt/wrap init\n");
             goto done;

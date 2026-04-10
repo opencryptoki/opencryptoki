@@ -39,6 +39,7 @@
 #define IBM_DILITHIUM_NAME "IBM Dilithium"
 #define IBM_ML_DSA_NAME "IBM ML-DSA"
 #define IBM_ML_KEM_NAME "IBM ML-KEM"
+#define ML_DSA_NAME "ML-DSA"
 #define BAD_NAME    "Unknown"
 
 #define MK_AES      1
@@ -119,6 +120,7 @@ struct key_count {
     int ibm_dilithium;
     int ibm_ml_dsa;
     int ibm_ml_kem;
+    int ml_dsa;
 };
 
 struct secaeskeytoken {

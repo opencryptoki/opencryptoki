@@ -28,6 +28,7 @@
 #include "trace.h"
 #include "constant_time.h"
 #include "p11util.h"
+#include "attributes.h"
 
 #include <openssl/crypto.h>
 #include <openssl/rsa.h>
@@ -3051,7 +3052,7 @@ CK_RV rsa_aes_key_wrap(STDLL_TokData_t *tokdata, SESSION *sess,
     rc = key_mgr_generate_key(tokdata, sess, &aes_keygen_mech,
                               aes_key_tmpl,
                               sizeof(aes_key_tmpl) / sizeof(CK_ATTRIBUTE),
-                              &aes_key_handle, FALSE);
+                              &aes_key_handle, FALSE, OP_KEYGEN);
     if (rc != CKR_OK) {
         TRACE_ERROR("Failed to generate temporary AES key (%lu bits): "
                     "%s (0x%lx)\n", params->ulAESKeyBits, p11_get_ckr(rc), rc);
@@ -3067,7 +3068,7 @@ CK_RV rsa_aes_key_wrap(STDLL_TokData_t *tokdata, SESSION *sess,
 
     rc = key_mgr_wrap_key(tokdata, sess, TRUE, &rsa_oaep_mech,
                           ctx->key, aes_key_handle,
-                          NULL, &wrapped_aes_key_len, FALSE);
+                          NULL, &wrapped_aes_key_len, FALSE, OP_WRAP);
     if (rc != CKR_OK) {
         TRACE_ERROR("Failed to wrap temporary AES key: %s (0x%lx)\n",
                     p11_get_ckr(rc), rc);
@@ -3120,7 +3121,7 @@ CK_RV rsa_aes_key_wrap(STDLL_TokData_t *tokdata, SESSION *sess,
     /*  Wrap the temporary AES key as first part of the wrapped key data */
     rc = key_mgr_wrap_key(tokdata, sess, FALSE, &rsa_oaep_mech,
                           ctx->key, aes_key_handle,
-                          out_data, &wrapped_aes_key_len, FALSE);
+                          out_data, &wrapped_aes_key_len, FALSE, OP_WRAP);
     if (rc != CKR_OK) {
         TRACE_ERROR("Failed to wrap temporary AES key: %s (0x%lx)\n",
                     p11_get_ckr(rc), rc);
@@ -3237,7 +3238,7 @@ CK_RV rsa_aes_key_unwrap(STDLL_TokData_t *tokdata, SESSION *sess,
                             aes_key_tmpl,
                             sizeof(aes_key_tmpl) / sizeof(CK_ATTRIBUTE),
                             in_data, modulus_size, ctx->key, &aes_key_handle,
-                            FALSE);
+                            FALSE, OP_UNWRAP);
     if (rc != CKR_OK) {
         TRACE_ERROR("Failed to unwrap temporary AES key: %s (0x%lx)\n",
                     p11_get_ckr(rc), rc);
@@ -3300,4 +3301,250 @@ done:
     encr_mgr_cleanup(tokdata, sess, &aeskw_ctx);
 
     return rc;
+}
+
+CK_RV rsa_encapsulate_key(STDLL_TokData_t *tokdata, SESSION *sess,
+                          CK_BBOOL length_only, CK_MECHANISM *mech,
+                          OBJECT *public_key,
+                          CK_ATTRIBUTE *pTemplate, CK_ULONG ulAttributeCount,
+                          CK_BYTE *pCiphertext, CK_ULONG *pulCiphertextLen,
+                          CK_OBJECT_HANDLE *phKey)
+{
+    CK_RV rc, rc2;
+    CK_OBJECT_CLASS class;
+    CK_KEY_TYPE key_type;
+    CK_MECHANISM keygen_mech = { 0, NULL, 0};
+    CK_ATTRIBUTE *attrs = NULL;
+    CK_ULONG num_attrs = 0;
+    CK_BBOOL extractable, ck_true = CK_TRUE;
+    CK_ATTRIBUTE *attr;
+    CK_ATTRIBUTE set_tmpl = {CKA_EXTRACTABLE, &extractable, sizeof(CK_BBOOL)};
+    CK_OBJECT_HANDLE hKey = CK_INVALID_HANDLE;
+
+    /*
+     * PKCS#11 v3.2: When the mechanism is used in key encapsulation, the
+     * secret key is generated in the C_EncapsulateKey function and then
+     * wrapped with RSA PKCS/OAEP.
+     */
+
+    rc = get_ulong_attribute_by_type(pTemplate, ulAttributeCount,
+                                     CKA_CLASS, &class);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_CLASS in the template\n");
+        goto done;
+    }
+
+    if (class != CKO_SECRET_KEY) {
+        TRACE_ERROR("Can only encapsulate a secret key\n");
+        rc = CKR_KEY_TYPE_INCONSISTENT;
+        goto done;
+    }
+
+    rc = get_ulong_attribute_by_type(pTemplate, ulAttributeCount,
+                                     CKA_KEY_TYPE, &key_type);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_KEY_TYPE in the template\n");
+        goto done;
+    }
+
+    switch (key_type) {
+    case CKK_GENERIC_SECRET:
+        keygen_mech.mechanism = CKM_GENERIC_SECRET_KEY_GEN;
+        break;
+    case CKK_SHA_1_HMAC:
+        keygen_mech.mechanism = CKM_SHA_1_KEY_GEN;
+        break;
+    case CKK_SHA224_HMAC:
+        keygen_mech.mechanism = CKM_SHA224_KEY_GEN;
+        break;
+    case CKK_SHA256_HMAC:
+        keygen_mech.mechanism = CKM_SHA256_KEY_GEN;
+        break;
+    case CKK_SHA384_HMAC:
+        keygen_mech.mechanism = CKM_SHA384_KEY_GEN;
+        break;
+    case CKK_SHA512_HMAC:
+        keygen_mech.mechanism = CKM_SHA512_KEY_GEN;
+        break;
+    case CKK_SHA512_224_HMAC:
+        keygen_mech.mechanism = CKM_SHA512_224_KEY_GEN;
+        break;
+    case CKK_SHA512_256_HMAC:
+        keygen_mech.mechanism = CKM_SHA512_256_KEY_GEN;
+        break;
+    case CKK_SHA3_224_HMAC:
+        keygen_mech.mechanism = CKM_SHA3_224_KEY_GEN;
+        break;
+    case CKK_SHA3_256_HMAC:
+        keygen_mech.mechanism = CKM_SHA3_256_KEY_GEN;
+        break;
+    case CKK_SHA3_384_HMAC:
+        keygen_mech.mechanism = CKM_SHA3_384_KEY_GEN;
+        break;
+    case CKK_SHA3_512_HMAC:
+        keygen_mech.mechanism = CKM_SHA3_512_KEY_GEN;
+        break;
+    case CKK_AES:
+        keygen_mech.mechanism = CKM_AES_KEY_GEN;
+        break;
+    case CKK_AES_XTS:
+        keygen_mech.mechanism = CKM_AES_XTS_KEY_GEN;
+        break;
+    case CKK_DES:
+        keygen_mech.mechanism = CKM_DES_KEY_GEN;
+        break;
+    case CKK_DES3:
+        keygen_mech.mechanism = CKM_DES3_KEY_GEN;
+        break;
+    default:
+        TRACE_ERROR("Key type 0x%lu can not be encapsulated\n", key_type);
+        rc = CKR_KEY_TYPE_INCONSISTENT;
+        goto done;
+    }
+
+    rc = dup_attribute_array(pTemplate, ulAttributeCount,
+                             &attrs, &num_attrs);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("dup_attribute_array failed.\n");
+        goto done;
+    }
+
+    /* Ensure that CKA_EXTRACTABLE is initially TRUE on keygen */
+    attr = get_attribute_by_type(attrs, num_attrs, CKA_EXTRACTABLE);
+    if (attr != NULL) {
+        if (attr->ulValueLen != sizeof(CK_BBOOL) || attr->pValue == NULL) {
+            TRACE_ERROR("%s: %lx\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID),
+                        (CK_ULONG)CKA_EXTRACTABLE);
+            rc = CKR_ATTRIBUTE_VALUE_INVALID;
+            goto done;
+        }
+
+        extractable = *(CK_BBOOL *)attr->pValue;
+        *(CK_BBOOL *)attr->pValue = CK_TRUE;
+    } else {
+        rc = add_to_attribute_array(&attrs, &num_attrs, CKA_EXTRACTABLE,
+                                    &ck_true, sizeof(ck_true));
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("add_to_attribute_array failed.\n");
+            goto done;
+        }
+
+        extractable = CK_TRUE;
+    }
+
+    if (length_only) {
+        rc = add_to_attribute_array(&attrs, &num_attrs, CKA_HIDDEN,
+                                    &ck_true, sizeof(ck_true));
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("add_to_attribute_array failed.\n");
+            goto done;
+        }
+    }
+
+    if (token_specific.t_encapsulate_rsa_sym_keygen != NULL) {
+        rc = token_specific.t_encapsulate_rsa_sym_keygen(tokdata, sess,
+                                                         &keygen_mech,
+                                                         attrs, num_attrs,
+                                                         &hKey);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("token specific encapsulate_rsa_sym_keygen failed.\n");
+            goto done;
+        }
+    } else {
+        rc = key_mgr_generate_key(tokdata, sess, &keygen_mech,
+                                  attrs, num_attrs, &hKey,
+                                  FALSE, OP_ENCAPSULATE);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("key_mgr_generate_key failed.\n");
+            goto done;
+        }
+    }
+
+
+    if (token_specific.t_encapsulate_rsa_key_wrap != NULL) {
+        rc = token_specific.t_encapsulate_rsa_key_wrap(tokdata, sess,
+                                                       length_only, mech,
+                                                       public_key->map_handle,
+                                                       hKey,
+                                                       pCiphertext,
+                                                       pulCiphertextLen);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("token specific encapsulate_rsa_key_wrap failed.\n");
+            goto done;
+        }
+    } else {
+        rc = key_mgr_wrap_key(tokdata, sess, length_only, mech,
+                              public_key->map_handle, hKey,
+                              pCiphertext, pulCiphertextLen, FALSE,
+                              OP_ENCAPSULATE);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("key_mgr_wrap_key failed.\n");
+            goto done;
+        }
+    }
+
+    if (!length_only) {
+        /* Adjust CKA_EXTRACTABEL in key if in template it is FALSE */
+        if (extractable == CK_FALSE) {
+            rc = object_mgr_set_attribute_values(tokdata, sess, hKey,
+                                                 &set_tmpl, 1);
+            if (rc != CKR_OK) {
+                TRACE_DEVEL("object_mgr_set_attribute_values failed.\n");
+                goto done;
+            }
+        }
+
+        *phKey = hKey;
+    }
+
+done:
+    if ((rc != CKR_OK || length_only) && hKey != CK_INVALID_HANDLE) {
+        rc2 = object_mgr_destroy_object(tokdata, sess, hKey);
+        if (rc2 != CKR_OK) {
+            TRACE_DEVEL("object_mgr_destroy_object failed.\n");
+        }
+    }
+
+    free_attribute_array(attrs, num_attrs);
+
+    return rc;
+}
+
+CK_RV rsa_decapsulate_key(STDLL_TokData_t *tokdata, SESSION *sess,
+                          CK_MECHANISM *mech, OBJECT *private_key,
+                          CK_ATTRIBUTE *pTemplate, CK_ULONG ulAttributeCount,
+                          CK_BYTE *pCiphertext, CK_ULONG ulCiphertextLen,
+                          CK_OBJECT_HANDLE *phKey)
+{
+    CK_RV rc;
+
+    /*
+     * PKCS#11 v3.2: C_DecapsulateKey is exactly equivalent to C_UnwrapKey
+     * for RSA PKCS/OAEP.
+     */
+
+    if (token_specific.t_encapsulate_rsa_key_unwrap != NULL) {
+        rc = token_specific.t_encapsulate_rsa_key_unwrap(tokdata, sess, mech,
+                                                         pTemplate,
+                                                         ulAttributeCount,
+                                                         pCiphertext,
+                                                         ulCiphertextLen,
+                                                         private_key->map_handle,
+                                                         phKey);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("token specific encapsulate_rsa_key_unwrap failed.\n");
+            return rc;
+        }
+    } else {
+        rc = key_mgr_unwrap_key(tokdata, sess, mech, pTemplate, ulAttributeCount,
+                                 pCiphertext, ulCiphertextLen,
+                                 private_key->map_handle, phKey, FALSE,
+                                 OP_DECAPSULATE);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("key_mgr_wrap_key failed.\n");
+            return rc;
+        }
+    }
+
+    return CKR_OK;
 }

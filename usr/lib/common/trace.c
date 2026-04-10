@@ -126,6 +126,7 @@ static const char *ock_err_msg[] = {
     "API already Initialized",  /*ERR_CRYPTOKI_ALREADY_INITIALIZED */
     "Mutex Invalid",            /*ERR_MUTEX_BAD */
     "Mutex was not locked",     /*ERR_MUTEX_NOT_LOCKED */
+    "Async Session Not Supported", /*ERR_SESSION_ASYNC_NOT_SUPPORTED */
     "Unknown error",            /*ERR_MAX */
 };
 

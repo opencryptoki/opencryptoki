@@ -1062,7 +1062,7 @@ CK_RV ecdh_pkcs_derive(STDLL_TokData_t *tokdata, SESSION *sess,
                        CK_MECHANISM *mech, OBJECT *base_key_obj,
                        CK_ATTRIBUTE *pTemplate, CK_ULONG ulCount,
                        CK_OBJECT_HANDLE *derived_key_obj,
-                       CK_BBOOL count_statistic)
+                       CK_BBOOL count_statistic, CK_ULONG mode)
 {
     CK_RV rc;
     CK_ULONG class = 0, keytype = 0, key_len = 0;
@@ -1108,7 +1108,7 @@ CK_RV ecdh_pkcs_derive(STDLL_TokData_t *tokdata, SESSION *sess,
         return CKR_MECHANISM_PARAM_INVALID;
     }
 
-    rc = object_mgr_create_skel(tokdata, sess, pTemplate, ulCount, MODE_DERIVE,
+    rc = object_mgr_create_skel(tokdata, sess, pTemplate, ulCount, mode,
                                 class, keytype, &temp_obj);
     if (rc != CKR_OK) {
         TRACE_ERROR("Object Mgr create skeleton failed, rc=0x%lx.\n", rc);
@@ -1803,7 +1803,7 @@ CK_RV ecdh_aes_key_wrap(STDLL_TokData_t *tokdata, SESSION *sess,
         { CKA_HIDDEN, &ck_true, sizeof(ck_true) },
         { CKA_TOKEN, &ck_false, sizeof(ck_false) },
         { CKA_PRIVATE, &ck_true, sizeof(ck_true) },
-        { CKA_WRAP, &ck_false, sizeof(ck_false) },
+        { CKA_WRAP, &ck_true, sizeof(ck_true) },
         { CKA_ENCRYPT, &ck_false, sizeof(ck_false) },
         { CKA_VERIFY, &ck_false, sizeof(ck_false) },
         { CKA_VERIFY_RECOVER, &ck_false, sizeof(ck_false) },
@@ -1814,7 +1814,7 @@ CK_RV ecdh_aes_key_wrap(STDLL_TokData_t *tokdata, SESSION *sess,
         { CKA_SENSITIVE, &ck_true, sizeof(ck_true) },
         { CKA_TOKEN, &ck_false, sizeof(ck_false) },
         { CKA_PRIVATE, &ck_true, sizeof(ck_true) },
-        { CKA_UNWRAP, &ck_false, sizeof(ck_false) },
+        { CKA_UNWRAP, &ck_true, sizeof(ck_true) },
         { CKA_DECRYPT, &ck_false, sizeof(ck_false) },
         { CKA_SIGN, &ck_false, sizeof(ck_false) },
         { CKA_SIGN_RECOVER, &ck_false, sizeof(ck_false) },
@@ -1874,7 +1874,7 @@ CK_RV ecdh_aes_key_wrap(STDLL_TokData_t *tokdata, SESSION *sess,
                                    ec_priv_key_tmpl, sizeof(ec_priv_key_tmpl) /
                                                        sizeof(CK_ATTRIBUTE),
                                    &ec_publ_key_handle, &ec_priv_key_handle,
-                                   FALSE);
+                                   FALSE, OP_KEYGEN);
     if (rc != CKR_OK) {
         TRACE_ERROR("Failed to generate temporary EC key pair: "
                     "%s (0x%lx)\n", p11_get_ckr(rc), rc);
@@ -1948,7 +1948,7 @@ CK_RV ecdh_aes_key_wrap(STDLL_TokData_t *tokdata, SESSION *sess,
                             ec_priv_key_handle, &aes_key_handle,
                             aes_key_tmpl,
                             sizeof(aes_key_tmpl) / sizeof(CK_ATTRIBUTE),
-                            FALSE);
+                            FALSE, OP_WRAP);
     if (rc != CKR_OK) {
         TRACE_ERROR("Failed to derive temporary AES key (%lu bits): "
                     "%s (0x%lx)\n", params->ulAESKeyBits, p11_get_ckr(rc), rc);
@@ -2178,7 +2178,7 @@ CK_RV ecdh_aes_key_unwrap(STDLL_TokData_t *tokdata, SESSION *sess,
                             ctx->key, &aes_key_handle,
                             aes_key_tmpl,
                             sizeof(aes_key_tmpl) / sizeof(CK_ATTRIBUTE),
-                            FALSE);
+                            FALSE, OP_UNWRAP);
     if (rc != CKR_OK) {
         TRACE_ERROR("Failed to derive temporary AES key (%lu bits): "
                     "%s (0x%lx)\n", params->ulAESKeyBits, p11_get_ckr(rc), rc);
@@ -2274,4 +2274,347 @@ CK_RV ec_agg_free_param(CK_IBM_ECDSA_OTHER_BLS_PARAMS *params)
     params->numElements = 0;
     params->elementSize = 0;
     return CKR_OK;
+}
+
+CK_RV ecdh_encapsulate_key(STDLL_TokData_t *tokdata, SESSION *sess,
+                           CK_BBOOL length_only, CK_MECHANISM *mech,
+                           OBJECT *public_key,
+                           CK_ATTRIBUTE *pTemplate,
+                           CK_ULONG ulAttributeCount,
+                           CK_BYTE *pCiphertext,
+                           CK_ULONG *pulCiphertextLen,
+                           CK_OBJECT_HANDLE *phKey)
+{
+    CK_ECDH1_DERIVE_PARAMS ecdh_params, *params;
+    CK_MECHANISM ec_keygen_mech = { 0, NULL, 0 };
+    CK_MECHANISM ecdh_mech;
+    CK_ATTRIBUTE *ec_params = NULL, *ec_point = NULL;
+    CK_OBJECT_HANDLE gen_ec_publ_key_handle = CK_INVALID_HANDLE;
+    CK_OBJECT_HANDLE gen_ec_priv_key_handle = CK_INVALID_HANDLE;
+    CK_OBJECT_HANDLE hKey = CK_INVALID_HANDLE;
+    OBJECT *gen_pub_key_obj = NULL;
+    CK_ULONG field_len = 0, gen_pub_ec_point_len = 0;
+    CK_BYTE *gen_pub_ec_point = NULL;
+    CK_BBOOL ck_true = TRUE;
+    CK_BBOOL ck_false = TRUE;
+    int curve_type;
+    CK_KEY_TYPE decaps_key_type;
+    CK_ULONG decaps_tmpl_num = 0, decaps_key_len;
+    CK_IBM_CCA_AES_KEY_MODE_TYPE decaps_cca_key_mode;
+    CK_RV rc, rc2;
+
+    CK_ATTRIBUTE decaps_tmpl[3] = { 0 };
+    CK_ATTRIBUTE ec_publ_key_tmpl[] = {
+        { CKA_EC_PARAMS, NULL, 0 }, /* must be first */
+        { CKA_HIDDEN, &ck_true, sizeof(ck_true) },
+        { CKA_TOKEN, &ck_false, sizeof(ck_false) },
+        { CKA_PRIVATE, &ck_true, sizeof(ck_true) },
+        { CKA_ENCAPSULATE, &ck_true, sizeof(ck_true) },
+        { CKA_WRAP, &ck_false, sizeof(ck_false) },
+        { CKA_ENCRYPT, &ck_false, sizeof(ck_false) },
+        { CKA_VERIFY, &ck_false, sizeof(ck_false) },
+        { CKA_VERIFY_RECOVER, &ck_false, sizeof(ck_false) },
+        { CKA_DERIVE, &ck_true, sizeof(ck_true) },
+    };
+    CK_ATTRIBUTE ec_priv_key_tmpl[] = {
+        { CKA_DECAPSULATE_TEMPLATE, decaps_tmpl, 0 }, /* must be first */
+        { CKA_HIDDEN, &ck_true, sizeof(ck_true) },
+        { CKA_SENSITIVE, &ck_true, sizeof(ck_true) },
+        { CKA_TOKEN, &ck_false, sizeof(ck_false) },
+        { CKA_PRIVATE, &ck_true, sizeof(ck_true) },
+        { CKA_UNWRAP, &ck_false, sizeof(ck_false) },
+        { CKA_DECRYPT, &ck_false, sizeof(ck_false) },
+        { CKA_SIGN, &ck_false, sizeof(ck_false) },
+        { CKA_SIGN_RECOVER, &ck_false, sizeof(ck_false) },
+        { CKA_DERIVE, &ck_true, sizeof(ck_true) },
+        { CKA_DECAPSULATE, &ck_true, sizeof(ck_true) },
+    };
+
+    if (mech->ulParameterLen != sizeof(CK_ECDH1_DERIVE_PARAMS) ||
+        mech->pParameter == NULL) {
+        TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
+        return CKR_MECHANISM_PARAM_INVALID;
+    }
+    params = mech->pParameter;
+
+    /* pPublicData and ulPublicDataLen must be NULL and 0 */
+    if (params->pPublicData != NULL || params->ulPublicDataLen != 0) {
+        TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
+        return CKR_MECHANISM_PARAM_INVALID;
+    }
+
+    rc = template_attribute_get_non_empty(public_key->template,
+                                          CKA_EC_PARAMS, &ec_params);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("Failed to get CKA_EC_PARAMS.\n");
+        goto done;
+    }
+
+    curve_type = ec_curve_type_from_oid(ec_params->pValue,
+                                        ec_params->ulValueLen);
+    if (curve_type == -1 || curve_type == EDWARDS_CURVE ||
+        curve_type == BLS12_381_CURVE) {
+        TRACE_DEVEL("Only EC or Montgomery curves are supported.\n");
+        rc = CKR_CURVE_NOT_SUPPORTED;
+        goto done;
+    }
+
+    /* Supply CKA_DECAPSULATE_TEMPLATE contents (required by CCA token) */
+    rc = get_ulong_attribute_by_type(pTemplate, ulAttributeCount,
+                                     CKA_KEY_TYPE, &decaps_key_type);
+    if (rc == CKR_OK) {
+        decaps_tmpl[decaps_tmpl_num].type = CKA_KEY_TYPE;
+        decaps_tmpl[decaps_tmpl_num].pValue = &decaps_key_type;
+        decaps_tmpl[decaps_tmpl_num].ulValueLen = sizeof(decaps_key_type);
+        decaps_tmpl_num++;
+    }
+
+    rc = get_ulong_attribute_by_type(pTemplate, ulAttributeCount,
+                                     CKA_VALUE_LEN, &decaps_key_len);
+    if (rc == CKR_OK) {
+        decaps_tmpl[decaps_tmpl_num].type = CKA_VALUE_LEN;
+        decaps_tmpl[decaps_tmpl_num].pValue = &decaps_key_len;
+        decaps_tmpl[decaps_tmpl_num].ulValueLen = sizeof(decaps_key_len);
+        decaps_tmpl_num++;
+    }
+
+    rc = get_ulong_attribute_by_type(pTemplate, ulAttributeCount,
+                                     CKA_IBM_CCA_AES_KEY_MODE,
+                                     &decaps_cca_key_mode);
+    if (rc == CKR_OK) {
+        decaps_tmpl[decaps_tmpl_num].type = CKA_IBM_CCA_AES_KEY_MODE;
+        decaps_tmpl[decaps_tmpl_num].pValue = &decaps_cca_key_mode;
+        decaps_tmpl[decaps_tmpl_num].ulValueLen = sizeof(decaps_cca_key_mode);
+        decaps_tmpl_num++;
+    }
+
+    ec_priv_key_tmpl[0].ulValueLen = decaps_tmpl_num * sizeof(CK_ATTRIBUTE);
+
+    /* Generate a temporary EC key pair using the same EC parameters */
+    ec_keygen_mech.mechanism = curve_type == MONTGOMERY_CURVE ?
+                CKM_EC_MONTGOMERY_KEY_PAIR_GEN : CKM_EC_KEY_PAIR_GEN;
+
+    ec_publ_key_tmpl[0] = *ec_params;
+
+    if (token_specific.t_encapsulate_dh_ecdh_key_pair_gen != NULL) {
+        rc = token_specific.t_encapsulate_dh_ecdh_key_pair_gen(
+                                       tokdata, sess,&ec_keygen_mech,
+                                       ec_publ_key_tmpl,
+                                       sizeof(ec_publ_key_tmpl) /
+                                                           sizeof(CK_ATTRIBUTE),
+                                       ec_priv_key_tmpl,
+                                       sizeof(ec_priv_key_tmpl) /
+                                                           sizeof(CK_ATTRIBUTE),
+                                       &gen_ec_publ_key_handle,
+                                       &gen_ec_priv_key_handle);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("token specific encapsulate_dh_ecdh_key_pair_gen "
+                        "failed to generate temporary EC key pair: %s "
+                        "(0x%lx)\n", p11_get_ckr(rc), rc);
+            goto done;
+        }
+    } else {
+        rc = key_mgr_generate_key_pair(tokdata, sess, &ec_keygen_mech,
+                                       ec_publ_key_tmpl,
+                                       sizeof(ec_publ_key_tmpl) /
+                                                           sizeof(CK_ATTRIBUTE),
+                                       ec_priv_key_tmpl,
+                                       sizeof(ec_priv_key_tmpl) /
+                                                           sizeof(CK_ATTRIBUTE),
+                                       &gen_ec_publ_key_handle,
+                                       &gen_ec_priv_key_handle,
+                                       FALSE, OP_ENCAPSULATE);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("key_mgr_generate_key_pair failed to generate "
+                        "temporary EC key pair: %s (0x%lx)\n",
+                        p11_get_ckr(rc), rc);
+            goto done;
+        }
+    }
+
+    /* Get the (raw) size of the generated EC point */
+    rc = object_mgr_find_in_map1(tokdata, gen_ec_publ_key_handle,
+                                 &gen_pub_key_obj, READ_LOCK);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Failed to acquire key from EC public key handle.\n");
+        if (rc == CKR_OBJECT_HANDLE_INVALID)
+            rc = CKR_KEY_HANDLE_INVALID;
+        goto done;
+    }
+
+    rc = template_attribute_get_non_empty(gen_pub_key_obj->template,
+                                          CKA_EC_POINT, &ec_point);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("Failed to get CKA_EC_POINT.\n");
+        goto done;
+    }
+
+    if (curve_type != MONTGOMERY_CURVE) {
+        rc = ber_decode_OCTET_STRING((CK_BYTE *)ec_point->pValue,
+                                      ec_point->ulValueLen,
+                                      &gen_pub_ec_point,
+                                      &gen_pub_ec_point_len,
+                                      &field_len);
+        if (rc != CKR_OK || field_len != ec_point->ulValueLen) {
+            rc = CKR_FUNCTION_FAILED;
+            TRACE_DEVEL("Failed to decode CKA_EC_POINT.\n");
+            goto done;
+        }
+    } else {
+        gen_pub_ec_point = ec_point->pValue;
+        gen_pub_ec_point_len = ec_point->ulValueLen;
+    }
+
+    if (length_only) {
+        *pulCiphertextLen = gen_pub_ec_point_len;
+        goto done;
+    }
+
+    if (*pulCiphertextLen < gen_pub_ec_point_len) {
+        *pulCiphertextLen = gen_pub_ec_point_len;
+        rc = CKR_BUFFER_TOO_SMALL;
+        goto done;
+    }
+
+    rc = template_attribute_get_non_empty(public_key->template,
+                                          CKA_EC_POINT, &ec_point);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("Failed to get CKA_EC_POINT.\n");
+        goto done;
+    }
+
+    ecdh_params = *params;
+    ecdh_params.pPublicData = ec_point->pValue;
+    ecdh_params.ulPublicDataLen = ec_point->ulValueLen;
+
+    ecdh_mech.mechanism = mech->mechanism;
+    ecdh_mech.pParameter = &ecdh_params;
+    ecdh_mech.ulParameterLen = sizeof(ecdh_params);
+
+    if (token_specific.t_en_decapsulate_dh_ecdh_derive_key != NULL) {
+        rc = token_specific.t_en_decapsulate_dh_ecdh_derive_key(
+                                            tokdata, sess, &ecdh_mech,
+                                            gen_ec_priv_key_handle,
+                                            &hKey, pTemplate, ulAttributeCount,
+                                            OP_ENCAPSULATE);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("token specific en_decapsulate_dh_ecdh_derive_key "
+                        "failed.\n");
+            goto done;
+        }
+    } else {
+        rc = key_mgr_derive_key(tokdata, sess, &ecdh_mech,
+                                gen_ec_priv_key_handle,
+                                &hKey, pTemplate, ulAttributeCount,
+                                FALSE, OP_ENCAPSULATE);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("key_mgr_derive_key failed.\n");
+            goto done;
+        }
+    }
+
+
+    *pulCiphertextLen = gen_pub_ec_point_len;
+    memcpy(pCiphertext, gen_pub_ec_point, gen_pub_ec_point_len);
+
+    *phKey = hKey;
+
+done:
+    if (gen_ec_publ_key_handle != CK_INVALID_HANDLE) {
+        rc2 = object_mgr_destroy_object(tokdata, sess,
+                                        gen_ec_publ_key_handle);
+        if (rc2 != CKR_OK) {
+            TRACE_ERROR("Failed to destroy temporary EC public key: %s "
+                        "(0x%lx)\n", p11_get_ckr(rc2), rc2);
+            if (rc == CKR_OK)
+                rc = rc2;
+        }
+    }
+    if (gen_ec_priv_key_handle != CK_INVALID_HANDLE) {
+        rc2 = object_mgr_destroy_object(tokdata, sess,
+                                        gen_ec_priv_key_handle);
+        if (rc2 != CKR_OK) {
+            TRACE_ERROR("Failed to destroy temporary EC private key: %s "
+                        "(0x%lx)\n", p11_get_ckr(rc2), rc2);
+            if (rc == CKR_OK)
+                rc = rc2;
+        }
+    }
+
+    if (rc != CKR_OK && hKey != CK_INVALID_HANDLE) {
+        rc2 = object_mgr_destroy_object(tokdata, sess, hKey);
+        if (rc2 != CKR_OK) {
+            TRACE_ERROR("Failed to destroy deriv ed secret key: %s "
+                        "(0x%lx)\n", p11_get_ckr(rc2), rc2);
+            if (rc == CKR_OK)
+                rc = rc2;
+        }
+    }
+
+    object_put(tokdata, gen_pub_key_obj, TRUE);
+    gen_pub_key_obj = NULL;
+
+    return rc;
+}
+
+CK_RV ecdh_decapsulate_key(STDLL_TokData_t *tokdata, SESSION *sess,
+                           CK_MECHANISM *mech, OBJECT *private_key,
+                           CK_ATTRIBUTE *pTemplate,
+                           CK_ULONG ulAttributeCount,
+                           CK_BYTE *pCiphertext,
+                           CK_ULONG ulCiphertextLen,
+                           CK_OBJECT_HANDLE *phKey)
+{
+    CK_ECDH1_DERIVE_PARAMS ecdh_params, *params;
+    CK_MECHANISM ecdh_mech;
+    CK_OBJECT_HANDLE hKey = CK_INVALID_HANDLE;
+    CK_RV rc;
+
+    if (mech->ulParameterLen != sizeof(CK_ECDH1_DERIVE_PARAMS) ||
+        mech->pParameter == NULL) {
+        TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
+        return CKR_MECHANISM_PARAM_INVALID;
+    }
+    params = mech->pParameter;
+
+    /* pPublicData and ulPublicDataLen must be NULL and 0 */
+    if (params->pPublicData != NULL || params->ulPublicDataLen != 0) {
+        TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
+        return CKR_MECHANISM_PARAM_INVALID;
+    }
+
+    ecdh_params = *params;
+    ecdh_params.pPublicData = pCiphertext;
+    ecdh_params.ulPublicDataLen = ulCiphertextLen;
+
+    ecdh_mech.mechanism = mech->mechanism;
+    ecdh_mech.pParameter = &ecdh_params;
+    ecdh_mech.ulParameterLen = sizeof(ecdh_params);
+
+    if (token_specific.t_en_decapsulate_dh_ecdh_derive_key != NULL) {
+        rc = token_specific.t_en_decapsulate_dh_ecdh_derive_key(
+                                            tokdata, sess, &ecdh_mech,
+                                            private_key->map_handle,
+                                            &hKey, pTemplate, ulAttributeCount,
+                                            OP_DECAPSULATE);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("token specific en_decapsulate_dh_ecdh_derive_key "
+                        "failed.\n");
+            goto done;
+        }
+    } else {
+        rc = key_mgr_derive_key(tokdata, sess, &ecdh_mech,
+                                private_key->map_handle,
+                                &hKey, pTemplate, ulAttributeCount,
+                                FALSE, OP_DECAPSULATE);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("key_mgr_derive_key failed.\n");
+            goto done;
+        }
+    }
+
+    *phKey = hKey;
+
+done:
+    return rc;
 }

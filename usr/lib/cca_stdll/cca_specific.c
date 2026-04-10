@@ -218,7 +218,8 @@ static const MECH_LIST_ELEMENT cca_mech_list[] = {
     {CKM_DES3_KEY_GEN, {24, 24, CKF_HW | CKF_GENERATE}},
     {CKM_RSA_PKCS_KEY_PAIR_GEN, {512, 4096, CKF_HW | CKF_GENERATE_KEY_PAIR}},
     {CKM_RSA_PKCS, {512, 4096, CKF_HW | CKF_ENCRYPT | CKF_DECRYPT | CKF_SIGN |
-                    CKF_VERIFY | CKF_WRAP | CKF_UNWRAP}},
+                    CKF_VERIFY | CKF_WRAP | CKF_UNWRAP | CKF_ENCAPSULATE |
+                    CKF_DECAPSULATE}},
     {CKM_MD5_RSA_PKCS, {512, 4096, CKF_HW | CKF_SIGN | CKF_VERIFY}},
     {CKM_SHA1_RSA_PKCS, {512, 4096, CKF_HW | CKF_SIGN | CKF_VERIFY}},
     {CKM_SHA224_RSA_PKCS, {512, 4096, CKF_HW | CKF_SIGN | CKF_VERIFY}},
@@ -236,7 +237,8 @@ static const MECH_LIST_ELEMENT cca_mech_list[] = {
     {CKM_SHA384_RSA_PKCS_PSS, {512, 4096, CKF_HW | CKF_SIGN | CKF_VERIFY}},
     {CKM_SHA512_RSA_PKCS_PSS, {512, 4096, CKF_HW | CKF_SIGN | CKF_VERIFY}},
     {CKM_RSA_PKCS_OAEP, {512, 4096, CKF_HW | CKF_ENCRYPT | CKF_DECRYPT |
-                                                  CKF_WRAP | CKF_UNWRAP}},
+                         CKF_WRAP | CKF_UNWRAP | CKF_ENCAPSULATE |
+                         CKF_DECAPSULATE}},
     {CKM_DES_CBC,
      {8, 8, CKF_HW | CKF_ENCRYPT | CKF_DECRYPT}},
     {CKM_DES_CBC_PAD,
@@ -309,7 +311,8 @@ static const MECH_LIST_ELEMENT cca_mech_list[] = {
                           CKF_EC_OID | CKF_EC_F_P | CKF_EC_UNCOMPRESS |
                           CKF_EC_COMPRESS}},
     {CKM_ECDH1_DERIVE, {160, 521, CKF_DERIVE | CKF_EC_OID | CKF_EC_F_P |
-                        CKF_EC_UNCOMPRESS | CKF_EC_COMPRESS}},
+                        CKF_EC_UNCOMPRESS | CKF_EC_COMPRESS | CKF_ENCAPSULATE |
+                        CKF_DECAPSULATE}},
     {CKM_GENERIC_SECRET_KEY_GEN, {80, 2048, CKF_HW | CKF_GENERATE}},
     {CKM_SHA_1_KEY_GEN, {80, 2048, CKF_HW | CKF_GENERATE}},
     {CKM_SHA224_KEY_GEN, {80, 2048, CKF_HW | CKF_GENERATE}},
@@ -322,6 +325,10 @@ static const MECH_LIST_ELEMENT cca_mech_list[] = {
     {CKM_IBM_ML_DSA, {1312, 2592, CKF_HW | CKF_SIGN | CKF_VERIFY}},
     {CKM_IBM_ML_KEM_KEY_PAIR_GEN, {800, 1568, CKF_HW | CKF_GENERATE_KEY_PAIR}},
     {CKM_IBM_ML_KEM_WITH_ECDH, {800, 1568, CKF_HW | CKF_DERIVE}},
+    {CKM_ML_DSA_KEY_PAIR_GEN, {1312, 2592, CKF_HW | CKF_GENERATE_KEY_PAIR}},
+    {CKM_ML_DSA, {1312, 2592, CKF_HW | CKF_SIGN | CKF_VERIFY}},
+    {CKM_HASH_ML_DSA, {1312, 2592, CKF_HW | CKF_SIGN | CKF_VERIFY}},
+    {CKM_HASH_ML_DSA_SHA512, {1312, 2592, CKF_HW | CKF_SIGN | CKF_VERIFY}},
     {CKM_RSA_AES_KEY_WRAP, {2048, 4096, CKF_HW | CKF_WRAP | CKF_UNWRAP}},
     {CKM_EC_EDWARDS_KEY_PAIR_GEN, {255, 448, CKF_HW | CKF_GENERATE_KEY_PAIR |
                                    CKF_EC_OID | CKF_EC_F_P | CKF_EC_COMPRESS}},
@@ -671,6 +678,7 @@ CK_BBOOL analyse_cca_key_token(const CK_BYTE *t, CK_ULONG tlen,
         case CCA_QSA_ALGO_DILITHIUM_ROUND_2:
         case CCA_QSA_ALGO_DILITHIUM_ROUND_3:
         case CCA_QSA_ALGO_ML_DSA_PURE:
+        case CCA_QSA_ALGO_ML_DSA_PRE_HASH:
         case CCA_QSA_ALGO_ML_KEM:
             *keytype = sec_qsa_priv_key;
             break;
@@ -700,6 +708,7 @@ CK_BBOOL analyse_cca_key_token(const CK_BYTE *t, CK_ULONG tlen,
         case CCA_QSA_ALGO_DILITHIUM_ROUND_2:
         case CCA_QSA_ALGO_DILITHIUM_ROUND_3:
         case CCA_QSA_ALGO_ML_DSA_PURE:
+        case CCA_QSA_ALGO_ML_DSA_PRE_HASH:
         case CCA_QSA_ALGO_ML_KEM:
             *keytype = sec_qsa_publ_key;
             break;
@@ -2064,6 +2073,25 @@ static CK_RV cca_config_set_aes_key_mode(struct cca_private_data *cca_data,
     return CKR_OK;
 }
 
+static CK_RV cca_config_set_ml_dsa_key_mode(struct cca_private_data *cca_data,
+                                            const char *fname,
+                                            const char *strval)
+{
+    if (strcmp(strval, "PURE") == 0)
+        cca_data->ml_dsa_key_mode = ML_DSA_KEY_MODE_PURE;
+    else if (strcmp(strval, "PREHASH") == 0)
+        cca_data->ml_dsa_key_mode = ML_DSA_KEY_MODE_PREHASH;
+    else {
+        TRACE_ERROR("%s unsupported ML-DSA key mode : '%s'\n", __func__,
+                    strval);
+        OCK_SYSLOG(LOG_ERR,"%s: Error: unsupported ML-DSA key mode '%s' "
+                   "in config file '%s'\n", __func__, strval, fname);
+        return CKR_FUNCTION_FAILED;
+    }
+
+    return CKR_OK;
+}
+
 CK_RV cca_config_parse_exp_mkvps(char *fname,
                                  struct ConfigStructNode *exp_mkvp_node,
                                  unsigned char *expected_sym_mkvp,
@@ -2245,6 +2273,13 @@ CK_RV cca_load_config_file(STDLL_TokData_t *tokdata, char *conf_name)
 
             if (strcasecmp(c->key, "AES_KEY_MODE") == 0) {
                 rc = cca_config_set_aes_key_mode(cca_private, fname, strval);
+                if (rc != CKR_OK)
+                    break;
+                continue;
+            }
+
+            if (strcasecmp(c->key, "ML_DSA_KEY_MODE") == 0) {
+                rc = cca_config_set_ml_dsa_key_mode(cca_private, fname, strval);
                 if (rc != CKR_OK)
                     break;
                 continue;
@@ -3438,6 +3473,58 @@ static CK_RV cca_get_and_set_aes_key_mode(STDLL_TokData_t *tokdata,
     }
 
     TRACE_DEVEL("AES key mode (config): %lu\n", *mode);
+
+    return CKR_OK;
+}
+
+static CK_RV cca_get_and_set_ml_dsa_key_mode(
+                                    STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
+                                    CK_IBM_CCA_ML_DSA_KEY_MODE_TYPE *mode)
+{
+    struct cca_private_data *cca_data = tokdata->private_data;
+    CK_ATTRIBUTE *attr = NULL;
+    CK_RV rc;
+
+    if (template_attribute_find(tmpl, CKA_IBM_CCA_ML_DSA_KEY_MODE, &attr)) {
+        if (attr->ulValueLen != sizeof(CK_IBM_CCA_ML_DSA_KEY_MODE_TYPE) ||
+            attr->pValue == NULL) {
+            TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
+            return CKR_ATTRIBUTE_VALUE_INVALID;
+        }
+
+        *mode = *(CK_IBM_CCA_ML_DSA_KEY_MODE_TYPE *)attr->pValue;
+        switch (*mode) {
+        case CK_IBM_CCA_ML_DSA_PURE_KEY:
+        case CK_IBM_CCA_ML_DSA_PREHASH_KEY:
+            TRACE_DEVEL("ML-DSA key mode (attribute): %lu\n", *mode);
+            return CKR_OK;
+        default:
+            TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
+            return CKR_ATTRIBUTE_VALUE_INVALID;
+        }
+    }
+
+    switch (cca_data->ml_dsa_key_mode) {
+    case ML_DSA_KEY_MODE_PURE:
+        *mode = CK_IBM_CCA_ML_DSA_PURE_KEY;
+        break;
+    case ML_DSA_KEY_MODE_PREHASH:
+        *mode = CK_IBM_CCA_ML_DSA_PREHASH_KEY;
+        break;
+    default:
+        TRACE_DEVEL("Invalid ML-DSA key mode: %d\n", cca_data->ml_dsa_key_mode);
+        return CKR_FUNCTION_FAILED;
+    }
+
+    rc = build_update_attribute(tmpl, CKA_IBM_CCA_ML_DSA_KEY_MODE,
+                                (CK_BYTE *)mode, sizeof(*mode));
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("build_update_attribute(CKA_IBM_CCA_ML_DSA_KEY_MODE) "
+                    "failed\n");
+        return rc;
+    }
+
+    TRACE_DEVEL("ML-DSA key mode (config): %lu\n", *mode);
 
     return CKR_OK;
 }
@@ -4709,6 +4796,10 @@ static CK_BBOOL cca_pqc_strength_supported(STDLL_TokData_t * tokdata,
     case CKM_IBM_ML_DSA:
     case CKM_IBM_ML_KEM_KEY_PAIR_GEN:
     case CKM_IBM_ML_KEM_WITH_ECDH:
+    case CKM_ML_DSA_KEY_PAIR_GEN:
+    case CKM_ML_DSA:
+    case CKM_HASH_ML_DSA:
+    case CKM_HASH_ML_DSA_SHA512:
         required = &cca_v8_4;
         break;
     default:
@@ -4920,6 +5011,7 @@ CK_RV token_specific_init(STDLL_TokData_t * tokdata, CK_SLOT_ID SlotNumber,
     cca_private->pkey_mode = PKEY_MODE_DISABLED;
 #endif
     cca_private->aes_key_mode = AES_KEY_MODE_DATA;
+    cca_private->ml_dsa_key_mode = ML_DSA_KEY_MODE_PURE;
 
     rc = cca_load_config_file(tokdata, conf_name);
     if (rc != CKR_OK)
@@ -7566,7 +7658,10 @@ static CK_BBOOL token_specific_filter_mechanism(STDLL_TokData_t *tokdata,
         break;
     case CKM_IBM_ML_DSA_KEY_PAIR_GEN:
     case CKM_IBM_ML_DSA:
-        rc = cca_pqc_strength_supported(tokdata, mechanism, CKP_IBM_ML_DSA_65);
+    case CKM_ML_DSA:
+    case CKM_HASH_ML_DSA:
+    case CKM_HASH_ML_DSA_SHA512:
+        rc = cca_pqc_strength_supported(tokdata, mechanism, CKP_ML_DSA_65);
         break;
     case CKM_IBM_ML_KEM_KEY_PAIR_GEN:
     case CKM_IBM_ML_KEM_WITH_ECDH:
@@ -7914,38 +8009,38 @@ CK_RV token_create_ec_keypair(TEMPLATE * publ_tmpl,
     return CKR_OK;
 }
 
-static CK_RV ccatok_get_key_info_from_derive_template(TEMPLATE *priv_tmpl,
-                                                      CK_KEY_TYPE *key_type,
-                                                      CK_ULONG *value_len,
+static CK_RV ccatok_get_key_info_from_template_attr(TEMPLATE *priv_tmpl,
+                                                    CK_ATTRIBUTE_TYPE attr_type,
+                                                    CK_KEY_TYPE *key_type,
+                                                    CK_ULONG *value_len,
                                       CK_IBM_CCA_AES_KEY_MODE_TYPE *key_mode)
 {
-    CK_ATTRIBUTE *derive_tmpl_attr = NULL;
+    CK_ATTRIBUTE *tmpl_attr = NULL;
     CK_RV rv;
 
     *key_type = (CK_ULONG)-1;
     *value_len = 0;
     *key_mode = (CK_ULONG)-1;
 
-    if (template_attribute_find(priv_tmpl, CKA_DERIVE_TEMPLATE,
-                                &derive_tmpl_attr) != TRUE)
+    if (template_attribute_find(priv_tmpl, attr_type, &tmpl_attr) != TRUE)
         return CKR_OK;
 
-    rv = get_ulong_attribute_by_type((CK_ATTRIBUTE_PTR)derive_tmpl_attr->pValue,
-                                     derive_tmpl_attr->ulValueLen /
+    rv = get_ulong_attribute_by_type((CK_ATTRIBUTE_PTR)tmpl_attr->pValue,
+                                     tmpl_attr->ulValueLen /
                                                          sizeof(CK_ATTRIBUTE),
                                      CKA_KEY_TYPE, key_type);
     if (rv != CKR_OK && rv != CKR_TEMPLATE_INCOMPLETE)
         return rv;
 
-    rv = get_ulong_attribute_by_type((CK_ATTRIBUTE_PTR)derive_tmpl_attr->pValue,
-                                     derive_tmpl_attr->ulValueLen /
+    rv = get_ulong_attribute_by_type((CK_ATTRIBUTE_PTR)tmpl_attr->pValue,
+                                     tmpl_attr->ulValueLen /
                                                 sizeof(CK_ATTRIBUTE),
                                      CKA_VALUE_LEN, value_len);
     if (rv != CKR_OK && rv != CKR_TEMPLATE_INCOMPLETE)
         return rv;
 
-    rv = get_ulong_attribute_by_type((CK_ATTRIBUTE_PTR)derive_tmpl_attr->pValue,
-                                     derive_tmpl_attr->ulValueLen /
+    rv = get_ulong_attribute_by_type((CK_ATTRIBUTE_PTR)tmpl_attr->pValue,
+                                     tmpl_attr->ulValueLen /
                                                 sizeof(CK_ATTRIBUTE),
                                      CKA_IBM_CCA_AES_KEY_MODE, key_mode);
     if (rv != CKR_OK && rv != CKR_TEMPLATE_INCOMPLETE)
@@ -7954,9 +8049,76 @@ static CK_RV ccatok_get_key_info_from_derive_template(TEMPLATE *priv_tmpl,
     return CKR_OK;
 }
 
+static CK_RV ccatok_get_key_info_from_template_attrs(TEMPLATE *priv_tmpl,
+                                                     CK_KEY_TYPE *key_type,
+                                                     CK_ULONG *value_len,
+                                      CK_IBM_CCA_AES_KEY_MODE_TYPE *key_mode)
+{
+    CK_ATTRIBUTE_TYPE tmpl_attr[2] = { CKA_DERIVE_TEMPLATE,
+                                       CKA_DECAPSULATE_TEMPLATE };
+    CK_KEY_TYPE tmpl_key_type[2] = { (CK_KEY_TYPE)-1,
+                                     (CK_KEY_TYPE)-1 };
+    CK_ULONG tmpl_value_len[2] = { 0, 0 };
+    CK_IBM_CCA_AES_KEY_MODE_TYPE tmpl_key_mode[2] =
+                                    { (CK_IBM_CCA_AES_KEY_MODE_TYPE)-1,
+                                      (CK_IBM_CCA_AES_KEY_MODE_TYPE)-1 };
+    CK_ULONG i;
+    CK_RV rc;
+
+    *key_type = (CK_KEY_TYPE)-1;
+    *value_len = 0;
+    *key_mode = (CK_IBM_CCA_AES_KEY_MODE_TYPE)-1;
+
+    for (i = 0; i < 2; i++) {
+        rc = ccatok_get_key_info_from_template_attr(priv_tmpl, tmpl_attr[i],
+                                                    &tmpl_key_type[i],
+                                                    &tmpl_value_len[i],
+                                                    &tmpl_key_mode[i]);
+        if (rc != CKR_OK)
+            return rc;
+    }
+
+    for (i = 0; i < 2; i++) {
+        if (tmpl_key_type[i] != (CK_KEY_TYPE)-1) {
+            if (*key_type == (CK_KEY_TYPE)-1) {
+                *key_type = tmpl_key_type[i];
+            } else if (*key_type != tmpl_key_type[i]) {
+                TRACE_ERROR("CKA_KEY_TYPE is inconsistent in template attrs "
+                            "CKA_DERIVE_TEMPLATE, CKA_DECAPSULATE_TEMPLATE\n");
+                return CKR_TEMPLATE_INCONSISTENT;
+            }
+        }
+
+        if (tmpl_value_len[i] != 0) {
+            if (*value_len == 0) {
+                *value_len = tmpl_value_len[i];
+            } else if (*value_len != tmpl_value_len[i]) {
+                TRACE_ERROR("CKA_VALUE_LEN is inconsistent in template attrs "
+                            "CKA_DERIVE_TEMPLATE, CKA_DECAPSULATE_TEMPLATE\n");
+
+                return CKR_TEMPLATE_INCONSISTENT;
+            }
+        }
+
+        if (tmpl_key_mode[i] != (CK_IBM_CCA_AES_KEY_MODE_TYPE)-1) {
+            if (*key_mode == (CK_IBM_CCA_AES_KEY_MODE_TYPE)-1) {
+                *key_mode = tmpl_key_mode[i];
+            } else if (*key_mode != tmpl_key_mode[i]) {
+                TRACE_ERROR("CKA_IBM_CCA_AES_KEY_MODE is inconsistent in "
+                            "template attrs CKA_DERIVE_TEMPLATE, "
+                            "CKA_DECAPSULATE_TEMPLATE\n");
+                return CKR_TEMPLATE_INCONSISTENT;
+            }
+        }
+    }
+
+    return CKR_OK;
+}
+
 /*
- * Try to get derive key type and size for CKA_DERIVE_TEMPLATE.
- * If CKA_DERIVE_TEMPLATE is not available, or it does not contain attribute
+ * Try to get derive key type and size from CKA_DERIVE_TEMPLATE or
+ * CKA_DECAPSULATE_TEMPLATE. If neither CKA_DERIVE_TEMPLATE nor
+ * CKA_DECAPSULATE_TEMPLATE is not available, or they do not contain attribute
  * CKA_KEY_TYPE, then the default is AES-256.
  * If CKA_KEY_TYPE is contained and is CKK_AES, it also checks if attribute
  * CKA_VALUE_LEN is contained and specifies a valid AES key size.
@@ -7991,9 +8153,9 @@ static CK_RV ccatok_build_ec_derive_info(STDLL_TokData_t *tokdata,
     derive_info->key_algorithm = CCA_AES_KEY;
     derive_info->key_size = 256;
 
-    rv = ccatok_get_key_info_from_derive_template(priv_tmpl,
-                                                  &key_type, &value_len,
-                                                  &key_mode);
+    rv = ccatok_get_key_info_from_template_attrs(priv_tmpl,
+                                                 &key_type, &value_len,
+                                                 &key_mode);
     if (rv != CKR_OK)
         return rv;
 
@@ -8029,8 +8191,8 @@ static CK_RV ccatok_build_ec_derive_info(STDLL_TokData_t *tokdata,
         }
         break;
     default:
-        TRACE_ERROR("CCA does not support to derive keys of type 0x%lx as "
-                    "DATA keys\n", key_type);
+        TRACE_ERROR("CCA does not support to derive/decaps keys of type "
+                    "0x%lx as DATA keys\n", key_type);
         return CKR_ATTRIBUTE_VALUE_INVALID;
     }
 
@@ -8040,11 +8202,12 @@ static CK_RV ccatok_build_ec_derive_info(STDLL_TokData_t *tokdata,
 static CK_RV ccatok_check_ec_derive_info(STDLL_TokData_t *tokdata, OBJECT *obj,
                                          TEMPLATE *new_tmpl)
 {
-    CK_ATTRIBUTE *opaque_attr, *derive_tmpl_attr = NULL;
+    CK_ATTRIBUTE *opaque_attr, *tmpl_attr = NULL;
     CK_IBM_CCA_AES_KEY_MODE_TYPE derive_key_mode;
     CK_KEY_TYPE derive_key_type;
     CK_ULONG derive_value_len;
     CK_BBOOL derive = FALSE;
+    CK_BBOOL decaps = FALSE;
     struct cca_key_derivation_data *ecc_info;
     CK_RV rc;
 
@@ -8060,9 +8223,10 @@ static CK_RV ccatok_check_ec_derive_info(STDLL_TokData_t *tokdata, OBJECT *obj,
     ecc_info = cca_ec_ecc_key_derivation_info(opaque_attr->pValue);
 
     rc = template_attribute_get_bool(new_tmpl, CKA_DERIVE, &derive);
-    if (rc == CKR_OK && derive == TRUE) {
+    rc |= template_attribute_get_bool(new_tmpl, CKA_DECAPSULATE, &decaps);
+    if (rc == CKR_OK && (derive == TRUE || decaps == TRUE)) {
         /*
-         * CKA_DERIVE of an ECC private key is set to TRUE.
+         * CKA_DERIVE or CKA_DECAPSULATE of an ECC private key is set to TRUE.
          * Check if the key has an ECC key derivation section (X'23').
          * This is required to be able to support ECDH key derivation.
          */
@@ -8075,45 +8239,47 @@ static CK_RV ccatok_check_ec_derive_info(STDLL_TokData_t *tokdata, OBJECT *obj,
         if (ecc_info->key_type != CCA_KEY_DERIVE_TYPE_DATA &&
             ecc_info->key_type != CCA_KEY_DERIVE_TYPE_CIPHER &&
             ecc_info->key_algorithm != CCA_AES_KEY) {
-            TRACE_ERROR("CCA can not derive keys other than AES DATA or "
+            TRACE_ERROR("CCA can not derive/decaps keys other than AES DATA or "
                         "AES CIPHER key tokens\n");
             return CKR_ATTRIBUTE_VALUE_INVALID;
         }
     }
 
     if (template_attribute_find(new_tmpl, CKA_DERIVE_TEMPLATE,
-                                &derive_tmpl_attr)) {
+                                &tmpl_attr) ||
+        template_attribute_find(new_tmpl, CKA_DECAPSULATE_TEMPLATE,
+                                &tmpl_attr)) {
         /*
-         * CKA_DERIVE_TEMPLATE is changed.
+         * CKA_DERIVE_TEMPLATE or CKA_DECAPSULATE_TEMPLATE is changed.
          * Check if the key has an ECC key derivation section (X'23'),
          * and if it matches the CKA_KEY_TYPE, CKA_VALUE_LEN and
-         * CKA_IBM_CCA_AES_KEY_MODE attributes in the derive template.
+         * CKA_IBM_CCA_AES_KEY_MODE attributes in these templates.
          */
-        rc = ccatok_get_key_info_from_derive_template(new_tmpl,
-                                                      &derive_key_type,
-                                                      &derive_value_len,
-                                                      &derive_key_mode);
+        rc = ccatok_get_key_info_from_template_attrs(new_tmpl,
+                                                     &derive_key_type,
+                                                     &derive_value_len,
+                                                     &derive_key_mode);
         if (rc == CKR_OK && ecc_info != NULL) {
             switch (derive_key_type) {
             case (CK_ULONG)-1:
             case CKK_AES:
                 if (ecc_info->key_algorithm != CCA_AES_KEY) {
-                    TRACE_ERROR("The EC private key can not derive keys "
+                    TRACE_ERROR("The EC private key can not derive/decaps keys "
                                 "other than AES keys\n");
                     return CKR_ATTRIBUTE_VALUE_INVALID;
                 }
                 /* Also check key size, if specified in template */
                 if (derive_value_len != 0 &&
                     derive_value_len * 8 != ecc_info->key_size) {
-                    TRACE_ERROR("The EC private key can not derive keys "
+                    TRACE_ERROR("The EC private key can not derive/decaps keys "
                                 "other than AES-%u keys\n",
                                 ecc_info->key_size);
                     return CKR_ATTRIBUTE_VALUE_INVALID;
                 }
                 break;
             default:
-                TRACE_ERROR("CCA does not support to derive keys of type "
-                            "0x%lx\n", derive_key_type);
+                TRACE_ERROR("CCA does not support to derive/decaps keys of "
+                            "type 0x%lx\n", derive_key_type);
                 return CKR_ATTRIBUTE_VALUE_INVALID;
             }
 
@@ -8121,28 +8287,28 @@ static CK_RV ccatok_check_ec_derive_info(STDLL_TokData_t *tokdata, OBJECT *obj,
             case (CK_ULONG)-1:
                 if (ecc_info->key_type != CCA_KEY_DERIVE_TYPE_DATA &&
                     ecc_info->key_type != CCA_KEY_DERIVE_TYPE_CIPHER) {
-                    TRACE_ERROR("The EC private key can not derive keys "
+                    TRACE_ERROR("The EC private key can not derive/decaps keys "
                                 "other than AES DATA or AES CIPHER keys\n");
                     return CKR_ATTRIBUTE_VALUE_INVALID;
                 }
                 break;
             case CK_IBM_CCA_AES_DATA_KEY:
                 if (ecc_info->key_type != CCA_KEY_DERIVE_TYPE_DATA) {
-                    TRACE_ERROR("The EC private key can not derive keys "
+                    TRACE_ERROR("The EC private key can not derive/decaps keys "
                                 "other than AES DATA keys\n");
                     return CKR_ATTRIBUTE_VALUE_INVALID;
                 }
                 break;
             case CK_IBM_CCA_AES_CIPHER_KEY:
                 if (ecc_info->key_type != CCA_KEY_DERIVE_TYPE_CIPHER) {
-                    TRACE_ERROR("The EC private key can not derive keys "
+                    TRACE_ERROR("The EC private key can not derive/decaps keys "
                                 "other than AES CIPHER keys\n");
                     return CKR_ATTRIBUTE_VALUE_INVALID;
                 }
                 break;
             default:
-                TRACE_ERROR("CCA does not support to derive keys of mode "
-                            "0x%lx\n", derive_key_mode);
+                TRACE_ERROR("CCA does not support to derive/decaps keys of "
+                            "mode 0x%lx\n", derive_key_mode);
                 return CKR_ATTRIBUTE_VALUE_INVALID;
             }
         }
@@ -9775,14 +9941,15 @@ CK_RV token_specific_hmac_verify_final(STDLL_TokData_t * tokdata,
                              &sig_len, FALSE);
 }
 
-static CK_RV token_create_ibm_pqc_keypair(CK_MECHANISM_TYPE mech,
-                                          TEMPLATE *publ_tmpl,
-                                          TEMPLATE *priv_tmpl,
-                                          const struct pqc_oid *oid,
-                                          CK_ULONG priv_tok_len,
-                                          CK_BYTE *priv_tok,
-                                          CK_ULONG publ_tok_len,
-                                          CK_BYTE *publ_tok)
+static CK_RV token_create_pqc_keypair(CK_MECHANISM_TYPE mech,
+                                      CK_IBM_CCA_ML_DSA_KEY_MODE_TYPE mode,
+                                      TEMPLATE *publ_tmpl,
+                                      TEMPLATE *priv_tmpl,
+                                      const struct pqc_oid *oid,
+                                      CK_ULONG priv_tok_len,
+                                      CK_BYTE *priv_tok,
+                                      CK_ULONG publ_tok_len,
+                                      CK_BYTE *publ_tok)
 {
     CK_RV rc;
     uint16_t publsec_len, rho_len, t1_len, pk_len, seed_len;
@@ -9800,6 +9967,9 @@ static CK_RV token_create_ibm_pqc_keypair(CK_MECHANISM_TYPE mech,
     case CKM_IBM_ML_KEM_KEY_PAIR_GEN:
         keytype = CKK_IBM_ML_KEM;
         break;
+    case CKM_ML_DSA_KEY_PAIR_GEN:
+        keytype = CKK_ML_DSA;
+        break;
     default:
         return CKR_MECHANISM_INVALID;
     }
@@ -9815,6 +9985,7 @@ static CK_RV token_create_ibm_pqc_keypair(CK_MECHANISM_TYPE mech,
     switch (mech) {
     case CKM_IBM_DILITHIUM:
     case CKM_IBM_ML_DSA_KEY_PAIR_GEN:
+    case CKM_ML_DSA_KEY_PAIR_GEN:
         rho_len = be16toh(*((uint16_t *)(publ_tok +
                                          CCA_QSA_EXTTOK_PUBLKEY_OFFSET +
                                          CCA_QSA_EXTTOK_RHO_OFFSET)));
@@ -9857,15 +10028,23 @@ static CK_RV token_create_ibm_pqc_keypair(CK_MECHANISM_TYPE mech,
         return rc;
     }
 
-    rc = pqc_unpack_pub_key(publ_tok + CCA_QSA_EXTTOK_PUBLKEY_OFFSET +
-                                        CCA_QSA_EXTTOK_PAYLOAD_OFFSET,
-                            publ_tok_len -
-                                         CCA_QSA_EXTTOK_PUBLKEY_OFFSET -
-                                         CCA_QSA_EXTTOK_PAYLOAD_OFFSET,
-                            oid, mech, priv_tmpl);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("pqc_unpack_pub_key failed\n");
-        return rc;
+    switch (mech) {
+    case CKM_IBM_DILITHIUM:
+    case CKM_IBM_ML_DSA_KEY_PAIR_GEN:
+    case CKM_IBM_ML_KEM_KEY_PAIR_GEN:
+        rc = pqc_unpack_pub_key(publ_tok + CCA_QSA_EXTTOK_PUBLKEY_OFFSET +
+                                            CCA_QSA_EXTTOK_PAYLOAD_OFFSET,
+                                publ_tok_len -
+                                             CCA_QSA_EXTTOK_PUBLKEY_OFFSET -
+                                             CCA_QSA_EXTTOK_PAYLOAD_OFFSET,
+                                oid, mech, priv_tmpl);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("pqc_unpack_pub_key failed\n");
+            return rc;
+        }
+        break;
+    default:
+        break;
     }
 
     /* Add keyform and mode attributes to public and private template */
@@ -9881,22 +10060,43 @@ static CK_RV token_create_ibm_pqc_keypair(CK_MECHANISM_TYPE mech,
         return rc;
     }
 
-    /* Add SPKI as CKA_VALUE to public template */
-    rc = pqc_publ_get_spki(publ_tmpl, keytype, FALSE, &spki, &spki_len);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("pqc_publ_get_spki failed\n");
-        return rc;
-    }
+    switch (mech) {
+    case CKM_ML_DSA_KEY_PAIR_GEN:
+        /* Add ML-DSA mode attributes to public and private template */
+        rc = build_update_attribute(publ_tmpl, CKA_IBM_CCA_ML_DSA_KEY_MODE,
+                                    (CK_BYTE *)&mode, sizeof(mode));
+        if (rc != CKR_OK) {
+            TRACE_ERROR("build_update_attribute for publ failed rv=0x%lx\n",
+                        rc);
+            return rc;
+        }
 
-    rc = build_update_attribute(publ_tmpl, CKA_VALUE, spki, spki_len);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("build_update_attribute for CKA_VALUE failed rv=0x%lx\n",
-                    rc);
+        rc = build_update_attribute(priv_tmpl, CKA_IBM_CCA_ML_DSA_KEY_MODE,
+                                    (CK_BYTE *)&mode, sizeof(mode));
+        if (rc != CKR_OK) {
+            TRACE_ERROR("build_update_attribute for priv failed rv=0x%lx\n",
+                        rc);
+            return rc;
+        }
+        break;
+    default:
+        /* Add SPKI as CKA_VALUE to public template */
+        rc = pqc_publ_get_spki(publ_tmpl, keytype, FALSE, &spki, &spki_len,
+                               FALSE);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("pqc_publ_get_spki failed\n");
+            return rc;
+        }
+
+        rc = build_update_attribute(publ_tmpl, CKA_VALUE, spki, spki_len);
         free(spki);
-        return rc;
+        if (rc != CKR_OK) {
+            TRACE_ERROR("build_update_attribute for CKA_VALUE failed rv=0x%lx\n",
+                        rc);
+            return rc;
+        }
+        break;
     }
-
-    free(spki);
 
     /* store publ key token into CKA_IBM_OPAQUE of the public key object */
     rc = build_update_attribute(publ_tmpl, CKA_IBM_OPAQUE,
@@ -9919,15 +10119,17 @@ static CK_RV token_create_ibm_pqc_keypair(CK_MECHANISM_TYPE mech,
     return CKR_OK;
 }
 
-static CK_RV token_create_ibm_pqc_privkey(CK_MECHANISM_TYPE mech,
-                                          TEMPLATE *priv_tmpl,
-                                          const struct pqc_oid *oid,
-                                          CK_ULONG priv_tok_len,
-                                          CK_BYTE *priv_tok)
+static CK_RV token_create_pqc_privkey(CK_MECHANISM_TYPE mech,
+                                      TEMPLATE *priv_tmpl,
+                                      const struct pqc_oid *oid,
+                                      CK_ULONG priv_tok_len,
+                                      CK_BYTE *priv_tok)
 {
     CK_RV rc;
     uint16_t privsec_len, publsec_len, rho_len, t1_len, pk_len, seed_len;
     CK_BYTE *publ_sec;
+    CK_BYTE *spki = NULL;
+    CK_ULONG spki_len = 0;
 
     privsec_len = be16toh(*(uint16_t *)&priv_tok[CCA_QSA_INTTOK_PRIVKEY_OFFSET +
                                                  CCA_SECTION_LEN_OFFSET]);
@@ -9943,6 +10145,7 @@ static CK_RV token_create_ibm_pqc_privkey(CK_MECHANISM_TYPE mech,
     switch (mech) {
     case CKM_IBM_DILITHIUM:
     case CKM_IBM_ML_DSA_KEY_PAIR_GEN:
+    case CKM_ML_DSA_KEY_PAIR_GEN:
         rho_len = be16toh(*((uint16_t *)(publ_sec +
                                          CCA_QSA_EXTTOK_RHO_OFFSET)));
         t1_len = be16toh(*((uint16_t *)(publ_sec +
@@ -9969,13 +10172,36 @@ static CK_RV token_create_ibm_pqc_privkey(CK_MECHANISM_TYPE mech,
         return CKR_MECHANISM_INVALID;
     }
 
-    /* Add public attributes to private template */
-    rc = pqc_unpack_pub_key(publ_sec + CCA_QSA_EXTTOK_PAYLOAD_OFFSET,
-                            publsec_len - CCA_QSA_EXTTOK_PAYLOAD_OFFSET,
-                            oid, mech, priv_tmpl);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("pqc_unpack_pub_key failed\n");
-        return rc;
+    switch (mech) {
+    case CKM_IBM_DILITHIUM:
+    case CKM_IBM_ML_DSA_KEY_PAIR_GEN:
+    case CKM_IBM_ML_KEM_KEY_PAIR_GEN:
+        /* Add public attributes to private template */
+        rc = pqc_unpack_pub_key(publ_sec + CCA_QSA_EXTTOK_PAYLOAD_OFFSET,
+                                publsec_len - CCA_QSA_EXTTOK_PAYLOAD_OFFSET,
+                                oid, mech, priv_tmpl);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("pqc_unpack_pub_key failed\n");
+            return rc;
+        }
+        break;
+    case CKM_ML_DSA_KEY_PAIR_GEN:
+        /* Try to add SPKI as CKA_PUBLIC_KEY_INFO to private template */
+        rc = pqc_publ_get_spki(priv_tmpl, CKK_ML_DSA, FALSE, &spki, &spki_len,
+                               TRUE);
+        if (rc == CKR_OK) {
+            rc = build_update_attribute(priv_tmpl, CKA_PUBLIC_KEY_INFO,
+                                        spki, spki_len);
+            free(spki);
+            if (rc != CKR_OK) {
+                TRACE_ERROR("build_update_attribute for CKA_PUBLIC_KEY_INFO"
+                            " failed rv=0x%lx\n", rc);
+                return rc;
+            }
+        }
+        break;
+    default:
+        break;
     }
 
     /* Add keyform and mode attributes to private template */
@@ -9997,10 +10223,11 @@ static CK_RV token_create_ibm_pqc_privkey(CK_MECHANISM_TYPE mech,
     return CKR_OK;
 }
 
-static CK_RV build_ibm_pqc_key_value_struct(CK_MECHANISM_TYPE mech,
-                                            const struct pqc_oid *oid,
-                                            unsigned char *key_value_structure,
-                                            long *key_value_structure_length)
+static CK_RV build_pqc_key_value_struct(CK_MECHANISM_TYPE mech,
+                                        CK_IBM_CCA_ML_DSA_KEY_MODE_TYPE mode,
+                                        const struct pqc_oid *oid,
+                                        unsigned char *key_value_structure,
+                                        long *key_value_structure_length)
 {
     uint8_t algo_id, format = CCA_QSA_CLEAR_FORMAT_NO_KEY;
     uint16_t algo_param, clear_len = 0;
@@ -10035,15 +10262,31 @@ static CK_RV build_ibm_pqc_key_value_struct(CK_MECHANISM_TYPE mech,
         break;
 
     case CKM_IBM_ML_DSA_KEY_PAIR_GEN:
-        algo_id = CCA_QSA_ALGO_ML_DSA_PURE;
+    case CKM_ML_DSA_KEY_PAIR_GEN:
+        if (mech == CKM_ML_DSA_KEY_PAIR_GEN) {
+            switch (mode) {
+            case CK_IBM_CCA_ML_DSA_PURE_KEY:
+                algo_id = CCA_QSA_ALGO_ML_DSA_PURE;
+                break;
+            case CK_IBM_CCA_ML_DSA_PREHASH_KEY:
+                algo_id = CCA_QSA_ALGO_ML_DSA_PRE_HASH;
+                break;
+            default:
+                TRACE_DEVEL("ML-DSA mode %lu not supported by CCA\n", mode);
+                return CKR_ATTRIBUTE_VALUE_INVALID;
+            }
+        } else {
+            algo_id = CCA_QSA_ALGO_ML_DSA_PURE;
+        }
+
         switch (oid->keyform) {
-        case CKP_IBM_ML_DSA_44:
+        case CKP_ML_DSA_44:
             algo_param = htobe16(CCA_QSA_ALGO_ML_DSA_44);
             break;
-        case CKP_IBM_ML_DSA_65:
+        case CKP_ML_DSA_65:
             algo_param = htobe16(CCA_QSA_ALGO_ML_DSA_65);
             break;
-        case CKP_IBM_ML_DSA_87:
+        case CKP_ML_DSA_87:
             algo_param = htobe16(CCA_QSA_ALGO_ML_DSA_87);
             break;
         default:
@@ -10118,6 +10361,7 @@ static CK_RV ccatok_pqc_generate_keypair(STDLL_TokData_t *tokdata,
     unsigned int keybitsize;
     const CK_BYTE *mkvp;
     CK_BBOOL new_mk;
+    CK_IBM_CCA_ML_DSA_KEY_MODE_TYPE mode = CK_IBM_CCA_ML_DSA_PURE_KEY;
 
     if (((struct cca_private_data *)tokdata->private_data)->inconsistent) {
         TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
@@ -10130,18 +10374,31 @@ static CK_RV ccatok_pqc_generate_keypair(STDLL_TokData_t *tokdata,
         return CKR_KEY_SIZE_RANGE;
     }
 
+    switch (mech->mechanism) {
+    case CKM_ML_DSA_KEY_PAIR_GEN:
+        rv = cca_get_and_set_ml_dsa_key_mode(tokdata, priv_tmpl, &mode);
+        if (rv != CKR_OK) {
+            TRACE_ERROR("cca_get_and_set_ml_dsa_key_mode failed: 0x%lx\n", rv);
+            return rv;
+        }
+        break;
+    default:
+        break;
+    }
+
     key_value_structure_length = CCA_QSA_KEY_VALUE_STRUCT_SIZE;
-    rv = build_ibm_pqc_key_value_struct(mech->mechanism,
-                                        oid, key_value_structure,
-                                        &key_value_structure_length);
+    rv = build_pqc_key_value_struct(mech->mechanism, mode,
+                                    oid, key_value_structure,
+                                    &key_value_structure_length);
     if (rv != CKR_OK) {
-        TRACE_ERROR("build_ibm_pqc_key_value_struct failed: 0x%lx\n", rv);
+        TRACE_ERROR("build_pqc_key_value_struct failed: 0x%lx\n", rv);
         return rv;
     }
 
     switch (mech->mechanism) {
     case CKM_IBM_DILITHIUM:
     case CKM_IBM_ML_DSA_KEY_PAIR_GEN:
+    case CKM_ML_DSA_KEY_PAIR_GEN:
         rule_array_count = 2;
         memcpy(rule_array, "QSA-PAIRU-DIGSIG", (size_t) (CCA_KEYWORD_SIZE * 2));
         break;
@@ -10261,14 +10518,14 @@ static CK_RV ccatok_pqc_generate_keypair(STDLL_TokData_t *tokdata,
     TRACE_DEVEL("Secure public QSA key token generated. size: %ld\n",
                 publ_key_token_length);
 
-    rv = token_create_ibm_pqc_keypair(mech->mechanism,
-                                      publ_tmpl, priv_tmpl, oid,
-                                      priv_key_token_length,
-                                      priv_key_token,
-                                      publ_key_token_length,
-                                      publ_key_token);
+    rv = token_create_pqc_keypair(mech->mechanism, mode,
+                                  publ_tmpl, priv_tmpl, oid,
+                                  priv_key_token_length,
+                                  priv_key_token,
+                                  publ_key_token_length,
+                                  publ_key_token);
     if (rv != CKR_OK) {
-        TRACE_DEVEL("token_create_ibm_pqc_keypair failed. rv: %lu\n", rv);
+        TRACE_DEVEL("token_create_pqc_keypair failed. rv: %lu\n", rv);
         return rv;
     }
 
@@ -10290,10 +10547,21 @@ CK_RV token_specific_ibm_ml_dsa_generate_keypair(STDLL_TokData_t *tokdata,
                                        publ_tmpl, priv_tmpl);
 }
 
-static CK_RV check_ibm_ml_dsa_data_len(STDLL_TokData_t *tokdata,
-                                       CK_MECHANISM_TYPE mech,
-                                       const struct pqc_oid *oid,
-                                       CK_ULONG in_data_len)
+CK_RV token_specific_ml_dsa_generate_keypair(STDLL_TokData_t *tokdata,
+                                             const struct pqc_oid *oid,
+                                             TEMPLATE *publ_tmpl,
+                                             TEMPLATE *priv_tmpl)
+{
+    CK_MECHANISM mech = { CKM_ML_DSA_KEY_PAIR_GEN, NULL, 0 };
+
+    return ccatok_pqc_generate_keypair(tokdata, &mech, oid,
+                                       publ_tmpl, priv_tmpl);
+}
+
+static CK_RV check_ml_dsa_data_len(STDLL_TokData_t *tokdata,
+                                   CK_MECHANISM_TYPE mech,
+                                   const struct pqc_oid *oid,
+                                   CK_ULONG in_data_len)
 {
     struct cca_private_data *cca_private = tokdata->private_data;
     const struct cca_version cca_v8_0 = { .ver = 8, .rel = 0, .mod = 0 };
@@ -10344,22 +10612,24 @@ static CK_RV check_ibm_ml_dsa_data_len(STDLL_TokData_t *tokdata,
         break;
 
     case CKM_IBM_ML_DSA: /* CEX8 or later only */
+    case CKM_ML_DSA: /* CEX8 or later only */
+    case CKM_HASH_ML_DSA: /* CEX8 or later only */
         switch (oid->keyform) {
-        case CKP_IBM_ML_DSA_44:
+        case CKP_ML_DSA_44:
             if (in_data_len > CCA_MAX_CEX8_ML_DSA_44_DATA_LEN) {
                 TRACE_DEVEL("Input too large for ML-DSA keyform %lu\n",
                             oid->keyform);
                 return CKR_DATA_LEN_RANGE;
             }
             break;
-        case CKP_IBM_ML_DSA_65:
+        case CKP_ML_DSA_65:
             if (in_data_len > CCA_MAX_CEX8_ML_DSA_65_DATA_LEN) {
                 TRACE_DEVEL("Input too large for ML-DSA keyform %lu\n",
                             oid->keyform);
                 return CKR_DATA_LEN_RANGE;
             }
             break;
-        case CKP_IBM_ML_DSA_87:
+        case CKP_ML_DSA_87:
             if (in_data_len > CCA_MAX_CEX8_ML_DSA_87_DATA_LEN) {
                 TRACE_DEVEL("Input too large for ML-DSA keyform %lu\n",
                             oid->keyform);
@@ -10380,22 +10650,213 @@ static CK_RV check_ibm_ml_dsa_data_len(STDLL_TokData_t *tokdata,
     return CKR_OK;
 }
 
-CK_RV token_specific_ibm_ml_dsa_sign(STDLL_TokData_t *tokdata,
-                                     SESSION *sess,
-                                     CK_BBOOL length_only,
-                                     const struct pqc_oid *oid,
-                                     CK_MECHANISM *mech,
-                                     CK_BYTE *in_data,
-                                     CK_ULONG in_data_len,
-                                     CK_BYTE *signature,
-                                     CK_ULONG *signature_len,
-                                     OBJECT *key_obj)
+static CK_RV ccatok_ml_dsa_build_context_msg(CK_BYTE *in_data,
+                                             CK_ULONG in_data_len,
+                                             CK_BYTE *context,
+                                             CK_ULONG context_len,
+                                             CK_BYTE **context_msg,
+                                             CK_ULONG *context_msg_len)
+{
+    uint16_t ctx_len = htobe16(context_len);
+
+    if (context_len > 255) {
+        TRACE_ERROR("Context can only be up to 255 bytes\n");
+        return CKR_MECHANISM_PARAM_INVALID;
+    }
+
+    *context_msg_len = sizeof(ctx_len) + context_len + in_data_len;
+    *context_msg = malloc(*context_msg_len);
+    if (*context_msg == NULL) {
+        TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+        return CKR_HOST_MEMORY;
+    }
+
+    memcpy(*context_msg, &ctx_len, sizeof(ctx_len));
+    memcpy(*context_msg + sizeof(ctx_len), context, context_len);
+    memcpy(*context_msg + sizeof(ctx_len) + context_len, in_data, in_data_len);
+
+    return CKR_OK;
+}
+
+static CK_RV ccatok_ml_dsa_build_rule_array(CK_MECHANISM *mech,
+                                            CK_BBOOL sign,
+                                            OBJECT *key_obj,
+                                            unsigned char* rule_array,
+                                            long *rule_array_count,
+                                            CK_BYTE *in_data,
+                                            CK_ULONG in_data_len,
+                                            CK_BYTE **context_msg,
+                                            CK_ULONG *context_msg_len)
+{
+    CK_SIGN_ADDITIONAL_CONTEXT sign_param = { CKH_HEDGE_PREFERRED, NULL, 0 };
+    CK_MECHANISM_TYPE hash_mech = 0;
+    CK_IBM_CCA_ML_DSA_KEY_MODE_TYPE mode;
+    CK_RV rc;
+
+    /* Check if ML-DSA key mode fits to mechanism */
+    switch (mech->mechanism) {
+    case CKM_ML_DSA:
+    case CKM_HASH_ML_DSA:
+        rc = template_attribute_get_ulong(key_obj->template,
+                                          CKA_IBM_CCA_ML_DSA_KEY_MODE,
+                                          &mode);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("Could not find CKA_IBM_CCA_ML_DSA_KEY_MODE for "
+                        "the key.\n");
+            return rc;
+        }
+
+        if ((mech->mechanism == CKM_ML_DSA &&
+             mode == CK_IBM_CCA_ML_DSA_PREHASH_KEY) ||
+           (mech->mechanism == CKM_HASH_ML_DSA &&
+            mode == CK_IBM_CCA_ML_DSA_PURE_KEY)) {
+            TRACE_ERROR("The CCA key mode does not fit to the mechanism\n");
+            return CKR_KEY_TYPE_INCONSISTENT;
+        }
+        break;
+    default:
+        break;
+    }
+
+    /* Unify and translate mechanism parameter */
+    switch (mech->mechanism) {
+    case CKM_IBM_DILITHIUM:
+        break;
+
+    case CKM_IBM_ML_DSA:
+        if (mech->pParameter != NULL &&
+            mech->ulParameterLen != sizeof(CK_IBM_SIGN_ADDITIONAL_CONTEXT)) {
+            TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
+            return CKR_MECHANISM_PARAM_INVALID;
+        }
+
+        rc = ml_dsa_translate_sign_mech_param_from_ibm(mech->pParameter,
+                                                       &sign_param);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("ml_dsa_translate_sign_mech_param_from_ibm failed.\n");
+            return rc;
+        }
+        break;
+
+    case CKM_ML_DSA:
+        if (mech->pParameter != NULL &&
+            mech->ulParameterLen != sizeof(CK_SIGN_ADDITIONAL_CONTEXT)) {
+            TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
+            return CKR_MECHANISM_PARAM_INVALID;
+        }
+
+        if (mech->pParameter != NULL)
+            memcpy(&sign_param, mech->pParameter, sizeof(sign_param));
+        break;
+
+    case CKM_HASH_ML_DSA:
+        if (mech->pParameter == NULL ||
+            mech->ulParameterLen != sizeof(CK_HASH_SIGN_ADDITIONAL_CONTEXT)) {
+            TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
+            return CKR_MECHANISM_PARAM_INVALID;
+        }
+
+        rc = ml_dsa_translate_sign_mech_param_from_hash(mech->pParameter,
+                                                        &sign_param,
+                                                        &hash_mech);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("ml_dsa_translate_sign_mech_param_from_hash failed.\n");
+            return rc;
+        }
+        break;
+
+    default:
+        TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
+        return CKR_MECHANISM_INVALID;
+    }
+
+    /* Setup rule array according to mech */
+    switch (mech->mechanism) {
+    case CKM_IBM_DILITHIUM:
+    case CKM_IBM_ML_DSA:
+    case CKM_ML_DSA:
+        *rule_array_count = 3;
+        memcpy(rule_array, "CRDL-DSAMESSAGE CRDLHASH", CCA_KEYWORD_SIZE * 3);
+        break;
+    case CKM_HASH_ML_DSA:
+        *rule_array_count = 2;
+        memcpy(rule_array, "CRDL-DSAHASH    ", CCA_KEYWORD_SIZE * 2);
+
+        switch (hash_mech) {
+        case CKM_SHA512:
+            memcpy(rule_array + (*rule_array_count * CCA_KEYWORD_SIZE),
+                   "SHA-512 ", CCA_KEYWORD_SIZE);
+            (*rule_array_count)++;
+            break;
+        default:
+            TRACE_ERROR("CCA only supports SHA-512 as prehash mechanism\n");
+            return CKR_MECHANISM_PARAM_INVALID;
+        }
+        break;
+    default:
+        break;
+    }
+
+    /* Process hedge type (for sign only) and context */
+    switch (mech->mechanism) {
+    case CKM_IBM_ML_DSA:
+    case CKM_ML_DSA:
+    case CKM_HASH_ML_DSA:
+        if (sign) {
+            switch (sign_param.hedgeVariant) {
+            case CKH_HEDGE_PREFERRED:
+            case CKH_HEDGE_REQUIRED:
+                memcpy(rule_array + (*rule_array_count * CCA_KEYWORD_SIZE),
+                       "NONDETER", CCA_KEYWORD_SIZE);
+                (*rule_array_count)++;
+                break;
+            case CKH_DETERMINISTIC_REQUIRED:
+                memcpy(rule_array + (*rule_array_count * CCA_KEYWORD_SIZE),
+                       "DETER   ", CCA_KEYWORD_SIZE);
+                (*rule_array_count)++;
+                break;
+            default:
+                TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
+                return CKR_MECHANISM_PARAM_INVALID;
+            }
+        }
+
+        if (sign_param.pContext != NULL && sign_param.ulContextLen > 0) {
+            rc = ccatok_ml_dsa_build_context_msg(in_data, in_data_len,
+                                                 sign_param.pContext,
+                                                 sign_param.ulContextLen,
+                                                 context_msg, context_msg_len);
+            if (rc != CKR_OK) {
+                TRACE_ERROR("ccatok_ml_dsa_build_context_msg failed.\n");
+                return rc;
+            }
+
+            memcpy(rule_array + (*rule_array_count * CCA_KEYWORD_SIZE),
+                   "CONTEXT ", CCA_KEYWORD_SIZE);
+            (*rule_array_count)++;
+        }
+        break;
+    default:
+        break;
+    }
+
+    return CKR_OK;
+}
+
+static CK_RV ccatok_ml_dsa_sign(STDLL_TokData_t *tokdata, SESSION *sess,
+                                CK_BBOOL length_only, const struct pqc_oid *oid,
+                                CK_MECHANISM *mech,
+                                CK_BYTE *in_data, CK_ULONG in_data_len,
+                                CK_BYTE *signature, CK_ULONG *signature_len,
+                                OBJECT *key_obj, CK_BBOOL final_part)
 {
     long return_code, reason_code, rule_array_count;
     unsigned char rule_array[CCA_RULE_ARRAY_SIZE] = { 0, };
     long signature_bit_length;
     CK_ATTRIBUTE *attr;
-    CK_IBM_SIGN_ADDITIONAL_CONTEXT *sign_param = mech->pParameter;
+    CK_BYTE *context_msg = NULL;
+    CK_ULONG context_msg_len;
+    CK_BYTE *tmp;
     CK_RV rc;
 
     UNUSED(sess);
@@ -10411,50 +10872,68 @@ CK_RV token_specific_ibm_ml_dsa_sign(STDLL_TokData_t *tokdata,
         return CKR_KEY_SIZE_RANGE;
     }
 
-    rc = check_ibm_ml_dsa_data_len(tokdata, mech->mechanism, oid, in_data_len);
+    if (mech->mechanism == CKM_HASH_ML_DSA && !final_part) {
+        /* CKM_HASH_ML_DSA does not support multipart */
+        TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
+        return CKR_MECHANISM_INVALID;
+    }
+
+    if (!final_part ||
+        (mech->mechanism == CKM_ML_DSA && sess->sign_ctx.context != NULL &&
+         in_data_len > 0)) {
+        /* Collect the input data in the context */
+        if (in_data_len == 0)
+            return CKR_OK;
+
+        tmp = (CK_BYTE *)realloc(sess->sign_ctx.context,
+                                 sess->sign_ctx.context_len + in_data_len);
+        if (tmp == NULL) {
+            TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+            return CKR_HOST_MEMORY;
+        }
+
+        memcpy(tmp + sess->sign_ctx.context_len, in_data, in_data_len);
+
+        sess->sign_ctx.context = tmp;
+        sess->sign_ctx.context_len += in_data_len;
+
+        if (!final_part)
+            return CKR_OK;
+    }
+
+    if (mech->mechanism == CKM_ML_DSA &&
+        sess->sign_ctx.context != NULL && sess->sign_ctx.context_len > 0) {
+        in_data = sess->sign_ctx.context;
+        in_data_len = sess->sign_ctx.context_len;
+    }
+
+    rc = check_ml_dsa_data_len(tokdata, mech->mechanism, oid, in_data_len);
     if (rc != CKR_OK)
         return rc;
+
+    rc = ccatok_ml_dsa_build_rule_array(mech, TRUE, key_obj,
+                                        rule_array, &rule_array_count,
+                                        in_data, in_data_len,
+                                        &context_msg, &context_msg_len);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("ccatok_ml_dsa_build_rule_array failed.\n");
+        return rc;
+    }
 
     /* Find the secure key token */
     rc = template_attribute_get_non_empty(key_obj->template, CKA_IBM_OPAQUE,
                                           &attr);
     if (rc != CKR_OK) {
         TRACE_ERROR("Could not find CKA_IBM_OPAQUE for the key.\n");
+        if (context_msg != NULL)
+            free(context_msg);
         return rc;
-    }
-
-    rule_array_count = 3;
-    memcpy(rule_array, "CRDL-DSAMESSAGE CRDLHASH", CCA_KEYWORD_SIZE * 3);
-
-    switch (mech->mechanism) {
-    case CKM_IBM_ML_DSA:
-        if (mech->pParameter == NULL ||
-            mech->ulParameterLen != sizeof(CK_IBM_SIGN_ADDITIONAL_CONTEXT))
-            break;
-
-        if (sign_param->pContext != NULL && sign_param->ulContextLen != 0) {
-            TRACE_ERROR("CCA does not support ML-DSA with context\n");
-            return CKR_MECHANISM_PARAM_INVALID;
-        }
-
-        switch (sign_param->hedgeVariant) {
-        case CKH_IBM_HEDGE_PREFERRED:
-        case CKH_IBM_HEDGE_REQUIRED:
-            memcpy(rule_array + (rule_array_count * CCA_KEYWORD_SIZE),
-                   "NONDETER", CCA_KEYWORD_SIZE);
-            rule_array_count++;
-            break;
-        case CKH_IBM_DETERMINISTIC_REQUIRED:
-            memcpy(rule_array + (rule_array_count * CCA_KEYWORD_SIZE),
-                   "DETER   ", CCA_KEYWORD_SIZE);
-            rule_array_count++;
-            break;
-        }
-        break;
     }
 
     if (length_only) {
         *signature_len = CCA_MAX_ML_DSA_SIGNATURE_LEN;
+        if (context_msg != NULL)
+            free(context_msg);
         return CKR_OK;
     }
 
@@ -10471,12 +10950,17 @@ CK_RV token_specific_ibm_ml_dsa_sign(STDLL_TokData_t *tokdata,
                     rule_array,
                     (long *)&(attr->ulValueLen),
                     attr->pValue,
-                    (long *)&in_data_len,
-                    in_data,
+                    (long *)(context_msg != NULL ?
+                            &context_msg_len : &in_data_len),
+                    context_msg != NULL ?
+                            context_msg : in_data,
                     (long *)signature_len, &signature_bit_length, signature);
     RETRY_NEW_MK_BLOB_END(tokdata, return_code, reason_code,
                           attr->pValue, attr->ulValueLen)
     USE_CCA_ADAPTER_END(tokdata, return_code, reason_code)
+
+    if (context_msg != NULL)
+        free(context_msg);
 
     if (return_code != CCA_SUCCESS) {
         TRACE_ERROR("CSNDDSG (QSA SIGN) failed. return:%ld,"
@@ -10487,22 +10971,27 @@ CK_RV token_specific_ibm_ml_dsa_sign(STDLL_TokData_t *tokdata,
                       " returned reason:%ld\n", reason_code);
     }
 
+    if (final_part && sess->sign_ctx.context != NULL) {
+        free(sess->sign_ctx.context);
+        sess->sign_ctx.context = NULL;
+        sess->sign_ctx.context_len = 0;
+    }
+
     return CKR_OK;
 }
 
-CK_RV token_specific_ibm_ml_dsa_verify(STDLL_TokData_t *tokdata,
-                                       SESSION *sess,
-                                       const struct pqc_oid *oid,
-                                       CK_MECHANISM *mech,
-                                       CK_BYTE *in_data,
-                                       CK_ULONG in_data_len,
-                                       CK_BYTE *signature,
-                                       CK_ULONG signature_len,
-                                       OBJECT *key_obj)
+static CK_RV ccatok_ml_dsa_verify(STDLL_TokData_t *tokdata, SESSION *sess,
+                                  const struct pqc_oid *oid, CK_MECHANISM *mech,
+                                  CK_BYTE *in_data, CK_ULONG in_data_len,
+                                  CK_BYTE *signature, CK_ULONG signature_len,
+                                  OBJECT *key_obj, CK_BBOOL final_part)
 {
     long return_code, reason_code, rule_array_count;
     unsigned char rule_array[CCA_RULE_ARRAY_SIZE] = { 0, };
     CK_ATTRIBUTE *attr;
+    CK_BYTE *context_msg = NULL;
+    CK_ULONG context_msg_len;
+    CK_BYTE *tmp;
     CK_RV rc;
 
     UNUSED(sess);
@@ -10518,20 +11007,63 @@ CK_RV token_specific_ibm_ml_dsa_verify(STDLL_TokData_t *tokdata,
         return CKR_KEY_SIZE_RANGE;
     }
 
-    rc = check_ibm_ml_dsa_data_len(tokdata, mech->mechanism, oid, in_data_len);
+    if (mech->mechanism == CKM_HASH_ML_DSA && !final_part) {
+        /* CKM_HASH_ML_DSA does not support multipart */
+        TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
+        return CKR_MECHANISM_INVALID;
+    }
+
+    if (!final_part ||
+        (mech->mechanism == CKM_ML_DSA && sess->verify_ctx.context != NULL &&
+         in_data_len > 0)) {
+        /* Collect the input data in the context */
+        if (in_data_len == 0)
+            return CKR_OK;
+
+        tmp = (CK_BYTE *)realloc(sess->verify_ctx.context,
+                                 sess->verify_ctx.context_len + in_data_len);
+        if (tmp == NULL) {
+            TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+            return CKR_HOST_MEMORY;
+        }
+
+        memcpy(tmp + sess->verify_ctx.context_len, in_data, in_data_len);
+
+        sess->verify_ctx.context = tmp;
+        sess->verify_ctx.context_len += in_data_len;
+
+        if (!final_part)
+            return CKR_OK;
+    }
+
+    if (mech->mechanism == CKM_ML_DSA &&
+        sess->verify_ctx.context != NULL && sess->verify_ctx.context_len > 0) {
+        in_data = sess->verify_ctx.context;
+        in_data_len = sess->verify_ctx.context_len;
+    }
+
+    rc = check_ml_dsa_data_len(tokdata, mech->mechanism, oid, in_data_len);
     if (rc != CKR_OK)
         return rc;
+
+    rc = ccatok_ml_dsa_build_rule_array(mech, FALSE, key_obj,
+                                        rule_array, &rule_array_count,
+                                        in_data, in_data_len,
+                                        &context_msg, &context_msg_len);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("ccatok_ml_dsa_build_rule_array failed.\n");
+        return rc;
+    }
 
     /* Find the secure key token */
     rc = template_attribute_get_non_empty(key_obj->template, CKA_IBM_OPAQUE,
                                           &attr);
     if (rc != CKR_OK) {
         TRACE_ERROR("Could not find CKA_IBM_OPAQUE for the key.\n");
+        if (context_msg != NULL)
+            free(context_msg);
         return rc;
     }
-
-    rule_array_count = 3;
-    memcpy(rule_array, "CRDL-DSAMESSAGE CRDLHASH", CCA_KEYWORD_SIZE * 3);
 
     USE_CCA_ADAPTER_START(tokdata, return_code, reason_code)
     RETRY_NEW_MK_BLOB_START()
@@ -10543,11 +11075,17 @@ CK_RV token_specific_ibm_ml_dsa_verify(STDLL_TokData_t *tokdata,
                     rule_array,
                     (long *)&(attr->ulValueLen),
                     attr->pValue,
-                    (long *)&in_data_len,
-                    in_data, (long *)&signature_len, signature);
+                    (long *)(context_msg != NULL ?
+                            &context_msg_len : &in_data_len),
+                    context_msg != NULL ?
+                            context_msg : in_data,
+                    (long *)&signature_len, signature);
     RETRY_NEW_MK_BLOB_END(tokdata, return_code, reason_code,
                           attr->pValue, attr->ulValueLen)
     USE_CCA_ADAPTER_END(tokdata, return_code, reason_code)
+
+    if (context_msg != NULL)
+        free(context_msg);
 
     if (return_code == 4 && reason_code == 429) {
         return CKR_SIGNATURE_INVALID;
@@ -10562,7 +11100,77 @@ CK_RV token_specific_ibm_ml_dsa_verify(STDLL_TokData_t *tokdata,
                       " returned reason:%ld\n", reason_code);
     }
 
+    if (final_part && sess->verify_ctx.context != NULL) {
+        free(sess->verify_ctx.context);
+        sess->verify_ctx.context = NULL;
+        sess->verify_ctx.context_len = 0;
+    }
+
     return CKR_OK;
+}
+
+CK_RV token_specific_ibm_ml_dsa_sign(STDLL_TokData_t *tokdata,
+                                     SESSION *sess,
+                                     CK_BBOOL length_only,
+                                     const struct pqc_oid *oid,
+                                     CK_MECHANISM *mech,
+                                     CK_BYTE *in_data,
+                                     CK_ULONG in_data_len,
+                                     CK_BYTE *signature,
+                                     CK_ULONG *signature_len,
+                                     OBJECT *key_obj)
+{
+    return ccatok_ml_dsa_sign(tokdata, sess, length_only, oid, mech,
+                              in_data, in_data_len, signature, signature_len,
+                              key_obj, TRUE);
+}
+
+CK_RV token_specific_ibm_ml_dsa_verify(STDLL_TokData_t *tokdata,
+                                       SESSION *sess,
+                                       const struct pqc_oid *oid,
+                                       CK_MECHANISM *mech,
+                                       CK_BYTE *in_data,
+                                       CK_ULONG in_data_len,
+                                       CK_BYTE *signature,
+                                       CK_ULONG signature_len,
+                                       OBJECT *key_obj)
+{
+    return ccatok_ml_dsa_verify(tokdata, sess, oid, mech,
+                                in_data, in_data_len, signature, signature_len,
+                                key_obj, TRUE);
+}
+
+CK_RV token_specific_ml_dsa_sign(STDLL_TokData_t *tokdata,
+                                 SESSION *sess,
+                                 CK_BBOOL length_only,
+                                 const struct pqc_oid *oid,
+                                 CK_MECHANISM *mech,
+                                 CK_BYTE *in_data,
+                                 CK_ULONG in_data_len,
+                                 CK_BYTE *signature,
+                                 CK_ULONG *signature_len,
+                                 OBJECT *key_obj,
+                                 CK_BBOOL final_part)
+{
+    return ccatok_ml_dsa_sign(tokdata, sess, length_only, oid, mech,
+                              in_data, in_data_len, signature, signature_len,
+                              key_obj, final_part);
+}
+
+CK_RV token_specific_ml_dsa_verify(STDLL_TokData_t *tokdata,
+                                   SESSION *sess,
+                                   const struct pqc_oid *oid,
+                                   CK_MECHANISM *mech,
+                                   CK_BYTE *in_data,
+                                   CK_ULONG in_data_len,
+                                   CK_BYTE *signature,
+                                   CK_ULONG signature_len,
+                                   OBJECT *key_obj,
+                                   CK_BBOOL final_part)
+{
+    return ccatok_ml_dsa_verify(tokdata, sess, oid, mech,
+                                in_data, in_data_len, signature, signature_len,
+                                key_obj, final_part);
 }
 
 CK_RV token_specific_ibm_ml_kem_generate_keypair(STDLL_TokData_t *tokdata,
@@ -12739,11 +13347,11 @@ static CK_RV import_ec_pubkey(STDLL_TokData_t *tokdata, TEMPLATE *pub_templ)
  * to just that one key type and size that is contained in the private key's
  * ECC key derivation section.
  * For ECC key generation, the to be derived key type and size can be specified
- * using the CKA_DERIVE_TEMPLATE containing CKA_KEY_TYPE, CKA_VALUE_LEN and
- * CKA_IBM_CCA_AES_KEY_MODE. This information will then be added as ECC key
- * derivation section to the private key. The default derivation key type and
- * size is is AES-256. The default CCA key mode is determined by the global
- * configuration setting.
+ * using the CKA_DERIVE_TEMPLATE or CKA_DECAPSULATE_TEMPLATE containing
+ * CKA_KEY_TYPE, CKA_VALUE_LEN and CKA_IBM_CCA_AES_KEY_MODE.
+ * This information will then be added as ECC key derivation section to the
+ * private key. The default derivation key type and size is is AES-256.
+ * The default CCA key mode is determined by the global configuration setting.
  * Furthermore, CCA allows ECDH key derivation with keyword DERIV02 only
  * with ECC private keys that were generated by random. Keys imported from
  * clear can not be used for ECDH.
@@ -13157,9 +13765,10 @@ CK_RV token_specific_ecdh_pkcs_derive_kdf(STDLL_TokData_t *tokdata,
                                     derived_key_type, NULL);
 }
 
-static CK_RV build_ibm_pqc_import_key_value_struct(
+static CK_RV build_pqc_import_key_value_struct(
                                         CK_MECHANISM_TYPE mech,
                                         CK_BBOOL private_key,
+                                        CK_IBM_CCA_ML_DSA_KEY_MODE_TYPE mode,
                                         const struct pqc_oid *oid,
                                         TEMPLATE *templ,
                                         unsigned char *key_value_structure,
@@ -13169,11 +13778,14 @@ static CK_RV build_ibm_pqc_import_key_value_struct(
     uint8_t clear_format;
     uint16_t clear_len;
     long ofs = *key_value_structure_length;
+#if OPENSSL_VERSION_PREREQ(3, 0)
+    CK_ATTRIBUTE val_attr = { 0, NULL, 0 };
+#endif
     CK_ULONG len;
 
-    rc = build_ibm_pqc_key_value_struct(mech, oid, key_value_structure, &ofs);
+    rc = build_pqc_key_value_struct(mech, mode, oid, key_value_structure, &ofs);
     if (rc != CKR_OK) {
-        TRACE_ERROR("build_ibm_pqc_key_value_struct failed: 0x%lx\n", rc);
+        TRACE_ERROR("build_pqc_key_value_struct failed: 0x%lx\n", rc);
         return rc;
     }
 
@@ -13192,21 +13804,64 @@ static CK_RV build_ibm_pqc_import_key_value_struct(
         }
 
         ofs += len;
-    }
 
-    /*
-     * The private key of ML-KEM includes the public key already,
-     * for all other mechanisms the public key must be appended.
-     */
-    if (mech != CKM_IBM_ML_KEM_KEY_PAIR_GEN || !private_key) {
+        /*
+         * The private key of ML-KEM includes the public key already,
+         * for the ML-DSA mechanisms the public key must be appended.
+         * CKM_IBM_DILITHIUM and CKM_IBM_ML_DSA_KEY_PAIR_GEN have
+         * individual public key attributes that are usually also contained
+         * in the private key template. Try to unpack the publick key from
+         * there. If it fails, or for CKM_ML_DSA_KEY_PAIR_GEN, try to
+         * calculate the public key via OpenSSL.
+         */
+        switch (mech) {
+        case CKM_IBM_DILITHIUM:
+        case CKM_IBM_ML_DSA_KEY_PAIR_GEN:
+            len = *key_value_structure_length - ofs;
+            rc = pqc_pack_pub_key(templ, oid, mech,
+                                  key_value_structure + ofs, &len);
+            if (rc == CKR_OK) {
+                ofs += len;
+                break;
+            }
+            /* Fallthrough */
+        case CKM_ML_DSA_KEY_PAIR_GEN:
+#if OPENSSL_VERSION_PREREQ(3, 0)
+            rc = openssl_specific_pqc_get_pub_key_from_priv_key(templ, oid,
+                                                                mech,
+                                                                &val_attr);
+            if (rc != CKR_OK) {
+                TRACE_ERROR("openssl_specific_pqc_get_pub_key_from_priv_key "
+                            "failed: 0x%lx.\n", rc);
+                return CKR_KEY_SIZE_RANGE; /* priv only not supported */
+            }
+
+            if (val_attr.ulValueLen != oid->len_info.ml_dsa.rho_len +
+                                       oid->len_info.ml_dsa.t1_len) {
+                TRACE_ERROR("Public key length not as expected\n");
+                free(val_attr.pValue);
+                return CKR_FUNCTION_FAILED;
+            }
+
+            memcpy(key_value_structure + ofs,
+                   val_attr.pValue, val_attr.ulValueLen);
+            ofs += val_attr.ulValueLen;
+            free(val_attr.pValue);
+#else
+            TRACE_ERROR("OpenSSL < 3.0.0: Can not calc pub key from priv "
+                        "key\n");
+            return CKR_KEY_SIZE_RANGE; /* priv only not supported */
+#endif
+            break;
+        default:
+            break;
+        }
+    } else {
         len = *key_value_structure_length - ofs;
         rc = pqc_pack_pub_key(templ, oid, mech,
                               key_value_structure + ofs, &len);
         if (rc != CKR_OK) {
             TRACE_ERROR("pqc_pack_pub_key failed: 0x%lx\n", rc);
-            if (rc == CKR_ATTRIBUTE_VALUE_INVALID &&
-                mech == CKM_IBM_ML_DSA_KEY_PAIR_GEN)
-                rc = CKR_KEY_SIZE_RANGE; /* ML-DSA priv only not supported */
             return rc;
         }
 
@@ -13223,13 +13878,16 @@ static CK_RV build_ibm_pqc_import_key_value_struct(
 }
 
 static const struct pqc_oid *get_pqc_oid_from_algo_info(uint8_t algo_id,
-                                                        uint16_t algo_params)
+                                                        uint16_t algo_params,
+                                                        CK_MECHANISM_TYPE mech)
 {
     const struct pqc_oid *pqcs = NULL;
     CK_ULONG keyform = 0;
 
     switch (algo_id) {
     case CCA_QSA_ALGO_DILITHIUM_ROUND_2:
+        if (mech != CKM_IBM_DILITHIUM)
+            return NULL;
         pqcs = dilithium_oids;
         switch (algo_params) {
         case CCA_QSA_ALGO_DILITHIUM_65:
@@ -13241,6 +13899,8 @@ static const struct pqc_oid *get_pqc_oid_from_algo_info(uint8_t algo_id,
         }
         break;
     case CCA_QSA_ALGO_DILITHIUM_ROUND_3:
+        if (mech != CKM_IBM_DILITHIUM)
+            return NULL;
         pqcs = dilithium_oids;
         switch (algo_params) {
         case CCA_QSA_ALGO_DILITHIUM_65:
@@ -13252,20 +13912,30 @@ static const struct pqc_oid *get_pqc_oid_from_algo_info(uint8_t algo_id,
         }
         break;
     case CCA_QSA_ALGO_ML_DSA_PURE:
+    case CCA_QSA_ALGO_ML_DSA_PRE_HASH:
+        if (algo_id == CCA_QSA_ALGO_ML_DSA_PURE &&
+            mech != CKM_IBM_ML_DSA_KEY_PAIR_GEN &&
+            mech != CKM_ML_DSA_KEY_PAIR_GEN)
+            return NULL;
+        if (algo_id == CCA_QSA_ALGO_ML_DSA_PRE_HASH &&
+            mech != CKM_ML_DSA_KEY_PAIR_GEN)
+            return NULL;
         pqcs = ml_dsa_oids;
         switch (algo_params) {
         case CCA_QSA_ALGO_ML_DSA_44:
-            keyform = CKP_IBM_ML_DSA_44;
+            keyform = CKP_ML_DSA_44;
             break;
         case CCA_QSA_ALGO_ML_DSA_65:
-            keyform = CKP_IBM_ML_DSA_65;
+            keyform = CKP_ML_DSA_65;
             break;
         case CCA_QSA_ALGO_ML_DSA_87:
-            keyform = CKP_IBM_ML_DSA_87;
+            keyform = CKP_ML_DSA_87;
             break;
         }
         break;
     case CCA_QSA_ALGO_ML_KEM:
+        if (mech != CKM_IBM_ML_KEM_KEY_PAIR_GEN)
+            return NULL;
         pqcs = ml_kem_oids;
         switch (algo_params) {
         case CCA_QSA_ALGO_ML_KEM_512:
@@ -13286,9 +13956,9 @@ static const struct pqc_oid *get_pqc_oid_from_algo_info(uint8_t algo_id,
     return find_pqc_by_keyform(pqcs, keyform);
 }
 
-static CK_RV import_ibm_pqc_privkey(STDLL_TokData_t *tokdata,
-                                    TEMPLATE *priv_templ,
-                                    CK_KEY_TYPE keytype)
+static CK_RV import_pqc_privkey(STDLL_TokData_t *tokdata,
+                                TEMPLATE *priv_templ,
+                                CK_KEY_TYPE keytype)
 {
     CK_RV rc;
     CK_ATTRIBUTE *opaque_attr = NULL;
@@ -13312,6 +13982,10 @@ static CK_RV import_ibm_pqc_privkey(STDLL_TokData_t *tokdata,
         mech = CKM_IBM_ML_KEM_KEY_PAIR_GEN;
         priv_seed_attr = CKA_IBM_ML_KEM_PRIVATE_SEED;
         break;
+    case CKK_ML_DSA:
+        mech = CKM_ML_DSA_KEY_PAIR_GEN;
+        priv_seed_attr = CKA_SEED;
+        break;
     default:
         return CKR_KEY_TYPE_INCONSISTENT;
     }
@@ -13326,6 +14000,10 @@ static CK_RV import_ibm_pqc_privkey(STDLL_TokData_t *tokdata,
         uint8_t algo_id;
         uint16_t privsec_len, pubsec_len, algo_params;
         CK_BYTE *t, *pub;
+        CK_IBM_CCA_ML_DSA_KEY_MODE_TYPE mode;
+        CK_ATTRIBUTE val_attr = { 0, NULL, 0 };
+        CK_BYTE *spki = NULL;
+        CK_ULONG spki_len = 0;
 
         if (analyse_cca_key_token(opaque_attr->pValue, opaque_attr->ulValueLen,
                                   &token_type, &token_keybitsize,
@@ -13378,7 +14056,7 @@ static CK_RV import_ibm_pqc_privkey(STDLL_TokData_t *tokdata,
         algo_params = be16toh(*((uint16_t *)(t + CCA_QSA_INTTOK_PRIVKEY_OFFSET +
                               CCA_QSA_INTTOK_ALGO_PARAMS_OFFSET)));
 
-        oid = get_pqc_oid_from_algo_info(algo_id, algo_params);
+        oid = get_pqc_oid_from_algo_info(algo_id, algo_params, mech);
         if (oid == NULL) {
             TRACE_ERROR("Invalid/unknown algorithm ID in CCA QSA token\n");
             return CKR_ATTRIBUTE_VALUE_INVALID;
@@ -13396,13 +14074,63 @@ static CK_RV import_ibm_pqc_privkey(STDLL_TokData_t *tokdata,
             return rc;
         }
 
-        /* Extract public key attributes */
-        rc = pqc_unpack_pub_key(pub + CCA_QSA_EXTTOK_PAYLOAD_OFFSET,
-                                pubsec_len - CCA_QSA_EXTTOK_PAYLOAD_OFFSET,
-                                oid, mech, priv_templ);
-        if (rc != CKR_OK) {
-            TRACE_ERROR("pqc_unpack_pub_key failed\n");
-            return rc;
+        switch (keytype) {
+        case CKK_ML_DSA:
+            /* Add ML-DSA mode attributes to template */
+            switch (algo_id) {
+            case CCA_QSA_ALGO_ML_DSA_PURE:
+                mode = CK_IBM_CCA_ML_DSA_PURE_KEY;
+                break;
+            case CCA_QSA_ALGO_ML_DSA_PRE_HASH:
+                mode = CK_IBM_CCA_ML_DSA_PREHASH_KEY;
+                break;
+            default:
+                TRACE_ERROR("Invalid/unknown algorithm ID in CCA QSA token\n");
+                return CKR_ATTRIBUTE_VALUE_INVALID;
+            }
+
+            rc = build_update_attribute(priv_templ, CKA_IBM_CCA_ML_DSA_KEY_MODE,
+                                        (CK_BYTE *)&mode, sizeof(mode));
+            if (rc != CKR_OK) {
+                TRACE_DEVEL("build_update_attribute "
+                            "(CKA_IBM_CCA_ML_DSA_KEY_MODE) failed\n");
+                return rc;
+            }
+
+            /*
+             * Private key does not have the public key components, so build
+             * SPKI from public key now from the CCA public key section.
+             */
+            val_attr.pValue = pub + CCA_QSA_EXTTOK_PAYLOAD_OFFSET;
+            val_attr.ulValueLen = pubsec_len - CCA_QSA_EXTTOK_PAYLOAD_OFFSET;
+            val_attr.type = CKA_VALUE;
+
+            rc = ber_encode_ML_DSA_PublicKey(FALSE, &spki, &spki_len,
+                                             oid->oid, oid->oid_len, &val_attr);
+            if (rc != CKR_OK) {
+                TRACE_ERROR("ber_encode_ML_DSA_PublicKey failed.\n");
+                return rc;
+            }
+
+            rc = build_update_attribute(priv_templ, CKA_PUBLIC_KEY_INFO,
+                                        spki, spki_len);
+            free(spki);
+            if (rc != CKR_OK) {
+                TRACE_DEVEL("build_update_attribute "
+                            "(CKA_PUBLIC_KEY_INFO) failed\n");
+                return rc;
+            }
+            break;
+        default:
+            /* Extract public key attributes, common code will build SPKI. */
+            rc = pqc_unpack_pub_key(pub + CCA_QSA_EXTTOK_PAYLOAD_OFFSET,
+                                    pubsec_len - CCA_QSA_EXTTOK_PAYLOAD_OFFSET,
+                                    oid, mech, priv_templ);
+            if (rc != CKR_OK) {
+                TRACE_ERROR("pqc_unpack_pub_key failed\n");
+                return rc;
+            }
+            break;
         }
 
         /* Add/update CKA_SENSITIVE */
@@ -13415,7 +14143,7 @@ static CK_RV import_ibm_pqc_privkey(STDLL_TokData_t *tokdata,
         }
     } else {
         /*
-         * This is an import of a clear IBM PQC private key
+         * This is an import of a clear PQC private key
          * which is to be transferred into a CCA QSA private key.
          */
 
@@ -13432,20 +14160,31 @@ static CK_RV import_ibm_pqc_privkey(STDLL_TokData_t *tokdata,
         unsigned char *param2 = NULL;
         CK_ATTRIBUTE *attr = NULL, *priv_seed = NULL;
         CK_ULONG priv_seed_len = 0;
+        CK_IBM_CCA_ML_DSA_KEY_MODE_TYPE mode = CK_IBM_CCA_ML_DSA_PURE_KEY;
 
-        /* A clear IBM PQC key must either have a CKA_VALUE
-         * containing the PKCS#8 encoded private key, or must have a
-         * keyform/mode value and the individual attributes
-         */
-        if (template_attribute_find(priv_templ, CKA_VALUE, &attr) == TRUE &&
-            attr->ulValueLen > 0 && attr->pValue != NULL) {
-            /* Private key in PKCS#8 form is present in CKA_VALUE */
-            rc = pqc_priv_unwrap(priv_templ, keytype,
-                                 attr->pValue, attr->ulValueLen, FALSE);
-            if (rc != CKR_OK) {
-                TRACE_ERROR("Failed to decode private key from CKA_VALUE.\n");
-                return rc;
+        switch (keytype) {
+        case CKK_IBM_DILITHIUM:
+        case CKK_IBM_ML_DSA:
+        case CKK_IBM_ML_KEM:
+            /* A clear IBM PQC key must either have a CKA_VALUE
+             * containing the PKCS#8 encoded private key, or must have a
+             * keyform/mode value and the individual attributes
+             */
+            if (template_attribute_find(priv_templ, CKA_VALUE, &attr) == TRUE &&
+                attr->ulValueLen > 0 && attr->pValue != NULL) {
+                /* Private key in PKCS#8 form is present in CKA_VALUE */
+                rc = pqc_priv_unwrap(priv_templ, keytype,
+                                     attr->pValue, attr->ulValueLen, FALSE);
+                if (rc != CKR_OK) {
+                    TRACE_ERROR("Failed to decode private key from "
+                                "CKA_VALUE.\n");
+                    return rc;
+                }
             }
+            break;
+        default:
+            /* ML-DSA has raw key components in CKA_VALUE */
+            break;
         }
 
         oid = pqc_get_keyform_mode(priv_templ, mech);
@@ -13460,6 +14199,19 @@ static CK_RV import_ibm_pqc_privkey(STDLL_TokData_t *tokdata,
             return CKR_KEY_SIZE_RANGE;
         }
 
+        switch (keytype) {
+        case CKK_ML_DSA:
+            rc = cca_get_and_set_ml_dsa_key_mode(tokdata, priv_templ, &mode);
+            if (rc != CKR_OK) {
+                TRACE_ERROR("cca_get_and_set_ml_dsa_key_mode failed: 0x%lx\n",
+                            rc);
+                return rc;
+            }
+            break;
+        default:
+            break;
+        }
+
         /* The private seed attribute might be available */
         if (priv_seed_attr != (CK_ATTRIBUTE_TYPE)-1 &&
             template_attribute_find(priv_templ, priv_seed_attr,
@@ -13468,6 +14220,7 @@ static CK_RV import_ibm_pqc_privkey(STDLL_TokData_t *tokdata,
             /* Use private seed for import */
             switch (keytype) {
             case CKK_IBM_ML_DSA:
+            case CKK_ML_DSA:
                 priv_seed_len = oid->len_info.ml_dsa.priv_seed_len;
                 break;
             case CKK_IBM_ML_KEM:
@@ -13483,10 +14236,11 @@ static CK_RV import_ibm_pqc_privkey(STDLL_TokData_t *tokdata,
             }
 
             key_value_structure_length = CCA_QSA_KEY_VALUE_STRUCT_SIZE;
-            rc = build_ibm_pqc_key_value_struct(mech, oid, key_value_structure,
-                                                &key_value_structure_length);
+            rc = build_pqc_key_value_struct(mech, mode,
+                                            oid, key_value_structure,
+                                            &key_value_structure_length);
             if (rc != CKR_OK) {
-                TRACE_ERROR("build_ibm_pqc_key_value_struct failed: 0x%lx\n",
+                TRACE_ERROR("build_pqc_key_value_struct failed: 0x%lx\n",
                             rc);
                 return rc;
             }
@@ -13495,12 +14249,12 @@ static CK_RV import_ibm_pqc_privkey(STDLL_TokData_t *tokdata,
 
             /* Build key_value_structure */
             key_value_structure_length = CCA_KEY_VALUE_STRUCT_SIZE;
-            rc = build_ibm_pqc_import_key_value_struct(
-                                    mech, TRUE, oid, priv_templ,
+            rc = build_pqc_import_key_value_struct(
+                                    mech, TRUE, mode, oid, priv_templ,
                                     (unsigned char *)&key_value_structure,
                                     &key_value_structure_length);
             if (rc != CKR_OK) {
-                TRACE_ERROR("build_ibm_pqc_import_key_value_struct failed: "
+                TRACE_ERROR("build_pqc_import_key_value_struct failed: "
                             "0x%lx\n", rc);
                 return rc;
             }
@@ -13510,6 +14264,7 @@ static CK_RV import_ibm_pqc_privkey(STDLL_TokData_t *tokdata,
         switch (keytype) {
         case CKK_IBM_PQC_DILITHIUM:
         case CKK_IBM_ML_DSA:
+        case CKK_ML_DSA:
             rule_array_count = 2;
             memcpy(rule_array, "QSA-PAIRU-DIGSIG", CCA_KEYWORD_SIZE * 2);
             break;
@@ -13614,11 +14369,11 @@ static CK_RV import_ibm_pqc_privkey(STDLL_TokData_t *tokdata,
         }
 
         /* Add required attributes to template */
-        rc = token_create_ibm_pqc_privkey(mech, priv_templ, oid,
-                                          target_key_token_length,
-                                          target_key_token);
+        rc = token_create_pqc_privkey(mech, priv_templ, oid,
+                                      target_key_token_length,
+                                      target_key_token);
         if (rc != CKR_OK) {
-            TRACE_DEVEL("token_create_ibm_pqc_privkey failed: %lu\n", rc);
+            TRACE_DEVEL("token_create_pqc_privkey failed: %lu\n", rc);
             return rc;
         }
 
@@ -13639,6 +14394,10 @@ static CK_RV import_ibm_pqc_privkey(STDLL_TokData_t *tokdata,
             cleanse_attribute(priv_templ, CKA_IBM_ML_KEM_SK);
             cleanse_attribute(priv_templ, CKA_IBM_ML_KEM_PRIVATE_SEED);
             break;
+        case CKK_ML_DSA:
+            cleanse_attribute(priv_templ, CKA_VALUE);
+            cleanse_attribute(priv_templ, CKA_SEED);
+            break;
         }
     }
 
@@ -13648,9 +14407,9 @@ static CK_RV import_ibm_pqc_privkey(STDLL_TokData_t *tokdata,
     return CKR_OK;
 }
 
-static CK_RV import_ibm_pqc_pubkey(STDLL_TokData_t *tokdata,
-                                   TEMPLATE *pub_templ,
-                                   CK_KEY_TYPE keytype)
+static CK_RV import_pqc_pubkey(STDLL_TokData_t *tokdata,
+                               TEMPLATE *pub_templ,
+                               CK_KEY_TYPE keytype)
 {
     CK_RV rc;
     CK_ATTRIBUTE *opaque_attr = NULL;
@@ -13669,6 +14428,9 @@ static CK_RV import_ibm_pqc_pubkey(STDLL_TokData_t *tokdata,
     case CKK_IBM_ML_KEM:
         mech = CKM_IBM_ML_KEM_KEY_PAIR_GEN;
         break;
+    case CKK_ML_DSA:
+        mech = CKM_ML_DSA_KEY_PAIR_GEN;
+        break;
     default:
         return CKR_KEY_TYPE_INCONSISTENT;
     }
@@ -13685,6 +14447,7 @@ static CK_RV import_ibm_pqc_pubkey(STDLL_TokData_t *tokdata,
         uint8_t algo_id;
         uint16_t pubsec_len, algo_params;
         CK_BYTE *t;
+        CK_IBM_CCA_ML_DSA_KEY_MODE_TYPE mode;
 
         if (analyse_cca_key_token(opaque_attr->pValue, opaque_attr->ulValueLen,
                                   &token_type, &token_keybitsize,
@@ -13715,7 +14478,7 @@ static CK_RV import_ibm_pqc_pubkey(STDLL_TokData_t *tokdata,
         algo_params = be16toh(*((uint16_t *)(t + CCA_QSA_EXTTOK_PUBLKEY_OFFSET +
                               CCA_QSA_EXTTOK_ALGO_PARAMS_OFFSET)));
 
-        oid = get_pqc_oid_from_algo_info(algo_id, algo_params);
+        oid = get_pqc_oid_from_algo_info(algo_id, algo_params, mech);
         if (oid == NULL) {
             TRACE_ERROR("Invalid/unknown algorithm ID in CCA QSA token\n");
             return CKR_ATTRIBUTE_VALUE_INVALID;
@@ -13733,6 +14496,33 @@ static CK_RV import_ibm_pqc_pubkey(STDLL_TokData_t *tokdata,
             return rc;
         }
 
+        switch (keytype) {
+        case CKK_ML_DSA:
+            /* Add ML-DSA mode attributes to template */
+            switch (algo_id) {
+            case CCA_QSA_ALGO_ML_DSA_PURE:
+                mode = CK_IBM_CCA_ML_DSA_PURE_KEY;
+                break;
+            case CCA_QSA_ALGO_ML_DSA_PRE_HASH:
+                mode = CK_IBM_CCA_ML_DSA_PREHASH_KEY;
+                break;
+            default:
+                TRACE_ERROR("Invalid/unknown algorithm ID in CCA QSA token\n");
+                return CKR_ATTRIBUTE_VALUE_INVALID;
+            }
+
+            rc = build_update_attribute(pub_templ, CKA_IBM_CCA_ML_DSA_KEY_MODE,
+                                        (CK_BYTE *)&mode, sizeof(mode));
+            if (rc != CKR_OK) {
+                TRACE_DEVEL("build_update_attribute "
+                            "(CKA_IBM_CCA_ML_DSA_KEY_MODE) failed\n");
+                return rc;
+            }
+            break;
+        default:
+            break;
+        }
+
         /* Extract public key attributes */
         rc = pqc_unpack_pub_key(t + CCA_QSA_EXTTOK_PUBLKEY_OFFSET +
                                                 CCA_QSA_EXTTOK_PAYLOAD_OFFSET,
@@ -13743,26 +14533,32 @@ static CK_RV import_ibm_pqc_pubkey(STDLL_TokData_t *tokdata,
             return rc;
         }
 
-        /* Add SPKI as CKA_VALUE to public template */
-        rc = pqc_publ_get_spki(pub_templ, keytype, FALSE,
-                               &spki, &spki_len);
-        if (rc != CKR_OK) {
-            TRACE_ERROR("pqc_publ_get_spki failed\n");
-            return rc;
-        }
+        switch (keytype) {
+        case CKK_IBM_DILITHIUM:
+        case CKK_IBM_ML_DSA:
+        case CKK_IBM_ML_KEM:
+            /* Add SPKI as CKA_VALUE to public template */
+            rc = pqc_publ_get_spki(pub_templ, keytype, FALSE,
+                                   &spki, &spki_len, FALSE);
+            if (rc != CKR_OK) {
+                TRACE_ERROR("pqc_publ_get_spki failed\n");
+                return rc;
+            }
 
-        rc = build_update_attribute(pub_templ, CKA_VALUE, spki, spki_len);
-        if (rc != CKR_OK) {
-            TRACE_ERROR("build_update_attribute for CKA_VALUE failed rv=0x%lx\n",
-                        rc);
+            rc = build_update_attribute(pub_templ, CKA_VALUE, spki, spki_len);
             free(spki);
-            return rc;
+            if (rc != CKR_OK) {
+                TRACE_ERROR("build_update_attribute for CKA_VALUE failed rv=0x%lx\n",
+                            rc);
+                return rc;
+            }
+            break;
+        default:
+            break;
         }
-
-        free(spki);
     } else {
         /*
-         * This is an import of a clear IBM PQC public key which
+         * This is an import of a clear PQC public key which
          * is to be transferred into a CCA QSA public key.
          */
 
@@ -13777,39 +14573,48 @@ static CK_RV import_ibm_pqc_pubkey(STDLL_TokData_t *tokdata,
         long param1 = 0;
         unsigned char *param2 = NULL;
         CK_ATTRIBUTE *attr = NULL;
+        CK_IBM_CCA_ML_DSA_KEY_MODE_TYPE mode = CK_IBM_CCA_ML_DSA_PURE_KEY;
 
-        /* A clear IBM PQC key must either have a CKA_VALUE
-         * containing the SPKI encoded public key, or must have a keyform/mode
-         * value and the individual attributes
-         */
-        if (template_attribute_find(pub_templ, CKA_VALUE, &attr) == TRUE &&
-            attr->ulValueLen > 0 && attr->pValue != NULL) {
-            /* Public key in SPKI form is present in CKA_VALUE */
-            rc = pqc_priv_unwrap_get_data(pub_templ, keytype,
-                                          attr->pValue, attr->ulValueLen,
-                                          FALSE);
-            if (rc != CKR_OK) {
-                TRACE_ERROR("Failed to decode public key from CKA_VALUE.\n");
-                return rc;
-            }
-        } else {
-            /* Add SPKI as CKA_VALUE to public template */
-            rc = pqc_publ_get_spki(pub_templ, keytype, FALSE,
-                                   &spki, &spki_len);
-            if (rc != CKR_OK) {
-                TRACE_ERROR("pqc_publ_get_spki failed\n");
-                return rc;
-            }
+        switch (keytype) {
+        case CKK_IBM_DILITHIUM:
+        case CKK_IBM_ML_DSA:
+        case CKK_IBM_ML_KEM:
+            /* A clear IBM PQC key must either have a CKA_VALUE
+             * containing the SPKI encoded public key, or must have a
+             * keyform/mode value and the individual attributes
+             */
+            if (template_attribute_find(pub_templ, CKA_VALUE, &attr) == TRUE &&
+                attr->ulValueLen > 0 && attr->pValue != NULL) {
+                /* Public key in SPKI form is present in CKA_VALUE */
+                rc = pqc_priv_unwrap_get_data(pub_templ, keytype,
+                                              attr->pValue, attr->ulValueLen,
+                                              FALSE);
+                if (rc != CKR_OK) {
+                    TRACE_ERROR("Failed to decode public key from CKA_VALUE\n");
+                    return rc;
+                }
+            } else {
+                /* Add SPKI as CKA_VALUE to public template */
+                rc = pqc_publ_get_spki(pub_templ, keytype, FALSE,
+                                       &spki, &spki_len, FALSE);
+                if (rc != CKR_OK) {
+                    TRACE_ERROR("pqc_publ_get_spki failed\n");
+                    return rc;
+                }
 
-            rc = build_update_attribute(pub_templ, CKA_VALUE, spki, spki_len);
-            if (rc != CKR_OK) {
-                TRACE_ERROR("build_update_attribute for CKA_VALUE failed "
-                            "rv=0x%lx\n", rc);
+                rc = build_update_attribute(pub_templ, CKA_VALUE,
+                                            spki, spki_len);
                 free(spki);
-                return rc;
+                if (rc != CKR_OK) {
+                    TRACE_ERROR("build_update_attribute for CKA_VALUE failed "
+                                "rv=0x%lx\n", rc);
+                    return rc;
+                }
             }
-
-            free(spki);
+            break;
+        default:
+            /* ML-DSA has raw key components in CKA_VALUE */
+            break;
         }
 
         oid = pqc_get_keyform_mode(pub_templ, mech);
@@ -13830,14 +14635,27 @@ static CK_RV import_ibm_pqc_pubkey(STDLL_TokData_t *tokdata,
             return rc;
         }
 
+        switch (keytype) {
+        case CKK_ML_DSA:
+            rc = cca_get_and_set_ml_dsa_key_mode(tokdata, pub_templ, &mode);
+            if (rc != CKR_OK) {
+                TRACE_ERROR("cca_get_and_set_ml_dsa_key_mode failed: 0x%lx\n",
+                            rc);
+                return rc;
+            }
+            break;
+        default:
+            break;
+        }
+
         /* Build key_value_structure */
         key_value_structure_length = CCA_KEY_VALUE_STRUCT_SIZE;
-        rc = build_ibm_pqc_import_key_value_struct(
-                                mech, FALSE, oid, pub_templ,
+        rc = build_pqc_import_key_value_struct(
+                                mech, FALSE, mode, oid, pub_templ,
                                 (unsigned char *)&key_value_structure,
                                 &key_value_structure_length);
         if (rc != CKR_OK) {
-            TRACE_ERROR("build_ibm_pqc_import_key_value_struct failed: "
+            TRACE_ERROR("build_pqc_import_key_value_struct failed: "
                         "0x%lx\n", rc);
             return rc;
         }
@@ -13846,6 +14664,7 @@ static CK_RV import_ibm_pqc_pubkey(STDLL_TokData_t *tokdata,
         switch (keytype) {
         case CKK_IBM_PQC_DILITHIUM:
         case CKK_IBM_ML_DSA:
+        case CKK_ML_DSA:
             rule_array_count = 2;
             memcpy(rule_array, "QSA-PUBLU-DIGSIG", CCA_KEYWORD_SIZE * 2);
             break;
@@ -14027,10 +14846,11 @@ CK_RV token_specific_object_add(STDLL_TokData_t *tokdata, SESSION *sess, OBJECT 
     case CKK_IBM_PQC_DILITHIUM:
     case CKK_IBM_ML_DSA:
     case CKK_IBM_ML_KEM:
+    case CKK_ML_DSA:
         switch (keyclass) {
         case CKO_PUBLIC_KEY:
             // do import public key and create opaque object
-            rc = import_ibm_pqc_pubkey(tokdata, object->template, keytype);
+            rc = import_pqc_pubkey(tokdata, object->template, keytype);
             if (rc != CKR_OK) {
                 TRACE_DEVEL("PQC public key import failed, rc=0x%lx\n", rc);
                 return rc;
@@ -14039,7 +14859,7 @@ CK_RV token_specific_object_add(STDLL_TokData_t *tokdata, SESSION *sess, OBJECT 
             break;
         case CKO_PRIVATE_KEY:
             // do import keypair and create opaque object
-            rc = import_ibm_pqc_privkey(tokdata, object->template, keytype);
+            rc = import_pqc_privkey(tokdata, object->template, keytype);
             if (rc != CKR_OK) {
                 TRACE_DEVEL("PQC private key import failed, rc=0x%lx\n", rc);
                 return rc;

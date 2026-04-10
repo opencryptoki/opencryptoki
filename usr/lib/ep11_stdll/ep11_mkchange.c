@@ -622,7 +622,8 @@ static CK_RV ep11tok_reencipher_sessions_cb(STDLL_TokData_t *tokdata,
     case CONTEXT_TYPE_SIGN:
         if (init_pending || pkey_active)
             return CKR_OK;
-        if (ep11tok_libica_mech_available(tokdata, mech->mechanism, key))
+        if (ep11tok_is_common_code_sign_verify_mech(mech) ||
+            ep11tok_libica_mech_available(tokdata, mech->mechanism, key))
             return CKR_OK;
 
         ctx_type_str = "sign";
@@ -631,7 +632,8 @@ static CK_RV ep11tok_reencipher_sessions_cb(STDLL_TokData_t *tokdata,
     case CONTEXT_TYPE_VERIFY:
         if (init_pending || pkey_active)
             return CKR_OK;
-        if (ep11tok_libica_mech_available(tokdata, mech->mechanism, key))
+        if (ep11tok_is_common_code_sign_verify_mech(mech) ||
+            ep11tok_libica_mech_available(tokdata, mech->mechanism, key))
             return CKR_OK;
 
         ctx_type_str = "verify";

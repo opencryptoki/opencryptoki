@@ -22,6 +22,8 @@
 #define POLICY_CHECK_DERIVE    6
 #define POLICY_CHECK_WRAP      7
 #define POLICY_CHECK_UNWRAP    8
+#define POLICY_CHECK_ENCAPS    9
+#define POLICY_CHECK_DECAPS    10
 
 struct policy;
 typedef struct policy *policy_t;

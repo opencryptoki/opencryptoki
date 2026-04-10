@@ -3140,7 +3140,8 @@ CK_RV SC_SignInit(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
         goto done;
     }
 
-    if (ep11tok_libica_mech_available(tokdata, pMechanism->mechanism, hKey)) {
+    if (ep11tok_is_common_code_sign_verify_mech(pMechanism) ||
+        ep11tok_libica_mech_available(tokdata, pMechanism->mechanism, hKey)) {
         sess->sign_ctx.count_statistics = TRUE;
         rc = sign_mgr_init(tokdata, sess, &sess->sign_ctx, pMechanism, FALSE,
                            hKey, TRUE, TRUE);
@@ -3309,7 +3310,8 @@ CK_RV SC_Sign(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
     if (!pSignature)
         length_only = TRUE;
 
-    if (ep11tok_libica_mech_available(tokdata, sess->sign_ctx.mech.mechanism,
+    if (ep11tok_is_common_code_sign_verify_mech(&sess->sign_ctx.mech) ||
+        ep11tok_libica_mech_available(tokdata, sess->sign_ctx.mech.mechanism,
                                       sess->sign_ctx.key)) {
         rc = sign_mgr_sign(tokdata, sess, length_only, &sess->sign_ctx, pData,
                            ulDataLen, pSignature, pulSignatureLen);
@@ -3409,7 +3411,8 @@ CK_RV SC_SignUpdate(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
         goto done;
     }
 
-    if (ep11tok_libica_mech_available(tokdata, sess->sign_ctx.mech.mechanism,
+    if (ep11tok_is_common_code_sign_verify_mech(&sess->sign_ctx.mech) ||
+        ep11tok_libica_mech_available(tokdata, sess->sign_ctx.mech.mechanism,
                                       sess->sign_ctx.key)) {
         rc = sign_mgr_sign_update(tokdata, sess, &sess->sign_ctx, pPart,
                                   ulPartLen);
@@ -3500,7 +3503,8 @@ CK_RV SC_SignFinal(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
     if (!pSignature)
         length_only = TRUE;
 
-    if (ep11tok_libica_mech_available(tokdata, sess->sign_ctx.mech.mechanism,
+    if (ep11tok_is_common_code_sign_verify_mech(&sess->sign_ctx.mech) ||
+        ep11tok_libica_mech_available(tokdata, sess->sign_ctx.mech.mechanism,
                                       sess->sign_ctx.key)) {
         rc = sign_mgr_sign_final(tokdata, sess, length_only, &sess->sign_ctx,
                                  pSignature, pulSignatureLen);
@@ -3587,8 +3591,9 @@ CK_RV SC_SignRecover(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
 }
 
 
-CK_RV SC_VerifyInit(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
-                    CK_MECHANISM_PTR pMechanism, CK_OBJECT_HANDLE hKey)
+static CK_RV VerifyInit(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
+                        CK_MECHANISM_PTR pMechanism, CK_OBJECT_HANDLE hKey,
+                        CK_BYTE_PTR pSignature, CK_ULONG ulSignatureLen)
 {
     SESSION *sess = NULL;
     CK_RV rc = CKR_OK;
@@ -3629,7 +3634,21 @@ CK_RV SC_VerifyInit(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
         goto done;
     }
 
-    if (ep11tok_libica_mech_available(tokdata, pMechanism->mechanism, hKey)) {
+    if (pSignature != NULL && ulSignatureLen != 0) {
+        /* Save signature in context for later verification */
+        sess->verify_ctx.saved_signature = malloc(ulSignatureLen);
+        if (sess->verify_ctx.saved_signature == NULL) {
+            rc = CKR_HOST_MEMORY;
+            TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+            goto done;
+        }
+
+        memcpy(sess->verify_ctx.saved_signature, pSignature, ulSignatureLen);
+        sess->verify_ctx.saved_signature_len = ulSignatureLen;
+    }
+
+    if (ep11tok_is_common_code_sign_verify_mech(pMechanism) ||
+        ep11tok_libica_mech_available(tokdata, pMechanism->mechanism, hKey)) {
         sess->verify_ctx.count_statistics = TRUE;
         rc = verify_mgr_init(tokdata, sess, &sess->verify_ctx, pMechanism,
                              FALSE, hKey, TRUE);
@@ -3707,7 +3726,8 @@ CK_RV SC_VerifyInit(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
     }
 
 done:
-    TRACE_INFO("C_VerifyInit: rc = 0x%08lx, sess = %ld, mech = 0x%lx\n",
+    TRACE_INFO("C_Verify%sInit: rc = 0x%08lx, sess = %ld, mech = 0x%lx\n",
+               pSignature != NULL && ulSignatureLen != 0 ? "Signature" : "",
                rc, (sess == NULL) ? -1 : (CK_LONG) sess->handle,
                (pMechanism ? pMechanism->mechanism : (CK_ULONG)-1));
 
@@ -3717,10 +3737,15 @@ done:
     return rc;
 }
 
+CK_RV SC_VerifyInit(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
+                    CK_MECHANISM_PTR pMechanism, CK_OBJECT_HANDLE hKey)
+{
+    return VerifyInit(tokdata, sSession, pMechanism, hKey, NULL, 0);
+}
 
-CK_RV SC_Verify(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
-                CK_BYTE_PTR pData, CK_ULONG ulDataLen, CK_BYTE_PTR pSignature,
-                CK_ULONG ulSignatureLen)
+static CK_RV Verify(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
+                    CK_BYTE_PTR pData, CK_ULONG ulDataLen,
+                    CK_BYTE_PTR pSignature, CK_ULONG ulSignatureLen)
 {
     SESSION *sess = NULL;
     CK_RV rc = CKR_OK;
@@ -3738,7 +3763,7 @@ CK_RV SC_Verify(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
         goto done;
     }
 
-    if (!pData || !pSignature) {
+    if (!pData) {
         TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
         rc = CKR_ARGUMENTS_BAD;
         goto done;
@@ -3750,10 +3775,31 @@ CK_RV SC_Verify(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
         goto done;
     }
 
-    if (ep11tok_libica_mech_available(tokdata, sess->verify_ctx.mech.mechanism,
+    if (sess->verify_ctx.saved_signature == NULL && pSignature == NULL) {
+        /* Operation was initialized with C_VerifyInit() */
+        TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
+        rc = CKR_ARGUMENTS_BAD;
+        goto done;
+    }
+
+    if (sess->verify_ctx.saved_signature != NULL && pSignature != NULL) {
+        /* Operation was initialized with C_VerifySignatureInit() */
+        TRACE_ERROR("%s\n", ock_err(ERR_OPERATION_NOT_INITIALIZED));
+        rc = CKR_OPERATION_NOT_INITIALIZED;
+        goto done;
+    }
+
+    if (ep11tok_is_common_code_sign_verify_mech(&sess->verify_ctx.mech) ||
+        ep11tok_libica_mech_available(tokdata, sess->verify_ctx.mech.mechanism,
                                       sess->verify_ctx.key)) {
         rc = verify_mgr_verify(tokdata, sess, &sess->verify_ctx, pData,
-                           ulDataLen, pSignature, ulSignatureLen);
+                               ulDataLen,
+                               sess->verify_ctx.saved_signature != NULL ?
+                                     sess->verify_ctx.saved_signature :
+                                     pSignature,
+                               sess->verify_ctx.saved_signature != NULL ?
+                                     sess->verify_ctx.saved_signature_len :
+                                     ulSignatureLen);
         if (rc != CKR_OK)
             TRACE_DEVEL("verify_mgr_verify() failed.\n");
 
@@ -3783,12 +3829,22 @@ CK_RV SC_Verify(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
         rc == CKR_FUNCTION_NOT_SUPPORTED) {
         rc = ep11tok_verify_single(tokdata, sess, &sess->verify_ctx.mech,
                                    sess->verify_ctx.key, pData, ulDataLen,
-                                   pSignature, ulSignatureLen);
+                                   sess->verify_ctx.saved_signature != NULL ?
+                                         sess->verify_ctx.saved_signature :
+                                         pSignature,
+                                   sess->verify_ctx.saved_signature != NULL ?
+                                         sess->verify_ctx.saved_signature_len :
+                                         ulSignatureLen);
         if (rc != CKR_OK)
             TRACE_DEVEL("ep11tok_verify_single() failed.\n");
     } else {
-        rc = ep11tok_verify(tokdata, sess, pData, ulDataLen, pSignature,
-                            ulSignatureLen);
+        rc = ep11tok_verify(tokdata, sess, pData, ulDataLen,
+                            sess->verify_ctx.saved_signature != NULL ?
+                                  sess->verify_ctx.saved_signature :
+                                  pSignature,
+                            sess->verify_ctx.saved_signature != NULL ?
+                                  sess->verify_ctx.saved_signature_len :
+                                  ulSignatureLen);
         if (rc != CKR_OK)
             TRACE_DEVEL("ep11tok_verify() failed.\n");
     }
@@ -3797,7 +3853,8 @@ done:
     if (sess != NULL)
         verify_mgr_cleanup(tokdata, sess, &sess->verify_ctx);
 
-    TRACE_INFO("C_Verify: rc = 0x%08lx, sess = %ld, datalen = %lu\n",
+    TRACE_INFO("C_Verify%s: rc = 0x%08lx, sess = %ld, datalen = %lu\n",
+               pSignature == NULL ? "Signature" : "",
                rc, (sess == NULL) ? -1 : (CK_LONG) sess->handle, ulDataLen);
 
     if (sess != NULL)
@@ -3806,9 +3863,17 @@ done:
     return rc;
 }
 
+CK_RV SC_Verify(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
+                CK_BYTE_PTR pData, CK_ULONG ulDataLen, CK_BYTE_PTR pSignature,
+                CK_ULONG ulSignatureLen)
+{
+    return Verify(tokdata, sSession, pData, ulDataLen,
+                  pSignature, ulSignatureLen);
+}
 
-CK_RV SC_VerifyUpdate(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
-                      CK_BYTE_PTR pPart, CK_ULONG ulPartLen)
+static CK_RV VerifyUpdate(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
+                          CK_BYTE_PTR pPart, CK_ULONG ulPartLen,
+                          CK_BBOOL verify_message)
 {
     SESSION *sess = NULL;
     CK_RV rc = CKR_OK;
@@ -3839,7 +3904,14 @@ CK_RV SC_VerifyUpdate(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
         goto done;
     }
 
-    if (ep11tok_libica_mech_available(tokdata, sess->verify_ctx.mech.mechanism,
+    if ((sess->verify_ctx.saved_signature != NULL) != verify_message) {
+        rc = CKR_OPERATION_NOT_INITIALIZED;
+        TRACE_ERROR("%s\n", ock_err(ERR_OPERATION_NOT_INITIALIZED));
+        goto done;
+    }
+
+    if (ep11tok_is_common_code_sign_verify_mech(&sess->verify_ctx.mech) ||
+        ep11tok_libica_mech_available(tokdata, sess->verify_ctx.mech.mechanism,
                                       sess->verify_ctx.key)) {
         rc = verify_mgr_verify_update(tokdata, sess, &sess->verify_ctx, pPart,
                                       ulPartLen);
@@ -3879,7 +3951,9 @@ done:
     if (rc != CKR_OK && sess != NULL)
         verify_mgr_cleanup(tokdata, sess, &sess->verify_ctx);
 
-    TRACE_INFO("C_VerifyUpdate: rc = 0x%08lx, sess = %ld, datalen = %lu\n",
+    TRACE_INFO("C_Verify%sUpdate: rc = 0x%08lx, sess = %ld, datalen = %lu\n",
+               (sess != NULL && sess->verify_ctx.saved_signature != NULL) ?
+                                                   "Signature" : "",
                rc, (sess == NULL) ? -1 : (CK_LONG) sess->handle, ulPartLen);
 
     if (sess != NULL)
@@ -3888,9 +3962,14 @@ done:
     return rc;
 }
 
+CK_RV SC_VerifyUpdate(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
+                      CK_BYTE_PTR pPart, CK_ULONG ulPartLen)
+{
+    return VerifyUpdate(tokdata, sSession, pPart, ulPartLen, FALSE);
+}
 
-CK_RV SC_VerifyFinal(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
-                     CK_BYTE_PTR pSignature, CK_ULONG ulSignatureLen)
+static CK_RV VerifyFinal(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
+                         CK_BYTE_PTR pSignature, CK_ULONG ulSignatureLen)
 {
     SESSION *sess = NULL;
     CK_RV rc = CKR_OK;
@@ -3908,12 +3987,6 @@ CK_RV SC_VerifyFinal(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
         goto done;
     }
 
-    if (!pSignature) {
-        TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
-        rc = CKR_ARGUMENTS_BAD;
-        goto done;
-    }
-
     if (sess->verify_ctx.active == FALSE ||
         ep11tok_mech_single_only(&sess->verify_ctx.mech)) {
         rc = CKR_OPERATION_NOT_INITIALIZED;
@@ -3921,10 +3994,30 @@ CK_RV SC_VerifyFinal(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
         goto done;
     }
 
-    if (ep11tok_libica_mech_available(tokdata, sess->verify_ctx.mech.mechanism,
+    if (pSignature == NULL && sess->verify_ctx.saved_signature == NULL) {
+        /* Operation was initialized with C_VerifyInit() */
+        rc = CKR_OPERATION_NOT_INITIALIZED;
+        TRACE_ERROR("%s\n", ock_err(ERR_OPERATION_NOT_INITIALIZED));
+        goto done;
+    }
+
+    if (pSignature != NULL && sess->verify_ctx.saved_signature != NULL) {
+        /* Operation was initialized with C_VerifySignatureInit() */
+        rc = CKR_OPERATION_NOT_INITIALIZED;
+        TRACE_ERROR("%s\n", ock_err(ERR_OPERATION_NOT_INITIALIZED));
+        goto done;
+    }
+
+    if (ep11tok_is_common_code_sign_verify_mech(&sess->verify_ctx.mech) ||
+        ep11tok_libica_mech_available(tokdata, sess->verify_ctx.mech.mechanism,
                                       sess->verify_ctx.key)) {
         rc = verify_mgr_verify_final(tokdata, sess, &sess->verify_ctx,
-                                     pSignature, ulSignatureLen);
+                                     sess->verify_ctx.saved_signature != NULL ?
+                                         sess->verify_ctx.saved_signature :
+                                         pSignature,
+                                     sess->verify_ctx.saved_signature != NULL ?
+                                         sess->verify_ctx.saved_signature_len :
+                                         ulSignatureLen);
         if (rc != CKR_OK)
             TRACE_DEVEL("verify_mgr_verify_final() failed.\n");
 
@@ -3947,7 +4040,13 @@ CK_RV SC_VerifyFinal(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
         sess->verify_ctx.init_pending = 0;
         goto done;
     }
-    rc = ep11tok_verify_final(tokdata, sess, pSignature, ulSignatureLen);
+    rc = ep11tok_verify_final(tokdata, sess,
+                              sess->verify_ctx.saved_signature != NULL ?
+                                    sess->verify_ctx.saved_signature :
+                                    pSignature,
+                              sess->verify_ctx.saved_signature != NULL ?
+                                    sess->verify_ctx.saved_signature_len :
+                                    ulSignatureLen);
     if (rc != CKR_OK)
         TRACE_DEVEL("ep11tok_verify_final() failed.\n");
 
@@ -3955,7 +4054,8 @@ done:
     if (sess != NULL)
         verify_mgr_cleanup(tokdata, sess, &sess->verify_ctx);
 
-    TRACE_INFO("C_VerifyFinal: rc = 0x%08lx, sess = %ld\n",
+    TRACE_INFO("C_Verify%sFinal: rc = 0x%08lx, sess = %ld\n",
+               pSignature == NULL ? "Signature" : "",
                rc, (sess == NULL) ? -1 : (CK_LONG) sess->handle);
 
     if (sess != NULL)
@@ -3964,6 +4064,16 @@ done:
     return rc;
 }
 
+CK_RV SC_VerifyFinal(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
+                     CK_BYTE_PTR pSignature, CK_ULONG ulSignatureLen)
+{
+    if (pSignature == NULL || ulSignatureLen == 0) {
+        TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
+        return CKR_ARGUMENTS_BAD;
+    }
+
+    return VerifyFinal(tokdata, sSession, pSignature, ulSignatureLen);
+}
 
 CK_RV SC_VerifyRecoverInit(STDLL_TokData_t *tokdata,
                            ST_SESSION_HANDLE *sSession,
@@ -4004,6 +4114,36 @@ CK_RV SC_VerifyRecover(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
     return CKR_FUNCTION_NOT_SUPPORTED;
 }
 
+CK_RV SC_VerifySignatureInit(STDLL_TokData_t *tokdata, ST_SESSION_T *sSession,
+                             CK_MECHANISM_PTR pMechanism,
+                             CK_OBJECT_HANDLE hKey,
+                             CK_BYTE_PTR pSignature, CK_ULONG ulSignatureLen)
+{
+    if (pSignature == NULL || ulSignatureLen == 0) {
+        TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
+        return CKR_ARGUMENTS_BAD;
+    }
+
+    return VerifyInit(tokdata, sSession, pMechanism, hKey,
+                      pSignature, ulSignatureLen);
+}
+
+CK_RV SC_VerifySignature(STDLL_TokData_t *tokdata, ST_SESSION_T *sSession,
+                        CK_BYTE_PTR pData, CK_ULONG ulDataLen)
+{
+    return Verify(tokdata, sSession, pData, ulDataLen, NULL, 0);
+}
+
+CK_RV SC_VerifySignatureUpdate(STDLL_TokData_t *tokdata, ST_SESSION_T *sSession,
+                               CK_BYTE_PTR pPart, CK_ULONG ulPartLen)
+{
+    return VerifyUpdate(tokdata, sSession, pPart, ulPartLen, TRUE);
+}
+
+CK_RV SC_VerifySignatureFinal(STDLL_TokData_t *tokdata, ST_SESSION_T *sSession)
+{
+    return VerifyFinal(tokdata, sSession, NULL, 0);
+}
 
 CK_RV SC_DigestEncryptUpdate(STDLL_TokData_t *tokdata,
                              ST_SESSION_HANDLE *sSession, CK_BYTE_PTR pPart,
@@ -4126,7 +4266,7 @@ CK_RV SC_GenerateKey(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
     }
 
     rc = ep11tok_generate_key(tokdata, sess, pMechanism, pTemplate,
-                              ulCount, phKey);
+                              ulCount, phKey, TRUE, OP_KEYGEN);
     if (rc != CKR_OK)
         TRACE_DEVEL("ep11tok_generate_key() failed.\n");
 
@@ -4218,7 +4358,8 @@ CK_RV SC_GenerateKeyPair(STDLL_TokData_t *tokdata,
                                    ulPublicKeyAttributeCount,
                                    pPrivateKeyTemplate,
                                    ulPrivateKeyAttributeCount,
-                                   phPublicKey, phPrivateKey);
+                                   phPublicKey, phPrivateKey,
+                                   TRUE, OP_KEYGEN);
     if (rc != CKR_OK)
         TRACE_DEVEL("ep11tok_generate_key_pair() failed.\n");
 
@@ -4295,7 +4436,7 @@ CK_RV SC_WrapKey(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
     }
 
     rc = ep11tok_wrap_key(tokdata, sess, pMechanism, hWrappingKey, hKey,
-                          pWrappedKey, pulWrappedKeyLen);
+                          pWrappedKey, pulWrappedKeyLen, TRUE);
     if (rc != CKR_OK)
         TRACE_DEVEL("ep11tok_wrap_key() failed.\n");
 
@@ -4353,7 +4494,7 @@ CK_RV SC_UnwrapKey(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
 
     rc = ep11tok_unwrap_key(tokdata, sess, pMechanism, pTemplate, ulCount,
                             pWrappedKey, ulWrappedKeyLen, hUnwrappingKey,
-                            phKey);
+                            phKey, OP_UNWRAP);
     if (rc != CKR_OK)
         TRACE_DEVEL("ep11tok_unwrap_key() failed.\n");
 
@@ -4434,7 +4575,7 @@ CK_RV SC_DeriveKey(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
     }
 
     rc = ep11tok_derive_key(tokdata, sess, pMechanism, hBaseKey, phKey,
-                            pTemplate, ulCount);
+                            pTemplate, ulCount, TRUE, OP_DERIVE);
     if (rc != CKR_OK)
         TRACE_DEVEL("epl11tok_derive_key() failed.\n");
 
@@ -4581,6 +4722,129 @@ CK_RV SC_CancelFunction(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession)
     TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_PARALLEL));
 
     return CKR_FUNCTION_NOT_PARALLEL;
+}
+
+CK_RV SC_EncapsulateKey(STDLL_TokData_t *tokdata, ST_SESSION_T *sSession,
+                        CK_MECHANISM_PTR pMechanism,
+                        CK_OBJECT_HANDLE hPublicKey,
+                        CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulAttributeCount,
+                        CK_BYTE_PTR pCiphertext, CK_ULONG_PTR pulCiphertextLen,
+                        CK_OBJECT_HANDLE_PTR phKey)
+{
+    SESSION *sess = NULL;
+    CK_BBOOL length_only = FALSE;
+    CK_RV rc = CKR_OK;
+
+    if (tokdata->initialized == FALSE) {
+        TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
+        rc = CKR_CRYPTOKI_NOT_INITIALIZED;
+        goto done;
+    }
+
+    if (!pMechanism || !pulCiphertextLen) {
+        TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
+        rc = CKR_ARGUMENTS_BAD;
+        goto done;
+    }
+
+    rc = valid_mech(tokdata, pMechanism);
+    if (rc != CKR_OK)
+        goto done;
+
+    if (!pCiphertext)
+        length_only = TRUE;
+
+    sess = session_mgr_find_reset_error(tokdata, sSession->sessionh);
+    if (!sess) {
+        TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
+        rc = CKR_SESSION_HANDLE_INVALID;
+        goto done;
+    }
+
+    if (pin_expired(&sess->session_info,
+                    tokdata->nv_token_data->token_info.flags) == TRUE) {
+        TRACE_ERROR("%s\n", ock_err(ERR_PIN_EXPIRED));
+        rc = CKR_PIN_EXPIRED;
+        goto done;
+    }
+
+    rc = key_mgr_encapsulate_key(tokdata, sess, length_only, pMechanism,
+                                 hPublicKey, pTemplate, ulAttributeCount,
+                                 pCiphertext, pulCiphertextLen, phKey,
+                                 TRUE);
+    if (rc != CKR_OK)
+        TRACE_DEVEL("key_mgr_encapsulate_key() failed.\n");
+
+done:
+    TRACE_INFO("SC_EncapsulateKey: rc = 0x%08lx, sess = %ld, priv key = %lu, "
+               "ciphertext = %lu, encpsed key = %lu\n", rc,
+               (sess == NULL) ? -1 : (CK_LONG) sess->handle,
+               hPublicKey, (pulCiphertextLen ? *pulCiphertextLen : 0),
+               (phKey ? *phKey : 0));
+
+    if (sess != NULL)
+        session_mgr_put(tokdata, sess);
+
+    return rc;
+}
+
+CK_RV SC_DecapsulateKey(STDLL_TokData_t *tokdata, ST_SESSION_T *sSession,
+                        CK_MECHANISM_PTR pMechanism,
+                        CK_OBJECT_HANDLE hPrivateKey,
+                        CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulAttributeCount,
+                        CK_BYTE_PTR pCiphertext, CK_ULONG ulCiphertextLen,
+                        CK_OBJECT_HANDLE_PTR phKey)
+{
+    SESSION *sess = NULL;
+    CK_RV rc = CKR_OK;
+
+    if (tokdata->initialized == FALSE) {
+        TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
+        rc = CKR_CRYPTOKI_NOT_INITIALIZED;
+        goto done;
+    }
+
+    if (!pMechanism || !pCiphertext) {
+        TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
+        rc = CKR_ARGUMENTS_BAD;
+        goto done;
+    }
+
+    rc = valid_mech(tokdata, pMechanism);
+    if (rc != CKR_OK)
+        goto done;
+
+    sess = session_mgr_find_reset_error(tokdata, sSession->sessionh);
+    if (!sess) {
+        TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
+        rc = CKR_SESSION_HANDLE_INVALID;
+        goto done;
+    }
+
+    if (pin_expired(&sess->session_info,
+                    tokdata->nv_token_data->token_info.flags) == TRUE) {
+        TRACE_ERROR("%s\n", ock_err(ERR_PIN_EXPIRED));
+        rc = CKR_PIN_EXPIRED;
+        goto done;
+    }
+
+    rc = key_mgr_decapsulate_key(tokdata, sess, pMechanism,
+                                 hPrivateKey, pTemplate, ulAttributeCount,
+                                 pCiphertext, ulCiphertextLen, phKey,
+                                 TRUE);
+    if (rc != CKR_OK)
+        TRACE_DEVEL("key_mgr_decapsulate_key() failed.\n");
+
+done:
+    TRACE_INFO("SC_DecapsulateKey: rc = 0x%08lx, sess = %ld, pub key = %lu, "
+               "encpsed key = %lu\n", rc,
+               (sess == NULL) ? -1 : (CK_LONG) sess->handle,
+               hPrivateKey, (phKey ? *phKey : 0));
+
+    if (sess != NULL)
+        session_mgr_put(tokdata, sess);
+
+    return rc;
 }
 
 CK_RV SC_IBM_ReencryptSingle(STDLL_TokData_t *tokdata, ST_SESSION_T *sSession,
@@ -4746,6 +5010,12 @@ void SC_SetFunctionList(void)
     function_list.ST_GetFunctionStatus = NULL;  // SC_GetFunctionStatus;
     function_list.ST_CancelFunction = NULL;     // SC_CancelFunction;
     function_list.ST_SessionCancel = SC_SessionCancel;
+    function_list.ST_EncapsulateKey = SC_EncapsulateKey;
+    function_list.ST_DecapsulateKey = SC_DecapsulateKey;
+    function_list.ST_VerifySignatureInit = SC_VerifySignatureInit;
+    function_list.ST_VerifySignature = SC_VerifySignature;
+    function_list.ST_VerifySignatureUpdate = SC_VerifySignatureUpdate;
+    function_list.ST_VerifySignatureFinal = SC_VerifySignatureFinal;
 
     function_list.ST_IBM_ReencryptSingle = SC_IBM_ReencryptSingle;
 

@@ -362,6 +362,40 @@ CK_RV token_specific_ibm_ml_kem_derive(STDLL_TokData_t *, SESSION *,
                                        OBJECT *, CK_OBJECT_CLASS, CK_KEY_TYPE,
                                        OBJECT *, CK_KEY_TYPE, CK_ULONG);
 
+CK_RV token_specific_ml_dsa_generate_keypair(STDLL_TokData_t *,
+                                             const struct pqc_oid *,
+                                             TEMPLATE *, TEMPLATE *);
+
+CK_RV token_specific_ml_dsa_sign(STDLL_TokData_t *, SESSION *, CK_BBOOL,
+                                 const struct pqc_oid *, CK_MECHANISM *,
+                                 CK_BYTE *, CK_ULONG,
+                                 CK_BYTE *, CK_ULONG *, OBJECT *, CK_BBOOL);
+
+CK_RV token_specific_ml_dsa_verify(STDLL_TokData_t *, SESSION *,
+                                   const struct pqc_oid *, CK_MECHANISM *,
+                                   CK_BYTE *, CK_ULONG,
+                                   CK_BYTE *, CK_ULONG, OBJECT *, CK_BBOOL);
+
+CK_RV token_specific_ml_kem_generate_keypair(STDLL_TokData_t *,
+                                             const struct pqc_oid *,
+                                             TEMPLATE *, TEMPLATE *);
+
+CK_RV token_specific_ml_kem_encapsulate_key(STDLL_TokData_t *, SESSION *,
+                                            CK_BBOOL, const struct pqc_oid *,
+                                            CK_MECHANISM *, OBJECT *,
+                                            CK_ATTRIBUTE *, CK_ULONG,
+                                            CK_BYTE *, CK_ULONG *,
+                                            CK_KEY_TYPE, CK_ULONG,
+                                            CK_OBJECT_HANDLE *);
+
+CK_RV token_specific_ml_kem_decapsulate_key(STDLL_TokData_t *, SESSION *,
+                                            const struct pqc_oid *,
+                                            CK_MECHANISM *, OBJECT *,
+                                            CK_ATTRIBUTE *, CK_ULONG,
+                                            CK_BYTE *, CK_ULONG,
+                                            CK_KEY_TYPE, CK_ULONG,
+                                            CK_OBJECT_HANDLE *);
+
 CK_RV token_specific_get_mechanism_list(STDLL_TokData_t *,
                                         CK_MECHANISM_TYPE_PTR pMechanismList,
                                         CK_ULONG_PTR pulCount);
@@ -379,6 +413,40 @@ CK_RV token_specific_key_wrap(STDLL_TokData_t *, SESSION *, CK_MECHANISM *,
 CK_RV token_specific_key_unwrap(STDLL_TokData_t *, SESSION *, CK_MECHANISM *,
                                 CK_BYTE *, CK_ULONG, OBJECT *, OBJECT *,
                                 CK_BBOOL *);
+
+CK_RV token_specific_encapsulate_rsa_sym_keygen(STDLL_TokData_t *, SESSION *,
+                                                CK_MECHANISM *,
+                                                CK_ATTRIBUTE *, CK_ULONG,
+                                                CK_OBJECT_HANDLE *);
+
+CK_RV token_specific_encapsulate_rsa_key_wrap(STDLL_TokData_t *, SESSION *,
+                                              CK_BBOOL, CK_MECHANISM *,
+                                              CK_OBJECT_HANDLE,
+                                              CK_OBJECT_HANDLE,
+                                              CK_BYTE *, CK_ULONG *);
+
+CK_RV token_specific_encapsulate_rsa_key_unwrap(STDLL_TokData_t *, SESSION *,
+                                                CK_MECHANISM *,
+                                                CK_ATTRIBUTE *, CK_ULONG,
+                                                CK_BYTE *, CK_ULONG,
+                                                CK_OBJECT_HANDLE,
+                                                CK_OBJECT_HANDLE*);
+
+CK_RV token_specific_encapsulate_dh_ecdh_key_pair_gen(STDLL_TokData_t *,
+                                                      SESSION *,
+                                                      CK_MECHANISM *,
+                                                      CK_ATTRIBUTE *, CK_ULONG,
+                                                      CK_ATTRIBUTE *, CK_ULONG,
+                                                      CK_OBJECT_HANDLE *,
+                                                      CK_OBJECT_HANDLE *);
+
+CK_RV token_specific_en_decapsulate_dh_ecdh_derive_key(STDLL_TokData_t *,
+                                                       SESSION *,
+                                                       CK_MECHANISM *,
+                                                       CK_OBJECT_HANDLE baskey,
+                                                       CK_OBJECT_HANDLE *,
+                                                       CK_ATTRIBUTE *, CK_ULONG,
+                                                       CK_ULONG);
 
 CK_RV token_specific_reencrypt_single(STDLL_TokData_t *, SESSION *,
                                       ENCR_DECR_CONTEXT *, CK_MECHANISM *,

@@ -513,6 +513,190 @@ testcase_cleanup:
     return rc;
 }                               /* end do_DeriveDHKey() */
 
+CK_RV do_EnDecapsulateDHKey(void)
+{
+    CK_SESSION_HANDLE session;
+    CK_MECHANISM mech;
+    CK_OBJECT_HANDLE publ_key = CK_INVALID_HANDLE;
+    CK_OBJECT_HANDLE priv_key = CK_INVALID_HANDLE;
+    CK_OBJECT_HANDLE secret_key1 = CK_INVALID_HANDLE;
+    CK_OBJECT_HANDLE secret_key2 = CK_INVALID_HANDLE;
+    CK_FLAGS flags;
+    CK_BYTE user_pin[PKCS11_MAX_PIN_LEN];
+    CK_ULONG user_pin_len;
+    CK_RV rc = CKR_OK, loc_rc = CKR_OK;
+
+    CK_ULONG i;
+    CK_BYTE clear[32];
+    CK_BYTE encrypted1[32];
+    CK_BYTE encrypted2[32];
+    CK_ULONG encrypted1_len = sizeof(encrypted1);
+    CK_ULONG encrypted2_len = sizeof(encrypted2);
+    CK_BBOOL ck_true = CK_TRUE;
+    CK_BBOOL ck_false = CK_TRUE;
+    CK_BYTE *cipher = NULL;
+    CK_ULONG cipher_len = 0;
+
+    CK_OBJECT_CLASS pub_key_class = CKO_PUBLIC_KEY;
+    CK_KEY_TYPE key_type = CKK_DH;
+    CK_UTF8CHAR publ_label[] = "A DH public key object";
+    CK_OBJECT_CLASS priv_key_class = CKO_PRIVATE_KEY;
+    CK_UTF8CHAR priv_label[] = "A DH private key object";
+
+    CK_ULONG secret_key_size = 32;
+    CK_OBJECT_CLASS secret_key_class = CKO_SECRET_KEY;
+    CK_KEY_TYPE secret_key_type = CKK_AES;
+    CK_UTF8CHAR secret_label[] = "An AES secret key object";
+
+    CK_ATTRIBUTE publ_tmpl[] = {
+        {CKA_CLASS, &pub_key_class, sizeof(pub_key_class)},
+        {CKA_KEY_TYPE, &key_type, sizeof(key_type)},
+        {CKA_LABEL, publ_label, sizeof(publ_label) - 1},
+        {CKA_PRIME, DH_PUBL_PRIME, sizeof(DH_PUBL_PRIME)},
+        {CKA_BASE, DH_PUBL_BASE, sizeof(DH_PUBL_BASE)},
+        {CKA_ENCAPSULATE, &ck_true, sizeof(ck_true)}
+    };
+
+    CK_ATTRIBUTE priv_tmpl[] = {
+        {CKA_CLASS, &priv_key_class, sizeof(priv_key_class)},
+        {CKA_KEY_TYPE, &key_type, sizeof(key_type)},
+        {CKA_LABEL, priv_label, sizeof(priv_label) - 1},
+        {CKA_DERIVE, &ck_false, sizeof(ck_false)},
+        {CKA_DECAPSULATE, &ck_true, sizeof(ck_true)}
+    };
+
+    CK_ATTRIBUTE secret_tmpl[] = {
+        {CKA_CLASS, &secret_key_class, sizeof(secret_key_class)},
+        {CKA_KEY_TYPE, &secret_key_type, sizeof(secret_key_type)},
+        {CKA_VALUE_LEN, &secret_key_size, sizeof(secret_key_size)},
+        {CKA_LABEL, secret_label, sizeof(secret_label) - 1},
+        {CKA_EXTRACTABLE, &ck_false, sizeof(ck_false)}
+    };
+
+
+    testcase_begin("starting do_GenerateDeriveDHKey...");
+    testcase_rw_session();
+    testcase_user_login();
+
+    testcase_new_assertion();
+
+    /* First, generate the DH key Pair for Party A */
+    mech.mechanism = CKM_DH_PKCS_KEY_PAIR_GEN;
+    mech.ulParameterLen = 0;
+    mech.pParameter = NULL;
+
+    rc = funcs->C_GenerateKeyPair(session, &mech, publ_tmpl, 6,
+                                  priv_tmpl, 5, &publ_key, &priv_key);
+    if (rc != CKR_OK) {
+        if (is_rejected_by_policy(rc, session)) {
+            testcase_skip("DH key generation is not allowed by policy");
+            rc = CKR_OK;
+            goto testcase_cleanup;
+        }
+        testcase_fail("C_GenerateKeyPair #1: rc = %s", p11_get_ckr(rc));
+        goto testcase_cleanup;
+    }
+
+    testcase_pass("Successfully generated an DH key");
+
+    /* Testcase #2 - Now encapsulate/decapsulate the secrets... */
+    testcase_new_assertion();
+
+    /* Now, encapsulate an AES key using party A's public key */
+    mech.mechanism = CKM_DH_PKCS_DERIVE;
+    mech.ulParameterLen = 0;
+    mech.pParameter = NULL;
+
+    rc = funcs3_2->C_EncapsulateKey(session, &mech, publ_key,
+                                    secret_tmpl, 5,
+                                    NULL, &cipher_len, NULL);
+    if (rc != CKR_OK) {
+        testcase_fail("C_EncapsulateKey #1: rc = %s", p11_get_ckr(rc));
+        goto testcase_cleanup;
+    }
+
+    cipher = calloc(cipher_len, sizeof(CK_BYTE));
+    if (cipher == NULL) {
+        testcase_error("Can't allocate memory for %lu bytes.", cipher_len);
+        rc = CKR_HOST_MEMORY;
+        goto testcase_cleanup;
+    }
+
+    rc = funcs3_2->C_EncapsulateKey(session, &mech, publ_key,
+                                    secret_tmpl, 5,
+                                    cipher, &cipher_len, &secret_key1);
+    if (rc != CKR_OK) {
+        testcase_fail("C_EncapsulateKey #2: rc = %s", p11_get_ckr(rc));
+        goto testcase_cleanup;
+    }
+
+    /* Now, decapsulate an AES key using A's private key */
+    rc = funcs3_2->C_DecapsulateKey(session, &mech, priv_key,
+                                    secret_tmpl, 5,
+                                    cipher, cipher_len, &secret_key2);
+    if (rc != CKR_OK) {
+        testcase_fail("C_DecapsulateKey #1: rc = %s", p11_get_ckr(rc));
+        goto testcase_cleanup;
+    }
+
+    /* CHeck if the same keys were en/decapsulated */
+
+    for (i = 0; i < sizeof(clear); i++)
+        clear[i] = i;
+
+    mech.mechanism = CKM_AES_ECB;
+    mech.ulParameterLen = 0;
+    mech.pParameter = NULL;
+
+    rc = funcs->C_EncryptInit(session, &mech, secret_key1);
+    if (rc != CKR_OK) {
+        testcase_error("C_EncryptInit secret_key1: rc = %s",
+                       p11_get_ckr(rc));
+        goto testcase_cleanup;
+    }
+
+    rc = funcs->C_Encrypt(session, clear, sizeof(clear),
+                          encrypted1, &encrypted1_len);
+    if (rc != CKR_OK) {
+        testcase_error("C_Encrypt secret_key1: rc = %s", p11_get_ckr(rc));
+        goto testcase_cleanup;
+    }
+
+    rc = funcs->C_EncryptInit(session, &mech, secret_key2);
+    if (rc != CKR_OK) {
+        testcase_error("C_EncryptInit secret_key2: rc = %s",
+                       p11_get_ckr(rc));
+        goto testcase_cleanup;
+    }
+
+    rc = funcs->C_Encrypt(session, clear, sizeof(clear),
+                          encrypted2, &encrypted2_len);
+    if (rc != CKR_OK) {
+        testcase_error("C_Encrypt secret_key2: rc = %s", p11_get_ckr(rc));
+        goto testcase_cleanup;
+    }
+
+    if (encrypted1_len != encrypted2_len ||
+        memcmp(encrypted1, encrypted2, encrypted1_len) != 0) {
+        testcase_fail("ERROR: data mismatch");
+        goto testcase_cleanup;
+    }
+
+    testcase_pass("En/Decapsulate secrets");
+
+testcase_cleanup:
+    funcs->C_DestroyObject(session, publ_key);
+    funcs->C_DestroyObject(session, priv_key);
+    funcs->C_DestroyObject(session, secret_key1);
+    funcs->C_DestroyObject(session, secret_key2);
+
+    loc_rc = funcs->C_CloseSession(session);
+    if (loc_rc != CKR_OK)
+        testcase_error("C_CloseSession, loc_rc = %s", p11_get_ckr(loc_rc));
+
+    return rc;
+}
+
 CK_RV dh_functions(void)
 {
     CK_RV rv, rv2;
@@ -523,11 +707,16 @@ CK_RV dh_functions(void)
                                    &mechinfo);
     rv2 = funcs->C_GetMechanismInfo(SLOT_ID, CKM_DH_PKCS_DERIVE, &mechinfo);
 
-    if ((rv == CKR_OK) && (rv2 == CKR_OK)) {
+    if (rv == CKR_OK && rv2 == CKR_OK) {
         rv = do_DeriveDHKey(FALSE);
 
-        if ((rv == CKR_OK) && (rv2 == CKR_OK))
+        if (rv == CKR_OK)
             rv = do_DeriveDHKey(TRUE);
+
+        if (rv == CKR_OK &&
+            (mechinfo.flags & CKF_ENCAPSULATE) != 0 &&
+            (mechinfo.flags & CKF_DECAPSULATE) != 0)
+            rv = do_EnDecapsulateDHKey();
     } else {
         /*
          ** One of the above mechanism is not available, so skip
