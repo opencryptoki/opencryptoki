@@ -33,7 +33,8 @@ clear idea about where a block of control starts and ends.
 All conditional preprocessor definitions must be indented, along with the `#` token.
 
 e.g.:
-```C
+
+```c
 #ifdef DEF_A
     #define DEF_A1
 #else
@@ -85,7 +86,7 @@ beginning of the next line, e.g.:
 
 Follow other examples:
 
-```
+```c
     do {
         do_something();
     } while (condition);
@@ -120,7 +121,7 @@ and
 This does not apply when only one branch in a conditional statement is a single
 statement. In this, case use braces in all branches, e.g.:
 
-```
+```c
     if (x == 1) {
         do_something();
         do_something_more();
@@ -135,6 +136,7 @@ Always use a space after these keywords:
 ``` if, switch, case, for, do, while ```
 
 E.g.:
+
 ```c
     if (condition) {
         ..
@@ -146,11 +148,13 @@ parentheses:
 ``` sizeof, typeof ```
 
 E.g.:
+
 ```c
     s = sizeof(struct alg);
 ```
 
 Do **not** add spaces around (inside) parenthesized expressions, e.g.:
+
 ```c
     if ( x == 1 ) {
         ..
@@ -159,6 +163,7 @@ Do **not** add spaces around (inside) parenthesized expressions, e.g.:
 
 When declaring a pointer or a function that returns a pointer type, the ``*``
 must be put adjacent to the data name or function name, e.g.:
+
 ```c
     int *ptr;
     void ptrcopy(int *dest, char *src);
@@ -169,7 +174,7 @@ Use one space on each side of the following operators:
 ``` =  +  -  <  >  *  / %  |  &  ^  <=  >=  ==  !=  ?  : ```
 
 but no space after unary operators:
-``` &  *  +  -  ~  !  ```
+``` &  *  +  -  ~  ! ```
 
 no space before postfix/after prefix increment and decrement operators:
 ``` ++ -- ```
@@ -182,6 +187,7 @@ Do **not** leave trailing whitespace at the end of lines.
 
 Avoid using CamelCase. It is preferred to name variables and functions by
 including an underscore between words, e.g.:
+
 ```c
     int person_counter;
 ```
@@ -201,4 +207,3 @@ The preferred style for long multi-line comments is:
      * almost-blank lines.
      */
 ```
-
