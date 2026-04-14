@@ -4676,6 +4676,14 @@ const ecdh_encaps_decaps_params ecdh_encaps_decaps_tests[] = {
                  CURVE_PRIME, CURVE256_LENGTH, "prime256v1" },
       .sym_key_type = CKK_AES,
       .sym_key_size = 32,
+      .kdf = CKD_NULL,
+      .shared_data = NULL,
+      .shared_data_len = 0,
+    },
+    { .curve = { &prime256v1, sizeof(prime256v1), CK_FALSE,
+                 CURVE_PRIME, CURVE256_LENGTH, "prime256v1" },
+      .sym_key_type = CKK_AES,
+      .sym_key_size = 32,
       .kdf = CKD_SHA256_KDF,
       .shared_data = (CK_BYTE *)"abcdefg",
       .shared_data_len = 6,
@@ -5094,12 +5102,32 @@ CK_RV run_EncapsDecapsECDH(CK_BBOOL cofactor_mode)
                                         encaps_decaps_tmpl_len,
                                         cipher, &cipher_len, &secret_keyB);
         if (rc != CKR_OK) {
+            if (is_ep11_token(SLOT_ID) &&
+                rc == CKR_MECHANISM_PARAM_INVALID &&
+                (ecdh_parm.kdf != CKD_NULL ||
+                 ecdh_parm.ulSharedDataLen > 0)) {
+                testcase_skip("EP11 does not support KDF %s and/or "
+                              "shared data with older firmware "
+                              "versions\n",
+                              p11_get_ckd(ecdh_parm.kdf));
+                goto testcase_next;
+            }
             if (rc == CKR_KEY_TYPE_INCONSISTENT) {
                 testcase_skip("Slot %u doesn't support to en/decaps key "
                               "type 0x%lx", (unsigned int) SLOT_ID,
                               ecdh_encaps_decaps_tests[i].sym_key_type);
                 goto testcase_next;
             }
+            if (is_rejected_by_policy(rc, session)) {
+                testcase_skip("key derivation is not allowed by policy");
+                continue;
+            }
+            if (rc == CKR_FUNCTION_CANCELED) {
+                testcase_skip("key derivation is not allowed by "
+                              "adapter control point");
+                goto testcase_next;
+            }
+
             testcase_new_assertion();
             testcase_fail("C_EncapsulateKey #2: rc = %s", p11_get_ckr(rc));
             goto testcase_next;
