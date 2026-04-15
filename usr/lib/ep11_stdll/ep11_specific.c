@@ -17900,7 +17900,7 @@ static CK_RV control_point_handler(uint_32 adapter, uint_32 domain,
             data->combined_cp[CP_BYTE_NO(i)] &=
                                     (cp[CP_BYTE_NO(i)] | ~CP_BIT_MASK(i));
         }
-        memcpy(data->first_cp, data->combined_cp, sizeof(data->first_cp));
+        memcpy(data->first_cp, cp, sizeof(data->first_cp));
         data->max_cp_index = max_cp_index;
         data->first = 0;
     } else {
