@@ -2028,10 +2028,22 @@ int is_ep11_token(CK_SLOT_ID slot_id)
 int is_valid_cca_pubexp(CK_BYTE pubexp[], CK_ULONG pubexp_len)
 {
     CK_BYTE exp3[] = { 0x03 };  // 3
+    CK_BYTE exp5[] = { 0x05 };  // 5
+    CK_BYTE exp17[] = { 0x11 };  // 17
+    CK_BYTE exp257[] = { 0x01, 0x01 };  // 257
     CK_BYTE exp65537[] = { 0x01, 0x00, 0x01 };  // 65537
 
-    return (pubexp_len == 1 && (!memcmp(pubexp, exp3, 1)))
-        || (pubexp_len == 3 && (!memcmp(pubexp, exp65537, 3)));
+    // trim any leading zero bytes
+    while (pubexp_len > 1 && pubexp[0] == 0x00) {
+        pubexp++;
+        pubexp_len--;
+    }
+
+    return (pubexp_len == 1 && (!memcmp(pubexp, exp3, 1))) ||
+           (pubexp_len == 1 && (!memcmp(pubexp, exp5, 1))) ||
+           (pubexp_len == 1 && (!memcmp(pubexp, exp17, 1))) ||
+           (pubexp_len == 2 && (!memcmp(pubexp, exp257, 2))) ||
+           (pubexp_len == 3 && (!memcmp(pubexp, exp65537, 3)));
 }
 
 /** Returns true if pubexp is valid for Soft Tokens **/

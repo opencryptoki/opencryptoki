@@ -133,8 +133,7 @@ CK_RV do_EncryptDecryptRSA(struct GENERATED_TEST_SUITE_INFO *tsuite)
             }
         }
         // cca special cases:
-        // cca token can only use the following public exponents
-        // 0x03 or 0x010001 (65537)
+        // cca token can only use a few public exponents
         // so skip test if invalid public exponent is used
         if (is_cca_token(slot_id)) {
             if (!is_valid_cca_pubexp(tsuite->tv[i].publ_exp,
@@ -520,8 +519,7 @@ CK_RV do_EncryptDecryptImportRSA(struct PUBLISHED_TEST_SUITE_INFO *tsuite,
         }
 
         // cca special cases:
-        // cca token can only use the following public exponents
-        // 0x03 or 0x010001 (65537)
+        // cca token can only use a few public exponents
         // so skip test if invalid public exponent is used
         if (is_cca_token(slot_id)) {
             if (!is_valid_cca_pubexp(tsuite->tv[i].pub_exp,
