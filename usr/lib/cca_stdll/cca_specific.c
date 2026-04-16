@@ -5813,9 +5813,12 @@ CK_RV token_specific_rsa_generate_keypair(STDLL_TokData_t * tokdata,
     rv = template_attribute_get_non_empty(publ_tmpl, CKA_PUBLIC_EXPONENT,
                                           &pub_exp);
     if (rv == CKR_OK) {
-        /* Per CCA manual, we really only support 3 values here:        *
+        /* Per CCA manual, we really only support 6 values here:        *
          * * 0 (generate random public exponent)                        *
          * * 3 or                                                       *
+         * * 5 (since CCA 5.2) or                                       *
+         * * 17 (since CCA 5.2) or                                      *
+         * * 257 (since CCA 5.2) or                                     *
          * * 65537                                                      *
          * Trim the P11 value so we can check what's comming our way    */
 
@@ -5823,8 +5826,10 @@ CK_RV token_specific_rsa_generate_keypair(STDLL_TokData_t * tokdata,
         ptr = p11_bigint_trim(pub_exp->pValue, &tmpsize);
         /* If we trimmed the number correctly, only 3 bytes are         *
          * sufficient to hold 65537 (0x010001)                          */
-        if (tmpsize > 3)
+        if (tmpsize > 3) {
+            TRACE_ERROR("Unsupported public exponent (too large)\n");
             return CKR_TEMPLATE_INCONSISTENT;
+        }
 
         /* make pValue into CK_ULONG so we can compare */
         tmpexp = 0;
@@ -5836,9 +5841,18 @@ CK_RV token_specific_rsa_generate_keypair(STDLL_TokData_t * tokdata,
             tmpexp = be32toh(tmpexp);
 
         /* Check for one of the three allowed values */
-        if ((tmpexp != 0) && (tmpexp != 3) && (tmpexp != 65537))
+        switch (tmpexp) {
+        case 0:
+        case 3:
+        case 5:
+        case 17:
+        case 257:
+        case 65537:
+            break;
+        default:
+            TRACE_ERROR("Unsupported public exponent\n");
             return CKR_TEMPLATE_INCONSISTENT;
-
+        }
 
         size_of_e = htobe16((uint16_t)tmpsize);
 
