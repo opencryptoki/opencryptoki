@@ -1227,9 +1227,14 @@ CK_RV token_specific_dh_pkcs_key_pair_gen(STDLL_TokData_t *tokdata,
     }
 #endif
 
-    temp_bn_len = BN_num_bytes(temp_bn);
-    temp_byte = malloc(temp_bn_len);
-    temp_bn_len = BN_bn2bin(temp_bn, temp_byte);
+    /* The public key is same size as the prime: pub_key = g^priv_key mod p */
+    temp_byte = malloc(prime_attr->ulValueLen);
+    temp_bn_len = BN_bn2binpad(temp_bn, temp_byte, prime_attr->ulValueLen);
+    if (temp_bn_len != prime_attr->ulValueLen) {
+        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
+        rv = CKR_FUNCTION_FAILED;
+        goto done;
+    }
     // in bytes
     rv = build_attribute(CKA_VALUE, temp_byte, temp_bn_len, &temp_attr);
     if (rv != CKR_OK) {
