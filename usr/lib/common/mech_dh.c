@@ -318,6 +318,17 @@ CK_RV dh_encapsulate_key(STDLL_TokData_t *tokdata, SESSION *sess,
         goto done;
     }
 
+    if (length_only) {
+        *pulCiphertextLen = prime->ulValueLen;
+        goto done;
+    }
+
+    if (*pulCiphertextLen < prime->ulValueLen) {
+        *pulCiphertextLen = prime->ulValueLen;
+        rc = CKR_BUFFER_TOO_SMALL;
+        goto done;
+    }
+
     dh_publ_key_tmpl[0].pValue = prime->pValue;
     dh_publ_key_tmpl[0].ulValueLen = prime->ulValueLen;
     dh_publ_key_tmpl[1].pValue = base->pValue;
@@ -376,14 +387,9 @@ CK_RV dh_encapsulate_key(STDLL_TokData_t *tokdata, SESSION *sess,
         goto done;
     }
 
-    if (length_only) {
-        *pulCiphertextLen = gen_pub_key_value->ulValueLen;
-        goto done;
-    }
-
-    if (*pulCiphertextLen < gen_pub_key_value->ulValueLen) {
-        *pulCiphertextLen = gen_pub_key_value->ulValueLen;
-        rc = CKR_BUFFER_TOO_SMALL;
+    if (gen_pub_key_value->ulValueLen > prime->ulValueLen) {
+        TRACE_DEVEL("DH Public key is larger than prime.\n");
+        rc = CKR_FUNCTION_FAILED;
         goto done;
     }
 
@@ -420,10 +426,12 @@ CK_RV dh_encapsulate_key(STDLL_TokData_t *tokdata, SESSION *sess,
         }
     }
 
-
-    *pulCiphertextLen = gen_pub_key_value->ulValueLen;
-    memcpy(pCiphertext, gen_pub_key_value->pValue,
-           gen_pub_key_value->ulValueLen);
+    *pulCiphertextLen = prime->ulValueLen;
+    if (gen_pub_key_value->ulValueLen < prime->ulValueLen)
+        memset(pCiphertext, 0,
+               prime->ulValueLen - gen_pub_key_value->ulValueLen);
+    memcpy(pCiphertext + prime->ulValueLen - gen_pub_key_value->ulValueLen,
+           gen_pub_key_value->pValue, gen_pub_key_value->ulValueLen);
 
     *phKey = hKey;
 
