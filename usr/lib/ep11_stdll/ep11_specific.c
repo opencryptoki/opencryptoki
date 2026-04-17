@@ -10522,20 +10522,6 @@ static CK_RV dh_generate_keypair(STDLL_TokData_t *tokdata,
                " field_len=%lu data_len=%lu data=0x%hhx\n",
                __func__, rc, y_start[1], field_len, data_len, data[0]);
 
-    /* remove leading zero, a leading zero is needed
-     * (according to standard) if left most bit of first byte is 1,
-     * in order to indicate a positive number.
-     * ock, like many others, interpret 'y' always as positive number,
-     * a leading zero is not expected by ock.
-     */
-    if (data[0] == 0) {
-        data_len = data_len - 1;
-        data = data + 1;
-        TRACE_INFO("%s DH SPKI removed leading zero rc=0x%lx"
-                   " y_start=0x%x field_len=%lu data_len=%lu data=0x%hhx\n",
-                   __func__, rc, y_start[1], field_len, data_len, data[0]);
-    }
-
     rc = build_attribute(CKA_VALUE, data, data_len, &value_attr);
     if (rc != CKR_OK) {
         TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n", __func__, rc);
