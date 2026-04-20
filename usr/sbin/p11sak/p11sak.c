@@ -1165,7 +1165,7 @@ static const struct p11tool_objtype p11sak_rsa_keytype = {
     .keygen_get_key_size = rsa_get_key_size,
     .keygen_add_public_attrs = rsa_add_public_attrs,
     .sign_verify = true, .encrypt_decrypt = true,
-    .wrap_unwrap = true, .derive = false,
+    .wrap_unwrap = true, .derive = true,
     .encaps_decaps = true,
     .filter_attr = CKA_KEY_TYPE, .filter_value = CKK_RSA,
     .keysize_attr = CKA_MODULUS, .keysize_attr_value_len = true,
@@ -1208,7 +1208,7 @@ static const struct p11tool_objtype p11sak_dsa_keytype = {
     .keygen_get_key_size = dsa_get_key_size,
     .keygen_add_public_attrs = dsa_add_public_attrs,
     .sign_verify = true, .encrypt_decrypt = false,
-    .wrap_unwrap = false, .derive = false,
+    .wrap_unwrap = false, .derive = true,
     .encaps_decaps = false,
     .filter_attr = CKA_KEY_TYPE, .filter_value = CKK_DSA,
     .keysize_attr = CKA_PRIME, .keysize_attr_value_len = true,
@@ -1245,7 +1245,7 @@ static const struct p11tool_objtype p11sak_ec_edwards_keytype = {
     .keygen_get_key_size = ec_get_key_size,
     .keygen_add_public_attrs = ec_add_public_attrs,
     .sign_verify = true, .encrypt_decrypt = false,
-    .wrap_unwrap = false, .derive = false,
+    .wrap_unwrap = false, .derive = true,
     .encaps_decaps = false,
     .filter_attr = CKA_KEY_TYPE, .filter_value = CKK_EC_EDWARDS,
     .keysize_attr = (CK_ATTRIBUTE_TYPE)-1,
@@ -1283,7 +1283,7 @@ static const struct p11tool_objtype p11sak_ibm_dilithium_keytype = {
     .is_asymmetric = true,
     .keygen_add_public_attrs = ibm_dilithium_add_public_attrs,
     .sign_verify = true, .encrypt_decrypt = false,
-    .wrap_unwrap = false, .derive = false,
+    .wrap_unwrap = false, .derive = true,
     .encaps_decaps = false,
     .filter_attr = CKA_KEY_TYPE, .filter_value = CKK_IBM_PQC_DILITHIUM,
     .keysize_attr = (CK_ATTRIBUTE_TYPE)-1,
@@ -1325,7 +1325,7 @@ static const struct p11tool_objtype p11sak_ibm_ml_dsa_keytype = {
     .is_asymmetric = true,
     .keygen_add_public_attrs = ibm_ml_dsa_kem_add_public_attrs,
     .sign_verify = true, .encrypt_decrypt = false,
-    .wrap_unwrap = false, .derive = false,
+    .wrap_unwrap = false, .derive = true,
     .encaps_decaps = false,
     .filter_attr = CKA_KEY_TYPE, .filter_value = CKK_IBM_ML_DSA,
     .keysize_attr = (CK_ATTRIBUTE_TYPE)-1,
@@ -1361,7 +1361,7 @@ static const struct p11tool_objtype p11sak_ml_dsa_keytype = {
     .is_asymmetric = true,
     .keygen_add_public_attrs = ml_dsa_kem_add_public_attrs,
     .sign_verify = true, .encrypt_decrypt = false,
-    .wrap_unwrap = false, .derive = false,
+    .wrap_unwrap = false, .derive = true,
     .encaps_decaps = false,
     .filter_attr = CKA_KEY_TYPE, .filter_value = CKK_ML_DSA,
     .keysize_attr = (CK_ATTRIBUTE_TYPE)-1,
@@ -1379,7 +1379,7 @@ static const struct p11tool_objtype p11sak_ml_kem_keytype = {
     .is_asymmetric = true,
     .keygen_add_public_attrs = ml_dsa_kem_add_public_attrs,
     .sign_verify = false, .encrypt_decrypt = false,
-    .wrap_unwrap = false, .derive = false,
+    .wrap_unwrap = false, .derive = true,
     .encaps_decaps = true,
     .filter_attr = CKA_KEY_TYPE, .filter_value = CKK_ML_KEM,
     .keysize_attr = (CK_ATTRIBUTE_TYPE)-1,
@@ -10631,6 +10631,17 @@ static CK_RV p11sak_key_extract_pubkey(const struct p11tool_objtype *keytype,
     CK_OBJECT_CLASS key_class = CKO_PUBLIC_KEY;
     CK_BBOOL btrue = CK_TRUE;
     CK_RV rc;
+    CK_MECHANISM pub_from_priv_mech = { CKM_PUB_KEY_FROM_PRIV_KEY, NULL, 0 };
+    CK_BBOOL pub_from_priv_supported;
+    CK_BBOOL derive_val = CK_FALSE;
+    CK_ATTRIBUTE derive = { CKA_DERIVE, &derive_val, sizeof(derive_val) };
+
+    pub_from_priv_supported =
+            (p11tool_check_pub_from_priv_mech_supported(opt_slot) == CKR_OK);
+
+    rc = p11tool_get_attribute(key, &derive);
+    if (rc != CKR_OK || derive_val == CK_FALSE)
+        pub_from_priv_supported = CK_FALSE;
 
     if (opt_new_attr != NULL) {
         rc = p11tool_parse_boolean_attrs(keytype, p11sak_bool_attrs,
@@ -10657,42 +10668,45 @@ static CK_RV p11sak_key_extract_pubkey(const struct p11tool_objtype *keytype,
         }
     }
 
-    if (opt_new_id != NULL) {
-        rc = p11tool_parse_id(opt_new_id, &attrs, &num_attrs);
-        if (rc != CKR_OK)
-            goto done;
-    }
+    if (!pub_from_priv_supported) {
+        if (opt_new_id != NULL) {
+            rc = p11tool_parse_id(opt_new_id, &attrs, &num_attrs);
+            if (rc != CKR_OK)
+                goto done;
+        }
 
-    rc = p11tool_get_attribute(key, &spki);
-    if (rc != CKR_OK) {
-        warnx("Failed to retrieve attribute CKA_PUBLIC_KEY_INFO from %s key "
-              "object \"%s\": 0x%lX: %s", typestr, label, rc, p11_get_ckr(rc));
-        goto done;
-    }
-
-    if (keytype->import_asym_pem_data != NULL) {
-        rc = keytype->import_asym_pem_data(keytype,
-                                           (unsigned char *)spki.pValue,
-                                           spki.ulValueLen, false,
-                                           &attrs, &num_attrs);
-    } else if (keytype->import_asym_pkey != NULL) {
-        p = spki.pValue;
-        pkey = d2i_PUBKEY(NULL, &p, spki.ulValueLen);
-        if (pkey == NULL) {
-            warnx("OpenSSL d2i_PUBKEY failed to get PKEY from SPKI.");
-            ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
-            rc = CKR_FUNCTION_FAILED;
+        rc = p11tool_get_attribute(key, &spki);
+        if (rc != CKR_OK) {
+            warnx("Failed to retrieve attribute CKA_PUBLIC_KEY_INFO from %s "
+                  "key object \"%s\": 0x%lX: %s", typestr, label, rc,
+                  p11_get_ckr(rc));
             goto done;
         }
 
-        rc = keytype->import_asym_pkey(keytype, pkey, false,
-                                       &attrs, &num_attrs);
-    } else {
-        warnx("No support for extracting %s public key", keytype->name);
-        rc = CKR_ARGUMENTS_BAD;
+        if (keytype->import_asym_pem_data != NULL) {
+            rc = keytype->import_asym_pem_data(keytype,
+                                               (unsigned char *)spki.pValue,
+                                               spki.ulValueLen, false,
+                                               &attrs, &num_attrs);
+        } else if (keytype->import_asym_pkey != NULL) {
+            p = spki.pValue;
+            pkey = d2i_PUBKEY(NULL, &p, spki.ulValueLen);
+            if (pkey == NULL) {
+                warnx("OpenSSL d2i_PUBKEY failed to get PKEY from SPKI.");
+                ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
+                rc = CKR_FUNCTION_FAILED;
+                goto done;
+            }
+
+            rc = keytype->import_asym_pkey(keytype, pkey, false,
+                                           &attrs, &num_attrs);
+        } else {
+            warnx("No support for extracting %s public key", keytype->name);
+            rc = CKR_ARGUMENTS_BAD;
+        }
+        if (rc != CKR_OK)
+            goto done;
     }
-    if (rc != CKR_OK)
-        goto done;
 
     /* If no new label parm specified, derive new label from key label */
     if (opt_new_label == NULL) {
@@ -10737,8 +10751,15 @@ static CK_RV p11sak_key_extract_pubkey(const struct p11tool_objtype *keytype,
         goto done;
     }
 
-    rc = p11tool_pkcs11_funcs->C_CreateObject(p11tool_pkcs11_session, attrs,
-                                              num_attrs, &pubkey);
+    if (!pub_from_priv_supported) {
+        rc = p11tool_pkcs11_funcs->C_CreateObject(p11tool_pkcs11_session, attrs,
+                                                  num_attrs, &pubkey);
+    } else {
+        rc = p11tool_pkcs11_funcs->C_DeriveKey(p11tool_pkcs11_session,
+                                               &pub_from_priv_mech,
+                                               key,  attrs, num_attrs,
+                                               &pubkey);
+    }
     if (rc != CKR_OK) {
        if (p11tool_is_rejected_by_policy(rc, p11tool_pkcs11_session))
            warnx("Public key extraction of a %s key is rejected by policy",

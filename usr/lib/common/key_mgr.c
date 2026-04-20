@@ -1104,6 +1104,8 @@ CK_RV key_mgr_wrap_key(STDLL_TokData_t *tokdata,
     case CKM_AES_KEY_WRAP_PKCS7:
     case CKM_RSA_AES_KEY_WRAP:
     case CKM_ECDH_AES_KEY_WRAP:
+    case CKM_ECDH_COF_AES_KEY_WRAP:
+    case CKM_ECDH_X_AES_KEY_WRAP:
         if ((class != CKO_SECRET_KEY) && (class != CKO_PRIVATE_KEY)) {
             TRACE_ERROR
                 ("Specified mechanism only wraps secret & private keys.\n");
@@ -1302,6 +1304,8 @@ CK_RV key_mgr_wrap_key(STDLL_TokData_t *tokdata,
     case CKM_AES_KEY_WRAP_PKCS7:
     case CKM_RSA_AES_KEY_WRAP:
     case CKM_ECDH_AES_KEY_WRAP:
+    case CKM_ECDH_COF_AES_KEY_WRAP:
+    case CKM_ECDH_X_AES_KEY_WRAP:
     case CKM_DES_CBC_PAD:
     case CKM_DES3_CBC_PAD:
     case CKM_AES_CBC_PAD:
@@ -1528,6 +1532,8 @@ CK_RV key_mgr_unwrap_key(STDLL_TokData_t *tokdata,
     case CKM_AES_KEY_WRAP_PKCS7:
     case CKM_RSA_AES_KEY_WRAP:
     case CKM_ECDH_AES_KEY_WRAP:
+    case CKM_ECDH_COF_AES_KEY_WRAP:
+    case CKM_ECDH_X_AES_KEY_WRAP:
         if ((keyclass != CKO_SECRET_KEY) && (keyclass != CKO_PRIVATE_KEY)) {
             TRACE_ERROR("Specified mech unwraps secret & private keys only.\n");
             rc = CKR_ARGUMENTS_BAD;
@@ -1976,9 +1982,10 @@ CK_RV key_mgr_derive_key(STDLL_TokData_t *tokdata,
         mode = MODE_DECAPS;
         break;
     case OP_WRAP:
-        if (mech->mechanism != CKM_ECDH1_DERIVE) {
+        if (mech->mechanism != CKM_ECDH1_DERIVE &&
+            mech->mechanism != CKM_ECDH1_COFACTOR_DERIVE) {
             TRACE_ERROR("OP_WRAP/UNWRAP is only supportd with "
-                        "CKM_ECDH1_DERIVE\n");
+                        "CKM_ECDH1_DERIVE and CKM_ECDH1_COFACTOR_DERIVE\n");
             rc = CKR_FUNCTION_FAILED;
             goto done;
         }
@@ -1993,9 +2000,10 @@ CK_RV key_mgr_derive_key(STDLL_TokData_t *tokdata,
         mode = MODE_DERIVE; /* Use DERIVE, WRAP does not produce a key object */
         break;
     case OP_UNWRAP:
-        if (mech->mechanism != CKM_ECDH1_DERIVE) {
+        if (mech->mechanism != CKM_ECDH1_DERIVE &&
+            mech->mechanism != CKM_ECDH1_COFACTOR_DERIVE) {
             TRACE_ERROR("OP_WRAP/UNWRAP is only supportd with "
-                        "CKM_ECDH1_DERIVE\n");
+                        "CKM_ECDH1_DERIVE and CKM_ECDH1_COFACTOR_DERIVE\n");
             rc = CKR_FUNCTION_FAILED;
             goto done;
         }
@@ -2137,6 +2145,15 @@ CK_RV key_mgr_derive_key(STDLL_TokData_t *tokdata,
             break;
         }
         rc = ibm_ml_kem_derive(tokdata, sess, mech, base_key_obj, new_attrs,
+                               new_attr_count, derived_key);
+        break;
+    case CKM_PUB_KEY_FROM_PRIV_KEY:
+        if (!derived_key) {
+            TRACE_ERROR("%s received bad argument(s)\n", __func__);
+            rc = CKR_FUNCTION_FAILED;
+            break;
+        }
+        rc = key_pub_from_priv(tokdata, sess, base_key_obj, new_attrs,
                                new_attr_count, derived_key);
         break;
     default:

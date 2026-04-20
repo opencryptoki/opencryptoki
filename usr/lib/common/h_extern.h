@@ -2434,7 +2434,8 @@ CK_RV session_mgr_iterate_session_ops(STDLL_TokData_t *tokdata,
 CK_RV object_mgr_add(STDLL_TokData_t *tokdata,
                      SESSION *sess,
                      CK_ATTRIBUTE *pTemplate,
-                     CK_ULONG ulCount, CK_OBJECT_HANDLE *handle);
+                     CK_ULONG ulCount, CK_OBJECT_HANDLE *handle,
+                     CK_ULONG mode);
 
 CK_RV object_mgr_add_to_map(STDLL_TokData_t *tokdata,
                             SESSION *sess,
@@ -2604,7 +2605,8 @@ struct update_tok_obj_args {
 // object routines
 //
 CK_RV object_create(STDLL_TokData_t *tokdata,
-                    CK_ATTRIBUTE *pTemplate, CK_ULONG ulCount, OBJECT **obj);
+                    CK_ATTRIBUTE *pTemplate, CK_ULONG ulCount, OBJECT **obj,
+                    CK_ULONG mode);
 
 CK_RV object_create_skel(STDLL_TokData_t *tokdata,
                          CK_ATTRIBUTE *pTemplate,
@@ -2793,6 +2795,10 @@ CK_RV key_object_apply_template_attr(TEMPLATE *unwrap_tmpl,
                                      CK_ATTRIBUTE_PTR *new_attrs,
                                      CK_ULONG *new_attrs_count);
 CK_RV key_object_is_always_authenticate(TEMPLATE *tmpl, CK_BBOOL *auth);
+CK_RV key_pub_from_priv(STDLL_TokData_t *tokdata, SESSION *sess,
+                        OBJECT *priv_key_obj,
+                        CK_ATTRIBUTE *pTemplate, CK_ULONG ulCount,
+                        CK_OBJECT_HANDLE *pub_key_handle);
 
 CK_RV publ_key_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode);
 CK_RV publ_key_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode);

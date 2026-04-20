@@ -12516,6 +12516,16 @@ static CK_RV ep11tok_rsa_oaep_mech_adjust(STDLL_TokData_t *tokdata,
     return CKR_OK;
 }
 
+CK_BBOOL ep11tok_is_common_code_derive_mech(CK_MECHANISM *mech)
+{
+    switch (mech->mechanism) {
+    case CKM_PUB_KEY_FROM_PRIV_KEY:
+        return CK_TRUE;
+    default:
+        return CK_FALSE;
+    }
+}
+
 CK_BBOOL ep11tok_is_common_code_sign_verify_mech(CK_MECHANISM *mech)
 {
     switch (mech->mechanism) {
@@ -15553,7 +15563,8 @@ static const CK_MECHANISM_TYPE ep11_supported_mech_list[] = {
     CKM_ML_DSA_KEY_PAIR_GEN,
     CKM_ML_DSA,
     CKM_ML_KEM_KEY_PAIR_GEN,
-    CKM_ML_KEM
+    CKM_ML_KEM,
+    CKM_PUB_KEY_FROM_PRIV_KEY,
 };
 
 static const CK_ULONG supported_mech_list_len =
@@ -15937,6 +15948,9 @@ CK_RV ep11tok_get_mechanism_list(STDLL_TokData_t * tokdata,
                                                                     CKR_OK) {
             *pulCount += 1;
         }
+        if (ep11tok_is_mechanism_supported(tokdata, CKM_PUB_KEY_FROM_PRIV_KEY)
+                                                                      == CKR_OK)
+            *pulCount += 1;
     } else {
         /* 2. call, content request */
         size = *pulCount;
@@ -16048,6 +16062,12 @@ CK_RV ep11tok_get_mechanism_list(STDLL_TokData_t * tokdata,
         }
         if (*pulCount > size)
             rc = CKR_BUFFER_TOO_SMALL;
+        if (ep11tok_is_mechanism_supported(tokdata, CKM_PUB_KEY_FROM_PRIV_KEY)
+                                                                    == CKR_OK) {
+            if (*pulCount < size)
+                pMechanismList[*pulCount] = CKM_PUB_KEY_FROM_PRIV_KEY;
+            *pulCount = *pulCount + 1;
+        }
     }
 
 out:
@@ -16461,6 +16481,11 @@ CK_RV ep11tok_get_mechanism_info(STDLL_TokData_t * tokdata,
             pInfo->ulMaxKeySize = 448;
             pInfo->flags = (CK_FLAGS)(CKF_SIGN | CKF_VERIFY | CKF_EC_OID |
                                       CKF_EC_F_P | CKF_EC_COMPRESS);
+            break;
+        case CKM_PUB_KEY_FROM_PRIV_KEY:
+            pInfo->ulMinKeySize = 0;
+            pInfo->ulMaxKeySize = 0;
+            pInfo->flags = (CK_FLAGS)(CKF_DERIVE);
             break;
         default:
             if (type == CKM_IBM_ML_KEM_WITH_ECDH)

@@ -316,6 +316,9 @@ static const MECH_LIST_ELEMENT soft_mech_list[] = {
     {CKM_ECDH_AES_KEY_WRAP, {160, 521, CKF_WRAP | CKF_UNWRAP |
                              CKF_EC_OID | CKF_EC_F_P | CKF_EC_UNCOMPRESS |
                              CKF_EC_COMPRESS}},
+    {CKM_ECDH_COF_AES_KEY_WRAP, {160, 521, CKF_WRAP | CKF_UNWRAP |
+                                 CKF_EC_OID | CKF_EC_F_P | CKF_EC_UNCOMPRESS |
+                                 CKF_EC_COMPRESS}},
 #endif
 #if OPENSSL_VERSION_PREREQ(3, 0)
     {CKM_EC_EDWARDS_KEY_PAIR_GEN, {255, 448, CKF_GENERATE_KEY_PAIR |
@@ -325,6 +328,8 @@ static const MECH_LIST_ELEMENT soft_mech_list[] = {
                                       CKF_EC_COMPRESS}},
     {CKM_EDDSA, {255, 448, CKF_SIGN | CKF_VERIFY | CKF_EC_OID | CKF_EC_F_P |
                                       CKF_EC_COMPRESS}},
+    {CKM_ECDH_X_AES_KEY_WRAP, {255, 448, CKF_WRAP | CKF_UNWRAP |
+                               CKF_EC_OID | CKF_EC_F_P | CKF_EC_COMPRESS}},
     {CKM_IBM_DILITHIUM, {256, 256, CKF_GENERATE_KEY_PAIR |
                                    CKF_SIGN | CKF_VERIFY}},
     {CKM_IBM_ML_DSA_KEY_PAIR_GEN, {1312, 2592, CKF_GENERATE_KEY_PAIR}},
@@ -350,6 +355,7 @@ static const MECH_LIST_ELEMENT soft_mech_list[] = {
     {CKM_ML_KEM_KEY_PAIR_GEN, {800, 1568, CKF_GENERATE_KEY_PAIR}},
     {CKM_ML_KEM, {800, 1568, CKF_ENCAPSULATE | CKF_DECAPSULATE}},
 #endif
+    {CKM_PUB_KEY_FROM_PRIV_KEY, {0, 0, CKF_DERIVE }},
 };
 
 static const CK_ULONG soft_mech_list_len =

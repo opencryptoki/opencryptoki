@@ -2588,6 +2588,23 @@ CK_RV p11tool_check_keygen_mech_supported(CK_SLOT_ID slot,
     return CKR_OK;
 }
 
+CK_RV p11tool_check_pub_from_priv_mech_supported(CK_SLOT_ID slot)
+{
+    CK_MECHANISM_INFO mech_info;
+    CK_RV rc;
+
+    rc = p11tool_pkcs11_funcs->C_GetMechanismInfo(slot,
+                                                  CKM_PUB_KEY_FROM_PRIV_KEY,
+                                                  &mech_info);
+    if (rc != CKR_OK)
+        return rc;
+
+    if ((mech_info.flags & CKF_DERIVE) == 0)
+        return CKR_MECHANISM_INVALID;
+
+    return CKR_OK;
+}
+
 char p11tool_prompt_user(const char *message, char* allowed_chars)
 {
     int len;

@@ -49,7 +49,7 @@
 #include <openssl/crypto.h>
 #include <openssl/bn.h>
 
-#define ICA_MAX_MECH_LIST_ENTRIES       153
+#define ICA_MAX_MECH_LIST_ENTRIES       154
 
 typedef struct {
     void *libica_dso;
@@ -5245,9 +5245,14 @@ static const REF_MECH_LIST_ELEMENT ref_mech_list[] = {
      {255, 448, CKF_SIGN | CKF_VERIFY | CKF_EC_OID | CKF_EC_F_P |
                 CKF_EC_COMPRESS}
     },
+    {ED25519_SIGN, CKM_ECDH_X_AES_KEY_WRAP, 
+     {255, 448, CKF_WRAP | CKF_UNWRAP | CKF_EC_OID | CKF_EC_F_P |
+                CKF_EC_COMPRESS}
+    },
 #endif
 #endif
 #endif
+    {0, CKM_PUB_KEY_FROM_PRIV_KEY, { 0, 0, CKF_DERIVE}},
 };
 
 static const CK_ULONG ref_mech_list_len =
@@ -5897,6 +5902,8 @@ static CK_RV mech_list_ica_initialize(STDLL_TokData_t *tokdata)
         addMechanismToList(tokdata, CKM_SHA3_512_KEY_GEN, sha_hw, 0);
     }
 #endif
+
+    addMechanismToList(tokdata, CKM_PUB_KEY_FROM_PRIV_KEY, 0, 0);
 
     /* sort the mech_list_ica by mechanism ID's (bubble sort)  */
     for (i = 0; i < ica_data->mech_list_len; i++) {
