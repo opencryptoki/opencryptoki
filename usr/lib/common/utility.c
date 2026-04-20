@@ -222,27 +222,35 @@ CK_RV XProcLock(STDLL_TokData_t *tokdata)
 
 CK_RV XProcUnLock(STDLL_TokData_t *tokdata)
 {
+    CK_RV rc = CKR_OK;
+    CK_RV rc2;
+
     if (tokdata->spinxplfd < 0)  {
         TRACE_DEVEL("No file descriptor to unlock with.\n");
-        return CKR_CANT_LOCK;
+        rc = CKR_CANT_LOCK;
+        goto done;
     }
 
     if (tokdata->spinxplfd_count == 0) {
         TRACE_DEVEL("No file lock is held.\n");
-        return CKR_CANT_LOCK;
+        rc = CKR_CANT_LOCK;
+        goto done;
     }
     if (tokdata->spinxplfd_count == 1) {
         if (flock(tokdata->spinxplfd, LOCK_UN) != 0) {
             TRACE_DEVEL("flock has failed.\n");
-            return CKR_CANT_LOCK;
+            rc = CKR_CANT_LOCK;
+            goto done;
         }
     }
     tokdata->spinxplfd_count--;
 
-    if (XThreadUnLock(tokdata) != CKR_OK)
-        return CKR_CANT_LOCK;
+done:
+    rc2 = XThreadUnLock(tokdata);
+    if (rc == CKR_OK && rc2 != CKR_OK)
+        rc = rc2;
 
-    return CKR_OK;
+    return rc;
 }
 
 CK_RV XProcLock_Init(STDLL_TokData_t *tokdata)
