@@ -145,7 +145,8 @@ CK_RV ep11tok_relogin_session(STDLL_TokData_t *tokdata, SESSION *session)
         case CKS_RO_PUBLIC_SESSION:
         case CKS_RW_PUBLIC_SESSION:
             TRACE_INFO("%s Public or SO session\n", __func__);
-            return CKR_OK;
+            rc = CKR_OK;
+            goto unlock;
         case CKS_RO_USER_FUNCTIONS:
             rc = ep11_open_helper_session(tokdata, session, &helper_session);
             if (rc != CKR_OK)
