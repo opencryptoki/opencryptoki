@@ -1,12 +1,12 @@
 check_PROGRAMS = testcases/unit/policytest testcases/unit/hashmaptest	\
 	testcases/unit/mechtabletest testcases/unit/configdump		\
 	testcases/unit/buffertest testcases/unit/uritest		\
-	testcases/unit/pintest
+	testcases/unit/pintest testcases/unit/asn1test
 
 TESTS = testcases/unit/policytest testcases/unit/hashmaptest		\
 	testcases/unit/mechtabletest testcases/unit/configdump		\
 	testcases/unit/buffertest testcases/unit/uritest		\
-	testcases/unit/pintest.sh
+	testcases/unit/pintest.sh testcases/unit/asn1test
 
 EXTRA_DIST += testcases/unit/pintest.sh
 noinst_HEADERS += testcases/unit/unittest.h
@@ -84,3 +84,14 @@ testcases_unit_pintest_SOURCES=testcases/unit/pintest.c		\
 testcases_unit_pintest_CFLAGS=-I${top_srcdir}/usr/lib/common \
 	-I${top_srcdir}/usr/include
 testcases_unit_pintest_LDFLAGS=-lcrypto
+
+testcases_unit_asn1test_SOURCES=testcases/unit/asn1test.c	\
+	testcases/unit/asn1test_keys.c				\
+	testcases/unit/asn1test_pqckeys.c			\
+	usr/lib/common/asn1.c usr/lib/common/trace.c		\
+	testcases/unit/asn1test_stubs.c
+
+testcases_unit_asn1test_CFLAGS=-I${top_srcdir}/usr/lib/common	\
+	-I${top_srcdir}/usr/include -DSTDLL_NAME=\"asn1test\"
+
+testcases_unit_asn1test_LDFLAGS=-llber
