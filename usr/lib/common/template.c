@@ -891,7 +891,8 @@ CK_RV template_flatten(TEMPLATE *tmpl, CK_BYTE *dest)
     return CKR_OK;
 }
 
-static CK_RV attribute_array_unflatten(CK_BYTE **buf, CK_ATTRIBUTE_PTR *attrs,
+static CK_RV attribute_array_unflatten(CK_BYTE **buf, CK_ULONG buf_len,
+                                       CK_ATTRIBUTE_PTR *attrs,
                                        CK_ULONG *num_attrs)
 {
     CK_ULONG_32 long_len = sizeof(CK_ULONG);
@@ -908,17 +909,36 @@ static CK_RV attribute_array_unflatten(CK_BYTE **buf, CK_ATTRIBUTE_PTR *attrs,
     *num_attrs = 0;
 
     if (long_len == 4) {
+        if (buf_len < sizeof(CK_ATTRIBUTE))
+            return CKR_FUNCTION_FAILED;
+
         a1 = (CK_ATTRIBUTE *)ptr;
         ptr += sizeof(CK_ATTRIBUTE);
+        buf_len -= sizeof(CK_ATTRIBUTE);
 
         if (!is_attribute_attr_array(a1->type))
             return CKR_ATTRIBUTE_TYPE_INVALID;
 
+        if (buf_len < a1->ulValueLen)
+            return CKR_FUNCTION_FAILED;
+
         while(ofs < a1->ulValueLen) {
+            if (buf_len < sizeof(CK_ATTRIBUTE)) {
+                rc = CKR_FUNCTION_FAILED;
+                goto error;
+            }
+
             a2 = (CK_ATTRIBUTE *)ptr;
 
+            if (buf_len < sizeof(CK_ATTRIBUTE) + a2->ulValueLen) {
+                rc = CKR_FUNCTION_FAILED;
+                goto error;
+            }
+
             if (is_attribute_attr_array(a2->type)) {
-                rc = attribute_array_unflatten(&ptr, &elements, &num_elements);
+                rc = attribute_array_unflatten(&ptr, sizeof(CK_ATTRIBUTE) +
+                                                            a2->ulValueLen,
+                                               &elements, &num_elements);
                 if (rc != CKR_OK) {
                     TRACE_ERROR("attribute_array_unflatten failed\n");
                     goto error;
@@ -948,19 +968,39 @@ static CK_RV attribute_array_unflatten(CK_BYTE **buf, CK_ATTRIBUTE_PTR *attrs,
             }
 
             ofs += sizeof(CK_ATTRIBUTE) + a2->ulValueLen;
+            buf_len -= sizeof(CK_ATTRIBUTE) + a2->ulValueLen;
         }
     } else {
+        if (buf_len < sizeof(a1_32))
+            return CKR_FUNCTION_FAILED;
+
         memcpy(&a1_32, ptr, sizeof(a1_32));
         ptr += sizeof(CK_ATTRIBUTE_32);
+        buf_len -= sizeof(CK_ATTRIBUTE_32);
 
         if (!is_attribute_attr_array(a1_32.type))
             return CKR_ATTRIBUTE_TYPE_INVALID;
 
+        if (buf_len < a1_32.ulValueLen)
+            return CKR_FUNCTION_FAILED;
+
         while(ofs < a1_32.ulValueLen) {
+            if (buf_len < sizeof(a2_32)) {
+                rc = CKR_FUNCTION_FAILED;
+                goto error;
+            }
+
             memcpy(&a2_32, ptr, sizeof(a2_32));
 
+            if (buf_len < sizeof(a2_32) + a2_32.ulValueLen) {
+                rc = CKR_FUNCTION_FAILED;
+                goto error;
+            }
+
             if (is_attribute_attr_array(a2_32.type)) {
-                rc = attribute_array_unflatten(&ptr, &elements, &num_elements);
+                rc = attribute_array_unflatten(&ptr, sizeof(a2_32) +
+                                                            a2_32.ulValueLen,
+                                               &elements, &num_elements);
                 if (rc != CKR_OK) {
                     TRACE_ERROR("attribute_array_unflatten failed\n");
                     goto error;
@@ -980,6 +1020,11 @@ static CK_RV attribute_array_unflatten(CK_BYTE **buf, CK_ATTRIBUTE_PTR *attrs,
             } else {
                 if (flatten_ulong_attribute_as_ulong32(a2_32.type) &&
                     a2_32.ulValueLen > 0) {
+                    if (buf_len < sizeof(a2_32) + sizeof(attr_ulong_32)) {
+                        rc = CKR_FUNCTION_FAILED;
+                        goto error;
+                    }
+
                     memcpy(&attr_ulong_32, ptr + sizeof(CK_ATTRIBUTE_32),
                                            sizeof(attr_ulong_32));
                     attr_ulong = attr_ulong_32;
@@ -1000,6 +1045,7 @@ static CK_RV attribute_array_unflatten(CK_BYTE **buf, CK_ATTRIBUTE_PTR *attrs,
             }
 
             ofs += sizeof(CK_ATTRIBUTE_32) + a2_32.ulValueLen;
+            buf_len -= sizeof(CK_ATTRIBUTE_32) + a2_32.ulValueLen;
         }
     }
 
@@ -1059,7 +1105,9 @@ CK_RV template_unflatten_withSize(TEMPLATE **new_tmpl, CK_BYTE *buf,
                     template_free(tmpl);
                     return CKR_FUNCTION_FAILED;
                 }
-                rc = attribute_array_unflatten(&ptr, &attrs, &num_attrs);
+                rc = attribute_array_unflatten(&ptr, sizeof(CK_ATTRIBUTE) +
+                                                            a1->ulValueLen,
+                                               &attrs, &num_attrs);
                 if (rc != CKR_OK) {
                     TRACE_ERROR("attribute_array_unflatten failed\n");
                     template_free(tmpl);
@@ -1126,7 +1174,9 @@ CK_RV template_unflatten_withSize(TEMPLATE **new_tmpl, CK_BYTE *buf,
                     template_free(tmpl);
                     return CKR_FUNCTION_FAILED;
                 }
-                rc = attribute_array_unflatten(&ptr, &attrs, &num_attrs);
+                rc = attribute_array_unflatten(&ptr, sizeof(CK_ATTRIBUTE_32) +
+                                                            a1_32.ulValueLen,
+                                               &attrs, &num_attrs);
                 if (rc != CKR_OK) {
                     TRACE_ERROR("attribute_array_unflatten failed\n");
                     template_free(tmpl);
