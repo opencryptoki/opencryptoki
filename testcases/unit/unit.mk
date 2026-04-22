@@ -1,12 +1,14 @@
 check_PROGRAMS = testcases/unit/policytest testcases/unit/hashmaptest	\
 	testcases/unit/mechtabletest testcases/unit/configdump		\
 	testcases/unit/buffertest testcases/unit/uritest		\
-	testcases/unit/pintest testcases/unit/asn1test
+	testcases/unit/pintest testcases/unit/asn1test			\
+	testcases/unit/asn1fuzztest
 
 TESTS = testcases/unit/policytest testcases/unit/hashmaptest		\
 	testcases/unit/mechtabletest testcases/unit/configdump		\
 	testcases/unit/buffertest testcases/unit/uritest		\
-	testcases/unit/pintest.sh testcases/unit/asn1test
+	testcases/unit/pintest.sh testcases/unit/asn1test		\
+	testcases/unit/asn1fuzztest
 
 EXTRA_DIST += testcases/unit/pintest.sh
 noinst_HEADERS += testcases/unit/unittest.h
@@ -95,3 +97,12 @@ testcases_unit_asn1test_CFLAGS=-I${top_srcdir}/usr/lib/common	\
 	-I${top_srcdir}/usr/include -DSTDLL_NAME=\"asn1test\"
 
 testcases_unit_asn1test_LDFLAGS=-llber
+
+testcases_unit_asn1fuzztest_SOURCES=testcases/unit/asn1fuzztest.c	\
+	usr/lib/common/asn1.c usr/lib/common/trace.c			\
+	testcases/unit/asn1test_stubs.c
+
+testcases_unit_asn1fuzztest_CFLAGS=-I${top_srcdir}/usr/lib/common	\
+	-I${top_srcdir}/usr/include -DSTDLL_NAME=\"asn1fuzztest\"
+
+testcases_unit_asn1fuzztest_LDFLAGS=-llber
