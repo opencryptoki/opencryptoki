@@ -38,6 +38,8 @@
 #include "trace.h"
 #include "../api/policy.h"
 
+#ifndef OCK_UNIT_TESTS
+
 // object_create()
 //
 // Args:   void *  attributes : (INPUT)  pointer to data block containing
@@ -273,6 +275,7 @@ error:
     return rc;
 }
 
+#endif
 
 // object_flatten() - this is still used when saving token objects
 //
@@ -348,6 +351,8 @@ void object_free(OBJECT * obj)
         free(obj);
     }
 }
+
+#ifndef OCK_UNIT_TESTS
 
 //call_object_free()
 //This function is added to silence the compiler during implicit void (*)(void*)
@@ -710,6 +715,8 @@ error:
     return rc;
 }
 
+#endif
+
 CK_RV object_restore_withSize(struct policy *policy,
                               CK_BYTE * data, OBJECT ** new_obj,
                               CK_BBOOL replace, CK_ULONG data_size,
@@ -824,7 +831,7 @@ error:
     return rc;
 }
 
-
+#ifndef OCK_UNIT_TESTS
 //
 //
 CK_RV object_create_skel(STDLL_TokData_t * tokdata,
@@ -933,6 +940,8 @@ done:
 
     return rc;
 }
+
+#endif
 
 CK_RV object_init_lock(OBJECT *obj)
 {

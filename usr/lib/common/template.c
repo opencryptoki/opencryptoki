@@ -45,6 +45,8 @@
 
 static CK_ULONG attribute_get_compressed_size(CK_ATTRIBUTE_PTR attr);
 
+#ifndef OCK_UNIT_TESTS
+
 /* Random 32 byte string is unique with overwhelming probability. */
 #define UNIQUE_ID_LEN 32
 
@@ -61,6 +63,8 @@ static CK_RV get_unique_id_str(char unique_id_str[2 * UNIQUE_ID_LEN + 1])
 
     return CKR_OK;
 }
+
+#endif
 
 /* template_add_attributes()
  *
@@ -129,6 +133,7 @@ CK_RV template_add_attributes(TEMPLATE *tmpl, CK_ATTRIBUTE *pTemplate,
     return CKR_OK;
 }
 
+#ifndef OCK_UNIT_TESTS
 
 /* template_add_default_attributes()
  * Add default attributes to '*tmpl'.
@@ -282,6 +287,7 @@ CK_RV template_add_default_attributes(STDLL_TokData_t *tokdata,
     }
 }
 
+#endif
 
 /* template_attribute_find()
  *
@@ -430,6 +436,7 @@ void template_attribute_find_multiple(TEMPLATE *tmpl,
     }
 }
 
+#ifndef OCK_UNIT_TESTS
 
 /* template_check_required_attributes() */
 CK_RV template_check_required_attributes(TEMPLATE *tmpl, CK_ULONG class,
@@ -713,6 +720,7 @@ CK_RV template_copy(TEMPLATE *dest, TEMPLATE *src)
     return CKR_OK;
 }
 
+#endif
 
 static CK_BBOOL flatten_ulong_attribute_as_ulong32(CK_ATTRIBUTE_TYPE type)
 {
@@ -1446,6 +1454,8 @@ CK_ULONG template_get_compressed_size(TEMPLATE *tmpl)
     return size;
 }
 
+#ifndef OCK_UNIT_TESTS
+
 /* template_is_okay_to_reveal_attribute()
  *
  * determines whether the specified CK_ATTRIBUTE_TYPE is allowed to
@@ -1725,6 +1735,8 @@ error:
     return rc;
 }
 
+#endif
+
 /* template_remove_attribute()
  *
  * removes an attribute (if existing) from the template.
@@ -1827,6 +1839,8 @@ CK_RV template_build_update_attribute(TEMPLATE *tmpl,
 
     return CKR_OK;
 }
+
+#ifndef OCK_UNIT_TESTS
 
 /* template_validate_attribute()
  *
@@ -2120,4 +2134,5 @@ void dump_template(TEMPLATE *tmpl)
         node = node->next;
     }
 }
+#endif
 #endif
