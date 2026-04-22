@@ -1090,6 +1090,13 @@ CK_RV template_unflatten_withSize(TEMPLATE **new_tmpl, CK_BYTE *buf,
             }
 
             len = sizeof(CK_ATTRIBUTE) + a1->ulValueLen;
+
+            /* Make sure it doesn't get overrun the input buffer */
+            if ((((unsigned char *)a1 + len) > (buf + buf_size))) {
+                template_free(tmpl);
+                return CKR_FUNCTION_FAILED;
+            }
+
             a2 = (CK_ATTRIBUTE *) malloc(len);
             if (!a2) {
                 template_free(tmpl);
@@ -1097,15 +1104,6 @@ CK_RV template_unflatten_withSize(TEMPLATE **new_tmpl, CK_BYTE *buf,
                 return CKR_HOST_MEMORY;
             }
 
-            /* if a buffer size is given, make sure it
-             * doesn't get overrun
-             */
-            if ((((unsigned char *) a1 + len)
-                 > ((unsigned char *) buf + buf_size))) {
-                free(a2);
-                template_free(tmpl);
-                return CKR_FUNCTION_FAILED;
-            }
             memcpy(a2, a1, len);
 
             if (a2->ulValueLen > 0)
@@ -1159,8 +1157,22 @@ CK_RV template_unflatten_withSize(TEMPLATE **new_tmpl, CK_BYTE *buf,
 
             if (flatten_ulong_attribute_as_ulong32(a1_32.type)
                 && a1_32.ulValueLen != 0) {
+                /* Make sure it doesn't get overrun the input buffer */
+                if ((ptr + sizeof(CK_ATTRIBUTE_32) + sizeof(attr_ulong_32)) >
+                                                          (buf + buf_size)) {
+                    template_free(tmpl);
+                    return CKR_FUNCTION_FAILED;
+                }
+
                 len = sizeof(CK_ATTRIBUTE) + sizeof(CK_ULONG);
             } else {
+                /* Make sure it doesn't get overrun the input buffer */
+                if ((ptr + sizeof(CK_ATTRIBUTE_32) + a1_32.ulValueLen) >
+                                                         (buf + buf_size)) {
+                    template_free(tmpl);
+                    return CKR_FUNCTION_FAILED;
+                }
+
                 len = sizeof(CK_ATTRIBUTE) + a1_32.ulValueLen;
             }
 
@@ -1183,6 +1195,14 @@ CK_RV template_unflatten_withSize(TEMPLATE **new_tmpl, CK_BYTE *buf,
 
                 a2->ulValueLen = sizeof(CK_ULONG);
 
+                /* Make sure it doesn't get overrun the input buffer */
+                if ((ptr + sizeof(CK_ATTRIBUTE_32) + sizeof(attr_ulong_32)) >
+                                                            (buf + buf_size)) {
+                    free(a2);
+                    template_free(tmpl);
+                    return CKR_FUNCTION_FAILED;
+                }
+
                 memcpy(&attr_ulong_32, ptr + sizeof(CK_ATTRIBUTE_32),
                        sizeof(attr_ulong_32));
                 attr_ulong = attr_ulong_32;
@@ -1190,9 +1210,7 @@ CK_RV template_unflatten_withSize(TEMPLATE **new_tmpl, CK_BYTE *buf,
                 memcpy(a2->pValue, (CK_BYTE *)&attr_ulong, sizeof(CK_ULONG));
             } else if (a1_32.ulValueLen != 0) {
                 a2->ulValueLen = a1_32.ulValueLen;
-                /* if a buffer size is given, make sure it
-                 * doesn't get overrun
-                 */
+                /* Make sure it doesn't get overrun the input buffer */
                 if ((ptr + sizeof(CK_ATTRIBUTE_32) + a1_32.ulValueLen) >
                                                             (buf + buf_size)) {
                     free(a2);
