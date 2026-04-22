@@ -29,7 +29,7 @@ extern const CK_BYTE ml_dsa_65[];
 extern const CK_BYTE ml_dsa_87[];
 
 extern const CK_BYTE ml_kem_512[];
-extern const CK_BYTE ml_kem_786[];
+extern const CK_BYTE ml_kem_768[];
 extern const CK_BYTE ml_kem_1024[];
 
 struct pqc_oid {

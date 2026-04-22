@@ -107,7 +107,7 @@ const struct pqc_oid ml_dsa_oids[] = {
 };
 
 const CK_BYTE ml_kem_512[] = OCK_ML_KEM_512;
-const CK_BYTE ml_kem_786[] = OCK_ML_KEM_786;
+const CK_BYTE ml_kem_768[] = OCK_ML_KEM_768;
 const CK_BYTE ml_kem_1024[] = OCK_ML_KEM_1024;
 
 const struct pqc_oid ml_kem_oids[] = {
@@ -117,7 +117,7 @@ const struct pqc_oid ml_kem_oids[] = {
       .len_info.ml_kem.sk_len = 1632, .len_info.ml_kem.pk_len = 800,
       .len_info.ml_kem.fs_len = 64, .len_info.ml_kem.priv_seed_len = 64,
       .len_info.ml_kem.pubseed_len = 32, },
-    { .oid = ml_kem_786, .oid_len = sizeof(ml_kem_786),
+    { .oid = ml_kem_768, .oid_len = sizeof(ml_kem_768),
       .keyform = CKP_ML_KEM_768,
       .policy_size = 192, .policy_siglen = 0,
       .len_info.ml_kem.sk_len = 2400, .len_info.ml_kem.pk_len = 1184,
