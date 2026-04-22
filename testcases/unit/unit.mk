@@ -2,13 +2,13 @@ check_PROGRAMS = testcases/unit/policytest testcases/unit/hashmaptest	\
 	testcases/unit/mechtabletest testcases/unit/configdump		\
 	testcases/unit/buffertest testcases/unit/uritest		\
 	testcases/unit/pintest testcases/unit/asn1test			\
-	testcases/unit/asn1fuzztest
+	testcases/unit/asn1fuzztest testcases/unit/objectflattentest
 
 TESTS = testcases/unit/policytest testcases/unit/hashmaptest		\
 	testcases/unit/mechtabletest testcases/unit/configdump		\
 	testcases/unit/buffertest testcases/unit/uritest		\
 	testcases/unit/pintest.sh testcases/unit/asn1test		\
-	testcases/unit/asn1fuzztest
+	testcases/unit/asn1fuzztest testcases/unit/objectflattentest
 
 EXTRA_DIST += testcases/unit/pintest.sh
 noinst_HEADERS += testcases/unit/unittest.h
@@ -106,3 +106,15 @@ testcases_unit_asn1fuzztest_CFLAGS=-I${top_srcdir}/usr/lib/common	\
 	-I${top_srcdir}/usr/include -DSTDLL_NAME=\"asn1fuzztest\"
 
 testcases_unit_asn1fuzztest_LDFLAGS=-llber
+
+testcases_unit_objectflattentest_SOURCES=testcases/unit/objectflattentest.c	\
+	testcases/unit/objecttest_stubs.c				\
+	usr/lib/common/object.c usr/lib/common/p11util.c		\
+	usr/lib/common/trace.c usr/lib/common/template.c		\
+	usr/lib/common/attributes.c usr/lib/common/dlist.c
+
+testcases_unit_objectflattentest_CFLAGS=-I${top_srcdir}/usr/lib/common	\
+	-I${top_srcdir}/usr/include -I${top_srcdir}/usr/lib/api	\
+	-DSTDLL_NAME=\"objectflattentest\" -DOCK_UNIT_TESTS
+
+testcases_unit_objectflattentest_LDFLAGS=-lpthread -lcrypto
