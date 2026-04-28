@@ -5213,6 +5213,10 @@ CK_RV run_EncapsDecapsECDH(CK_BBOOL cofactor_mode)
                       ecdh_encaps_decaps_tests[i].shared_data_len);
 
 testcase_next:
+        if (cipher)
+            free(cipher);
+        cipher = NULL;
+
         if (secret_keyA != CK_INVALID_HANDLE)
             funcs->C_DestroyObject(session, secret_keyA);
         secret_keyA = CK_INVALID_HANDLE;
@@ -5228,6 +5232,9 @@ testcase_next:
     }
 
 testcase_cleanup:
+    if (cipher)
+        free(cipher);
+
     if (secret_keyA != CK_INVALID_HANDLE)
         funcs->C_DestroyObject(session, secret_keyA);
     secret_keyA = CK_INVALID_HANDLE;
