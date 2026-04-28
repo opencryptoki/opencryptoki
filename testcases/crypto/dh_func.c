@@ -685,6 +685,9 @@ CK_RV do_EnDecapsulateDHKey(void)
     testcase_pass("En/Decapsulate secrets");
 
 testcase_cleanup:
+    if (cipher)
+        free(cipher);
+
     funcs->C_DestroyObject(session, publ_key);
     funcs->C_DestroyObject(session, priv_key);
     funcs->C_DestroyObject(session, secret_key1);
