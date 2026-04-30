@@ -3,13 +3,13 @@
 
 # openCryptoki
 
-Package version 3.26
+Package version 3.27
 
 Please see [ChangeLog](ChangeLog) for release specific information.
 
 ## OVERVIEW
 
-openCryptoki version 3.26 implements the PKCS#11 specification version 3.0
+openCryptoki version 3.27 implements the PKCS#11 specification version 3.0
 and partially versions 3.1 and 3.2.
 
 This package includes several cryptographic tokens:
