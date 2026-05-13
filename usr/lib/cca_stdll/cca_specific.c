@@ -8173,7 +8173,7 @@ static CK_RV ccatok_build_ec_derive_info(STDLL_TokData_t *tokdata,
     }
 
     derive_info->key_algorithm = CCA_AES_KEY;
-    derive_info->key_size = 256;
+    derive_info->key_size = htobe16(256);
 
     rv = ccatok_get_key_info_from_template_attrs(priv_tmpl,
                                                  &key_type, &value_len,
@@ -8200,12 +8200,12 @@ static CK_RV ccatok_build_ec_derive_info(STDLL_TokData_t *tokdata,
     case CKK_AES:
        switch (value_len) {
         case 0:
-            derive_info->key_size = 256; /* Default to AES-256 */
+            derive_info->key_size = htobe16(256); /* Default to AES-256 */
             break;
         case AES_KEY_SIZE_128:
         case AES_KEY_SIZE_192:
         case AES_KEY_SIZE_256:
-            derive_info->key_size = value_len * 8;
+            derive_info->key_size = htobe16(value_len * 8);
             break;
         default:
             TRACE_ERROR("Unsupported AES key size %lu\n", value_len);
@@ -8292,10 +8292,10 @@ static CK_RV ccatok_check_ec_derive_info(STDLL_TokData_t *tokdata, OBJECT *obj,
                 }
                 /* Also check key size, if specified in template */
                 if (derive_value_len != 0 &&
-                    derive_value_len * 8 != ecc_info->key_size) {
+                    derive_value_len * 8 != be16toh(ecc_info->key_size)) {
                     TRACE_ERROR("The EC private key can not derive/decaps keys "
                                 "other than AES-%u keys\n",
-                                ecc_info->key_size);
+                                be16toh(ecc_info->key_size));
                     return CKR_ATTRIBUTE_VALUE_INVALID;
                 }
                 break;
@@ -13517,9 +13517,9 @@ static CK_RV cca_ecdh_pkcs_derive_kdf(STDLL_TokData_t *tokdata,
     else if (rc != CKR_OK)
         return rc;
 
-    if (key_len != ecc_info->key_size / 8) {
+    if (key_len != be16toh(ecc_info->key_size) / 8) {
         TRACE_ERROR("The EC private key can not derive keys of type other than "
-                    "AES-%u\n", ecc_info->key_size);
+                    "AES-%u\n", be16toh(ecc_info->key_size));
         return CKR_ATTRIBUTE_VALUE_INVALID;
     }
 
