@@ -996,6 +996,12 @@ CK_RV run_DeriveECDHKey(CK_BBOOL cofactor_mode)
                                           "adapter control point");
                             continue;
                         }
+                        if (rc == CKR_KEY_SIZE_RANGE) {
+                            testcase_skip("key derivation is not allowed "
+                                          "because key to be generated is "
+                                          "stronger than the input material.");
+                            continue;
+                        }
 
                         testcase_fail("C_DeriveKey #1: rc = %s",
                                       p11_get_ckr(rc));
@@ -1074,6 +1080,12 @@ CK_RV run_DeriveECDHKey(CK_BBOOL cofactor_mode)
                                           "adapter control point");
                             if (secret_keyA != CK_INVALID_HANDLE)
                                 funcs->C_DestroyObject(session, secret_keyA);
+                            continue;
+                        }
+                        if (rc == CKR_KEY_SIZE_RANGE) {
+                            testcase_skip("key derivation is not allowed "
+                                          "because key to be generated is "
+                                          "stronger than the input material.");
                             continue;
                         }
 
@@ -5084,6 +5096,11 @@ CK_RV run_EncapsDecapsECDH(CK_BBOOL cofactor_mode)
                               "adapter control point");
                 goto testcase_next;
             }
+            if (rc == CKR_KEY_SIZE_RANGE) {
+                testcase_skip("key derivation is not allowed because key to be "
+                              "generated is stronger than the input material.");
+                goto testcase_next;
+            }
 
             testcase_new_assertion();
             testcase_fail("C_EncapsulateKey #1: rc = %s", p11_get_ckr(rc));
@@ -5125,6 +5142,11 @@ CK_RV run_EncapsDecapsECDH(CK_BBOOL cofactor_mode)
             if (rc == CKR_FUNCTION_CANCELED) {
                 testcase_skip("key derivation is not allowed by "
                               "adapter control point");
+                goto testcase_next;
+            }
+            if (rc == CKR_KEY_SIZE_RANGE) {
+                testcase_skip("key derivation is not allowed because key to be "
+                              "generated is stronger than the input material.");
                 goto testcase_next;
             }
 
