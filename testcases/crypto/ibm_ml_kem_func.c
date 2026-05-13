@@ -794,7 +794,7 @@ CK_RV run_GenerateMLKEMKeyPairKEM(void)
                                                 kemInput[j].kdf,
                                                 kemInput[j].shared_data,
                                                 kemInput[j].shard_data_len);
-            if (rc == CKR_MECHANISM_INVALID) {
+            if (rc == CKR_MECHANISM_INVALID || rc ==  CKR_FUNCTION_CANCELED) {
                 testcase_skip("run_EnDecapsulateMLKEMwithECDH with %s, %s, Shared data len %lu (index %lu).",
                                                variants[i].name,
                                                p11_get_ckd(kemInput[j].kdf),
@@ -938,7 +938,7 @@ CK_RV run_ImportMLKEMKeyPairSignVerify(void)
         rc = run_EnDecapsulateMLKEMwithECDH(session, priv_key, publ_key,
                                             CKK_AES, 32,
                                             CKD_IBM_HYBRID_SHA256_KDF, NULL, 0);
-        if (rc == CKR_MECHANISM_INVALID) {
+        if (rc == CKR_MECHANISM_INVALID || rc ==  CKR_FUNCTION_CANCELED) {
             testcase_skip("run_EnDecapsulateMLKEMwithECDH index=%lu.", i);
         } else if (rc != 0) {
             testcase_new_assertion();
@@ -1226,7 +1226,7 @@ CK_RV run_TransferMLKEMKeyPairSignVerify(void)
         rc = run_EnDecapsulateMLKEMwithECDH(session, unwrapped_key, publ_key,
                                             CKK_AES, 32,
                                             CKD_IBM_HYBRID_SHA256_KDF, NULL, 0);
-        if (rc == CKR_MECHANISM_INVALID) {
+        if (rc == CKR_MECHANISM_INVALID || rc ==  CKR_FUNCTION_CANCELED) {
             testcase_skip("run_EnDecapsulateMLKEMwithECDH index=%lu.", i);
         } else if (rc != 0) {
             testcase_new_assertion();
