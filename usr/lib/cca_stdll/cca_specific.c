@@ -13697,6 +13697,8 @@ static CK_RV cca_ecdh_pkcs_derive_kdf(STDLL_TokData_t *tokdata,
         if (return_code == 8 &&
             reason_code >= 2243 && reason_code <= 2246)
             rc = CKR_KEY_FUNCTION_NOT_PERMITTED;
+        if (return_code == 8 && reason_code == 2149)
+            rc = CKR_KEY_SIZE_RANGE;
         if (return_code == 8 && reason_code == 90)
             rc = CKR_FUNCTION_CANCELED; /* Control point prohibits function */
         goto done;
