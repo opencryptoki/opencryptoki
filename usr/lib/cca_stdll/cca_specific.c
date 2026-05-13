@@ -4827,6 +4827,7 @@ static CK_BBOOL cca_pqc_strength_supported(STDLL_TokData_t * tokdata,
 
 static CK_BBOOL cca_sha3_supported(STDLL_TokData_t *tokdata)
 {
+#ifdef __s390__
     CK_BBOOL ret;
     struct cca_private_data *cca_private = tokdata->private_data;
     const struct cca_version cca_v8_1 = { .ver = 8, .rel = 1, .mod = 0 };
@@ -4847,6 +4848,12 @@ static CK_BBOOL cca_sha3_supported(STDLL_TokData_t *tokdata)
     }
 
     return ret;
+#else
+    UNUSED(tokdata);
+
+    /* CCA on Power and x86 doesn't support SHA3 at the moment */
+    return CK_FALSE;
+#endif
 }
 
 static CK_BBOOL cca_rsa_oaep_2_1_supported(STDLL_TokData_t *tokdata)
