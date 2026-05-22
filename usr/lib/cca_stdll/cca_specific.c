@@ -4697,6 +4697,12 @@ static CK_RV cca_get_acp_info_handler(STDLL_TokData_t *tokdata,
 
         data->acp_info.acp_03B8 &= cca_get_acp(role_info, role_data_len, 0x3B8);
         data->acp_info.acp_03CD &= cca_get_acp(role_info, role_data_len, 0x3CD);
+#if !defined(__s390__)
+        data->acp_info.acp_03BD &= cca_get_acp(role_info, role_data_len, 0x3BD);
+        data->acp_info.acp_03BE &= cca_get_acp(role_info, role_data_len, 0x3BE);
+        data->acp_info.acp_03BF &= cca_get_acp(role_info, role_data_len, 0x3BF);
+        data->acp_info.acp_03C0 &= cca_get_acp(role_info, role_data_len, 0x3C0);
+#endif
 
         data->acps_set = CK_TRUE;
         found = CK_TRUE;
@@ -4722,6 +4728,12 @@ static CK_RV cca_get_acp_infos(STDLL_TokData_t *tokdata)
     memset(&acp_info_data, 0, sizeof(cca_acp_info_data_t));
     acp_info_data.acp_info.acp_03B8 = CK_TRUE;
     acp_info_data.acp_info.acp_03CD = CK_TRUE;
+#if !defined(__s390__)
+    acp_info_data.acp_info.acp_03BD = CK_TRUE;
+    acp_info_data.acp_info.acp_03BE = CK_TRUE;
+    acp_info_data.acp_info.acp_03BF = CK_TRUE;
+    acp_info_data.acp_info.acp_03C0 = CK_TRUE;
+#endif
 
     ret = cca_iterate_adapters(tokdata, cca_get_acp_info_handler,
                                &acp_info_data);
@@ -4736,6 +4748,16 @@ static CK_RV cca_get_acp_infos(STDLL_TokData_t *tokdata)
                 acp_info_data.acp_info.acp_03B8 ? "enabled" : "disabled");
     TRACE_DEVEL("ACP 0x03CD: %s\n",
                 acp_info_data.acp_info.acp_03CD ? "enabled" : "disabled");
+#if !defined(__s390__)
+    TRACE_DEVEL("ACP 0x03BD: %s\n",
+                acp_info_data.acp_info.acp_03BD ? "enabled" : "disabled");
+    TRACE_DEVEL("ACP 0x03BE: %s\n",
+                acp_info_data.acp_info.acp_03BE ? "enabled" : "disabled");
+    TRACE_DEVEL("ACP 0x03BF: %s\n",
+                acp_info_data.acp_info.acp_03BF ? "enabled" : "disabled");
+    TRACE_DEVEL("ACP 0x03C0: %s\n",
+                acp_info_data.acp_info.acp_03C0 ? "enabled" : "disabled");
+#endif
 
     /* Update ACP infos in cca_private_data, needs write-lock. */
     if (pthread_rwlock_wrlock(&cca_private->acp_info_rwlock) != 0) {
@@ -4827,7 +4849,6 @@ static CK_BBOOL cca_pqc_strength_supported(STDLL_TokData_t * tokdata,
 
 static CK_BBOOL cca_sha3_supported(STDLL_TokData_t *tokdata)
 {
-#ifdef __s390__
     CK_BBOOL ret;
     struct cca_private_data *cca_private = tokdata->private_data;
     const struct cca_version cca_v8_1 = { .ver = 8, .rel = 1, .mod = 0 };
@@ -4847,13 +4868,27 @@ static CK_BBOOL cca_sha3_supported(STDLL_TokData_t *tokdata)
         return FALSE;
     }
 
-    return ret;
-#else
-    UNUSED(tokdata);
+#if !defined(__s390__)
+    if (pthread_rwlock_rdlock(&cca_private->acp_info_rwlock)
+                                                        != 0) {
+        TRACE_ERROR("CCA acp_info RD-Lock failed.\n");
+        return FALSE;
+    }
 
-    /* CCA on Power and x86 doesn't support SHA3 at the moment */
-    return CK_FALSE;
+    /* Linux on x64/Power + AIX: Only enable SHA3 if all 4 ACPs are ON */
+    ret &= cca_private->acp_info.acp_03BD;
+    ret &= cca_private->acp_info.acp_03BE;
+    ret &= cca_private->acp_info.acp_03BF;
+    ret &= cca_private->acp_info.acp_03C0;
+
+    if (pthread_rwlock_unlock(&cca_private->acp_info_rwlock)
+                                                        != 0) {
+        TRACE_ERROR("CCA acp_info RD-Unlock failed.\n");
+        return FALSE;
+    }
 #endif
+
+    return ret;
 }
 
 static CK_BBOOL cca_rsa_oaep_2_1_supported(STDLL_TokData_t *tokdata)
