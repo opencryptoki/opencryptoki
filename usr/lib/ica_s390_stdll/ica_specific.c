@@ -5327,39 +5327,50 @@ static CK_BBOOL isMechanismHW(STDLL_TokData_t *tokdata, CK_ULONG mechanism)
     return FALSE;
 }
 
-#define KEY_SIZE_512   0x01
-#define KEY_SIZE_1024  0x02
-#define KEY_SIZE_2048  0x04
-#define KEY_SIZE_4096  0x08
+#ifndef ICA_PROPERTY_RSA_3072
+#define ICA_PROPERTY_RSA_512            0x00000001
+#define ICA_PROPERTY_RSA_1024           0x00000002
+#define ICA_PROPERTY_RSA_2048           0x00000004
+#define ICA_PROPERTY_RSA_4096           0x00000008
+#define ICA_PROPERTY_RSA_3072           0x00020000
+#endif
 
-#define RSA_NO_SMALL_EXP   0x00010000 /* e >= 65537 */
+#ifndef ICA_PROPERTY_RSA_NO_SMALL_EXP
+#define ICA_PROPERTY_RSA_NO_SMALL_EXP   0x00010000 /* e >= 65537 */
+#endif
 
 static void adjust_rsa_key_sizes(unsigned int mask,
                                  CK_MECHANISM_INFO *mech_info)
 {
     CK_ULONG min = 0, max = 0;
 
-    mask &= (KEY_SIZE_512 | KEY_SIZE_1024 | KEY_SIZE_2048 | KEY_SIZE_4096);
+    mask &= (ICA_PROPERTY_RSA_512 | ICA_PROPERTY_RSA_1024 |
+             ICA_PROPERTY_RSA_2048 | ICA_PROPERTY_RSA_3072 |
+             ICA_PROPERTY_RSA_4096);
     if (mask == 0)
         return;
 
-    if (mask & KEY_SIZE_512)
+    if (mask & ICA_PROPERTY_RSA_512)
         min = 512;
-    else if (mask & KEY_SIZE_1024)
+    else if (mask & ICA_PROPERTY_RSA_1024)
         min = 1024;
-    else if (mask & KEY_SIZE_2048)
+    else if (mask & ICA_PROPERTY_RSA_2048)
         min = 2048;
-    else if (mask & KEY_SIZE_4096)
+    else if (mask & ICA_PROPERTY_RSA_3072)
+        min = 3072;
+    else if (mask & ICA_PROPERTY_RSA_4096)
         min = 4096;
 
     max = min;
-    if (mask & KEY_SIZE_4096)
+    if (mask & ICA_PROPERTY_RSA_4096)
         max = 4096;
-    else if (mask & KEY_SIZE_2048)
+    else if (mask & ICA_PROPERTY_RSA_3072)
+        max = 3072;
+    else if (mask & ICA_PROPERTY_RSA_2048)
         max = 2048;
-    else if (mask & KEY_SIZE_1024)
+    else if (mask & ICA_PROPERTY_RSA_1024)
         max = 1024;
-    else if (mask & KEY_SIZE_512)
+    else if (mask & ICA_PROPERTY_RSA_512)
         max = 512;
 
     if (min > mech_info->ulMinKeySize)
@@ -5550,7 +5561,7 @@ static CK_RV mech_list_ica_initialize(STDLL_TokData_t *tokdata)
             if (libica_func_list[i].property != 0) {
                 rsa_props = libica_func_list[i].property;
                 ica_data->ica_rsa_no_small_pub_exp =
-                        ((rsa_props & RSA_NO_SMALL_EXP) != 0);
+                        ((rsa_props & ICA_PROPERTY_RSA_NO_SMALL_EXP) != 0);
             }
         }
         if (libica_func_list[i].mech_mode_id == RSA_ME) {
