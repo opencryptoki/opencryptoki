@@ -7680,6 +7680,7 @@ static CK_BBOOL token_specific_filter_mechanism(STDLL_TokData_t *tokdata,
         break;
     case CKM_IBM_ML_DSA_KEY_PAIR_GEN:
     case CKM_IBM_ML_DSA:
+    case CKM_ML_DSA_KEY_PAIR_GEN:
     case CKM_ML_DSA:
     case CKM_HASH_ML_DSA:
     case CKM_HASH_ML_DSA_SHA512:
