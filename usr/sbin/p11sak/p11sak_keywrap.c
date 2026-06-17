@@ -1221,7 +1221,7 @@ static CK_RV p11sak_select_kek(CK_OBJECT_CLASS kek_class, CK_KEY_TYPE kek_type,
 
     if (opt_kek_label == NULL && opt_kek_id == NULL) {
         warnx("At least one of the following options must be specified:");
-        warnx("'-K'/'--kek-label',  r '-k'/'--kek-id'");
+        warnx("'-K'/'--kek-label', or '-k'/'--kek-id'");
         return CKR_ARGUMENTS_BAD;
     }
 
