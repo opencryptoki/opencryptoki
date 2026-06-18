@@ -10633,15 +10633,9 @@ static CK_RV p11sak_key_extract_pubkey(const struct p11tool_objtype *keytype,
     CK_RV rc;
     CK_MECHANISM pub_from_priv_mech = { CKM_PUB_KEY_FROM_PRIV_KEY, NULL, 0 };
     CK_BBOOL pub_from_priv_supported;
-    CK_BBOOL derive_val = CK_FALSE;
-    CK_ATTRIBUTE derive = { CKA_DERIVE, &derive_val, sizeof(derive_val) };
 
     pub_from_priv_supported =
             (p11tool_check_pub_from_priv_mech_supported(opt_slot) == CKR_OK);
-
-    rc = p11tool_get_attribute(key, &derive);
-    if (rc != CKR_OK || derive_val == CK_FALSE)
-        pub_from_priv_supported = CK_FALSE;
 
     if (opt_new_attr != NULL) {
         rc = p11tool_parse_boolean_attrs(keytype, p11sak_bool_attrs,
