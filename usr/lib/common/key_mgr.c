@@ -1922,7 +1922,7 @@ CK_RV key_mgr_derive_key(STDLL_TokData_t *tokdata,
     OBJECT *base_key_obj = NULL;
     CK_ATTRIBUTE *new_attrs = NULL;
     CK_ULONG new_attr_count = 0;
-    CK_BBOOL flag;
+    CK_BBOOL flag = CK_FALSE;
     CK_ATTRIBUTE_TYPE key_usage_attr, apply_tmpl_attr;
     CK_ULONG mode;
     int policy_check;
@@ -2044,14 +2044,20 @@ CK_RV key_mgr_derive_key(STDLL_TokData_t *tokdata,
     /* is base key allowed to do the desired operation? */
     rc = template_attribute_get_bool(base_key_obj->template, key_usage_attr,
                                      &flag);
-    if (rc != CKR_OK) {
+    if (rc != CKR_OK && mech->mechanism != CKM_PUB_KEY_FROM_PRIV_KEY) {
         TRACE_ERROR("Could not find %s for the base key.\n",
                     p11_get_cka(key_usage_attr));
         rc = CKR_KEY_FUNCTION_NOT_PERMITTED;
         goto done;
     }
 
-    if (flag != TRUE) {
+    /*
+     * Special handling for CKM_PUB_KEY_FROM_PRIV_KEY:
+     * As per updated PKCS#11 spec: Although this is technically a derivation
+     * mechanism, it can always be used with any CKO_PRIVATE_KEY object
+     * regardless of its CKA_DERIVE attribute value.
+     */
+    if (flag != TRUE && mech->mechanism != CKM_PUB_KEY_FROM_PRIV_KEY) {
         TRACE_ERROR("%s is set to FALSE.\n", p11_get_cka(key_usage_attr));
         rc = CKR_KEY_FUNCTION_NOT_PERMITTED;
         goto done;
