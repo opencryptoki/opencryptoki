@@ -11287,8 +11287,8 @@ static CK_RV cca_ibm_ml_kem_derive_with_ecdh(STDLL_TokData_t *tokdata,
         }
 
         if (kem_params->pCipher == NULL ||
-            kem_params->ulCipherLen < oid->len_info.ml_kem.pk_len) {
-            kem_params->ulCipherLen = oid->len_info.ml_kem.pk_len;
+            kem_params->ulCipherLen < oid->len_info.ml_kem.ct_len) {
+            kem_params->ulCipherLen = oid->len_info.ml_kem.ct_len;
             return CKR_BUFFER_TOO_SMALL;
         }
 
@@ -11362,7 +11362,8 @@ static CK_RV cca_ibm_ml_kem_derive_with_ecdh(STDLL_TokData_t *tokdata,
         }
 
         /* pCipher/ulCipherLen is input on decapsulate */
-        if (kem_params->pCipher == NULL || kem_params->ulCipherLen == 0) {
+        if (kem_params->pCipher == NULL ||
+            kem_params->ulCipherLen != oid->len_info.ml_kem.ct_len) {
             TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
             return CKR_MECHANISM_PARAM_INVALID;
         }

@@ -55,6 +55,7 @@ struct pqc_oid {
             CK_ULONG fs_len;
             CK_ULONG priv_seed_len;
             CK_ULONG pubseed_len;
+            CK_ULONG ct_len;
         } ml_kem;
     } len_info;
 };
