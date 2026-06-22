@@ -252,6 +252,12 @@ struct cca_acp_info {
     CK_BBOOL acp_03B8; /* Symmetric Key Export - AES, CKM-RAKW */
     CK_BBOOL acp_03CD; /* Permit import of an AES key token from a PKCS#11
                           CKM_RSA_AES_KEY_WRAP object */
+#if !defined(__s390__)
+    CK_BBOOL acp_03BD; /* One-Way-Hash - Allow SHA3-224 (x64/Power/AIX only) */
+    CK_BBOOL acp_03BE; /* One-Way-Hash - Allow SHA3-256 (x64/Power/AIX only) */
+    CK_BBOOL acp_03BF; /* One-Way-Hash - Allow SHA3-384 (x64/Power/AIX only) */
+    CK_BBOOL acp_03C0; /* One-Way-Hash - Allow SHA3-512 (x64/Power/AIX only) */
+#endif
 };
 
 /* CCA STDLL constants */
