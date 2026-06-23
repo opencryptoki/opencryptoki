@@ -2567,7 +2567,7 @@ CK_RV openssl_specific_ec_generate_keypair(STDLL_TokData_t *tokdata,
 #endif
     CK_BYTE *ecpoint = NULL, *enc_ecpoint = NULL, *d = NULL;
     CK_ULONG enc_ecpoint_len, d_len;
-    size_t ecpoint_len;
+    size_t ecpoint_len, d_size;
     EVP_PKEY_CTX *ctx = NULL;
     EVP_PKEY *ec_pkey = NULL;
     int nid, pkey_type;
@@ -2762,12 +2762,14 @@ CK_RV openssl_specific_ec_generate_keypair(STDLL_TokData_t *tokdata,
         BN_bn2binpad(bn_d, d, d_len);
     } else {
         /* Edwards/Montgomery: private key is a octet string */
+        d_size = 0;
         if (!EVP_PKEY_get_octet_string_param(ec_pkey, OSSL_PKEY_PARAM_PRIV_KEY,
-                                             d, 0, &d_len)) {
+                                             d, 0, &d_size)) {
             TRACE_ERROR("EVP_PKEY_get_octet_string_param failed\n");
             rc = CKR_FUNCTION_FAILED;
             goto out;
         }
+        d_len = d_size;
 
         d = OPENSSL_zalloc(d_len);
         if (d == NULL) {
@@ -2777,11 +2779,12 @@ CK_RV openssl_specific_ec_generate_keypair(STDLL_TokData_t *tokdata,
         }
 
         if (!EVP_PKEY_get_octet_string_param(ec_pkey, OSSL_PKEY_PARAM_PRIV_KEY,
-                                             d, d_len, &d_len)) {
+                                             d, d_size, &d_size)) {
             TRACE_ERROR("EVP_PKEY_get_octet_string_param failed\n");
             rc = CKR_FUNCTION_FAILED;
             goto out;
         }
+        d_len = d_size;
     }
 #endif
 
@@ -7030,6 +7033,7 @@ CK_RV openssl_specific_pqc_get_pub_key_from_priv_key(TEMPLATE *priv_tmpl,
     const char *alg_name;
     EVP_PKEY *pkey = NULL;
     CK_RV rc;
+    size_t pub_value_len;
 
     alg_name = openssl_get_pqc_oid_name(oid);
     if (alg_name == NULL) {
@@ -7048,12 +7052,13 @@ CK_RV openssl_specific_pqc_get_pub_key_from_priv_key(TEMPLATE *priv_tmpl,
 
     rc = openssl_get_key_from_pkey(pkey, OSSL_PKEY_PARAM_PUB_KEY,
                                    (CK_BYTE **)&pub_value->pValue,
-                                   &pub_value->ulValueLen,
+                                   &pub_value_len,
                                    FALSE);
     if (rc != CKR_OK) {
         TRACE_ERROR("get_key_from_pkey failed for pub key\n");
         goto out;
     }
+    pub_value->ulValueLen = pub_value_len;
 
     pub_value->type = CKA_VALUE;
 
