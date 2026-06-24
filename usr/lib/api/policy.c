@@ -1154,6 +1154,31 @@ static CK_RV policy_is_mech_allowed(policy_t p, CK_MECHANISM_PTR mech,
                 break;
             }
             break;
+        case CKM_IBM_ETH_DERIVE:
+            if (mech->ulParameterLen != sizeof(CK_IBM_ETH_DERIVE_PARAMS) ||
+                mech->pParameter == NULL) {
+                TRACE_ERROR("Invalid mechanism parameter\n");
+                rv = CKR_MECHANISM_PARAM_INVALID;
+                break;
+            }
+            if (((CK_IBM_ETH_DERIVE_PARAMS *)mech->pParameter)->version !=
+                                        CK_IBM_ETH_DERIVE_PARAMS_VERSION_1)
+                break;
+            switch (((CK_IBM_ETH_DERIVE_PARAMS *)mech->pParameter)->type) {
+            case CK_IBM_ETH_EIP2333_PRV2PRV:
+            case CK_IBM_ETH_EIP2333_PRV2PUB:
+            case CK_IBM_ETH_EIP2333_MASTERK:
+                /* Uses SHA-256 internally */
+                if (hashmap_find(pp->allowedmechs, CKM_SHA256, NULL) == 0) {
+                    TRACE_WARNING("POLICY VIOLATION: ETH SHA-256 algorithm not allowed by policy.\n");
+                    rv = CKR_FUNCTION_FAILED;
+                }
+                break;
+            default:
+                rv = CKR_FUNCTION_FAILED;
+                break;
+            }
+            break;
         case CKM_IBM_KYBER:
             /* Only KEM uses a parameter, KeyGen, Encrypt/Decrypt don't */
             if (mech->ulParameterLen != sizeof(CK_IBM_KYBER_PARAMS) &&
@@ -1440,6 +1465,7 @@ static CK_RV policy_update_mech_info(policy_t p, CK_MECHANISM_TYPE mech,
         case CKM_IBM_ED448_SHA3:
         case CKM_IBM_ECDSA_OTHER:
         case CKM_IBM_BTC_DERIVE:
+        case CKM_IBM_ETH_DERIVE:
         case CKM_ECDH_AES_KEY_WRAP:
         case CKM_ECDH_COF_AES_KEY_WRAP:
         case CKM_ECDH_X_AES_KEY_WRAP:

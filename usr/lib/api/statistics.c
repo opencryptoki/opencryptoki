@@ -228,6 +228,26 @@ static CK_RV statistics_increment(struct statistics *statistics,
             break;
         }
         break;
+    case CKM_IBM_ETH_DERIVE:
+        if (mech->pParameter == NULL ||
+            mech->ulParameterLen != sizeof(CK_IBM_ETH_DERIVE_PARAMS))
+            return CKR_MECHANISM_PARAM_INVALID;
+        if (((CK_IBM_ETH_DERIVE_PARAMS *)mech->pParameter)->version !=
+                                        CK_IBM_ETH_DERIVE_PARAMS_VERSION_1)
+            break;
+        switch (((CK_IBM_ETH_DERIVE_PARAMS *)mech->pParameter)->type) {
+        case CK_IBM_ETH_EIP2333_PRV2PRV:
+        case CK_IBM_ETH_EIP2333_PRV2PUB:
+        case CK_IBM_ETH_EIP2333_MASTERK:
+            /* Uses SHA-256 internally */
+            implicit_mech.mechanism = CKM_SHA256;
+            rc = statistics_increment(statistics, slot, &implicit_mech,
+                                      POLICY_STRENGTH_IDX_0);
+            if (rc != CKR_OK)
+                return rc;
+            break;
+        }
+        break;
     case CKM_IBM_KYBER:
         /* Only KEM uses a parameter, KeyGen, Encrypt/Decrypt don't */
         if (mech->ulParameterLen != sizeof(CK_IBM_KYBER_PARAMS) &&
