@@ -992,7 +992,7 @@ CK_RV ecdh_get_derived_key_size(CK_ULONG prime_len, CK_BYTE *curve_oid,
             if (der_ec_supported[i].data_size == curve_oid_len &&
                 memcmp(der_ec_supported[i].data, curve_oid,
                        curve_oid_len) == 0)
-                prime_len = (der_ec_supported[i].len_bits + 7) / 8;
+                prime_len = (der_ec_supported[i].prime_bits + 7) / 8;
         }
 
         if (prime_len == 0) {
