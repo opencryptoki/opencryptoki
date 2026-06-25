@@ -9104,7 +9104,7 @@ static CK_RV ep11tok_btc_mech_pre_process(STDLL_TokData_t *tokdata,
         if (der_ec_supported[i].data_size == ec_params->ulValueLen &&
             memcmp(ec_params->pValue, der_ec_supported[i].data,
                    ec_params->ulValueLen) == 0) {
-            privlen = (der_ec_supported[i].len_bits + 7) / 8;
+            privlen = (der_ec_supported[i].prime_bits + 7) / 8;
             rc = add_to_attribute_array(new_attrs, new_attrs_len,
                                         CKA_VALUE_LEN,
                                         (CK_BYTE_PTR)&privlen,
