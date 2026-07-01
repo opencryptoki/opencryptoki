@@ -3269,7 +3269,7 @@ CK_RV run_DeriveBTC(void)
                                            btc_tests[i].ec.size);
             if (rc != 0) {
                 testcase_fail("run_GenerateSignVerifyECC failed.");
-                goto testcase_cleanup;
+                goto run_child_cleanup;
             }
             testcase_pass("BTC check derived keys with curve=%s child-key-index=0x%lx, pkey=%X",
                           btc_tests[i].ec.name, btc_child_key_index[k], pkey);
@@ -3575,6 +3575,276 @@ testcase_cleanup:
 
     testcase_user_logout();
     testcase_close_session();
+    return rc;
+}
+
+static const struct {
+    CK_ULONG index;
+    CK_BYTE *key_info;
+    CK_ULONG key_info_len;
+} eth_child_key_index[] = {
+    { 0, NULL, 0 },
+    { 0x12, (CK_BYTE *)"test", 4 },
+    { 0x3456, (CK_BYTE *)"00112233445566778899", 20 },
+    { 0x987654, NULL, 0 },
+    { 0x7fffffff, NULL, 0 },
+};
+
+#define NUM_ETH_CHILD_KEY_INDEXES  5
+
+/*
+ * Run Ethereum 2.0 Key Derivation tests:
+ * Derive a ETH master key from a generic secret key. Then derive child keys
+ * (public and private) from the master key.
+ */
+CK_RV run_DeriveETH(void)
+{
+    CK_SESSION_HANDLE session;
+    CK_MECHANISM mech;
+    CK_FLAGS flags;
+    CK_OBJECT_HANDLE secret = CK_INVALID_HANDLE, master = CK_INVALID_HANDLE;
+    CK_OBJECT_HANDLE child_priv = CK_INVALID_HANDLE;
+    CK_OBJECT_HANDLE child_pub = CK_INVALID_HANDLE;
+    CK_OBJECT_HANDLE child_pub2 = CK_INVALID_HANDLE;
+    CK_BYTE user_pin[PKCS11_MAX_PIN_LEN];
+    CK_ULONG user_pin_len;
+    CK_RV rc = CKR_OK;
+    CK_BBOOL true = CK_TRUE;
+    CK_IBM_ETH_DERIVE_PARAMS eth_parms;
+    CK_OBJECT_CLASS priv_class = CKO_PRIVATE_KEY;
+    CK_OBJECT_CLASS pub_class = CKO_PUBLIC_KEY;
+    CK_KEY_TYPE key_type = CKK_EC;
+    CK_OBJECT_CLASS secret_class = CKO_SECRET_KEY;
+    CK_ULONG secret_keylen = 32;
+    CK_ULONG k;
+
+    CK_ATTRIBUTE secret_tmpl[] = {
+        {CKA_CLASS, &secret_class, sizeof(secret_class)},
+        {CKA_VALUE_LEN, &secret_keylen, sizeof(secret_keylen)},
+        {CKA_IBM_USE_AS_DATA, &true, sizeof(true)},
+    };
+    CK_ULONG secret_tmpl_len = sizeof(secret_tmpl) / sizeof(CK_ATTRIBUTE);
+    CK_ATTRIBUTE priv_derive_tmpl[] = {
+        {CKA_CLASS, &priv_class, sizeof(priv_class)},
+        {CKA_KEY_TYPE, &key_type, sizeof(key_type)},
+        {CKA_DERIVE, &true, sizeof(true)},
+        {CKA_EC_PARAMS, (CK_VOID_PTR)bls12_381, sizeof(bls12_381)},
+        {CKA_IBM_USE_AS_DATA, &true, sizeof(true)},
+    };
+    CK_ULONG priv_derive_tmpl_len =
+                        sizeof(priv_derive_tmpl) / sizeof(CK_ATTRIBUTE);
+    CK_ATTRIBUTE pub_derive_tmpl[] = {
+        {CKA_CLASS, &pub_class, sizeof(pub_class)},
+        {CKA_KEY_TYPE, &key_type, sizeof(key_type)},
+        {CKA_DERIVE, &true, sizeof(true)},
+        {CKA_EC_PARAMS, (CK_VOID_PTR)bls12_381, sizeof(bls12_381)},
+        {CKA_IBM_USE_AS_DATA, &true, sizeof(true)},
+    };
+    CK_ULONG pub_derive_tmpl_len =
+                        sizeof(pub_derive_tmpl) / sizeof(CK_ATTRIBUTE);
+
+    testsuite_begin("starting run_DeriveETH with pkey=%X ...", pkey);
+    testcase_rw_session();
+    testcase_user_login();
+
+    /* Skip tests if pkey = true, but the slot doesn't support protected keys*/
+    if (pkey && !is_ep11_token(SLOT_ID) && !is_cca_token(SLOT_ID)) {
+        testcase_skip("pkey test option is true, but slot %u doesn't support "
+                     "protected keys", (unsigned int) SLOT_ID);
+        goto testcase_cleanup;
+    }
+    if (!mech_supported(SLOT_ID, CKM_GENERIC_SECRET_KEY_GEN)) {
+        testcase_skip("Slot %u doesn't support CKM_GENERIC_SECRET_KEY_GEN\n",
+                      (unsigned int) SLOT_ID);
+        goto testcase_cleanup;
+    }
+    if (!mech_supported(SLOT_ID, CKM_IBM_ETH_DERIVE)) {
+        testcase_skip("Slot %u doesn't support CKM_IBM_ETH_DERIVE\n",
+                      (unsigned int) SLOT_ID);
+        goto testcase_cleanup;
+    }
+
+    /* Testcase #1: Derive the ETH master key from a secret key */
+    testcase_new_assertion();
+    testcase_begin("ETH master key derive with pkey=%X", pkey);
+
+    mech.mechanism = CKM_GENERIC_SECRET_KEY_GEN;
+    mech.ulParameterLen = 0;
+    mech.pParameter = NULL;
+
+    rc = funcs->C_GenerateKey(session, &mech, secret_tmpl, secret_tmpl_len,
+                              &secret);
+    if (rc != CKR_OK) {
+        testcase_fail("C_GenerateKey, rc=%s", p11_get_ckr(rc));
+        goto testcase_cleanup;
+    }
+
+    mech.mechanism = CKM_IBM_ETH_DERIVE;
+    mech.ulParameterLen = sizeof(CK_IBM_ETH_DERIVE_PARAMS);
+    mech.pParameter = &eth_parms;
+
+    memset(&eth_parms, 0, sizeof(eth_parms));
+    eth_parms.version = CK_IBM_ETH_DERIVE_PARAMS_VERSION_1;
+    eth_parms.sigVersion = CK_IBM_ETH_SIG_VERSION_4;
+    eth_parms.type = CK_IBM_ETH_EIP2333_MASTERK;
+    eth_parms.childKeyIndex = 0;
+    eth_parms.pKeyInfo = NULL;
+    eth_parms.ulKeyInfoLen = 0;
+
+    rc = funcs->C_DeriveKey(session, &mech,
+                            secret, priv_derive_tmpl,
+                            priv_derive_tmpl_len, &master);
+    if (rc != CKR_OK) {
+        testcase_fail("C_DeriveKey ETH master key: rc = %s",
+                      p11_get_ckr(rc));
+        goto testcase_cleanup;
+    }
+
+    testcase_pass("ETH master key derive with pkey=%X", pkey);
+
+    /* Derive child keys from the master key */
+    for (k = 0; k < NUM_ETH_CHILD_KEY_INDEXES; k++) {
+        /* Testcase #2: Derive private child key from private master key */
+
+        testcase_new_assertion();
+        testcase_begin("ETH priv-to-priv child key derive with "
+                       "child-key-index=0x%lx, KeyInfoLen=%lu, pkey=%X",
+                       eth_child_key_index[k].index,
+                       eth_child_key_index[k].key_info_len, pkey);
+
+        mech.mechanism = CKM_IBM_ETH_DERIVE;
+        mech.ulParameterLen = sizeof(CK_IBM_ETH_DERIVE_PARAMS);
+        mech.pParameter = &eth_parms;
+
+        eth_parms.version = CK_IBM_ETH_DERIVE_PARAMS_VERSION_1;
+        eth_parms.sigVersion = CK_IBM_ETH_SIG_VERSION_4;
+        eth_parms.type = CK_IBM_ETH_EIP2333_PRV2PRV;
+        eth_parms.childKeyIndex = eth_child_key_index[k].index;
+        eth_parms.pKeyInfo = eth_child_key_index[k].key_info;
+        eth_parms.ulKeyInfoLen = eth_child_key_index[k].key_info_len;
+
+        rc = funcs->C_DeriveKey(session, &mech,
+                                master, priv_derive_tmpl,
+                                priv_derive_tmpl_len, &child_priv);
+        if (rc != CKR_OK) {
+            testcase_fail("C_DeriveKey ETH child key (priv): rc = %s",
+                          p11_get_ckr(rc));
+            goto run_child_cleanup;
+        }
+
+        testcase_pass("ETH priv-to-priv child key derive with "
+                      "child-key-index=0x%lx, KeyInfoLen=%lu, pkey=%X",
+                      eth_child_key_index[k].index,
+                      eth_child_key_index[k].key_info_len, pkey);
+
+        /* Testcase #3: Derive public child key from private master key */
+        testcase_new_assertion();
+        testcase_begin("ETH priv-to-pub child key derive with "
+                       "child-key-index=0x%lx, KeyInfoLen=%lu, pkey=%X",
+                       eth_child_key_index[k].index,
+                       eth_child_key_index[k].key_info_len, pkey);
+
+        eth_parms.version = CK_IBM_ETH_DERIVE_PARAMS_VERSION_1;
+        eth_parms.sigVersion = CK_IBM_ETH_SIG_VERSION_4;
+        eth_parms.type = CK_IBM_ETH_EIP2333_PRV2PUB;
+        eth_parms.childKeyIndex = eth_child_key_index[k].index;
+        eth_parms.pKeyInfo = eth_child_key_index[k].key_info;
+        eth_parms.ulKeyInfoLen = eth_child_key_index[k].key_info_len;
+
+        mech.mechanism = CKM_IBM_ETH_DERIVE;
+        mech.ulParameterLen = sizeof(CK_IBM_ETH_DERIVE_PARAMS);
+        mech.pParameter = &eth_parms;
+
+        rc = funcs->C_DeriveKey(session, &mech,
+                                master, pub_derive_tmpl,
+                                pub_derive_tmpl_len, &child_pub);
+        if (rc != CKR_OK) {
+            testcase_fail("C_DeriveKey ETH child key (pub): rc = %s",
+                          p11_get_ckr(rc));
+            goto run_child_cleanup;
+        }
+
+        testcase_pass("ETH priv-to-pub child key derive with "
+                      "child-key-index=0x%lx, KeyInfoLen=%lu, pkey=%X",
+                      eth_child_key_index[k].index,
+                      eth_child_key_index[k].key_info_len, pkey);
+
+        /* Testcase #4: Test if derived keys are usable */
+        testcase_new_assertion();
+
+        mech.mechanism = CKM_ECDSA;
+        mech.ulParameterLen = 0;
+        mech.pParameter = NULL;
+
+        rc = run_GenerateSignVerifyECC(session, &mech, 20, 0,
+                                       child_priv, child_pub,
+                                       CURVE_BLS12_381,
+                                       (CK_BYTE *)bls12_381,
+                                       sizeof(bls12_381));
+        if (rc != 0) {
+            testcase_fail("run_GenerateSignVerifyECC failed.");
+            goto run_child_cleanup;
+        }
+        testcase_pass("ETH check derived keys with child-key-index=0x%lx, "
+                     "KeyInfoLen=%lu, pkey=%X", eth_child_key_index[k].index,
+                     eth_child_key_index[k].key_info_len, pkey);
+
+        /*
+         * Testcase #5: Derive public child key from private key
+         */
+
+        testcase_new_assertion();
+        testcase_begin("ETH priv-to-pub child key derive with "
+                       "child-key-index=0x%lx, KeyInfoLen=%lu, pkey=%X",
+                       eth_child_key_index[k].index,
+                       eth_child_key_index[k].key_info_len, pkey);
+
+        mech.mechanism = CKM_IBM_ETH_DERIVE;
+        mech.ulParameterLen = sizeof(CK_IBM_ETH_DERIVE_PARAMS);
+        mech.pParameter = &eth_parms;
+
+        eth_parms.version = CK_IBM_ETH_DERIVE_PARAMS_VERSION_1;
+        eth_parms.sigVersion = CK_IBM_ETH_SIG_VERSION_4;
+        eth_parms.type = CK_IBM_ETH_EIP2333_PRV2PUB;
+        eth_parms.childKeyIndex = eth_child_key_index[k].index;
+        eth_parms.pKeyInfo = eth_child_key_index[k].key_info;
+        eth_parms.ulKeyInfoLen = eth_child_key_index[k].key_info_len;
+
+        rc = funcs->C_DeriveKey(session, &mech,
+                                child_priv, pub_derive_tmpl,
+                                pub_derive_tmpl_len, &child_pub2);
+        if (rc != CKR_OK) {
+            testcase_fail("C_DeriveKey ETH child key (pub): rc = %s",
+                          p11_get_ckr(rc));
+            goto run_child_cleanup;
+        }
+
+        testcase_pass("ETH priv-to-pub child key derive with "
+                      "child-key-index=0x%lx, KeyInfoLen=%lu, pkey=%X",
+                      eth_child_key_index[k].index,
+                      eth_child_key_index[k].key_info_len, pkey);
+
+run_child_cleanup:
+        if (child_priv != CK_INVALID_HANDLE)
+            funcs->C_DestroyObject(session, child_priv);
+        child_priv = CK_INVALID_HANDLE;
+        if (child_pub != CK_INVALID_HANDLE)
+            funcs->C_DestroyObject(session, child_pub);
+        child_pub = CK_INVALID_HANDLE;
+        if (child_pub2 != CK_INVALID_HANDLE)
+            funcs->C_DestroyObject(session, child_pub2);
+        child_pub2 = CK_INVALID_HANDLE;
+    }
+
+testcase_cleanup:
+    if (secret != CK_INVALID_HANDLE)
+        funcs->C_DestroyObject(session, secret);
+    if (master != CK_INVALID_HANDLE)
+        funcs->C_DestroyObject(session, master);
+
+    testcase_user_logout();
+    testcase_close_session();
+
     return rc;
 }
 
@@ -5331,6 +5601,7 @@ int main(int argc, char **argv)
     rv += run_DeriveECDHKeyKAT();
     rv += run_DeriveBTC();
     rv += run_BLSAggregation();
+    rv += run_DeriveETH();
     rv += run_GenerateEdwardsKeyPairSignVerify();
     rv += run_ImportEdwardsKeyPairSignVerifyKAT();
     rv += run_TransferEdwardsMontgomeryKeyPair();

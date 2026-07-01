@@ -113,6 +113,7 @@ const struct mechrow mechtable_rows[] =
      { "CKM_IBM_EC_X448",             CKM_IBM_EC_X448,               0, MC_INFORMATION_UNAVAILABLE, MCF_DERIVE },
      { "CKM_IBM_ED25519_SHA512",      CKM_IBM_ED25519_SHA512,      128,           MC_KEY_DEPENDENT, MCF_SIGNVERIFY },
      { "CKM_IBM_ED448_SHA3",          CKM_IBM_ED448_SHA3,          144,           MC_KEY_DEPENDENT, MCF_SIGNVERIFY },
+     { "CKM_IBM_ETH_DERIVE",          CKM_IBM_ETH_DERIVE,            0, MC_INFORMATION_UNAVAILABLE, MCF_DERIVE | MCF_NEEDSPARAM },
      { "CKM_IBM_KYBER",               CKM_IBM_KYBER,                 0,           MC_KEY_DEPENDENT, MCF_KEYGEN | MCF_ENCRYPTDECRYPT | MCF_DERIVE | MCF_NEEDSPARAM},
      { "CKM_IBM_ML_DSA",              CKM_IBM_ML_DSA,                0,           MC_KEY_DEPENDENT, MCF_SIGNVERIFY },
      { "CKM_IBM_ML_DSA_KEY_PAIR_GEN", CKM_IBM_ML_DSA_KEY_PAIR_GEN,   0,           MC_KEY_DEPENDENT, MCF_KEYGEN },

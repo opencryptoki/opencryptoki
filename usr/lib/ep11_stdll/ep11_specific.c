@@ -2927,7 +2927,8 @@ static CK_BBOOL attr_applicable_for_ep11(STDLL_TokData_t * tokdata,
         break;
     case CKK_EC:
         if (class == CKO_PRIVATE_KEY && attr->type == CKA_EC_PARAMS &&
-            mech->mechanism != CKM_IBM_BTC_DERIVE)
+            mech->mechanism != CKM_IBM_BTC_DERIVE &&
+            mech->mechanism != CKM_IBM_ETH_DERIVE)
             return CK_FALSE;
         if (attr->type == CKA_ENCRYPT || attr->type == CKA_DECRYPT ||
             attr->type == CKA_WRAP || attr->type == CKA_UNWRAP)
@@ -9075,21 +9076,23 @@ error:
     return rc;
 }
 
-static CK_RV ep11tok_btc_mech_pre_process(STDLL_TokData_t *tokdata,
-                                          OBJECT *key_obj,
-                                          CK_ATTRIBUTE **new_attrs,
-                                          CK_ULONG *new_attrs_len)
+static CK_RV ep11tok_btc_eth_mech_pre_process(STDLL_TokData_t *tokdata,
+                                              CK_MECHANISM *mech,
+                                              OBJECT *key_obj,
+                                              CK_ATTRIBUTE **new_attrs,
+                                              CK_ULONG *new_attrs_len)
 {
     CK_ATTRIBUTE *ec_params;
     CK_ULONG i, privlen;
+    CK_BBOOL found;
     CK_RV rc;
 
     UNUSED(tokdata);
 
     /*
-     * CKM_IBM_BTC_DERIVE requires CKA_VALUE_LEN to specify the byte length
-     * of the to be derived EC key. CKA_VALUE_LEN is dependent on the
-     * curve used.
+     * CKM_IBM_BTC_DERIVE and CKM_IBM_ETH_DERIVE require CKA_VALUE_LEN to
+     * specify the byte length of the to be derived EC key. CKA_VALUE_LEN
+     * is dependent on the curve used.
      * CKA_VALUE_LEN can not be already in the user supplied template,
      * since this is not allowed by the key template check routines.
      */
@@ -9100,11 +9103,17 @@ static CK_RV ep11tok_btc_mech_pre_process(STDLL_TokData_t *tokdata,
         return rc;
     }
 
-    for (i = 0; i < NUMEC; i++) {
+    for (i = 0, found = CK_FALSE; i < NUMEC; i++) {
         if (der_ec_supported[i].data_size == ec_params->ulValueLen &&
             memcmp(ec_params->pValue, der_ec_supported[i].data,
                    ec_params->ulValueLen) == 0) {
-            privlen = (der_ec_supported[i].len_bits + 7) / 8;
+            if (mech->mechanism == CKM_IBM_ETH_DERIVE &&
+                der_ec_supported[i].curve_type != BLS12_381_CURVE) {
+                TRACE_ERROR("CKA_EC_PARAMS must be BLS12-381\n");
+                return CKR_CURVE_NOT_SUPPORTED;
+            }
+
+            privlen = (der_ec_supported[i].prime_bits + 7) / 8;
             rc = add_to_attribute_array(new_attrs, new_attrs_len,
                                         CKA_VALUE_LEN,
                                         (CK_BYTE_PTR)&privlen,
@@ -9114,19 +9123,26 @@ static CK_RV ep11tok_btc_mech_pre_process(STDLL_TokData_t *tokdata,
                             "rc=0x%lx\n", rc);
                 return rc;
             }
+            found = CK_TRUE;
             break;
         }
+    }
+
+    if (!found) {
+        TRACE_ERROR("CKA_EC_PARAMS specifies an unsupported curve\n");
+        return CKR_CURVE_NOT_SUPPORTED;
     }
 
     return CKR_OK;
 }
 
-static CK_RV ep11tok_btc_mech_post_process(STDLL_TokData_t *tokdata,
-                                           SESSION *session, CK_MECHANISM *mech,
-                                           CK_ULONG class, CK_ULONG ktype,
-                                           OBJECT *key_obj,
-                                           CK_BYTE *blob, CK_ULONG bloblen,
-                                           CK_BYTE *csum, CK_ULONG cslen)
+static CK_RV ep11tok_btc_eth_mech_post_process(STDLL_TokData_t *tokdata,
+                                               SESSION *session,
+                                               CK_MECHANISM *mech,
+                                               CK_ULONG class, CK_ULONG ktype,
+                                               OBJECT *key_obj,
+                                               CK_BYTE *blob, CK_ULONG bloblen,
+                                               CK_BYTE *csum, CK_ULONG cslen)
 {
     CK_IBM_BTC_DERIVE_PARAMS *btc_params = NULL;
     CK_BYTE *spki = NULL;
@@ -9139,20 +9155,27 @@ static CK_RV ep11tok_btc_mech_post_process(STDLL_TokData_t *tokdata,
     CK_BYTE *useblob = NULL;
     size_t useblob_len = 0;
 
-    if (mech->ulParameterLen != sizeof(CK_IBM_BTC_DERIVE_PARAMS) ||
-        mech->pParameter == NULL) {
-        TRACE_ERROR("%s Param NULL or len for %s wrong: %lu\n",
-                    __func__, ep11_get_ckm(tokdata, mech->mechanism),
-                    mech->ulParameterLen);
-        return CKR_MECHANISM_PARAM_INVALID;
-    }
+    switch (mech->mechanism) {
+    case CKM_IBM_BTC_DERIVE:
+        if (mech->ulParameterLen != sizeof(CK_IBM_BTC_DERIVE_PARAMS) ||
+            mech->pParameter == NULL) {
+            TRACE_ERROR("%s Param NULL or len for %s wrong: %lu\n",
+                        __func__, ep11_get_ckm(tokdata, mech->mechanism),
+                        mech->ulParameterLen);
+            return CKR_MECHANISM_PARAM_INVALID;
+        }
 
-    btc_params = (CK_IBM_BTC_DERIVE_PARAMS *)mech->pParameter;
+        btc_params = (CK_IBM_BTC_DERIVE_PARAMS *)mech->pParameter;
 
-    if (btc_params != NULL && btc_params->pChainCode != NULL &&
-        cslen >= CK_IBM_BTC_CHAINCODE_LENGTH) {
-        memcpy(btc_params->pChainCode, csum, CK_IBM_BTC_CHAINCODE_LENGTH);
-        btc_params->ulChainCodeLen = CK_IBM_BTC_CHAINCODE_LENGTH;
+        if (btc_params != NULL && btc_params->pChainCode != NULL &&
+            cslen >= CK_IBM_BTC_CHAINCODE_LENGTH) {
+            memcpy(btc_params->pChainCode, csum, CK_IBM_BTC_CHAINCODE_LENGTH);
+            btc_params->ulChainCodeLen = CK_IBM_BTC_CHAINCODE_LENGTH;
+        }
+        break;
+
+    default:
+        break;
     }
 
     switch (class) {
@@ -9964,9 +9987,11 @@ do_retry:
             goto error;
         mech = &mech_bls.mech;
         break;
+
     case CKM_IBM_BTC_DERIVE:
-        rc = ep11tok_btc_mech_pre_process(tokdata, key_obj, &new_attrs2,
-                                          &new_attrs2_len);
+    case CKM_IBM_ETH_DERIVE:
+        rc = ep11tok_btc_eth_mech_pre_process(tokdata, mech_orig, key_obj,
+                                              &new_attrs2, &new_attrs2_len);
         if (rc != CKR_OK)
             goto error;
         break;
@@ -10093,9 +10118,10 @@ do_retry:
 
     switch (mech_orig->mechanism) {
     case CKM_IBM_BTC_DERIVE:
-        rc = ep11tok_btc_mech_post_process(tokdata, session, mech, class, ktype,
-                                           key_obj, newblob, newblobsize,
-                                           csum, cslen);
+    case CKM_IBM_ETH_DERIVE:
+        rc = ep11tok_btc_eth_mech_post_process(tokdata, session, mech, class,
+                                               ktype, key_obj, newblob,
+                                               newblobsize, csum, cslen);
         if (rc != CKR_OK)
             goto error;
         break;
@@ -15557,6 +15583,7 @@ static const CK_MECHANISM_TYPE ep11_supported_mech_list[] = {
     CKM_IBM_ECDSA_OTHER,
     CKM_IBM_BTC_DERIVE,
     CKM_IBM_EC_AGGREGATE,
+    CKM_IBM_ETH_DERIVE,
     CKM_EC_EDWARDS_KEY_PAIR_GEN,
     CKM_EC_MONTGOMERY_KEY_PAIR_GEN,
     CKM_EDDSA,
@@ -16346,6 +16373,7 @@ CK_RV ep11tok_is_mechanism_supported(STDLL_TokData_t *tokdata,
         break;
 
     case CKM_IBM_EC_AGGREGATE:
+    case CKM_IBM_ETH_DERIVE:
         if (compare_ck_version(&ep11_data->ep11_lib_version, &ver4_1_2) < 0) {
             TRACE_INFO("%s Mech '%s' banned due to host library version\n",
                        __func__, ep11_get_ckm(tokdata, orig_mech));
