@@ -3269,7 +3269,7 @@ CK_RV run_DeriveBTC(void)
                                            btc_tests[i].ec.size);
             if (rc != 0) {
                 testcase_fail("run_GenerateSignVerifyECC failed.");
-                goto testcase_cleanup;
+                goto run_child_cleanup;
             }
             testcase_pass("BTC check derived keys with curve=%s child-key-index=0x%lx, pkey=%X",
                           btc_tests[i].ec.name, btc_child_key_index[k], pkey);
