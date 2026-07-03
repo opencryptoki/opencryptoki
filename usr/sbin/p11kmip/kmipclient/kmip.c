@@ -896,7 +896,7 @@ struct kmip_node *kmip_node_clone(const struct kmip_node *node)
 	case KMIP_TYPE_TEXT_STRING:
 		if (node->text_value != NULL) {
 			clone->text_value = strdup(node->text_value);
-			if (node->text_value == NULL)
+			if (clone->text_value == NULL)
 				goto error;
 			clone->length = strlen(clone->text_value);
 		}
