@@ -463,6 +463,10 @@ int kmip_encode_xml(const struct kmip_node *node, xmlNode **xml, bool debug)
 
 	case KMIP_TYPE_DATE_TIME:
 		tm = gmtime((time_t *)&node->date_time_value);
+		if (tm == NULL) {
+			rc = -EINVAL;
+			goto out;
+		}
 		strftime(tmp_str, sizeof(tmp_str), KMIP_ISO8601_TIMESTAMP_UTC,
 			 tm);
 		attr = xmlSetProp(ret_xml, (xmlChar *)KMIP_XML_VALUE,
