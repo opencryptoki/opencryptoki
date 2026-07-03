@@ -74,6 +74,8 @@ int kmip_parse_decimal_uint(const char *str, uint64_t *val)
 
 	if (str == NULL)
 		return -EINVAL;
+	if (str[0] == '-')
+		return -EBADMSG;
 
 	errno = 0;
 	v = strtoull(str, &endptr, 10);
