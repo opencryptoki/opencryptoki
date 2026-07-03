@@ -624,6 +624,10 @@ int kmip_encode_json(const struct kmip_node *node, json_object **obj,
 
 	case KMIP_TYPE_DATE_TIME:
 		tm = gmtime((time_t *)&node->date_time_value);
+		if (tm == NULL) {
+			rc = -EINVAL;
+			goto out;
+		}
 		strftime(outstr, sizeof(outstr), KMIP_ISO8601_TIMESTAMP_UTC,
 			 tm);
 		memb_obj = json_object_new_string(outstr);
