@@ -39,7 +39,7 @@ int kmip_parse_decimal_uint(const char *str, uint64_t *val);
 int kmip_parse_hex_int(const char *str, int64_t *val);
 int kmip_parse_hex(const char *str, bool has_prefix, unsigned char **val,
 		   uint32_t *length);
-int kmip_format_hex(const unsigned char *val, uint32_t length, bool prefix,
+int kmip_format_hex(const unsigned char *val, size_t length, bool prefix,
 		    char **str);
 
 int kmip_parse_bignum(const char *str, bool has_prefix, BIGNUM **bn);
