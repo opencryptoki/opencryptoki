@@ -2564,10 +2564,11 @@ CK_RV openssl_specific_ec_generate_keypair(STDLL_TokData_t *tokdata,
 #else
     BIGNUM *bn_d = NULL;
     int len;
+    size_t d_size;
 #endif
     CK_BYTE *ecpoint = NULL, *enc_ecpoint = NULL, *d = NULL;
     CK_ULONG enc_ecpoint_len, d_len;
-    size_t ecpoint_len, d_size;
+    size_t ecpoint_len;
     EVP_PKEY_CTX *ctx = NULL;
     EVP_PKEY *ec_pkey = NULL;
     int nid, pkey_type;
