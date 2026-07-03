@@ -166,8 +166,15 @@ int kmip_decode_ttlv(BIO *bio, size_t *size, struct kmip_node **node,
 			rc = -EIO;
 			goto out;
 		}
-		if (size != NULL)
+
+		if (size != NULL) {
+			if (*size < pad_len) {
+				rc = -EMSGSIZE;
+				goto out;
+			}
+
 			*size -= pad_len;
+		}
 	}
 
 	switch (n->type) {
