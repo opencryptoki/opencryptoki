@@ -28,12 +28,15 @@
  *                          as many bytes as needed.
  * @param node              On return: the decoded node. The newly allocated
  *                          node has a reference count of 1.
+ * @param max_nesting_level the maximum nesting levels of structures within the
+ *                          KMIP node. If the nesting level is reached, E2BIG
+ *                          is returned.
  * @param debug             if true, debug messages are printed
  *
  * @returns 0 in case of success, or a negative errno value
  */
 int kmip_decode_ttlv(BIO *bio, size_t *size, struct kmip_node **node,
-		     bool debug)
+		     size_t max_nesting_level, bool debug)
 {
 	unsigned char padding[KMIP_TTLV_BLOCK_LENGTH];
 	unsigned char ttlv[KMIP_TTLV_HEADER_LENGTH];
@@ -43,6 +46,9 @@ int kmip_decode_ttlv(BIO *bio, size_t *size, struct kmip_node **node,
 	uint32_t int32;
 	uint64_t int64;
 	int rc;
+
+	if (max_nesting_level == 0)
+		return -E2BIG;
 
 	if (bio == NULL || node == NULL)
 		return -EINVAL;
@@ -167,7 +173,8 @@ int kmip_decode_ttlv(BIO *bio, size_t *size, struct kmip_node **node,
 	switch (n->type) {
 	case KMIP_TYPE_STRUCTURE:
 		while (value_len > 0) {
-			rc = kmip_decode_ttlv(bio, &value_len, &e, debug);
+			rc = kmip_decode_ttlv(bio, &value_len, &e,
+					      max_nesting_level - 1, debug);
 			if (rc != 0) {
 				kmip_debug(debug, "kmip_decode_ttlv failed: "
 					   "rc: %d", rc);

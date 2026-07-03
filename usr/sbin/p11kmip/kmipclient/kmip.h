@@ -125,23 +125,27 @@ int kmip_connection_https_perform(struct kmip_connection *connection,
 void kmip_connection_https_term(struct kmip_connection *connection);
 #endif
 
-/* KIMP decoding and encoding internal functions */
+/* KIMP decoding and encoding internal functions and definitions */
+#define KMIP_DECODE_MAX_NESTING_LEVEL	32
+
 int kmip_decode_ttlv(BIO *bio, size_t *size, struct kmip_node **node,
-		     bool debug);
+		     size_t max_nesting_level, bool debug);
 int kmip_encode_ttlv(struct kmip_node *node, BIO *bio, size_t *size,
 		     bool debug);
 
 #ifdef HAVE_LIBCURL
 #ifdef HAVE_LIBJSONC
 int kmip_decode_json(const json_object *obj, struct kmip_node *parent,
-		     struct kmip_node **node, bool debug);
+		     struct kmip_node **node, size_t max_nesting_level,
+		     bool debug);
 int kmip_encode_json(const struct kmip_node *node, json_object **obj,
 		     bool debug);
 #endif
 
 #ifdef HAVE_LIBXML2
 int kmip_decode_xml(const xmlNode *xml, struct kmip_node *parent,
-		    struct kmip_node **node, bool debug);
+		    struct kmip_node **node, size_t max_nesting_level,
+		    bool debug);
 int kmip_encode_xml(const struct kmip_node *node, xmlNode **xml, bool debug);
 #endif
 #endif

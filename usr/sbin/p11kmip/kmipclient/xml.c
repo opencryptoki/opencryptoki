@@ -31,12 +31,16 @@
  * @param parent            the parent node or NULL if no parent exists.
  * @param node              On return: the decoded node.The newly allocated
  *                          node has a reference count of 1.
+ * @param max_nesting_level the maximum nesting levels of structures within the
+ *                          KMIP node. If the nesting level is reached, E2BIG
+ *                          is returned.
  * @param debug             if true, debug messages are printed
  *
  * @returns 0 in case of success, or a negative errno value
  */
 int kmip_decode_xml(const xmlNode *xml, struct kmip_node *parent,
-		    struct kmip_node **node, bool debug)
+		    struct kmip_node **node, size_t max_nesting_level,
+		    bool debug)
 {
 	char *tag_attr = NULL, *name_attr = NULL, *type_attr = NULL;
 	enum kmip_tag tag, v1_attr_tag = 0;
@@ -46,6 +50,9 @@ int kmip_decode_xml(const xmlNode *xml, struct kmip_node *parent,
 	xmlNode *child;
 	int64_t int64;
 	int rc = 0, i;
+
+	if (max_nesting_level == 0)
+		return -E2BIG;
 
 	if (xml == NULL || node == NULL)
 		return -EINVAL;
@@ -125,7 +132,8 @@ int kmip_decode_xml(const xmlNode *xml, struct kmip_node *parent,
 			if (child->type != XML_ELEMENT_NODE)
 				continue;
 
-			rc = kmip_decode_xml(child, n, &e, debug);
+			rc = kmip_decode_xml(child, n, &e,
+					     max_nesting_level - 1, debug);
 			if (rc != 0) {
 				kmip_debug(debug, "Failed to parse child "
 					   "element %d", i);
