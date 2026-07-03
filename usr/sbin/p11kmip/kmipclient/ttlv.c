@@ -104,6 +104,11 @@ int kmip_decode_ttlv(BIO *bio, size_t *size, struct kmip_node **node,
 	case KMIP_TYPE_TEXT_STRING:
 	case KMIP_TYPE_BYTE_STRING:
 		value_len = n->length;
+		if (value_len > INT_MAX) {
+			rc = -EMSGSIZE;
+			goto out;
+		}
+
 		value = calloc(1, value_len + 1);
 		if (value == NULL) {
 			kmip_debug(debug, "calloc failed");
