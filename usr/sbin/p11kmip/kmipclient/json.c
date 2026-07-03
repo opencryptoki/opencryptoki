@@ -30,12 +30,16 @@
  * @param parent            the parent node or NULL if no parent exists.
  * @param node              On return: the decoded node. The newly allocated
  *                          node has a reference count of 1.
+ * @param max_nesting_level the maximum nesting levels of structures within the
+ *                          KMIP node. If the nesting level is reached, E2BIG
+ *                          is returned.
  * @param debug             if true, debug messages are printed
  *
  * @returns 0 in case of success, or a negative errno value
  */
 int kmip_decode_json(const json_object *obj, struct kmip_node *parent,
-		     struct kmip_node **node, bool debug)
+		     struct kmip_node **node, size_t max_nesting_level,
+		     bool debug)
 {
 	json_object *tag_obj, *type_obj, *value_obj, *name_obj;
 	enum kmip_tag tag, v1_attr_tag = 0;
@@ -44,6 +48,9 @@ int kmip_decode_json(const json_object *obj, struct kmip_node *parent,
 	const char *str;
 	int rc, num, i;
 	int64_t int64;
+
+	if (max_nesting_level == 0)
+		return -E2BIG;
 
 	if (obj == NULL || node == NULL)
 		return -EINVAL;
@@ -141,7 +148,7 @@ int kmip_decode_json(const json_object *obj, struct kmip_node *parent,
 			for (i = 0; i < num; i++) {
 				rc = kmip_decode_json(
 					json_object_array_get_idx(value_obj, i),
-					n, &e, debug);
+					n, &e, max_nesting_level - 1, debug);
 				if (rc != 0) {
 					kmip_debug(debug, "Failed to parse "
 						   "array element %d", i);

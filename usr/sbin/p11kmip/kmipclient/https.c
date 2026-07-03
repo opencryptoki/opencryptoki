@@ -782,7 +782,8 @@ int kmip_connection_https_perform(struct kmip_connection *conn,
 	switch (conn->config.encoding) {
 	case KMIP_ENCODING_TTLV:
 		rc = kmip_decode_ttlv(write_cb.ttlv.resp_mem_bio, NULL,
-				      response, debug);
+				      response, KMIP_DECODE_MAX_NESTING_LEVEL,
+				      debug);
 		if (rc != 0) {
 			kmip_debug(debug, "kmip_decode_ttlv failed");
 			goto out;
@@ -798,7 +799,7 @@ int kmip_connection_https_perform(struct kmip_connection *conn,
 		}
 
 		rc = kmip_decode_json(write_cb.json.resp_obj, NULL, response,
-				      debug);
+				      KMIP_DECODE_MAX_NESTING_LEVEL, debug);
 		if (rc != 0) {
 			kmip_debug(debug, "kmip_decode_json failed");
 			goto out;
@@ -817,7 +818,8 @@ int kmip_connection_https_perform(struct kmip_connection *conn,
 
 		rc = kmip_decode_xml(xmlDocGetRootElement(
 						write_cb.xml.ctx->myDoc),
-				     NULL, response, debug);
+				     NULL, response,
+				     KMIP_DECODE_MAX_NESTING_LEVEL, debug);
 		if (rc != 0) {
 			kmip_debug(debug, "kmip_decode_xml failed");
 			goto out;

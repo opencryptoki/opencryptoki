@@ -494,7 +494,8 @@ int kmip_connection_tls_perform(struct kmip_connection *conn,
 	kmip_debug(debug, "%lu bytes sent", size);
 
 	/* receive the response */
-	rc = kmip_decode_ttlv(conn->plain_tls.bio, NULL, response, debug);
+	rc = kmip_decode_ttlv(conn->plain_tls.bio, NULL, response,
+			      KMIP_DECODE_MAX_NESTING_LEVEL, debug);
 	if (rc != 0 || *response == NULL) {
 		kmip_debug(debug, "kmip_decode_ttlv failed");
 		goto out;
