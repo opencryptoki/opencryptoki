@@ -79,18 +79,18 @@ int kmip_decode_ttlv(BIO *bio, size_t *size, struct kmip_node **node,
 	n->ref_count = 1;
 
 	/* Tag: 3-byte binary unsigned integer, transmitted big endian */
-	n->tag |= (uint32_t)(ttlv[0] << 16);
-	n->tag |= (uint32_t)(ttlv[1] << 8);
-	n->tag |= (uint32_t)(ttlv[2]);
+	n->tag |= (uint32_t)ttlv[0] << 16;
+	n->tag |= (uint32_t)ttlv[1] << 8;
+	n->tag |= (uint32_t)ttlv[2];
 
 	/* Type: 1 byte containing a coded value that indicates the data type */
 	n->type = ttlv[3];
 
 	/* Length: 32-bit binary integer, transmitted big-endian */
-	n->length |= (uint32_t)(ttlv[4] << 24);
-	n->length |= (uint32_t)(ttlv[5] << 16);
-	n->length |= (uint32_t)(ttlv[6] << 8);
-	n->length |= (uint32_t)(ttlv[7]);
+	n->length |= (uint32_t)ttlv[4] << 24;
+	n->length |= (uint32_t)ttlv[5] << 16;
+	n->length |= (uint32_t)ttlv[6] << 8;
+	n->length |= (uint32_t)ttlv[7];
 
 	kmip_debug(debug, "tag: 0x%x type: 0x%x, length: %u", n->tag, n->type,
 		   n->length);
