@@ -426,8 +426,14 @@ int kmip_get_key_value(const struct kmip_node *node,
 	/* Must be a KMIP v1.x attribute then */
 	kmip_node_free(attr);
 
-	if (num_attrs != NULL)
-		*num_attrs = kmip_node_get_structure_element_count(node) - 1;
+	if (num_attrs != NULL) {
+		*num_attrs = kmip_node_get_structure_element_count(node);
+		if (*num_attrs == 0) {
+			rc = -EBADMSG;
+			goto error;
+		}
+		(*num_attrs)--;
+	}
 
 	if (v2_attr == NULL)
 		return 0;

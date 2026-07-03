@@ -686,14 +686,20 @@ int kmip_get_get_attribute_list_response_payload(const struct kmip_node *node,
 
 	if (kmip_node_get_tag(node) != KMIP_TAG_RESPONSE_PAYLOAD)
 		return -EBADMSG;
+	if (kmip_node_get_type(node) != KMIP_TYPE_STRUCTURE)
+		return -EBADMSG;
 
 	if (unique_id != NULL)
 		*unique_id = kmip_node_get_structure_element_by_tag(node,
 						KMIP_TAG_UNIQUE_IDENTIFIER, 0);
 
-	if (num_attr_refs != NULL)
+	if (num_attr_refs != NULL) {
 		*num_attr_refs =
-			kmip_node_get_structure_element_count(node) - 1;
+			kmip_node_get_structure_element_count(node);
+		if (*num_attr_refs == 0)
+			return -EBADMSG;
+		(*num_attr_refs)--;
+	}
 
 	if (attr_ref == NULL)
 		return 0;
@@ -766,6 +772,8 @@ int kmip_get_get_attributes_response_payload(const struct kmip_node *node,
 
 	if (kmip_node_get_tag(node) != KMIP_TAG_RESPONSE_PAYLOAD)
 		return -EBADMSG;
+	if (kmip_node_get_type(node) != KMIP_TYPE_STRUCTURE)
+		return -EBADMSG;
 
 	if (unique_id != NULL)
 		*unique_id = kmip_node_get_structure_element_by_tag(node,
@@ -798,8 +806,12 @@ int kmip_get_get_attributes_response_payload(const struct kmip_node *node,
 	/* Must be a KMIP v1.x attribute then */
 	kmip_node_free(attr);
 
-	if (num_attrs != NULL)
-		*num_attrs = kmip_node_get_structure_element_count(node) - 1;
+	if (num_attrs != NULL) {
+		*num_attrs = kmip_node_get_structure_element_count(node);
+		if (*num_attrs == 0)
+			return -EBADMSG;
+		(*num_attrs)--;
+	}
 
 	if (v2_attr == NULL)
 		return 0;
