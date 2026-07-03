@@ -92,7 +92,7 @@ int kmip_decode_json(const json_object *obj, struct kmip_node *parent,
 			rc = -EBADMSG;
 			goto out;
 		}
-		n->name = strdup(json_object_get_string(tag_obj));
+		n->name = strdup(json_object_get_string(name_obj));
 	}
 
 	type_obj = json_object_object_get(obj, KMIP_JSON_TYPE);
