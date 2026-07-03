@@ -225,14 +225,18 @@ int kmip_parse_bignum(const char *str, bool has_prefix, BIGNUM **bn)
 int kmip_format_bignum(const BIGNUM *bn, bool prefix, char **str)
 {
 	unsigned char *buf;
-	uint32_t len;
+	uint32_t len, prev_len;
 	int rc;
 
 	len = kmip_encode_bignum_length(bn);
 	/* BIG INTEGERS must be a multiple of 8 bytes long */
-	if ((len % KMIP_BIG_INTEGER_BLOCK_LENGTH) != 0)
+	if ((len % KMIP_BIG_INTEGER_BLOCK_LENGTH) != 0) {
+		prev_len = len;
 		len += KMIP_BIG_INTEGER_BLOCK_LENGTH -
 				(len % KMIP_BIG_INTEGER_BLOCK_LENGTH);
+		if (len < prev_len)
+			return -EOVERFLOW;
+	}
 
 	buf = malloc(len);
 	if (buf == NULL)
@@ -409,10 +413,10 @@ int kmip_parse_mask(enum kmip_tag tag, const char *str, char separator,
 	return rc;
 }
 
-static int kmip_append_string(char **str, int *str_len, char separator,
+static int kmip_append_string(char **str, size_t *str_len, char separator,
 			      const char *append)
 {
-	int new_len;
+	size_t new_len;
 	char *tmp;
 
 	if (str == NULL || str_len == NULL)
@@ -428,6 +432,9 @@ static int kmip_append_string(char **str, int *str_len, char separator,
 		new_len++;
 	if (append != NULL)
 		new_len += strlen(append);
+
+	if (new_len < *str_len)
+		return -EOVERFLOW;
 
 	tmp = realloc(*str, new_len);
 	if (tmp == NULL)
@@ -453,8 +460,9 @@ int kmip_format_mask(enum kmip_tag tag, int32_t value, char separator,
 		     char **str)
 {
 	const struct kmip_enum *info;
-	int rc = 0, i, s_len = 0;
 	char *s = NULL, *tmp;
+	size_t s_len = 0;
+	int rc = 0, i;
 
 	info = kmip_enum_info_by_tag(tag);
 	if (info == NULL || value == 0)
