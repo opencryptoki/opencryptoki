@@ -166,12 +166,15 @@ int kmip_parse_hex(const char *str, bool has_prefix, unsigned char **val,
  * Format a hex string from the byte array specified in val. The caller must
  * free the returned str.
  */
-int kmip_format_hex(const unsigned char *val, uint32_t length, bool prefix,
+int kmip_format_hex(const unsigned char *val, size_t length, bool prefix,
 		    char **str)
 {
-	uint32_t str_len, i;
+	size_t str_len, i;
 	char tmp[4];
 	char *ret;
+
+	if (length > (SIZE_MAX - ((prefix ? 2 : 0) + 1)) / 2)
+		return -EINVAL;
 
 	str_len = length * 2 + (prefix ? 2 : 0) + 1;
 	ret = calloc(1, str_len);
