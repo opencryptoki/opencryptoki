@@ -1513,7 +1513,7 @@ retry:
 		}
 
 		if (i == 0 && server_cert_pem != NULL) {
-			fp = fopen(server_cert_pem, "w");
+			fp = fopen_nofollow(server_cert_pem, "w");
 			if (fp == NULL) {
 				rc = -errno;
 				kmip_debug(debug, "Failed to open %s for write",
@@ -1531,7 +1531,7 @@ retry:
 			fp = NULL;
 
 			if (server_pubkey_pem != NULL) {
-				fp = fopen(server_pubkey_pem, "w");
+				fp = fopen_nofollow(server_pubkey_pem, "w");
 				if (fp == NULL) {
 					rc = -errno;
 					kmip_debug(debug, "Failed to open %s "
@@ -1557,7 +1557,7 @@ retry:
 
 		if (i > 0 && cert_chain_pem != NULL) {
 			if (fp == NULL)
-				fp = fopen(cert_chain_pem, "w");
+				fp = fopen_nofollow(cert_chain_pem, "w");
 			if (fp == NULL) {
 				rc = -errno;
 				kmip_debug(debug, "Failed to open %s for write",

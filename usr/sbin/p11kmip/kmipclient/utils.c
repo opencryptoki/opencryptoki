@@ -11,9 +11,11 @@
 #define _DEFAULT_SOURCE
 
 #include <errno.h>
+#include <fcntl.h>
 #include <stdarg.h>
 #include <string.h>
 #include <strings.h>
+#include <unistd.h>
 #include <sys/time.h>
 
 #include "utils.h"
@@ -728,3 +730,34 @@ enum kmip_tag kmip_find_v1_attribute_name_tag(struct kmip_node *parent)
 	return 0;
 }
 
+#if 0 /* Use fopen_nofollow from platform.h */
+FILE *fopen_nofollow(const char *path, const char *mode)
+{
+	int flags = O_NOFOLLOW;
+	int fd;
+	FILE *fp;
+
+	/* Determine flags based on mode */
+	if (mode[0] == 'r')
+		flags |= (mode[1] == '+') ? O_RDWR : O_RDONLY;
+	else if (mode[0] == 'w')
+		flags |= O_CREAT | O_TRUNC |
+				((mode[1] == '+') ? O_RDWR : O_WRONLY);
+	else if (mode[0] == 'a')
+		flags |= O_CREAT | O_APPEND |
+				((mode[1] == '+') ? O_RDWR : O_WRONLY);
+	else
+		return NULL;
+
+	fd = open(path, flags, 0600);
+	if (fd < 0)
+		return NULL;
+
+	fp = fdopen(fd, mode);
+	if (fp == NULL) {
+		close(fd);
+		return NULL;
+	}
+	return fp;
+}
+#endif
