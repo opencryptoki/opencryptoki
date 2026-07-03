@@ -282,7 +282,7 @@ out:
 static int kmip_node_get_length(struct kmip_node *node, size_t *length)
 {
 	struct kmip_node *element;
-	size_t len;
+	size_t len, prev_len;
 	int rc;
 
 	if (node == NULL || length == NULL)
@@ -297,10 +297,13 @@ static int kmip_node_get_length(struct kmip_node *node, size_t *length)
 			if (rc != 0)
 				return rc;
 
+			prev_len = *length;
 			*length += KMIP_TTLV_HEADER_LENGTH + len;
 			if ((len % KMIP_TTLV_BLOCK_LENGTH) != 0)
 				*length += KMIP_TTLV_BLOCK_LENGTH -
 						(len % KMIP_TTLV_BLOCK_LENGTH);
+			if (*length < prev_len)
+				return -EOVERFLOW;
 
 			element = element->next;
 		}
