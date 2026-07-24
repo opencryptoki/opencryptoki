@@ -843,8 +843,6 @@ static int test_fuzz_choice_mutation(void)
 /* Main test runner */
 int main(int argc __attribute__((unused)), char **argv __attribute__((unused)))
 {
-    int result = 0;
-
     /* Initialize random seed */
     srand((unsigned int)time(NULL));
 
@@ -853,20 +851,20 @@ int main(int argc __attribute__((unused)), char **argv __attribute__((unused)))
     printf("      Complementing the unit tests in asn1test.c\n\n");
 
     /* Run all fuzzing tests */
-    result |= test_fuzz_decode_all_types_pure_random();
-    result |= test_fuzz_mutation_based_all_types();
-    result |= test_fuzz_length_field_attacks();
-    result |= test_fuzz_deeply_nested_structures();
-    result |= test_fuzz_memory_stress();
-    result |= test_fuzz_interleaved_operations();
-    result |= test_fuzz_all_primitives_random();
-    result |= test_fuzz_edge_case_combinations_all_types();
-    result |= test_fuzz_attack_patterns_all_types();
-    result |= test_fuzz_choice_random_options();
-    result |= test_fuzz_choice_decode_random();
-    result |= test_fuzz_choice_option_boundaries();
-    result |= test_fuzz_choice_constructed_mismatch();
-    result |= test_fuzz_choice_mutation();
+    test_fuzz_decode_all_types_pure_random();
+    test_fuzz_mutation_based_all_types();
+    test_fuzz_length_field_attacks();
+    test_fuzz_deeply_nested_structures();
+    test_fuzz_memory_stress();
+    test_fuzz_interleaved_operations();
+    test_fuzz_all_primitives_random();
+    test_fuzz_edge_case_combinations_all_types();
+    test_fuzz_attack_patterns_all_types();
+    test_fuzz_choice_random_options();
+    test_fuzz_choice_decode_random();
+    test_fuzz_choice_option_boundaries();
+    test_fuzz_choice_constructed_mismatch();
+    test_fuzz_choice_mutation();
 
     /* Print summary */
     printf("\n=== Fuzzing Test Summary ===\n");
