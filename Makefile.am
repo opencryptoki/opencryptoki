@@ -280,7 +280,7 @@ installcheck-local: all check
 	if test ! -z ${PKCS11_TEST_USER}; then				\
 		chmod 777 ${srcdir}/testcases &&			\
 		cd ${srcdir}/testcases &&                               \
-		su ${PKCS11_TEST_USER} -s /bin/bash -c "PKCS11_SO_PIN=$(PKCS11_SO_PIN) PKCS11_USER_PIN=$(PKCS11_USER_PIN) PKCSLIB=$(PKCSLIB) /bin/bash ./ock_tests.sh || true"; \
+		su -s /bin/bash -c "PKCS11_SO_PIN=$(PKCS11_SO_PIN) PKCS11_USER_PIN=$(PKCS11_USER_PIN) PKCSLIB=$(PKCSLIB) /bin/bash ./ock_tests.sh || true" ${PKCS11_TEST_USER}; \
 	else								\
 		cd ${srcdir}/testcases && 				\
 		PKCS11_SO_PIN=$(PKCS11_SO_PIN) PKCS11_USER_PIN=$(PKCS11_USER_PIN) PKCSLIB=$(PKCSLIB) ./ock_tests.sh || true; \
