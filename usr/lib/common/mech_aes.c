@@ -3512,6 +3512,10 @@ CK_RV aes_gcm_encrypt(STDLL_TokData_t *tokdata, SESSION *sess,
     aesgcm = (CK_GCM_PARAMS *) ctx->mech.pParameter;
     tag_data_len = (aesgcm->ulTagBits + 7) / 8; /* round to full byte */
 
+    if (in_data_len > ULONG_MAX - tag_data_len) {
+        TRACE_ERROR("input length overflow\n");
+        return CKR_DATA_LEN_RANGE;
+    }
 
     if (length_only == TRUE) {
         *out_data_len = in_data_len + tag_data_len;
@@ -3613,6 +3617,11 @@ CK_RV aes_gcm_encrypt_final(STDLL_TokData_t *tokdata, SESSION *sess,
     aesgcm = (CK_GCM_PARAMS *) ctx->mech.pParameter;
     tag_data_len = (aesgcm->ulTagBits + 7) / 8; /* round to full byte */
 
+    if (context->len > ULONG_MAX - tag_data_len) {
+        TRACE_ERROR("tag data length overflow\n");
+        return CKR_DATA_LEN_RANGE;
+    }
+
     if (length_only) {
         *out_data_len = context->len + tag_data_len;
         return CKR_OK;
@@ -3654,6 +3663,11 @@ CK_RV aes_gcm_decrypt(STDLL_TokData_t *tokdata, SESSION *sess,
 
     aesgcm = (CK_GCM_PARAMS *) ctx->mech.pParameter;
     tag_data_len = (aesgcm->ulTagBits + 7) / 8; /* round to full byte */
+
+    if (in_data_len < tag_data_len) {
+        TRACE_ERROR("input length underflow\n");
+        return CKR_ENCRYPTED_DATA_LEN_RANGE;
+    }
 
     if (length_only == TRUE) {
         *out_data_len = in_data_len - tag_data_len;
@@ -3710,19 +3724,24 @@ CK_RV aes_gcm_decrypt_update(STDLL_TokData_t *tokdata, SESSION *sess,
 
     total = context->len + in_data_len;
     tag_data_len = (aesgcm->ulTagBits + 7) / 8; /* round to full byte */
-    remain = ((total - tag_data_len) % AES_BLOCK_SIZE) + tag_data_len;
-    out_len = total - remain;
+
+    /*
+     * When total is smaller than the AES_BLOCK_SIZE + tag_data_len we have
+     * not yet accumulated enough data to produce any output, so set the
+     * out_len to zero.
+     */
+    if (total < AES_BLOCK_SIZE + tag_data_len) {
+        out_len = 0;
+    } else {
+        remain = ((total - tag_data_len) % AES_BLOCK_SIZE) + tag_data_len;
+        out_len = total - remain;
+    }
 
     if (length_only) {
-        if (total < AES_BLOCK_SIZE + tag_data_len) {
-            *out_data_len = 0;
-            return CKR_OK;
-        } else {
-            *out_data_len = out_len;
-            TRACE_DEVEL("Length Only requested (%02ld bytes).\n",
-                        *out_data_len);
-            return CKR_OK;
-        }
+        *out_data_len = out_len;
+        TRACE_DEVEL("Length Only requested (%02ld bytes).\n",
+                    *out_data_len);
+        return CKR_OK;
     }
 
     if (*out_data_len < out_len) {
