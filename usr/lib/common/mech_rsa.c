@@ -2781,6 +2781,22 @@ CK_RV emsa_pss_encode(STDLL_TokData_t *tokdata,
     if (get_sha_size(pssParms->hashAlg, &hlen))
         return CKR_MECHANISM_INVALID;
 
+    /*
+     * pkcs1v2.2, Step 3: Check length before any arithmetic that
+     * subtracts from emLen.  Also validate in_data_len == hlen so
+     * that the salt pointer computed below (buf + 8 + in_data_len)
+     * is guaranteed to stay within the allocated buffer.
+     */
+    if (emLen < hlen + pssParms->sLen + 2) {
+        TRACE_ERROR("%s\n", ock_err(ERR_DATA_LEN_RANGE));
+        return CKR_DATA_LEN_RANGE;
+    }
+
+    if (in_data_len != hlen) {
+        TRACE_ERROR("%s\n", ock_err(ERR_DATA_LEN_RANGE));
+        return CKR_DATA_LEN_RANGE;
+    }
+
     /* allocate a helper buffer to be used for M' and dbmask */
     buflen = emLen - hlen - 1;
     if (buflen < (8 + hlen + pssParms->sLen))
@@ -2796,13 +2812,8 @@ CK_RV emsa_pss_encode(STDLL_TokData_t *tokdata,
     DB = em;
     H = em + (emLen - hlen - 1);
 
-    /* pkcs1v2.2, Step 3: Check length */
-    if (emLen < hlen + pssParms->sLen + 2) {
-        rc = CKR_FUNCTION_FAILED;
-        goto done;
-    }
-
     /* pkcs1v2.2, Step 4: Generate salt */
+    /* salt sits at buf + 8 + hlen; in_data_len == hlen was checked above */
     salt = buf + (8 + in_data_len);
     if (pssParms->sLen > 0) {
         rc = rng_generate(tokdata, salt, pssParms->sLen);
@@ -2874,6 +2885,23 @@ CK_RV emsa_pss_verify(STDLL_TokData_t *tokdata,
     /* get hash size based on hashAlg */
     if (get_sha_size(pssParms->hashAlg, &hlen))
         return CKR_MECHANISM_INVALID;
+
+    /*
+     * Validate lengths before any unsigned arithmetic involving emLen.
+     * emLen < hlen + sLen + 2 is the same bound as pkcs1v2.2 Step 3 in
+     * the encode path.
+     * Also validate in_data_len == hlen so that the M' construction
+     * at the bottom of the function (M + 8 + in_data_len) stays inside buf.
+     */
+    if (emLen < hlen + pssParms->sLen + 2) {
+        TRACE_ERROR("%s\n", ock_err(ERR_SIGNATURE_INVALID));
+        return CKR_SIGNATURE_INVALID;
+    }
+
+    if (in_data_len != hlen) {
+        TRACE_ERROR("%s\n", ock_err(ERR_DATA_LEN_RANGE));
+        return CKR_DATA_LEN_RANGE;
+    }
 
     /* set up a big enough helper buffer to be used for M' and DB. */
     buflen = (emLen - hlen - 1) + (8 + hlen + pssParms->sLen);
