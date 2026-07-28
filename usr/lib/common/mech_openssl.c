@@ -7318,6 +7318,12 @@ static CK_RV openssl_specific_ml_dsa_encode_prehashed_msg(
         goto out;
     }
 
+    if (in_data_len > ULONG_MAX - (2 + context_len + oid_len)) {
+        TRACE_ERROR("The data is too large\n");
+        rc = CKR_DATA_LEN_RANGE;
+        goto out;
+    }
+
     *prehashed_msg_len = 2 + context_len + oid_len + in_data_len;
 
     *prehashed_msg = malloc(*prehashed_msg_len);
