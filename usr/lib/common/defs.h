@@ -206,6 +206,4 @@ typedef struct _DL_NODE {
 #define PK_LITE_OBJ_DIR "TOK_OBJ"
 #define PK_LITE_OBJ_IDX "OBJ.IDX"
 
-#define DEL_CMD "/bin/rm -f"
-
 #endif
