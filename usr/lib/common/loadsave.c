@@ -1084,7 +1084,12 @@ CK_RV load_masterkey_so_old(STDLL_TokData_t *tokdata)
     clear_len = cipher_len = (data_len + block_size - 1)
         & ~(block_size - 1);
 
-    sprintf(fname, "%s/MK_SO", tokdata->data_store);
+    if (ock_snprintf(fname, sizeof(fname), "%s/MK_SO",
+                     tokdata->data_store) != 0) {
+        TRACE_ERROR("path name for MK_SO too long\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
+    }
     if (stat(fname, &sb) != 0) {
         TRACE_ERROR("stat(%s): %s\n", fname, strerror(errno));
         rc = CKR_FUNCTION_FAILED;
@@ -1211,7 +1216,12 @@ CK_RV load_masterkey_user_old(STDLL_TokData_t *tokdata)
     clear_len = cipher_len = (data_len + block_size - 1)
         & ~(block_size - 1);
 
-    sprintf(fname, "%s/MK_USER", tokdata->data_store);
+    if (ock_snprintf(fname, sizeof(fname), "%s/MK_USER",
+                     tokdata->data_store) != 0) {
+        TRACE_ERROR("path name for MK_USER too long\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
+    }
     if (stat(fname, &sb) != 0) {
         TRACE_ERROR("stat(%s): %s\n", fname, strerror(errno));
         rc = CKR_FUNCTION_FAILED;
