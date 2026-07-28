@@ -12,6 +12,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdint.h>
 
 #include "platform.h"
 #include "buffer.h"
@@ -68,6 +69,9 @@ long p11_buffer_append_len(p11_buffer_t *buf, const char *s, size_t len)
 {
     size_t new_len = strlen(buf->b) + len;
     char *b_end;
+
+    if (len > SIZE_MAX - strlen(buf->b))
+        return -1;
 
     if (!s || (len == 0))
         return strlen(buf->b);
