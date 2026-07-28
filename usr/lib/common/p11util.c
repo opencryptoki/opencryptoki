@@ -399,18 +399,19 @@ char *p11_ahex_dump(char **dst, CK_BYTE_PTR ptr, CK_ULONG len)
 {
     CK_ULONG i;
 
-    if (dst == NULL) {
+    if (dst == NULL)
         return NULL;
-    }
+
+    if (len > (SIZE_MAX - 1) / 2)
+        return NULL;
 
     *dst = (char *) malloc(2 * len + 1);
-    if (*dst == NULL) {
+    if (*dst == NULL)
         return NULL;
-    }
 
-    for (i = 0; i < len; i++) {
+    for (i = 0; i < len; i++)
         sprintf(*dst + 2 * i, "%02hhX", ptr[i]);
-    }
+
     *(*dst + 2 * len) = '\0';   // null-terminate
 
     return *dst;
