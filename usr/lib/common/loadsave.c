@@ -42,6 +42,8 @@
 #include "ock_syslog.h"
 #include "slotmgr.h" // for ock_snprintf
 
+#define OCK_MAX_TOKEN_OBJ_SIZE      0x80000000
+
 CK_RV set_perm(int, const char *group);
 
 CK_RV restore_private_token_object_old(STDLL_TokData_t *tokdata, CK_BYTE *data,
@@ -1007,7 +1009,8 @@ CK_RV load_private_token_objects_old(STDLL_TokData_t *tokdata)
             fclose(fp2);
             continue;
         }
-        if (size <= sizeof(CK_ULONG_32) + sizeof(CK_BBOOL)) {
+        if (size <= sizeof(CK_ULONG_32) + sizeof(CK_BBOOL) ||
+            size >= OCK_MAX_TOKEN_OBJ_SIZE) {
             fclose(fp2);
             OCK_SYSLOG(LOG_ERR, "Improper size of object %s (ignoring it)\n",
                        fname);
@@ -1721,7 +1724,8 @@ CK_RV reload_token_object_old(STDLL_TokData_t *tokdata, OBJECT *obj)
         goto done;
     }
 
-    if (size <= sizeof(CK_ULONG_32) + sizeof(CK_BBOOL)) {
+    if (size <= sizeof(CK_ULONG_32) + sizeof(CK_BBOOL) ||
+        size >= OCK_MAX_TOKEN_OBJ_SIZE) {
         rc = CKR_FUNCTION_FAILED;
         OCK_SYSLOG(LOG_ERR, "Improper size of object %s (ignoring it)\n",
                    fname);
@@ -2761,6 +2765,14 @@ CK_RV load_private_token_objects(STDLL_TokData_t *tokdata)
         memcpy(&len, header + 60, 4);
         size = be32toh(len);
 
+        if (size == 0 || size >= OCK_MAX_TOKEN_OBJ_SIZE) {
+            fclose(fp2);
+            OCK_SYSLOG(LOG_ERR,
+                       "token object %s has an invalid size %u (ignoring it)",
+                       fname, size);
+            continue;
+        }
+
         buf = (CK_BYTE *)malloc(size);
         if (!buf) {
             fclose(fp2);
@@ -2930,6 +2942,14 @@ CK_RV reload_token_object(STDLL_TokData_t *tokdata, OBJECT *obj)
     else
         size = be32toh(len);
 
+    if (size == 0 || size >= OCK_MAX_TOKEN_OBJ_SIZE) {
+        rc = CKR_FUNCTION_FAILED;
+        OCK_SYSLOG(LOG_ERR,
+                   "token object %s has an invalid size %u (ignoring it)",
+                   fname, size);
+        goto done;
+    }
+
     buf = (CK_BYTE *) malloc(size);
     if (buf == NULL) {
         rc = CKR_HOST_MEMORY;
@@ -3080,7 +3100,7 @@ CK_RV load_public_token_objects(STDLL_TokData_t *tokdata)
         }
 
         /* size can not be negative if treated as signed int */
-        if (size >= 0x80000000) {
+        if (size >= OCK_MAX_TOKEN_OBJ_SIZE) {
             fclose(fp2);
             OCK_SYSLOG(LOG_ERR, "Size is invalid in header of token object %s "
                                 "(ignoring it)\n", fname);
