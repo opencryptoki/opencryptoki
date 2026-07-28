@@ -3749,6 +3749,12 @@ CK_RV new_gcm_specific_aes_gcm_update(STDLL_TokData_t *tokdata, SESSION *sess,
     auth_data = (CK_BYTE *)aes_gcm_param->pAAD;
     auth_data_len = aes_gcm_param->ulAADLen;
     tag_data_len = (aes_gcm_param->ulTagBits + 7) / 8;
+
+    if (in_data_len > ULONG_MAX - context->len) {
+        TRACE_ERROR("input length overflow\n");
+        return CKR_DATA_LEN_RANGE;
+    }
+
     total = context->len + in_data_len;
 
     /* if there isn't enough data to make a block, just save it */
@@ -4469,6 +4475,12 @@ CK_RV token_specific_aes_gcm_update(STDLL_TokData_t *tokdata, SESSION *sess,
 #endif
 
     context = (AES_GCM_CONTEXT *) ctx->context;
+
+    if (in_data_len > ULONG_MAX - context->len) {
+        TRACE_ERROR("input length overflow\n");
+        return CKR_DATA_LEN_RANGE;
+    }
+
     total = (context->len + in_data_len);
     ucb = (CK_BYTE *) context->ucb;
     tag_data = context->hash;

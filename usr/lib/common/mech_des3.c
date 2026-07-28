@@ -407,6 +407,11 @@ CK_RV des3_ecb_encrypt_update(STDLL_TokData_t *tokdata,
     }
     context = (DES_CONTEXT *) ctx->context;
 
+    if (in_data_len > ULONG_MAX - context->len) {
+        TRACE_ERROR("input length overflow\n");
+        return CKR_DATA_LEN_RANGE;
+    }
+
     total = (context->len + in_data_len);
 
     if (total < DES_BLOCK_SIZE) {
@@ -490,6 +495,11 @@ CK_RV des3_ecb_decrypt_update(STDLL_TokData_t *tokdata,
         return CKR_FUNCTION_FAILED;
     }
     context = (DES_CONTEXT *) ctx->context;
+
+    if (in_data_len > ULONG_MAX - context->len) {
+        TRACE_ERROR("input length overflow\n");
+        return CKR_DATA_LEN_RANGE;
+    }
 
     total = (context->len + in_data_len);
 
@@ -575,6 +585,11 @@ CK_RV des3_cbc_encrypt_update(STDLL_TokData_t *tokdata,
         return CKR_FUNCTION_FAILED;
     }
     context = (DES_CONTEXT *) ctx->context;
+
+    if (in_data_len > ULONG_MAX - context->len) {
+        TRACE_ERROR("input length overflow\n");
+        return CKR_DATA_LEN_RANGE;
+    }
 
     total = (context->len + in_data_len);
 
@@ -666,6 +681,11 @@ CK_RV des3_cbc_decrypt_update(STDLL_TokData_t *tokdata,
         return CKR_FUNCTION_FAILED;
     }
     context = (DES_CONTEXT *) ctx->context;
+
+    if (in_data_len > ULONG_MAX - context->len) {
+        TRACE_ERROR("input length overflow\n");
+        return CKR_DATA_LEN_RANGE;
+    }
 
     total = context->len + in_data_len;
 
@@ -759,6 +779,11 @@ CK_RV des3_cbc_pad_encrypt_update(STDLL_TokData_t *tokdata,
         return CKR_FUNCTION_FAILED;
     }
     context = (DES_CONTEXT *) ctx->context;
+
+    if (in_data_len > ULONG_MAX - context->len) {
+        TRACE_ERROR("input length overflow\n");
+        return CKR_DATA_LEN_RANGE;
+    }
 
     total = (context->len + in_data_len);
 
@@ -859,6 +884,11 @@ CK_RV des3_cbc_pad_decrypt_update(STDLL_TokData_t *tokdata,
         return CKR_FUNCTION_FAILED;
     }
     context = (DES_CONTEXT *) ctx->context;
+
+    if (in_data_len > ULONG_MAX - context->len) {
+        TRACE_ERROR("input length overflow\n");
+        return CKR_DATA_LEN_RANGE;
+    }
 
     total = (context->len + in_data_len);
 
@@ -1264,6 +1294,11 @@ CK_RV des3_ofb_encrypt_update(STDLL_TokData_t *tokdata,
     }
     context = (DES_DATA_CONTEXT *) ctx->context;
 
+    if (in_data_len > ULONG_MAX - context->len) {
+        TRACE_ERROR("input length overflow\n");
+        return CKR_DATA_LEN_RANGE;
+    }
+
     total = (context->len + in_data_len);
 
     if (total < DES_BLOCK_SIZE) {
@@ -1443,6 +1478,11 @@ CK_RV des3_ofb_decrypt_update(STDLL_TokData_t *tokdata,
         return CKR_FUNCTION_FAILED;
     }
     context = (DES_CONTEXT *) ctx->context;
+
+    if (in_data_len > ULONG_MAX - context->len) {
+        TRACE_ERROR("input length overflow\n");
+        return CKR_DATA_LEN_RANGE;
+    }
 
     total = (context->len + in_data_len);
 
@@ -1627,6 +1667,11 @@ CK_RV des3_cfb_encrypt_update(STDLL_TokData_t *tokdata,
         return CKR_FUNCTION_FAILED;
     }
     context = (DES_CONTEXT *) ctx->context;
+
+    if (in_data_len > ULONG_MAX - context->len) {
+        TRACE_ERROR("input length overflow\n");
+        return CKR_DATA_LEN_RANGE;
+    }
 
     total = (context->len + in_data_len);
 
@@ -1813,6 +1858,11 @@ CK_RV des3_cfb_decrypt_update(STDLL_TokData_t *tokdata,
     }
 
     context = (DES_CONTEXT *) ctx->context;
+
+    if (in_data_len > ULONG_MAX - context->len) {
+        TRACE_ERROR("input length overflow\n");
+        return CKR_DATA_LEN_RANGE;
+    }
 
     total = (context->len + in_data_len);
 
@@ -2018,6 +2068,11 @@ CK_RV des3_mac_sign_update(STDLL_TokData_t *tokdata,
 
     context = (DES_DATA_CONTEXT *) ctx->context;
 
+    if (in_data_len > ULONG_MAX - context->len) {
+        TRACE_ERROR("input length overflow\n");
+        return CKR_DATA_LEN_RANGE;
+    }
+
     total = (context->len + in_data_len);
 
     if (total < DES_BLOCK_SIZE) {
@@ -2217,6 +2272,11 @@ CK_RV des3_mac_verify_update(STDLL_TokData_t *tokdata,
     }
 
     context = (DES_DATA_CONTEXT *) ctx->context;
+
+    if (in_data_len > ULONG_MAX - context->len) {
+        TRACE_ERROR("input length overflow\n");
+        return CKR_DATA_LEN_RANGE;
+    }
 
     total = (context->len + in_data_len);
 
@@ -2433,6 +2493,11 @@ CK_RV des3_cmac_sign_update(STDLL_TokData_t *tokdata,
 
     context = (DES_CMAC_CONTEXT *) ctx->context;
 
+    if (in_data_len > ULONG_MAX - context->len) {
+        TRACE_ERROR("input length overflow\n");
+        return CKR_DATA_LEN_RANGE;
+    }
+
     total = (context->len + in_data_len);
 
     if (total <= DES_BLOCK_SIZE) {
@@ -2635,6 +2700,11 @@ CK_RV des3_cmac_verify_update(STDLL_TokData_t *tokdata,
     }
 
     context = (DES_CMAC_CONTEXT *) ctx->context;
+
+    if (in_data_len > ULONG_MAX - context->len) {
+        TRACE_ERROR("input length overflow\n");
+        return CKR_DATA_LEN_RANGE;
+    }
 
     total = (context->len + in_data_len);
 

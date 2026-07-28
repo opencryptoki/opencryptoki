@@ -589,6 +589,11 @@ CK_RV aes_ecb_encrypt_update(STDLL_TokData_t *tokdata,
     }
     context = (AES_CONTEXT *) ctx->context;
 
+    if (in_data_len > ULONG_MAX - context->len) {
+        TRACE_ERROR("input length overflow\n");
+        return CKR_DATA_LEN_RANGE;
+    }
+
     total = (context->len + in_data_len);
 
     if (total < AES_BLOCK_SIZE) {
@@ -673,6 +678,11 @@ CK_RV aes_ecb_decrypt_update(STDLL_TokData_t *tokdata,
     }
     context = (AES_CONTEXT *) ctx->context;
 
+    if (in_data_len > ULONG_MAX - context->len) {
+        TRACE_ERROR("input length overflow\n");
+        return CKR_DATA_LEN_RANGE;
+    }
+
     total = (context->len + in_data_len);
 
     if (total < AES_BLOCK_SIZE) {
@@ -756,6 +766,11 @@ CK_RV aes_cbc_encrypt_update(STDLL_TokData_t *tokdata,
         return CKR_FUNCTION_FAILED;
     }
     context = (AES_CONTEXT *) ctx->context;
+
+    if (in_data_len > ULONG_MAX - context->len) {
+        TRACE_ERROR("input length overflow\n");
+        return CKR_DATA_LEN_RANGE;
+    }
 
     total = (context->len + in_data_len);
 
@@ -849,6 +864,11 @@ CK_RV aes_cbc_decrypt_update(STDLL_TokData_t *tokdata,
 
     context = (AES_CONTEXT *) ctx->context;
 
+    if (in_data_len > ULONG_MAX - context->len) {
+        TRACE_ERROR("input length overflow\n");
+        return CKR_DATA_LEN_RANGE;
+    }
+
     total = context->len + in_data_len;
 
     if (total < AES_BLOCK_SIZE) {
@@ -941,6 +961,11 @@ CK_RV aes_cbc_pad_encrypt_update(STDLL_TokData_t *tokdata,
     }
 
     context = (AES_CONTEXT *) ctx->context;
+
+    if (in_data_len > ULONG_MAX - context->len) {
+        TRACE_ERROR("input length overflow\n");
+        return CKR_DATA_LEN_RANGE;
+    }
 
     total = (context->len + in_data_len);
 
@@ -1043,6 +1068,11 @@ CK_RV aes_cbc_pad_decrypt_update(STDLL_TokData_t *tokdata,
 
     context = (AES_CONTEXT *) ctx->context;
 
+    if (in_data_len > ULONG_MAX - context->len) {
+        TRACE_ERROR("input length overflow\n");
+        return CKR_DATA_LEN_RANGE;
+    }
+
     total = (context->len + in_data_len);
 
     // note, this is subtly different from the other decrypt update routines
@@ -1140,7 +1170,14 @@ CK_RV aes_ctr_encrypt_update(STDLL_TokData_t *tokdata,
         return CKR_FUNCTION_FAILED;
     }
     context = (AES_CONTEXT *) ctx->context;
+
+    if (in_data_len > ULONG_MAX - context->len) {
+        TRACE_ERROR("input length overflow\n");
+        return CKR_DATA_LEN_RANGE;
+    }
+
     total = (context->len + in_data_len);
+
     if (total < AES_BLOCK_SIZE) {
         if (length_only == FALSE && in_data_len) {
             memcpy(context->data + context->len, in_data, in_data_len);
@@ -1216,7 +1253,14 @@ CK_RV aes_ctr_decrypt_update(STDLL_TokData_t *tokdata,
         return CKR_FUNCTION_FAILED;
     }
     context = (AES_CONTEXT *) ctx->context;
+
+    if (in_data_len > ULONG_MAX - context->len) {
+        TRACE_ERROR("input length overflow\n");
+        return CKR_DATA_LEN_RANGE;
+    }
+
     total = (context->len + in_data_len);
+
     if (total < AES_BLOCK_SIZE) {
         if (length_only == FALSE && in_data_len) {
             memcpy(context->data + context->len, in_data, in_data_len);
@@ -1290,6 +1334,11 @@ static CK_RV aes_xts_crypt_update(STDLL_TokData_t *tokdata,
         return CKR_FUNCTION_FAILED;
     }
     context = (AES_XTS_CONTEXT *)ctx->context;
+
+    if (in_data_len > ULONG_MAX - context->len) {
+        TRACE_ERROR("input length overflow\n");
+        return CKR_DATA_LEN_RANGE;
+    }
 
     total = (context->len + in_data_len);
 
@@ -1877,6 +1926,11 @@ CK_RV aes_ofb_encrypt_update(STDLL_TokData_t *tokdata,
     }
     context = (AES_CONTEXT *) ctx->context;
 
+    if (in_data_len > ULONG_MAX - context->len) {
+        TRACE_ERROR("input length overflow\n");
+        return CKR_DATA_LEN_RANGE;
+    }
+
     total = (context->len + in_data_len);
 
     if (total < AES_BLOCK_SIZE) {
@@ -2059,6 +2113,11 @@ CK_RV aes_ofb_decrypt_update(STDLL_TokData_t *tokdata,
     }
 
     context = (AES_CONTEXT *) ctx->context;
+
+    if (in_data_len > ULONG_MAX - context->len) {
+        TRACE_ERROR("input length overflow\n");
+        return CKR_DATA_LEN_RANGE;
+    }
 
     total = (context->len + in_data_len);
 
@@ -2243,6 +2302,11 @@ CK_RV aes_cfb_encrypt_update(STDLL_TokData_t *tokdata,
         return CKR_FUNCTION_FAILED;
     }
     context = (AES_CONTEXT *) ctx->context;
+
+    if (in_data_len > ULONG_MAX - context->len) {
+        TRACE_ERROR("input length overflow\n");
+        return CKR_DATA_LEN_RANGE;
+    }
 
     total = (context->len + in_data_len);
 
@@ -2429,6 +2493,11 @@ CK_RV aes_cfb_decrypt_update(STDLL_TokData_t *tokdata,
         return CKR_FUNCTION_FAILED;
     }
     context = (AES_CONTEXT *) ctx->context;
+
+    if (in_data_len > ULONG_MAX - context->len) {
+        TRACE_ERROR("input length overflow\n");
+        return CKR_DATA_LEN_RANGE;
+    }
 
     total = (context->len + in_data_len);
 
@@ -2637,6 +2706,11 @@ CK_RV aes_mac_sign_update(STDLL_TokData_t *tokdata,
 
     context = (AES_DATA_CONTEXT *) ctx->context;
 
+    if (in_data_len > ULONG_MAX - context->len) {
+        TRACE_ERROR("input length overflow\n");
+        return CKR_DATA_LEN_RANGE;
+    }
+
     total = (context->len + in_data_len);
 
     if (total < AES_BLOCK_SIZE) {
@@ -2841,6 +2915,11 @@ CK_RV aes_mac_verify_update(STDLL_TokData_t *tokdata,
     }
 
     context = (AES_DATA_CONTEXT *) ctx->context;
+
+    if (in_data_len > ULONG_MAX - context->len) {
+        TRACE_ERROR("input length overflow\n");
+        return CKR_DATA_LEN_RANGE;
+    }
 
     total = (context->len + in_data_len);
 
@@ -3059,6 +3138,11 @@ CK_RV aes_cmac_sign_update(STDLL_TokData_t *tokdata,
 
     context = (AES_CMAC_CONTEXT *) ctx->context;
 
+    if (in_data_len > ULONG_MAX - context->len) {
+        TRACE_ERROR("input length overflow\n");
+        return CKR_DATA_LEN_RANGE;
+    }
+
     total = (context->len + in_data_len);
 
     if (total <= AES_BLOCK_SIZE) {
@@ -3267,6 +3351,11 @@ CK_RV aes_cmac_verify_update(STDLL_TokData_t *tokdata,
 
     context = (AES_CMAC_CONTEXT *) ctx->context;
 
+    if (in_data_len > ULONG_MAX - context->len) {
+        TRACE_ERROR("input length overflow\n");
+        return CKR_DATA_LEN_RANGE;
+    }
+
     total = (context->len + in_data_len);
 
     if (total <= AES_BLOCK_SIZE) {
@@ -3462,6 +3551,12 @@ CK_RV aes_gcm_encrypt_update(STDLL_TokData_t *tokdata, SESSION *sess,
     }
 
     context = (AES_GCM_CONTEXT *) ctx->context;
+
+    if (in_data_len > ULONG_MAX - context->len) {
+        TRACE_ERROR("input length overflow\n");
+        return CKR_DATA_LEN_RANGE;
+    }
+
     total = context->len + in_data_len;
     remain = total % AES_BLOCK_SIZE;
     out_len = total - remain;
@@ -3604,6 +3699,11 @@ CK_RV aes_gcm_decrypt_update(STDLL_TokData_t *tokdata, SESSION *sess,
 
     aesgcm = (CK_GCM_PARAMS *) ctx->mech.pParameter;
     context = (AES_GCM_CONTEXT *) ctx->context;
+
+    if (in_data_len > ULONG_MAX - context->len) {
+        TRACE_ERROR("input length overflow\n");
+        return CKR_DATA_LEN_RANGE;
+    }
 
     total = context->len + in_data_len;
     tag_data_len = (aesgcm->ulTagBits + 7) / 8; /* round to full byte */
