@@ -1538,6 +1538,11 @@ CK_RV ec_point_from_priv_key(CK_BYTE *parms, CK_ULONG parms_len,
     }
 
     p_len = (EC_GROUP_get_degree(group) + 7) / 8;
+    if (p_len <= 0) {
+        TRACE_ERROR("%s: invalid curve degree\n", __func__);
+        rc = CKR_CURVE_NOT_SUPPORTED;
+        goto done;
+    }
 
     pub_key = EC_POINT_new(group);
     if (pub_key == NULL) {
@@ -1610,6 +1615,11 @@ int ec_point_from_public_data(const CK_BYTE *data, CK_ULONG data_len,
     CK_BYTE *buff = NULL;
     CK_BYTE form;
     CK_RV rc;
+
+    if (prime_len == 0 || prime_len > ULONG_MAX / 2) {
+        TRACE_ERROR("Invalid prime_len %lu\n", prime_len);
+        return CKR_CURVE_NOT_SUPPORTED;
+    }
 
     if (!allow_raw)
         goto check_encoded;
@@ -1752,6 +1762,11 @@ int ec_point_uncompressed_from_public_data(const CK_BYTE *data,
     switch (form) {
     case POINT_CONVERSION_COMPRESSED:
     case POINT_CONVERSION_HYBRID:
+        if (prime_len > ULONG_MAX / 2) {
+            TRACE_ERROR("Invalid prime_len %lu\n", prime_len);
+            rc = CKR_CURVE_NOT_SUPPORTED;
+            break;
+        }
         ec_point2_len = 1 + 2 * prime_len;
         ec_point2 = malloc(ec_point2_len);
         if (ec_point2 == NULL) {
