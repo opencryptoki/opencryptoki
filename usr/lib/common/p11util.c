@@ -143,7 +143,7 @@ const char *p11_get_ckr(CK_RV rc)
 //
 const char *p11_get_cka(CK_ATTRIBUTE_TYPE atype)
 {
-    static char buf[50];
+    static char buf[64];
 
     switch (atype) {
         _sym2str(CKA_CLASS);
