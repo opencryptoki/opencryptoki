@@ -112,7 +112,13 @@ CK_RV rsa_format_block(STDLL_TokData_t *tokdata,
         return CKR_FUNCTION_FAILED;
     }
 
-    if (out_data_len < (in_data_len + 11)) {
+    /*
+     * The minimum encoded block is: 0x00 || BT || 8-byte PS || 0x00 || D,
+     * so out_data_len must be at least in_data_len + 11.  Check this with
+     * subtraction instead of addition to avoid unsigned overflow when
+     * in_data_len is close to ULONG_MAX.
+     */
+    if (in_data_len > out_data_len || out_data_len - in_data_len < 11) {
         TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
         return CKR_BUFFER_TOO_SMALL;
     }
