@@ -967,9 +967,13 @@ static CK_RV save_private_token_object_old(STDLL_TokData_t *tokdata, OBJECT *obj
     (void) fwrite(cipher, cipher_len, 1, fp);
 
     rc = close_token_file_new(fp, rc, fname, basename);
+    OPENSSL_cleanse(obj_data, obj_data_len);
     free(obj_data);
+    OPENSSL_cleanse(clear, padded_len);
     free(clear);
+    OPENSSL_cleanse(cipher, cipher_len);
     free(cipher);
+    OPENSSL_cleanse(key, key_len);
     free(key);
 
     return rc;
@@ -978,14 +982,22 @@ oom_error:
     rc = CKR_HOST_MEMORY;
 
 error:
-    if (obj_data)
+    if (obj_data) {
+        OPENSSL_cleanse(obj_data, obj_data_len);
         free(obj_data);
-    if (clear)
+    }
+    if (clear) {
+        OPENSSL_cleanse(clear, padded_len);
         free(clear);
-    if (cipher)
+    }
+    if (cipher) {
+        OPENSSL_cleanse(cipher, cipher_len);
         free(cipher);
-    if (key)
+    }
+    if (key) {
+        OPENSSL_cleanse(key, key_len);
         free(key);
+    }
     rc = close_token_file_new(fp, rc, fname, basename);
 
     return rc;
@@ -1053,6 +1065,7 @@ CK_RV load_private_token_objects_old(STDLL_TokData_t *tokdata)
 
         read_size = fread(buf, 1, size, fp2);
         if (read_size != size) {
+            OPENSSL_cleanse(buf, size);
             free(buf);
             fclose(fp2);
             OCK_SYSLOG(LOG_ERR,
@@ -1064,6 +1077,7 @@ CK_RV load_private_token_objects_old(STDLL_TokData_t *tokdata)
         if (rc != CKR_OK)
             goto error;
 
+        OPENSSL_cleanse(buf, size);
         free(buf);
         fclose(fp2);
     }
@@ -1073,8 +1087,10 @@ CK_RV load_private_token_objects_old(STDLL_TokData_t *tokdata)
     return CKR_OK;
 
 error:
-    if (buf)
+    if (buf) {
+        OPENSSL_cleanse(buf, size);
         free(buf);
+    }
     if (fp1)
         fclose(fp1);
     if (fp2)
@@ -1205,12 +1221,16 @@ CK_RV load_masterkey_so_old(STDLL_TokData_t *tokdata)
 done:
     if (fp)
         fclose(fp);
-    if (clear)
+    if (clear) {
+        OPENSSL_cleanse(clear, clear_len);
         free(clear);
+    }
     if (cipher)
         free(cipher);
-    if (key)
+    if (key) {
+        OPENSSL_cleanse(key, key_len);
         free(key);
+    }
 
     return rc;
 }
@@ -1337,10 +1357,14 @@ CK_RV load_masterkey_user_old(STDLL_TokData_t *tokdata)
 done:
     if (fp)
         fclose(fp);
-    if (key)
+    if (key) {
+        OPENSSL_cleanse(key, key_len);
         free(key);
-    if (clear)
+    }
+    if (clear) {
+        OPENSSL_cleanse(clear, clear_len);
         free(clear);
+    }
     if (cipher)
         free(cipher);
 
@@ -1426,10 +1450,14 @@ CK_RV save_masterkey_so_old(STDLL_TokData_t *tokdata)
 
 done:
     rc = close_token_file_new(fp, rc, fname, basename);
-    if (key)
+    if (key) {
+        OPENSSL_cleanse(key, key_len);
         free(key);
-    if (clear)
+    }
+    if (clear) {
+        OPENSSL_cleanse(clear, clear_len);
         free(clear);
+    }
     if (cipher)
         free(cipher);
 
@@ -1512,10 +1540,14 @@ CK_RV save_masterkey_user_old(STDLL_TokData_t *tokdata)
 
 done:
     rc = close_token_file_new(fp, rc, fname, basename);
-    if (key)
+    if (key) {
+        OPENSSL_cleanse(key, key_len);
         free(key);
-    if (clear)
+    }
+    if (clear) {
+        OPENSSL_cleanse(clear, clear_len);
         free(clear);
+    }
     if (cipher)
         free(cipher);
 
@@ -1586,11 +1618,13 @@ CK_RV generate_master_key_old(STDLL_TokData_t *tokdata, CK_BYTE *key)
 
     if (master_key_len != key_len) {
         TRACE_ERROR("Invalid master key size: %lu\n", master_key_len);
+        OPENSSL_cleanse(master_key, master_key_len);
         free(master_key);
         return CKR_FUNCTION_FAILED;
     }
 
     memcpy(key, master_key, master_key_len);
+    OPENSSL_cleanse(master_key, master_key_len);
     free(master_key);
 
     if ((tokdata->statistics->flags & STATISTICS_FLAG_COUNT_INTERNAL) != 0)
@@ -1703,10 +1737,14 @@ CK_RV restore_private_token_object_old(STDLL_TokData_t *tokdata, CK_BYTE *data,
     rc = CKR_OK;
 
 done:
-    if (clear)
+    if (clear) {
+        OPENSSL_cleanse(clear, clear_len);
         free(clear);
-    if (key)
+    }
+    if (key) {
+        OPENSSL_cleanse(key, key_len);
         free(key);
+    }
 
     return rc;
 }
@@ -2182,6 +2220,7 @@ CK_RV save_masterkey_so(STDLL_TokData_t *tokdata)
     rc = CKR_OK;
 done:
     rc = close_token_file_new(fp, rc, fname, basename);
+    OPENSSL_cleanse(outbuf, sizeof(outbuf));
     return rc;
 }
 
@@ -2278,6 +2317,7 @@ CK_RV save_masterkey_user(STDLL_TokData_t *tokdata)
     rc = CKR_OK;
 done:
     rc = close_token_file_new(fp, rc, fname, basename);
+    OPENSSL_cleanse(outbuf, sizeof(outbuf));
     return rc;
 }
 
@@ -2740,10 +2780,16 @@ do_work:
     rc = CKR_OK;
 done:
     rc = close_token_file_new(fp, rc, fname, basename);
-    if (obj_data)
+    if (obj_data) {
+        OPENSSL_cleanse(obj_data, obj_data_len);
         free(obj_data);
-    if (data)
+    }
+    if (data) {
+        OPENSSL_cleanse(data, total_len);
         free(data);
+    }
+    OPENSSL_cleanse(obj_key, sizeof(obj_key));
+    OPENSSL_cleanse(obj_key_wrapped, sizeof(obj_key_wrapped));
     return rc;
 }
 
@@ -2832,6 +2878,7 @@ CK_RV load_private_token_objects(STDLL_TokData_t *tokdata)
         if (rc != CKR_OK)
             goto error;
 
+        OPENSSL_cleanse(buf, size);
         free(buf);
         fclose(fp2);
     }
@@ -2839,8 +2886,10 @@ CK_RV load_private_token_objects(STDLL_TokData_t *tokdata)
     fclose(fp1);
     return CKR_OK;
 error:
-    if (buf)
+    if (buf) {
+        OPENSSL_cleanse(buf, size);
         free(buf);
+    }
     if (fp1)
         fclose(fp1);
     if (fp2)
@@ -2901,8 +2950,12 @@ CK_RV restore_private_token_object(STDLL_TokData_t *tokdata,
 
     rc = CKR_OK;
 done:
-    if (buff)
+    if (buff) {
+        OPENSSL_cleanse(buff, len);
         free(buff);
+    }
+    OPENSSL_cleanse(obj_key, sizeof(obj_key));
+    OPENSSL_cleanse(obj_key_wrapped, sizeof(obj_key_wrapped));
     return rc;
 }
 
