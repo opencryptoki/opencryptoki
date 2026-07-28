@@ -406,6 +406,11 @@ CK_RV des_ecb_encrypt_update(STDLL_TokData_t *tokdata,
     }
     context = (DES_CONTEXT *) ctx->context;
 
+    if (in_data_len > ULONG_MAX - context->len) {
+        TRACE_ERROR("input length overflow\n");
+        return CKR_DATA_LEN_RANGE;
+    }
+
     total = (context->len + in_data_len);
 
     if (total < DES_BLOCK_SIZE) {
@@ -488,6 +493,11 @@ CK_RV des_ecb_decrypt_update(STDLL_TokData_t *tokdata,
         return CKR_FUNCTION_FAILED;
     }
     context = (DES_CONTEXT *) ctx->context;
+
+    if (in_data_len > ULONG_MAX - context->len) {
+        TRACE_ERROR("input length overflow\n");
+        return CKR_DATA_LEN_RANGE;
+    }
 
     total = (context->len + in_data_len);
 
@@ -572,6 +582,11 @@ CK_RV des_cbc_encrypt_update(STDLL_TokData_t *tokdata,
         return CKR_FUNCTION_FAILED;
     }
     context = (DES_CONTEXT *) ctx->context;
+
+    if (in_data_len > ULONG_MAX - context->len) {
+        TRACE_ERROR("input length overflow\n");
+        return CKR_DATA_LEN_RANGE;
+    }
 
     total = (context->len + in_data_len);
 
@@ -663,6 +678,11 @@ CK_RV des_cbc_decrypt_update(STDLL_TokData_t *tokdata,
     }
     context = (DES_CONTEXT *) ctx->context;
 
+    if (in_data_len > ULONG_MAX - context->len) {
+        TRACE_ERROR("input length overflow\n");
+        return CKR_DATA_LEN_RANGE;
+    }
+
     total = context->len + in_data_len;
 
     if (total < DES_BLOCK_SIZE) {
@@ -752,6 +772,11 @@ CK_RV des_cbc_pad_encrypt_update(STDLL_TokData_t *tokdata,
         return CKR_FUNCTION_FAILED;
     }
     context = (DES_CONTEXT *) ctx->context;
+
+    if (in_data_len > ULONG_MAX - context->len) {
+        TRACE_ERROR("input length overflow\n");
+        return CKR_DATA_LEN_RANGE;
+    }
 
     total = (context->len + in_data_len);
 
@@ -853,6 +878,11 @@ CK_RV des_cbc_pad_decrypt_update(STDLL_TokData_t *tokdata,
         return CKR_FUNCTION_FAILED;
     }
     context = (DES_CONTEXT *) ctx->context;
+
+    if (in_data_len > ULONG_MAX - context->len) {
+        TRACE_ERROR("input length overflow\n");
+        return CKR_DATA_LEN_RANGE;
+    }
 
     total = (context->len + in_data_len);
 
