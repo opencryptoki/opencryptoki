@@ -1185,7 +1185,17 @@ CK_RV ecdh_pkcs_derive(STDLL_TokData_t *tokdata, SESSION *sess,
         kdf_digest_len = z_len;
     }
 
-    /* Allocate memory for derived key */
+    /*
+     * Allocate memory for derived key.
+     * derived_key_len is the smallest multiple of kdf_digest_len that is
+     * strictly greater than key_len, i.e.:
+     *   derived_key_len = (key_len / kdf_digest_len + 1) * kdf_digest_len
+     */
+    if (key_len > ULONG_MAX - (kdf_digest_len - 1)) {
+        TRACE_ERROR("derived key length overflow\n");
+        rc = CKR_KEY_SIZE_RANGE;
+        goto end;
+    }
     derived_key_len = ((key_len / kdf_digest_len) + 1) * kdf_digest_len;
     derived_key = malloc(derived_key_len);
     if (!derived_key) {
