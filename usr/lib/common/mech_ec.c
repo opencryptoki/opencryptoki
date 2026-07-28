@@ -779,6 +779,12 @@ CK_RV ckm_kdf_X9_63(STDLL_TokData_t *tokdata, SESSION *sess, CK_ULONG kdf,
      * Allocate memory for hash context:
      *  <secret> || <be32(counter 1..N)> || <sharedinfo>
      */
+    if (z_len > ULONG_MAX - counter_length ||
+        z_len + counter_length > ULONG_MAX - shared_data_len) {
+        TRACE_ERROR("KDF context length overflow\n");
+        return CKR_ARGUMENTS_BAD;
+    }
+
     ctx_len = z_len + counter_length + shared_data_len;
     ctx = malloc(ctx_len);
     if (!ctx)
@@ -835,6 +841,12 @@ CK_RV ckm_kdf_sp800_56c(STDLL_TokData_t *tokdata, SESSION *sess, CK_ULONG kdf,
      * Allocate memory for hash context:
      *  be32(counter) || [be32(purpose)] || <secret> || <fixed.info>
      */
+    if (z_len > ULONG_MAX - counter_length - purpose_length ||
+        z_len + counter_length + purpose_length > ULONG_MAX - shared_data_len) {
+        TRACE_ERROR("KDF context length overflow\n");
+        return CKR_ARGUMENTS_BAD;
+    }
+
     ctx_len = counter_length + purpose_length + z_len + shared_data_len;
     ctx = malloc(ctx_len);
     if (!ctx)
