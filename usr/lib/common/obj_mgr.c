@@ -19,6 +19,7 @@
 #include <string.h>
 #include <strings.h>
 #include <errno.h>
+#include <limits.h>
 #include <unistd.h>
 
 #include "pkcs11types.h"
@@ -1162,7 +1163,10 @@ void find_build_list_cb(STDLL_TokData_t *tokdata, void *node,
         fa->sess->find_count++;
 
         if (fa->sess->find_count >= fa->sess->find_len) {
-            fa->sess->find_len += 15;
+            if (fa->sess->find_len > ULONG_MAX - 15) {
+                TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+                goto done;
+            }
             find_len = fa->sess->find_len + 15;
             find_list = (CK_OBJECT_HANDLE *)realloc(fa->sess->find_list,
                                         find_len * sizeof(CK_OBJECT_HANDLE));
