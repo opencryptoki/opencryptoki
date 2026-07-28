@@ -982,14 +982,16 @@ CK_RV load_private_token_objects_old(STDLL_TokData_t *tokdata)
     CK_BBOOL priv;
     CK_ULONG_32 size;
     CK_RV rc;
-    size_t read_size;
+    size_t read_size, slen;
 
     fp1 = open_token_object_index(iname, sizeof(iname), tokdata, "r");
     if (!fp1)
         return CKR_OK;          // no token objects
 
     while (fgets(tmp, 50, fp1)) {
-        tmp[strlen(tmp) - 1] = 0;
+        slen = strlen(tmp);
+        if (slen > 0 && tmp[slen - 1] == '\n')
+            tmp[slen - 1] = '\0';
 
         fp2 = open_token_object_path(fname, sizeof(fname), tokdata, tmp, "r");
         if (!fp2)
@@ -1832,14 +1834,16 @@ CK_RV load_public_token_objects_old(STDLL_TokData_t *tokdata)
     char fname[PATH_MAX];
     CK_BBOOL priv;
     CK_ULONG_32 size;
-    size_t read_size;
+    size_t read_size, slen;
 
     fp1 = open_token_object_index(iname, sizeof(iname), tokdata, "r");
     if (!fp1)
         return CKR_OK;          // no token objects
 
     while (fgets(tmp, 50, fp1)) {
-        tmp[strlen(tmp) - 1] = 0;
+        slen = strlen(tmp);
+        if (slen > 0 && tmp[slen - 1] == '\n')
+            tmp[slen - 1] = '\0';
 
         fp2 = open_token_object_path(fname, sizeof(fname), tokdata, tmp, "r");
         if (!fp2)
@@ -2736,6 +2740,7 @@ CK_RV load_private_token_objects(STDLL_TokData_t *tokdata)
     CK_RV rc;
     unsigned char header[HEADER_LEN], footer[FOOTER_LEN];
     uint32_t len;
+    size_t slen;
 
     if (tokdata->version < TOK_NEW_DATA_STORE)
         return load_private_token_objects_old(tokdata);
@@ -2745,7 +2750,9 @@ CK_RV load_private_token_objects(STDLL_TokData_t *tokdata)
         return CKR_OK;          // no token objects
 
     while (fgets(tmp, 50, fp1)) {
-        tmp[strlen(tmp) - 1] = 0;
+        slen = strlen(tmp);
+        if (slen > 0 && tmp[slen - 1] == '\n')
+            tmp[slen - 1] = '\0';
 
         fp2 = open_token_object_path(fname, sizeof(fname), tokdata, tmp, "r");
         if (!fp2)
@@ -3062,6 +3069,7 @@ CK_RV load_public_token_objects(STDLL_TokData_t *tokdata)
     CK_ULONG_32 size;
     unsigned char header[PUB_HEADER_LEN];
     uint32_t ver;
+    size_t slen;
 
     if (tokdata->version < TOK_NEW_DATA_STORE)
         return load_public_token_objects_old(tokdata);
@@ -3071,7 +3079,9 @@ CK_RV load_public_token_objects(STDLL_TokData_t *tokdata)
         return CKR_OK;          // no token objects
 
     while (fgets(tmp, 50, fp1)) {
-        tmp[strlen(tmp) - 1] = 0;
+        slen = strlen(tmp);
+        if (slen > 0 && tmp[slen - 1] == '\n')
+            tmp[slen - 1] = '\0';
 
         fp2 = open_token_object_path(fname, sizeof(fname), tokdata,  tmp, "r");
         if (!fp2)
