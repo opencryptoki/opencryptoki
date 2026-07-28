@@ -263,8 +263,11 @@ CK_RV des3_cbc_pad_encrypt(STDLL_TokData_t *tokdata,
         TRACE_ERROR("%s received bad argument(s)\n", __func__);
         return CKR_FUNCTION_FAILED;
     }
-    // DES3-CBC-PAD has no input length requirements
-    //
+
+    if (in_data_len > ULONG_MAX - DES_BLOCK_SIZE) {
+        TRACE_ERROR("input length overflow\n");
+        return CKR_DATA_LEN_RANGE;
+    }
 
     rc = object_mgr_find_in_map1(tokdata, ctx->key, &key, READ_LOCK);
     if (rc != CKR_OK) {
