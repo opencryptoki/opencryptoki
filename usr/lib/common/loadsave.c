@@ -28,6 +28,8 @@
 #include <syslog.h>
 #include <pwd.h>
 #include <grp.h>
+#include <sys/types.h>
+#include <dirent.h>
 #include <openssl/evp.h>
 
 #include "platform.h"
@@ -420,30 +422,50 @@ CK_RV delete_token_object(STDLL_TokData_t *tokdata, OBJECT *obj)
     return CKR_OK;
 }
 
-CK_RV delete_token_data(STDLL_TokData_t *tokdata)
+CK_RV remove_files_in_directory(const char *directory, CK_BBOOL ignore_errors)
 {
     CK_RV rc = CKR_OK;
-    char *cmd = NULL;
+    DIR *dir;
+    struct dirent *entry;
+    char ent[PATH_MAX];
 
-    // Construct a string to delete the token objects.
-    //
-    // META This should be fine since the open session checking
-    // should occur at the API not the STDLL
-    //
-    // TODO: Implement delete_all_files_in_dir() */
-    if (asprintf(&cmd, "%s %s/%s/* > /dev/null 2>&1", DEL_CMD,
-                 tokdata->data_store, PK_LITE_OBJ_DIR) < 0) {
-        rc = CKR_HOST_MEMORY;
-        goto done;
+    dir = opendir(directory);
+    if (dir == NULL) {
+        TRACE_DEVEL("Failed to open directory '%s': %s\n", directory,
+                    strerror(errno));
+        return ignore_errors ? CKR_OK : CKR_FUNCTION_FAILED;
     }
 
-    if (system(cmd))
-        TRACE_ERROR("system() failed.\n");
+    while ((entry = readdir(dir)) != NULL) {
+        if (strncmp(entry->d_name, ".", 1) == 0)
+            continue;
 
-done:
-    free(cmd);
+        snprintf(ent, PATH_MAX, "%s/%s", directory, entry->d_name);
+        if (remove(ent) != 0) {
+            TRACE_DEVEL("Failed to remove file '%s': %s\n", ent,
+                                strerror(errno));
+
+            if (!ignore_errors) {
+                rc = CKR_FUNCTION_FAILED;
+                break;
+            }
+        }
+    }
+
+    closedir(dir);
 
     return rc;
+}
+
+CK_RV delete_token_data(STDLL_TokData_t *tokdata)
+{
+    char directory[PATH_MAX];
+
+    if (get_token_data_store_path(directory, sizeof(directory), tokdata,
+                                  PK_LITE_OBJ_DIR, NULL) != 0)
+        return CKR_FUNCTION_FAILED;
+
+    return remove_files_in_directory(directory, CK_TRUE);
 }
 
 CK_RV init_data_store(STDLL_TokData_t *tokdata, char *directory,

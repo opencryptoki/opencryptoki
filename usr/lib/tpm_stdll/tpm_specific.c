@@ -2206,52 +2206,50 @@ CK_RV token_specific_set_pin(STDLL_TokData_t * tokdata, SESSION * sess,
 
 static CK_RV delete_tpm_data(STDLL_TokData_t * tokdata)
 {
-    char *cmd = NULL;
     struct passwd *pw = NULL;
+    char fname[PATH_MAX];
+    CK_RV rc;
 
     pw = getpwuid(getuid());
     if (pw == NULL) {
         TRACE_ERROR("getpwuid failed: %s\n", strerror(errno));
         return CKR_FUNCTION_FAILED;
     }
-    // delete the TOK_OBJ data files
-    if (asprintf(&cmd, "%s %s/%s/%s/* > /dev/null 2>&1", DEL_CMD,
-                 tokdata->pk_dir, pw->pw_name, PK_LITE_OBJ_DIR) < 0) {
-        return CKR_HOST_MEMORY;
+
+    /* delete the TOK_OBJ data files */
+    if (ock_snprintf(fname, sizeof(fname), "%s/%s/%s",
+                     tokdata->pk_dir, pw->pw_name, PK_LITE_OBJ_DIR) != 0)
+        return CKR_FUNCTION_FAILED;
+
+    rc = remove_files_in_directory(fname, CK_TRUE);
+    if (rc != CKR_OK)
+        return rc;
+
+    /* delete the OpenSSL backup keys */
+    if (ock_snprintf(fname, sizeof(fname), "%s/%s/%s",
+                 tokdata->pk_dir, pw->pw_name, TPMTOK_PUB_ROOT_KEY_FILE) != 0)
+        return CKR_FUNCTION_FAILED;
+
+    if (remove(fname) != 0) {
+        TRACE_DEVEL("Failed to remove file '%s': %s\n", fname, strerror(errno));
     }
-    if (system(cmd) == -1)
-        TRACE_ERROR("system() failed.\n");
 
-    free(cmd);
+    if (ock_snprintf(fname, sizeof(fname), "%s/%s/%s",
+                 tokdata->pk_dir, pw->pw_name, TPMTOK_PRIV_ROOT_KEY_FILE) != 0)
+        return CKR_FUNCTION_FAILED;
 
-    // delete the OpenSSL backup keys
-    if (asprintf(&cmd, "%s %s/%s/%s > /dev/null 2>&1", DEL_CMD,
-                 tokdata->pk_dir, pw->pw_name, TPMTOK_PUB_ROOT_KEY_FILE) < 0) {
-        return CKR_HOST_MEMORY;
+    if (remove(fname) != 0) {
+        TRACE_DEVEL("Failed to remove file '%s': %s\n", fname, strerror(errno));
     }
-    if (system(cmd) == -1)
-        TRACE_ERROR("system() failed.\n");
 
-    free(cmd);
+    /* delete the masterkey */
+    if (ock_snprintf(fname, sizeof(fname), "%s/%s/%s",
+                 tokdata->pk_dir, pw->pw_name, TPMTOK_MASTERKEY_PRIVATE) != 0)
+        return CKR_FUNCTION_FAILED;
 
-    if (asprintf(&cmd, "%s %s/%s/%s > /dev/null 2>&1", DEL_CMD,
-                 tokdata->pk_dir, pw->pw_name, TPMTOK_PRIV_ROOT_KEY_FILE) < 0) {
-        return CKR_HOST_MEMORY;
+    if (remove(fname) != 0) {
+        TRACE_DEVEL("Failed to remove file '%s': %s\n", fname, strerror(errno));
     }
-    if (system(cmd) == -1)
-        TRACE_ERROR("system() failed.\n");
-
-    free(cmd);
-
-    // delete the masterkey
-    if (asprintf(&cmd, "%s %s/%s/%s > /dev/null 2>&1", DEL_CMD,
-                 tokdata->pk_dir, pw->pw_name, TPMTOK_MASTERKEY_PRIVATE) < 0) {
-        return CKR_HOST_MEMORY;
-    }
-    if (system(cmd) == -1)
-        TRACE_ERROR("system() failed.\n");
-
-    free(cmd);
 
     return CKR_OK;
 }
