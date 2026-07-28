@@ -4259,6 +4259,11 @@ CK_RV ckm_aes_wrap_format(STDLL_TokData_t *tokdata,
     // we pad with NULLs to the next blocksize multiple.
     //
     if (len1 % block_size != 0) {
+        if (len1 > ULONG_MAX - (block_size - 1)) {
+            TRACE_ERROR("input length overflow\n");
+            return CKR_DATA_LEN_RANGE;
+        }
+
         len2 = block_size * ((len1 / block_size) + 1);
 
         if (length_only == FALSE) {
