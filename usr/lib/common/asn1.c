@@ -1886,16 +1886,20 @@ CK_RV ber_encode_RSAPublicKey(CK_BBOOL length_only, CK_BYTE **data,
     }
     free(buf);
 
-    /* length of outer sequence */
-    rc = ber_encode_OCTET_STRING(TRUE, NULL, &total, buf2, len);
+    /* size estimate for buf3: AlgId + BIT STRING wrapping buf2/len */
+    rc = ber_encode_BIT_STRING(TRUE, NULL, &total, NULL, len, 0);
     if (rc != CKR_OK) {
-        TRACE_DEVEL("%s ber_encode_Oct_Str failed with rc=0x%lx\n", __func__,
-                    rc);
+        TRACE_DEVEL("%s ber_encode_BIT_STRING failed with rc=0x%lx\n",
+                    __func__, rc);
         free(buf2);
         return rc;
-    } else {
-        total_len += total + 1;
     }
+    if (total > ULONG_MAX - total_len) {
+        TRACE_ERROR("%s key encoding length overflow\n", __func__);
+        free(buf2);
+        return CKR_KEY_SIZE_RANGE;
+    }
+    total_len += total;
 
     /* mem for outer sequence */
     buf3 = (CK_BYTE *) malloc(total_len);
