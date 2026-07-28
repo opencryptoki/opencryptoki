@@ -40,7 +40,14 @@ CK_RV ock_generic_filter_mechanism_list(STDLL_TokData_t *tokdata,
             ++j;
     }
     *reslen = j;
-    *reslist = realloc(*reslist, sizeof(MECH_LIST_ELEMENT) * j);
+    if (j == 0) {
+        free(*reslist);
+        *reslist = NULL;
+    } else {
+        *reslist = realloc(*reslist, sizeof(MECH_LIST_ELEMENT) * j);
+        if (*reslist == NULL)
+            return CKR_HOST_MEMORY;
+    }
     return CKR_OK;
 }
 
