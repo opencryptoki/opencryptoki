@@ -90,9 +90,9 @@ typedef struct _SESSION {
     CK_SESSION_INFO session_info;
 
     CK_OBJECT_HANDLE *find_list;        // array of CK_OBJECT_HANDLE
-    CK_ULONG_32 find_count;     // # handles in the list
-    CK_ULONG_32 find_len;       // max # of handles in the list
-    CK_ULONG_32 find_idx;       // current position
+    CK_ULONG find_count;     // # handles in the list
+    CK_ULONG find_len;       // max # of handles in the list
+    CK_ULONG find_idx;       // current position
     CK_BBOOL find_active;
 
     ENCR_DECR_CONTEXT encr_ctx;
