@@ -1372,19 +1372,36 @@ CK_RV ssl3_key_and_mac_derive(STDLL_TokData_t *tokdata,
         goto error;
     }
 
-    // figure out how much key material we need to generate
-    //
-    key_material_loop_count = 2 * ((params->ulMacSizeInBits + 7) / 8) +
-        2 * ((params->ulKeySizeInBits + 7) / 8);
+    /*
+     * figure out how much key material we need to generate
+     *
+     * Reject any value that exceeds the maximum meaningful SSL3 key-material
+     * size (26 * 16 * 8 = 3328 bits per component) before performing any
+     * computation. This keeps the bit-to-byte conversions and the total size
+     * calculation below safe bounds.
+     */
+    if (params->ulMacSizeInBits > 26 * 16 * 8 ||
+        params->ulKeySizeInBits > 26 * 16 * 8 ||
+        params->ulIVSizeInBits > 26 * 16 * 8) {
+        TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
+        rc = CKR_MECHANISM_PARAM_INVALID;
+        goto error;
+    }
+
+    MAC_len = (params->ulMacSizeInBits + 7) / 8;
+    write_len = (params->ulKeySizeInBits + 7) / 8;
+    iv_len = (params->ulIVSizeInBits + 7) / 8;
+
+    key_material_loop_count = 2 * MAC_len + 2 * write_len;
 
     if (params->bIsExport == FALSE)
-        key_material_loop_count += 2 * ((params->ulIVSizeInBits + 7) / 8);
+        key_material_loop_count += 2 * iv_len;
 
     // we stop at 'ZZZZ....'  presumably this is enough for all cases?
     //
     if (key_material_loop_count > 26 * 16) {
-        TRACE_DEVEL("key_material_loop_count is too big.\n");
-        rc = CKR_FUNCTION_FAILED;
+        TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
+        rc = CKR_MECHANISM_PARAM_INVALID;
         goto error;
     }
     key_material_loop_count = (key_material_loop_count + 15) / 16;
@@ -1409,9 +1426,6 @@ CK_RV ssl3_key_and_mac_derive(STDLL_TokData_t *tokdata,
 
     // Break key material into pieces
     //
-    MAC_len = (params->ulMacSizeInBits + 7) / 8;
-    write_len = (params->ulKeySizeInBits + 7) / 8;      // check this
-
     client_MAC_key_value = key_block;
     server_MAC_key_value = client_MAC_key_value + MAC_len;
 
@@ -1420,7 +1434,6 @@ CK_RV ssl3_key_and_mac_derive(STDLL_TokData_t *tokdata,
         client_write_key_value + (params->ulKeySizeInBits + 7) / 8;
 
     if (params->ulIVSizeInBits != 0) {
-        iv_len = (params->ulIVSizeInBits + 7) / 8;
         client_IV = server_write_key_value + write_len;
         server_IV = client_IV + iv_len;
     }
