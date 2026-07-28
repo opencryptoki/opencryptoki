@@ -259,8 +259,11 @@ CK_RV aes_cbc_pad_encrypt(STDLL_TokData_t *tokdata,
         TRACE_ERROR("%s received bad argument(s)\n", __func__);
         return CKR_FUNCTION_FAILED;
     }
-    // AES-CBC-PAD has no input length requirements
-    //
+
+    if (in_data_len > ULONG_MAX - AES_BLOCK_SIZE) {
+        TRACE_ERROR("input length overflow\n");
+        return CKR_DATA_LEN_RANGE;
+    }
 
     rc = object_mgr_find_in_map1(tokdata, ctx->key, &key, READ_LOCK);
     if (rc != CKR_OK) {
@@ -4866,6 +4869,12 @@ CK_RV aes_key_wrap_encrypt(STDLL_TokData_t *tokdata, SESSION *sess,
     case CKM_AES_KEY_WRAP_PAD:
     case CKM_AES_KEY_WRAP_PKCS7:
         pkcs7_pad = TRUE;
+
+        if (in_data_len > ULONG_MAX - AES_BLOCK_SIZE) {
+            TRACE_ERROR("input length overflow\n");
+            return CKR_DATA_LEN_RANGE;
+        }
+
         padded_len = AES_BLOCK_SIZE * ((in_data_len / AES_BLOCK_SIZE) + 1);
         break;
     case CKM_AES_KEY_WRAP_KWP:
@@ -4873,10 +4882,21 @@ CK_RV aes_key_wrap_encrypt(STDLL_TokData_t *tokdata, SESSION *sess,
         if (in_data_len % AES_KEY_WRAP_BLOCK_SIZE != 0)
             padded_len = AES_KEY_WRAP_BLOCK_SIZE -
                                 (in_data_len % AES_KEY_WRAP_BLOCK_SIZE);
+
+        if (in_data_len > ULONG_MAX - padded_len) {
+            TRACE_ERROR("input length overflow\n");
+            return CKR_DATA_LEN_RANGE;
+        }
+
         padded_len += in_data_len;
         break;
     default:
         return CKR_MECHANISM_INVALID;
+    }
+
+    if (padded_len > ULONG_MAX - AES_KEY_WRAP_BLOCK_SIZE) {
+        TRACE_ERROR("input length overflow\n");
+        return CKR_DATA_LEN_RANGE;
     }
 
     out_len = padded_len + AES_KEY_WRAP_BLOCK_SIZE;
