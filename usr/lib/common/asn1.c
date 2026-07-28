@@ -47,6 +47,16 @@ CK_ULONG ber_encode_INTEGER(CK_BBOOL length_only,
         || (data_len && data && *data & 0x80))
         padding = 1;
 
+    /*
+     * Reject inputs that would overflow the BER content-length field.
+     * The maximum DER length we encode here is 3 bytes (< 2^24), so
+     * data_len + padding must fit in that range.
+     */
+    if (data_len > (1 << 24) - 1 - padding) {
+        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
+        return CKR_FUNCTION_FAILED;
+    }
+
     // if data_len < 127 use short-form length id
     // if data_len < 256 use long-form length id with 1-byte length field
     // if data_len < 65536 use long-form length id with 2-byte length field
@@ -469,6 +479,16 @@ CK_ULONG ber_encode_BIT_STRING(CK_BBOOL length_only,
     // if data_len < 256 use long-form length id with 1-byte length field
     // if data_len < 65536 use long-form length id with 2-byte length field
     // if data_len < 16777216 use long-form length id with 3-byte length field
+
+    /*
+     * The encoded BIT STRING content length is data_len + 1 (for the
+     * unused-bits byte).  Guard against data_len + 1 wrapping when
+     * data_len is close to ULONG_MAX before any of the comparisons below.
+     */
+    if (data_len >= (1 << 24) - 1) {
+        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
+        return CKR_FUNCTION_FAILED;
+    }
 
     if (data_len + 1 < 128) {
         len = 1 + 1 + 1 + data_len;
