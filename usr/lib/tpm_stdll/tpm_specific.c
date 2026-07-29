@@ -3239,7 +3239,7 @@ int token_specific_creatlock(STDLL_TokData_t *tokdata)
         OCK_SYSLOG(LOG_ERR, "getpwuid(): %s\n", strerror(errno));
         return -1;
     }
-    if (strlen(pw->pw_name) > PATH_MAX) {
+    if (strlen(pw->pw_name) >= PATH_MAX) {
         OCK_SYSLOG(LOG_ERR, "Username(%s) too long\n", pw->pw_name);
         return -1;
     }
@@ -3247,7 +3247,7 @@ int token_specific_creatlock(STDLL_TokData_t *tokdata)
     /** create lock subdir for each token if it doesn't exist.
 	 * The root /var/lock/opencryptoki directory should be created in slotmgr
 	 * daemon **/
-    sprintf(lockdir, "%s/%s", LOCKDIR_PATH, SUB_DIR);
+    snprintf(lockdir, sizeof(lockdir), "%s/%s", LOCKDIR_PATH, SUB_DIR);
 
     group = tokdata->tokgroup;
     if (group == NULL || group[0] == '\0')
@@ -3303,7 +3303,8 @@ int token_specific_creatlock(STDLL_TokData_t *tokdata)
     }
 
     /* create user-specific directory */
-    sprintf(lockfile, "%s/%s/%s", LOCKDIR_PATH, SUB_DIR, pw->pw_name);
+    snprintf(lockfile, sizeof(lockfile), "%s/%s/%s", LOCKDIR_PATH, SUB_DIR,
+             pw->pw_name);
 
     /* see if it exists, otherwise mkdir will fail */
     if (stat(lockfile, &statbuf) < 0) {
@@ -3321,8 +3322,8 @@ int token_specific_creatlock(STDLL_TokData_t *tokdata)
 
     /* create user lock file */
     memset(lockfile, 0, sizeof(lockfile));
-    sprintf(lockfile, "%s/%s/%s/LCK..%s", LOCKDIR_PATH, SUB_DIR, pw->pw_name,
-            SUB_DIR);
+    snprintf(lockfile, sizeof(lockfile), "%s/%s/%s/LCK..%s", LOCKDIR_PATH,
+            SUB_DIR, pw->pw_name, SUB_DIR);
 
     lockfd = open_nofollow(lockfile, O_CREAT | O_RDWR, mode);
     if (lockfd == -1) {
