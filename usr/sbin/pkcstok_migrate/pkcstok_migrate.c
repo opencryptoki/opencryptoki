@@ -2162,7 +2162,7 @@ static CK_RV update_opencryptoki_conf(CK_SLOT_ID slot_id, char *location)
 
     /* Open new conf file for write */
     snprintf(dst_file, PATH_MAX, "%s/%s", location, "opencryptoki.conf_new");
-    fp_w = fopen(dst_file, "w");
+    fp_w = fopen_nofollow(dst_file, "w");
     if (!fp_w) {
         TRACE_ERROR("fopen(%s) failed, errno=%s\n", dst_file, strerror(errno));
         ret = CKR_FUNCTION_FAILED;
@@ -2252,7 +2252,7 @@ static CK_RV file_copy(char *dst, const char *src, const char *name,
         goto done;
     }
 
-    fp_w = fopen(dst_file, "w");
+    fp_w = fopen_nofollow(dst_file, "w");
     if (!fp_w) {
         warnx("fopen(%s) failed, errno=%s", dst_file, strerror(errno));
         ret = CKR_FUNCTION_FAILED;
