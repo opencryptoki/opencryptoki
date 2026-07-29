@@ -56,8 +56,8 @@ void *attach_shared_memory(void)
     char *shmp;
     struct stat statbuf;
     struct group *grp;
-    struct passwd *pw, *epw;
-    uid_t uid, euid;
+    struct passwd *epw;
+    uid_t euid;
 
 #if !(MMAP)
     // Really should fstat the tok_path, since it will be the actual
@@ -69,25 +69,17 @@ void *attach_shared_memory(void)
         return NULL;
     }
 
-    uid = getuid();
     euid = geteuid();
     // only check group membership if not root user
-    if (uid != 0 && euid != 0) {
+    if (euid != 0) {
         int i, member = 0;
         grp = getgrnam(PKCS_GROUP);
         if (!grp) {
             // group pkcs11 not known to the system
             return NULL;
         }
-        pw = getpwuid(uid);
         epw = getpwuid(euid);
         for (i = 0; grp->gr_mem[i]; i++) {
-            if (pw) {
-                if (!strcmp(pw->pw_name, grp->gr_mem[i])) {
-                    member = 1;
-                    break;
-                }
-            }
             if (epw) {
                 if (!strcmp(epw->pw_name, grp->gr_mem[i])) {
                     member = 1;

@@ -374,7 +374,7 @@ CK_RV check_user_and_group(void)
         return CKR_FUNCTION_FAILED;
     }
 
-    if (getgid() == grp->gr_gid || getegid() == grp->gr_gid)
+    if (getegid() == grp->gr_gid)
         return CKR_OK;
 
     /* Check if effective user is member of pkcs11 group */
