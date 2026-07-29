@@ -702,6 +702,8 @@ typedef struct {
 #endif
 } ica_ex_data_t;
 
+static int ica_ed_x_ctx_del(int nid, void **ctx);
+
 void ica_free_ex_data(OBJECT *obj, void *ex_data, size_t ex_data_len)
 {
     ica_ex_data_t *data = ex_data;
@@ -730,6 +732,12 @@ void ica_free_ex_data(OBJECT *obj, void *ex_data, size_t ex_data_len)
         p_ica_ec_key_free(data->eckey);
         data->eckey = NULL;
         data->ec_privlen = 0;
+    }
+
+    if (data->ed_x_ctx != NULL) {
+        ica_ed_x_ctx_del(data->ed_x_nid, &data->ed_x_ctx);
+        data->ed_x_nid = 0;
+        data->ed_x_ctx = NULL;
     }
 
     if (data->blinding != NULL) {
