@@ -34,6 +34,7 @@
 #include "h_extern.h"
 #include "trace.h"
 #include "ock_syslog.h"
+#include "platform.h"
 
 #ifdef SYS_gettid
     #define __gettid() syscall(SYS_gettid)
@@ -196,8 +197,8 @@ CK_RV trace_initialize(void)
     snprintf(tracefile, sizeof(tracefile), "/%s/%s.%d", OCK_LOGDIR,
              "trace", getpid());
 
-    trace.fd = open(tracefile, O_RDWR | O_APPEND | O_CREAT,
-                    S_IRUSR | S_IWUSR | S_IRGRP);
+    trace.fd = open_nofollow(tracefile, O_RDWR | O_APPEND | O_CREAT,
+                             S_IRUSR | S_IWUSR | S_IRGRP);
 
     if (trace.fd < 0) {
         OCK_SYSLOG(LOG_WARNING,

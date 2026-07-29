@@ -11,6 +11,7 @@
 #define PLATFORM_H
 
 #include <dlfcn.h>
+#include <stdarg.h>
 #include <stdio.h>
 #include <fcntl.h>
 #include <unistd.h>
@@ -113,6 +114,54 @@ static inline FILE *fopen_nofollow(const char *path, const char *mode)
         return NULL;
     }
     return fp;
+#endif
+}
+
+/*
+ * CWE-59 fix: Open file without following symlinks.
+ *
+ * On platforms with O_NOFOLLOW support:
+ *   Uses open(flags | O_NOFOLLOW) for atomic symlink rejection.
+ *
+ * On platforms without O_NOFOLLOW (e.g., older AIX):
+ *   Falls back to lstat() + open(). This has a TOCTOU race condition,
+ *   but still catches pre-planted symlinks which is the common attack
+ *   scenario. Better than no protection at all.
+ *
+ * Returns -1 with errno=ELOOP if path is a symlink.
+ */
+static inline int open_nofollow(const char *path, int flags, ...)
+{
+    mode_t mode = 0;
+    va_list ap;
+
+    if (flags & O_CREAT) {
+        va_start(ap, flags);
+        mode = va_arg(ap, int); /* mode_t is promoted to int in varargs */
+        va_end(ap);
+    }
+
+#ifdef OCK_NO_O_NOFOLLOW
+    {
+        /*
+         * Fallback for platforms without O_NOFOLLOW: use lstat() check.
+         * This has a TOCTOU race but catches pre-planted symlinks.
+         */
+        struct stat sb;
+
+        if (lstat(path, &sb) == 0) {
+            if (S_ISLNK(sb.st_mode)) {
+                errno = ELOOP;
+                return -1;
+            }
+        }
+    }
+    /* Note: if lstat fails (e.g., file doesn't exist for "w" mode),
+     * we proceed with open() which will handle the error appropriately */
+    return open(path, flags, mode);
+#else
+    /* Preferred: atomic symlink rejection via O_NOFOLLOW */
+    return open(path, flags | O_NOFOLLOW, mode);
 #endif
 }
 
