@@ -61,11 +61,12 @@ CK_RV hsm_mk_change_lock_create(void)
 #endif
 
     if (hsm_mk_change_lock_fd == -1)
-        hsm_mk_change_lock_fd = open(OCK_HSM_MK_CHANGE_LOCK_FILE, open_flags);
+        hsm_mk_change_lock_fd = open_nofollow(OCK_HSM_MK_CHANGE_LOCK_FILE,
+                                              open_flags);
 
     if (hsm_mk_change_lock_fd == -1) {
-        hsm_mk_change_lock_fd = open(OCK_HSM_MK_CHANGE_LOCK_FILE,
-                                     (O_CREAT | open_flags), mode);
+        hsm_mk_change_lock_fd = open_nofollow(OCK_HSM_MK_CHANGE_LOCK_FILE,
+                                              (O_CREAT | open_flags), mode);
 
         if (hsm_mk_change_lock_fd != -1) {
             if (fchmod(hsm_mk_change_lock_fd, mode) == -1) {

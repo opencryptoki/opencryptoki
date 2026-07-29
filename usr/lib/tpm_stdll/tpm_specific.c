@@ -56,6 +56,7 @@
 #include "tok_struct.h"
 #include "trace.h"
 #include "ock_syslog.h"
+#include "platform.h"
 
 #include "tpm_specific.h"
 
@@ -3323,7 +3324,7 @@ int token_specific_creatlock(STDLL_TokData_t *tokdata)
     sprintf(lockfile, "%s/%s/%s/LCK..%s", LOCKDIR_PATH, SUB_DIR, pw->pw_name,
             SUB_DIR);
 
-    lockfd = open(lockfile, O_CREAT | O_RDWR, mode);
+    lockfd = open_nofollow(lockfile, O_CREAT | O_RDWR, mode);
     if (lockfd == -1) {
         OCK_SYSLOG(LOG_ERR, "open(%s): %s\n", lockfile, strerror(errno));
         return -1;
