@@ -13,6 +13,7 @@
  *
  */
 
+#include "platform.h"
 #include <ctype.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -179,7 +180,7 @@ static int add_token_config(const char *configname,
     }
 
     /* create the token config file */
-    tfp = fopen(configname, "w");
+    tfp = fopen_nofollow(configname, "w");
     if (tfp == NULL) {
         fprintf(stderr, "fopen failed, line %d: %s\n",
                 __LINE__, strerror(errno));
@@ -315,7 +316,7 @@ static int config_add_slotinfo(int num_of_slots,
     }
 
     /* Open conf file for write */
-    fp = fopen(OCK_CONFIG, "w");
+    fp = fopen_nofollow(OCK_CONFIG, "w");
     if (!fp) {
         fprintf(stderr, "fopen(%s) failed, errno=%s\n", OCK_CONFIG,
                 strerror(errno));
