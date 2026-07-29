@@ -16,6 +16,7 @@
 #include <unistd.h>
 #include <sys/types.h>
 
+#include "platform.h"
 #include "log.h"
 #include "err.h"
 #include "slotmgr.h"
@@ -291,7 +292,7 @@ BOOL NewLoggingFacility(char *ID, pLoggingFacility pStuff)
         char FileMode[] = "a";
 #endif                          /* TRUNCATE_LOGS_ON_START */
 
-        if ((fd = fopen((pStuff->Filename), FileMode)) == NULL) {
+        if ((fd = fopen_nofollow((pStuff->Filename), FileMode)) == NULL) {
 #ifdef DEV
             fprintf(stderr, "%s could not be opened\n", pStuff->Filename);
 #endif
@@ -474,7 +475,7 @@ BOOL PKCS_Log(pLogHandle phLog, char *fmt, va_list ap)
 
         FILE *fd;
 
-        if ((fd = fopen(pInfo->Filename, "a+")) == NULL) {
+        if ((fd = fopen_nofollow(pInfo->Filename, "a+")) == NULL) {
             fprintf(stderr, "PKCS_Log: fopen failed for %s\n", pInfo->Filename);
         } else {
             char timebuf[32];       /* Specs say 26-character array */
