@@ -18,6 +18,7 @@
 #include <grp.h>
 #include <pwd.h>
 #include <string.h>
+#include <fcntl.h>
 #include <openssl/evp.h>
 
 #include "log.h"
@@ -25,6 +26,7 @@
 #include "pkcsslotd.h"
 #include "cfgparser.h"
 #include "configuration.h"
+#include "platform.h"
 
 #define OBJ_DIR "TOK_OBJ"
 #define SHA256_HASH_SIZE 32
@@ -660,11 +662,20 @@ int chk_create_tokdir(Slot_Info_t_64 *psinfo)
 static int create_pid_file(pid_t pid)
 {
     FILE *pidfile;
+    int pidfd;
 
-    pidfile = fopen(PID_FILE_PATH, "w");
+    pidfd = open_nofollow(PID_FILE_PATH, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+    if (pidfd < 0) {
+        fprintf(stderr, "Could not create pid file '%s' [errno=%s].\n",
+                PID_FILE_PATH, strerror(errno));
+        return -1;
+    }
+
+    pidfile = fdopen(pidfd, "w");
     if (!pidfile) {
         fprintf(stderr, "Could not create pid file '%s' [errno=%s].\n",
                 PID_FILE_PATH, strerror(errno));
+        close(pidfd);
         return -1;
     }
 
