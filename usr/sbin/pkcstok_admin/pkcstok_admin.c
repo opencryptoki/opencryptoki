@@ -310,7 +310,7 @@ static bool check_file_exists(const char *fname, bool directory)
 {
     struct stat sb;
 
-    if (stat(fname, &sb) != 0)
+    if (lstat(fname, &sb) != 0)
         return false;
 
     if (directory && S_ISDIR(sb.st_mode))
@@ -421,7 +421,7 @@ static int remove_recursive(const char *fname, bool only_content)
 
     pr_verbose("Removing %s'%s'", only_content ? "the content of " : "", fname);
 
-    if (stat(fname, &sb) != 0) {
+    if (lstat(fname, &sb) != 0) {
         err = errno;
         if (err == ENOENT) {
             /* Removing a non-existing file is a no-op */
@@ -431,6 +431,16 @@ static int remove_recursive(const char *fname, bool only_content)
 
         warnx("Failed to stat '%s': %s.", fname, strerror(err));
         return -1;
+    }
+
+    if (S_ISLNK(sb.st_mode)) {
+        /* unlink the symlink itself, do not follow it */
+        if (remove(fname) != 0) {
+            err = errno;
+            warnx("Failed to remove '%s': %s", fname, strerror(err));
+            return -1;
+        }
+        return 0;
     }
 
     if (S_ISDIR(sb.st_mode)) {
