@@ -83,16 +83,13 @@ void *attach_shared_memory(void)
         epw = getpwuid(euid);
         for (i = 0; grp->gr_mem[i]; i++) {
             if (pw) {
-                if (!strncmp(pw->pw_name,
-                             grp->gr_mem[i],
-                             strlen(pw->pw_name))) {
+                if (!strcmp(pw->pw_name, grp->gr_mem[i])) {
                     member = 1;
                     break;
                 }
             }
             if (epw) {
-                if (!strncmp(epw->pw_name,
-                             grp->gr_mem[i], strlen(epw->pw_name))) {
+                if (!strcmp(epw->pw_name, grp->gr_mem[i])) {
                     member = 1;
                     break;
                 }
