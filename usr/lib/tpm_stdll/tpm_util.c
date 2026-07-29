@@ -225,7 +225,7 @@ TSS_FLAG get_srk_mode(void)
 
     /* parse */
     for (i = 0; i < num_modes; i++) {
-        if (strncmp(mode, tss_modes[i].str, strlen(mode)) == 0)
+        if (strcmp(mode, tss_modes[i].str) == 0)
             return tss_modes[i].mode;
     }
 
