@@ -4410,12 +4410,21 @@ static CK_RV openssl_cipher_perform(OBJECT *key, CK_MECHANISM_TYPE mech,
 #if !OPENSSL_VERSION_PREREQ(3, 0)
         memcpy(out_v, EVP_CIPHER_CTX_iv(ctx), EVP_CIPHER_CTX_iv_length(ctx));
 #else
+        ERR_set_mark();
         if (EVP_CIPHER_CTX_get_updated_iv(ctx, out_v,
                                 EVP_CIPHER_CTX_get_iv_length(ctx)) != 1) {
             TRACE_ERROR("%s\n", ock_err(ERR_GENERAL_ERROR));
             rc = CKR_GENERAL_ERROR;
             goto done;
         }
+        /*
+         * Some versions of EVP_CIPHER_CTX_get_updated_iv might add an error
+         * like "000003FF8C3F3EA0:error:07800081:common libcrypto routines:
+         * set_ptr_internal:param of incompatible type:crypto/params.c:1506:"
+         * to the error stack even on sucessfull return.
+         * Ignore those errors.
+         */
+        ERR_pop_to_mark();
 #endif
     }
 
