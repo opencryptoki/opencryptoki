@@ -71,7 +71,7 @@ CK_RV CreateProcLock(void)
         /* The slot mgr daemon should have already created lock,
          * so just open it so we can get a lock...
          */
-        xplfd = open(OCK_API_LOCK_FILE, OPEN_MODE);
+        xplfd = open_nofollow(OCK_API_LOCK_FILE, OPEN_MODE);
 
         if (xplfd == -1) {
             OCK_SYSLOG(LOG_ERR, "C_Initialize: Could not open '%s': %s. "

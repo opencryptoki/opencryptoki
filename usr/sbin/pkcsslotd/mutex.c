@@ -19,6 +19,7 @@
 
 #include "log.h"
 #include "slotmgr.h"
+#include "platform.h"
 
 static int xplfd = -1;
 
@@ -27,10 +28,10 @@ int CreateXProcLock(void)
     struct group *grp;
 
     if (xplfd == -1)
-        xplfd = open(OCK_API_LOCK_FILE, OPEN_MODE);
+        xplfd = open_nofollow(OCK_API_LOCK_FILE, OPEN_MODE);
 
     if (xplfd == -1) {
-        xplfd = open(OCK_API_LOCK_FILE, O_CREAT | OPEN_MODE, MODE_BITS);
+        xplfd = open_nofollow(OCK_API_LOCK_FILE, O_CREAT | OPEN_MODE, MODE_BITS);
 
         if (xplfd != -1) {
             if (fchmod(xplfd, MODE_BITS) == -1) {

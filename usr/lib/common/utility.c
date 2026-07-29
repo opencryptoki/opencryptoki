@@ -36,6 +36,7 @@
 #include "trace.h"
 #include "ock_syslog.h"
 #include "slotmgr.h" // for ock_snprintf
+#include "platform.h"
 
 #include <sys/file.h>
 #include <syslog.h>
@@ -133,9 +134,10 @@ CK_RV CreateXProcLock(char *tokname, STDLL_TokData_t *tokdata)
         }
 
         if (stat(lockfile, &statbuf) == 0) {
-            tokdata->spinxplfd = open(lockfile, OPEN_MODE);
+            tokdata->spinxplfd = open_nofollow(lockfile, OPEN_MODE);
         } else {
-            tokdata->spinxplfd = open(lockfile, O_CREAT | OPEN_MODE, MODE_BITS);
+            tokdata->spinxplfd = open_nofollow(lockfile, O_CREAT | OPEN_MODE,
+                                               MODE_BITS);
             if (tokdata->spinxplfd != -1) {
                 /* umask may prevent correct mode, so set it. */
                 if (fchmod(tokdata->spinxplfd, MODE_BITS) == -1) {
