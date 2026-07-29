@@ -113,7 +113,7 @@ static int remove_file(char *filename)
     struct stat statbuf;
 
     /* if file exists, then remove it */
-    if ((stat(filename, &statbuf) < 0) && (errno == ENOENT)) {
+    if (stat(filename, &statbuf) == 0) {
         if (unlink(filename) == -1) {
             fprintf(stderr, "unlink failed for %s, line %d: %s\n",
                     filename, __LINE__, strerror(errno));
@@ -407,7 +407,7 @@ static void remove_racf_file(const char *tokname)
     char fname[PATH_MAX];
 
     /* remove the so and user files */
-    snprintf(fname, sizeof(fname), "%s/RACF", tokname);
+    snprintf(fname, sizeof(fname), "%s/%s/%s", CONFIG_PATH, tokname, RACFFILE);
     remove_file(fname);
 }
 
