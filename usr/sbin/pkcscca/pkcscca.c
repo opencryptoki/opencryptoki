@@ -502,7 +502,7 @@ int load_token_objects(unsigned char *data_store,
         /* now save the newly re-encrypted object back to
          * disk in its original file.
          */
-        fp2 = fopen((char *) fname, "w");
+        fp2 = fopen_nofollow((char *) fname, "w");
         if (fp2 == NULL) {
             printf("Failed to open file %s: %s", fname, strerror(errno));
             rc = CKR_FUNCTION_FAILED;
