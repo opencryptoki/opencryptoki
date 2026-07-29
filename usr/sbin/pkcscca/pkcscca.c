@@ -432,8 +432,11 @@ int load_token_objects(unsigned char *data_store,
     while (fgets((char *) tmp, 50, fp1)) {
         tmp[strlen((char *) tmp) - 1] = 0;
 
-        snprintf((char *) fname, sizeof(fname), "%s/TOK_OBJ/", data_store);
-        strcat((char *) fname, (char *) tmp);
+        if (snprintf(fname, sizeof(fname), "%s/TOK_OBJ/%s",
+                     data_store, tmp) >= (int)sizeof(fname)) {
+            fprintf(stderr, "Path too long, skipping object\n");
+            continue;
+        }
 
         fp2 = fopen((char *) fname, "r");
         if (!fp2)
