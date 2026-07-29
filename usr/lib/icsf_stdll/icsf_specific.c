@@ -677,20 +677,29 @@ CK_RV token_specific_init_token_data(STDLL_TokData_t * tokdata,
 
     /* Copy general info */
     memcpy(tokdata->nv_token_data->token_info.label, config.name,
-           strlen(config.name));
+           MIN(strlen(config.name),
+               sizeof(tokdata->nv_token_data->token_info.label)));
     memcpy(tokdata->nv_token_data->token_info.manufacturerID, config.manuf,
-           strlen(config.manuf));
+           MIN(strlen(config.manuf),
+               sizeof(tokdata->nv_token_data->token_info.manufacturerID)));
     memcpy(tokdata->nv_token_data->token_info.model, config.model,
-           strlen(config.model));
+           MIN(strlen(config.model),
+               sizeof(tokdata->nv_token_data->token_info.model)));
     memcpy(tokdata->nv_token_data->token_info.serialNumber, config.serial,
-           strlen(config.serial));
+           MIN(strlen(config.serial),
+               sizeof(tokdata->nv_token_data->token_info.serialNumber)));
 
     /* Copy ICSF specific info */
-    strcpy(slot_data[slot_id]->uri, config.uri);
-    strcpy(slot_data[slot_id]->dn, config.dn);
-    strcpy(slot_data[slot_id]->ca_file, config.ca_file);
-    strcpy(slot_data[slot_id]->cert_file, config.cert_file);
-    strcpy(slot_data[slot_id]->key_file, config.key_file);
+    memcpy(slot_data[slot_id]->uri, config.uri,
+           MIN(sizeof(config.uri), sizeof(slot_data[slot_id]->uri)));
+    memcpy(slot_data[slot_id]->dn, config.dn,
+           MIN(sizeof(config.dn), sizeof(slot_data[slot_id]->dn)));
+    memcpy(slot_data[slot_id]->ca_file, config.ca_file,
+           MIN(sizeof(config.ca_file), sizeof(slot_data[slot_id]->ca_file)));
+    memcpy(slot_data[slot_id]->cert_file, config.cert_file,
+           MIN(sizeof(config.cert_file), sizeof(slot_data[slot_id]->cert_file)));
+    memcpy(slot_data[slot_id]->key_file, config.key_file,
+           MIN(sizeof(config.key_file), sizeof(slot_data[slot_id]->key_file)));
     slot_data[slot_id]->initialized = 1;
     slot_data[slot_id]->mech = config.mech;
 
