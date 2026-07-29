@@ -692,8 +692,7 @@ CK_RV check_user_and_group(const char *group)
     /* Check if effective user is member of the group */
     epw = getpwuid(euid);
     for (i = 0; grp->gr_mem[i]; i++) {
-        if ((epw && (strncmp(epw->pw_name, grp->gr_mem[i],
-                             strlen(epw->pw_name)) == 0)))
+        if ((epw && (strcmp(epw->pw_name, grp->gr_mem[i]) == 0)))
             return CKR_OK;
     }
 
