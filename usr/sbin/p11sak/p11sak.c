@@ -11257,7 +11257,7 @@ static CK_RV p11sak_create_uri_pin_source(const char *pin_source,
     FILE *fp;
     CK_RV rc = CKR_OK;
 
-    fp = fopen(pin_source, "w");
+    fp = fopen_nofollow(pin_source, "w");
     if (fp == NULL) {
         warnx("Failed to open pin-source file '%s' for writing: %s",
               pin_source, strerror(errno));
