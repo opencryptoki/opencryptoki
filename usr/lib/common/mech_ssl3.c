@@ -768,6 +768,7 @@ CK_RV ckm_ssl3_pre_master_key_gen(STDLL_TokData_t *tokdata,
     value_attr->ulValueLen = 48;
     value_attr->pValue = (CK_BYTE *) value_attr + sizeof(CK_ATTRIBUTE);
     memcpy(value_attr->pValue, key, 48);
+    OPENSSL_cleanse(key, sizeof(key));
 
     value_len_attr->type = CKA_VALUE_LEN;
     value_len_attr->ulValueLen = sizeof(CK_ULONG);
@@ -834,6 +835,7 @@ CK_RV ckm_ssl3_pre_master_key_gen(STDLL_TokData_t *tokdata,
     return CKR_OK;
 
 error:
+    OPENSSL_cleanse(key, sizeof(key));
     if (value_attr)
         free(value_attr);
     if (value_len_attr)
@@ -1200,12 +1202,15 @@ CK_RV ssl3_master_key_derive(STDLL_TokData_t *tokdata,
     // occur in a separate call to C_DestroyObject
     //
 
+    OPENSSL_cleanse(key_data, sizeof(key_data));
+
     if (count_statistics == TRUE)
         INC_COUNTER(tokdata, sess, mech, base_key_obj, POLICY_STRENGTH_IDX_0);
 
     return CKR_OK;
 
 error:
+    OPENSSL_cleanse(key_data, sizeof(key_data));
     if (value_attr)
         free(value_attr);
     if (value_len_attr)
@@ -1554,6 +1559,7 @@ CK_RV ssl3_key_and_mac_derive(STDLL_TokData_t *tokdata,
         INC_COUNTER(tokdata, sess, mech, base_key_obj, POLICY_STRENGTH_IDX_0);
 
 error:
+    OPENSSL_cleanse(key_block, sizeof(key_block));
     return rc;
 }
 

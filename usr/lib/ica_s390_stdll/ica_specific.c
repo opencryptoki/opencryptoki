@@ -1013,6 +1013,8 @@ CK_RV token_specific_tdes_ecb(STDLL_TokData_t *tokdata,
         rc = CKR_OK;
     }
 
+    OPENSSL_cleanse(key_value, sizeof(key_value));
+
     return rc;
 }
 
@@ -1075,6 +1077,8 @@ CK_RV token_specific_tdes_cbc(STDLL_TokData_t *tokdata,
         *out_data_len = in_data_len;
         rc = CKR_OK;
     }
+
+    OPENSSL_cleanse(key_value, sizeof(key_value));
 
     return rc;
 }
@@ -1191,6 +1195,8 @@ CK_RV token_specific_tdes_mac(STDLL_TokData_t *tokdata, CK_BYTE *message,
         rc = CKR_FUNCTION_FAILED;
     }
 
+    OPENSSL_cleanse(key_value, sizeof(key_value));
+
     return rc;
 }
 
@@ -1249,6 +1255,8 @@ CK_RV token_specific_tdes_cmac(STDLL_TokData_t *tokdata, CK_BYTE *message,
         TRACE_ERROR("%s: rc: %lu\n", ock_err(ERR_FUNCTION_FAILED), rc);
         rc = CKR_FUNCTION_FAILED;
     }
+
+    OPENSSL_cleanse(key_value, sizeof(key_value));
 
     return rc;
 }
@@ -6004,8 +6012,11 @@ CK_RV token_specific_generic_secret_key_gen(STDLL_TokData_t *tokdata,
     rc = build_attribute(CKA_VALUE, secret_key, key_length, &value_attr);
     if (rc != CKR_OK) {
         TRACE_DEVEL("build_attribute(CKA_VALUE) failed\n");
+        OPENSSL_cleanse(secret_key, sizeof(secret_key));
         return rc;
     }
+    OPENSSL_cleanse(secret_key, sizeof(secret_key));
+
     rc = template_update_attribute(tmpl, value_attr);
     if (rc != CKR_OK) {
         TRACE_DEVEL("template_update_attribute(CKA_VALUE) failed\n");

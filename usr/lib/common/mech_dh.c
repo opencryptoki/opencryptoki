@@ -123,6 +123,7 @@ CK_RV dh_pkcs_derive(STDLL_TokData_t *tokdata,
                                      &value_len);
     if (rc == CKR_ATTRIBUTE_VALUE_INVALID) {
         TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
+        OPENSSL_cleanse(secret_key_value, sizeof(secret_key_value));
         return CKR_ATTRIBUTE_VALUE_INVALID;
     }
 
@@ -132,11 +133,13 @@ CK_RV dh_pkcs_derive(STDLL_TokData_t *tokdata,
     if (secret_len == 0) {
         /* Neither CKA_VALUE_LEN nor predefined length by key type */
         TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCONSISTENT));
+        OPENSSL_cleanse(secret_key_value, sizeof(secret_key_value));
         return CKR_TEMPLATE_INCONSISTENT;
     }
     if (secret_len > secret_key_value_len) {
         /* Requested key size can not be derived */
         TRACE_ERROR("%s\n", ock_err(ERR_KEY_SIZE_RANGE));
+        OPENSSL_cleanse(secret_key_value, sizeof(secret_key_value));
         return CKR_KEY_SIZE_RANGE;
     }
 
@@ -146,8 +149,11 @@ CK_RV dh_pkcs_derive(STDLL_TokData_t *tokdata,
                          secret_len, &new_attr);
     if (rc != CKR_OK) {
         TRACE_DEVEL("Failed to build the new attribute.\n");
+        OPENSSL_cleanse(secret_key_value, sizeof(secret_key_value));
         return rc;
     }
+    OPENSSL_cleanse(secret_key_value, sizeof(secret_key_value));
+
     // Create the object that will be passed back as a handle. This will
     // contain the new (computed) value of the attribute.
 
