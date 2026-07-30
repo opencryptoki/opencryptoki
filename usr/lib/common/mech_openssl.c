@@ -4847,6 +4847,8 @@ done:
     if (rc != CKR_OK)
         EVP_CIPHER_CTX_free(gcm_ctx);
 
+    OPENSSL_cleanse(akey, sizeof(akey));
+
     return rc;
 }
 
@@ -8669,6 +8671,7 @@ out:
         object_put(tokdata, ec_key_object, TRUE);
         ec_key_object = NULL;
     }
+    OPENSSL_cleanse(ecdh_secret_z, sizeof(ecdh_secret_z));
 
     return rc;
 }

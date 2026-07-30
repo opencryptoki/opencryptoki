@@ -1529,8 +1529,10 @@ CK_RV token_specific_generic_secret_key_gen(STDLL_TokData_t *tokdata,
     rc = build_attribute(CKA_VALUE, secret_key, key_length, &gkey);
     if (rc != CKR_OK) {
         TRACE_DEVEL("build_attribute(CKA_VALUE) failed\n");
+        OPENSSL_cleanse(secret_key, sizeof(secret_key));
         return rc;
     }
+    OPENSSL_cleanse(secret_key, sizeof(secret_key));
 
     rc = template_update_attribute(tmpl, gkey);
     if (rc != CKR_OK) {
