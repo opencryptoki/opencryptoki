@@ -1739,6 +1739,7 @@ CK_RV token_specific_login(STDLL_TokData_t * tokdata, SESSION * sess,
         if (result) {
             TRACE_DEVEL("token_load_public_root_key failed. "
                         "rc=0x%x\n", result);
+            OPENSSL_cleanse(hash_sha, sizeof(hash_sha));
             return CKR_USER_PIN_NOT_INITIALIZED;
         }
 
@@ -1749,10 +1750,12 @@ CK_RV token_specific_login(STDLL_TokData_t * tokdata, SESSION * sess,
             /* user's key chain not found, this must be the initial login */
             if (memcmp(hash_sha, default_user_pin_sha, SHA1_HASH_SIZE)) {
                 TRACE_ERROR("token_find_key failed and PIN != default\n");
+                OPENSSL_cleanse(hash_sha, sizeof(hash_sha));
                 return CKR_PIN_INCORRECT;
             }
 
             tpm_data->not_initialized = 1;
+            OPENSSL_cleanse(hash_sha, sizeof(hash_sha));
             return CKR_OK;
         }
 
@@ -1771,6 +1774,7 @@ CK_RV token_specific_login(STDLL_TokData_t * tokdata, SESSION * sess,
              */
             if ((token_migrate(tokdata, TPMTOK_PRIVATE_ROOT_KEY, pPin))) {
                 TRACE_DEVEL("token_migrate. rc=0x%lx\n", rc);
+                OPENSSL_cleanse(hash_sha, sizeof(hash_sha));
                 return rc;
             }
 
@@ -1785,6 +1789,7 @@ CK_RV token_specific_login(STDLL_TokData_t * tokdata, SESSION * sess,
                             CKO_PRIVATE_KEY, &tpm_data->ckPrivateLeafKey);
         if (rc != CKR_OK) {
             TRACE_ERROR("token_find_key failed. rc=0x%lx\n", rc);
+            OPENSSL_cleanse(hash_sha, sizeof(hash_sha));
             return CKR_FUNCTION_FAILED;
         }
 
@@ -1793,12 +1798,14 @@ CK_RV token_specific_login(STDLL_TokData_t * tokdata, SESSION * sess,
                             hash_sha, &tpm_data->hPrivateLeafKey);
         if (rc != CKR_OK) {
             TRACE_DEVEL("token_load_key failed. rc=0x%lx\n", rc);
+            OPENSSL_cleanse(hash_sha, sizeof(hash_sha));
             return CKR_FUNCTION_FAILED;
         }
 
         rc = token_verify_pin(tokdata, tpm_data->hPrivateLeafKey);
         if (rc != CKR_OK) {
             TRACE_DEVEL("token_verify_pin failed. failed. rc=0x%lx\n", rc);
+            OPENSSL_cleanse(hash_sha, sizeof(hash_sha));
             return rc;
         }
 
@@ -1807,6 +1814,7 @@ CK_RV token_specific_login(STDLL_TokData_t * tokdata, SESSION * sess,
         rc = XProcLock(tokdata);
         if (rc != CKR_OK) {
             TRACE_ERROR("Failed to get process lock.\n");
+            OPENSSL_cleanse(hash_sha, sizeof(hash_sha));
             return rc;
         }
 
@@ -1814,6 +1822,7 @@ CK_RV token_specific_login(STDLL_TokData_t * tokdata, SESSION * sess,
 
         if (rc != CKR_OK) {
             XProcUnLock(tokdata);
+            OPENSSL_cleanse(hash_sha, sizeof(hash_sha));
             return rc;
         } 
 
@@ -1822,6 +1831,7 @@ CK_RV token_specific_login(STDLL_TokData_t * tokdata, SESSION * sess,
         rc = XProcUnLock(tokdata);
         if (rc != CKR_OK) {
             TRACE_ERROR("Failed to release process lock.\n");
+            OPENSSL_cleanse(hash_sha, sizeof(hash_sha));
             return rc;
         }
     } else {
@@ -1835,10 +1845,12 @@ CK_RV token_specific_login(STDLL_TokData_t * tokdata, SESSION * sess,
              * the hard-coded value */
             if (memcmp(default_so_pin_sha, hash_sha, SHA1_HASH_SIZE)) {
                 TRACE_ERROR("token_find_key failed and PIN != default\n");
+                OPENSSL_cleanse(hash_sha, sizeof(hash_sha));
                 return CKR_PIN_INCORRECT;
             }
 
             tpm_data->not_initialized = 1;
+            OPENSSL_cleanse(hash_sha, sizeof(hash_sha));
             return CKR_OK;
         }
 
@@ -1859,6 +1871,7 @@ CK_RV token_specific_login(STDLL_TokData_t * tokdata, SESSION * sess,
              */
             if ((token_migrate(tokdata, TPMTOK_PUBLIC_ROOT_KEY, pPin))) {
                 TRACE_DEVEL("token_migrate. rc=0x%lx\n", rc);
+                OPENSSL_cleanse(hash_sha, sizeof(hash_sha));
                 return rc;
             }
 
@@ -1873,6 +1886,7 @@ CK_RV token_specific_login(STDLL_TokData_t * tokdata, SESSION * sess,
                             CKO_PRIVATE_KEY, &tpm_data->ckPublicLeafKey);
         if (rc != CKR_OK) {
             TRACE_ERROR("token_find_key failed. rc=0x%lx\n", rc);
+            OPENSSL_cleanse(hash_sha, sizeof(hash_sha));
             return CKR_FUNCTION_FAILED;
         }
 
@@ -1881,18 +1895,21 @@ CK_RV token_specific_login(STDLL_TokData_t * tokdata, SESSION * sess,
                             &tpm_data->hPublicLeafKey);
         if (rc != CKR_OK) {
             TRACE_DEVEL("token_load_key failed. rc=0x%lx\n", rc);
+            OPENSSL_cleanse(hash_sha, sizeof(hash_sha));
             return CKR_FUNCTION_FAILED;
         }
 
         rc = token_verify_pin(tokdata, tpm_data->hPublicLeafKey);
         if (rc != CKR_OK) {
             TRACE_DEVEL("token_verify_pin failed. rc=0x%lx\n", rc);
+            OPENSSL_cleanse(hash_sha, sizeof(hash_sha));
             return rc;
         }
 
         memcpy(tpm_data->current_so_pin_sha, hash_sha, SHA1_HASH_SIZE);
     }
 
+    OPENSSL_cleanse(hash_sha, sizeof(hash_sha));
     return rc;
 }
 
@@ -2025,12 +2042,15 @@ CK_RV token_specific_set_pin(STDLL_TokData_t * tokdata, SESSION * sess,
     rc = compute_sha1(tokdata, pNewPin, ulNewPinLen, newpin_hash);
     if (rc != CKR_OK) {
         TRACE_ERROR("compute_sha1 failed. rc=0x%lx\n", rc);
+        OPENSSL_cleanse(oldpin_hash, sizeof(oldpin_hash));
         return CKR_FUNCTION_FAILED;
     }
 
     result = token_load_srk(tokdata);
     if (result) {
         TRACE_DEVEL("token_load_srk failed. rc=0x%x\n", result);
+        OPENSSL_cleanse(oldpin_hash, sizeof(oldpin_hash));
+        OPENSSL_cleanse(newpin_hash, sizeof(newpin_hash));
         return CKR_FUNCTION_FAILED;
     }
 
@@ -2045,17 +2065,23 @@ CK_RV token_specific_set_pin(STDLL_TokData_t * tokdata, SESSION * sess,
             if (memcmp(oldpin_hash, default_user_pin_sha, SHA1_HASH_SIZE)) {
                 TRACE_ERROR("old PIN != default for an "
                             "uninitialized user\n");
+                OPENSSL_cleanse(oldpin_hash, sizeof(oldpin_hash));
+                OPENSSL_cleanse(newpin_hash, sizeof(newpin_hash));
                 return CKR_PIN_INCORRECT;
             }
 
             rc = check_pin_properties(CKU_USER, newpin_hash, ulNewPinLen);
             if (rc != CKR_OK) {
+                OPENSSL_cleanse(oldpin_hash, sizeof(oldpin_hash));
+                OPENSSL_cleanse(newpin_hash, sizeof(newpin_hash));
                 return rc;
             }
 
             rc = token_create_private_tree(tokdata, newpin_hash, pNewPin);
             if (rc != CKR_OK) {
                 TRACE_DEVEL("FAILED creating USER tree.\n");
+                OPENSSL_cleanse(oldpin_hash, sizeof(oldpin_hash));
+                OPENSSL_cleanse(newpin_hash, sizeof(newpin_hash));
                 return CKR_FUNCTION_FAILED;
             }
 
@@ -2063,6 +2089,9 @@ CK_RV token_specific_set_pin(STDLL_TokData_t * tokdata, SESSION * sess,
                 ~(CKF_USER_PIN_TO_BE_CHANGED);
             tokdata->nv_token_data->token_info.flags |=
                 CKF_USER_PIN_INITIALIZED;
+
+            OPENSSL_cleanse(oldpin_hash, sizeof(oldpin_hash));
+            OPENSSL_cleanse(newpin_hash, sizeof(newpin_hash));
 
             return save_token_data(tokdata, sess->session_info.slotID);
         }
@@ -2072,17 +2101,23 @@ CK_RV token_specific_set_pin(STDLL_TokData_t * tokdata, SESSION * sess,
             if (memcmp(tpm_data->current_user_pin_sha, oldpin_hash,
                        SHA1_HASH_SIZE)) {
                 TRACE_ERROR("USER pin incorrect\n");
+                OPENSSL_cleanse(oldpin_hash, sizeof(oldpin_hash));
+                OPENSSL_cleanse(newpin_hash, sizeof(newpin_hash));
                 return CKR_PIN_INCORRECT;
             }
         } else {
             rc = verify_user_pin(tokdata, oldpin_hash);
             if (rc != CKR_OK) {
+                OPENSSL_cleanse(oldpin_hash, sizeof(oldpin_hash));
+                OPENSSL_cleanse(newpin_hash, sizeof(newpin_hash));
                 return rc;
             }
         }
 
         rc = check_pin_properties(CKU_USER, newpin_hash, ulNewPinLen);
         if (rc != CKR_OK) {
+            OPENSSL_cleanse(oldpin_hash, sizeof(oldpin_hash));
+            OPENSSL_cleanse(newpin_hash, sizeof(newpin_hash));
             return rc;
         }
 
@@ -2091,6 +2126,8 @@ CK_RV token_specific_set_pin(STDLL_TokData_t * tokdata, SESSION * sess,
                                  tpm_data->hPrivateRootKey, newpin_hash);
         if (result) {
             TRACE_ERROR("tss_change_auth failed\n");
+            OPENSSL_cleanse(oldpin_hash, sizeof(oldpin_hash));
+            OPENSSL_cleanse(newpin_hash, sizeof(newpin_hash));
             return CKR_FUNCTION_FAILED;
         }
 
@@ -2099,6 +2136,8 @@ CK_RV token_specific_set_pin(STDLL_TokData_t * tokdata, SESSION * sess,
                                       TPMTOK_PRIVATE_LEAF_KEY);
         if (rc != CKR_OK) {
             TRACE_DEVEL("token_update_private_key failed.\n");
+            OPENSSL_cleanse(oldpin_hash, sizeof(oldpin_hash));
+            OPENSSL_cleanse(newpin_hash, sizeof(newpin_hash));
             return rc;
         }
 
@@ -2106,6 +2145,9 @@ CK_RV token_specific_set_pin(STDLL_TokData_t * tokdata, SESSION * sess,
         rc = openssl_read_key(tokdata, TPMTOK_PRIV_ROOT_KEY_FILE, pOldPin,
                               &pkey_root);
         if (rc != CKR_OK) {
+            OPENSSL_cleanse(oldpin_hash, sizeof(oldpin_hash));
+            OPENSSL_cleanse(newpin_hash, sizeof(newpin_hash));
+
             if (rc == CKR_FILE_NOT_FOUND) {
                 /* If the user has moved his backup PEM file off site, allow a
                  * change auth to succeed without updating it. */
@@ -2122,6 +2164,8 @@ CK_RV token_specific_set_pin(STDLL_TokData_t * tokdata, SESSION * sess,
         if (rc != CKR_OK) {
             EVP_PKEY_free(pkey_root);
             TRACE_DEVEL("openssl_write_key failed\n");
+            OPENSSL_cleanse(oldpin_hash, sizeof(oldpin_hash));
+            OPENSSL_cleanse(newpin_hash, sizeof(newpin_hash));
             return CKR_FUNCTION_FAILED;
         }
         EVP_PKEY_free(pkey_root);
@@ -2129,33 +2173,46 @@ CK_RV token_specific_set_pin(STDLL_TokData_t * tokdata, SESSION * sess,
         if (tpm_data->not_initialized) {
             if (memcmp(default_so_pin_sha, oldpin_hash, SHA1_HASH_SIZE)) {
                 TRACE_ERROR("old PIN != default for an " "uninitialized SO\n");
+                OPENSSL_cleanse(oldpin_hash, sizeof(oldpin_hash));
+                OPENSSL_cleanse(newpin_hash, sizeof(newpin_hash));
                 return CKR_PIN_INCORRECT;
             }
 
             rc = check_pin_properties(CKU_SO, newpin_hash, ulNewPinLen);
             if (rc != CKR_OK) {
+                OPENSSL_cleanse(oldpin_hash, sizeof(oldpin_hash));
+                OPENSSL_cleanse(newpin_hash, sizeof(newpin_hash));
                 return rc;
             }
 
             rc = token_create_public_tree(tokdata, newpin_hash, pNewPin);
             if (rc != CKR_OK) {
                 TRACE_DEVEL("FAILED creating SO tree.\n");
+                OPENSSL_cleanse(oldpin_hash, sizeof(oldpin_hash));
+                OPENSSL_cleanse(newpin_hash, sizeof(newpin_hash));
                 return CKR_FUNCTION_FAILED;
             }
 
             tokdata->nv_token_data->token_info.flags &=
                 ~(CKF_SO_PIN_TO_BE_CHANGED);
 
+            OPENSSL_cleanse(oldpin_hash, sizeof(oldpin_hash));
+            OPENSSL_cleanse(newpin_hash, sizeof(newpin_hash));
+
             return save_token_data(tokdata, sess->session_info.slotID);
         }
 
         if (memcmp(tpm_data->current_so_pin_sha, oldpin_hash, SHA1_HASH_SIZE)) {
             TRACE_ERROR("SO PIN incorrect\n");
+            OPENSSL_cleanse(oldpin_hash, sizeof(oldpin_hash));
+            OPENSSL_cleanse(newpin_hash, sizeof(newpin_hash));
             return CKR_PIN_INCORRECT;
         }
 
         rc = check_pin_properties(CKU_SO, newpin_hash, ulNewPinLen);
         if (rc != CKR_OK) {
+            OPENSSL_cleanse(oldpin_hash, sizeof(oldpin_hash));
+            OPENSSL_cleanse(newpin_hash, sizeof(newpin_hash));
             return rc;
         }
 
@@ -2164,6 +2221,8 @@ CK_RV token_specific_set_pin(STDLL_TokData_t * tokdata, SESSION * sess,
                                  tpm_data->hPublicRootKey, newpin_hash);
         if (result) {
             TRACE_ERROR("tss_change_auth failed\n");
+            OPENSSL_cleanse(oldpin_hash, sizeof(oldpin_hash));
+            OPENSSL_cleanse(newpin_hash, sizeof(newpin_hash));
             return CKR_FUNCTION_FAILED;
         }
 
@@ -2171,6 +2230,8 @@ CK_RV token_specific_set_pin(STDLL_TokData_t * tokdata, SESSION * sess,
                                       TPMTOK_PUBLIC_LEAF_KEY);
         if (rc != CKR_OK) {
             TRACE_DEVEL("token_update_private_key failed.\n");
+            OPENSSL_cleanse(oldpin_hash, sizeof(oldpin_hash));
+            OPENSSL_cleanse(newpin_hash, sizeof(newpin_hash));
             return rc;
         }
 
@@ -2178,6 +2239,9 @@ CK_RV token_specific_set_pin(STDLL_TokData_t * tokdata, SESSION * sess,
         rc = openssl_read_key(tokdata, TPMTOK_PUB_ROOT_KEY_FILE, pOldPin,
                               &pkey_root);
         if (rc != CKR_OK) {
+            OPENSSL_cleanse(oldpin_hash, sizeof(oldpin_hash));
+            OPENSSL_cleanse(newpin_hash, sizeof(newpin_hash));
+
             if (rc == CKR_FILE_NOT_FOUND) {
                 /* If the user has moved his backup PEM file off site, allow a
                  * change auth to succeed without updating it. */
@@ -2194,6 +2258,8 @@ CK_RV token_specific_set_pin(STDLL_TokData_t * tokdata, SESSION * sess,
         if (rc != CKR_OK) {
             EVP_PKEY_free(pkey_root);
             TRACE_DEVEL("openssl_write_key failed\n");
+            OPENSSL_cleanse(oldpin_hash, sizeof(oldpin_hash));
+            OPENSSL_cleanse(newpin_hash, sizeof(newpin_hash));
             return CKR_FUNCTION_FAILED;
         }
         EVP_PKEY_free(pkey_root);
@@ -2202,6 +2268,8 @@ CK_RV token_specific_set_pin(STDLL_TokData_t * tokdata, SESSION * sess,
         rc = CKR_SESSION_READ_ONLY;
     }
 
+    OPENSSL_cleanse(oldpin_hash, sizeof(oldpin_hash));
+    OPENSSL_cleanse(newpin_hash, sizeof(newpin_hash));
     return rc;
 }
 

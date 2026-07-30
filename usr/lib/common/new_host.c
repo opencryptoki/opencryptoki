@@ -507,6 +507,9 @@ done:
 
     pthread_mutex_unlock(&tokdata->login_mutex);
 
+    OPENSSL_cleanse(hash_sha, sizeof(hash_sha));
+    OPENSSL_cleanse(login_key, sizeof(login_key));
+
     return rc;
 }
 
@@ -667,6 +670,11 @@ done:
 
     if (sess != NULL)
         session_mgr_put(tokdata, sess);
+
+    OPENSSL_cleanse(hash_sha, sizeof(hash_sha));
+    OPENSSL_cleanse(hash_md5, sizeof(hash_md5));
+    OPENSSL_cleanse(login_key, sizeof(login_key));
+    OPENSSL_cleanse(wrap_key, sizeof(wrap_key));
 
     return rc;
 }
@@ -994,6 +1002,14 @@ done:
 
     if (sess != NULL)
         session_mgr_put(tokdata, sess);
+
+    OPENSSL_cleanse(old_login_key, sizeof(old_login_key));
+    OPENSSL_cleanse(new_login_key, sizeof(new_login_key));
+    OPENSSL_cleanse(new_wrap_key, sizeof(new_wrap_key));
+    OPENSSL_cleanse(new_login_key_old_salt, sizeof(new_login_key_old_salt));
+    OPENSSL_cleanse(old_hash_sha, sizeof(old_hash_sha));
+    OPENSSL_cleanse(new_hash_sha, sizeof(new_hash_sha));
+    OPENSSL_cleanse(hash_md5, sizeof(hash_md5));
 
     return rc;
 }
@@ -1665,6 +1681,10 @@ done:
 
     if (sess != NULL)
         session_mgr_put(tokdata, sess);
+
+    OPENSSL_cleanse(hash_sha, sizeof(hash_sha));
+    OPENSSL_cleanse(login_key, sizeof(login_key));
+    OPENSSL_cleanse(wrap_key, sizeof(wrap_key));
 
     return rc;
 }
