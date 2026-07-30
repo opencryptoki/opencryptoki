@@ -1136,10 +1136,12 @@ CK_RV icsftok_init_pin(STDLL_TokData_t * tokdata, SESSION * sess,
     if (slot_data[sid]->mech == ICSF_CFG_MECH_SIMPLE) {
         if (get_pk_dir(tokdata, pk_dir_buf, PATH_MAX) == NULL) {
             TRACE_ERROR("pk_dir_buf overflow\n");
+            OPENSSL_cleanse(hash_sha, sizeof(hash_sha));
             return CKR_FUNCTION_FAILED;
         }
         if (ock_snprintf(fname, PATH_MAX, "%s/MK_USER", pk_dir_buf) != 0) {
             TRACE_ERROR("MK_USER filename buffer overflow\n");
+            OPENSSL_cleanse(hash_sha, sizeof(hash_sha));
             return CKR_FUNCTION_FAILED;
         }
 
@@ -1147,6 +1149,7 @@ CK_RV icsftok_init_pin(STDLL_TokData_t * tokdata, SESSION * sess,
                               AES_KEY_SIZE_256, pPin, ulPinLen, fname);
         if (rc != CKR_OK) {
             TRACE_DEVEL("Could not create MK_USER.\n");
+            OPENSSL_cleanse(hash_sha, sizeof(hash_sha));
             return rc;
         }
     }
@@ -1154,6 +1157,7 @@ CK_RV icsftok_init_pin(STDLL_TokData_t * tokdata, SESSION * sess,
     rc = XProcLock(tokdata);
     if (rc != CKR_OK) {
         TRACE_ERROR("Failed to get process lock.\n");
+        OPENSSL_cleanse(hash_sha, sizeof(hash_sha));
         return rc;
     }
 
@@ -1165,9 +1169,11 @@ CK_RV icsftok_init_pin(STDLL_TokData_t * tokdata, SESSION * sess,
     rc = XProcUnLock(tokdata);
     if (rc != CKR_OK) {
         TRACE_ERROR("Process Lock Failed.\n");
+        OPENSSL_cleanse(hash_sha, sizeof(hash_sha));
         return rc;
     }
 
+    OPENSSL_cleanse(hash_sha, sizeof(hash_sha));
     return rc;
 }
 
@@ -1194,12 +1200,16 @@ CK_RV icsftok_set_pin(STDLL_TokData_t * tokdata, SESSION * sess,
     /* check that the old pin  and new pin are not the same. */
     if (memcmp(old_hash_sha, new_hash_sha, SHA1_HASH_SIZE) == 0) {
         TRACE_ERROR("%s\n", ock_err(ERR_PIN_INVALID));
+        OPENSSL_cleanse(new_hash_sha, sizeof(new_hash_sha));
+        OPENSSL_cleanse(old_hash_sha, sizeof(old_hash_sha));
         return CKR_PIN_INVALID;
     }
 
     /* check the length requirements */
     if ((ulNewLen < MIN_PIN_LEN) || (ulNewLen > MAX_PIN_LEN)) {
         TRACE_ERROR("%s\n", ock_err(ERR_PIN_LEN_RANGE));
+        OPENSSL_cleanse(new_hash_sha, sizeof(new_hash_sha));
+        OPENSSL_cleanse(old_hash_sha, sizeof(old_hash_sha));
         return CKR_PIN_LEN_RANGE;
     }
 
@@ -1210,24 +1220,33 @@ CK_RV icsftok_set_pin(STDLL_TokData_t * tokdata, SESSION * sess,
             (tokdata->nv_token_data->user_pin_sha, old_hash_sha,
              SHA1_HASH_SIZE) != 0) {
             TRACE_ERROR("%s\n", ock_err(ERR_PIN_INCORRECT));
+            OPENSSL_cleanse(new_hash_sha, sizeof(new_hash_sha));
+            OPENSSL_cleanse(old_hash_sha, sizeof(old_hash_sha));
             return CKR_PIN_INCORRECT;
         }
+
         /* if using simple auth, encrypt masterkey with new pin */
         if (slot_data[sid]->mech == ICSF_CFG_MECH_SIMPLE) {
             if (get_pk_dir(tokdata, fname, PATH_MAX) == NULL) {
                 TRACE_ERROR("pk_dir buffer overflow\n");
+                OPENSSL_cleanse(new_hash_sha, sizeof(new_hash_sha));
+                OPENSSL_cleanse(old_hash_sha, sizeof(old_hash_sha));
                 return CKR_FUNCTION_FAILED;
             }
             if (PATH_MAX - strlen(fname) > strlen("/MK_USER")) {
                 strcat(fname, "/MK_USER");
             } else {
                 TRACE_ERROR("MK_USER buffer overflow\n");
+                OPENSSL_cleanse(new_hash_sha, sizeof(new_hash_sha));
+                OPENSSL_cleanse(old_hash_sha, sizeof(old_hash_sha));
                 return CKR_FUNCTION_FAILED;
             }
             rc = secure_masterkey(tokdata, tokdata->master_key,
                                   AES_KEY_SIZE_256, pNewPin, ulNewLen, fname);
             if (rc != CKR_OK) {
                 TRACE_ERROR("Save Master Key Failed.\n");
+                OPENSSL_cleanse(new_hash_sha, sizeof(new_hash_sha));
+                OPENSSL_cleanse(old_hash_sha, sizeof(old_hash_sha));
                 return rc;
             }
         }
@@ -1236,6 +1255,8 @@ CK_RV icsftok_set_pin(STDLL_TokData_t * tokdata, SESSION * sess,
         rc = XProcLock(tokdata);
         if (rc != CKR_OK) {
             TRACE_ERROR("Process Lock Failed.\n");
+            OPENSSL_cleanse(new_hash_sha, sizeof(new_hash_sha));
+            OPENSSL_cleanse(old_hash_sha, sizeof(old_hash_sha));
             return rc;
         }
 
@@ -1247,6 +1268,8 @@ CK_RV icsftok_set_pin(STDLL_TokData_t * tokdata, SESSION * sess,
         rc = XProcUnLock(tokdata);
         if (rc != CKR_OK) {
             TRACE_ERROR("Process Lock Failed.\n");
+            OPENSSL_cleanse(new_hash_sha, sizeof(new_hash_sha));
+            OPENSSL_cleanse(old_hash_sha, sizeof(old_hash_sha));
             return rc;
         }
 
@@ -1257,12 +1280,16 @@ CK_RV icsftok_set_pin(STDLL_TokData_t * tokdata, SESSION * sess,
             (tokdata->nv_token_data->so_pin_sha, old_hash_sha,
              SHA1_HASH_SIZE) != 0) {
             TRACE_ERROR("%s\n", ock_err(ERR_PIN_INCORRECT));
+            OPENSSL_cleanse(new_hash_sha, sizeof(new_hash_sha));
+            OPENSSL_cleanse(old_hash_sha, sizeof(old_hash_sha));
             return CKR_PIN_INCORRECT;
         }
 
         /* check that new pin is not the default */
         if (memcmp(new_hash_sha, default_so_pin_sha, SHA1_HASH_SIZE) == 0) {
             TRACE_ERROR("%s\n", ock_err(ERR_PIN_INVALID));
+            OPENSSL_cleanse(new_hash_sha, sizeof(new_hash_sha));
+            OPENSSL_cleanse(old_hash_sha, sizeof(old_hash_sha));
             return CKR_PIN_INVALID;
         }
 
@@ -1272,12 +1299,16 @@ CK_RV icsftok_set_pin(STDLL_TokData_t * tokdata, SESSION * sess,
              */
             if (get_pk_dir(tokdata, fname, PATH_MAX) == NULL) {
                 TRACE_ERROR("pk_dir buffer overflow\n");
+                OPENSSL_cleanse(new_hash_sha, sizeof(new_hash_sha));
+                OPENSSL_cleanse(old_hash_sha, sizeof(old_hash_sha));
                 return CKR_FUNCTION_FAILED;
             }
             if (PATH_MAX - strlen(fname) > strlen("/MK_SO")) {
                 strcat(fname, "/MK_SO");
             } else {
                 TRACE_ERROR("MK_SO buffer overflow\n");
+                OPENSSL_cleanse(new_hash_sha, sizeof(new_hash_sha));
+                OPENSSL_cleanse(old_hash_sha, sizeof(old_hash_sha));
                 return CKR_FUNCTION_FAILED;
             }
 
@@ -1285,6 +1316,8 @@ CK_RV icsftok_set_pin(STDLL_TokData_t * tokdata, SESSION * sess,
                                   AES_KEY_SIZE_256, pNewPin, ulNewLen, fname);
             if (rc != CKR_OK) {
                 TRACE_ERROR("Save Master Key Failed.\n");
+                OPENSSL_cleanse(new_hash_sha, sizeof(new_hash_sha));
+                OPENSSL_cleanse(old_hash_sha, sizeof(old_hash_sha));
                 return rc;
             }
         }
@@ -1293,6 +1326,8 @@ CK_RV icsftok_set_pin(STDLL_TokData_t * tokdata, SESSION * sess,
         rc = XProcLock(tokdata);
         if (rc != CKR_OK) {
             TRACE_ERROR("Process Lock Failed.\n");
+            OPENSSL_cleanse(new_hash_sha, sizeof(new_hash_sha));
+            OPENSSL_cleanse(old_hash_sha, sizeof(old_hash_sha));
             return rc;
         }
 
@@ -1303,19 +1338,27 @@ CK_RV icsftok_set_pin(STDLL_TokData_t * tokdata, SESSION * sess,
         rc = XProcUnLock(tokdata);
         if (rc != CKR_OK) {
             TRACE_ERROR("Process Lock Failed.\n");
+            OPENSSL_cleanse(new_hash_sha, sizeof(new_hash_sha));
+            OPENSSL_cleanse(old_hash_sha, sizeof(old_hash_sha));
             return rc;
         }
     } else {
         TRACE_ERROR("%s\n", ock_err(ERR_SESSION_READ_ONLY));
+        OPENSSL_cleanse(new_hash_sha, sizeof(new_hash_sha));
+        OPENSSL_cleanse(old_hash_sha, sizeof(old_hash_sha));
         return CKR_SESSION_READ_ONLY;
     }
 
     rc = save_token_data(tokdata, sid);
     if (rc != CKR_OK) {
         TRACE_ERROR("Save Token Failed.\n");
+        OPENSSL_cleanse(new_hash_sha, sizeof(new_hash_sha));
+        OPENSSL_cleanse(old_hash_sha, sizeof(old_hash_sha));
         return rc;
     }
 
+    OPENSSL_cleanse(new_hash_sha, sizeof(new_hash_sha));
+    OPENSSL_cleanse(old_hash_sha, sizeof(old_hash_sha));
     return rc;
 }
 
@@ -1624,6 +1667,7 @@ CK_RV icsftok_login(STDLL_TokData_t * tokdata, SESSION * sess,
     rc = XProcLock(tokdata);
     if (rc != CKR_OK) {
         TRACE_ERROR("Process Lock Failed.\n");
+        OPENSSL_cleanse(hash_sha, sizeof(hash_sha));
         return rc;
     }
 
@@ -1707,6 +1751,8 @@ done:
         rc = XProcUnLock(tokdata);
     else
         XProcUnLock(tokdata);
+
+    OPENSSL_cleanse(hash_sha, sizeof(hash_sha));
 
     return rc;
 }

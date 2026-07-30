@@ -403,8 +403,10 @@ int verify_pins(char *data_store, const char *sopin, unsigned long sopinlen,
             if (CRYPTO_memcmp(td.dat.so_login_key, so_login_key, 32) != 0) {
                 TRACE_ERROR("USER PIN is incorrect.\n");
                 ret = -1;
+                OPENSSL_cleanse(so_login_key, sizeof(so_login_key));
                 goto done;
             }
+            OPENSSL_cleanse(so_login_key, sizeof(so_login_key));
         }
         if (userpin != NULL) {
             unsigned char user_login_key[32];
@@ -421,8 +423,10 @@ int verify_pins(char *data_store, const char *sopin, unsigned long sopinlen,
             if (CRYPTO_memcmp(td.dat.user_login_key, user_login_key, 32) != 0) {
                 TRACE_ERROR("USER PIN is incorrect.\n");
                 ret = -1;
+                OPENSSL_cleanse(user_login_key, sizeof(user_login_key));
                 goto done;
             }
+            OPENSSL_cleanse(user_login_key, sizeof(user_login_key));
         }
     } else {
         TRACE_ERROR("Unknown token format.\n");
@@ -433,7 +437,7 @@ int verify_pins(char *data_store, const char *sopin, unsigned long sopinlen,
 
 done:
     /* clear out the hash */
-    memset(pin_sha, 0, SHA1_HASH_SIZE);
+    OPENSSL_cleanse(pin_sha, sizeof(pin_sha));
     if (fp)
         fclose(fp);
 
