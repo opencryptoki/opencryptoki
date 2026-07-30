@@ -873,6 +873,8 @@ CK_RV pkey_aes_cmac(STDLL_TokData_t *tokdata, SESSION *session,
     ret = CKR_OK;
 
 done:
+    OPENSSL_cleanse(&parm_block, sizeof(parm_block));
+    OPENSSL_cleanse(&protkey, sizeof(protkey));
 
     return ret;
 }
@@ -1391,11 +1393,11 @@ retry:
         ret = CKR_FUNCTION_FAILED;
         goto done;
     }
-    OPENSSL_cleanse(&param, sizeof(param));
 
     ret = CKR_OK;
 
 done:
+    OPENSSL_cleanse(&param, sizeof(param));
 
     return ret;
 }
@@ -1565,11 +1567,11 @@ retry:
         ret = CKR_FUNCTION_FAILED;
         goto done;
     }
-    OPENSSL_cleanse(&edparam, sizeof(edparam));
 
     ret = CKR_OK;
 
 done:
+    OPENSSL_cleanse(&edparam, sizeof(edparam));
 
     return ret;
 }
