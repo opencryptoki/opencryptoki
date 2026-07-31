@@ -18,6 +18,7 @@
 #include <string.h>
 #include <errno.h>
 #include <sys/stat.h>
+#include <dirent.h>
 
 #if defined(_AIX)
 #include "aix/getopt.h"
@@ -162,6 +163,55 @@ static inline int open_nofollow(const char *path, int flags, ...)
 #else
     /* Preferred: atomic symlink rejection via O_NOFOLLOW */
     return open(path, flags | O_NOFOLLOW, mode);
+#endif
+}
+
+/*
+ * CWE-59 fix: Open a directory without following symlinks.
+ *
+ * On platforms with O_NOFOLLOW support:
+ *   Uses open(O_NOFOLLOW | O_DIRECTORY) + fdopendir() for atomic symlink
+ *   rejection.  fdopendir() takes ownership of the fd; it is closed by
+ *   closedir().
+ *
+ * On platforms without O_NOFOLLOW (e.g., older AIX):
+ *   Falls back to lstat() + opendir(). This has a TOCTOU race condition,
+ *   but still catches pre-planted symlinks which is the common attack
+ *   scenario. Better than no protection at all.
+ *
+ * Returns NULL with errno=ELOOP if path is a symlink.
+ */
+static inline DIR *opendir_nofollow(const char *path)
+{
+#ifdef OCK_NO_O_NOFOLLOW
+    /*
+     * Fallback for platforms without O_NOFOLLOW: use lstat() check.
+     * This has a TOCTOU race but catches pre-planted symlinks.
+     */
+    struct stat sb;
+
+    if (lstat(path, &sb) == 0) {
+        if (S_ISLNK(sb.st_mode)) {
+            errno = ELOOP;
+            return NULL;
+        }
+    }
+    return opendir(path);
+#else
+    /* Preferred: atomic symlink rejection via O_NOFOLLOW */
+    int fd;
+    DIR *dir;
+
+    fd = open(path, O_RDONLY | O_DIRECTORY | O_NOFOLLOW);
+    if (fd < 0)
+        return NULL;
+
+    dir = fdopendir(fd);
+    if (dir == NULL) {
+        close(fd);
+        return NULL;
+    }
+    return dir;
 #endif
 }
 
