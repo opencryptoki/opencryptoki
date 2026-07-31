@@ -462,7 +462,7 @@ static int remove_recursive(const char *fname, bool only_content)
     }
 
     if (S_ISDIR(sb.st_mode)) {
-        dir = opendir(fname);
+        dir = opendir_nofollow(fname);
         if (dir == NULL) {
             err = errno;
             warnx("Failed to open directory '%s': %s", fname, strerror(err));

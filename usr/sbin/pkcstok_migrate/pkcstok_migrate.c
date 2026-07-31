@@ -2324,9 +2324,9 @@ static CK_RV folder_copy(char *dst, const char *src, const char *token_group)
     DIR *dir;
 
     /* Open src */
-    dir = opendir(src);
+    dir = opendir_nofollow(src);
     if (dir == NULL) {
-        TRACE_ERROR("Cannot open %s\n", src);
+        TRACE_ERROR("Cannot open %s: %s\n", src, strerror(errno));
         return CKR_FUNCTION_FAILED;
     }
 
@@ -2403,10 +2403,17 @@ static CK_RV folder_delete(const char *folder)
     struct dirent *ent;
     CK_RV ret = CKR_OK;
 
-    dir = opendir(folder);
-    if (!dir) {
-        TRACE_INFO("Folder %s doesn't exist.\n", folder);
-        return CKR_OK;
+    dir = opendir_nofollow(folder);
+    if (dir == NULL) {
+        if (errno == ENOENT) {
+            TRACE_INFO("Folder %s doesn't exist.\n", folder);
+            return CKR_OK;
+        }
+        if (errno == ELOOP)
+            TRACE_ERROR("Refusing to follow symlink: %s\n", folder);
+        else
+            TRACE_ERROR("Cannot open folder %s: %s\n", folder, strerror(errno));
+        return CKR_FUNCTION_FAILED;
     }
 
     path_len = strlen(folder);

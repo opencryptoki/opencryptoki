@@ -429,7 +429,7 @@ CK_RV remove_files_in_directory(const char *directory, CK_BBOOL ignore_errors)
     struct dirent *entry;
     char ent[PATH_MAX];
 
-    dir = opendir(directory);
+    dir = opendir_nofollow(directory);
     if (dir == NULL) {
         TRACE_DEVEL("Failed to open directory '%s': %s\n", directory,
                     strerror(errno));
