@@ -1452,7 +1452,7 @@ int kmip_connection_get_server_cert(const char *server,
 			}
 		}
 
-		hostname = calloc(1, tok2 - server + (!port_found ? 5 : 1));
+		hostname = calloc(1, tok2 - server + (!port_found ? 5 : 0) + 1);
 		if (hostname == NULL) {
 			kmip_debug(debug, "calloc failed");
 			return -ENOMEM;
