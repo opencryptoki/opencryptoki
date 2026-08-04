@@ -50,6 +50,7 @@ CK_RV encr_mgr_init(STDLL_TokData_t *tokdata,
     CK_GCM_PARAMS gcm_params;
     CK_MECHANISM temp_mech;
     CK_ULONG aeskw_iv_len = AES_KEY_WRAP_KWP_IV_SIZE;
+    CK_AES_CTR_PARAMS *ctr;
 
     if (!sess || !ctx || !mech) {
         TRACE_ERROR("Invalid function arguments.\n");
@@ -522,6 +523,15 @@ CK_RV encr_mgr_init(STDLL_TokData_t *tokdata,
             rc = CKR_MECHANISM_PARAM_INVALID;
             goto done;
         }
+
+        ctr = (CK_AES_CTR_PARAMS *)mech->pParameter;
+        if (ctr->ulCounterBits == 0 || ctr->ulCounterBits > 128 ||
+            ctr->ulCounterBits % 8 != 0) {
+            TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
+            rc = CKR_MECHANISM_PARAM_INVALID;
+            goto done;
+        }
+
         // is the key type correct
         rc = template_attribute_get_ulong(key_obj->template, CKA_KEY_TYPE,
                                           &keytype);
