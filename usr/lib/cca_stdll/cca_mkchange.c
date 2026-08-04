@@ -269,8 +269,7 @@ retry:
     }
 
 done:
-    strncpy(serialno, ssd.serialno, CCA_SERIALNO_LENGTH + 1);
-    serialno[CCA_SERIALNO_LENGTH] = '\0';
+    memcpy(serialno, ssd.serialno, CCA_SERIALNO_LENGTH + 1);
 
     return CKR_OK;
 }
