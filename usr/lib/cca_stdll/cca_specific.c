@@ -1530,7 +1530,9 @@ static CK_RV cca_get_current_domain(unsigned short *domain)
     val = getenv(CCA_DEFAULT_DOMAIN_ENVAR);
     if (val == NULL) {
         /* Get default domain from AP bus */
-        sprintf(fname, "%s/ap_domain", SYSFS_BUS_AP);
+        if (snprintf(fname, sizeof(fname), "%s/ap_domain",
+                     SYSFS_BUS_AP) >= (int)sizeof(fname))
+            return CKR_FUNCTION_FAILED;
         rc = file_fgets(fname, buf, sizeof(buf));
         if (rc != CKR_OK)
             return rc;
@@ -1601,7 +1603,9 @@ static CK_RV cca_get_current_card(unsigned short *card, char *serialret)
     while ((de = readdir(d)) != NULL) {
         if (regexec(&reg_buf, de->d_name, (size_t) 1, pmatch, 0) == 0) {
             /* Check for CCA cards only */
-            sprintf(fname, "%s/%s/ap_functions", SYSFS_DEVICES_AP, de->d_name);
+            if (snprintf(fname, sizeof(fname), "%s/%s/ap_functions",
+                         SYSFS_DEVICES_AP, de->d_name) >= (int)sizeof(fname))
+                continue;
             rc = file_fgets(fname, buf, sizeof(buf));
             if (rc != CKR_OK)
                 continue;
@@ -1610,7 +1614,9 @@ static CK_RV cca_get_current_card(unsigned short *card, char *serialret)
             if ((val & MASK_COPRO) == 0)
                 continue;
 
-            sprintf(fname, "%s/%s/serialnr", SYSFS_DEVICES_AP, de->d_name);
+            if (snprintf(fname, sizeof(fname), "%s/%s/serialnr",
+                         SYSFS_DEVICES_AP, de->d_name) >= (int)sizeof(fname))
+                continue;
             rc = file_fgets(fname, buf, sizeof(buf));
             if (rc != CKR_OK)
                 continue;
@@ -1821,9 +1827,15 @@ CK_RV cca_iterate_adapters(STDLL_TokData_t *tokdata,
             return rc;
     } else {
         /* Device ANY and domain ANY or default */
+        if (cca_private->num_adapters > 256) {
+            TRACE_ERROR("Unexpected num_adapters value: %u\n",
+                        cca_private->num_adapters);
+            return CKR_DEVICE_ERROR;
+        }
+
         for (adapter = 1, rc = CKR_OK; adapter <= cca_private->num_adapters;
                                                                  adapter++) {
-            sprintf(device_name, "CRP%02u", adapter);
+            snprintf(device_name, sizeof(device_name), "CRP%02u", adapter);
 
             rc2 = cca_iterate_domains(tokdata, device_name, cb, cb_private);
             if (rc2 == CKR_FUNCTION_FAILED) /* adapter not available, ignore */
@@ -16403,7 +16415,9 @@ static CK_RV cca_handle_apqn_event(STDLL_TokData_t *tokdata,
 
     UNUSED(event_type);
 
-    sprintf(fname, "%scard%02x/ap_functions", SYSFS_DEVICES_AP, apqn_data->card);
+    if (snprintf(fname, sizeof(fname), "%scard%02x/ap_functions",
+                 SYSFS_DEVICES_AP, apqn_data->card) >= (int)sizeof(fname))
+        return CKR_OK;
     rc = file_fgets(fname, buf, sizeof(buf));
     if (rc != CKR_OK)
         return CKR_OK;
