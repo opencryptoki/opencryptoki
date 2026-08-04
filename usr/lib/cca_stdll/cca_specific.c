@@ -1637,7 +1637,7 @@ static CK_RV cca_get_current_card(unsigned short *card, char *serialret)
 #endif /* __s390__ */
 
     if (found && serialret != NULL)
-        strcpy(serialret, serialno);
+        memcpy(serialret, serialno, CCA_SERIALNO_LENGTH + 1);
 
     if (found)
         TRACE_DEVEL("Current card is %02x with serialno %s\n", *card, serialno);
