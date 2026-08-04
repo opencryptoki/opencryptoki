@@ -5450,6 +5450,11 @@ CK_RV token_specific_des_cbc(STDLL_TokData_t * tokdata,
      * needed, we just silently copy the data to the user's buffer and
      * free our malloc'd space, returning as normal. If the space was
      * needed, we return an error and no memory corruption happens. */
+    if (in_data_len > ULONG_MAX - 8) {
+        TRACE_ERROR("in_data_len too large: %lu\n", in_data_len);
+        return CKR_DATA_LEN_RANGE;
+    }
+
     if (*out_data_len < (in_data_len + 8)) {
         local_out = malloc(in_data_len + 8);
         if (!local_out) {
@@ -7368,6 +7373,11 @@ CK_RV token_specific_aes_cbc(STDLL_TokData_t * tokdata,
         memcpy(rule_array, "AES     KEYIDENTINITIAL ",
                rule_array_count * (size_t) CCA_KEYWORD_SIZE);
     } else {
+        if (in_data_len > SIZE_MAX - 16) {
+            TRACE_ERROR("in_data_len too large: %lu\n", in_data_len);
+            return CKR_DATA_LEN_RANGE;
+        }
+
         if ((encrypt) && (*out_data_len < (in_data_len + 16))) {
             local_out = malloc(in_data_len + 16);
             if (!local_out) {
