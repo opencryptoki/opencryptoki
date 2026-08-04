@@ -12682,6 +12682,13 @@ static CK_RV build_private_EC_key_value_structure(CK_BYTE *privkey, CK_ULONG pri
 {
     ECC_PAIR ecc_pair;
 
+    /* largest size is sizeof(ECC_PAIR) + privlen + publen + 1 */
+    if (privlen > CCA_KEY_VALUE_STRUCT_SIZE - sizeof(ECC_PAIR) - 1 ||
+        publen > CCA_KEY_VALUE_STRUCT_SIZE - sizeof(ECC_PAIR) - 1 - privlen) {
+        TRACE_ERROR("EC key components too large for key value structure\n");
+        return CKR_KEY_SIZE_RANGE;
+    }
+
     ecc_pair.curve_type = curve_type;
     ecc_pair.reserved = 0x00;
     ecc_pair.p_bitlen = htobe16(curve_bitlen);
