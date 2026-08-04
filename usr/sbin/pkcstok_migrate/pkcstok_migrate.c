@@ -924,24 +924,14 @@ static CK_BBOOL conffile_exists(const char *conf_dir)
 {
     char fname[PATH_MAX];
     struct stat statbuf;
-    DIR *dir;
 
     TRACE_INFO("Checking if config file exists in %s ...\n", conf_dir);
-    dir = opendir(conf_dir);
-    if (dir == NULL) {
-        TRACE_INFO("Cannot open %s.\n", conf_dir);
-        return CK_FALSE;
-    }
 
-    /* Check if opencryptoki.conf exists */
-    memset(fname, 0, PATH_MAX);
     snprintf(fname, PATH_MAX, "%s/opencryptoki.conf", conf_dir);
-    if (stat(fname, &statbuf) != 0) {
+    if (lstat(fname, &statbuf) != 0 || !S_ISREG(statbuf.st_mode)) {
         TRACE_INFO("Cannot find %s.\n", fname);
-        closedir(dir);
         return CK_FALSE;
     }
-    closedir(dir);
 
     return CK_TRUE;
 }
@@ -951,15 +941,14 @@ static CK_BBOOL conffile_exists(const char *conf_dir)
  */
 static CK_BBOOL datastore_exists(const char *data_store)
 {
-    DIR *dir;
+    struct stat sb;
 
     TRACE_INFO("Checking if datastore %s exists ...\n", data_store);
-    dir = opendir(data_store);
-    if (dir == NULL) {
+
+    if (lstat(data_store, &sb) != 0 || !S_ISDIR(sb.st_mode)) {
         TRACE_INFO("Cannot open %s.\n", data_store);
         return CK_FALSE;
     }
-    closedir(dir);
 
     return CK_TRUE;
 }
