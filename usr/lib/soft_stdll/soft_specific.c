@@ -985,7 +985,7 @@ CK_RV token_specific_dh_pkcs_derive(STDLL_TokData_t *tokdata,
     bn_y = BN_new();
     bn_x = BN_secure_new();
     bn_p = BN_new();
-    bn_z = BN_new();
+    bn_z = BN_secure_new();
     bn_tmp = BN_new();
 
     if (bn_z == NULL || bn_p == NULL || bn_x == NULL || bn_y == NULL ||
@@ -1050,9 +1050,9 @@ out:
     if (bn_p != NULL)
         BN_free(bn_p);
     if (bn_z != NULL)
-        BN_free(bn_z);
+        BN_clear_free(bn_z);
     if (bn_tmp != NULL)
-        BN_free(bn_tmp);
+        BN_clear_free(bn_tmp);
     if (ctx != NULL)
         BN_CTX_free(ctx);
 
@@ -1074,7 +1074,7 @@ CK_RV token_specific_dh_pkcs_key_pair_gen(STDLL_TokData_t *tokdata,
     CK_ATTRIBUTE *temp_attr = NULL;
     CK_ATTRIBUTE *value_bits_attr = NULL;
     CK_BYTE *temp_byte = NULL, *temp_byte2 = NULL;
-    CK_ULONG temp_bn_len, value_bits;
+    CK_ULONG temp_bn_len, temp_byte2_len = 0, value_bits;
 #if !OPENSSL_VERSION_PREREQ(3, 0)
     DH *dh = NULL;
 #else
@@ -1270,8 +1270,9 @@ CK_RV token_specific_dh_pkcs_key_pair_gen(STDLL_TokData_t *tokdata,
         goto done;
     }
 #endif
-    temp_bn_len = BN_num_bytes(temp_bn);
-    temp_byte2 = malloc(temp_bn_len);
+    temp_byte2_len = BN_num_bytes(temp_bn);
+    temp_bn_len = temp_byte2_len;
+    temp_byte2 = malloc(temp_byte2_len);
     if (temp_byte2 == NULL) {
         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
         rv = CKR_HOST_MEMORY;
@@ -1280,7 +1281,6 @@ CK_RV token_specific_dh_pkcs_key_pair_gen(STDLL_TokData_t *tokdata,
     temp_bn_len = BN_bn2bin(temp_bn, temp_byte2);
     // in bytes
     rv = build_attribute(CKA_VALUE, temp_byte2, temp_bn_len, &temp_attr);
-    OPENSSL_cleanse(temp_byte2, temp_bn_len);
     if (rv != CKR_OK) {
         TRACE_DEVEL("build_attribute failed\n");
         goto done;
@@ -1358,7 +1358,10 @@ done:
     if (params != NULL)
         EVP_PKEY_free(params);
     free(temp_byte);
-    free(temp_byte2);
+    if (temp_byte2 != NULL) {
+        OPENSSL_cleanse(temp_byte2, temp_byte2_len);
+        free(temp_byte2);
+    }
 #if OPENSSL_VERSION_PREREQ(3, 0)
     if (pctx != NULL)
         EVP_PKEY_CTX_free(pctx);
@@ -1367,7 +1370,7 @@ done:
     if (osparams != NULL)
         OSSL_PARAM_free(osparams);
     if (temp_bn != NULL)
-        BN_free(temp_bn);
+        BN_clear_free(temp_bn);
 #endif
     return rv;
 }                               /* end token_specific_dh_key_pair_gen() */
