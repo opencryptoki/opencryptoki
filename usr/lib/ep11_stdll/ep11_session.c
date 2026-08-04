@@ -519,6 +519,12 @@ static CK_RV add_serial_number(STDLL_TokData_t *tokdata,
 
     TRACE_DEVEL("%s adding serial number : %.16s\n", __func__, serial_number);
 
+    if (ep11_session->num_serial_numbers >= MAX_APQN) {
+        TRACE_ERROR("%s Serial number list is full (%lu entries)\n",
+                    __func__, ep11_session->num_serial_numbers);
+        return CKR_HOST_MEMORY;
+    }
+
     tmp = realloc(ep11_session->serial_numbers, sizeof(ep11_serialno_t) *
                                     (ep11_session->num_serial_numbers + 1));
     if (tmp == NULL) {
