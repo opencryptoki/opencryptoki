@@ -1721,7 +1721,6 @@ CK_RV aes_ctr_encrypt_final(STDLL_TokData_t *tokdata,
                             CK_BYTE *out_data, CK_ULONG *out_data_len)
 {
     AES_CONTEXT *context = NULL;
-    CK_AES_CTR_PARAMS *aesctr = NULL;
 
     UNUSED(tokdata);
     UNUSED(out_data);
@@ -1734,18 +1733,11 @@ CK_RV aes_ctr_encrypt_final(STDLL_TokData_t *tokdata,
 
     context = (AES_CONTEXT *) ctx->context;
 
-    // DES3-CBC does no padding so there had better not be
+    // CTR mode does no padding so there had better not be
     // any data in the context buffer.  if there is it means
     // that the overall data length was not a multiple of the blocksize
     //
     if (context->len != 0) {
-        TRACE_ERROR("%s\n", ock_err(ERR_DATA_LEN_RANGE));
-        return CKR_DATA_LEN_RANGE;
-    }
-    aesctr = (CK_AES_CTR_PARAMS *) ctx->mech.pParameter;
-    //to check that the counter buffer doesnot overflow
-    if (((CK_ULONG) aesctr->ulCounterBits) >
-        ((CK_ULONG) aesctr->ulCounterBits + 1)) {
         TRACE_ERROR("%s\n", ock_err(ERR_DATA_LEN_RANGE));
         return CKR_DATA_LEN_RANGE;
     }
@@ -1764,7 +1756,6 @@ CK_RV aes_ctr_decrypt_final(STDLL_TokData_t *tokdata,
                             CK_BYTE *out_data, CK_ULONG *out_data_len)
 {
     AES_CONTEXT *context = NULL;
-    CK_AES_CTR_PARAMS *aesctr = NULL;
 
     UNUSED(tokdata);
     UNUSED(out_data);
@@ -1777,7 +1768,7 @@ CK_RV aes_ctr_decrypt_final(STDLL_TokData_t *tokdata,
 
     context = (AES_CONTEXT *) ctx->context;
 
-    // DES3-CBC does no padding so there had better not be
+    // CTR mode does no padding so there had better not be
     // any data in the context buffer.  if there is it means
     // that the overall data length was not a multiple of the blocksize
     //
@@ -1785,14 +1776,6 @@ CK_RV aes_ctr_decrypt_final(STDLL_TokData_t *tokdata,
         TRACE_ERROR("%s\n", ock_err(ERR_ENCRYPTED_DATA_LEN_RANGE));
         return CKR_ENCRYPTED_DATA_LEN_RANGE;
     }
-    aesctr = (CK_AES_CTR_PARAMS *) ctx->mech.pParameter;
-    //to check that the counter buffer doesnot overflow
-    if (((CK_ULONG) aesctr->ulCounterBits) >
-        ((CK_ULONG) aesctr->ulCounterBits + 1)) {
-        TRACE_ERROR("%s\n", ock_err(ERR_DATA_LEN_RANGE));
-        return CKR_DATA_LEN_RANGE;
-    }
-
     *out_data_len = 0;
 
     return CKR_OK;
