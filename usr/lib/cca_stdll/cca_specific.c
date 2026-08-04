@@ -3777,8 +3777,13 @@ retry:
         pl_ofs = 16;
         pl_len = 32;
     }
-    if (pl_ofs + pl_len <= key_len &&
-        memcmp(*aes_key + pl_ofs, *aes_key + key_len + pl_ofs, pl_len) == 0) {
+    if (pl_ofs >= key_len || pl_len > key_len - pl_ofs) {
+        TRACE_ERROR("AES key token has invalid payload offset/length\n");
+        memset(*aes_key, 0, *len);
+        return CKR_DEVICE_ERROR;
+    }
+
+    if (memcmp(*aes_key + pl_ofs, *aes_key + key_len + pl_ofs, pl_len) == 0) {
         memset(*aes_key, 0, *len);
         goto retry;
     }
