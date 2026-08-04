@@ -629,6 +629,11 @@ CK_RV token_specific_init(STDLL_TokData_t *tokdata, CK_SLOT_ID SlotNumber,
     UNUSED(conf_name);
 
     ica_data = (ica_private_data_t *)calloc(1, sizeof(ica_private_data_t));
+    if (ica_data == NULL) {
+        TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+        return CKR_HOST_MEMORY;
+    }
+
     tokdata->private_data = ica_data;
 
     rc = load_libica(ica_data);
@@ -657,7 +662,7 @@ CK_RV token_specific_init(STDLL_TokData_t *tokdata, CK_SLOT_ID SlotNumber,
                                            &(tokdata->mech_list_len));
     if (rc != CKR_OK) {
         TRACE_ERROR("Mechanism filtering failed!  rc = 0x%lx\n", rc);
-        return rc;
+        goto out;
     }
 
     TRACE_INFO("ica %s slot=%lu running\n", __func__, SlotNumber);
@@ -670,6 +675,10 @@ CK_RV token_specific_init(STDLL_TokData_t *tokdata, CK_SLOT_ID SlotNumber,
 
 out:
     if (rc != CKR_OK) {
+        if (p_ica_cleanup != NULL)
+            p_ica_cleanup();
+        if (ica_data->libica_dso != NULL)
+            dlclose(ica_data->libica_dso);
         free(ica_data);
         tokdata->private_data = NULL;
     }
