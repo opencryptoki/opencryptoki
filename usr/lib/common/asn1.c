@@ -27,6 +27,8 @@
 #include "pqc_defs.h"
 
 
+#define ADD_OVERFLOW(a, b)  ((b) > ULONG_MAX - (a))
+
 //
 //
 CK_ULONG ber_encode_INTEGER(CK_BBOOL length_only,
@@ -2459,6 +2461,11 @@ CK_RV ber_encode_DSAPublicKey(CK_BBOOL length_only, CK_BYTE **data,
         return rc;
     }
 
+    if (ADD_OVERFLOW(id_len, pub_len)) {
+        TRACE_ERROR("%s Integer overflow in allocation size\n", __func__);
+        return CKR_HOST_MEMORY;
+    }
+
     buf = (CK_BYTE *) malloc(id_len + pub_len);
     if (!buf) {
         TRACE_ERROR("%s Memory allocation failed\n", __func__);
@@ -2542,6 +2549,14 @@ CK_RV ber_encode_DSAPublicKey(CK_BBOOL length_only, CK_BYTE **data,
     }
 
     pub_len = val->bv_len;
+    if (ADD_OVERFLOW(id_len, pub_len)) {
+        TRACE_ERROR("%s Integer overflow in allocation size\n", __func__);
+        ber_free(ber, 1);
+        ber_bvfree(val);
+        free(buf2);
+        return CKR_HOST_MEMORY;
+    }
+
     buf = (CK_BYTE *) malloc(id_len + pub_len);
     if (!buf) {
         TRACE_ERROR("%s Memory allocation failed\n", __func__);
@@ -3792,6 +3807,11 @@ CK_RV ber_encode_DHPublicKey(CK_BBOOL length_only, CK_BYTE **data,
         return rc;
     }
 
+    if (ADD_OVERFLOW(id_len, pub_len)) {
+        TRACE_ERROR("%s Integer overflow in allocation size\n", __func__);
+        return CKR_HOST_MEMORY;
+    }
+
     buf = (CK_BYTE *) malloc(id_len + pub_len);
     if (!buf) {
         TRACE_ERROR("%s Memory allocation failed\n", __func__);
@@ -3864,6 +3884,14 @@ CK_RV ber_encode_DHPublicKey(CK_BBOOL length_only, CK_BYTE **data,
     }
 
     pub_len = val->bv_len;
+    if (ADD_OVERFLOW(id_len, pub_len)) {
+        TRACE_ERROR("%s Integer overflow in allocation size\n", __func__);
+        ber_free(ber, 1);
+        ber_bvfree(val);
+        free(buf2);
+        return CKR_HOST_MEMORY;
+    }
+
     buf = (CK_BYTE *) malloc(id_len + pub_len);
     if (!buf) {
         TRACE_ERROR("%s Memory allocation failed\n", __func__);
@@ -5400,6 +5428,11 @@ CK_RV ber_encode_IBM_ML_DSA_PublicKey(CK_MECHANISM_TYPE mech,
     }
 
     /* Allocate storage for public key */
+    if (ADD_OVERFLOW(rho->ulValueLen, t1->ulValueLen)) {
+        TRACE_ERROR("%s Integer overflow in allocation size\n", __func__);
+        return CKR_HOST_MEMORY;
+    }
+
     buf = malloc(rho->ulValueLen + t1->ulValueLen);
     if (buf == NULL) {
         TRACE_ERROR("%s Memory allocation failed\n", __func__);
@@ -5427,6 +5460,12 @@ CK_RV ber_encode_IBM_ML_DSA_PublicKey(CK_MECHANISM_TYPE mech,
     }
 
     /* Allocate storage for outer sequence */
+    if (ADD_OVERFLOW(alg_len, pub_len)) {
+        TRACE_ERROR("%s Integer overflow in allocation size\n", __func__);
+        rc = CKR_HOST_MEMORY;
+        goto error;
+    }
+
     buf = malloc(alg_len + pub_len);
     if (buf == NULL) {
         TRACE_ERROR("%s Memory allocation failed\n", __func__);
@@ -5685,6 +5724,15 @@ CK_RV ber_encode_IBM_ML_DSA_PrivateKey(CK_MECHANISM_TYPE mech,
         }
 
         free(buf);
+        buf = NULL;
+
+        if (ADD_OVERFLOW(exp_key_len, priv_seed_len)) {
+            TRACE_ERROR("%s Integer overflow in allocation size\n", __func__);
+
+            rc = CKR_HOST_MEMORY;
+            goto error;
+        }
+
         buf = malloc(exp_key_len + priv_seed_len);
         if (buf == NULL) {
             TRACE_ERROR("%s Memory allocation failed\n", __func__);
@@ -6017,6 +6065,12 @@ CK_RV ber_encode_IBM_ML_KEM_PublicKey(CK_MECHANISM_TYPE mech,
     }
 
     /* Allocate storage for outer sequence */
+    if (ADD_OVERFLOW(alg_len, pub_len)) {
+        TRACE_ERROR("%s Integer overflow in allocation size\n", __func__);
+        rc = CKR_HOST_MEMORY;
+        goto error;
+    }
+
     buf = malloc(alg_len + pub_len);
     if (buf == NULL) {
         TRACE_ERROR("%s Memory allocation failed\n", __func__);
@@ -6215,6 +6269,12 @@ CK_RV ber_encode_IBM_ML_KEM_PrivateKey(CK_MECHANISM_TYPE mech,
                                       priv_seed->pValue, priv_seed->ulValueLen);
         if (rc != CKR_OK) {
             TRACE_DEVEL("ber_encode failed\n");
+            goto error;
+        }
+
+        if (ADD_OVERFLOW(exp_key_len, priv_seed_len)) {
+            TRACE_ERROR("%s Integer overflow in allocation size\n", __func__);
+            rc = CKR_HOST_MEMORY;
             goto error;
         }
 
@@ -6477,6 +6537,12 @@ CK_RV ber_encode_ML_DSA_PublicKey(CK_BBOOL length_only,
     }
 
     /* Allocate storage for outer sequence */
+    if (ADD_OVERFLOW(alg_len, pub_len)) {
+        TRACE_ERROR("%s Integer overflow in allocation size\n", __func__);
+        rc = CKR_HOST_MEMORY;
+        goto error;
+    }
+
     buf = malloc(alg_len + pub_len);
     if (buf == NULL) {
         TRACE_ERROR("%s Memory allocation failed\n", __func__);
@@ -6640,6 +6706,15 @@ CK_RV ber_encode_ML_DSA_PrivateKey(CK_BBOOL length_only,
         }
 
         free(buf);
+        buf = NULL;
+
+        if (ADD_OVERFLOW(exp_key_len, seed_len)) {
+            TRACE_ERROR("%s Integer overflow in allocation size\n", __func__);
+
+            rc = CKR_HOST_MEMORY;
+            goto error;
+        }
+
         buf = malloc(exp_key_len + seed_len);
         if (buf == NULL) {
             TRACE_ERROR("%s Memory allocation failed\n", __func__);
@@ -6881,6 +6956,12 @@ CK_RV ber_encode_ML_KEM_PublicKey(CK_BBOOL length_only,
     }
 
     /* Allocate storage for outer sequence */
+    if (ADD_OVERFLOW(alg_len, pub_len)) {
+        TRACE_ERROR("%s Integer overflow in allocation size\n", __func__);
+        rc = CKR_HOST_MEMORY;
+        goto error;
+    }
+
     buf = malloc(alg_len + pub_len);
     if (buf == NULL) {
         TRACE_ERROR("%s Memory allocation failed\n", __func__);
@@ -7041,6 +7122,15 @@ CK_RV ber_encode_ML_KEM_PrivateKey(CK_BBOOL length_only,
         }
 
         free(buf);
+        buf = NULL;
+
+        if (ADD_OVERFLOW(exp_key_len, seed_len)) {
+            TRACE_ERROR("%s Integer overflow in allocation size\n", __func__);
+
+            rc = CKR_HOST_MEMORY;
+            goto error;
+        }
+
         buf = malloc(exp_key_len + seed_len);
         if (buf == NULL) {
             TRACE_ERROR("%s Memory allocation failed\n", __func__);
