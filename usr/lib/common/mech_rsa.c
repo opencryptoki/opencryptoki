@@ -2537,7 +2537,7 @@ CK_RV encode_eme_oaep(STDLL_TokData_t *tokdata, CK_BYTE *mData, CK_ULONG mLen,
                       CK_BYTE *emData, CK_ULONG modLength,
                       CK_RSA_PKCS_MGF_TYPE mgf, CK_BYTE *hash, CK_ULONG hlen)
 {
-    int ps_len;
+    CK_ULONG ps_len;
     CK_ULONG dbMask_len, i;
     CK_BYTE *maskedSeed, *maskedDB, *dbMask;
     CK_BYTE seed[MAX_SHA_HASH_SIZE];
@@ -2546,6 +2546,12 @@ CK_RV encode_eme_oaep(STDLL_TokData_t *tokdata, CK_BYTE *mData, CK_ULONG mLen,
     if (!mData || !emData) {
         TRACE_ERROR("%s received bad argument(s)\n", __func__);
         return CKR_FUNCTION_FAILED;
+    }
+
+    /* pkcs1v2.2, section 7.1.1 step 3: mLen <= modLength - 2*hlen - 2 */
+    if (modLength < mLen + 2 * hlen + 2) {
+        TRACE_ERROR("%s\n", ock_err(ERR_DATA_LEN_RANGE));
+        return CKR_DATA_LEN_RANGE;
     }
 
     /* pkcs1v2.2 Step i:
