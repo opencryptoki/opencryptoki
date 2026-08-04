@@ -1235,6 +1235,11 @@ CK_RV token_specific_dh_pkcs_key_pair_gen(STDLL_TokData_t *tokdata,
 
     temp_bn_len = BN_num_bytes(temp_bn);
     temp_byte = malloc(temp_bn_len);
+    if (temp_byte == NULL) {
+        TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+        rv = CKR_HOST_MEMORY;
+        goto done;
+    }
     temp_bn_len = BN_bn2bin(temp_bn, temp_byte);
     // in bytes
     rv = build_attribute(CKA_VALUE, temp_byte, temp_bn_len, &temp_attr);
@@ -1267,6 +1272,11 @@ CK_RV token_specific_dh_pkcs_key_pair_gen(STDLL_TokData_t *tokdata,
 #endif
     temp_bn_len = BN_num_bytes(temp_bn);
     temp_byte2 = malloc(temp_bn_len);
+    if (temp_byte2 == NULL) {
+        TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+        rv = CKR_HOST_MEMORY;
+        goto done;
+    }
     temp_bn_len = BN_bn2bin(temp_bn, temp_byte2);
     // in bytes
     rv = build_attribute(CKA_VALUE, temp_byte2, temp_bn_len, &temp_attr);
