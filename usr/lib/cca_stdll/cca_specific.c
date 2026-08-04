@@ -4612,7 +4612,7 @@ static CK_BBOOL cca_get_acp(struct cca_role_data *role_data,
             bitmap = ((CK_BYTE *)acp_segment) + sizeof(struct cca_acp_segment);
             bit_no = acp_num - be16toh(acp_segment->start_bit_no);
 
-            if (ACP_BYTE_NO(bit_no) > be16toh(acp_segment->num_bytes))
+            if (ACP_BYTE_NO(bit_no) >= be16toh(acp_segment->num_bytes))
                 goto out;
 
             ret = (bitmap[ACP_BYTE_NO(bit_no)] & ACP_BIT_MASK(bit_no)) != 0;
