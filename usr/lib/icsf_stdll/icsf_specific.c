@@ -3921,7 +3921,15 @@ CK_RV icsftok_find_objects_init(STDLL_TokData_t * tokdata, SESSION * sess,
 
                 if (sess->find_count >= sess->find_len) {
                     void *find_list;
-                    size_t find_len = sess->find_len + MAX_RECORDS;
+                    size_t find_len;
+
+                    if (sess->find_len > SIZE_MAX - MAX_RECORDS) {
+                        TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+                        rv = CKR_HOST_MEMORY;
+                        goto done;
+                    }
+
+                    find_len = sess->find_len + MAX_RECORDS;
                     find_list = realloc(sess->find_list,
                                         find_len * sizeof(CK_OBJECT_HANDLE));
                     if (!find_list) {
