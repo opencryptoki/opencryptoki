@@ -1793,7 +1793,8 @@ CK_RV token_specific_sha_update(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *ctx,
                                 CK_BYTE *in_data, CK_ULONG in_data_len)
 {
     struct oc_sha_ctx *sc;
-    int fill, len, rest, ret;
+    CK_ULONG fill, len, rest;
+    CK_RV ret;
 
     if (!ctx)
          return CKR_OPERATION_NOT_INITIALIZED;
@@ -1811,6 +1812,11 @@ CK_RV token_specific_sha_update(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *ctx,
         return CKR_ARGUMENTS_BAD;
 
     sc = (struct oc_sha_ctx *) ctx->context;
+
+    if (in_data_len > ULONG_MAX - sc->tail_len) {
+        TRACE_ERROR("SHA update input length overflow\n");
+        return CKR_DATA_LEN_RANGE;
+    }
 
     /* if less than blocksize, save to context buffer for next time */
     if (sc->tail_len + in_data_len < sc->hash_blksize) {
