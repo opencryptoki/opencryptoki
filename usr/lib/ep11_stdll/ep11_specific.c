@@ -18207,6 +18207,12 @@ static CK_RV check_apqn_for_fips_session_mode(uint_32 adapter, uint_32 domain,
         return CKR_DEVICE_ERROR;
     }
 
+    if (caps > CK_IBM_XCPXQ_MAXIDX + 1) {
+        TRACE_ERROR("%s Unexpected extended capabilities count %u from "
+                    "adapter %02X.%04X\n", __func__, caps, adapter, domain);
+        return CKR_DEVICE_ERROR;
+    }
+
     reslen = caps * sizeof(uint32_t) * 2;
     res = calloc(1, reslen);
     if (res == NULL) {
