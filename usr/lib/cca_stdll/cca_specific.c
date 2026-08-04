@@ -10709,6 +10709,11 @@ static CK_RV ccatok_ml_dsa_build_context_msg(CK_BYTE *in_data,
         return CKR_MECHANISM_PARAM_INVALID;
     }
 
+    if (in_data_len > ULONG_MAX - sizeof(ctx_len) - context_len) {
+        TRACE_ERROR("Input data too large\n");
+        return CKR_DATA_LEN_RANGE;
+    }
+
     *context_msg_len = sizeof(ctx_len) + context_len + in_data_len;
     *context_msg = malloc(*context_msg_len);
     if (*context_msg == NULL) {
@@ -10930,6 +10935,11 @@ static CK_RV ccatok_ml_dsa_sign(STDLL_TokData_t *tokdata, SESSION *sess,
         if (in_data_len == 0)
             return CKR_OK;
 
+        if (in_data_len > ULONG_MAX - sess->sign_ctx.context_len) {
+            TRACE_ERROR("%s\n", ock_err(ERR_DATA_LEN_RANGE));
+            return CKR_DATA_LEN_RANGE;
+        }
+
         tmp = (CK_BYTE *)realloc(sess->sign_ctx.context,
                                  sess->sign_ctx.context_len + in_data_len);
         if (tmp == NULL) {
@@ -11064,6 +11074,11 @@ static CK_RV ccatok_ml_dsa_verify(STDLL_TokData_t *tokdata, SESSION *sess,
         /* Collect the input data in the context */
         if (in_data_len == 0)
             return CKR_OK;
+
+        if (in_data_len > ULONG_MAX - sess->verify_ctx.context_len) {
+            TRACE_ERROR("%s\n", ock_err(ERR_DATA_LEN_RANGE));
+            return CKR_DATA_LEN_RANGE;
+        }
 
         tmp = (CK_BYTE *)realloc(sess->verify_ctx.context,
                                  sess->verify_ctx.context_len + in_data_len);
