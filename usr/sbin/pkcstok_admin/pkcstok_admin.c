@@ -326,7 +326,7 @@ static int set_file_permissions(const char *fname, const struct group *group,
 {
     struct stat sb;
     struct passwd *pwd;
-    int err, i, rc, mode;
+    int err, i, rc, mode, fd;
     bool found = false;
     uid_t uid = (uid_t)-1;
     DIR *dir;
@@ -336,15 +336,27 @@ static int set_file_permissions(const char *fname, const struct group *group,
     pr_verbose("Setting permissions for '%s' with group '%s'", fname,
                group->gr_name);
 
-    /* CWE-59 fix: Use lstat to detect symlinks */
-    if (lstat(fname, &sb) != 0) {
-        warnx("'%s' does not exist.", fname);
+    fd = open(fname, O_NOFOLLOW | O_RDONLY);
+    if (fd < 0) {
+        err = errno;
+        if (err == ELOOP)
+            warnx("Skipping '%s': is a symlink.", fname);
+        else
+            warnx("'%s' does not exist.", fname);
         return -1;
     }
 
-    /* Only process regular files and directories (CWE-59 fix) */
+    if (fstat(fd, &sb) != 0) {
+        err = errno;
+        warnx("Failed to stat '%s': %s", fname, strerror(err));
+        close(fd);
+        return -1;
+    }
+
+    /* Only process regular files and directories */
     if (!S_ISREG(sb.st_mode) && !S_ISDIR(sb.st_mode)) {
         warnx("Skipping '%s': not a regular file or directory.", fname);
+        close(fd);
         return 0;
     }
 
@@ -364,26 +376,29 @@ static int set_file_permissions(const char *fname, const struct group *group,
             uid = 0; /* set root as owner if prev owner is not in token group */
     }
 
-    /* Set absolute permissions or rw-rw---- / rwxrwx--- */
+    /* Set absolute permissions: rw-rw---- or rwxrwx--- */
     if (S_ISDIR(sb.st_mode))
         mode = S_IRUSR | S_IWUSR | S_IXUSR | S_IRGRP | S_IWGRP | S_IXGRP;
     else
         mode = S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP;
-    if (chmod(fname, mode) != 0) {
+    if (fchmod(fd, mode) != 0) {
         err = errno;
         warnx("Failed to set permissions on '%s': %s", fname, strerror(err));
+        close(fd);
         return -1;
     }
 
     /* Set owner to uid and token group */
-    if (chown(fname, uid, group->gr_gid) != 0) {
+    if (fchown(fd, uid, group->gr_gid) != 0) {
         err = errno;
         warnx("Failed to change the owner on '%s': %s", fname, strerror(err));
+        close(fd);
         return -1;
     }
 
     if (recursive && S_ISDIR(sb.st_mode)) {
-        dir = opendir(fname);
+        dir = fdopendir(fd);
+        fd = -1;
         if (dir == NULL) {
             err = errno;
             warnx("Failed to open directory '%s': %s", fname, strerror(err));
@@ -407,6 +422,9 @@ static int set_file_permissions(const char *fname, const struct group *group,
         if (rc != 0)
             return rc;
     }
+
+    if (fd >= 0)
+        close(fd);
 
     return 0;
 }
