@@ -15924,6 +15924,12 @@ CK_RV ep11tok_get_mechanism_list(STDLL_TokData_t * tokdata,
          * larger list.
          */
         do {
+            if (counter > SIZE_MAX / sizeof(CK_MECHANISM_TYPE)) {
+                TRACE_ERROR("%s mechanism count overflow\n", __func__);
+                rc = CKR_HOST_MEMORY;
+                goto out;
+            }
+
             tmp = (CK_MECHANISM_TYPE *) realloc(mlist,
                                     sizeof(CK_MECHANISM_TYPE) * counter);
             if (!tmp) {
@@ -16018,6 +16024,12 @@ CK_RV ep11tok_get_mechanism_list(STDLL_TokData_t * tokdata,
          * larger list.
          */
         do {
+            if (counter > SIZE_MAX / sizeof(CK_MECHANISM_TYPE)) {
+                TRACE_ERROR("%s mechanism count overflow\n", __func__);
+                rc = CKR_HOST_MEMORY;
+                goto out;
+            }
+
             tmp = (CK_MECHANISM_TYPE *) realloc(mlist,
                                     sizeof(CK_MECHANISM_TYPE) * counter);
             if (!tmp) {
