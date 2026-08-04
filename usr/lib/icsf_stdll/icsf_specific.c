@@ -208,6 +208,12 @@ static CK_RV icsf_policy_get_attr(void *data,
         goto done;
     }
 
+    if (s.ulValueLen == 0) {
+        TRACE_DEVEL("Zero size for attribute 0x%lx\n", type);
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+
     a = (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE) + s.ulValueLen);
     if (!a) {
         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
