@@ -13142,8 +13142,9 @@ static CK_RV import_ec_privkey(STDLL_TokData_t *tokdata, TEMPLATE *priv_templ)
                                                   (unsigned char *)&key_value_structure,
                                                   &key_value_structure_length);
         free(pubkey);
+        pubkey = NULL;
         if (rc != CKR_OK)
-            return rc;
+            goto ec_import_out;
 
         /*
          * Build key token.
@@ -13168,7 +13169,7 @@ static CK_RV import_ec_privkey(STDLL_TokData_t *tokdata, TEMPLATE *priv_templ)
         if (rc != CKR_OK) {
             TRACE_ERROR("%s ccatok_pkey_add_attrs failed with rc=0x%lx\n",
                         __func__, rc);
-            return rc;
+            goto ec_import_out;
         }
 #endif /* NO_PKEY */
 
@@ -13187,9 +13188,9 @@ static CK_RV import_ec_privkey(STDLL_TokData_t *tokdata, TEMPLATE *priv_templ)
         if (return_code != CCA_SUCCESS) {
             TRACE_ERROR("CSNDPKB (EC KEY TOKEN BUILD) failed. return:%ld,"
                         " reason:%ld\n", return_code, reason_code);
-            if (is_curve_error(return_code, reason_code))
-                return CKR_CURVE_NOT_SUPPORTED;
-            return CKR_FUNCTION_FAILED;
+            rc = is_curve_error(return_code, reason_code) ?
+                     CKR_CURVE_NOT_SUPPORTED : CKR_FUNCTION_FAILED;
+            goto ec_import_out;
         }
 
         /* Now import the PKA key token */
@@ -13209,9 +13210,9 @@ static CK_RV import_ec_privkey(STDLL_TokData_t *tokdata, TEMPLATE *priv_templ)
         if (return_code != CCA_SUCCESS) {
             TRACE_ERROR("CSNDPKI (EC KEY TOKEN IMPORT) failed." " return:%ld, reason:%ld\n",
                         return_code, reason_code);
-            if (is_curve_error(return_code, reason_code))
-                return CKR_CURVE_NOT_SUPPORTED;
-            return CKR_FUNCTION_FAILED;
+            rc = is_curve_error(return_code, reason_code) ?
+                     CKR_CURVE_NOT_SUPPORTED : CKR_FUNCTION_FAILED;
+            goto ec_import_out;
         }
 
         if (analyse_cca_key_token(target_key_token, target_key_token_length,
@@ -13219,12 +13220,14 @@ static CK_RV import_ec_privkey(STDLL_TokData_t *tokdata, TEMPLATE *priv_templ)
                                   &mkvp) == FALSE ||
             mkvp == NULL) {
             TRACE_ERROR("Invalid/unknown cca token has been imported\n");
-            return CKR_FUNCTION_FAILED;
+            rc = CKR_FUNCTION_FAILED;
+            goto ec_import_out;
         }
 
         if (check_expected_mkvp(tokdata, token_type, mkvp, &new_mk) != CKR_OK) {
             TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
-            return CKR_DEVICE_ERROR;
+            rc = CKR_DEVICE_ERROR;
+            goto ec_import_out;
         }
 
         rc = cca_reencipher_created_key(tokdata, priv_templ, target_key_token,
@@ -13232,24 +13235,28 @@ static CK_RV import_ec_privkey(STDLL_TokData_t *tokdata, TEMPLATE *priv_templ)
                                         token_type, FALSE);
         if (rc != CKR_OK) {
             TRACE_ERROR("cca_reencipher_created_key failed: 0x%lx\n", rc);
-            return rc;
+            goto ec_import_out;
         }
 
         /* Add key token to template as CKA_IBM_OPAQUE */
         if ((rc = build_update_attribute(priv_templ, CKA_IBM_OPAQUE,
                                          target_key_token, target_key_token_length))) {
             TRACE_DEVEL("build_update_attribute(CKA_IBM_OPAQUE) failed\n");
-            return rc;
+            goto ec_import_out;
         }
 
-        /* zero clear key values */
+    ec_import_out:
+        /* zero clear key material */
+        OPENSSL_cleanse(key_value_structure, sizeof(key_value_structure));
         OPENSSL_cleanse(privkey, privlen);
     }
 
-    TRACE_DEBUG("%s: imported object template attributes:\n", __func__);
-    TRACE_DEBUG_DUMPTEMPL(priv_templ);
+    if (rc == CKR_OK) {
+        TRACE_DEBUG("%s: imported object template attributes:\n", __func__);
+        TRACE_DEBUG_DUMPTEMPL(priv_templ);
+    }
 
-    return CKR_OK;
+    return rc;
 }
 
 static CK_RV import_ec_pubkey(STDLL_TokData_t *tokdata, TEMPLATE *pub_templ)
