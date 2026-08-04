@@ -2541,7 +2541,8 @@ CK_RV ber_encode_DSAPublicKey(CK_BBOOL length_only, CK_BYTE **data,
         return CKR_FUNCTION_FAILED;
     }
 
-    buf = (CK_BYTE *) malloc(id_len + val->bv_len);
+    pub_len = val->bv_len;
+    buf = (CK_BYTE *) malloc(id_len + pub_len);
     if (!buf) {
         TRACE_ERROR("%s Memory allocation failed\n", __func__);
         ber_free(ber, 1);
@@ -2550,7 +2551,7 @@ CK_RV ber_encode_DSAPublicKey(CK_BBOOL length_only, CK_BYTE **data,
         return CKR_HOST_MEMORY;
     }
     memcpy(buf, buf2, id_len);
-    memcpy(buf + id_len, val->bv_val, val->bv_len);
+    memcpy(buf + id_len, val->bv_val, pub_len);
     free(buf2);
     ber_free(ber, 1);
     ber_bvfree(val);
@@ -3862,7 +3863,8 @@ CK_RV ber_encode_DHPublicKey(CK_BBOOL length_only, CK_BYTE **data,
         return CKR_FUNCTION_FAILED;
     }
 
-    buf = (CK_BYTE *) malloc(id_len + val->bv_len);
+    pub_len = val->bv_len;
+    buf = (CK_BYTE *) malloc(id_len + pub_len);
     if (!buf) {
         TRACE_ERROR("%s Memory allocation failed\n", __func__);
         ber_free(ber, 1);
@@ -3871,7 +3873,7 @@ CK_RV ber_encode_DHPublicKey(CK_BBOOL length_only, CK_BYTE **data,
         return CKR_HOST_MEMORY;
     }
     memcpy(buf, buf2, id_len);
-    memcpy(buf + id_len, val->bv_val, val->bv_len);
+    memcpy(buf + id_len, val->bv_val, pub_len);
     free(buf2);
     ber_free(ber, 1);
     ber_bvfree(val);
