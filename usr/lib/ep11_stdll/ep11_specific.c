@@ -17631,22 +17631,25 @@ CK_BBOOL is_apqn_online(uint_32 card, uint_32 domain)
     return CK_TRUE;
 #endif
 
-    sprintf(fname, "%s/card%02x/%02x.%04x/online", SYSFS_DEVICES_AP,
-            card, card, domain);
+    if (snprintf(fname, sizeof(fname), "%s/card%02x/%02x.%04x/online",
+                 SYSFS_DEVICES_AP, card, card, domain) >= (int)sizeof(fname))
+        return CK_FALSE;
     rc = file_fgets(fname, buf, sizeof(buf));
     if (rc != CKR_OK)
         return CK_FALSE;
     if (strcmp(buf, "1") != 0)
         return CK_FALSE;
 
-    sprintf(fname, "%s/card%02x/%02x.%04x/config", SYSFS_DEVICES_AP,
-            card, card, domain);
+    if (snprintf(fname, sizeof(fname), "%s/card%02x/%02x.%04x/config",
+                 SYSFS_DEVICES_AP, card, card, domain) >= (int)sizeof(fname))
+        return CK_FALSE;
     rc = file_fgets(fname, buf, sizeof(buf));
     if (rc == CKR_OK && strcmp(buf, "1") != 0)
         return CK_FALSE;
 
-    sprintf(fname, "%s/card%02x/%02x.%04x/chkstop", SYSFS_DEVICES_AP,
-            card, card, domain);
+    if (snprintf(fname, sizeof(fname), "%s/card%02x/%02x.%04x/chkstop",
+                 SYSFS_DEVICES_AP, card, card, domain) >= (int)sizeof(fname))
+        return CK_FALSE;
     rc = file_fgets(fname, buf, sizeof(buf));
     if (rc == CKR_OK && strcmp(buf, "0") != 0)
         return CK_FALSE;
@@ -17665,24 +17668,32 @@ static CK_RV is_card_ep11_and_online(const char *name)
     return CKR_OK;
 #endif
 
-    sprintf(fname, "%s%s/online", SYSFS_DEVICES_AP, name);
+    if (snprintf(fname, sizeof(fname), "%s%s/online",
+                 SYSFS_DEVICES_AP, name) >= (int)sizeof(fname))
+        return CKR_FUNCTION_FAILED;
     rc = file_fgets(fname, buf, sizeof(buf));
     if (rc != CKR_OK)
         return rc;
     if (strcmp(buf, "1") != 0)
         return CKR_FUNCTION_FAILED;
 
-    sprintf(fname, "%s%s/config", SYSFS_DEVICES_AP, name);
+    if (snprintf(fname, sizeof(fname), "%s%s/config",
+                 SYSFS_DEVICES_AP, name) >= (int)sizeof(fname))
+        return CKR_FUNCTION_FAILED;
     rc = file_fgets(fname, buf, sizeof(buf));
     if (rc == CKR_OK && strcmp(buf, "1") != 0)
         return CKR_FUNCTION_FAILED;
 
-    sprintf(fname, "%s%s/chkstop", SYSFS_DEVICES_AP, name);
+    if (snprintf(fname, sizeof(fname), "%s%s/chkstop",
+                 SYSFS_DEVICES_AP, name) >= (int)sizeof(fname))
+        return CKR_FUNCTION_FAILED;
     rc = file_fgets(fname, buf, sizeof(buf));
     if (rc == CKR_OK && strcmp(buf, "0") != 0)
         return CKR_FUNCTION_FAILED;
 
-    sprintf(fname, "%s%s/ap_functions", SYSFS_DEVICES_AP, name);
+    if (snprintf(fname, sizeof(fname), "%s%s/ap_functions",
+                 SYSFS_DEVICES_AP, name) >= (int)sizeof(fname))
+        return CKR_FUNCTION_FAILED;
     rc = file_fgets(fname, buf, sizeof(buf));
     if (rc != CKR_OK)
         return rc;
@@ -17715,7 +17726,11 @@ static CK_RV scan_for_card_domains(const char *name, adapter_handler_t handler,
         return CKR_FUNCTION_FAILED;
     }
 
-    sprintf(fname, "%s%s/", SYSFS_DEVICES_AP, name);
+    if (snprintf(fname, sizeof(fname), "%s%s/",
+                 SYSFS_DEVICES_AP, name) >= (int)sizeof(fname)) {
+        regfree(&reg_buf);
+        return CKR_FUNCTION_FAILED;
+    }
     d = opendir(fname);
     if (d == NULL) {
         TRACE_ERROR("Directory %s is not available\n", fname);
