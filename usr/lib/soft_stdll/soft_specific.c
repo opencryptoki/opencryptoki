@@ -1519,6 +1519,12 @@ CK_RV token_specific_generic_secret_key_gen(STDLL_TokData_t *tokdata,
         return CKR_TEMPLATE_INCOMPLETE;
     }
 
+    if (key_length > sizeof(secret_key)) {
+        TRACE_ERROR("Generic secret key size of %lu bytes exceeds maximum "
+                    "of %zu bytes\n", key_length, sizeof(secret_key));
+        return CKR_KEY_SIZE_RANGE;
+    }
+
     //app specified key length in bytes
     key_length_in_bits = key_length * 8;
 
