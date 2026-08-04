@@ -815,12 +815,12 @@ static EVP_PKEY *rsa_convert_private_key(OBJECT *key_obj)
 
     bn_mod = BN_new();
     bn_pub_exp = BN_new();
-    bn_priv_exp = BN_new();
-    bn_p1 = BN_new();
-    bn_p2 = BN_new();
-    bn_e1 = BN_new();
-    bn_e2 = BN_new();
-    bn_cf = BN_new();
+    bn_priv_exp = BN_secure_new();
+    bn_p1 = BN_secure_new();
+    bn_p2 = BN_secure_new();
+    bn_e1 = BN_secure_new();
+    bn_e2 = BN_secure_new();
+    bn_cf = BN_secure_new();
 
     if ((bn_cf == NULL) || (bn_e2 == NULL) || (bn_e1 == NULL) ||
         (bn_p2 == NULL) || (bn_p1 == NULL) || (bn_priv_exp == NULL) ||
@@ -939,12 +939,12 @@ static EVP_PKEY *rsa_convert_private_key(OBJECT *key_obj)
     OSSL_PARAM_free(params);
     BN_free(bn_mod);
     BN_free(bn_pub_exp);
-    BN_free(bn_priv_exp);
-    BN_free(bn_p1);
-    BN_free(bn_p2);
-    BN_free(bn_e1);
-    BN_free(bn_e2);
-    BN_free(bn_cf);
+    BN_clear_free(bn_priv_exp);
+    BN_clear_free(bn_p1);
+    BN_clear_free(bn_p2);
+    BN_clear_free(bn_e1);
+    BN_clear_free(bn_e2);
+    BN_clear_free(bn_cf);
 #endif
 
     return pkey;
@@ -967,17 +967,17 @@ out:
     if (bn_pub_exp)
         BN_free(bn_pub_exp);
     if (bn_priv_exp)
-        BN_free(bn_priv_exp);
+        BN_clear_free(bn_priv_exp);
     if (bn_p1)
-        BN_free(bn_p1);
+        BN_clear_free(bn_p1);
     if (bn_p2)
-        BN_free(bn_p2);
+        BN_clear_free(bn_p2);
     if (bn_e1)
-        BN_free(bn_e1);
+        BN_clear_free(bn_e1);
     if (bn_e2)
-        BN_free(bn_e2);
+        BN_clear_free(bn_e2);
     if (bn_cf)
-        BN_free(bn_cf);
+        BN_clear_free(bn_cf);
 
     return NULL;
 }
@@ -2250,7 +2250,7 @@ static CK_RV fill_ec_key_from_privkey(OSSL_PARAM_BLD *tmpl, const CK_BYTE *data,
             goto out;
         }
 
-        bn_priv = BN_bin2bn(data, data_len, NULL);
+        bn_priv = BN_bin2bn(data, data_len, BN_secure_new());
         if (bn_priv == NULL) {
             rc = CKR_FUNCTION_FAILED;
             goto out;
@@ -2302,7 +2302,7 @@ out:
     if (group != NULL)
         EC_GROUP_free(group);
     if (bn_priv != NULL)
-        BN_free(bn_priv);
+        BN_clear_free(bn_priv);
     if (pub_key != NULL)
         OPENSSL_free(pub_key);
 #endif
@@ -2826,7 +2826,7 @@ out:
         BN_CTX_free(bnctx);
 #else
     if (bn_d != NULL)
-        BN_free(bn_d);
+        BN_clear_free(bn_d);
 #endif
     if (ec_pkey != NULL)
         EVP_PKEY_free(ec_pkey);
