@@ -958,6 +958,13 @@ static CK_RV save_private_token_object_old(STDLL_TokData_t *tokdata, OBJECT *obj
     if (rc != CKR_OK)
         goto error;
 
+    if (cipher_len > UINT32_MAX - sizeof(CK_ULONG_32) - sizeof(CK_BBOOL)) {
+        TRACE_ERROR("Object too large to store in old format (%lu bytes)\n",
+                    cipher_len);
+        rc = CKR_FUNCTION_FAILED;
+        goto error;
+    }
+
     total_len = sizeof(CK_ULONG_32) + sizeof(CK_BBOOL) + cipher_len;
 
     flag = TRUE;
@@ -1862,6 +1869,13 @@ CK_RV save_public_token_object_old(STDLL_TokData_t *tokdata, OBJECT * obj)
     rc = set_perm(fileno(fp), tokdata->tokgroup);
     if (rc != CKR_OK)
         goto error;
+
+    if (clear_len > UINT32_MAX - sizeof(CK_ULONG_32) - sizeof(CK_BBOOL)) {
+        TRACE_ERROR("Object too large to store in old format (%lu bytes)\n",
+                    clear_len);
+        rc = CKR_FUNCTION_FAILED;
+        goto error;
+    }
 
     total_len = clear_len + sizeof(CK_ULONG_32) + sizeof(CK_BBOOL);
 
