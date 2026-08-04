@@ -1671,6 +1671,7 @@ static CK_RV cca_iterate_domains(STDLL_TokData_t *tokdata, const char *device,
     unsigned int i, num_found = 0;
     CK_RV rc2, rc = CKR_OK;
     char serialno[CCA_SERIALNO_LENGTH + 1] = { 0 };
+    char domn_kw[CCA_KEYWORD_SIZE + 1];
 
     if (cca_private->dom_any == FALSE) {
         rc = cca_get_current_domain(&domain);
@@ -1710,8 +1711,19 @@ static CK_RV cca_iterate_domains(STDLL_TokData_t *tokdata, const char *device,
         }
 
         if (cca_private->dom_any) {
-            sprintf((char *)(rule_array + CCA_KEYWORD_SIZE), "DOMN%04u",
-                    cca_private->usage_domains[i]);
+            if (cca_private->usage_domains[i] > 9999) {
+                TRACE_ERROR("Domain number %u exceeds maximum (9999)\n",
+                            cca_private->usage_domains[i]);
+                rc = CKR_DEVICE_ERROR;
+                break;
+            }
+            if (snprintf(domn_kw, sizeof(domn_kw), "DOMN%04u",
+                         cca_private->usage_domains[i]) != CCA_KEYWORD_SIZE) {
+                TRACE_ERROR("Domain keyword format error\n");
+                rc = CKR_DEVICE_ERROR;
+                break;
+            }
+            memcpy(rule_array + CCA_KEYWORD_SIZE, domn_kw, CCA_KEYWORD_SIZE);
             rule_array_count = 2;
 
             domain = cca_private->usage_domains[i];

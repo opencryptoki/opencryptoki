@@ -190,6 +190,7 @@ static CK_RV cca_select_single_apqn(STDLL_TokData_t *tokdata,
     long return_code, reason_code, rule_array_count, device_name_len;
     unsigned char *device_name;
     struct cca_select_single_data ssd = { 0 };
+    char domn_kw[CCA_KEYWORD_SIZE + 1];
     int retries = 0;
     CK_RV rc;
 
@@ -242,7 +243,16 @@ retry:
     device_name = (unsigned char *)ssd.serialno;
 
     if (cca_private->dom_any) {
-        sprintf((char *)(rule_array + CCA_KEYWORD_SIZE), "DOMN%04u", ssd.domain);
+        if (ssd.domain > 9999) {
+            TRACE_ERROR("Domain number %u exceeds maximum (9999)\n", ssd.domain);
+            return CKR_DEVICE_ERROR;
+        }
+        if (snprintf(domn_kw, sizeof(domn_kw), "DOMN%04u", ssd.domain) != 
+                                                             CCA_KEYWORD_SIZE) {
+            TRACE_ERROR("Domain keyword format error\n");
+            return CKR_DEVICE_ERROR;
+        }
+        memcpy(rule_array + CCA_KEYWORD_SIZE, domn_kw, CCA_KEYWORD_SIZE);
         rule_array_count = 2;
 
         if (pthread_rwlock_wrlock(&cca_adapter_rwlock) != 0) {
