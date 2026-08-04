@@ -2299,7 +2299,7 @@ static ica_rsa_key_mod_expo_t *rsa_convert_mod_expo_key(CK_ATTRIBUTE *modulus,
 
     /* right-justified fields */
     ptr = modexpokey->modulus + modexpokey->key_length - modulus->ulValueLen;
-    memcpy(ptr, modulus->pValue, modexpokey->key_length);
+    memcpy(ptr, modulus->pValue, modulus->ulValueLen);
 
     modexpokey->exponent = (unsigned char *) calloc(1, modexpokey->key_length);
     if (modexpokey->exponent == NULL) {
