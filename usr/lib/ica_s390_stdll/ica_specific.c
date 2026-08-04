@@ -591,6 +591,7 @@ CK_RV token_specific_rng(STDLL_TokData_t *tokdata, CK_BYTE *output,
 {
     ica_private_data_t *ica_data = (ica_private_data_t *)tokdata->private_data;
     CK_RV rc = CKR_FUNCTION_FAILED;
+    unsigned int chunk;
 
     if (ica_data->ica_p_rng_available) {
         if (pthread_mutex_lock(&rngmtx)) {
@@ -598,9 +599,17 @@ CK_RV token_specific_rng(STDLL_TokData_t *tokdata, CK_BYTE *output,
             return CKR_CANT_LOCK;
         }
 
-        rc = ica_random_number_generate((unsigned int)bytes, output);
-        if (rc != 0)
-            ica_data->ica_p_rng_available = FALSE;
+        do {
+            chunk = (bytes > UINT_MAX) ? UINT_MAX : (unsigned int)bytes;
+
+            rc = ica_random_number_generate(chunk, output);
+            if (rc != 0) {
+                ica_data->ica_p_rng_available = FALSE;
+                break;
+            }
+            output += chunk;
+            bytes  -= chunk;
+        } while (bytes > 0);
 
         pthread_mutex_unlock(&rngmtx);
     }
