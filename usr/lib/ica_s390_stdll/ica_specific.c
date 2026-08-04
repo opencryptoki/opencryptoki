@@ -2511,8 +2511,10 @@ done:
         BN_clear_free(p);
     if (q != NULL)
         BN_clear_free(q);
-    if (buff != NULL)
+    if (buff != NULL) {
+        OPENSSL_cleanse(buff, len);
         free(buff);
+    }
     if (attr != NULL)
         free(attr);
 
