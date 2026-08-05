@@ -817,21 +817,21 @@ static inline char *confignode_getstr(struct ConfigBaseNode *n)
 static inline int confignode_getversion(struct ConfigBaseNode *n,
                                         unsigned int *version)
 {
-    int res = 0;
     unsigned int major, minor;
 
     if (n->type & CT_VERSIONVAL) {
         *version = confignode_to_versionval(n)->value;
+        return 0;
     } else if (n->type & CT_STRINGVAL) {
         if (sscanf(confignode_to_stringval(n)->value, "%u.%u",
-                    &major, &minor) == 2)
-            *version = major << 16 | minor;
-        else
-            res = -1;
-    } else {
-        res = -1;
+                   &major, &minor) != 2)
+            return -1;
+        if (major > 0xffffu || minor > 0xffffu)
+            return -1;
+        *version = (major << 16) | minor;
+        return 0;
     }
-    return res;
+    return -1;
 }
 
 #endif

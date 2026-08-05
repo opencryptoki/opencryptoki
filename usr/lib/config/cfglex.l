@@ -10,6 +10,7 @@
 %{
 /* Generic Config Parser */
 
+#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
@@ -73,17 +74,35 @@ version                        { yy_push_state(MAIN, yyscanner); return FILEVERS
 
 <MAIN>\"                       yy_push_state(STRING, yyscanner);
 
-<MAIN>0|[1-9][0-9]*            {  yylval->num = strtoul(yytext, NULL, 10); return NUMBER;  }
+<MAIN>0|[1-9][0-9]*            {
+                                  unsigned long v;
+                                  errno = 0;
+                                  v = strtoul(yytext, NULL, 10);
+                                  if (errno == ERANGE) { return 0; }
+                                  yylval->num = v;
+                                  return NUMBER;
+                               }
 
-<MAIN>0x[0-9a-fA-F]+           {  yylval->num = strtoul(yytext, NULL, 16); return NUMBER;  }
+<MAIN>0x[0-9a-fA-F]+           {
+                                  unsigned long v;
+                                  errno = 0;
+                                  v = strtoul(yytext, NULL, 16);
+                                  if (errno == ERANGE) { return 0; }
+                                  yylval->num = v;
+                                  return NUMBER;
+                               }
 
 <MAIN>[0-9]+"."[0-9]+          {  /* version */
                                   unsigned long major, minor;
                                   char *dot = strchr(yytext, '.');
 
                                   *dot = '\0';
+                                  errno = 0;
                                   major = strtoul(yytext, NULL, 10);
+                                  if (errno == ERANGE || major > 0xffffu) { return 0; }
+                                  errno = 0;
                                   minor = strtoul(dot + 1, NULL, 10);
+                                  if (errno == ERANGE || minor > 0xffffu) { return 0; }
 
                                   yylval->num = (uint32_t)major << 16 | (uint32_t)minor;
                                   return VERSION_TOK;
@@ -91,15 +110,29 @@ version                        { yy_push_state(MAIN, yyscanner); return FILEVERS
 
 <MAIN>,                        {  return COMMA;  }
 
-<MAIN>[a-zA-Z./][a-zA-Z0-9_\-./]* {  yylval->str = strdup(yytext); return BARE;  }
+<MAIN>[a-zA-Z./][a-zA-Z0-9_\-./]* {
+                                  yylval->str = strdup(yytext);
+                                  if (!yylval->str) { return 0; }
+                                  return BARE;
+                               }
 
 <COMMENT>\n                    {  yy_pop_state(yyscanner); return EOL;  }
 
-<COMMENT>[^\n]+                {  if (yyextra) { yylval->str = strdup(yytext); return COMMENT_TOK; }  }
+<COMMENT>[^\n]+                {
+                                  if (yyextra) {
+                                      yylval->str = strdup(yytext);
+                                      if (!yylval->str) { return 0; }
+                                      return COMMENT_TOK;
+                                  }
+                               }
 
 <STRING>\"                     yy_pop_state(yyscanner);
 
-<STRING>[^\"]+                 {  yylval->str = strdup(yytext); return STRING_TOK; }
+<STRING>[^\"]+                 {
+                                  yylval->str = strdup(yytext);
+                                  if (!yylval->str) { return 0; }
+                                  return STRING_TOK;
+                               }
 
 .                              { yy_push_state(MAIN, yyscanner); yyless(0); }
 
