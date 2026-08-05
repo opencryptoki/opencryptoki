@@ -1845,7 +1845,7 @@ static CK_RV policy_fileversion_check(struct ConfigBaseNode *cfg,
 {
     const char *filevers;
 
-    if (!confignode_hastype(cfg, CT_FILEVERSION)) {
+    if (cfg == NULL || !confignode_hastype(cfg, CT_FILEVERSION)) {
         TRACE_ERROR("Fileversion not found!\n");
         return CKR_FUNCTION_FAILED;
     }
