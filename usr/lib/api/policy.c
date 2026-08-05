@@ -623,12 +623,12 @@ static CK_RV policy_get_sig_size(CK_MECHANISM_PTR mech, struct objstrength *s,
 static inline CK_RV policy_is_mgf_allowed(struct policy_private *pp,
                                           CK_RSA_PKCS_MGF_TYPE mgf)
 {
-    if (mgf > CKG_VENDOR_DEFINED) {
-        if ((mgf - CKG_VENDOR_DEFINED - 1) <= 31 &&
-            (pp->allowedvendormgfs & (1u << (mgf - CKG_VENDOR_DEFINED - 1))))
+    if (mgf >= CKG_VENDOR_DEFINED) {
+        if ((mgf - CKG_VENDOR_DEFINED - 1) < sizeof(CK_ULONG) * 8 &&
+            (pp->allowedvendormgfs & (1UL << (mgf - CKG_VENDOR_DEFINED - 1))))
             return CKR_OK;
     } else {
-        if (mgf <= 31 && (pp->allowedmgfs & (1u << mgf)))
+        if (mgf < sizeof(CK_ULONG) * 8 && (pp->allowedmgfs & (1UL << mgf)))
             return CKR_OK;
     }
     TRACE_WARNING("POLICY VIOLATION: mgf not allowed: 0x%lx\n", mgf);
@@ -638,12 +638,12 @@ static inline CK_RV policy_is_mgf_allowed(struct policy_private *pp,
 static inline CK_RV policy_is_kdf_allowed(struct policy_private *pp,
                                           CK_ULONG kdf)
 {
-    if (kdf > CKD_VENDOR_DEFINED) {
-        if ((kdf - CKD_VENDOR_DEFINED - 1) <= 31 &&
-            (pp->allowedvendorkdfs & (1u << (kdf - CKD_VENDOR_DEFINED - 1))))
+    if (kdf >= CKD_VENDOR_DEFINED) {
+        if ((kdf - CKD_VENDOR_DEFINED - 1) < sizeof(CK_ULONG) * 8 &&
+            (pp->allowedvendorkdfs & (1UL << (kdf - CKD_VENDOR_DEFINED - 1))))
             return CKR_OK;
     } else {
-        if (kdf <= 31 && (pp->allowedkdfs & (1u << kdf)))
+        if (kdf < sizeof(CK_ULONG) * 8 && (pp->allowedkdfs & (1UL << kdf)))
             return CKR_OK;
     }
     TRACE_WARNING("POLICY VIOLATION: kdf not allowed: 0x%lx\n", kdf);
@@ -653,7 +653,7 @@ static inline CK_RV policy_is_kdf_allowed(struct policy_private *pp,
 static inline CK_RV policy_is_prf_allowed(struct policy_private *pp,
                                           CK_ULONG val)
 {
-    if (pp->allowedprfs & (1u << val))
+    if (val < sizeof(CK_ULONG) * 8 && (pp->allowedprfs & (1UL << val)))
         return CKR_OK;
     TRACE_WARNING("POLICY VIOLATION: prf not allowed: 0x%lx\n", val);
     return CKR_FUNCTION_FAILED;
@@ -1993,21 +1993,21 @@ static CK_RV policy_parse_mgfs(struct policy_private *pp,
                 break;
             }
             if (mgf >= CKG_VENDOR_DEFINED) {
-                if ((mgf - CKG_VENDOR_DEFINED - 1) > 31) {
+                if ((mgf - CKG_VENDOR_DEFINED - 1) >= sizeof(CK_ULONG) * 8) {
                     TRACE_ERROR("POLICY: MGF invalid: \"%s\" (line %u)\n",
                                 i->key, i->line);
                     rc = CKR_FUNCTION_FAILED;
                     break;
                 }
-                vmgfs |= (1u << (mgf - CKG_VENDOR_DEFINED - 1));
+                vmgfs |= (1UL << (mgf - CKG_VENDOR_DEFINED - 1));
             } else {
-                if (mgf > 31) {
+                if (mgf >= sizeof(CK_ULONG) * 8) {
                     TRACE_ERROR("POLICY: MGF invalid: \"%s\" (line %u)\n",
                                 i->key, i->line);
                     rc = CKR_FUNCTION_FAILED;
                     break;
                 }
-                smgfs |= (1u << mgf);
+                smgfs |= (1UL << mgf);
             }
         }
     }
@@ -2034,21 +2034,21 @@ static CK_RV policy_parse_kdfs(struct policy_private *pp,
             }
 
             if (kdf >= CKD_VENDOR_DEFINED) {
-                if ((kdf - CKD_VENDOR_DEFINED - 1) > 31) {
+                if ((kdf - CKD_VENDOR_DEFINED - 1) >= sizeof(CK_ULONG) * 8) {
                     TRACE_ERROR("POLICY: KDF invalid: \"%s\" (line %u)\n",
                                 i->key, i->line);
                     rc = CKR_FUNCTION_FAILED;
                     break;
                 }
-                vkdfs |= (1u << (kdf - CKD_VENDOR_DEFINED - 1));
+                vkdfs |= (1UL << (kdf - CKD_VENDOR_DEFINED - 1));
             } else {
-                if (kdf > 31) {
+                if (kdf >= sizeof(CK_ULONG) * 8) {
                     TRACE_ERROR("POLICY: KDF invalid: \"%s\" (line %u)\n",
                                 i->key, i->line);
                     rc = CKR_FUNCTION_FAILED;
                     break;
                 }
-                kdfs |= (1u << kdf);
+                kdfs |= (1UL << kdf);
             }
         }
     }
@@ -2073,7 +2073,13 @@ static CK_RV policy_parse_prfs(struct policy_private *pp,
                             i->key, i->line);
                 break;
             }
-            prfs |= (1u << prf);
+            if (prf >= sizeof(CK_ULONG) * 8) {
+                TRACE_ERROR("POLICY: PRF invalid: \"%s\" (line %u)\n",
+                            i->key, i->line);
+                rc = CKR_FUNCTION_FAILED;
+                break;
+            }
+            prfs |= (1UL << prf);
         }
     }
     pp->allowedprfs = prfs;
@@ -2228,8 +2234,8 @@ CK_RV policy_load_policy_cfg(struct policy_private *pp,
     allowedmgfs = confignode_find(cfg, "allowedmgfs");
     if (!allowedmgfs) {
         TRACE_DEVEL("POLICY: No MGF restrictions\n");
-        pp->allowedmgfs = ~0u;
-        pp->allowedvendormgfs = ~0u;
+        pp->allowedmgfs = ~0UL;
+        pp->allowedvendormgfs = ~0UL;
     } else if (!confignode_hastype(allowedmgfs, CT_BARELIST)) {
         TRACE_ERROR("POLICY: allowedmgfs has wrong type!\n");
         OCK_SYSLOG(LOG_ERR, "POLICY: allowedmgfs has wrong type!\n");
@@ -2246,8 +2252,8 @@ CK_RV policy_load_policy_cfg(struct policy_private *pp,
     allowedkdfs = confignode_find(cfg, "allowedkdfs");
     if (!allowedkdfs) {
         TRACE_DEVEL("POLICY: No KDF restrictions\n");
-        pp->allowedkdfs = ~0u;
-        pp->allowedvendorkdfs = ~0u;
+        pp->allowedkdfs = ~0UL;
+        pp->allowedvendorkdfs = ~0UL;
     } else if (!confignode_hastype(allowedkdfs, CT_BARELIST)) {
         TRACE_ERROR("POLICY: allowedkdfs has wrong type!\n");
         OCK_SYSLOG(LOG_ERR, "POLICY: allowedkdfs has wrong type!\n");
@@ -2264,7 +2270,7 @@ CK_RV policy_load_policy_cfg(struct policy_private *pp,
     allowedprfs = confignode_find(cfg, "allowedprfs");
     if (!allowedprfs) {
         TRACE_DEVEL("POLICY: No PRF restrictions\n");
-        pp->allowedprfs = ~0u;
+        pp->allowedprfs = ~0UL;
     } else if (!confignode_hastype(allowedprfs, CT_BARELIST)) {
         TRACE_ERROR("POLICY: allowedprfs has wrong type!\n");
         OCK_SYSLOG(LOG_ERR, "POLICY: allowedprfs has wrong type!\n");
