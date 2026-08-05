@@ -223,7 +223,7 @@ void handle_to_object_record(struct icsf_object_record *record,
     size_t offset = 0;
     char hex_seq[ICSF_SEQUENCE_LEN + 1];
 
-    strunpad(record->token_name, data + offset, ICSF_TOKEN_NAME_LEN + 1, ' ');
+    strunpad(record->token_name, data + offset, ICSF_TOKEN_NAME_LEN, ' ');
     offset += ICSF_TOKEN_NAME_LEN;
 
     memcpy(hex_seq, data + offset, ICSF_SEQUENCE_LEN);
@@ -830,23 +830,22 @@ static void parse_token_record(struct icsf_token_record *record,
 {
     size_t offset = 0;
 
-    strunpad(record->name, data + offset, ICSF_TOKEN_NAME_LEN + 1, ' ');
+    strunpad(record->name, data + offset, ICSF_TOKEN_NAME_LEN, ' ');
     offset += ICSF_TOKEN_NAME_LEN;
 
-    strunpad(record->manufacturer, data + offset, ICSF_MANUFACTURER_LEN + 1,
-             ' ');
+    strunpad(record->manufacturer, data + offset, ICSF_MANUFACTURER_LEN, ' ');
     offset += ICSF_MANUFACTURER_LEN;
 
-    strunpad(record->model, data + offset, ICSF_MODEL_LEN + 1, ' ');
+    strunpad(record->model, data + offset, ICSF_MODEL_LEN, ' ');
     offset += ICSF_MODEL_LEN;
 
-    strunpad(record->serial, data + offset, ICSF_SERIAL_LEN + 1, ' ');
+    strunpad(record->serial, data + offset, ICSF_SERIAL_LEN, ' ');
     offset += ICSF_SERIAL_LEN;
 
-    strunpad(record->date, data + offset, ICSF_DATE_LEN + 1, ' ');
+    strunpad(record->date, data + offset, ICSF_DATE_LEN, ' ');
     offset += ICSF_DATE_LEN;
 
-    strunpad(record->time, data + offset, ICSF_TIME_LEN + 1, ' ');
+    strunpad(record->time, data + offset, ICSF_TIME_LEN, ' ');
     offset += ICSF_TIME_LEN;
 
     /* Flags are not a string, just a bunch of flags. So it doesn't need
