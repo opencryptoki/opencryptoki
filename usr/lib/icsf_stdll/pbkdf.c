@@ -245,6 +245,12 @@ CK_RV get_masterkey(STDLL_TokData_t *tokdata,
     }
 
     /* get length of encryted data */
+    if (totallen <= SALTSIZE || totallen - SALTSIZE > sizeof(outbuf)) {
+        TRACE_ERROR("Invalid total length %lu in master key file.\n",
+                    (unsigned long)totallen);
+        fclose(fp);
+        return CKR_FUNCTION_FAILED;
+    }
     datasize = totallen - SALTSIZE;
     readsize = fread(outbuf, datasize, 1, fp);
     if (readsize != 1) {
@@ -327,6 +333,12 @@ CK_RV get_racf(STDLL_TokData_t *tokdata,
     }
 
     /* get length of encryted data */
+    if (len <= AES_INIT_VECTOR_SIZE ||
+        len - AES_INIT_VECTOR_SIZE > (int)sizeof(outbuf)) {
+        TRACE_ERROR("Invalid total length %d in RACF file.\n", len);
+        fclose(fp);
+        return CKR_FUNCTION_FAILED;
+    }
     datasize = len - AES_INIT_VECTOR_SIZE;
     readsize = fread(outbuf, datasize, 1, fp);
     if (readsize != 1) {
