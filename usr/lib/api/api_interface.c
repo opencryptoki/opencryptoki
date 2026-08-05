@@ -3298,10 +3298,10 @@ CK_RV C_Initialize(CK_VOID_PTR pVoid)
         goto error_shm;
     }
 
-    TRACE_DEVEL("pid: %u real-pid: %u euid: %u real-uid: %u real-gid: %u gid: %u\n",
+    TRACE_DEVEL("pid: %u real-pid: %u euid: %u real-uid: %u gid: %u real-gid: %u\n",
                 getpid(), Anchor->ClientCred.real_pid,
-                geteuid(), Anchor->ClientCred.real_pid,
-                getgid(), Anchor->ClientCred.real_pid);
+                geteuid(), Anchor->ClientCred.real_uid,
+                getgid(), Anchor->ClientCred.real_gid);
 
     if (pVoid != NULL) {
         pArg = (CK_C_INITIALIZE_ARGS *) pVoid;
