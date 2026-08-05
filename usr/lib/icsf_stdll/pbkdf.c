@@ -98,9 +98,16 @@ CK_RV encrypt_aes(STDLL_TokData_t *tokdata,
                   CK_BBOOL wrap)
 {
     const EVP_CIPHER *cipher = EVP_aes_256_cbc();
+    int block_size = EVP_CIPHER_block_size(cipher);
     CK_RV rc = CKR_FUNCTION_FAILED;
-    int tmplen;
+    int partlen, tmplen;
     EVP_CIPHER_CTX *ctx;
+
+    if (*outbuflen < inbuflen + block_size) {
+        TRACE_ERROR("Output buffer too small for encrypt_aes "
+                    "(need %d, have %d).\n", inbuflen + block_size, *outbuflen);
+        return CKR_BUFFER_TOO_SMALL;
+    }
 
     ctx = EVP_CIPHER_CTX_new();
     if (ctx == NULL) {
@@ -112,16 +119,18 @@ CK_RV encrypt_aes(STDLL_TokData_t *tokdata,
         TRACE_ERROR("EVP_EncryptInit_ex failed.\n");
         goto done;
     }
-    if (!EVP_EncryptUpdate(ctx, outbuf, outbuflen, inbuf, inbuflen)) {
+    partlen = 0;
+    if (!EVP_EncryptUpdate(ctx, outbuf, &partlen, inbuf, inbuflen)) {
         TRACE_ERROR("EVP_EncryptUpdate failed.\n");
         goto done;
     }
-    if (!EVP_EncryptFinal_ex(ctx, outbuf + (*outbuflen), &tmplen)) {
+    tmplen = 0;
+    if (!EVP_EncryptFinal_ex(ctx, outbuf + partlen, &tmplen)) {
         TRACE_ERROR("EVP_EncryptFinal failed.\n");
         goto done;
     }
 
-    *outbuflen = (*outbuflen) + tmplen;
+    *outbuflen = partlen + tmplen;
     rc = CKR_OK;
 
 done:
@@ -150,9 +159,18 @@ CK_RV decrypt_aes(STDLL_TokData_t *tokdata,
                   CK_BBOOL unwrap)
 {
     const EVP_CIPHER *cipher = EVP_aes_256_cbc();
+    int block_size = EVP_CIPHER_block_size(cipher);
     CK_RV rc = CKR_FUNCTION_FAILED;
-    int size;
+    CK_BYTE finalbuf[EVP_MAX_BLOCK_LENGTH];
+    int partlen, finallen;
     EVP_CIPHER_CTX *ctx;
+
+    if (*outbuflen < inbuflen - block_size) {
+        TRACE_ERROR("Output buffer too small for decrypt_aes "
+                    "(need at least %d, have %d).\n",
+                    inbuflen - block_size, *outbuflen);
+        return CKR_BUFFER_TOO_SMALL;
+    }
 
     ctx = EVP_CIPHER_CTX_new();
     if (ctx == NULL) {
@@ -164,21 +182,30 @@ CK_RV decrypt_aes(STDLL_TokData_t *tokdata,
         TRACE_ERROR("EVP_DecryptInit_ex failed.\n");
         goto done;
     }
-    if (!EVP_DecryptUpdate(ctx, outbuf, outbuflen, inbuf, inbuflen)) {
+    partlen = 0;
+    if (!EVP_DecryptUpdate(ctx, outbuf, &partlen, inbuf, inbuflen)) {
         TRACE_ERROR("EVP_DecryptUpdate failed.\n");
         goto done;
     }
-    if (!EVP_DecryptFinal_ex(ctx, outbuf + (*outbuflen), &size)) {
+    finallen = 0;
+    if (!EVP_DecryptFinal_ex(ctx, finalbuf, &finallen)) {
         TRACE_ERROR("EVP_DecryptFinal failed.\n");
         goto done;
     }
 
-    /* total length of the decrypted data */
-    *outbuflen = (*outbuflen) + size;
+    /* Check that the final (de-padded) bytes fit in the caller's buffer. */
+    if (partlen + finallen > *outbuflen) {
+        TRACE_ERROR("Output buffer too small for decrypt_aes result "
+                    "(need %d, have %d).\n", partlen + finallen, *outbuflen);
+        rc = CKR_BUFFER_TOO_SMALL;
+        goto done;
+    }
 
-    /* EVP_DecryptFinal removes any padding. The final length
-     * is the length of the decrypted data without padding.
-     */
+    if (finallen > 0)
+        memcpy(outbuf + partlen, finalbuf, finallen);
+
+    /* total length of the decrypted data (padding already stripped by Final) */
+    *outbuflen = partlen + finallen;
     rc = CKR_OK;
 
 done:
@@ -565,6 +592,7 @@ CK_RV secure_racf(STDLL_TokData_t *tokdata,
     }
 
     /* encrypt the racf passwd using the masterkey */
+    outputlen = sizeof(output);
     rc = encrypt_aes(tokdata, racf, racflen, key, iv, output, &outputlen,
                      CK_FALSE);
     if (rc != 0) {
@@ -641,6 +669,7 @@ CK_RV secure_masterkey(STDLL_TokData_t *tokdata,
 
     /* encrypt the masterkey using the derived key */
     /* re-use the salt for the iv... */
+    outputlen = sizeof(output);
     rc = encrypt_aes(tokdata, masterkey, len, dkey, salt, output, &outputlen,
                      CK_TRUE);
     if (rc != 0) {

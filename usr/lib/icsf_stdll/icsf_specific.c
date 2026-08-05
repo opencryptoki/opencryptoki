@@ -1395,7 +1395,7 @@ CK_RV icsftok_set_pin(STDLL_TokData_t * tokdata, SESSION * sess,
 LDAP *getLDAPhandle(STDLL_TokData_t * tokdata, CK_SLOT_ID slot_id)
 {
     CK_BYTE racfpwd[PIN_SIZE] = { 0 };
-    int racflen;
+    int racflen = sizeof(racfpwd);
     char *ca_dir = NULL;
     LDAP *new_ld = NULL;
     CK_RV rc = CKR_OK;
@@ -1682,7 +1682,7 @@ CK_RV icsftok_login(STDLL_TokData_t * tokdata, SESSION * sess,
     CK_RV rc = CKR_OK;
     char fname[PATH_MAX];
     CK_BYTE hash_sha[SHA1_HASH_SIZE];
-    int mklen;
+    int mklen = sizeof(tokdata->master_key);
     CK_SLOT_ID slot_id = sess->session_info.slotID;
 
     /* Check Slot ID */
