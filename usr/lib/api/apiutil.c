@@ -256,7 +256,7 @@ void get_sess_counts(CK_SLOT_ID slotID, CK_ULONG *ret, CK_ULONG *rw_ret)
     ProcUnLock();
 }
 
-void incr_sess_counts(CK_SLOT_ID slotID, CK_BBOOL rw_session)
+CK_RV incr_sess_counts(CK_SLOT_ID slotID, CK_BBOOL rw_session)
 {
     Slot_Mgr_Shr_t *shm;
 #ifdef PKCS64
@@ -270,16 +270,34 @@ void incr_sess_counts(CK_SLOT_ID slotID, CK_BBOOL rw_session)
 
     ProcLock();
 
+    if (shm->slot_global_sessions[slotID] == UINT32_MAX ||
+        (rw_session && shm->slot_global_rw_sessions[slotID] == UINT32_MAX)) {
+        ProcUnLock();
+        TRACE_ERROR("Session counter overflow for slot %lu\n", slotID);
+        return CKR_SESSION_COUNT;
+    }
+
     shm->slot_global_sessions[slotID]++;
     if (rw_session)
         shm->slot_global_rw_sessions[slotID]++;
 
     procp = &shm->proc_table[Anchor->MgrProcIndex];
+    if (procp->slot_session_count[slotID] == UINT32_MAX ||
+        (rw_session && procp->slot_rw_session_count[slotID] == UINT32_MAX)) {
+        shm->slot_global_sessions[slotID]--;
+        if (rw_session)
+            shm->slot_global_rw_sessions[slotID]--;
+        ProcUnLock();
+        TRACE_ERROR("Session counter overflow for slot %lu\n", slotID);
+        return CKR_SESSION_COUNT;
+    }
+
     procp->slot_session_count[slotID]++;
     if (rw_session)
         procp->slot_rw_session_count[slotID]++;
 
     ProcUnLock();
+    return CKR_OK;
 }
 
 void decr_sess_counts(CK_SLOT_ID slotID, CK_BBOOL rw_session)
