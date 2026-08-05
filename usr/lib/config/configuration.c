@@ -94,9 +94,13 @@ static void confignode_dumpstruct(FILE *fp, struct ConfigStructNode *n,
     } else {
         fprintf(fp, "%s {", n->base.key);
     }
-    if (n->value)
-        if (confignode_dump_i(fp, n->value, cb, flags, indent, curindent + indent, 0, 0))
+    if (n->value) {
+        unsigned innerindent = (indent < UINT_MAX - curindent) ?
+                               curindent + indent : UINT_MAX;
+
+        if (confignode_dump_i(fp, n->value, cb, flags, indent, innerindent, 0, 0))
             confignode_dump_indent(fp, curindent);
+    }
     fputc('}', fp);
 }
 
@@ -113,9 +117,13 @@ static void confignode_dumpidxstruct(FILE *fp, struct ConfigIdxStructNode *n,
     } else {
         fprintf(fp, "%s %lu {", n->base.key, n->idx);
     }
-    if (n->value)
-        if (confignode_dump_i(fp, n->value, cb, flags, indent, curindent + indent, 0, 0))
+    if (n->value) {
+        unsigned innerindent = (indent < UINT_MAX - curindent) ?
+                               curindent + indent : UINT_MAX;
+
+        if (confignode_dump_i(fp, n->value, cb, flags, indent, innerindent, 0, 0))
             confignode_dump_indent(fp, curindent);
+    }
     fputc('}', fp);
 }
 
@@ -126,6 +134,7 @@ static void confignode_dumpbarelist(FILE *fp, struct ConfigBareListNode *n,
 {
     struct ConfigBaseNode *i;
     unsigned num = 0, braceindent = curindent, valindent = 2;
+    size_t keylen;
     int f;
 
     if (n->beforeOpen) {
@@ -134,18 +143,26 @@ static void confignode_dumpbarelist(FILE *fp, struct ConfigBareListNode *n,
             confignode_dump_indent(fp, curindent);
             valindent = indent;
         } else {
-            braceindent += strlen(n->base.key) + 1;
+            keylen = strlen(n->base.key) + 1;
+            braceindent = (keylen < UINT_MAX - curindent) ?
+                          curindent + (unsigned)keylen : UINT_MAX;
         }
         fputc('(', fp);
     } else {
         fprintf(fp, "%s (", n->base.key);
-        braceindent += strlen(n->base.key) + 1;
+        keylen = strlen(n->base.key) + 1;
+        braceindent = (keylen < UINT_MAX - curindent) ?
+                      curindent + (unsigned)keylen : UINT_MAX;
     }
     if (n->value) {
+        unsigned innerindent;
+
         confignode_foreach(i, n->value, f)
             num += (unsigned) confignode_hastype(i, CT_BARE);
+        innerindent = (valindent < UINT_MAX - braceindent) ?
+                      braceindent + valindent : UINT_MAX;
         if (confignode_dump_i(fp, n->value, cb, flags, indent,
-                              braceindent + valindent, num, 0))
+                              innerindent, num, 0))
             confignode_dump_indent(fp, braceindent);
     }
     fputc(')', fp);
@@ -186,11 +203,14 @@ static void confignode_dumpnumpairlist(FILE *fp,
         fputc('\n', fp);
 
     if (n->value) {
+        unsigned innerindent = (indent < UINT_MAX - curindent) ?
+                               curindent + indent : UINT_MAX;
+
         confignode_foreach(i, n->value, f) {
             switch (i->type) {
             case CT_NUMPAIR:
                 if (atbol)
-                    confignode_dump_indent(fp, curindent + indent);
+                    confignode_dump_indent(fp, innerindent);
                 atbol = 0;
                 confignode_dumpnumpair(fp, confignode_to_numpair(i), flags);
                 break;
