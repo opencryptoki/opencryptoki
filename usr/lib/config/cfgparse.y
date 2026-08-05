@@ -304,10 +304,10 @@ eoc:
     COMMENT_TOK EOL {
         if (trackComments) {
             struct ConfigEOCNode *eocn = confignode_alloceoc($1, @1.first_line);
-            if (!eocn) { YYERROR; };
-        $1 = NULL;
-        $$ = &eocn->base;
-            } else {
+            if (!eocn) { YYERROR; }
+            $1 = NULL;
+            $$ = &eocn->base;
+        } else {
             $$ = NULL;
         }
     }
@@ -315,9 +315,9 @@ eoc:
     EOL {
         if (trackComments) {
             struct ConfigEOCNode *eocn = confignode_alloceoc(NULL, @1.first_line);
-            if (!eocn) { YYERROR; };
-        $$ = &eocn->base;
-            } else {
+            if (!eocn) { YYERROR; }
+            $$ = &eocn->base;
+        } else {
             $$ = NULL;
         }
     }
