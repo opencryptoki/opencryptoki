@@ -159,7 +159,12 @@ void strunpad(char *dest, const char *orig, size_t len, int padding_char)
 {
     size_t i;
 
-    for (i = len - 1; i; i--)
+    if (len == 0) {
+        dest[0] = '\0';
+        return;
+    }
+
+    for (i = len; i > 0; i--)
         if (orig[i - 1] != padding_char)
             break;
 
