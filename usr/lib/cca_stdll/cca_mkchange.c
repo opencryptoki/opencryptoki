@@ -270,9 +270,11 @@ retry:
         TRACE_ERROR("CSUACRA failed. return:%ld, reason:%ld\n",
                     return_code, reason_code);
 
-        if (pthread_rwlock_unlock(&cca_adapter_rwlock) != 0) {
-            TRACE_DEVEL("CCA adapter Unlock failed.\n");
-            return CKR_CANT_LOCK;
+        if (cca_private->dom_any) {
+            if (pthread_rwlock_unlock(&cca_adapter_rwlock) != 0) {
+                TRACE_DEVEL("CCA adapter Unlock failed.\n");
+                return CKR_CANT_LOCK;
+            }
         }
 
         return CKR_FUNCTION_FAILED;
