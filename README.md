@@ -102,7 +102,7 @@ directory and do the following:
 
    If you're planning to install the package into your home directory or to a
    location other than `/usr/local` then add the flag `--prefix=PATH` to
-   `configure`. Fox example, if your home directory is `/home/luser` you can
+   `configure`. For example, if your home directory is `/home/luser` you can
    configure the package to install itself there by invoking:
 
    ```bash
@@ -120,7 +120,7 @@ directory and do the following:
    invocation. For instance,
 
    ```bash
-   $ CPPFLAGS="-L/path/lib" LDFLAGS="-I/path/include" ./configure
+   $ CPPFLAGS="-I/path/include" LDFLAGS="-L/path/lib" ./configure
    ```
 
    See `./configure --help` for info on various options. The default behavior is
@@ -131,12 +131,12 @@ directory and do the following:
    option, provided the appropriate libraries are available and the token is
    supported on the platform you are compiling.
 
-   While running, `configure` prints some messages telling which features is it
+   While running, `configure` prints some messages telling which features it is
    checking for.
 
-   **Note**: On AIX, if you wish to run `make distcheck`, the environment variable
-   `DISTCHECK_CONFIGURE_FLAGS` to include the appropriate values for
-   `CFLAGS` and `CXXFLAGS`
+   **Note**: On AIX, if you wish to run `make distcheck`, set the environment
+   variable `DISTCHECK_CONFIGURE_FLAGS` to include the appropriate values for
+   `CFLAGS` and `CXXFLAGS`.
 
 3. Compile the package by typing:
 
@@ -282,7 +282,7 @@ directories:
    By prepending your home directory to the rest of the PATH you can override
    systemwide installed software with your own custom installation.
 
-For more installation information, please check [INSTALL](INSTALL).
+   For more installation information, please check [INSTALL](INSTALL).
 
 ## CONFIGURATION
 

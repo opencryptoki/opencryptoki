@@ -245,7 +245,7 @@ Use the
 .B 128|192|256
 command and
 .I KEYTYPE
-argument to generate a AES key (\fBCKK_AES\fP) with 128-, 192-, or 256-bit
+argument to generate an AES key (\fBCKK_AES\fP) with 128-, 192-, or 256-bit
 length, respectively. The
 .BR \-\-label | \-L
 .I LABEL
@@ -290,7 +290,7 @@ Use the
 .B 128|256
 command and
 .I KEYTYPE
-argument to generate a AES\-XTS key (\fBCKK_AES_XTS\fP) with 128- or 256-bit
+argument to generate an AES\-XTS key (\fBCKK_AES_XTS\fP) with 128- or 256-bit
 length, respectively. The
 .BR \-\-label | \-L
 .I LABEL
@@ -587,7 +587,7 @@ command and
 .I KEYTYPE
 argument to generate an EC\-Edwards key (\fBCKK_EC_EDWARDS\fP), where
 .I CURVE
-specifies the edwards curve used to create the EC-Edwards key. The following
+specifies the Edwards curve used to create the EC\-Edwards key. The following
 arguments can be used for respective curves:
 .BR ed25519 |\: ed448 .
 .PP
@@ -645,7 +645,7 @@ command and
 .I KEYTYPE
 argument to generate an EC\-Montgomery key (\fBCKK_EC_MONTGOMERY\fP), where
 .I CURVE
-specifies the montgomery curve used to create the EC\-Montgomery key. The
+specifies the Montgomery curve used to create the EC\-Montgomery key. The
 following arguments can be used for respective curves:
 .BR curve25519 |\: curve448 .
 .PP
@@ -1285,7 +1285,7 @@ prompt, use the
 option.
 .PP
 .
-.SS "Coyping symmetric and asymmetric keys"
+.SS "Copying symmetric and asymmetric keys"
 .
 .B p11sak
 .BR copy\-key | copy | cp
@@ -2447,7 +2447,7 @@ the prompt, use the
 option.
 .PP
 .
-.SS "Coyping certificates"
+.SS "Copying certificates"
 .
 .B p11sak
 .BR copy\-cert | copyc | cpc
@@ -2855,12 +2855,12 @@ Specifies the public exponent for an RSA key. If not specified, the default is
 .
 .SS "PRIV\-BITS"
 .
-Specifies the size of the private key in bits for an DH key.
+Specifies the size of the private key in bits for a DH key.
 .PP
 .
 .SS "GROUP"
 .
-Specifies the Diffie\-Hellman FFC group name for an DH key. Possible values are
+Specifies the Diffie\-Hellman FFC group name for a DH key. Possible values are
 .BR ffdhe2048 |\: ffdhe3072 |\: ffdhe4096 |\: ffdhe6144 |\: ffdhe8192 |\: \
 modp1536 |\: modp2048 |\: modp3072 |\: modp4096 |\: modp6144 |\: modp8192 .
 .PP
@@ -3386,9 +3386,8 @@ matching the specified \fIKEYTYPE\fP, label, and ID filter (if specified).
 For the
 .B wrap\-key
 command and the
-command, and the
 .B unwrap\-key
-command, also supress the prompt for a confirmation to use a key as KEK.
+command, also suppress the prompt for a confirmation to use a key as KEK.
 .RE
 .PP
 .
@@ -3710,7 +3709,7 @@ the default IV as per AESKW\-PKCS7 specification is used.
 .TP 8
 .BR \-\-hash\-alg\~\fIHASH\-ALG\fP
 The message digest algorithm used to calculate the digest of the OAEP encoding
-parameter. The default is to use the samealgorithm as specified with option
+parameter. The default is to use the same algorithm as specified with option
 .BR \-\-mgf\-alg ,
 or SHA256 if neither is specified. Possible algorithms are:
 .BR SHA\-1 |\: SHA224 |\: SHA256 |\: SHA384 |\: SHA512 |\: SHA3\-224 |\: \
@@ -3751,7 +3750,7 @@ key sizes are:
 .TP 8
 .BR \-\-hash\-alg\~\fIHASH\-ALG\fP
 The message digest algorithm used to calculate the digest of the OAEP encoding
-parameter. The default is to use the samealgorithm as specified with option
+parameter. The default is to use the same algorithm as specified with option
 .BR \-\-mgf\-alg ,
 or SHA256 if neither is specified. Possible algorithms are:
 .BR SHA\-1 |\: SHA224 |\: SHA256 |\: SHA384 |\: SHA512 |\: SHA3\-224 |\: \
