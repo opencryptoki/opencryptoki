@@ -10,6 +10,7 @@
 #ifndef CONFIGURATION_H
 #define CONFIGURATION_H
 
+#include <limits.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <stdint.h>
