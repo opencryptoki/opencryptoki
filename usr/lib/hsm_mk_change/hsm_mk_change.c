@@ -142,9 +142,20 @@ CK_RV hsm_mk_change_apqns_flatten(const struct apqn *apqns,
                                   unsigned int num_apqns, unsigned char *buff,
                                   size_t *buff_len)
 {
-    size_t len = sizeof(uint32_t) + num_apqns * sizeof(struct apqn);
+    size_t len;
     struct apqn *apqn;
     unsigned int i;
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wtype-limits"
+#pragma GCC diagnostic ignored "-Wunknown-pragmas"
+#pragma clang diagnostic ignored "-Wtautological-constant-out-of-range-compare"
+    if (num_apqns > (SIZE_MAX - sizeof(uint32_t)) / sizeof(struct apqn)) {
+        TRACE_ERROR("num_apqns too large\n");
+        return CKR_ARGUMENTS_BAD;
+    }
+#pragma GCC diagnostic pop
+    len = sizeof(uint32_t) + (size_t)num_apqns * sizeof(struct apqn);
 
     if (buff == NULL) {
         *buff_len = len;
@@ -194,6 +205,16 @@ CK_RV hsm_mk_change_apqns_unflatten(const unsigned char *buff, size_t buff_len,
 
     TRACE_DEBUG("Num APQNs: %u\n", *num_apqns);
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wtype-limits"
+#pragma GCC diagnostic ignored "-Wunknown-pragmas"
+#pragma clang diagnostic ignored "-Wtautological-constant-out-of-range-compare"
+    if (*num_apqns > (SIZE_MAX - sizeof(uint32_t)) / sizeof(struct apqn)) {
+        TRACE_ERROR("num_apqns too large\n");
+        return CKR_ARGUMENTS_BAD;
+    }
+#pragma GCC diagnostic pop
+
     if (*num_apqns > 0) {
         *apqns = calloc(*num_apqns, sizeof(struct apqn));
         if (*apqns == NULL) {
@@ -203,7 +224,7 @@ CK_RV hsm_mk_change_apqns_unflatten(const unsigned char *buff, size_t buff_len,
         }
     }
 
-    if (buff_len < sizeof(uint32_t) + *num_apqns * sizeof(struct apqn)) {
+    if (buff_len < sizeof(uint32_t) + (size_t)*num_apqns * sizeof(struct apqn)) {
         TRACE_ERROR("buffer too small\n");
         rc = CKR_BUFFER_TOO_SMALL;
         goto error;
@@ -264,8 +285,14 @@ CK_RV hsm_mk_change_mkvps_flatten(const struct hsm_mkvp *mkvps,
     struct hsm_mkvp_hdr *hdr;
     unsigned int i;
 
-    for (i = 0; i < num_mkvps; i++)
+    for (i = 0; i < num_mkvps; i++) {
+        if (mkvps[i].mkvp_len >
+            SIZE_MAX - len - sizeof(struct hsm_mkvp_hdr)) {
+            TRACE_ERROR("mkvp_len too large\n");
+            return CKR_ARGUMENTS_BAD;
+        }
         len += sizeof(struct hsm_mkvp_hdr) + mkvps[i].mkvp_len;
+    }
 
     if (buff == NULL) {
         *buff_len = len;
@@ -428,6 +455,11 @@ CK_RV hsm_mk_change_info_flatten(const struct hsm_mk_change_info *info,
     if (rc != CKR_OK)
         return rc;
 
+    if (apqns_len > SIZE_MAX - mkvps_len) {
+        TRACE_ERROR("info length overflow\n");
+        return CKR_ARGUMENTS_BAD;
+    }
+
     if (buff == NULL) {
         *buff_len = apqns_len + mkvps_len;
         return CKR_OK;
@@ -486,9 +518,20 @@ CK_RV hsm_mk_change_slots_flatten(const CK_SLOT_ID *slots,
                                   unsigned int num_slots, unsigned char *buff,
                                   size_t *buff_len)
 {
-    size_t len = sizeof(uint32_t) + num_slots * sizeof(CK_SLOT_ID_32);
+    size_t len;
     CK_SLOT_ID_32 *slot;
     unsigned int i;
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wtype-limits"
+#pragma GCC diagnostic ignored "-Wunknown-pragmas"
+#pragma clang diagnostic ignored "-Wtautological-constant-out-of-range-compare"
+    if (num_slots > (SIZE_MAX - sizeof(uint32_t)) / sizeof(CK_SLOT_ID_32)) {
+        TRACE_ERROR("num_slots too large\n");
+        return CKR_ARGUMENTS_BAD;
+    }
+#pragma GCC diagnostic pop
+    len = sizeof(uint32_t) + (size_t)num_slots * sizeof(CK_SLOT_ID_32);
 
     if (buff == NULL) {
         *buff_len = len;
@@ -546,7 +589,18 @@ CK_RV hsm_mk_change_slots_unflatten(const unsigned char *buff, size_t buff_len,
         }
     }
 
-    if (buff_len < sizeof(uint32_t) + *num_slots * sizeof(CK_SLOT_ID_32)) {
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wtype-limits"
+#pragma GCC diagnostic ignored "-Wunknown-pragmas"
+#pragma clang diagnostic ignored "-Wtautological-constant-out-of-range-compare"
+    if (*num_slots > (SIZE_MAX - sizeof(uint32_t)) / sizeof(CK_SLOT_ID_32)) {
+        TRACE_ERROR("num_slots too large\n");
+        rc = CKR_ARGUMENTS_BAD;
+        goto error;
+    }
+#pragma GCC diagnostic pop
+
+    if (buff_len < sizeof(uint32_t) + (size_t)*num_slots * sizeof(CK_SLOT_ID_32)) {
         TRACE_ERROR("buffer too small\n");
         rc = CKR_BUFFER_TOO_SMALL;
         goto error;
@@ -654,6 +708,12 @@ CK_RV hsm_mk_change_op_save(const struct hsm_mk_change_op *op)
     if (rc != CKR_OK)
         return rc;
 
+    if (info_len > SIZE_MAX - sizeof(struct hsm_mk_change_op_hdr) ||
+        slots_len >
+            SIZE_MAX - sizeof(struct hsm_mk_change_op_hdr) - info_len) {
+        TRACE_ERROR("op length overflow\n");
+        return CKR_ARGUMENTS_BAD;
+    }
     len = sizeof(struct hsm_mk_change_op_hdr) + info_len + slots_len;
 
     buff = calloc(1, len);
