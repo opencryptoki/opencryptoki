@@ -740,10 +740,14 @@ out:
         free(fnid_os);
     if (counter_os != NULL)
         free(counter_os);
-    if (pin_os != NULL)
+    if (pin_os != NULL) {
+        OPENSSL_cleanse(pin_os, pin_os_len);
         free(pin_os);
-    if (data != NULL)
+    }
+    if (data != NULL) {
+        OPENSSL_cleanse(data, data_len);
         free(data);
+    }
 
     return rc;
 }
