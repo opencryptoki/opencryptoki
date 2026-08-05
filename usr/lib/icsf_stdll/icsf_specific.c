@@ -2620,7 +2620,8 @@ CK_RV icsftok_encrypt_init(STDLL_TokData_t * tokdata,
     }
 
 done:
-    if (rc == CKR_OK && tokdata->statistics->increment_func != NULL)
+    if (rc == CKR_OK && mapping != NULL &&
+        tokdata->statistics->increment_func != NULL)
         tokdata->statistics->increment_func(tokdata->statistics,
                                             session->session_info.slotID,
                                             mech, mapping->strength.strength);
@@ -3146,7 +3147,8 @@ CK_RV icsftok_decrypt_init(STDLL_TokData_t * tokdata,
     }
 
 done:
-    if (rc == CKR_OK && tokdata->statistics->increment_func != NULL)
+    if (rc == CKR_OK && mapping != NULL &&
+        tokdata->statistics->increment_func != NULL)
         tokdata->statistics->increment_func(tokdata->statistics,
                                             session->session_info.slotID,
                                             mech, mapping->strength.strength);
