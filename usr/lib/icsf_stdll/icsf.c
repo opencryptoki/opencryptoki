@@ -2713,6 +2713,12 @@ int icsf_hmac_sign(LDAP * ld, int *reason, struct icsf_object_record *key,
     }
 
     /* copy the chained data even if not using it */
+    if (bvChain.bv_len > *chain_data_len) {
+        TRACE_ERROR("Chain data longer than expected: %zu (max %zu)\n",
+                    bvChain.bv_len, *chain_data_len);
+        rc = -1;
+        goto done;
+    }
     *chain_data_len = bvChain.bv_len;
     memcpy(chain_data, bvChain.bv_val, bvChain.bv_len);
 
@@ -2841,6 +2847,12 @@ int icsf_hmac_verify(LDAP * ld, int *reason, struct icsf_object_record *key,
     }
 
     /* if chaining, copy the chained data */
+    if (bvChain.bv_len > *chain_data_len) {
+        TRACE_ERROR("Chain data longer than expected: %zu (max %zu)\n",
+                    bvChain.bv_len, *chain_data_len);
+        rc = -1;
+        goto done;
+    }
     *chain_data_len = bvChain.bv_len;
     memcpy(chain_data, bvChain.bv_val, bvChain.bv_len);
 
@@ -3170,8 +3182,16 @@ int icsf_hash_signverify(LDAP * ld, int *reason, struct icsf_object_record *key,
         goto done;
 
     /* copy the chained data when required */
-    if (chain_data)
+    if (chain_data != NULL && chain_data_len != NULL) {
+        if (bvChain.bv_len > *chain_data_len) {
+            TRACE_ERROR("Chain data longer than expected: %zu (max %zu)\n",
+                        bvChain.bv_len, *chain_data_len);
+            rc = -1;
+            goto done;
+        }
         memcpy(chain_data, bvChain.bv_val, bvChain.bv_len);
+        *chain_data_len = bvChain.bv_len;
+    }
 
     /* copy signature when signing */
     if (!verify && sig != NULL)
