@@ -3754,23 +3754,14 @@ CK_RV C_OpenSession(CK_SLOT_ID slotID,
         // complete the API session block and  return.  Otherwise
         // we free the API session block and exit
         if (rv == CKR_OK) {
-            /* add a refernece to this handle/slot_id pair to the binary tree we
+            /* add a reference to this handle/slot_id pair to the binary tree we
              * maintain at the API level, returning the API-level object's
              * handle as the session handle the app will get
              */
             *phSession = AddToSessionList(apiSessp);
             if (*phSession == 0) {
-                BEGIN_OPENSSL_LIBCTX(Anchor->openssl_libctx, rv)
-                BEGIN_HSM_MK_CHANGE_LOCK(sltp, rv)
-                /* failed to add the object to the API-level tree, close the
-                 * STDLL-level session and return failure
-                 */
-                fcn->ST_CloseSession(sltp->TokData, apiSessp, FALSE);
-                END_HSM_MK_CHANGE_LOCK(sltp, rv)
-                END_OPENSSL_LIBCTX(rv)
-                free(apiSessp);
                 rv = CKR_HOST_MEMORY;
-                goto done;
+                goto error_close;
             }
             apiSessp->slotID = slotID;
             apiSessp->rw_session = (flags & CKF_RW_SESSION);
@@ -3783,7 +3774,12 @@ CK_RV C_OpenSession(CK_SLOT_ID slotID,
             //  how many sessions this process owns of the total amount.  This
             //  way if the process abends garbage collection in the slot manager
             //  can adequatly clean up the total count value...
-            incr_sess_counts(slotID, apiSessp->rw_session);
+            rv = incr_sess_counts(slotID, apiSessp->rw_session);
+            if (rv != CKR_OK) {
+                RemoveFromSessionList(*phSession);
+                rv = CKR_SESSION_COUNT;
+                goto error_close;
+            }
 
         } else {
             free(apiSessp);
@@ -3796,6 +3792,15 @@ CK_RV C_OpenSession(CK_SLOT_ID slotID,
 
  done:
     return rv;
+
+ error_close:
+    BEGIN_OPENSSL_LIBCTX(Anchor->openssl_libctx, rv)
+    BEGIN_HSM_MK_CHANGE_LOCK(sltp, rv)
+    fcn->ST_CloseSession(sltp->TokData, apiSessp, FALSE);
+    END_HSM_MK_CHANGE_LOCK(sltp, rv)
+    END_OPENSSL_LIBCTX(rv)
+    free(apiSessp);
+    goto done;
 
 }                               // end of C_OpenSession
 

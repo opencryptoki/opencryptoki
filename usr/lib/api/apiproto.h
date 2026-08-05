@@ -40,7 +40,7 @@ CK_RV ProcClose(void);
 
 void _init(void);
 void get_sess_counts(CK_SLOT_ID, CK_ULONG *, CK_ULONG *);
-void incr_sess_counts(CK_SLOT_ID, CK_BBOOL rw_session);
+CK_RV incr_sess_counts(CK_SLOT_ID, CK_BBOOL rw_session);
 void decr_sess_counts(CK_SLOT_ID, CK_BBOOL rw_session);
 unsigned long AddToSessionList(ST_SESSION_T *);
 void RemoveFromSessionList(CK_SESSION_HANDLE);
