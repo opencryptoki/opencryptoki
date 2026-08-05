@@ -922,7 +922,7 @@ static CK_RV build_kmip_config(void)
              */ 
             if (host != NULL && !confignode_hastype(host, CT_STRINGVAL)) {
                 warnx("Syntax error in config file: "
-                      "Missing '%s' in attribute at line %hu",
+                      "Missing '%s' in attribute at line %u",
                       P11KMIP_CONFIG_KEYWORD_HOST, c->line);
                 rc = CKR_ARGUMENTS_BAD;
                 goto done;
@@ -930,7 +930,7 @@ static CK_RV build_kmip_config(void)
             if (tls_client_cert != NULL
                 && !confignode_hastype(tls_client_cert, CT_STRINGVAL)) {
                 warnx("Syntax error in config file:"
-                      " Missing '%s' in attribute at line %hu",
+                      " Missing '%s' in attribute at line %u",
                       P11KMIP_CONFIG_KEYWORD_CLIENT_CERT, c->line);
                 rc = CKR_ARGUMENTS_BAD;
                 goto done;
@@ -938,7 +938,7 @@ static CK_RV build_kmip_config(void)
             if (tls_client_key != NULL
                 && !confignode_hastype(tls_client_key, CT_STRINGVAL)) {
                 warnx("Syntax error in config file:"
-                      " Missing '%s' in attribute at line %hu",
+                      " Missing '%s' in attribute at line %u",
                       P11KMIP_CONFIG_KEYWORD_CLIENT_KEY, c->line);
                 rc = CKR_ARGUMENTS_BAD;
                 goto done;
@@ -946,7 +946,7 @@ static CK_RV build_kmip_config(void)
             if (wrap_key_format != NULL
                 && !confignode_hastype(wrap_key_format, CT_STRINGVAL)) {
                 warnx("Syntax error in config file:"
-                      " Missing '%s' in attribute at line %hu",
+                      " Missing '%s' in attribute at line %u",
                       P11KMIP_CONFIG_KEYWORD_WRAP_KEY_FMT, c->line);
                 rc = CKR_ARGUMENTS_BAD;
                 goto done;
@@ -954,7 +954,7 @@ static CK_RV build_kmip_config(void)
             if (wrap_key_algorithm != NULL
                 && !confignode_hastype(wrap_key_algorithm, CT_STRINGVAL)) {
                 warnx("Syntax error in config file:"
-                      " Missing '%s' in attribute at line %hu",
+                      " Missing '%s' in attribute at line %u",
                       P11KMIP_CONFIG_KEYWORD_WRAP_KEY_ALG, c->line);
                 rc = CKR_ARGUMENTS_BAD;
                 goto done;
@@ -962,7 +962,7 @@ static CK_RV build_kmip_config(void)
             if (wrap_key_size != NULL
                 && !confignode_hastype(wrap_key_size, CT_INTVAL)) {
                 warnx("Syntax error in config file:"
-                      " Missing '%s' in attribute at line %hu",
+                      " Missing '%s' in attribute at line %u",
                       P11KMIP_CONFIG_KEYWORD_WRAP_KEY_SIZE, c->line);
                 rc = CKR_ARGUMENTS_BAD;
                 goto done;
@@ -970,7 +970,7 @@ static CK_RV build_kmip_config(void)
             if (wrap_pad_method != NULL
                 && !confignode_hastype(wrap_pad_method, CT_STRINGVAL)) {
                 warnx("Syntax error in config file:"
-                      " Missing '%s' in attribute at line %hu",
+                      " Missing '%s' in attribute at line %u",
                       P11KMIP_CONFIG_KEYWORD_WRAP_PAD_MTHD, c->line);
                 rc = CKR_ARGUMENTS_BAD;
                 goto done;
@@ -978,7 +978,7 @@ static CK_RV build_kmip_config(void)
             if (wrap_hash_algo != NULL
                 && !confignode_hastype(wrap_hash_algo, CT_STRINGVAL)) {
                 warnx("Syntax error in config file:"
-                      " Missing '%s' in attribute at line %hu",
+                      " Missing '%s' in attribute at line %u",
                       P11KMIP_CONFIG_KEYWORD_WRAP_HASH_ALG, c->line);
                 rc = CKR_ARGUMENTS_BAD;
                 goto done;
@@ -4208,7 +4208,7 @@ static CK_RV get_slot(CK_SLOT_ID *slot)
                 if (cfg_slot != NULL
                     && !confignode_hastype(cfg_slot, CT_INTVAL)) {
                     warnx("Syntax error in config file:"
-                          " Missing '%s' in attribute at line %hu",
+                          " Missing '%s' in attribute at line %u",
                           P11KMIP_CONFIG_KEYWORD_WRAP_KEY_SIZE, c->line);
                     return CKR_ARGUMENTS_BAD;
                 }

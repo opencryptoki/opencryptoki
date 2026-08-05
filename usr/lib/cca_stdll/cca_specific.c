@@ -2141,10 +2141,10 @@ CK_RV cca_config_parse_exp_mkvps(char *fname,
             rc = cca_parse_hex(str, expected_sym_mkvp, CCA_MKVP_LENGTH);
             if (rc != CKR_OK) {
                 OCK_SYSLOG(LOG_ERR, "Error parsing config file '%s': invalid "
-                           "hex value '%s' at line %d\n", fname,
+                           "hex value '%s' at line %u\n", fname,
                            confignode_getstr(c), c->line);
                 TRACE_ERROR("Error parsing config file '%s': invalid hex value "
-                            "'%s' at line %d\n", fname, confignode_getstr(c),
+                            "'%s' at line %u\n", fname, confignode_getstr(c),
                             c->line);
                 break;
             }
@@ -2159,10 +2159,10 @@ CK_RV cca_config_parse_exp_mkvps(char *fname,
             rc = cca_parse_hex(str, expected_aes_mkvp, CCA_MKVP_LENGTH);
             if (rc != CKR_OK) {
                 OCK_SYSLOG(LOG_ERR, "Error parsing config file '%s': invalid "
-                           "hex value '%s' at line %d\n", fname,
+                           "hex value '%s' at line %u\n", fname,
                            confignode_getstr(c), c->line);
                 TRACE_ERROR("Error parsing config file '%s': invalid hex value "
-                            "'%s' at line %d\n", fname, confignode_getstr(c),
+                            "'%s' at line %u\n", fname, confignode_getstr(c),
                             c->line);
                 break;
             }
@@ -2177,10 +2177,10 @@ CK_RV cca_config_parse_exp_mkvps(char *fname,
             rc = cca_parse_hex(str, expected_apka_mkvp, CCA_MKVP_LENGTH);
             if (rc != CKR_OK) {
                 OCK_SYSLOG(LOG_ERR, "Error parsing config file '%s': invalid "
-                           "hex value '%s' at line %d\n", fname,
+                           "hex value '%s' at line %u\n", fname,
                            confignode_getstr(c), c->line);
                 TRACE_ERROR("Error parsing config file '%s': invalid hex value "
-                            "'%s' at line %d\n", fname, confignode_getstr(c),
+                            "'%s' at line %u\n", fname, confignode_getstr(c),
                             c->line);
                 break;
             }
@@ -2190,9 +2190,9 @@ CK_RV cca_config_parse_exp_mkvps(char *fname,
         }
 
         OCK_SYSLOG(LOG_ERR, "Error parsing config file '%s': unexpected token "
-                   "'%s' at line %d\n", fname, c->key, c->line);
+                   "'%s' at line %u\n", fname, c->key, c->line);
         TRACE_ERROR("Error parsing config file '%s': unexpected token '%s' "
-                    "at line %d\n", fname, c->key, c->line);
+                    "at line %u\n", fname, c->key, c->line);
         return CKR_FUNCTION_FAILED;
     }
 
@@ -2327,17 +2327,17 @@ CK_RV cca_load_config_file(STDLL_TokData_t *tokdata, char *conf_name)
             }
 
             OCK_SYSLOG(LOG_ERR, "Error parsing config file '%s': unexpected "
-                       "token '%s' at line %d\n", fname, c->key, c->line);
+                       "token '%s' at line %u\n", fname, c->key, c->line);
             TRACE_ERROR("Error parsing config file '%s': unexpected token '%s' "
-                        "at line %d\n", fname, c->key, c->line);
+                        "at line %u\n", fname, c->key, c->line);
             rc = CKR_FUNCTION_FAILED;
             break;
         }
 
         OCK_SYSLOG(LOG_ERR, "Error parsing config file '%s': unexpected token "
-                   "'%s' at line %d\n", fname, c->key, c->line);
+                   "'%s' at line %u\n", fname, c->key, c->line);
         TRACE_ERROR("Error parsing config file '%s': unexpected token '%s' "
-                    "at line %d\n", fname, c->key, c->line);
+                    "at line %u\n", fname, c->key, c->line);
         rc = CKR_FUNCTION_FAILED;
         break;
     }

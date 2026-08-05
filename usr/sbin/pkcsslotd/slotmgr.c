@@ -844,7 +844,7 @@ static int config_parse_slot(const char *config_file,
         }
 
         ErrLog("Error parsing config file '%s': unexpected token '%s' "
-               "at line %d: \n", config_file, c->key, c->line);
+               "at line %u: \n", config_file, c->key, c->line);
         return 1;
     }
 
@@ -897,7 +897,7 @@ static int config_parse_statistics(const char *config_file,
         }
 
         ErrLog("Error parsing config file '%s': unexpected token '%s' "
-               "at line %d: \n", config_file, c->key, c->line);
+               "at line %u: \n", config_file, c->key, c->line);
         return 1;
     }
 
@@ -960,7 +960,7 @@ static int config_parse(const char *config_file)
             }
 
             ErrLog("Error parsing config file '%s': unexpected token '%s' "
-                   "at line %d: \n", config_file, c->key, c->line);
+                   "at line %u: \n", config_file, c->key, c->line);
             ret = -1;
             break;
         }
@@ -975,7 +975,7 @@ static int config_parse(const char *config_file)
             }
 
             ErrLog("Error parsing config file '%s': unexpected token '%s' "
-                   "at line %d: \n", config_file, c->key, c->line);
+                   "at line %u: \n", config_file, c->key, c->line);
             ret = -1;
             break;
         }
@@ -990,13 +990,13 @@ static int config_parse(const char *config_file)
             }
 
             ErrLog("Error parsing config file '%s': unexpected token '%s' "
-                   "at line %d: \n", config_file, c->key, c->line);
+                   "at line %u: \n", config_file, c->key, c->line);
             ret = -1;
             break;
         }
 
         ErrLog("Error parsing config file '%s': unexpected token '%s' "
-               "at line %d: \n", config_file, c->key, c->line);
+               "at line %u: \n", config_file, c->key, c->line);
         ret = -1;
         break;
     }

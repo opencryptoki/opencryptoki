@@ -446,7 +446,7 @@ CK_RV ep11tok_reencipher_blob(STDLL_TokData_t *tokdata, SESSION *session,
 
 void ep11_config_parse_error(int line, int col, const char *msg);
 void ep11_config_error_token(const char *fname, const char *key,
-                             int line, const char *expected);
+                             unsigned int line, const char *expected);
 CK_RV ep11_config_next(struct ConfigBaseNode **c, unsigned typemask,
                        const char *fname, const char *expected);
 
