@@ -5343,6 +5343,11 @@ static CK_RV import_DH_key(STDLL_TokData_t *tokdata, SESSION *sess,
             goto import_DH_key_end;
         }
 
+        if (value->ulValueLen > SIZE_MAX / 8) {
+            TRACE_ERROR("%s DH CKA_VALUE length too large\n", __func__);
+            rc = CKR_ATTRIBUTE_VALUE_INVALID;
+            goto import_DH_key_end;
+        }
         num_bits = value->ulValueLen * 8;
 
         /* encrypt */
