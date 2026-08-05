@@ -722,6 +722,13 @@ CK_RV hsm_mk_change_op_load(const char *id, struct hsm_mk_change_op *op)
     }
 
     len = sb.st_size;
+
+    if (len < sizeof(*op_hdr)) {
+        TRACE_ERROR("file %s too small\n", id);
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+
     buff = calloc(1, len);
     if (buff == NULL) {
         TRACE_ERROR("malloc failed\n");
@@ -867,6 +874,12 @@ CK_RV hsm_mk_change_token_mkvps_load(const char *id, CK_SLOT_ID slot_id,
     }
 
     len = sb.st_size;
+    if (len == 0) {
+        TRACE_ERROR("file %s-%lu is empty\n", id, slot_id);
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+
     buff = calloc(1, len);
     if (buff == NULL) {
         TRACE_ERROR("malloc failed\n");
