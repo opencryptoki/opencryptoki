@@ -894,28 +894,39 @@ CK_RV login(STDLL_TokData_t * tokdata, LDAP ** ld, CK_SLOT_ID slot_id,
         /* Load master key */
         if (get_pk_dir(tokdata, fname, PATH_MAX) == NULL) {
             TRACE_ERROR("pk_dir buffer overflow\n");
-            return CKR_FUNCTION_FAILED;
+            rc = CKR_FUNCTION_FAILED;
+            goto done_simple;
         }
-        
+
         if (PATH_MAX - strlen(fname) > strlen("/MK_SO")) {
             strcat(fname, "/MK_SO");
         } else {
             TRACE_ERROR("MK_SO buffer overflow\n");
-            return CKR_FUNCTION_FAILED;
+            rc = CKR_FUNCTION_FAILED;
+            goto done_simple;
         }
         if (get_masterkey(tokdata, pin, pin_len, fname, mk, &mk_len)) {
             TRACE_DEVEL("Failed to get masterkey \"%s\".\n", fname);
-            return CKR_FUNCTION_FAILED;
+            rc = CKR_FUNCTION_FAILED;
+            goto done_simple;
         }
 
         /* Load RACF password */
         if (get_racf(tokdata, mk, mk_len, racf_pass, &racf_pass_len)) {
             TRACE_DEVEL("Failed to get RACF password.\n");
-            return CKR_FUNCTION_FAILED;
+            rc = CKR_FUNCTION_FAILED;
+            goto done_simple;
         }
 
         /* Simple bind */
         ret = icsf_login(&ldapd, data.uri, data.dn, (char *)racf_pass);
+
+done_simple:
+        OPENSSL_cleanse(mk, sizeof(mk));
+        OPENSSL_cleanse(racf_pass, sizeof(racf_pass));
+
+        if (rc != CKR_OK)
+            goto done;
     } else {
         /* SASL bind */
         ret = icsf_sasl_login(&ldapd, data.uri, data.cert_file,
@@ -944,22 +955,25 @@ done:
 CK_RV reset_token_data(STDLL_TokData_t * tokdata, CK_SLOT_ID slot_id,
                        CK_CHAR_PTR pin, CK_ULONG pin_len)
 {
-    CK_BYTE mk[MAX_KEY_SIZE];
-    CK_BYTE racf_pass[PIN_SIZE];
+    CK_BYTE mk[MAX_KEY_SIZE] = { 0 };
+    CK_BYTE racf_pass[PIN_SIZE] = { 0 };
     int mk_len = sizeof(mk);
     int racf_pass_len = sizeof(racf_pass);
     char pk_dir_buf[PATH_MAX];
     char fname[PATH_MAX];
+    CK_RV rc = CKR_OK;
 
     /* Remove user's masterkey */
     if (slot_data[slot_id]->mech == ICSF_CFG_MECH_SIMPLE) {
         if (get_pk_dir(tokdata, pk_dir_buf, PATH_MAX) == NULL) {
             TRACE_ERROR("pk_dir_buf overflow\n");
-            return CKR_FUNCTION_FAILED;
+            rc = CKR_FUNCTION_FAILED;
+            goto done;
         }
         if (ock_snprintf(fname, PATH_MAX, "%s/MK_USER", pk_dir_buf) != 0) {
             TRACE_ERROR("MK_USER filename buffer overflow\n");
-            return CKR_FUNCTION_FAILED;
+            rc = CKR_FUNCTION_FAILED;
+            goto done;
         }
         if (unlink(fname) && errno == ENOENT)
             TRACE_WARNING("Failed to remove \"%s\".\n", fname);
@@ -967,23 +981,27 @@ CK_RV reset_token_data(STDLL_TokData_t * tokdata, CK_SLOT_ID slot_id,
         /* Load master key */
         if (ock_snprintf(fname, PATH_MAX, "%s/MK_SO", pk_dir_buf) != 0) {
             TRACE_ERROR("MK_SO filename buffer overflow\n");
-            return CKR_FUNCTION_FAILED;
+            rc = CKR_FUNCTION_FAILED;
+            goto done;
         }
         if (get_masterkey(tokdata, pin, pin_len, fname, mk, &mk_len)) {
             TRACE_DEVEL("Failed to load masterkey \"%s\".\n", fname);
-            return CKR_FUNCTION_FAILED;
+            rc = CKR_FUNCTION_FAILED;
+            goto done;
         }
 
         /* Load RACF password */
         if (get_racf(tokdata, mk, mk_len, racf_pass, &racf_pass_len)) {
             TRACE_DEVEL("Failed to get RACF password.\n");
-            return CKR_FUNCTION_FAILED;
+            rc = CKR_FUNCTION_FAILED;
+            goto done;
         }
 
         /* Generate new key */
         if (get_randombytes(mk, mk_len)) {
             TRACE_DEVEL("Failed to generate new master key.\n");
-            return CKR_FUNCTION_FAILED;
+            rc = CKR_FUNCTION_FAILED;
+            goto done;
         }
 
         if ((tokdata->statistics->flags & STATISTICS_FLAG_COUNT_INTERNAL) != 0)
@@ -996,7 +1014,8 @@ CK_RV reset_token_data(STDLL_TokData_t * tokdata, CK_SLOT_ID slot_id,
         if (secure_racf(tokdata, racf_pass, racf_pass_len, mk, mk_len,
                         tokdata->data_store)) {
             TRACE_DEVEL("Failed to save racf password.\n");
-            return CKR_FUNCTION_FAILED;
+            rc = CKR_FUNCTION_FAILED;
+            goto done;
         }
     }
 
@@ -1013,16 +1032,21 @@ CK_RV reset_token_data(STDLL_TokData_t * tokdata, CK_SLOT_ID slot_id,
         /* Save master key */
         if (secure_masterkey(tokdata, mk, mk_len, pin, pin_len, fname)) {
             TRACE_DEVEL("Failed to save the new master key.\n");
-            return CKR_FUNCTION_FAILED;
+            rc = CKR_FUNCTION_FAILED;
+            goto done;
         }
     }
 
     if (save_token_data(tokdata, slot_id)) {
         TRACE_DEVEL("Failed to save token data.\n");
-        return CKR_FUNCTION_FAILED;
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
     }
 
-    return CKR_OK;
+done:
+    OPENSSL_cleanse(mk, sizeof(mk));
+    OPENSSL_cleanse(racf_pass, sizeof(racf_pass));
+    return rc;
 }
 
 CK_RV destroy_objects(STDLL_TokData_t * tokdata, CK_SLOT_ID slot_id,
@@ -1370,7 +1394,7 @@ CK_RV icsftok_set_pin(STDLL_TokData_t * tokdata, SESSION * sess,
 
 LDAP *getLDAPhandle(STDLL_TokData_t * tokdata, CK_SLOT_ID slot_id)
 {
-    CK_BYTE racfpwd[PIN_SIZE];
+    CK_BYTE racfpwd[PIN_SIZE] = { 0 };
     int racflen;
     char *ca_dir = NULL;
     LDAP *new_ld = NULL;
@@ -1388,7 +1412,7 @@ LDAP *getLDAPhandle(STDLL_TokData_t * tokdata, CK_SLOT_ID slot_id)
                       racfpwd, &racflen);
         if (rc != CKR_OK) {
             TRACE_DEVEL("Failed to get racf passwd.\n");
-            return NULL;
+            goto done;
         }
 
         /* ok got the passwd, perform simple ldap bind call */
@@ -1396,7 +1420,8 @@ LDAP *getLDAPhandle(STDLL_TokData_t * tokdata, CK_SLOT_ID slot_id)
                         slot_data[slot_id]->dn, (char *)racfpwd);
         if (rc != 0) {
             TRACE_DEVEL("Failed to bind to ldap server.\n");
-            return NULL;
+            new_ld = NULL;
+            goto done;
         }
     } else {
         TRACE_INFO("Using SASL auth with slot ID: %lu\n", slot_id);
@@ -1406,10 +1431,13 @@ LDAP *getLDAPhandle(STDLL_TokData_t * tokdata, CK_SLOT_ID slot_id)
                              slot_data[slot_id]->ca_file, ca_dir);
         if (rc != 0) {
             TRACE_DEVEL("Failed to bind to ldap server.\n");
-            return NULL;
+            new_ld = NULL;
+            goto done;
         }
     }
 
+done:
+    OPENSSL_cleanse(racfpwd, sizeof(racfpwd));
     return new_ld;
 }
 
@@ -2427,8 +2455,11 @@ static void free_encr_ctx(ENCR_DECR_CONTEXT * encr_ctx)
     /* Initialize encryption context */
     multi_part_ctx = (struct icsf_multi_part_context *) encr_ctx->context;
     if (multi_part_ctx) {
-        if (multi_part_ctx->data)
+        if (multi_part_ctx->data) {
+            OPENSSL_cleanse(multi_part_ctx->data, multi_part_ctx->data_len);
             free(multi_part_ctx->data);
+        }
+        OPENSSL_cleanse(multi_part_ctx, sizeof(*multi_part_ctx));
         free(multi_part_ctx);
     }
     if (encr_ctx->mech.pParameter)
@@ -4033,8 +4064,11 @@ static void free_sv_ctx(SIGN_VERIFY_CONTEXT * ctx)
     /* Initialize encryption context */
     multi_part_ctx = (struct icsf_multi_part_context *) ctx->context;
     if (multi_part_ctx) {
-        if (multi_part_ctx->data)
+        if (multi_part_ctx->data) {
+            OPENSSL_cleanse(multi_part_ctx->data, multi_part_ctx->data_len);
             free(multi_part_ctx->data);
+        }
+        OPENSSL_cleanse(multi_part_ctx, sizeof(*multi_part_ctx));
         free(multi_part_ctx);
     }
     if (ctx->mech.pParameter)
