@@ -10329,6 +10329,13 @@ static CK_RV dh_generate_keypair(STDLL_TokData_t *tokdata,
         goto dh_generate_keypair_end;
     }
 
+    if (prime_attr->ulValueLen > SIZE_MAX / 2 ||
+        base_attr->ulValueLen > prime_attr->ulValueLen) {
+        TRACE_ERROR("%s DH prime/base length invalid\n", __func__);
+        rc = CKR_ATTRIBUTE_VALUE_INVALID;
+        goto dh_generate_keypair_end;
+    }
+
     dh_pgs.pg = malloc(prime_attr->ulValueLen * 2);
     if (!dh_pgs.pg) {
         TRACE_ERROR("%s Memory allocation failed\n", __func__);
@@ -10713,6 +10720,14 @@ static CK_RV dsa_generate_keypair(STDLL_TokData_t *tokdata,
      * then they are extented by leading zeros till they have
      * the size of CKA_PRIME
      */
+    if (prime_attr->ulValueLen > SIZE_MAX / 3 ||
+        sub_prime_attr->ulValueLen > prime_attr->ulValueLen ||
+        base_attr->ulValueLen > prime_attr->ulValueLen) {
+        TRACE_ERROR("%s DSA prime/subprime/base length invalid\n", __func__);
+        rc = CKR_ATTRIBUTE_VALUE_INVALID;
+        goto dsa_generate_keypair_end;
+    }
+
     dsa_pqgs.pqg = malloc(prime_attr->ulValueLen * 3);
     if (!dsa_pqgs.pqg) {
         TRACE_ERROR("%s Memory allocation failed\n", __func__);
