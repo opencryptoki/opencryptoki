@@ -369,13 +369,19 @@ CK_RV get_racf(STDLL_TokData_t *tokdata,
     rc = decrypt_aes(tokdata, outbuf, datasize, masterkey, iv, racfpwd, racflen,
                      CK_FALSE);
 
-    /* terminate the decrypted string. */
-    memset(racfpwd + (*racflen), 0, 1);
-
     if (rc != CKR_OK) {
         TRACE_DEBUG("Failed to decrypt the racf pwd.\n");
         return CKR_FUNCTION_FAILED;
     }
+
+    if (*racflen >= PIN_SIZE) {
+        TRACE_ERROR("Decrypted RACF password too long: %d (max %d).\n",
+                    *racflen, PIN_SIZE - 1);
+        return CKR_FUNCTION_FAILED;
+    }
+
+    /* terminate the decrypted string. */
+    racfpwd[*racflen] = '\0';
 
     return CKR_OK;
 }
