@@ -98,27 +98,36 @@ CK_RV encrypt_aes(STDLL_TokData_t *tokdata,
                   CK_BBOOL wrap)
 {
     const EVP_CIPHER *cipher = EVP_aes_256_cbc();
+    CK_RV rc = CKR_FUNCTION_FAILED;
     int tmplen;
+    EVP_CIPHER_CTX *ctx;
 
-    EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
+    ctx = EVP_CIPHER_CTX_new();
+    if (ctx == NULL) {
+        TRACE_ERROR("EVP_CIPHER_CTX_new failed.\n");
+        return CKR_FUNCTION_FAILED;
+    }
 
     if (!EVP_EncryptInit_ex(ctx, cipher, NULL, dkey, iv)) {
         TRACE_ERROR("EVP_EncryptInit_ex failed.\n");
-        return CKR_FUNCTION_FAILED;
+        goto done;
     }
     if (!EVP_EncryptUpdate(ctx, outbuf, outbuflen, inbuf, inbuflen)) {
         TRACE_ERROR("EVP_EncryptUpdate failed.\n");
-        return CKR_FUNCTION_FAILED;
+        goto done;
     }
     if (!EVP_EncryptFinal_ex(ctx, outbuf + (*outbuflen), &tmplen)) {
         TRACE_ERROR("EVP_EncryptFinal failed.\n");
-        return CKR_FUNCTION_FAILED;
+        goto done;
     }
 
     *outbuflen = (*outbuflen) + tmplen;
+    rc = CKR_OK;
+
+done:
     EVP_CIPHER_CTX_free(ctx);
 
-    if (tokdata != NULL &&
+    if (rc == CKR_OK && tokdata != NULL &&
         (tokdata->statistics->flags & STATISTICS_FLAG_COUNT_INTERNAL) != 0) {
         if (wrap)
             tokdata->statistics->increment_func(tokdata->statistics,
@@ -132,7 +141,7 @@ CK_RV encrypt_aes(STDLL_TokData_t *tokdata,
                                                 tokdata->store_strength.mk_strength);
     }
 
-    return CKR_OK;
+    return rc;
 }
 
 CK_RV decrypt_aes(STDLL_TokData_t *tokdata,
@@ -140,22 +149,28 @@ CK_RV decrypt_aes(STDLL_TokData_t *tokdata,
                   CK_BYTE * iv, CK_BYTE * outbuf, int *outbuflen,
                   CK_BBOOL unwrap)
 {
-    int size;
     const EVP_CIPHER *cipher = EVP_aes_256_cbc();
+    CK_RV rc = CKR_FUNCTION_FAILED;
+    int size;
+    EVP_CIPHER_CTX *ctx;
 
-    EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
+    ctx = EVP_CIPHER_CTX_new();
+    if (ctx == NULL) {
+        TRACE_ERROR("EVP_CIPHER_CTX_new failed.\n");
+        return CKR_FUNCTION_FAILED;
+    }
 
     if (!EVP_DecryptInit_ex(ctx, cipher, NULL, dkey, iv)) {
         TRACE_ERROR("EVP_DecryptInit_ex failed.\n");
-        return CKR_FUNCTION_FAILED;
+        goto done;
     }
     if (!EVP_DecryptUpdate(ctx, outbuf, outbuflen, inbuf, inbuflen)) {
         TRACE_ERROR("EVP_DecryptUpdate failed.\n");
-        return CKR_FUNCTION_FAILED;
+        goto done;
     }
     if (!EVP_DecryptFinal_ex(ctx, outbuf + (*outbuflen), &size)) {
         TRACE_ERROR("EVP_DecryptFinal failed.\n");
-        return CKR_FUNCTION_FAILED;
+        goto done;
     }
 
     /* total length of the decrypted data */
@@ -164,10 +179,12 @@ CK_RV decrypt_aes(STDLL_TokData_t *tokdata,
     /* EVP_DecryptFinal removes any padding. The final length
      * is the length of the decrypted data without padding.
      */
+    rc = CKR_OK;
 
+done:
     EVP_CIPHER_CTX_free(ctx);
 
-    if (tokdata != NULL &&
+    if (rc == CKR_OK && tokdata != NULL &&
         (tokdata->statistics->flags & STATISTICS_FLAG_COUNT_INTERNAL) != 0) {
         if (unwrap)
             tokdata->statistics->increment_func(tokdata->statistics,
@@ -181,7 +198,7 @@ CK_RV decrypt_aes(STDLL_TokData_t *tokdata,
                                                 tokdata->store_strength.mk_strength);
     }
 
-    return CKR_OK;
+    return rc;
 }
 
 CK_RV get_masterkey(STDLL_TokData_t *tokdata,
