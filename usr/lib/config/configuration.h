@@ -79,11 +79,14 @@
 #define CT_BARESTRINGCONST (1u << 13u)
 
 /*
- * Mask for all types that have a key.  This excludes FILEVERSION,
- * EOC, and BARE which reuse the key field for the value.
+ * Mask for all types that have a non-NULL key.  This excludes:
+ *   CT_FILEVERSION, CT_EOC, CT_BARE  -- reuse base.key for the value
+ *   CT_NUMPAIR                       -- base.key is always NULL (no key)
+ * CT_STRUCT is intentionally absent: confignode_find() is not used to
+ * locate struct nodes by name; callers traverse the list directly.
  */
 #define CT_HAS_KEY_MASK (CT_INTVAL | CT_STRINGVAL | CT_VERSIONVAL |  \
-			 CT_BAREVAL | CT_STRINGVAL | CT_IDX_STRUCT | \
+			 CT_BAREVAL | CT_IDX_STRUCT | \
 			 CT_BARELIST | CT_BARECONST | CT_NUMPAIRLIST | CT_BARESTRINGCONST)
 
 /***** Node Types *****/
@@ -766,7 +769,8 @@ confignode_find(struct ConfigBaseNode *cfg, const char *key)
     if (cfg) {
         i = cfg;
         do {
-            if ((i->type & CT_HAS_KEY_MASK) && strcmp(key, i->key) == 0)
+            if ((i->type & CT_HAS_KEY_MASK) && i->key != NULL &&
+                strcmp(key, i->key) == 0)
                 return i;
             i = i->next;
         } while (i != cfg);
@@ -783,7 +787,8 @@ confignode_findidx(struct ConfigBaseNode *cfg, const char *key, unsigned idx)
     if (cfg) {
         i = cfg;
         do {
-            if ((i->type & CT_IDX_STRUCT) && strcmp(key, i->key) == 0) {
+            if ((i->type & CT_IDX_STRUCT) && i->key != NULL &&
+                strcmp(key, i->key) == 0) {
                 res = confignode_to_idxstruct(i);
                 if (res->idx == idx)
                     return res;
