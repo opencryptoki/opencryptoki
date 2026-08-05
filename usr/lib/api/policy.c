@@ -1852,7 +1852,7 @@ static CK_RV policy_fileversion_check(struct ConfigBaseNode *cfg,
     filevers = cfg->key;
     if (strncmp(versionprefix, filevers, prefixlen) != 0 ||
         sscanf(filevers + prefixlen, "%u", vers) != 1 || *vers < minversion) {
-        TRACE_ERROR("Wrong version.  Expected \"%s%d\" or higher but got \"%s\"\n",
+        TRACE_ERROR("Wrong version.  Expected \"%s%u\" or higher but got \"%s\"\n",
                     versionprefix, minversion, filevers);
         return CKR_FUNCTION_FAILED;
     }
@@ -1889,7 +1889,7 @@ static CK_RV policy_check_unmarked(struct ConfigBaseNode *n)
 
     confignode_foreach(i, n, f) {
         if (i->flags != 1) {
-            TRACE_ERROR("Unknown keyword \"%s\" in line %hd\n",
+            TRACE_ERROR("Unknown keyword \"%s\" in line %u\n",
                         i->key, i->line);
             rc = CKR_FUNCTION_FAILED;
         }
@@ -1916,7 +1916,7 @@ static CK_RV policy_parse_mechlist(struct policy_private *pp,
             mechstr = i->key;
             rc = translate_string_to_mech(mechstr, strlen(mechstr), &mech);
             if (rc != CKR_OK) {
-                TRACE_ERROR("POLICY: Unknown mechanism: %s (line %hd)\n",
+                TRACE_ERROR("POLICY: Unknown mechanism: %s (line %u)\n",
                             mechstr, i->line);
                 break;
             }
@@ -1946,9 +1946,9 @@ static CK_RV policy_parse_curvelist(struct policy_private *pp,
         confignode_foreach(i, list, f) {
             rc = translate_string_to_curve(i->key, strlen(i->key), &curve);
             if (rc != CKR_OK) {
-                TRACE_ERROR("POLICY: Unknown curve \"%s\" in line %hd\n",
+                TRACE_ERROR("POLICY: Unknown curve \"%s\" in line %u\n",
                             i->key, i->line);
-                OCK_SYSLOG(LOG_ERR, "POLICY: Unknown curve \"%s\" in line %hd\n",
+                OCK_SYSLOG(LOG_ERR, "POLICY: Unknown curve \"%s\" in line %u\n",
                         i->key, i->line);
                 return rc;
             }
@@ -1988,13 +1988,13 @@ static CK_RV policy_parse_mgfs(struct policy_private *pp,
         confignode_foreach(i, list, f) {
             rc = translate_string_to_mgf(i->key, strlen(i->key), &mgf);
             if (rc != CKR_OK) {
-                TRACE_ERROR("POLICY: Unknown MGF: \"%s\" (line %hd)\n",
+                TRACE_ERROR("POLICY: Unknown MGF: \"%s\" (line %u)\n",
                             i->key, i->line);
                 break;
             }
             if (mgf >= CKG_VENDOR_DEFINED) {
                 if ((mgf - CKG_VENDOR_DEFINED - 1) > 31) {
-                    TRACE_ERROR("POLICY: MGF invalid: \"%s\" (line %hd)\n",
+                    TRACE_ERROR("POLICY: MGF invalid: \"%s\" (line %u)\n",
                                 i->key, i->line);
                     rc = CKR_FUNCTION_FAILED;
                     break;
@@ -2002,7 +2002,7 @@ static CK_RV policy_parse_mgfs(struct policy_private *pp,
                 vmgfs |= (1u << (mgf - CKG_VENDOR_DEFINED - 1));
             } else {
                 if (mgf > 31) {
-                    TRACE_ERROR("POLICY: MGF invalid: \"%s\" (line %hd)\n",
+                    TRACE_ERROR("POLICY: MGF invalid: \"%s\" (line %u)\n",
                                 i->key, i->line);
                     rc = CKR_FUNCTION_FAILED;
                     break;
@@ -2028,14 +2028,14 @@ static CK_RV policy_parse_kdfs(struct policy_private *pp,
         confignode_foreach(i, list, f) {
             rc = translate_string_to_kdf(i->key, strlen(i->key), &kdf);
             if (rc != CKR_OK) {
-                TRACE_ERROR("POLICY: Unknown KDF: \"%s\" (line %hd)\n",
+                TRACE_ERROR("POLICY: Unknown KDF: \"%s\" (line %u)\n",
                             i->key, i->line);
                 break;
             }
 
             if (kdf >= CKD_VENDOR_DEFINED) {
                 if ((kdf - CKD_VENDOR_DEFINED - 1) > 31) {
-                    TRACE_ERROR("POLICY: KDF invalid: \"%s\" (line %hd)\n",
+                    TRACE_ERROR("POLICY: KDF invalid: \"%s\" (line %u)\n",
                                 i->key, i->line);
                     rc = CKR_FUNCTION_FAILED;
                     break;
@@ -2043,7 +2043,7 @@ static CK_RV policy_parse_kdfs(struct policy_private *pp,
                 vkdfs |= (1u << (kdf - CKD_VENDOR_DEFINED - 1));
             } else {
                 if (kdf > 31) {
-                    TRACE_ERROR("POLICY: KDF invalid: \"%s\" (line %hd)\n",
+                    TRACE_ERROR("POLICY: KDF invalid: \"%s\" (line %u)\n",
                                 i->key, i->line);
                     rc = CKR_FUNCTION_FAILED;
                     break;
@@ -2069,7 +2069,7 @@ static CK_RV policy_parse_prfs(struct policy_private *pp,
         confignode_foreach(i, list, f) {
             rc = translate_string_to_prf(i->key, strlen(i->key), &prf);
             if (rc != CKR_OK) {
-                TRACE_ERROR("POLICY: Unknown PRF: \"%s\" (line %hd)\n",
+                TRACE_ERROR("POLICY: Unknown PRF: \"%s\" (line %u)\n",
                             i->key, i->line);
                 break;
             }

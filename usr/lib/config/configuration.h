@@ -96,7 +96,7 @@ struct ConfigBaseNode {
     struct ConfigBaseNode *next, *prev;
     unsigned int type;
     char *key;
-    uint16_t line;
+    uint32_t line;
     uint16_t flags;
 };
 

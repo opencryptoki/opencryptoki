@@ -16737,20 +16737,20 @@ static CK_RV ep11_config_add_apqn(ep11_private_data_t *ep11_data,
 {
     if (pair->value1 > 255) {
         OCK_SYSLOG(LOG_ERR, "%s: Error: Expected valid adapter"
-                   " number, found '%lu' in config file '%s' at line %d\n",
+                   " number, found '%lu' in config file '%s' at line %u\n",
                    __func__, pair->value1, fname, pair->base.line);
         TRACE_ERROR(" Error: Expected valid adapter number, found '%lu' in "
-                    "config file '%s' at line %d\n", pair->value1, fname,
+                    "config file '%s' at line %u\n", pair->value1, fname,
                     pair->base.line);
         return CKR_ARGUMENTS_BAD;
     }
 
     if (pair->value2 > 255) {
         OCK_SYSLOG(LOG_ERR, "%s: Error: Expected valid domain"
-                   " number, found '%lu' in config file '%s' at line %d\n",
+                   " number, found '%lu' in config file '%s' at line %u\n",
                    __func__, pair->value2, fname, pair->base.line);
         TRACE_ERROR(" Error: Expected valid domain number, found '%lu' in "
-                    "config file '%s' at line %d\n", pair->value2, fname,
+                    "config file '%s' at line %u\n", pair->value2, fname,
                     pair->base.line);
         return CKR_ARGUMENTS_BAD;
     }
@@ -16781,22 +16781,22 @@ void ep11_config_parse_error(int line, int col, const char *msg)
 }
 
 void ep11_config_error_token(const char *fname, const char *key,
-                             int line, const char *expected)
+                             unsigned int line, const char *expected)
 {
     if (expected != NULL) {
         OCK_SYSLOG(LOG_ERR, "Error parsing config file '%s': unexpected token "
-                   "'%s' at line %d, expected %s\n", fname,
+                   "'%s' at line %u, expected %s\n", fname,
                    key != NULL ? key : "(none)", line, expected);
         TRACE_ERROR("Error parsing config file '%s': unexpected token "
-                "   '%s' at line %d, expected %s\n", fname,
+                "   '%s' at line %u, expected %s\n", fname,
                     key != NULL ? key : "(none)", line, expected);
 
     } else {
         OCK_SYSLOG(LOG_ERR, "Error parsing config file '%s': "
-                   "unexpected token '%s' at line %d\n", fname,
+                   "unexpected token '%s' at line %u\n", fname,
                    key != NULL ? key : "(none)", line);
         TRACE_ERROR("Error parsing config file '%s': unexpected token "
-                    "'%s' at line %d\n", fname, key != NULL ? key : "(none)", line);
+                    "'%s' at line %u\n", fname, key != NULL ? key : "(none)", line);
     }
 }
 

@@ -516,7 +516,7 @@ static CK_RV config_parse_slot(const char *config_file,
             }
 
             TRACE_ERROR("Error parsing config file '%s': unexpected token '%s' "
-                        "at line %d: \n", config_file, c->key, c->line);
+                        "at line %u: \n", config_file, c->key, c->line);
             return CKR_FUNCTION_FAILED;
 
 found:
@@ -524,7 +524,7 @@ found:
         }
 
         TRACE_ERROR("Error parsing config file '%s': unexpected token '%s' "
-                    "at line %d: \n", config_file, c->key, c->line);
+                    "at line %u: \n", config_file, c->key, c->line);
         return CKR_FUNCTION_FAILED;
     }
 
@@ -606,13 +606,13 @@ static CK_RV parse_config_file(const char *conf_name, CK_SLOT_ID slot_id,
             }
 
             TRACE_ERROR("Error parsing config file '%s': unexpected token '%s' "
-                        "at line %d: \n", fname, c->key, c->line);
+                        "at line %u: \n", fname, c->key, c->line);
             ret = -1;
             break;
         }
 
         TRACE_ERROR("Error parsing config file '%s': unexpected token '%s' "
-                    "at line %d: \n", fname, c->key, c->line);
+                    "at line %u: \n", fname, c->key, c->line);
         ret = CKR_FUNCTION_FAILED;
         break;
     }
