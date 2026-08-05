@@ -1847,7 +1847,6 @@ CK_RV icsftok_copy_object(STDLL_TokData_t * tokdata,
 
     CK_BBOOL is_priv;
     CK_BBOOL is_token;
-    CK_RV rc_permission = CKR_OK;
 
     CK_ATTRIBUTE priv_attrs[] = {
         {CKA_PRIVATE, &is_priv, sizeof(is_priv)}
@@ -1905,13 +1904,13 @@ CK_RV icsftok_copy_object(STDLL_TokData_t * tokdata,
         temp_attrs = get_attribute_by_type(attrs, attrs_len, CKA_TOKEN);
         if (temp_attrs != NULL) {
             priv_attrs[1].pValue = temp_attrs->pValue;
-            priv_attrs[1].ulValueLen = attrs->ulValueLen;
+            priv_attrs[1].ulValueLen = temp_attrs->ulValueLen;
         }
     }
 
     /* Check permissions based on attributes and session */
     rc = check_session_permissions(session, priv_attrs, 2);
-    if (rc_permission != CKR_OK) {
+    if (rc != CKR_OK) {
         TRACE_DEVEL("check_session_permissions failed\n");
         goto done;
     }
