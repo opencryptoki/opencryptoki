@@ -974,44 +974,34 @@ out:
 
 CK_RV hsm_mk_change_op_remove(const char *id)
 {
-    char hsm_mk_change_file[PATH_MAX];
-    struct dirent **namelist = NULL;
+    struct dirent *entry;
+    DIR *dir;
     CK_RV rc = CKR_OK;
-    int n, i;
 
-    n = scandir(OCK_HSM_MK_CHANGE_PATH, &namelist, NULL, alphasort);
-    if (n == -1) {
-        TRACE_ERROR("scandir(%s) failed with: %s\n", OCK_HSM_MK_CHANGE_PATH,
+    dir = opendir_nofollow(OCK_HSM_MK_CHANGE_PATH);
+    if (dir == NULL) {
+        TRACE_ERROR("opendir(%s) failed with: %s\n", OCK_HSM_MK_CHANGE_PATH,
                     strerror(errno));
         return CKR_FUNCTION_FAILED;
     }
 
-    for (i = 0; i < n ; i++) {
-        if (namelist[i]->d_name[0] == '.')
+    while ((entry = readdir(dir)) != NULL) {
+        if (entry->d_name[0] == '.')
             continue;
-        if (strncmp(namelist[i]->d_name, id, strlen(id)) != 0)
+        if (strncmp(entry->d_name, id, strlen(id)) != 0)
             continue;
 
-        if (ock_snprintf(hsm_mk_change_file, PATH_MAX, "%s/%s",
-                         OCK_HSM_MK_CHANGE_PATH, namelist[i]->d_name) != 0) {
-            TRACE_ERROR("HSM_MK_CHANGE file path buffer overflow\n");
-            rc = CKR_FUNCTION_FAILED;
-            break;
-        }
+        TRACE_DEVEL("remove %s/%s\n", OCK_HSM_MK_CHANGE_PATH, entry->d_name);
 
-        TRACE_DEVEL("remove %s\n", hsm_mk_change_file);
-
-        if (remove(hsm_mk_change_file) != 0) {
-            TRACE_ERROR("remove(%s) failed with: %s\n", hsm_mk_change_file,
-                        strerror(errno));
+        if (unlinkat(dirfd(dir), entry->d_name, 0) != 0) {
+            TRACE_ERROR("unlinkat(%s/%s) failed with: %s\n",
+                        OCK_HSM_MK_CHANGE_PATH, entry->d_name, strerror(errno));
             rc = CKR_FUNCTION_FAILED;
             break;
         }
     }
 
-    for (i = 0; i < n ; i++)
-            free(namelist[i]);
-    free(namelist);
+    closedir(dir);
 
     return rc;
 }
@@ -1020,26 +1010,26 @@ CK_RV hsm_mk_change_op_iterate(CK_RV (*cb)(struct hsm_mk_change_op *op,
                                            void *private), void *private)
 {
     struct hsm_mk_change_op op;
-    struct dirent **namelist = NULL;
+    struct dirent *entry;
+    DIR *dir;
     CK_RV rc = CKR_OK;
-    int n, i;
 
     memset(&op, 0, sizeof(op));
 
-    n = scandir(OCK_HSM_MK_CHANGE_PATH, &namelist, NULL, alphasort);
-    if (n == -1) {
-        TRACE_ERROR("scandir(%s) failed with: %s\n", OCK_HSM_MK_CHANGE_PATH,
+    dir = opendir_nofollow(OCK_HSM_MK_CHANGE_PATH);
+    if (dir == NULL) {
+        TRACE_ERROR("opendir(%s) failed with: %s\n", OCK_HSM_MK_CHANGE_PATH,
                     strerror(errno));
         return CKR_FUNCTION_FAILED;
     }
 
-    for (i = 0; i < n ; i++) {
-        if (namelist[i]->d_name[0] == '.')
+    while ((entry = readdir(dir)) != NULL) {
+        if (entry->d_name[0] == '.')
             continue;
-        if (strlen(namelist[i]->d_name) > 6 && namelist[i]->d_name[6] == '-')
+        if (strlen(entry->d_name) > 6 && entry->d_name[6] == '-')
             continue;
 
-        rc = hsm_mk_change_op_load(namelist[i]->d_name,  &op);
+        rc = hsm_mk_change_op_load(entry->d_name, &op);
         if (rc != CKR_OK)
             break;
 
@@ -1049,9 +1039,7 @@ CK_RV hsm_mk_change_op_iterate(CK_RV (*cb)(struct hsm_mk_change_op *op,
             break;
     }
 
-    for (i = 0; i < n ; i++)
-            free(namelist[i]);
-    free(namelist);
+    closedir(dir);
 
     return rc;
 }
