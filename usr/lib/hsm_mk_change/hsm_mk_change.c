@@ -804,7 +804,7 @@ CK_RV hsm_mk_change_op_load(const char *id, struct hsm_mk_change_op *op)
 
     op_hdr = (struct hsm_mk_change_op_hdr *)buff;
     memcpy(op->id, op_hdr->id, sizeof(op_hdr->id));
-    op->state = htobe32(op_hdr->state);
+    op->state = be32toh(op_hdr->state);
     len -= sizeof(*op_hdr);
 
     TRACE_DEBUG("Id: %s\n", op->id);
