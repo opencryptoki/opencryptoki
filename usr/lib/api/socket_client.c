@@ -392,6 +392,10 @@ static void *event_thread(void *arg)
         }
 
         payload = NULL;
+        if (event.payload_len > EVENT_MAX_PAYLOAD_LENGTH) {
+            TRACE_ERROR("Event payload_len too large: %u\n", event.payload_len);
+            break;
+        }
         if (event.payload_len > 0) {
             payload = malloc(event.payload_len);
             if (payload == NULL) {
