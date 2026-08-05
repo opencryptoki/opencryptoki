@@ -2811,6 +2811,11 @@ CK_RV icsftok_encrypt_update(STDLL_TokData_t * tokdata,
      * can be sent in a further call of the update function or when the
      * finalize function is called.
      */
+    if (input_part_len > SIZE_MAX - multi_part_ctx->used_data_len) {
+        TRACE_ERROR("Input length overflow.\n");
+        rc = CKR_DATA_LEN_RANGE;
+        goto done;
+    }
     total = multi_part_ctx->used_data_len + input_part_len;
     remaining = total % multi_part_ctx->data_len;
 
@@ -3349,6 +3354,11 @@ CK_RV icsftok_decrypt_update(STDLL_TokData_t * tokdata,
      * multi-part context when the data available is exactly multiple of the
      * block size.
      */
+    if (input_part_len > SIZE_MAX - multi_part_ctx->used_data_len) {
+        TRACE_ERROR("Input length overflow.\n");
+        rc = CKR_DATA_LEN_RANGE;
+        goto done;
+    }
     total = multi_part_ctx->used_data_len + input_part_len;
     if (!padding) {
         remaining = total % multi_part_ctx->data_len;
@@ -4491,8 +4501,13 @@ CK_RV icsftok_sign_update(STDLL_TokData_t * tokdata,
         /* caching data since ICSF wants in multiple of blocksize */
         if (multi_part_ctx && multi_part_ctx->data) {
 
+            if (in_data_len > SIZE_MAX - multi_part_ctx->used_data_len) {
+                TRACE_ERROR("Input length overflow.\n");
+                rc = CKR_DATA_LEN_RANGE;
+                goto done;
+            }
             total = multi_part_ctx->used_data_len + in_data_len;
-            remain = total % multi_part_ctx->data_len;;
+            remain = total % multi_part_ctx->data_len;
 
             /* if not enough to meet blocksize, cache and exit. */
             if (total < multi_part_ctx->data_len) {
@@ -5107,8 +5122,13 @@ CK_RV icsftok_verify_update(STDLL_TokData_t * tokdata,
         /* caching data since ICSF wants in multiple of blocksize */
         if (multi_part_ctx && multi_part_ctx->data) {
 
+            if (in_data_len > SIZE_MAX - multi_part_ctx->used_data_len) {
+                TRACE_ERROR("Input length overflow.\n");
+                rc = CKR_DATA_LEN_RANGE;
+                goto done;
+            }
             total = multi_part_ctx->used_data_len + in_data_len;
-            remain = total % multi_part_ctx->data_len;;
+            remain = total % multi_part_ctx->data_len;
 
             /* if not enough to meet blocksize, cache and exit. */
             if (total < multi_part_ctx->data_len) {
