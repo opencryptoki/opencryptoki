@@ -3754,6 +3754,9 @@ CK_RV C_OpenSession(CK_SLOT_ID slotID,
         // complete the API session block and  return.  Otherwise
         // we free the API session block and exit
         if (rv == CKR_OK) {
+            apiSessp->slotID = slotID;
+            apiSessp->rw_session = (flags & CKF_RW_SESSION);
+
             /* add a reference to this handle/slot_id pair to the binary tree we
              * maintain at the API level, returning the API-level object's
              * handle as the session handle the app will get
@@ -3763,8 +3766,6 @@ CK_RV C_OpenSession(CK_SLOT_ID slotID,
                 rv = CKR_HOST_MEMORY;
                 goto error_close;
             }
-            apiSessp->slotID = slotID;
-            apiSessp->rw_session = (flags & CKF_RW_SESSION);
 
             // NOTE:  Need to add Session counter to the shared
             // memory slot value.... Atomic operation.
