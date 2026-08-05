@@ -962,6 +962,9 @@ CK_RV hsm_mk_change_token_mkvps_load(const char *id, CK_SLOT_ID slot_id,
                     id, slot_id, len, read);
         rc = CKR_FUNCTION_FAILED;
         hsm_mk_change_mkvps_clean(*mkvps, *num_mkvps);
+        free(*mkvps);
+        *mkvps = NULL;
+        *num_mkvps = 0;
         goto out;
     }
 
