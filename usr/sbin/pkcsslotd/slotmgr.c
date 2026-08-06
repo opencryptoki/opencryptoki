@@ -473,7 +473,8 @@ int chk_create_tokdir(Slot_Info_t_64 *psinfo)
     char tokendir[PATH_MAX];
     struct group *grp;
     gid_t grpid;
-    int uid, rc, err;
+    uid_t uid;
+    int rc, err;
     mode_t proc_umask;
     char *tokdir = psinfo->tokname;
     char *tokgroup = psinfo->usergroup;
@@ -488,7 +489,7 @@ int chk_create_tokdir(Slot_Info_t_64 *psinfo)
         tokgroup = PKCS_GROUP;
 
     /* get token group id */
-    uid = (int) geteuid();
+    uid = geteuid();
     errno = 0;
     grp = getgrnam(tokgroup);
     err = (errno != 0 ? errno : ENOENT);
