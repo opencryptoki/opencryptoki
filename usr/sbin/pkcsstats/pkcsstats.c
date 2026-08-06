@@ -239,7 +239,7 @@ static bool all_conters_zero(CK_BYTE *mech_data, CK_ULONG mech_size)
 
     for (i = 0; i < NUM_SUPPORTED_STRENGTHS + 1 &&
                 i * sizeof(counter_t) < mech_size; i++) {
-        if (counter[i] != 0)
+        if (__sync_fetch_and_add(&counter[i], 0) != 0)
             return false;
     }
 
@@ -304,10 +304,14 @@ static int delete_all_cb(int user_id, const char *user_name, void *private)
 static int reset_slot_cb(CK_SLOT_ID slot_id, CK_BYTE *slot_data,
                          CK_ULONG slot_size, void *private)
 {
+    CK_ULONG i, num_counters;
+
     UNUSED(slot_id);
     UNUSED(private);
 
-    memset(slot_data, 0, slot_size);
+    num_counters = slot_size / sizeof(counter_t);
+    for (i = 0; i < num_counters; i++)
+        __sync_and_and_fetch(&((counter_t *)slot_data)[i], 0);
 
     return 0;
 }
@@ -449,12 +453,22 @@ static int display_mech_cb(CK_MECHANISM_TYPE mech, const char *mech_name,
 
     for (i = 0; i < NUM_SUPPORTED_STRENGTHS + 1 &&
                  i * sizeof(counter_t) < mech_size; i++) {
-        if (dm->json)
+        counter_t val = __sync_fetch_and_add(&counter[i], 0); /* atomic snapshot */
+        if (dm->json) {
+            bool last = (i == NUM_SUPPORTED_STRENGTHS);
+            bool sat  = (val == ULONG_MAX);
+            CK_ULONG strength = i == 0 ? 0 :
+                                supportedstrengths[NUM_SUPPORTED_STRENGTHS - i];
             printf("\t\t\t\t\t\t\t\"strength-%lu\": %lu%s\n",
-                   i == 0 ? 0 : supportedstrengths[NUM_SUPPORTED_STRENGTHS - i],
-                   counter[i], i == NUM_SUPPORTED_STRENGTHS ? "" : ",");
-        else
-            printf(" %15lu", counter[i]);
+                   strength, val, (sat || !last) ? "," : "");
+            if (sat)
+                printf("\t\t\t\t\t\t\t\"strength-%lu-saturated\": true%s\n",
+                       strength, last ? "" : ",");
+        } else if (val == ULONG_MAX) {
+            printf(" %15s", "[saturated]");
+        } else {
+            printf(" %15lu", val);
+        }
     }
 
     if (dm->json)
@@ -644,8 +658,13 @@ static int summary_mech_cb(CK_MECHANISM_TYPE mech, const char *mech_name,
     sum_counter = (counter_t *)(&sd->summary_data[ofs]);
 
     for (i = 0; i < NUM_SUPPORTED_STRENGTHS + 1 &&
-                i * sizeof(counter_t) < mech_size; i++)
-        sum_counter[i] += slot_counter[i];
+                i * sizeof(counter_t) < mech_size; i++) {
+        counter_t val = __sync_fetch_and_add(&slot_counter[i], 0);
+        if (val > ULONG_MAX - sum_counter[i])
+            sum_counter[i] = ULONG_MAX;
+        else
+            sum_counter[i] += val;
+    }
 
     return 0;
 }
