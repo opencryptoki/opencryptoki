@@ -164,6 +164,7 @@ static int for_all_users(user_f user_cb, void *cb_private)
     DIR *shmDir;
     struct passwd *pwd;
     int rc = 0, uid;
+    unsigned long raw_uid;
     char *endptr;
 
     make_shm_name(shm_prefix, sizeof(shm_prefix), -1);
@@ -175,12 +176,12 @@ static int for_all_users(user_f user_cb, void *cb_private)
     }
 
     while ((direntp = readdir(shmDir)) != NULL) {
-        if(strstr(direntp->d_name, &shm_prefix[1]) != NULL) {
+        if (strncmp(direntp->d_name, &shm_prefix[1], strlen(shm_prefix) - 1) == 0) {
             errno = 0;
-            uid = strtoul(&direntp->d_name[strlen(shm_prefix)], &endptr, 10);
-            if ((errno == ERANGE && uid >= INT_MAX) ||
-                (errno != 0 && uid == 0) || *endptr != '\0')
+            raw_uid = strtoul(&direntp->d_name[strlen(shm_prefix)], &endptr, 10);
+            if (errno != 0 || *endptr != '\0' || raw_uid >= (uid_t)-1)
                 continue;
+            uid = (int)raw_uid;
 
             if((pwd = getpwuid(uid)) == NULL)
                 continue;

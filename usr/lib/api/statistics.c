@@ -317,14 +317,14 @@ static CK_RV statistics_increment(struct statistics *statistics,
  * If create is TRUE then the shared memory segment is created if it is not
  * already existent.
  */
-static CK_RV statistics_open_shm(struct statistics *statistics, int user,
+static CK_RV statistics_open_shm(struct statistics *statistics, uid_t user,
                                  CK_BBOOL create)
 {
     int i, err, clear = 0, fd;
     struct stat stat_buf;
 
     snprintf(statistics->shm_name, sizeof(statistics->shm_name) - 1,
-             "%s_stats_%u", CONFIG_PATH, user == -1 ? geteuid() : (uid_t)user);
+             "%s_stats_%u", CONFIG_PATH, user == (uid_t)-1 ? geteuid() : user);
     for (i = 1; statistics->shm_name[i] != '\0'; i++) {
         if (statistics->shm_name[i] == '/')
             statistics->shm_name[i] = '.';
