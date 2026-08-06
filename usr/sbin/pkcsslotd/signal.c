@@ -54,6 +54,9 @@ void slotdGenericSignalHandler(int Signal)
     int procindex;
     BOOL OkToExit = TRUE;
 
+    if (shmp == NULL)
+        return;
+
   /********************************************************
    *    DbgLog calls (possibly) printf, syslog_r, etc.
    *    The behavior of these functions is "undefined"
@@ -82,9 +85,6 @@ void slotdGenericSignalHandler(int Signal)
 
         Slot_Mgr_Proc_t_64 *pProc = &(shmp->proc_table[procindex]);
 
-        if (shmp == NULL) {
-            break;
-        }
         if ((pProc->inuse)
 #if !(NOGARBAGE)
             && (IsValidProcessEntry(pProc->proc_id, pProc->reg_time))
