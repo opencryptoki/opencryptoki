@@ -209,10 +209,10 @@ int AttachToSharedMemory(void)
 {
 
 #if !MMAP
-    shmp = NULL;
     shmp = (Slot_Mgr_Shr_t *) shmat(shmid, NULL, 0);
 
-    if (!shmp) {
+    if (shmp == (Slot_Mgr_Shr_t *)-1) {
+        shmp = NULL;
         ErrLog("Shared memory attach failed (0x%X)\n", errno);
         return FALSE;
     }
