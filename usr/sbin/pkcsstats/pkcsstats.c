@@ -371,6 +371,11 @@ static int get_slot_infos(CK_FUNCTION_LIST_PTR func_list,
         return 1;
     }
 
+    if (*num_slots > NUMBER_SLOTS_MANAGED) {
+        warnx("C_GetSlotList returned unreasonable slot count: %lu", *num_slots);
+        return 1;
+    }
+
     *slots = (CK_SLOT_ID_PTR) malloc(*num_slots * sizeof(CK_SLOT_ID));
 
     rc = func_list->C_GetSlotList(FALSE, *slots, num_slots);
