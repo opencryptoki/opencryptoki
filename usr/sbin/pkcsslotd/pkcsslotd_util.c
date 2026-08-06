@@ -75,40 +75,7 @@ void PopulateSlotInfo(Slot_Info_t_64 *slot_info, unsigned int *processed)
             /* skip empty slots and just note the slot number */
             slot_info[id].slot_number = id;
         } else {
-            slot_info[id].slot_number = sinfo[id].slot_number;
-            slot_info[id].present = sinfo[id].present;
-            slot_info[id].pk_slot.flags = sinfo[id].pk_slot.flags;
-
-            memcpy(slot_info[id].dll_location,
-                   sinfo[id].dll_location, strlen(sinfo[id].dll_location));
-
-            memcpy(slot_info[id].confname, sinfo[id].confname,
-                   strlen(sinfo[id].confname));
-
-            memcpy(slot_info[id].tokname, sinfo[id].tokname,
-                   strlen(sinfo[id].tokname));
-
-            memcpy(slot_info[id].pk_slot.slotDescription,
-                   sinfo[id].pk_slot.slotDescription,
-                   sizeof(sinfo[id].pk_slot.slotDescription));
-
-            memcpy(slot_info[id].pk_slot.manufacturerID,
-                   sinfo[id].pk_slot.manufacturerID,
-                   sizeof(sinfo[id].pk_slot.manufacturerID));
-
-            memcpy(&slot_info[id].pk_slot.hardwareVersion,
-                   &sinfo[id].pk_slot.hardwareVersion,
-                   sizeof(sinfo[id].pk_slot.hardwareVersion));
-
-            memcpy(&slot_info[id].pk_slot.firmwareVersion,
-                   &sinfo[id].pk_slot.firmwareVersion,
-                   sizeof(sinfo[id].pk_slot.firmwareVersion));
-
-            slot_info[id].version = sinfo[id].version;
-
-            memcpy(slot_info[id].usergroup, sinfo[id].usergroup,
-                   strlen(sinfo[id].usergroup));
-
+            slot_info[id] = sinfo[id];
             slot_count++;
         }
     }
