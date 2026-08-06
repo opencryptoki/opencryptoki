@@ -30,7 +30,7 @@ static CK_RV statistics_increment(struct statistics *statistics,
                                   CK_ULONG strength_idx)
 {
     CK_ULONG ofs;
-    counter_t *counter;
+    counter_t *counter, old, next, prev;
     int mech_idx;
     CK_MECHANISM implicit_mech = { 0, NULL, 0 };
     CK_ULONG idx, impl_strength_idx;
@@ -58,7 +58,12 @@ static CK_RV statistics_increment(struct statistics *statistics,
         return CKR_FUNCTION_FAILED;
 
     counter = (counter_t*)(statistics->shm_data + ofs);
-    __sync_add_and_fetch(counter, 1);
+    old = *counter;
+    do {
+        prev = next = old;
+        if (next < ULONG_MAX)
+            next++;
+    } while ((old = __sync_val_compare_and_swap(counter, prev, next)) != prev);
 
     if ((statistics->flags & STATISTICS_FLAG_COUNT_IMPLICIT) == 0)
         return CKR_OK;

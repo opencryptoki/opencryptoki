@@ -70,6 +70,13 @@ automatically created for a user on the first attempt to collect statistics
 the \fBpkcsstats\fP command with the \fB\-\-delete\fP, or \fB\-\-delete\-all\fP
 options.
 .PP
+The counters are unsigned integers. If a counter reaches its maximum value it
+saturates and stays at that value rather than wrapping around to zero. In
+plain-text output a saturated counter is displayed as \fB[saturated]\fP instead
+of a numeric value. In JSON output an additional field
+\fB"strength\-\fIN\fB\-saturated": true\fP is added alongside the counter value
+when the counter has saturated.
+.PP
 The usage of a mechanism is counted once when the cryptographic operation is
 sucessfully initialized, i.e. during \fBC_DigestInit\fP, \fBC_EncryptInit\fP,
 \fBC_DecryptInit\fP, \fBC_SignInit\fP, \fBC_SignRecoverInit\fP, and
@@ -127,8 +134,10 @@ Deletes the shared memory segment containing the statistics counters for all
 users. Only the \fBroot\fP user can delete the statistics from other users.
 .TP
 .BR \-j ", " \-\-json
-Shows the statistics in JSON format. This is usefull to get the statistics in
-a machine readable format.
+Shows the statistics in JSON format. This is useful to get the statistics in
+a machine readable format. For each strength counter that has saturated, an
+additional \fB"strength\-\fIN\fB\-saturated": true\fP field is included in the
+JSON output.
 .TP
 .BR \-h ", " \-\-help
 Displays help text and exits.
