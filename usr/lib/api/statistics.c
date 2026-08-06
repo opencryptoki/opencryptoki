@@ -483,6 +483,12 @@ CK_RV statistics_init(struct statistics *statistics,
             statistics->slot_shm_offsets[i] = (CK_ULONG)-1;
         }
     }
+
+    if (statistics->num_slots > NUMBER_SLOTS_MANAGED) {
+        TRACE_ERROR("Slot count %lu exceeds NUMBER_SLOTS_MANAGED (%d)\n",
+                    statistics->num_slots, NUMBER_SLOTS_MANAGED);
+        return CKR_GENERAL_ERROR;
+    }
     statistics->shm_size = statistics->num_slots * STAT_SLOT_SIZE;
 
     TRACE_INFO("%lu slots defined\n", statistics->num_slots);
