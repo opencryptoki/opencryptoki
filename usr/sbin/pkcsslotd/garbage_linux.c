@@ -359,7 +359,10 @@ BOOL CheckForGarbage(Slot_Mgr_Shr_t *MemPtr)
                         *pGlobalRWSessions = 0;
                     } else {
                         *pGlobalSessions -= *pProcSessions;
-                        *pGlobalRWSessions -= *pProcRWSessions;
+                        if (*pProcRWSessions > *pGlobalRWSessions)
+                            *pGlobalRWSessions = 0;
+                        else
+                            *pGlobalRWSessions -= *pProcRWSessions;
                     }
 
                     *pProcSessions = 0;
