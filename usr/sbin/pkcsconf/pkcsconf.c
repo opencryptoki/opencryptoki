@@ -865,7 +865,7 @@ CK_RV init_token(int slot_id, const char *pin)
      * 32 bytes, and it should NOT be null-terminated */
     memset(label, ' ', sizeof(label));
     memcpy((char *) label, (char *) enteredlabel,
-           strlen((char *) enteredlabel));
+           strnlen((char *) enteredlabel, sizeof(label)));
 
     rc = FunctionPtr->C_InitToken(slot_id, (CK_CHAR_PTR)pin, strlen(pin), label);
     if (rc != CKR_OK) {
