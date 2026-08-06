@@ -456,6 +456,8 @@ int Stat2Proc(int pid, proc_t *p)
     buf[num] = '\0';
 
     tmp = strrchr(buf, ')');    // split into "PID (cmd" and "<rest>"
+    if (tmp == NULL)
+        return FALSE;
     *tmp = '\0';                // replacing trailing ')' with NULL
     // Tmp now points to the rest of the buffer.
     // buff points to the command...
