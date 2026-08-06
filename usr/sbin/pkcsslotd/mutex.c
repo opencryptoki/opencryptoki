@@ -76,8 +76,11 @@ void DestroyXProcLock(void)
 
 int XProcLock(void)
 {
-    if (xplfd != -1)
-        flock(xplfd, LOCK_EX);
+    if (xplfd != -1 && flock(xplfd, LOCK_EX) != 0) {
+        DbgLog(DL0, "%s: flock(%s, LOCK_EX): %s\n",
+               __func__, OCK_API_LOCK_FILE, strerror(errno));
+        return FALSE;
+    }
 
     return TRUE;
 }
