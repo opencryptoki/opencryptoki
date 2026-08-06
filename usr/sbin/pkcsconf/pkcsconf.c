@@ -449,11 +449,21 @@ CK_RV get_slot_list(CK_BOOL tokenPresent)
     }
 
     /* Allocate enough space for the slots information */
+    if (SlotCount > SIZE_MAX / sizeof(CK_SLOT_ID)) {
+        warnx("Slot count too large");
+        return CKR_HOST_MEMORY;
+    }
     SlotList = (CK_SLOT_ID_PTR) malloc(SlotCount * sizeof(CK_SLOT_ID));
+    if (SlotList == NULL) {
+        warnx("Error allocating slot list");
+        return CKR_HOST_MEMORY;
+    }
 
     rc = FunctionPtr->C_GetSlotList(tokenPresent, SlotList, &SlotCount);
     if (rc != CKR_OK) {
         warnx("Error getting slot list: 0x%lX (%s)", rc, p11_get_ckr(rc));
+        free(SlotList);
+        SlotList = NULL;
         return rc;
     }
 
@@ -506,9 +516,20 @@ CK_RV print_mech_info(int slot_id)
         return rc;
     }
 
+    if (MechanismCount == 0)
+        return CKR_OK;
+
     /* Allocate enough memory to store all the supported mechanisms */
+    if (MechanismCount > SIZE_MAX / sizeof(CK_MECHANISM_TYPE)) {
+        warnx("Mechanism count too large");
+        return CKR_HOST_MEMORY;
+    }
     MechanismList = (CK_MECHANISM_TYPE_PTR) malloc(MechanismCount *
                                                    sizeof(CK_MECHANISM_TYPE));
+    if (MechanismList == NULL) {
+        warnx("Error allocating mechanism list");
+        return CKR_HOST_MEMORY;
+    }
 
     /* This time get the mechanism list */
     rc = FunctionPtr->C_GetMechanismList(slot_id, MechanismList,
