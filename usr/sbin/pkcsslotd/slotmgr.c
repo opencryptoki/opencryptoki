@@ -92,7 +92,7 @@ int compute_sha256(char *buf, int buf_size, char *digest)
 {
     EVP_MD_CTX *md_ctx = NULL;
     unsigned int result_size;
-    int rc;
+    int rc = -1;
 
     md_ctx = EVP_MD_CTX_create();
     if (md_ctx == NULL) {
@@ -100,26 +100,26 @@ int compute_sha256(char *buf, int buf_size, char *digest)
         return -1;
     }
 
-    rc = EVP_DigestInit(md_ctx, EVP_sha256());
-    if (rc != 1) {
-        fprintf(stderr, "EVP_DigestInit() failed: rc = %d\n", rc);
-        return -1;
+    if (EVP_DigestInit(md_ctx, EVP_sha256()) != 1) {
+        fprintf(stderr, "EVP_DigestInit() failed\n");
+        goto out;
     }
 
-    rc = EVP_DigestUpdate(md_ctx, buf, buf_size);
-    if (rc != 1) {
-        fprintf(stderr, "EVP_DigestUpdate() failed: rc = %d\n", rc);
-        return -1;
+    if (EVP_DigestUpdate(md_ctx, buf, buf_size) != 1) {
+        fprintf(stderr, "EVP_DigestUpdate() failed\n");
+        goto out;
     }
 
     result_size = EVP_MD_CTX_size(md_ctx);
-    rc = EVP_DigestFinal(md_ctx, (unsigned char *) digest, &result_size);
-    if (rc != 1) {
-        fprintf(stderr, "EVP_DigestFinal() failed: rc = %d\n", rc);
-        return -1;
+    if (EVP_DigestFinal(md_ctx, (unsigned char *) digest, &result_size) != 1) {
+        fprintf(stderr, "EVP_DigestFinal() failed\n");
+        goto out;
     }
+    rc = 0;
+
+out:
     EVP_MD_CTX_destroy(md_ctx);
-    return 0;
+    return rc;
 }
 
 #if defined(_AIX)
