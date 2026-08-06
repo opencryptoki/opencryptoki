@@ -903,7 +903,7 @@ CK_RV init_token(int slot_id, const char *pin)
 
 CK_RV init_user_pin(int slot_id, const char *pin, const char *sopin)
 {
-    CK_RV rc;                   // Return Value
+    CK_RV rc, rc2;              // Return Value
     CK_FLAGS flags = 0;         // Mask that we will use when opening the session
     CK_SESSION_HANDLE session_handle;   // The session handle we get
 
@@ -929,6 +929,9 @@ CK_RV init_user_pin(int slot_id, const char *pin, const char *sopin)
             warnx("Incorrect PIN entered.");
         else
             warnx("Error logging in: 0x%lX (%s)", rc, p11_get_ckr(rc));
+        rc2 = FunctionPtr->C_CloseSession(session_handle);
+        if (rc2 != CKR_OK)
+            warnx("Error closing session: 0x%lX (%s)", rc2, p11_get_ckr(rc2));
         return rc;
     }
 
@@ -938,23 +941,22 @@ CK_RV init_user_pin(int slot_id, const char *pin, const char *sopin)
         warnx("Error setting PIN: 0x%lX (%s)", rc, p11_get_ckr(rc));
 
     /* Logout so that others can use the PIN */
-    rc = FunctionPtr->C_Logout(session_handle);
-    if (rc != CKR_OK)
-        warnx("Error logging out: 0x%lX (%s)", rc, p11_get_ckr(rc));
+    rc2 = FunctionPtr->C_Logout(session_handle);
+    if (rc2 != CKR_OK)
+        warnx("Error logging out: 0x%lX (%s)", rc2, p11_get_ckr(rc2));
 
     /* Close the session */
-    rc = FunctionPtr->C_CloseSession(session_handle);
-    if (rc != CKR_OK) {
-        warnx("Error closing session: 0x%lX (%s)", rc, p11_get_ckr(rc));
-        return rc;
-    }
-    return CKR_OK;
+    rc2 = FunctionPtr->C_CloseSession(session_handle);
+    if (rc2 != CKR_OK)
+        warnx("Error closing session: 0x%lX (%s)", rc2, p11_get_ckr(rc2));
+
+    return rc;
 }
 
 CK_RV set_user_pin(int slot_id, CK_USER_TYPE user, const char *oldpin,
                    const char *newpin)
 {
-    CK_RV rc;                   // Return Value
+    CK_RV rc, rc2;              // Return Value
     CK_FLAGS flags = 0;         // Mash ot open the session with
     CK_SESSION_HANDLE session_handle;   // The handle of the session we will open
 
@@ -981,6 +983,10 @@ CK_RV set_user_pin(int slot_id, CK_USER_TYPE user, const char *oldpin,
             warnx("Incorrect PIN entered.");
         else
             warnx("Error logging in: 0x%lX (%s)", rc, p11_get_ckr(rc));
+        rc2 = FunctionPtr->C_CloseSession(session_handle);
+        if (rc2 != CKR_OK)
+            warnx("Error closing session: 0x%lX (%s)", rc2,
+                  p11_get_ckr(rc2));
         return rc;
     }
 
@@ -989,16 +995,19 @@ CK_RV set_user_pin(int slot_id, CK_USER_TYPE user, const char *oldpin,
                                (CK_CHAR_PTR)oldpin, strlen(oldpin),
                                (CK_CHAR_PTR)newpin, strlen(newpin));
     if (rc != CKR_OK)
-        warnx("Error setting PIN: 0x%lX (%s)\n", rc, p11_get_ckr(rc));
+        warnx("Error setting PIN: 0x%lX (%s)", rc, p11_get_ckr(rc));
+
+    /* Logout so that others can use the PIN */
+    rc2 = FunctionPtr->C_Logout(session_handle);
+    if (rc2 != CKR_OK)
+        warnx("Error logging out: 0x%lX (%s)", rc2, p11_get_ckr(rc2));
 
     /* and of course clean up after ourselves */
-    rc = FunctionPtr->C_CloseSession(session_handle);
-    if (rc != CKR_OK) {
-        warnx("Error closing session: 0x%lX (%s)\n", rc, p11_get_ckr(rc));
-        return rc;
-    }
+    rc2 = FunctionPtr->C_CloseSession(session_handle);
+    if (rc2 != CKR_OK)
+        warnx("Error closing session: 0x%lX (%s)", rc2, p11_get_ckr(rc2));
 
-    return CKR_OK;
+    return rc;
 }
 
 CK_RV init(void)
