@@ -340,7 +340,7 @@ int get_slot(char *optarg)
         return -1;
 
     /* Invalid slot id */
-    if (val < INT_MIN || val >= NUMBER_SLOTS_MANAGED)
+    if (val < 0 || val >= NUMBER_SLOTS_MANAGED)
         return -1;
 
     return (int)val;
