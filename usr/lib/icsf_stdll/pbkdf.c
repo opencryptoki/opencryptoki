@@ -587,6 +587,7 @@ CK_RV secure_racf(STDLL_TokData_t *tokdata,
     CK_BYTE output[ENCRYPT_SIZE];
     CK_ULONG_32 totallen;
     int outputlen;
+    int truncret;
     char fname[PATH_MAX];
 
     UNUSED(keylen);
@@ -635,9 +636,15 @@ CK_RV secure_racf(STDLL_TokData_t *tokdata,
     }
 
     /* write the info to the file */
-    (void) fwrite(&totallen, sizeof(CK_ULONG_32), 1, fp);
-    (void) fwrite(iv, AES_INIT_VECTOR_SIZE, 1, fp);
-    (void) fwrite(output, outputlen, 1, fp);
+    if (fwrite(&totallen, sizeof(CK_ULONG_32), 1, fp) != 1 ||
+        fwrite(iv, AES_INIT_VECTOR_SIZE, 1, fp) != 1 ||
+        fwrite(output, outputlen, 1, fp) != 1) {
+        TRACE_ERROR("Failed to write RACF file: %s\n", strerror(errno));
+        truncret = ftruncate(fileno(fp), 0);
+        UNUSED(truncret);
+        fclose(fp);
+        return CKR_FUNCTION_FAILED;
+    }
 
     fclose(fp);
 
@@ -653,6 +660,7 @@ CK_RV secure_masterkey(STDLL_TokData_t *tokdata,
     CK_BYTE dkey[AES_KEY_SIZE_256];
     CK_ULONG_32 totallen, dkey_size, version;
     int outputlen;
+    int truncret;
     CK_BYTE output[ENCRYPT_SIZE];
     FILE *fp;
 
@@ -714,12 +722,19 @@ CK_RV secure_masterkey(STDLL_TokData_t *tokdata,
 
     /* write the info to the file (always new version format) */
     version = ICSF_MK_FILE_VERSION;
-    (void) fwrite(&version, sizeof(CK_ULONG_32), 1, fp);
-    (void) fwrite(&totallen, sizeof(CK_ULONG_32), 1, fp);
-    (void) fwrite(salt, SALTSIZE, 1, fp);
-    (void) fwrite(output, outputlen, 1, fp);
+    if (fwrite(&version, sizeof(CK_ULONG_32), 1, fp) != 1 ||
+        fwrite(&totallen, sizeof(CK_ULONG_32), 1, fp) != 1 ||
+        fwrite(salt, SALTSIZE, 1, fp) != 1 ||
+        fwrite(output, outputlen, 1, fp) != 1) {
+        TRACE_ERROR("Failed to write master key file: %s\n", strerror(errno));
+        truncret = ftruncate(fileno(fp), 0);
+        UNUSED(truncret);
+        fclose(fp);
+        OPENSSL_cleanse(dkey, sizeof(dkey));
+        return CKR_FUNCTION_FAILED;
+    }
 
     fclose(fp);
-
+    OPENSSL_cleanse(dkey, sizeof(dkey));
     return rc;
 }
