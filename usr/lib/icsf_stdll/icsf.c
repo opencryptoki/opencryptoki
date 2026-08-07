@@ -16,6 +16,7 @@
  *
  */
 
+#include <errno.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -222,13 +223,20 @@ void handle_to_object_record(struct icsf_object_record *record,
 {
     size_t offset = 0;
     char hex_seq[ICSF_SEQUENCE_LEN + 1];
+    char *endptr;
 
     strunpad(record->token_name, data + offset, ICSF_TOKEN_NAME_LEN, ' ');
     offset += ICSF_TOKEN_NAME_LEN;
 
     memcpy(hex_seq, data + offset, ICSF_SEQUENCE_LEN);
     hex_seq[ICSF_SEQUENCE_LEN] = '\0';
-    sscanf(hex_seq, "%lx", &record->sequence);
+    errno = 0;
+    record->sequence = strtoul(hex_seq, &endptr, 16);
+    if (endptr == hex_seq || errno != 0) {
+        TRACE_ERROR("Invalid sequence number in object handle: \"%.8s\"\n",
+                    data + offset);
+        record->sequence = 0;
+    }
     offset += ICSF_SEQUENCE_LEN;
 
     record->id = data[offset];
