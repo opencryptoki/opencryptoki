@@ -1436,7 +1436,8 @@ static int get_token_infos(void)
         if (rc != CKR_OK) {
             warnx("Error getting token infos for slot %lu: 0x%lX (%s)",
                   slots[i], rc, p11_get_ckr(rc));
-            return 1;
+            free(slots);
+            return EIO;
         }
 
         TRACE_DEVEL("  Label: %.32s\n", tokens[i].info.label);
