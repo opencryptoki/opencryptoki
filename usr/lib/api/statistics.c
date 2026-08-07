@@ -328,15 +328,21 @@ static CK_RV statistics_open_shm(struct statistics *statistics, uid_t user,
     int i, err, clear = 0, fd;
     struct stat stat_buf;
 
-    snprintf(statistics->shm_name, sizeof(statistics->shm_name) - 1,
+    snprintf(statistics->shm_name, sizeof(statistics->shm_name),
              "%s_stats_%u", CONFIG_PATH, user == (uid_t)-1 ? geteuid() : user);
     for (i = 1; statistics->shm_name[i] != '\0'; i++) {
         if (statistics->shm_name[i] == '/')
             statistics->shm_name[i] = '.';
     }
     if (statistics->shm_name[0] != '/') {
-        memmove(&statistics->shm_name[1], &statistics->shm_name[0],
-                strlen(statistics->shm_name) + 1);
+        size_t len = strlen(statistics->shm_name);
+        if (len + 1 >= sizeof(statistics->shm_name)) {
+            TRACE_ERROR("SHM name too long for CONFIG_PATH '%s'\n", CONFIG_PATH);
+            OCK_SYSLOG(LOG_ERR, "SHM name too long for CONFIG_PATH '%s'\n",
+                       CONFIG_PATH);
+            return CKR_FUNCTION_FAILED;
+        }
+        memmove(&statistics->shm_name[1], &statistics->shm_name[0], len + 1);
         statistics->shm_name[0] = '/';
     }
 
