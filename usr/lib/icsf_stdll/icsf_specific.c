@@ -468,9 +468,6 @@ static void config_parse_error(int line, int col, const char *msg)
                 msg);
 }
 
-static struct icsf_config out_config;
-static char out_str_mech[64] = "";
-
 struct ref {
     char *key;
     char *addr;
@@ -478,21 +475,7 @@ struct ref {
     int required;
 };
 
-static struct ref refs[] = {
-    { "token_name",        out_config.name,    sizeof(out_config.name),    1 },
-    { "token_manufacture", out_config.manuf,   sizeof(out_config.manuf),   1 },
-    { "token_model",       out_config.model,   sizeof(out_config.model),   1 },
-    { "token_serial",      out_config.serial,  sizeof(out_config.serial),  1 },
-    { "mech",              out_str_mech,       sizeof(out_str_mech),       1 },
-    { "uri",               out_config.uri,     sizeof(out_config.uri),     0 },
-    { "binddn",            out_config.dn,      sizeof(out_config.dn),      0 },
-    { "cacert",            out_config.ca_file, sizeof(out_config.ca_file), 0 },
-    { "cert",              out_config.cert_file, sizeof(out_config.cert_file), 0 },
-    { "key",               out_config.key_file, sizeof(out_config.key_file), 0 },
-};
-static const size_t refs_len = sizeof(refs)/sizeof(*refs);
-
-static int check_keys(const char *conf_name)
+static int check_keys(const char *conf_name, struct ref *refs, size_t refs_len)
 {
     size_t i;
 
@@ -508,7 +491,8 @@ static int check_keys(const char *conf_name)
 }
 
 static CK_RV config_parse_slot(const char *config_file,
-                               struct ConfigIdxStructNode *slot)
+                               struct ConfigIdxStructNode *slot,
+                               struct ref *refs, size_t refs_len)
 {
     struct ConfigBaseNode *c;
     int i;
@@ -555,12 +539,30 @@ static CK_RV parse_config_file(const char *conf_name, CK_SLOT_ID slot_id,
     struct ConfigIdxStructNode *slot;
     CK_RV ret = CKR_OK;
     int i;
+    struct icsf_config out_config;
+    char out_str_mech[64];
+    struct ref refs[] = {
+        { "token_name",   out_config.name,      sizeof(out_config.name),      1 },
+        { "token_manufacture", out_config.manuf, sizeof(out_config.manuf),    1 },
+        { "token_model",  out_config.model,      sizeof(out_config.model),     1 },
+        { "token_serial", out_config.serial,     sizeof(out_config.serial),    1 },
+        { "mech",         out_str_mech,          sizeof(out_str_mech),         1 },
+        { "uri",          out_config.uri,        sizeof(out_config.uri),       0 },
+        { "binddn",       out_config.dn,         sizeof(out_config.dn),        0 },
+        { "cacert",       out_config.ca_file,    sizeof(out_config.ca_file),   0 },
+        { "cert",         out_config.cert_file,  sizeof(out_config.cert_file), 0 },
+        { "key",          out_config.key_file,   sizeof(out_config.key_file),  0 },
+    };
+    const size_t refs_len = sizeof(refs) / sizeof(*refs);
+
+    memset(&out_config, 0, sizeof(out_config));
+    memset(out_str_mech, 0, sizeof(out_str_mech));
 
     file = fopen(conf_name, "r");
     if (file == NULL) {
         TRACE_ERROR("Error opening config file '%s': %s\n", conf_name,
                     strerror(errno));
-       return CKR_FUNCTION_FAILED;
+        return CKR_FUNCTION_FAILED;
     }
 
     ret = parse_configlib_file(file, &config, config_parse_error, 0);
@@ -579,7 +581,7 @@ static CK_RV parse_config_file(const char *conf_name, CK_SLOT_ID slot_id,
             slot = confignode_to_idxstruct(c);
             if (strcmp(slot->base.key, "slot") == 0 &&
                 slot->idx == slot_id) {
-                ret = config_parse_slot(conf_name, slot);
+                ret = config_parse_slot(conf_name, slot, refs, refs_len);
                 if (ret != 0)
                     break;
                 continue;
@@ -600,7 +602,7 @@ static CK_RV parse_config_file(const char *conf_name, CK_SLOT_ID slot_id,
     if (ret != CKR_OK)
         goto done;
 
-    if (check_keys(conf_name)) {
+    if (check_keys(conf_name, refs, refs_len)) {
         ret = CKR_FUNCTION_FAILED;
         goto done;
     }
