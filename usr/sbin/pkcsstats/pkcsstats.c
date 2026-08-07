@@ -63,14 +63,15 @@ static void usage(char *progname)
     return;
 }
 
-static void make_shm_name(char *shm_name, size_t max_shm_len, int user_id)
+static int make_shm_name(char *shm_name, size_t max_shm_len, int user_id)
 {
+    size_t len;
     int i;
 
     if (user_id == -1)
-        snprintf(shm_name, max_shm_len - 1, "%s_stats", CONFIG_PATH);
+        snprintf(shm_name, max_shm_len, "%s_stats", CONFIG_PATH);
     else
-        snprintf(shm_name, max_shm_len - 1, "%s_stats_%d", CONFIG_PATH,
+        snprintf(shm_name, max_shm_len, "%s_stats_%d", CONFIG_PATH,
                  user_id);
 
     for (i = 1; shm_name[i] != '\0'; i++) {
@@ -78,9 +79,15 @@ static void make_shm_name(char *shm_name, size_t max_shm_len, int user_id)
             shm_name[i] = '.';
     }
     if (shm_name[0] != '/') {
-        memmove(&shm_name[1], &shm_name[0], strlen(shm_name) + 1);
+        len = strlen(shm_name);
+        if (len + 1 >= max_shm_len) {
+            warnx("SHM name too long for CONFIG_PATH '%s'", CONFIG_PATH);
+            return -1;
+        }
+        memmove(&shm_name[1], &shm_name[0], len + 1);
         shm_name[0] = '/';
     }
+    return 0;
 }
 
 static int open_shm(uid_t user_id, const char *user_name,
@@ -91,7 +98,8 @@ static int open_shm(uid_t user_id, const char *user_name,
     struct stat stat_buf;
     int shm_fd;
 
-    make_shm_name(shm_name, sizeof(shm_name), user_id);
+    if (make_shm_name(shm_name, sizeof(shm_name), user_id) != 0)
+        return 1;
 
     shm_fd = shm_open(shm_name, O_RDWR, S_IRUSR | S_IWUSR);
     if (shm_fd == -1) {
@@ -167,7 +175,8 @@ static int for_all_users(user_f user_cb, void *cb_private)
     unsigned long raw_uid;
     char *endptr;
 
-    make_shm_name(shm_prefix, sizeof(shm_prefix), -1);
+    if (make_shm_name(shm_prefix, sizeof(shm_prefix), -1) != 0)
+        return 1;
 
     shmDir = opendir("/dev/shm");
     if (shmDir == NULL) {
@@ -278,7 +287,8 @@ static int delete_shm(uid_t user_id, const char *user_name)
     char shm_name[PATH_MAX];
     int rc;
 
-    make_shm_name(shm_name, sizeof(shm_name), user_id);
+    if (make_shm_name(shm_name, sizeof(shm_name), user_id) != 0)
+        return 1;
     rc = shm_unlink(shm_name);
     if (rc != 0) {
         if (errno == ENOENT)
