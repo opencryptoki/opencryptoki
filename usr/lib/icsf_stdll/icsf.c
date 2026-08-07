@@ -1950,18 +1950,24 @@ int icsf_secret_key_encrypt(LDAP * ld, int *p_reason,
         goto done;
     }
 
-    *p_cipher_text_len = length;
-    /* Copy encrypted data */
-    if (bv_cipher_data.bv_len > *p_cipher_text_len) {
-        TRACE_ERROR("Cipher data longer than expected: %lu "
-                    "(expected %lu)\n",
-                    (unsigned long) bv_cipher_data.bv_len,
-                    (unsigned long) *p_cipher_text_len);
-        rc = -1;
-        goto done;
+    if (reason == ICSF_REASON_OUTPUT_PARAMETER_TOO_SHORT ||
+        cipher_text == NULL) {
+        *p_cipher_text_len = length;
+    } else {
+        if ((size_t)length > *p_cipher_text_len ||
+            bv_cipher_data.bv_len > *p_cipher_text_len) {
+            TRACE_ERROR("Cipher data longer than buffer: length=%lu "
+                        "bv_len=%lu buf=%lu\n",
+                        (unsigned long) length,
+                        (unsigned long) bv_cipher_data.bv_len,
+                        (unsigned long) *p_cipher_text_len);
+            rc = -1;
+            goto done;
+        }
+        *p_cipher_text_len = bv_cipher_data.bv_len;
+        if (cipher_text)
+            memcpy(cipher_text, bv_cipher_data.bv_val, bv_cipher_data.bv_len);
     }
-    if (cipher_text)
-        memcpy(cipher_text, bv_cipher_data.bv_val, bv_cipher_data.bv_len);
 
     /* Copy chaining data */
     if (p_chaining_data_len) {
@@ -2117,18 +2123,24 @@ int icsf_secret_key_decrypt(LDAP * ld, int *p_reason,
         goto done;
     }
 
-    *p_clear_text_len = length;
-    /* Copy encrypted data */
-    if (bv_clear_data.bv_len > *p_clear_text_len) {
-        TRACE_ERROR("Clear data longer than expected: %lu "
-                    "(expected %lu)\n",
-                    (unsigned long) bv_clear_data.bv_len,
-                    (unsigned long) *p_clear_text_len);
-        rc = -1;
-        goto done;
+    if (reason == ICSF_REASON_OUTPUT_PARAMETER_TOO_SHORT ||
+        clear_text == NULL) {
+        *p_clear_text_len = length;
+    } else {
+        if ((size_t)length > *p_clear_text_len ||
+            bv_clear_data.bv_len > *p_clear_text_len) {
+            TRACE_ERROR("Clear data longer than buffer: length=%lu "
+                        "bv_len=%lu buf=%lu\n",
+                        (unsigned long) length,
+                        (unsigned long) bv_clear_data.bv_len,
+                        (unsigned long) *p_clear_text_len);
+            rc = -1;
+            goto done;
+        }
+        *p_clear_text_len = bv_clear_data.bv_len;
+        if (clear_text)
+            memcpy(clear_text, bv_clear_data.bv_val, bv_clear_data.bv_len);
     }
-    if (clear_text)
-        memcpy(clear_text, bv_clear_data.bv_val, bv_clear_data.bv_len);
 
     /* Copy chaining data */
     if (p_chaining_data_len) {
@@ -2490,17 +2502,24 @@ int icsf_private_key_sign(LDAP * ld, int *p_reason, int decrypt,
     }
 
     /* Copy clear data */
-    *p_clear_text_len = length;
-    if (bv_clear_text.bv_len > *p_clear_text_len) {
-        TRACE_ERROR("Clear data longer than expected: %lu "
-                    "(expected %lu)\n",
-                    (unsigned long) bv_clear_text.bv_len,
-                    (unsigned long) *p_clear_text_len);
-        rc = -1;
-        goto done;
+    if (reason == ICSF_REASON_OUTPUT_PARAMETER_TOO_SHORT ||
+        clear_text == NULL) {
+        *p_clear_text_len = length;
+    } else {
+        if ((size_t)length > *p_clear_text_len ||
+            bv_clear_text.bv_len > *p_clear_text_len) {
+            TRACE_ERROR("Clear data longer than buffer: length=%lu "
+                        "bv_len=%lu buf=%lu\n",
+                        (unsigned long) length,
+                        (unsigned long) bv_clear_text.bv_len,
+                        (unsigned long) *p_clear_text_len);
+            rc = -1;
+            goto done;
+        }
+        *p_clear_text_len = bv_clear_text.bv_len;
+        if (clear_text)
+            memcpy(clear_text, bv_clear_text.bv_val, bv_clear_text.bv_len);
     }
-    if (clear_text)
-        memcpy(clear_text, bv_clear_text.bv_val, *p_clear_text_len);
 
 done:
     if (result)
@@ -2593,17 +2612,24 @@ int icsf_public_key_verify(LDAP * ld, int *p_reason, int encrypt,
     }
 
     /* Copy clear data */
-    *p_cipher_text_len = length;
-    if (bv_cipher_text.bv_len != *p_cipher_text_len) {
-        TRACE_ERROR("Cipher data length different that expected: %lu "
-                    "(expected %lu)\n",
-                    (unsigned long) bv_cipher_text.bv_len,
-                    (unsigned long) *p_cipher_text_len);
-        rc = -1;
-        goto done;
+    if (reason == ICSF_REASON_OUTPUT_PARAMETER_TOO_SHORT ||
+        cipher_text == NULL) {
+        *p_cipher_text_len = length;
+    } else {
+        if ((size_t)length > *p_cipher_text_len ||
+            bv_cipher_text.bv_len > *p_cipher_text_len) {
+            TRACE_ERROR("Cipher data longer than buffer: length=%lu "
+                        "bv_len=%lu buf=%lu\n",
+                        (unsigned long) length,
+                        (unsigned long) bv_cipher_text.bv_len,
+                        (unsigned long) *p_cipher_text_len);
+            rc = -1;
+            goto done;
+        }
+        *p_cipher_text_len = bv_cipher_text.bv_len;
+        if (cipher_text)
+            memcpy(cipher_text, bv_cipher_text.bv_val, bv_cipher_text.bv_len);
     }
-    if (cipher_text)
-        memcpy(cipher_text, bv_cipher_text.bv_val, *p_cipher_text_len);
 
 done:
     if (result)
@@ -2674,7 +2700,8 @@ int icsf_hmac_sign(LDAP * ld, int *reason, struct icsf_object_record *key,
     rc = icsf_call(ld, reason, handle, sizeof(handle), rule_array,
                    sizeof(rule_array), ICSF_TAG_CSFPHMG, msg, &result);
 
-    if (ICSF_RC_IS_ERROR(rc)) {
+    if (ICSF_RC_IS_ERROR(rc) && 
+        *reason != ICSF_REASON_OUTPUT_PARAMETER_TOO_SHORT) {
         TRACE_DEVEL("icsf_call failed\n");
         goto done;
     }
@@ -2727,14 +2754,17 @@ int icsf_hmac_sign(LDAP * ld, int *reason, struct icsf_object_record *key,
     memcpy(chain_data, bvChain.bv_val, bvChain.bv_len);
 
     /* copy the hmac when needed */
-    if (*hmac_len) {
-        if (*hmac_len >= bvHmac.bv_len) {
-            memcpy(hmac, bvHmac.bv_val, bvHmac.bv_len);
-            *hmac_len = bvHmac.bv_len;
-        } else {
-            /* supplied buffer is too small */
-            *reason = 3003;
+    if (*reason == ICSF_REASON_OUTPUT_PARAMETER_TOO_SHORT || hmac == NULL) {
+        *hmac_len = (size_t)hmac_length;
+    } else {
+        if ((size_t)hmac_length > *hmac_len || bvHmac.bv_len > *hmac_len) {
+            TRACE_ERROR("HMAC longer than buffer: length=%d bv_len=%zu buf=%zu\n",
+                        hmac_length, bvHmac.bv_len, *hmac_len);
+            rc = -1;
+            goto done;
         }
+        *hmac_len = bvHmac.bv_len;
+        memcpy(hmac, bvHmac.bv_val, bvHmac.bv_len);
     }
 done:
     if (result)
@@ -2949,8 +2979,7 @@ int icsf_wrap_key(LDAP * ld, int *p_reason, CK_MECHANISM_PTR mech,
      * USHRT_MAX (65535), which is hopefully large enough.
      */
     rc = ber_printf(msg, "oio", wrapping_handle, sizeof(wrapping_handle),
-                    wrapped_key != NULL ?
-                                (ber_int_t)*p_wrapped_key_len : USHRT_MAX,
+                    wrapped_key != NULL ? *p_wrapped_key_len : 0UL,
                     iv, iv_len);
     if (rc < 0) {
         rc = -1;
@@ -2981,19 +3010,23 @@ int icsf_wrap_key(LDAP * ld, int *p_reason, CK_MECHANISM_PTR mech,
         TRACE_ERROR("Failed to decode the response.\n");
         goto done;
     }
-    *p_wrapped_key_len = wrapped_key_len;
-
-    /* Copy wrapped key */
-    if (bv_wrapped_key.bv_len > *p_wrapped_key_len) {
-        TRACE_ERROR("Wrapped key length different that expected: %lu "
-                    "(expected %lu)\n",
-                    (unsigned long) bv_wrapped_key.bv_len,
-                    (unsigned long) *p_wrapped_key_len);
-        rc = -1;
-        goto done;
+    if (reason == ICSF_REASON_OUTPUT_PARAMETER_TOO_SHORT) {
+        *p_wrapped_key_len = wrapped_key_len;
+    } else {
+        if (bv_wrapped_key.bv_len > *p_wrapped_key_len ||
+            (CK_ULONG)wrapped_key_len > *p_wrapped_key_len) {
+            TRACE_ERROR("Wrapped key longer than buffer: bv_len=%lu "
+                        "wrapped_key_len=%lu buf=%lu\n",
+                        (unsigned long) bv_wrapped_key.bv_len,
+                        (unsigned long) wrapped_key_len,
+                        (unsigned long) *p_wrapped_key_len);
+            rc = -1;
+            goto done;
+        }
+        *p_wrapped_key_len = bv_wrapped_key.bv_len;
+        if (wrapped_key)
+            memcpy(wrapped_key, bv_wrapped_key.bv_val, bv_wrapped_key.bv_len);
     }
-    if (wrapped_key)
-        memcpy(wrapped_key, bv_wrapped_key.bv_val, *p_wrapped_key_len);
 
 done:
     if (result)
@@ -3177,14 +3210,6 @@ int icsf_hash_signverify(LDAP * ld, int *reason, struct icsf_object_record *key,
         goto done;
     }
 
-    /* Only need to return the length for signing */
-    if (sig_len && !verify)
-        *sig_len = length;
-
-    /* leave if just returning the length. */
-    if (!verify && reason != NULL && *reason == 3003)
-        goto done;
-
     /* copy the chained data when required */
     if (chain_data != NULL && chain_data_len != NULL) {
         if (bvChain.bv_len > *chain_data_len) {
@@ -3198,8 +3223,26 @@ int icsf_hash_signverify(LDAP * ld, int *reason, struct icsf_object_record *key,
     }
 
     /* copy signature when signing */
-    if (!verify && sig != NULL)
-        memcpy(sig, bvSig.bv_val, bvSig.bv_len);
+    if (!verify) {
+        if (reason_code == ICSF_REASON_OUTPUT_PARAMETER_TOO_SHORT ||
+            sig == NULL) {
+            /* size query: report required length from protocol */
+            if (sig_len)
+                *sig_len = (unsigned long)length;
+        } else {
+            if ((unsigned long)length > *sig_len ||
+                bvSig.bv_len > *sig_len) {
+                TRACE_ERROR("Signature longer than buffer: length=%d "
+                            "bv_len=%lu buf=%lu\n",
+                            length, (unsigned long) bvSig.bv_len,
+                            (unsigned long) *sig_len);
+                rc = -1;
+                goto done;
+            }
+            *sig_len = bvSig.bv_len;
+            memcpy(sig, bvSig.bv_val, bvSig.bv_len);
+        }
+    }
 
 done:
     if (result)
