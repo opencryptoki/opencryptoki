@@ -948,6 +948,8 @@ done_simple:
 done:
     if (rc == CKR_OK && ld)
         *ld = ldapd;
+    else if (ldapd)
+        icsf_logout(ldapd);
 
     return rc;
 }
@@ -1519,8 +1521,11 @@ done:
         rc = CKR_FUNCTION_FAILED;
     }
 
-    if (rc != CKR_OK)
+    if (rc != CKR_OK) {
+        if (session_state->ld)
+            icsf_logout(session_state->ld);
         free(session_state);
+    }
 
     return rc;
 }
