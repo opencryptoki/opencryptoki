@@ -980,6 +980,7 @@ CK_RV hsm_mk_change_op_remove(const char *id)
 {
     struct dirent *entry;
     DIR *dir;
+    size_t id_len = strlen(id);
     CK_RV rc = CKR_OK;
 
     dir = opendir_nofollow(OCK_HSM_MK_CHANGE_PATH);
@@ -992,7 +993,9 @@ CK_RV hsm_mk_change_op_remove(const char *id)
     while ((entry = readdir(dir)) != NULL) {
         if (entry->d_name[0] == '.')
             continue;
-        if (strncmp(entry->d_name, id, strlen(id)) != 0)
+        if (strncmp(entry->d_name, id, id_len) != 0)
+            continue;
+        if (entry->d_name[id_len] != '\0' && entry->d_name[id_len] != '-')
             continue;
 
         TRACE_DEVEL("remove %s/%s\n", OCK_HSM_MK_CHANGE_PATH, entry->d_name);
