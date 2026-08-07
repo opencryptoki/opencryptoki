@@ -392,11 +392,17 @@ static int get_slot_infos(CK_FUNCTION_LIST_PTR func_list,
     }
 
     *slots = (CK_SLOT_ID_PTR) malloc(*num_slots * sizeof(CK_SLOT_ID));
+    if (*slots == NULL) {
+        warnx("Failed to allocate slot list");
+        return 1;
+    }
 
     rc = func_list->C_GetSlotList(FALSE, *slots, num_slots);
     if (rc != CKR_OK) {
         warnx("Error getting slot list: 0x%lX (%s)\n", rc, p11_get_ckr(rc));
-        return rc;
+        free(*slots);
+        *slots = NULL;
+        return 1;
     }
 
     return 0;
