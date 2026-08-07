@@ -313,6 +313,7 @@ CK_RV get_masterkey(STDLL_TokData_t *tokdata,
         rc = pbkdf_old(tokdata, pin, pinlen, salt, dkey, dkeysize);
     if (rc != CKR_OK) {
         TRACE_DEBUG("pbkdf(): Failed to derive a key.\n");
+        OPENSSL_cleanse(dkey, sizeof(dkey));
         return CKR_FUNCTION_FAILED;
     }
 
@@ -320,14 +321,17 @@ CK_RV get_masterkey(STDLL_TokData_t *tokdata,
     /* re-use salt for iv */
     rc = decrypt_aes(tokdata, outbuf, datasize, dkey, salt, masterkey, len,
                      CK_TRUE);
+    OPENSSL_cleanse(dkey, sizeof(dkey));
     if (rc != CKR_OK) {
         TRACE_DEBUG("Failed to decrypt the racf pwd.\n");
+        OPENSSL_cleanse(masterkey, *len > 0 ? (size_t)*len : 0);
         return CKR_FUNCTION_FAILED;
     }
 
     /* make sure len is equal to our masterkey size. */
     if (*len != AES_KEY_SIZE_256) {
         TRACE_ERROR("Decrypted key is invalid.\n");
+        OPENSSL_cleanse(masterkey, (size_t)*len);
         return CKR_FUNCTION_FAILED;
     }
 
@@ -398,12 +402,14 @@ CK_RV get_racf(STDLL_TokData_t *tokdata,
 
     if (rc != CKR_OK) {
         TRACE_DEBUG("Failed to decrypt the racf pwd.\n");
+        OPENSSL_cleanse(racfpwd, *racflen > 0 ? (size_t)*racflen : 0);
         return CKR_FUNCTION_FAILED;
     }
 
     if (*racflen >= PIN_SIZE) {
         TRACE_ERROR("Decrypted RACF password too long: %d (max %d).\n",
                     *racflen, PIN_SIZE - 1);
+        OPENSSL_cleanse(racfpwd, (size_t)*racflen);
         return CKR_FUNCTION_FAILED;
     }
 
