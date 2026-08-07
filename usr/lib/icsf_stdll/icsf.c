@@ -1172,6 +1172,13 @@ int icsf_list_tokens(LDAP * ld, int *reason, struct icsf_token_record *previous,
         goto cleanup;
 
     /* Parse result */
+    if (bv_list == NULL || bv_list->bv_val == NULL ||
+        bv_list->bv_len < list_len) {
+        TRACE_ERROR("Token list too short: bv_len=%zu expected=%zu\n",
+                    bv_list ? bv_list->bv_len : 0, list_len);
+        rc = -1;
+        goto cleanup;
+    }
     *records_len = list_len / ICSF_TOKEN_RECORD_LEN;
     for (i = 0; i < *records_len; i++) {
         size_t offset = i * ICSF_TOKEN_RECORD_LEN;
@@ -1385,6 +1392,13 @@ int icsf_list_objects(LDAP * ld, int *reason, const char *token_name,
         goto cleanup;
 
     /* Parse result */
+    if (bv_list == NULL || bv_list->bv_val == NULL ||
+        bv_list->bv_len < list_len) {
+        TRACE_ERROR("Object list too short: bv_len=%zu expected=%zu\n",
+                    bv_list ? bv_list->bv_len : 0, list_len);
+        rc = -1;
+        goto cleanup;
+    }
     *records_len = list_len / ICSF_HANDLE_LEN;
     for (i = 0; i < *records_len; i++) {
         size_t offset = i * ICSF_HANDLE_LEN;
