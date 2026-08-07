@@ -5374,6 +5374,7 @@ CK_RV icsftok_wrap_key(STDLL_TokData_t * tokdata,
                        CK_BYTE_PTR wrapped_key, CK_ULONG_PTR p_wrapped_key_len)
 {
     icsf_private_data_t *icsf_data = tokdata->private_data;
+    CK_BBOOL is_length_only = (wrapped_key == NULL);
     int rc = CKR_OK;
     int reason = 0;
     struct session_state *session_state;
@@ -5455,8 +5456,21 @@ CK_RV icsftok_wrap_key(STDLL_TokData_t * tokdata,
                        &key_mapping->icsf_object, wrapped_key,
                        p_wrapped_key_len);
     if (rc) {
-        TRACE_DEVEL("icsf_wrap_key failed\n");
-        rc = icsf_to_ock_err(rc, reason);
+        if (reason == ICSF_REASON_OUTPUT_PARAMETER_TOO_SHORT) {
+            if (is_length_only) {
+                /*
+                 * Parameter too short is not a problem when
+                 * querying the expect output size.
+                 */
+                rc = CKR_OK;
+            } else {
+                TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
+                rc = CKR_BUFFER_TOO_SMALL;
+            }
+        } else {
+            TRACE_DEVEL("icsf_wrap_key failed\n");
+            rc = icsf_to_ock_err(rc, reason);
+        }
         goto done;
     }
 
