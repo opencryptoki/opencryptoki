@@ -289,8 +289,11 @@ int icsf_login(LDAP ** ld, const char *uri, const char *dn,
         return rc;
     }
 
-    if (icsf_force_ldap_v3(*ld))
+    if (icsf_force_ldap_v3(*ld)) {
+        ldap_unbind_ext_s(*ld, NULL, NULL);
+        *ld = NULL;
         return -1;
+    }
 
     TRACE_DEVEL("Binding with DN: %s\n", dn ? dn : "(null)");
     cred.bv_len = strlen(password);
@@ -298,6 +301,8 @@ int icsf_login(LDAP ** ld, const char *uri, const char *dn,
     rc = ldap_sasl_bind_s(*ld, dn, LDAP_SASL_SIMPLE, &cred, NULL, NULL, NULL);
     if (rc != LDAP_SUCCESS) {
         TRACE_ERROR("LDAP bind failed: %s (%d)\n", ldap_err2string(rc), rc);
+        ldap_unbind_ext_s(*ld, NULL, NULL);
+        *ld = NULL;
         return rc;
     }
 
@@ -385,13 +390,19 @@ int icsf_sasl_login(LDAP ** ld, const char *uri, const char *cert,
     }
 
     rc = icsf_force_ldap_v3(*ld);
-    if (rc != 0)
+    if (rc != 0) {
+        ldap_unbind_ext_s(*ld, NULL, NULL);
+        *ld = NULL;
         return rc;
+    }
 
     /* Initialize TLS */
     rc = icsf_set_sasl_params(*ld, cert, key, ca, ca_dir);
-    if (rc != 0)
+    if (rc != 0) {
+        ldap_unbind_ext_s(*ld, NULL, NULL);
+        *ld = NULL;
         return rc;
+    }
 
     TRACE_DEVEL("Binding\n");
     rc = ldap_sasl_bind_s(*ld, NULL, "EXTERNAL", NULL, NULL, NULL, NULL);
@@ -404,6 +415,8 @@ int icsf_sasl_login(LDAP ** ld, const char *uri, const char *cert,
                     ext_msg ? ext_msg : "");
         if (ext_msg)
             ldap_memfree(ext_msg);
+        ldap_unbind_ext_s(*ld, NULL, NULL);
+        *ld = NULL;
         return rc;
     }
 
