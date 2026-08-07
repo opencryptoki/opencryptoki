@@ -538,6 +538,18 @@ static void print_footer(void)
     printf("\n");
 }
 
+static void print_json_string(const char *s)
+{
+    for (; *s != '\0'; s++) {
+        unsigned char c = (unsigned char)*s;
+        if (c == '"' || c == '\\')
+            printf("\\%c", c);
+        else if (c < 0x20)
+            printf("\\u%04x", c);
+        else
+            putchar(c);
+    }
+}
 
 static int display_slot_stats(CK_FUNCTION_LIST *func_list, CK_SLOT_ID slot,
                               CK_BYTE *slot_data, CK_ULONG slot_size,
@@ -560,8 +572,12 @@ static int display_slot_stats(CK_FUNCTION_LIST *func_list, CK_SLOT_ID slot,
     if (rc == 0) {
         if (json) {
             printf("\t\t\t\t\t\"token-present\": true,\n");
-            printf("\t\t\t\t\t\"label\": \"%s\",\n", label);
-            printf("\t\t\t\t\t\"model\": \"%s\",\n", model);
+            printf("\t\t\t\t\t\"label\": \"");
+            print_json_string(label);
+            printf("\",\n");
+            printf("\t\t\t\t\t\"model\": \"");
+            print_json_string(model);
+            printf("\",\n");
         } else {
             printf("Slot: %lu (label: '%s' model: '%s')\n\n", slot, label,
                    model);
@@ -621,7 +637,9 @@ static int display_stats(int user_id, const char *user_name,
     if (dd->json) {
         if (!dd->first_user)
             printf(",\n");
-        printf("\t\t{\n\t\t\t\"user\": \"%s\",\n\t\t\t\"slots\": [", user_name);
+        printf("\t\t{\n\t\t\t\"user\": \"");
+        print_json_string(user_name);
+        printf("\",\n\t\t\t\"slots\": [");
     } else {
         printf("User: %s\n\n", user_name);
     }
@@ -823,10 +841,18 @@ static int print_json_start(void)
     }
 
     printf("{\n\t\"host\": {\n");
-    printf("\t\t\"nodename\": \"%s\",\n", un.nodename);
-    printf("\t\t\"sysname\": \"%s\",\n", un.sysname);
-    printf("\t\t\"release\": \"%s\",\n", un.release);
-    printf("\t\t\"machine\": \"%s\",\n", un.machine);
+    printf("\t\t\"nodename\": \""); 
+    print_json_string(un.nodename); 
+    printf("\",\n");
+    printf("\t\t\"sysname\": \"");  
+    print_json_string(un.sysname);  
+    printf("\",\n");
+    printf("\t\t\"release\": \"");  
+    print_json_string(un.release);  
+    printf("\",\n");
+    printf("\t\t\"machine\": \"");  
+    print_json_string(un.machine);  
+    printf("\",\n");
     printf("\t\t\"date\": \"%s\"\n", timestamp);
     printf("\t},\n\t\"users\": [\n");
 
