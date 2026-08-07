@@ -98,6 +98,7 @@ CK_RV hsm_mk_change_lock_create(void)
 error:
     if (hsm_mk_change_lock_fd != -1)
         close(hsm_mk_change_lock_fd);
+    hsm_mk_change_lock_fd = -1;
 
     return CKR_CANT_LOCK;
 }
