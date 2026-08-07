@@ -176,7 +176,7 @@ static int parse_apqns(char *apqns)
         tok = strtok_r(NULL, ", ", &saveptr);
     }
 
-    if (apqns == NULL || num_apqns == 0) {
+    if (num_apqns == 0) {
         warnx("No APQNs specified with option -a/--apqns");
         return EINVAL;
     }
