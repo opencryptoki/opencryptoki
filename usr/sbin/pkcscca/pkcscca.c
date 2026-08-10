@@ -1872,6 +1872,7 @@ int main(int argc, char **argv)
 {
     int ret = -1, opt = 0, masterkey = 0;
     int data_store_len = 0;
+    int slot_id_set = 0;
     CK_SLOT_ID slot_id = 0;
     const char *sopin = NULL, *userpin = NULL;
     char *buf_so = NULL, *buf_user = NULL;
@@ -1932,9 +1933,21 @@ int main(int argc, char **argv)
                 return -1;
             }
             break;
-        case 's':
-            slot_id = atoi(optarg);
+        case 's': {
+            char *endptr;
+            unsigned long val;
+
+            errno = 0;
+            val = strtoul(optarg, &endptr, 10);
+            if (errno != 0 || endptr == optarg || val >= NUMBER_SLOTS_MANAGED) {
+                print_error("invalid slot number '%s'\n", optarg);
+                usage(argv[0]);
+                return -1;
+            }
+            slot_id = (CK_SLOT_ID) val;
+            slot_id_set = 1;
             break;
+        }
         case 'v':
             v_level = verbose_str2level(optarg);
             if (v_level < 0) {
@@ -2004,7 +2017,7 @@ int main(int argc, char **argv)
         }
         ret = migrate_version(sopin, userpin, (CK_BYTE *)data_store);
     } else if (m_keys) {
-        if (!slot_id) {
+        if (!slot_id_set) {
             print_error("missing slot number\n");
             usage(argv[0]);
             ret = -1;
@@ -2029,7 +2042,7 @@ int main(int argc, char **argv)
         }
         ret = migrate_wrapped_keys(slot_id, userpin, masterkey);
     } else if (m_rsakeys) {
-        if (!slot_id) {
+        if (!slot_id_set) {
             print_error("missing slot number\n");
             usage(argv[0]);
             ret = -1;
