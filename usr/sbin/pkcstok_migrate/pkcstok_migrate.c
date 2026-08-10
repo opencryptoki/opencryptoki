@@ -164,6 +164,13 @@ static CK_RV make_OBJECT_PUB_312(char **obj_new, unsigned int *obj_new_len,
         goto done;
     }
 
+    /* Guard against integer overflow in total_len computation */
+    if (clear_len > UINT32_MAX - sizeof(header)) {
+        TRACE_ERROR("clear_len %u would overflow total_len.\n", clear_len);
+        ret = CKR_ARGUMENTS_BAD;
+        goto done;
+    }
+
     /* Allocate memory for new OBJECT_PUB */
     total_len = sizeof(header) + clear_len;
     object = malloc(total_len);
@@ -290,6 +297,13 @@ static CK_RV make_OBJECT_PRIV_312(unsigned char **obj_new, unsigned int *obj_new
     if (strlen(name) != 8) {
         TRACE_ERROR("obj name %s does not have 8 chars, OBJ.IDX probably corrupted.\n",
                     name);
+        ret = CKR_ARGUMENTS_BAD;
+        goto done;
+    }
+
+    /* Guard against integer overflow in total_len computation */
+    if (clear_len > UINT32_MAX - sizeof(header) - FOOTER_LEN) {
+        TRACE_ERROR("clear_len %u would overflow total_len.\n", clear_len);
         ret = CKR_ARGUMENTS_BAD;
         goto done;
     }
