@@ -1307,9 +1307,9 @@ static CK_RV init_kmip(void)
     close(pkey_fd);
     pkey_fd = -1;
 
-    rc = build_kmip_config();
+    rv = build_kmip_config();
 
-    if (rc != CKR_OK)
+    if (rv != CKR_OK)
         goto done;
 
     rc = kmip_connection_get_server_cert(kmip_conf->server,
