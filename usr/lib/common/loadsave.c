@@ -1709,8 +1709,9 @@ CK_RV restore_private_token_object_old(STDLL_TokData_t *tokdata, CK_BYTE *data,
 
     obj_data_len = *(CK_ULONG_32 *) ptr;
 
-    // prevent buffer overflow in sha_update
-    if (obj_data_len > clear_len) {
+    // prevent buffer overflow in sha_update and memcmp
+    if (obj_data_len > clear_len ||
+        sizeof(CK_ULONG_32) + obj_data_len + SHA1_HASH_SIZE > clear_len) {
         TRACE_ERROR("stripped length is greater than clear length\n");
         rc = CKR_FUNCTION_FAILED;
         goto done;

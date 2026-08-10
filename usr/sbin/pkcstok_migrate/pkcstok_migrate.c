@@ -398,9 +398,13 @@ static CK_RV decrypt_OBJECT_PRIV_00(unsigned char **clear, unsigned int *clear_l
         goto done;
     }
 
-    /* Validate the length */
+    /* Validate the length: the decrypted buffer must hold
+     * | CK_ULONG_32 | object[obj_data_len_32] | SHA1[SHA1_HASH_SIZE] |
+     * so check that all three regions fit within enc_len.
+     */
     memcpy(&obj_data_len_32, tmp_clear, sizeof(CK_ULONG_32));
-    if (obj_data_len_32 >= enc_len) {
+    if (obj_data_len_32 >= enc_len ||
+        obj_data_len_32 > enc_len - sizeof(CK_ULONG_32) - SHA1_HASH_SIZE) {
         TRACE_ERROR("Decrypted object data length %d inconsistent\n",
                 obj_data_len_32);
         ret = CKR_FUNCTION_FAILED;
