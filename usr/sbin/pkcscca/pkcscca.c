@@ -441,7 +441,9 @@ int load_token_objects(unsigned char *data_store,
         return -1;              // no token objects
 
     while (fgets((char *) tmp, 50, fp1)) {
-        tmp[strlen((char *) tmp) - 1] = 0;
+        size_t slen = strlen((char *) tmp);
+        if (slen > 0 && tmp[slen - 1] == '\n')
+            tmp[slen - 1] = '\0';
 
         if (snprintf(fname, sizeof(fname), "%s/TOK_OBJ/%s",
                      data_store, tmp) >= (int)sizeof(fname)) {
