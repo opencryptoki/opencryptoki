@@ -1332,7 +1332,7 @@ static CK_RV p11sak_wrap_key_perform(struct p11sak_wrap_data *data,
     if (rc != CKR_OK) {
         warnx("Failed to wrap %s key \"%s\": 0x%lX: %s",
               typestr, label, rc, p11_get_ckr(rc));
-        return rc;
+        goto done;
     }
 
     if (opt_raw) {
