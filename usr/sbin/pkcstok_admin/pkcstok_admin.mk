@@ -1,6 +1,6 @@
 sbin_PROGRAMS += usr/sbin/pkcstok_admin/pkcstok_admin
 
-usr_sbin_pkcstok_admin_pkcstok_admin_LDFLAGS = -lrt
+usr_sbin_pkcstok_admin_pkcstok_admin_LDFLAGS = -lrt -lcrypto
 
 usr_sbin_pkcstok_admin_pkcstok_admin_CFLAGS  =		\
 	-DSTDLL_NAME=\"pkcstok_admin\"			\
@@ -9,7 +9,8 @@ usr_sbin_pkcstok_admin_pkcstok_admin_CFLAGS  =		\
 	-I${srcdir}/usr/sbin/pkcstok_admin
 
 usr_sbin_pkcstok_admin_pkcstok_admin_SOURCES =		\
-	usr/sbin/pkcstok_admin/pkcstok_admin.c
+	usr/sbin/pkcstok_admin/pkcstok_admin.c		\
+	usr/lib/common/pkcs_utils.c
 
 if AIX
 usr_sbin_pkcstok_admin_pkcstok_admin_SOURCES += 	\
