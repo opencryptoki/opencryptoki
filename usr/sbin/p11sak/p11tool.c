@@ -1516,6 +1516,7 @@ void p11tool_free_attr_array_attr(CK_ATTRIBUTE *attr)
         if (elem->pValue != NULL) {
             if (p11tool_is_attr_array_attr(elem))
                 p11tool_free_attr_array_attr(elem);
+            OPENSSL_cleanse(elem->pValue, elem->ulValueLen);
             free(elem->pValue);
             elem->pValue = NULL;
         }
@@ -1897,8 +1898,10 @@ CK_RV p11tool_get_bignum_attr(CK_OBJECT_HANDLE key, CK_ATTRIBUTE_TYPE type,
     }
 
 done:
-    OPENSSL_cleanse(attr.pValue, attr.ulValueLen);
-    free(attr.pValue);
+    if (attr.pValue != NULL) {
+        OPENSSL_cleanse(attr.pValue, attr.ulValueLen);
+        free(attr.pValue);
+    }
 
     return rc;
 }
