@@ -158,7 +158,7 @@ static bool pkcsslotd_running(void)
 
 static char prompt_user(const char *message, char* allowed_chars)
 {
-    int len;
+    ssize_t len;
     size_t linelen = 0;
     char *line = NULL;
     char ch = '\0';
