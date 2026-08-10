@@ -3663,6 +3663,11 @@ static CK_RV p11kmip_retrieve_remote_wrapped_key(
      * 'bits' should contain the length of the unwrapped key
      * while the 'klen' contains the length of the wrapped blob
      */
+    if (bits <= 0) {
+        warnx("Key length from KMIP server is invalid: %d", bits);
+        rc = CKR_GENERAL_ERROR;
+        goto out;
+    }
     *wrapped_keysize = (CK_ULONG)(bits / 8);
     *wrapped_key_blob = malloc(klen);
     if (*wrapped_key_blob == NULL) {
