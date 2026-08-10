@@ -1195,6 +1195,13 @@ static CK_RV status_handler(uint_32 adapter, uint_32 domain,
     if (caps == 0)
         goto no_info;
 
+    if (caps > CK_IBM_XCPXQ_MAXIDX + 1) {
+        fprintf(stderr,
+                "dll_m_get_xcp_info (EXT_CAPS) returned unexpected caps "
+                "value: %u\n", caps);
+        goto done;
+    }
+
     reslen = caps * sizeof(uint32_t) * 2;
     res = calloc(1, reslen);
     if (res == NULL) {
