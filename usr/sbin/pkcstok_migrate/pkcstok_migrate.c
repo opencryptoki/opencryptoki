@@ -688,6 +688,7 @@ static CK_RV migrate_token_objects(const char *data_store, const CK_BYTE *master
     CK_BBOOL priv;
     CK_ULONG version;
     int count = 0, scount = 0;
+    size_t slen;
     CK_RV ret;
 
     /* Check parms */
@@ -708,7 +709,9 @@ static CK_RV migrate_token_objects(const char *data_store, const CK_BYTE *master
 
     /* Migrate items from OBJ.IDX */
     while (fgets(tmp, PATH_MAX, fp)) {
-        tmp[strlen(tmp) - 1] = 0;
+        slen = strlen(tmp);
+        if (slen > 0 && tmp[slen - 1] == '\n')
+            tmp[slen - 1] = '\0';
         ret = read_object(data_store, tmp, &obj, &obj_len, &version, &priv);
         if (ret == 0 && version == TOKVERSION_00) {
             if (priv) {
@@ -1911,6 +1914,7 @@ static CK_RV count_objects(const char *data_store, unsigned int *num_objs,
     CK_ULONG version;
     CK_BBOOL priv;
     FILE *fp;
+    size_t slen;
     CK_RV ret;
 
     *num_objs = 0;
@@ -1927,7 +1931,9 @@ static CK_RV count_objects(const char *data_store, unsigned int *num_objs,
 
     /* Count objects and old objects */
     while (fgets(tmp, PATH_MAX, fp)) {
-        tmp[strlen(tmp) - 1] = 0;
+        slen = strlen(tmp);
+        if (slen > 0 && tmp[slen - 1] == '\n')
+            tmp[slen - 1] = '\0';
         (*num_objs)++;
         ret = read_object(data_store, tmp, &obj, &obj_len, &version, &priv);
         if (ret == 0 && version == TOKVERSION_00)
