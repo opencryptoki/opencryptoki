@@ -366,7 +366,7 @@ static void remove_serial_number(ep11_serialno_t serial_number,
 
     memmove(serial_numbers[i],
             serial_numbers[i + 1],
-            (*num_serial_numbers - i) * sizeof(ep11_serialno_t));
+            (*num_serial_numbers - i - 1) * sizeof(ep11_serialno_t));
     memset(serial_numbers[*num_serial_numbers - 1],
            0, sizeof(ep11_serialno_t));
 
