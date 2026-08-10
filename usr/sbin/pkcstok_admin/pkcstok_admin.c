@@ -410,8 +410,14 @@ static int set_file_permissions(const char *fname, const struct group *group,
         /* set permissions recursively, skip the "." and ".." entries */
         rc = 0;
         while ((entry = readdir(dir)) != NULL) {
-            if (strncmp(entry->d_name, ".", 1) == 0)
+            if (strcmp(entry->d_name, ".") == 0 ||
+                strcmp(entry->d_name, "..") == 0)
                 continue;
+            if (entry->d_name[0] == '.') {
+                warnx("Skipping unexpected dot-file '%s' in '%s'",
+                      entry->d_name, fname);
+                continue;
+            }
 
             snprintf(ent, PATH_MAX, "%s/%s", fname, entry->d_name);
             rc = set_file_permissions(ent, group, recursive);
@@ -474,8 +480,14 @@ static int remove_recursive(const char *fname, bool only_content)
         /* remove directory recursively, skip the "." and ".." entries */
         rc = 0;
         while ((entry = readdir(dir)) != NULL) {
-            if (strncmp(entry->d_name, ".", 1) == 0)
+            if (strcmp(entry->d_name, ".") == 0 ||
+                strcmp(entry->d_name, "..") == 0)
                 continue;
+            if (entry->d_name[0] == '.') {
+                warnx("Skipping unexpected dot-file '%s' in '%s'",
+                      entry->d_name, fname);
+                continue;
+            }
 
             snprintf(ent, PATH_MAX, "%s/%s", fname, entry->d_name);
             rc = remove_recursive(ent, false);
