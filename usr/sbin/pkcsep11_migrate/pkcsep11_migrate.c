@@ -663,6 +663,10 @@ int main(int argc, char **argv)
                                             opaque_template, 1);
             if (rc == CKR_OK) {
                 old_blob = malloc(opaque_template[0].ulValueLen);
+                if (old_blob == NULL) {
+                    fprintf(stderr, "malloc failed for opaque blob\n");
+                    return -1;
+                }
                 opaque_template[0].pValue = old_blob;
                 /* get the blob after knowing its size */
                 rc = funcs->C_GetAttributeValue(session, key_store[obj],
@@ -671,14 +675,15 @@ int main(int argc, char **argv)
                 if (rc != CKR_OK) {
                     fprintf(stderr, "second C_GetAttributeValue failed "
                             "rc = 0x%02x [%s]\n", rc, p11_get_ckr(rc));
+                    free(old_blob);
                     return rc;
-                } else {
-                    if (reencrypt(session, obj, keytype,
-                                  (CK_BYTE *) opaque_template[0].pValue,
-                                  opaque_template[0].ulValueLen) != 0) {
-                        /* reencrypt failed */
-                        return -1;
-                    }
+                }
+                if (reencrypt(session, obj, keytype,
+                              (CK_BYTE *) opaque_template[0].pValue,
+                              opaque_template[0].ulValueLen) != 0) {
+                    /* reencrypt failed */
+                    free(old_blob);
+                    return -1;
                 }
                 free(old_blob);
             }
