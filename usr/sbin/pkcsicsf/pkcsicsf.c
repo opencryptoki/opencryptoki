@@ -154,8 +154,9 @@ static int add_token_config(const char *configname,
         if (s == NULL) {
             confignode_freeeoc(eoc1);
             confignode_freeeoc(eoc2);
+        } else {
+            confignode_deepfree(&s->base);
         }
-        confignode_deepfree(&s->base);
         fprintf(stderr, "Failed to add an entry for %s token\n", token.name);
         return -1;
     }
