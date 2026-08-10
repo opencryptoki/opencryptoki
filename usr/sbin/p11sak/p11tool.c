@@ -1449,7 +1449,7 @@ int p11tool_openssl_err_cb(const char *str, size_t len, void *u)
 {
     UNUSED(u);
 
-    if (str[len - 1] == '\n')
+    if (len > 0 && str[len - 1] == '\n')
         len--;
 
     warnx("OpenSSL error: %.*s", (int)len, str);
