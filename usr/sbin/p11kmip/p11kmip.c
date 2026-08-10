@@ -2601,12 +2601,14 @@ static CK_RV p11kmip_unwrap_local_secret_key(
         default:
             warnx("Unsupported hashing algorithm: %d",
                   (int) kmip_wrap_hash_alg);
-            return CKR_ARGUMENTS_BAD;
+            rc = CKR_ARGUMENTS_BAD;
+            goto done;
         }
         break;
     default:
         warnx("Unsupported padding method: %d", (int) kmip_wrap_padding_method);
-        return CKR_ARGUMENTS_BAD;
+        rc = CKR_ARGUMENTS_BAD;
+        goto done;
     }
 
     rc = p11tool_pkcs11_funcs->C_UnwrapKey(p11tool_pkcs11_session, &mech,
