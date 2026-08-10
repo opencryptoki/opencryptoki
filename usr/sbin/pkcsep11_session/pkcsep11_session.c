@@ -296,7 +296,7 @@ static int is_process_running(pid_t pid)
     char fbuf[800];
     int fd;
 
-    sprintf(fbuf, "/proc/%d/stat", pid);
+    snprintf(fbuf, sizeof(fbuf), "/proc/%d/stat", pid);
     if ((fd = open(fbuf, O_RDONLY, 0)) == -1)
         return FALSE;
 
