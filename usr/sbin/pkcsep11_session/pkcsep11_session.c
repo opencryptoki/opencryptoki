@@ -12,6 +12,7 @@
  */
 
 #include <stdint.h>
+#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -194,6 +195,8 @@ static int do_ParseArgs(int argc, char **argv)
     struct tm tm;
     char *p;
     unsigned int v;
+    unsigned long val;
+    char *endptr;
 
     if (argc <= 1) {
         printf("No Arguments given. For help use the '--help' or '-h' "
@@ -229,11 +232,18 @@ static int do_ParseArgs(int argc, char **argv)
                    argv[i]);
             return -1;
         } else if (strcmp(argv[i], "-slot") == 0) {
-            if (argc <= i + 1 || !isdigit(*argv[i + 1])) {
-                printf("Slot parameter is not numeric!\n");
+            if (i + 1 >= argc) {
+                printf("Slot parameter is missing!\n");
                 return -1;
             }
-            SLOT_ID = (int) strtol(argv[i + 1], NULL, 0);
+            errno = 0;
+            val = strtoul(argv[i + 1], &endptr, 10);
+            if (errno != 0 || endptr == argv[i + 1] || *endptr != '\0'
+                || argv[i + 1][0] == '-') {
+                printf("Slot parameter is not a valid number!\n");
+                return -1;
+            }
+            SLOT_ID = (CK_SLOT_ID) val;
             i++;
         } else if (strcmp(argv[i], "-force") == 0) {
             force = 1;
@@ -255,11 +265,18 @@ static int do_ParseArgs(int argc, char **argv)
             }
             i++;
         } else if (strcmp(argv[i], "-pid") == 0) {
-            if (argc <= i + 1 || !isdigit(*argv[i + 1])) {
-                printf("Pid parameter is not numeric!\n");
+            if (i + 1 >= argc) {
+                printf("Pid parameter is missing!\n");
                 return -1;
             }
-            filter_pid = (pid_t) strtol(argv[i + 1], NULL, 0);
+            errno = 0;
+            val = strtoul(argv[i + 1], &endptr, 10);
+            if (errno != 0 || endptr == argv[i + 1] || *endptr != '\0'
+                || argv[i + 1][0] == '-' || val > INT32_MAX) {
+                printf("Pid parameter is not a valid number!\n");
+                return -1;
+            }
+            filter_pid = (pid_t) val;
             i++;
         } else if (strcmp(argv[i], "-id") == 0) {
             if (argc <= i + 1
