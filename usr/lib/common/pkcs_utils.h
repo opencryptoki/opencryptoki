@@ -47,6 +47,8 @@ int verify_pins(char *data_store, const char *sopin, unsigned long sopinlen,
 
 CK_RV set_perm(int file, const char *group);
 
+int is_valid_filename_component(const char *name);
+
 #ifdef OCK_TOOL
 /* Log levels */
 typedef enum {

@@ -18,6 +18,7 @@ usr_sbin_pkcscca_pkcscca_CFLAGS  =					\
 	-DTOK_NEW_DATA_STORE=0x0003000c					\
 	-DNODSA -DNODH							\
 	-DOCK_NO_SET_PERM -DOCK_NO_LOCAL_RNG				\
+	-DOCK_NO_IS_VALID_FILENAME_COMPONENT				\
 	-I${srcdir}/usr/include 					\
 	-I${srcdir}/usr/lib/common					\
 	-I${srcdir}/usr/sbin/pkcscca -I${top_builddir}/usr/lib/api 	\
