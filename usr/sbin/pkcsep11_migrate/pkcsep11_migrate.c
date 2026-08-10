@@ -219,7 +219,7 @@ static int reencrypt(CK_SESSION_HANDLE session, CK_ULONG obj,
     fprintf(stderr, "reencryption success obj: %lx '%s:\n", obj, name);
 
 out:
-    if (_m_rm_module != NULL)
+    if (_m_add_module != NULL)
         _m_rm_module(&module, target);
     return rc;
 }
@@ -312,8 +312,8 @@ static int check_card_status(void)
     }
 
 out:
-    if (_m_rm_module != NULL)
-         _m_rm_module(&module, target);
+    if (_m_add_module != NULL)
+        _m_rm_module(&module, target);
 
     return rc;
 }
