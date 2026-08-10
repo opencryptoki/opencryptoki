@@ -8017,32 +8017,42 @@ static CK_RV p11sak_import_sym_key(const struct p11tool_objtype *keytype,
         return CKR_ARGUMENTS_BAD;
     }
 
-    if (stat(opt_file, &sb) != 0) {
-        warnx("Failed to access file '%s': %s", opt_file, strerror(errno));
-        return CKR_FUNCTION_FAILED;
-    }
-    data_len = sb.st_size;
-
-    if (keytype->import_check_sym_keysize != NULL) {
-        rc = keytype->import_check_sym_keysize(keytype, data_len);
-        if (rc != CKR_OK)
-            return rc;
-    }
-
-    if (data_len > (CK_ULONG)sizeof(data)) {
-        warnx("Size of %s key is too large", keytype->name);
-        return CKR_ARGUMENTS_BAD;
-    }
-
     fp = fopen(opt_file, "r");
     if (fp == NULL) {
         warnx("Failed to open file '%s': %s", opt_file, strerror(errno));
         return CKR_FUNCTION_FAILED;
     }
 
+    if (fstat(fileno(fp), &sb) != 0) {
+        warnx("Failed to stat file '%s': %s", opt_file, strerror(errno));
+        fclose(fp);
+        return CKR_FUNCTION_FAILED;
+    }
+    if (sb.st_size < 0 || (size_t)sb.st_size > sizeof(data)) {
+        warnx("Size of %s key is too large", keytype->name);
+        fclose(fp);
+        return CKR_ARGUMENTS_BAD;
+    }
+    data_len = (CK_ULONG)sb.st_size;
+
+    if (keytype->import_check_sym_keysize != NULL) {
+        rc = keytype->import_check_sym_keysize(keytype, data_len);
+        if (rc != CKR_OK) {
+            fclose(fp);
+            return rc;
+        }
+    }
+
+    if (data_len > (CK_ULONG)sizeof(data)) {
+        warnx("Size of %s key is too large", keytype->name);
+        fclose(fp);
+        return CKR_ARGUMENTS_BAD;
+    }
+
     if (fread(data, data_len, 1, fp) != 1) {
         warnx("Failed to read from file '%s': %s", opt_file, strerror(errno));
         fclose(fp);
+        OPENSSL_cleanse(data, sizeof(data));
         return CKR_FUNCTION_FAILED;
     }
 
