@@ -92,7 +92,7 @@ static bool pkcsslotd_running(void)
 {
     FILE *fp;
     char* endptr;
-    long lpid;
+    unsigned long lpid;
     char fname[PATH_MAX];
     char buf[PATH_MAX];
 #if defined(_AIX)
@@ -118,16 +118,18 @@ static bool pkcsslotd_running(void)
     }
     fclose(fp);
 
-    lpid = strtol(buf, &endptr, 10);
-    if (*endptr != '\0' && *endptr != '\n') {
+    errno = 0;
+    lpid = strtoul(buf, &endptr, 10);
+    if (errno == ERANGE || lpid == 0 || lpid > INT_MAX ||
+        (*endptr != '\0' && *endptr != '\n')) {
         pr_verbose("Failed to parse pid file '%s': %s", PID_FILE_PATH, buf);
         return false;
     }
 
 #if defined(_AIX)
-    snprintf(fname, sizeof(fname), "/proc/%ld/psinfo", lpid);
+    snprintf(fname, sizeof(fname), "/proc/%lu/psinfo", lpid);
 #else
-    snprintf(fname, sizeof(fname), "/proc/%ld/cmdline", lpid);
+    snprintf(fname, sizeof(fname), "/proc/%lu/cmdline", lpid);
 #endif
     fp = fopen(fname, "r");
     if (fp == NULL) {
