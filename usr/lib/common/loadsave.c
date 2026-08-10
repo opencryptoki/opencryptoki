@@ -969,9 +969,12 @@ static CK_RV save_private_token_object_old(STDLL_TokData_t *tokdata, OBJECT *obj
 
     flag = TRUE;
 
-    (void) fwrite(&total_len, sizeof(CK_ULONG_32), 1, fp);
-    (void) fwrite(&flag, sizeof(CK_BBOOL), 1, fp);
-    (void) fwrite(cipher, cipher_len, 1, fp);
+    if (fwrite(&total_len, sizeof(CK_ULONG_32), 1, fp) != 1 ||
+        fwrite(&flag, sizeof(CK_BBOOL), 1, fp) != 1 ||
+        fwrite(cipher, cipher_len, 1, fp) != 1) {
+        TRACE_ERROR("fwrite(%s): %s\n", fname, strerror(errno));
+        rc = CKR_FUNCTION_FAILED;
+    }
 
     rc = close_token_file_new(fp, rc, fname, basename);
     OPENSSL_cleanse(obj_data, obj_data_len);
@@ -1880,14 +1883,17 @@ CK_RV save_public_token_object_old(STDLL_TokData_t *tokdata, OBJECT * obj)
 
     total_len = clear_len + sizeof(CK_ULONG_32) + sizeof(CK_BBOOL);
 
-    (void) fwrite(&total_len, sizeof(CK_ULONG_32), 1, fp);
-    (void) fwrite(&flag, sizeof(CK_BBOOL), 1, fp);
-    (void) fwrite(clear, clear_len, 1, fp);
+    if (fwrite(&total_len, sizeof(CK_ULONG_32), 1, fp) != 1 ||
+        fwrite(&flag, sizeof(CK_BBOOL), 1, fp) != 1 ||
+        fwrite(clear, clear_len, 1, fp) != 1) {
+        TRACE_ERROR("fwrite(%s): %s\n", fname, strerror(errno));
+        rc = CKR_FUNCTION_FAILED;
+    }
 
     rc = close_token_file_new(fp, rc, fname, basename);
     free(clear);
 
-    return CKR_OK;
+    return rc;
 
 error:
     if (clear)
