@@ -897,8 +897,18 @@ static CK_RV process_session_obj(CK_SESSION_HANDLE session,
         goto out;
     }
 
+    if (attrs[2].ulValueLen < sizeof(ep11_target_t)) {
+        fprintf(stderr, "Invalid CKA_APPLICATION attribute length\n");
+        funcs->C_DestroyObject(session, obj);
+        goto out;
+    }
     num_serial_numbers = (attrs[2].ulValueLen - sizeof(ep11_target_t)) /
                                                     sizeof(ep11_serialno_t);
+    if (num_serial_numbers > MAX_APQN) {
+        fprintf(stderr, "CKA_APPLICATION contains too many serial numbers\n");
+        funcs->C_DestroyObject(session, obj);
+        goto out;
+    }
 
     /* Ignore our own EP11 session */
     if (pid == getpid())
