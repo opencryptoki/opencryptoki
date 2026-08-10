@@ -237,7 +237,13 @@ static CK_RV get_ep11_library_version(CK_VERSION *lib_version)
         return rc;
     }
     lib_version->major = (host_version & 0x00FF0000) >> 16;
-    lib_version->minor = host_version & 0x000000FF0000;
+    /* Minor is 4 bits release number and 4 bits modification level */
+    lib_version->minor = (host_version & 0x00000F00) >> 4 |
+                                         (host_version & 0x0000000F);
+    if ((host_version & 0x0000F000) != 0)
+        lib_version->minor |= 0xF0;
+    if ((host_version & 0x000000F0) != 0)
+        lib_version->minor |= 0x0F;
     /*
      * EP11 host library < v2.0 returns an invalid version (i.e. 0x100). This
      * can safely be treated as version 1.0
