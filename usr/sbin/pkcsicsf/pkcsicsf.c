@@ -383,7 +383,7 @@ static int lookup_name(char *name, struct icsf_token_record *found)
         rc = icsf_list_tokens(ld, NULL, previous, tokens, &tokenCount);
         if (ICSF_RC_IS_ERROR(rc)) {
             fprintf(stderr, "Could not get list of tokens.\n");
-            found = NULL;
+            memset(found, 0, sizeof(*found));
             return -1;
         }
 
@@ -400,7 +400,7 @@ static int lookup_name(char *name, struct icsf_token_record *found)
     } while (tokenCount);
 
     /* if we get here, we could not find the token in the list. */
-    found = NULL;
+    memset(found, 0, sizeof(*found));
 
     return -1;
 }
