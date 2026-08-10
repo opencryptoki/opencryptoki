@@ -342,7 +342,8 @@ int reencrypt_private_token_object(unsigned char *data, unsigned long len,
 
     /* Validate the hash */
     memcpy(&obj_data_len_32, clear, sizeof(CK_ULONG_32));
-    if (obj_data_len_32 >= clear_len) {
+    if (obj_data_len_32 >= clear_len ||
+        sizeof(CK_ULONG_32) + (unsigned long)obj_data_len_32 + SHA1_HASH_SIZE > clear_len) {
         fprintf(stderr, "Decrypted object data is inconsistent. Possibly already migrated?\n");
         ret = CKR_FUNCTION_FAILED;
         goto done;
