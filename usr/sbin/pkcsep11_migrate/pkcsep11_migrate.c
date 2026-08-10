@@ -533,10 +533,11 @@ int main(int argc, char **argv)
     CK_C_INITIALIZE_ARGS cinit_args;
     CK_BYTE user_pin[PKCS11_MAX_PIN_LEN + 1];
     CK_FLAGS flags;
-    CK_SESSION_HANDLE session;
+    CK_SESSION_HANDLE session = CK_INVALID_HANDLE;
     CK_ULONG obj;
     CK_ULONG user_pin_len;
     CK_ULONG keys_found = 0;
+    CK_BBOOL logged_in = CK_FALSE;
 
     rc = do_ParseArgs(argc, argv);
     if (rc != 1) {
@@ -614,11 +615,8 @@ int main(int argc, char **argv)
 
     if (get_user_pin(user_pin)) {
         fprintf(stderr, "get_user_pin() failed\n");
-        rc = funcs->C_CloseAllSessions(SLOT_ID);
-        if (rc != CKR_OK)
-            fprintf(stderr, "C_CloseAllSessions() rc = 0x%02x [%s]\n", rc,
-                    p11_get_ckr(rc));
-        return rc;
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
     }
 
     user_pin_len = (CK_ULONG) strlen((char *) user_pin);
@@ -626,18 +624,26 @@ int main(int argc, char **argv)
     OPENSSL_cleanse(user_pin, sizeof(user_pin));
     if (rc != CKR_OK) {
         fprintf(stderr, "C_Login() rc = 0x%02x [%s]\n", rc, p11_get_ckr(rc));
-        return rc;
+        goto out;
     }
+    logged_in = CK_TRUE;
 
     rc = get_ep11_library_version(&lib_version);
     if (rc != CKR_OK)
-        return rc;
+        goto out;
 
-    if (check_card_status() != 0)
-        return 1;
+    if (check_card_status() != 0) {
+        rc = 1;
+        goto out;
+    }
 
     /* find all objects */
     rc = funcs->C_FindObjectsInit(session, NULL, 0);
+    if (rc != CKR_OK) {
+        fprintf(stderr, "C_FindObjectsInit() rc = 0x%02x [%s]\n", rc,
+                p11_get_ckr(rc));
+        goto out;
+    }
 
     do {
         rc = funcs->C_FindObjects(session, key_store, 4096, &keys_found);
@@ -645,7 +651,7 @@ int main(int argc, char **argv)
         if (rc != CKR_OK) {
             fprintf(stderr, "C_FindObjects() rc = 0x%02x [%s]\n", rc,
                     p11_get_ckr(rc));
-            return rc;
+            goto out;
         }
 
         for (obj = 0; obj < keys_found; obj++) {
@@ -673,7 +679,8 @@ int main(int argc, char **argv)
                 old_blob = malloc(opaque_template[0].ulValueLen);
                 if (old_blob == NULL) {
                     fprintf(stderr, "malloc failed for opaque blob\n");
-                    return -1;
+                    rc = -1;
+                    goto out;
                 }
                 opaque_template[0].pValue = old_blob;
                 /* get the blob after knowing its size */
@@ -684,14 +691,15 @@ int main(int argc, char **argv)
                     fprintf(stderr, "second C_GetAttributeValue failed "
                             "rc = 0x%02x [%s]\n", rc, p11_get_ckr(rc));
                     free(old_blob);
-                    return rc;
+                    goto out;
                 }
                 if (reencrypt(session, obj, keytype,
                               (CK_BYTE *) opaque_template[0].pValue,
                               opaque_template[0].ulValueLen) != 0) {
                     /* reencrypt failed */
                     free(old_blob);
-                    return -1;
+                    rc = -1;
+                    goto out;
                 }
                 free(old_blob);
             }
@@ -700,11 +708,15 @@ int main(int argc, char **argv)
     /* next 4096 objects */
     while (keys_found != 0);
 
-    rc = funcs->C_FindObjectsFinal(session);
+    funcs->C_FindObjectsFinal(session);
     fprintf(stderr, "all keys successfully reencrypted\n");
+    rc = CKR_OK;
 
-    rc = funcs->C_Logout(session);
-    rc = funcs->C_CloseAllSessions(SLOT_ID);
+out:
+    if (logged_in)
+        funcs->C_Logout(session);
+    if (session != CK_INVALID_HANDLE)
+        funcs->C_CloseAllSessions(SLOT_ID);
 
     return rc;
 }
