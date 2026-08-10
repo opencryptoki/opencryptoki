@@ -57,6 +57,8 @@ const char label[] = "ccatok";
     const char *__progname = "pkcscca";
 #endif
 
+#define OCK_MAX_TOKEN_OBJ_SIZE      0x80000000
+
 pkcs_trace_level_t trace_level = TRACE_LEVEL_NONE;
 token_spec_t token_specific;
 
@@ -453,7 +455,12 @@ int load_token_objects(unsigned char *data_store,
             goto cleanup;
         }
 
-        size = size - sizeof(CK_ULONG_32) - sizeof(CK_BBOOL);
+        if (size <= sizeof(CK_ULONG_32) + sizeof(CK_BBOOL) ||
+            size >= OCK_MAX_TOKEN_OBJ_SIZE) {
+            fprintf(stderr, "Invalid object size in %s (ignoring it).\n", tmp);
+            goto cleanup;
+        }
+        size -= sizeof(CK_ULONG_32) + sizeof(CK_BBOOL);
         buf = (unsigned char *) malloc(size);
         if (!buf) {
             fprintf(stderr, "Cannot malloc for object %s "
