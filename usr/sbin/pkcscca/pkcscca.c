@@ -530,9 +530,14 @@ int load_token_objects(unsigned char *data_store,
             goto cleanup;
         }
         size = sizeof(CK_ULONG_32) + sizeof(CK_BBOOL) + new_cipher_len;
-        (void) fwrite(&size, sizeof(CK_ULONG_32), 1, fp2);
-        (void) fwrite(&priv, sizeof(CK_BBOOL), 1, fp2);
-        (void) fwrite(new_cipher, new_cipher_len, 1, fp2);
+        if (fwrite(&size, sizeof(CK_ULONG_32), 1, fp2) != 1 ||
+            fwrite(&priv, sizeof(CK_BBOOL), 1, fp2) != 1 ||
+            fwrite(new_cipher, new_cipher_len, 1, fp2) != 1) {
+            fprintf(stderr, "Failed to write object %s: %s\n",
+                    fname, strerror(errno));
+            rc = CKR_FUNCTION_FAILED;
+            goto cleanup;
+        }
         rc = 0;
 
 cleanup:
