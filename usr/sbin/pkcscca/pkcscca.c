@@ -1996,34 +1996,54 @@ int main(int argc, char **argv)
 
     if (m_version) {
         *(void **)(&CSNBDEC) = dlsym(lib_csulcca, "CSNBDEC");
+        if (CSNBDEC == NULL) {
+            fprintf(stderr, "Cannot find CSNBDEC in %s: %s\n",
+                    CCA_LIBRARY, dlerror());
+            ret = -1;
+            goto done;
+        }
         ret = migrate_version(sopin, userpin, (CK_BYTE *)data_store);
     } else if (m_keys) {
         if (!slot_id) {
             print_error("missing slot number\n");
             usage(argv[0]);
-            return -1;
+            ret = -1;
+            goto done;
         }
 
         if (!masterkey) {
             print_error("missing key type\n");
             usage(argv[0]);
-            return -1;
+            ret = -1;
+            goto done;
         }
 
         *(void **)(&CSNDKTC) = dlsym(lib_csulcca, "CSNDKTC");
         *(void **)(&CSNBKTC) = dlsym(lib_csulcca, "CSNBKTC");
         *(void **)(&CSNBKTC2) = dlsym(lib_csulcca, "CSNBKTC2");
+        if (CSNDKTC == NULL || CSNBKTC == NULL || CSNBKTC2 == NULL) {
+            fprintf(stderr, "Cannot find required CCA symbols in %s: %s\n",
+                    CCA_LIBRARY, dlerror());
+            ret = -1;
+            goto done;
+        }
         ret = migrate_wrapped_keys(slot_id, userpin, masterkey);
     } else if (m_rsakeys) {
         if (!slot_id) {
             print_error("missing slot number\n");
             usage(argv[0]);
-            return -1;
+            ret = -1;
+            goto done;
         }
 
         *(void **)(&CSNDPKT) = dlsym(lib_csulcca, "CSNDPKT");
         *(void **)(&CSNDPKX) = dlsym(lib_csulcca, "CSNDPKX");
-
+        if (CSNDPKT == NULL || CSNDPKX == NULL) {
+            fprintf(stderr, "Cannot find required CCA symbols in %s: %s\n",
+                    CCA_LIBRARY, dlerror());
+            ret = -1;
+            goto done;
+        }
         ret = migrate_old_rsa_keys(slot_id, userpin);
     }
 
