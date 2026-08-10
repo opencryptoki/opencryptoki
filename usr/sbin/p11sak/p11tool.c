@@ -1825,6 +1825,7 @@ CK_RV p11tool_parse_boolean_attrs(const struct p11tool_objtype *objtype,
 CK_RV p11tool_get_attribute(CK_OBJECT_HANDLE key, CK_ATTRIBUTE *attr)
 {
     bool allocated;
+    bool internally_allocated = false;
     CK_RV rc;
 
     rc = p11tool_pkcs11_funcs->C_GetAttributeValue(p11tool_pkcs11_session,
@@ -1837,8 +1838,12 @@ CK_RV p11tool_get_attribute(CK_OBJECT_HANDLE key, CK_ATTRIBUTE *attr)
         if (attr->pValue == NULL)
             return CKR_HOST_MEMORY;
 
+        internally_allocated = true;
+
         rc = p11tool_pkcs11_funcs->C_GetAttributeValue(p11tool_pkcs11_session,
                                                        key, attr, 1);
+        if (rc != CKR_OK)
+            goto err;
     }
 
     if (p11tool_is_attr_array_attr(attr) && rc == CKR_OK &&
@@ -1847,7 +1852,7 @@ CK_RV p11tool_get_attribute(CK_OBJECT_HANDLE key, CK_ATTRIBUTE *attr)
             allocated = false;
             rc = p11tool_alloc_attr_array_attr(attr, &allocated);
             if (rc != CKR_OK)
-                return rc;
+                goto err;
 
             if (!allocated)
                 break;
@@ -1856,8 +1861,22 @@ CK_RV p11tool_get_attribute(CK_OBJECT_HANDLE key, CK_ATTRIBUTE *attr)
                                                    p11tool_pkcs11_session, key,
                                                    attr, 1);
         } while (rc == CKR_OK);
+
+        if (rc != CKR_OK)
+            goto err;
     }
 
+    return rc;
+
+err:
+    if (internally_allocated) {
+        if (p11tool_is_attr_array_attr(attr))
+            p11tool_free_attr_array_attr(attr);
+        OPENSSL_cleanse(attr->pValue, attr->ulValueLen);
+        free(attr->pValue);
+        attr->pValue = NULL;
+        attr->ulValueLen = 0;
+    }
     return rc;
 }
 
