@@ -265,7 +265,15 @@ static int config_add_slotinfo(int num_of_slots,
             return 1;
         }
 
-        /* create the config name using the token's name */
+        if (!is_valid_filename_component(tokens[i].name)) {
+            fprintf(stderr, "Token name '%s' is not valid (must not be empty, "
+                    "must not be '.' or '..', and must not contain '/').\n",
+                    tokens[i].name);
+            confignode_deepfree(config);
+            return 1;
+        }
+
+        /* create the config file path and the relative name for the config */
         memset(configname, 0, sizeof(configname));
         snprintf(configname, sizeof(configname), "%s/%s.conf",
                  OCK_CONFDIR, tokens[i].name);
@@ -287,7 +295,8 @@ static int config_add_slotinfo(int num_of_slots,
                                                  (struct ConfigBaseNode *)eoc2,
                                                  0, NULL);
         stdll_val = confignode_allocbarevaldumpable("stdll", STDLL, 0, NULL);
-        confname_val = confignode_allocbarevaldumpable("confname", configname,
+        confname_val = confignode_allocbarevaldumpable("confname",
+                                                       strrchr(configname, '/') + 1,
                                                        0, NULL);
         tokname_val = confignode_allocbarevaldumpable("tokname", tokens[i].name,
                                                        0, NULL);
@@ -464,6 +473,13 @@ static int secure_racf_passwd(const char *racfpwd, CK_ULONG len,
         fprintf(stderr, "getgrname(%s): %s\n", PKCS_GROUP, strerror(errno));
         rc = -1;
         goto cleanup;
+    }
+
+    if (!is_valid_filename_component(tokname)) {
+        fprintf(stderr, "Token name '%s' is not valid (must not be empty, "
+                "must not be '.' or '..', and must not contain '/').\n",
+                tokname);
+        return -1;
     }
 
     /* Create the token directory, if not already existent */

@@ -541,6 +541,7 @@ static CK_RV parse_config_file(const char *conf_name, CK_SLOT_ID slot_id,
     int i;
     struct icsf_config out_config;
     char out_str_mech[64];
+    char fname[PATH_MAX];
     struct ref refs[] = {
         { "token_name",   out_config.name,      sizeof(out_config.name),      1 },
         { "token_manufacture", out_config.manuf, sizeof(out_config.manuf),    1 },
@@ -558,9 +559,26 @@ static CK_RV parse_config_file(const char *conf_name, CK_SLOT_ID slot_id,
     memset(&out_config, 0, sizeof(out_config));
     memset(out_str_mech, 0, sizeof(out_str_mech));
 
-    file = fopen(conf_name, "r");
+    /*
+     * Resolve conf_name to an absolute path: absolute used as-is,
+     * relative names are looked up under OCK_CONFDIR.
+     */
+    if (conf_name[0] == '/') {
+        if (ock_snprintf(fname, sizeof(fname), "%s", conf_name) != 0) {
+            TRACE_ERROR("conf_name too long: '%s'\n", conf_name);
+            return CKR_FUNCTION_FAILED;
+        }
+    } else {
+        if (ock_snprintf(fname, sizeof(fname), "%s/%s",
+                         OCK_CONFDIR, conf_name) != 0) {
+            TRACE_ERROR("conf_path too long: '%s/%s'\n", OCK_CONFDIR, conf_name);
+            return CKR_FUNCTION_FAILED;
+        }
+    }
+
+    file = fopen(fname, "r");
     if (file == NULL) {
-        TRACE_ERROR("Error opening config file '%s': %s\n", conf_name,
+        TRACE_ERROR("Error opening config file '%s': %s\n", fname,
                     strerror(errno));
         return CKR_FUNCTION_FAILED;
     }
@@ -568,7 +586,7 @@ static CK_RV parse_config_file(const char *conf_name, CK_SLOT_ID slot_id,
     ret = parse_configlib_file(file, &config, config_parse_error, 0);
     fclose(file);
     if (ret != 0) {
-        TRACE_ERROR("Error parsing config file '%s'\n", conf_name);
+        TRACE_ERROR("Error parsing config file '%s'\n", fname);
         ret = CKR_FUNCTION_FAILED;
         goto done;
     }
@@ -588,13 +606,13 @@ static CK_RV parse_config_file(const char *conf_name, CK_SLOT_ID slot_id,
             }
 
             TRACE_ERROR("Error parsing config file '%s': unexpected token '%s' "
-                        "at line %d: \n", conf_name, c->key, c->line);
+                        "at line %d: \n", fname, c->key, c->line);
             ret = -1;
             break;
         }
 
         TRACE_ERROR("Error parsing config file '%s': unexpected token '%s' "
-                    "at line %d: \n", conf_name, c->key, c->line);
+                    "at line %d: \n", fname, c->key, c->line);
         ret = CKR_FUNCTION_FAILED;
         break;
     }
@@ -602,7 +620,7 @@ static CK_RV parse_config_file(const char *conf_name, CK_SLOT_ID slot_id,
     if (ret != CKR_OK)
         goto done;
 
-    if (check_keys(conf_name, refs, refs_len)) {
+    if (check_keys(fname, refs, refs_len)) {
         ret = CKR_FUNCTION_FAILED;
         goto done;
     }
@@ -675,10 +693,9 @@ CK_RV token_specific_init_token_data(STDLL_TokData_t * tokdata,
         goto done;
     }
 
-    TRACE_DEVEL("DEBUG: conf_name=\"%s\".\n", conf_name);
+    TRACE_DEVEL("conf_name=\"%s\".\n", conf_name);
     if (parse_config_file(conf_name, slot_id, &config)) {
-        TRACE_ERROR("Failed to parse file \"%s\" for slot %lu.\n",
-                    conf_name, slot_id);
+        TRACE_ERROR("Failed to parse config for slot %lu.\n", slot_id);
         rc = CKR_FUNCTION_FAILED;
         goto done;
     }
