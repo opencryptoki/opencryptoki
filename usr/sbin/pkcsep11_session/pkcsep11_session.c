@@ -26,6 +26,7 @@
 #include <dirent.h>
 #include <libgen.h>
 #include <errno.h>
+#include <openssl/crypto.h>
 
 #define OCK_NO_EP11_DEFINES
 #include "pkcs11types.h"
@@ -859,7 +860,7 @@ static CK_BBOOL filter_session(CK_BYTE *session_id, CK_ULONG session_id_len,
 static CK_RV process_session_obj(CK_SESSION_HANDLE session,
                                  CK_OBJECT_HANDLE obj, handler_t handler)
 {
-    CK_RV rc;
+    CK_RV rc = CKR_OK;
     CK_BBOOL match;
     CK_BYTE pin_blob[XCP_PINBLOB_BYTES];
     CK_BYTE session_id[EP11_SESSION_ID_SIZE];
@@ -885,8 +886,9 @@ static CK_RV process_session_obj(CK_SESSION_HANDLE session,
                 p11_get_ckr(rc));
 
         /* Invalid CKH_IBM_EP11_SESSION object */
-        rc = funcs->C_DestroyObject(session, obj);
-        return CKR_OK;
+        funcs->C_DestroyObject(session, obj);
+        rc = CKR_OK;
+        goto out;
     }
 
     num_serial_numbers = (attrs[2].ulValueLen - sizeof(ep11_target_t)) /
@@ -894,7 +896,7 @@ static CK_RV process_session_obj(CK_SESSION_HANDLE session,
 
     /* Ignore our own EP11 session */
     if (pid == getpid())
-        return CKR_OK;
+        goto out;
 
     match = filter_session(session_id, sizeof(session_id), &date, pid);
 
@@ -903,11 +905,11 @@ static CK_RV process_session_obj(CK_SESSION_HANDLE session,
                      session_id, sizeof(session_id), &app_data.ep11_targets,
                      app_data.serial_numbers, num_serial_numbers,
                      pid, &date);
-        if (rc != CKR_OK)
-            return rc;
     }
 
-    return CKR_OK;
+out:
+    OPENSSL_cleanse(pin_blob, sizeof(pin_blob));
+    return rc;
 }
 
 static CK_RV find_sessions(CK_SESSION_HANDLE session, handler_t handler)
@@ -1068,7 +1070,8 @@ static CK_RV set_pin(CK_SESSION_HANDLE session, CK_HW_FEATURE_TYPE type)
     rc = find_pin_object(session, type, &obj);
     if (rc != CKR_OK) {
         fprintf(stderr, "find_pin_object() failed\n");
-        return CKR_FUNCTION_FAILED;
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
     }
 
     if (obj != CK_INVALID_HANDLE) {
@@ -1076,7 +1079,7 @@ static CK_RV set_pin(CK_SESSION_HANDLE session, CK_HW_FEATURE_TYPE type)
         if (rc != CKR_OK) {
             fprintf(stderr, "C_DestroyObject() rc = 0x%02lx [%s]\n", rc,
                     p11_get_ckr(rc));
-            return rc;
+            goto out;
         }
     }
 
@@ -1086,11 +1089,13 @@ static CK_RV set_pin(CK_SESSION_HANDLE session, CK_HW_FEATURE_TYPE type)
     if (rc != CKR_OK) {
         fprintf(stderr, "C_CreateObject() rc = 0x%02lx [%s]\n", rc,
                 p11_get_ckr(rc));
-        return rc;
+        goto out;
     }
     printf("%s successfully set.\n", hwtype2str(type));
 
-    return CKR_OK;
+out:
+    OPENSSL_cleanse(pin, sizeof(pin));
+    return rc;
 }
 
 static CK_RV status_handler(uint_32 adapter, uint_32 domain,
@@ -1383,6 +1388,7 @@ int main(int argc, char **argv)
 
     funcs->C_Logout(session);
 done:
+    OPENSSL_cleanse(user_pin, sizeof(user_pin));
     funcs->C_CloseAllSessions(SLOT_ID);
     funcs->C_Finalize(NULL);
 
