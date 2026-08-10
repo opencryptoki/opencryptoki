@@ -371,6 +371,7 @@ int reencrypt_private_token_object(unsigned char *data, unsigned long len,
         goto done;
 
     if (new_obj_data != NULL) {
+        OPENSSL_cleanse(clear, clear_len);
         free(clear);
 
         /* build data to be encrypted */
@@ -405,10 +406,17 @@ int reencrypt_private_token_object(unsigned char *data, unsigned long len,
         ret = -1;
 
 done:
-    if (clear)
+    OPENSSL_cleanse(des3_key, sizeof(des3_key));
+    OPENSSL_cleanse(sw_des3_key, sizeof(sw_des3_key));
+    OPENSSL_cleanse(hash_sha, sizeof(hash_sha));
+    if (clear) {
+        OPENSSL_cleanse(clear, clear_len);
         free(clear);
-    if (new_obj_data)
+    }
+    if (new_obj_data) {
+        OPENSSL_cleanse(new_obj_data, new_obj_data_len);
         free(new_obj_data);
+    }
 
     return ret;
 }
@@ -660,10 +668,15 @@ int load_masterkey(char *mkfile, const char *pin, char *masterkey)
     ret = 0;
 
 done:
+    OPENSSL_cleanse(des3_key, sizeof(des3_key));
+    OPENSSL_cleanse(pin_md5_hash, sizeof(pin_md5_hash));
+    OPENSSL_cleanse(hash_sha, sizeof(hash_sha));
     if (fp)
         fclose(fp);
-    if (clear)
+    if (clear) {
+        OPENSSL_cleanse(clear, clear_len);
         free(clear);
+    }
     if (cipher)
         free(cipher);
 
@@ -1788,6 +1801,7 @@ int migrate_version(const char *sopin, const char *userpin, unsigned char *data_
     (void)load_token_objects(data_store, (CK_BYTE *)masterkey);
 
 done:
+    OPENSSL_cleanse(masterkey, sizeof(masterkey));
     return ret;
 }
 
