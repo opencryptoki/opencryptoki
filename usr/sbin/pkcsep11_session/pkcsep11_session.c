@@ -113,7 +113,7 @@ static int get_pin(CK_BYTE *dest, const char *name)
 
     pin = pin_prompt_new(&buf, msg1, msg2);
     if (!pin) {
-        fprintf(stderr, "Could not get %sN.\n", name);
+        fprintf(stderr, "Could not get %s.\n", name);
         goto out;
     }
     pinlen = strlen(pin);
