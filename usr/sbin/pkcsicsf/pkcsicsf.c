@@ -25,6 +25,7 @@
 #include <fcntl.h>
 #include <string.h>
 #include <grp.h>
+#include <openssl/crypto.h>
 
 #include "icsf.h"
 #include "slotmgr.h"
@@ -530,6 +531,7 @@ static int secure_racf_passwd(const char *racfpwd, unsigned int len,
     }
 
 cleanup:
+    OPENSSL_cleanse(masterkey, sizeof(masterkey));
     pin_free(&buf_so);
 
     return rc;
