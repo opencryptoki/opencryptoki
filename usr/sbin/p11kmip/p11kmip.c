@@ -1182,7 +1182,7 @@ int p11kmip_check_certificate(const char *cert_file,
 
     fp = fopen(cert_file, "r");
     if (fp == NULL) {
-        rc = CKR_GENERAL_ERROR;
+        rc = -errno;
         warnx("Failed to open certificate PEM file '%s': "
               "%s", cert_file, strerror(-rc));
         return rc;
