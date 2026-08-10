@@ -2248,7 +2248,7 @@ static CK_RV remove_shared_memory(char *location)
     if (location[i] == '/')
         i++;
 
-    for (; location[i]; i++, k++) {
+    for (; location[i] && k < PATH_MAX - 1; i++, k++) {
         if (location[i] == '/')
             shm_name[k] = '.';
         else
