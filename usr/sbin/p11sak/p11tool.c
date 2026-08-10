@@ -2804,6 +2804,9 @@ CK_RV p11tool_prepare_uri(CK_OBJECT_HANDLE key, CK_OBJECT_CLASS *class,
     return CKR_OK;
 }
 
+/* 64 MiB limit: far larger than any realistic wrapped key or opaque blob */
+#define P11TOOL_BIO_READALL_MAX  (64UL * 1024UL * 1024UL)
+
 CK_RV p11tool_bio_readall(BIO *bio, CK_BYTE **buffer, CK_ULONG *read_len)
 {
     CK_ULONG ofs = 0, buf_len = 0;
@@ -2816,12 +2819,19 @@ CK_RV p11tool_bio_readall(BIO *bio, CK_BYTE **buffer, CK_ULONG *read_len)
 
     do {
         if (left == 0) {
+            if (buf_len >= P11TOOL_BIO_READALL_MAX) {
+                warnx("File exceeds maximum allowed size of %lu bytes",
+                      P11TOOL_BIO_READALL_MAX);
+                OPENSSL_free(buf);
+                return CKR_FUNCTION_FAILED;
+            }
+
             buf_len += 1024;
 
             tmp = OPENSSL_realloc(buf, buf_len);
             if (tmp == NULL) {
                 warnx("Failed to allocate a buffer for reading a file");
-                free(buf);
+                OPENSSL_free(buf);
                 return CKR_HOST_MEMORY;
             }
             buf = tmp;
@@ -2837,7 +2847,7 @@ CK_RV p11tool_bio_readall(BIO *bio, CK_BYTE **buffer, CK_ULONG *read_len)
     } while(1);
 
     if (ofs == 0) {
-        free(buf);
+        OPENSSL_free(buf);
         return CKR_FUNCTION_FAILED;
     }
 
