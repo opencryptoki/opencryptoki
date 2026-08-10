@@ -1053,6 +1053,7 @@ int cca_migrate_asymmetric(struct key *key, char **out, struct algo algo,
         cca_error("CSNDKTC (Key Token Change)", return_code, reason_code);
         print_error("Migrating %s key failed. label=%s, handle=%lu",
                     algo.name, key->label, key->handle);
+        free(key_identifier);
         return 1;
     } else if (v_level) {
         printf("Successfully migrated %s key. label=%s, handle=%lu\n",
@@ -1102,6 +1103,7 @@ int cca_migrate_symmetric(struct key *key, char **out, struct algo algo)
             cca_error("CSNBKTC2 (Key Token Change)", return_code, reason_code);
             print_error("Migrating %s key failed. label=%s, handle=%lu",
                         algo.name, key->label, key->handle);
+            free(key_identifier);
             return 1;
         }
 
@@ -1120,6 +1122,7 @@ int cca_migrate_symmetric(struct key *key, char **out, struct algo algo)
                           reason_code);
                 print_error("Migrating %s key failed. label=%s, handle=%lu",
                             algo.name, key->label, key->handle);
+                free(key_identifier);
                 return 1;
             }
         }
@@ -1134,6 +1137,7 @@ int cca_migrate_symmetric(struct key *key, char **out, struct algo algo)
             cca_error("CSNBKTC (Key Token Change)", return_code, reason_code);
             print_error("Migrating %s key failed. label=%s, handle=%lu",
                         algo.name, key->label, key->handle);
+            free(key_identifier);
             return 1;
         }
 
@@ -1149,6 +1153,7 @@ int cca_migrate_symmetric(struct key *key, char **out, struct algo algo)
                           reason_code);
                 print_error("Migrating %s key failed. label=%s, handle=%lu",
                             algo.name, key->label, key->handle);
+                free(key_identifier);
                 return 1;
             }
         }
@@ -1195,6 +1200,7 @@ int cca_migrate_hmac(struct key *key, char **out, struct algo algo)
         cca_error("CSNBKTC2 (Key Token Change)", return_code, reason_code);
         print_error("Migrating %s key failed. label=%s, handle=%lu",
                     algo.name, key->label, key->handle);
+        free(key_identifier);
         return 1;
     } else if (v_level) {
         printf("Successfully migrated %s key. label=%s, handle=%lu\n",
@@ -1339,6 +1345,7 @@ int migrate_keytype(CK_FUNCTION_LIST *funcs, CK_SESSION_HANDLE sess,
 done:
     for (to_free = keys; to_free; to_free = tmp) {
         tmp = to_free->next;
+        free(to_free->label);
         free(to_free->opaque_attr);
         free(to_free);
     }
@@ -1712,6 +1719,7 @@ int migrate_old_rsa_keys(CK_SLOT_ID slot_id, const char *userpin)
 done:
     for (to_free = keys; to_free; to_free = tmp) {
         tmp = to_free->next;
+        free(to_free->label);
         free(to_free->opaque_attr);
         free(to_free);
     }
