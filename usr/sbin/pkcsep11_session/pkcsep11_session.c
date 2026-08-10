@@ -826,6 +826,7 @@ static CK_BBOOL filter_session(CK_BYTE *session_id, CK_ULONG session_id_len,
     char temp[12];
     char *p;
     time_t t;
+    int k;
 
     if (filter_sess_id_set) {
         if (session_id_len == sizeof(filter_sess_id) &&
@@ -835,6 +836,19 @@ static CK_BBOOL filter_session(CK_BYTE *session_id, CK_ULONG session_id_len,
     }
 
     if (filter_date != -1) {
+        /* Validate that all CK_DATE fields contain only ASCII digits
+         * before assembling them into a string for strptime. An embedded
+         * null or non-digit byte would produce unpredictable results. */
+        for (k = 0; k < 4; k++)
+            if (!isdigit((unsigned char)date->year[k]))
+                return FALSE;
+        for (k = 0; k < 2; k++)
+            if (!isdigit((unsigned char)date->month[k]))
+                return FALSE;
+        for (k = 0; k < 2; k++)
+            if (!isdigit((unsigned char)date->day[k]))
+                return FALSE;
+
         memset(&tm, 0, sizeof(tm));
         memcpy(temp, date->year, 4);
         temp[4] = '/';
