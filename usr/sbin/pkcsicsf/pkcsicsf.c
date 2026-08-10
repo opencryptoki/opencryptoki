@@ -171,7 +171,7 @@ static int add_token_config(const char *configname,
                            ? "SIMPLE" : "SASL");
 
     /* add BIND info */
-    if (strcmp(mech, "simple") == 0) {
+    if (flags & CFG_MECH_SIMPLE) {
         add_token_config_entry(s, "BINDDN", binddn);
         add_token_config_entry(s, "URI", uri);
     } else {
