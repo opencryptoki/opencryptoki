@@ -3644,6 +3644,12 @@ static CK_RV p11kmip_retrieve_remote_wrapped_key(
      */
     *wrapped_keysize = (CK_ULONG)(bits / 8);
     *wrapped_key_blob = malloc(klen);
+    if (*wrapped_key_blob == NULL) {
+        rc = CKR_HOST_MEMORY;
+        warnx("Unable to allocate storage for wrapped key blob");
+        goto out;
+    }
+
     *wrapped_key_length = klen;
     memcpy(*wrapped_key_blob, kdata, klen);
 
