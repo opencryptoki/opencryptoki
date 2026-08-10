@@ -347,6 +347,8 @@ static CK_RV make_OBJECT_PRIV_312(unsigned char **obj_new, unsigned int *obj_new
     ret = CKR_OK;
 
 done:
+    OPENSSL_cleanse(obj_key, sizeof(obj_key));
+
     if (object != NULL)
         free(object);
 
@@ -444,8 +446,10 @@ static CK_RV decrypt_OBJECT_PRIV_00(unsigned char **clear, unsigned int *clear_l
     ret = CKR_OK;
 
 done:
-
-    free(tmp_clear);
+    if (tmp_clear) {
+        OPENSSL_cleanse(tmp_clear, enc_len);
+        free(tmp_clear);
+    }
     return ret;
 }
 
@@ -800,6 +804,7 @@ static CK_RV load_masterkey_312(const char *data_store, const char *mkfile,
     ret = CKR_OK;
 
 done:
+    OPENSSL_cleanse(wrap_key, sizeof(wrap_key));
 
     if (fp)
         fclose(fp);
@@ -915,8 +920,14 @@ static CK_RV load_masterkey_00(const char *mkfile, const char *pin,
 done:
     if (fp)
         fclose(fp);
-    free(clear);
+    if (clear) {
+        OPENSSL_cleanse(clear, cipher_len);
+        free(clear);
+    }
     free(cipher);
+    OPENSSL_cleanse(des3_key,      sizeof(des3_key));
+    OPENSSL_cleanse(pin_md5_hash,  sizeof(pin_md5_hash));
+    OPENSSL_cleanse(hash_sha,      sizeof(hash_sha));
 
     return ret;
 }
@@ -1477,6 +1488,12 @@ static CK_RV migrate_repository(const char *data_store, const char *sopin,
     }
 
 done:
+    OPENSSL_cleanse(so_masterkey_old,   sizeof(so_masterkey_old));
+    OPENSSL_cleanse(so_masterkey_new,   sizeof(so_masterkey_new));
+    OPENSSL_cleanse(user_masterkey_old, sizeof(user_masterkey_old));
+    OPENSSL_cleanse(user_masterkey_new, sizeof(user_masterkey_new));
+    OPENSSL_cleanse(so_wrap_key,        sizeof(so_wrap_key));
+    OPENSSL_cleanse(user_wrap_key,      sizeof(user_wrap_key));
 
     return ret;
 }
@@ -1529,6 +1546,8 @@ static CK_RV create_MK_USER_312(const char *data_store, const char *userpin,
     ret = CKR_OK;
 
 done:
+    OPENSSL_cleanse(user_wrap_key, sizeof(user_wrap_key));
+    OPENSSL_cleanse(outbuf,        sizeof(outbuf));
 
     if (fp)
         fclose(fp);
@@ -1587,6 +1606,8 @@ static CK_RV create_MK_SO_312(const char *data_store, const char *sopin,
     ret = CKR_OK;
 
 done:
+    OPENSSL_cleanse(so_wrap_key, sizeof(so_wrap_key));
+    OPENSSL_cleanse(outbuf,      sizeof(outbuf));
 
     if (fp)
         fclose(fp);
