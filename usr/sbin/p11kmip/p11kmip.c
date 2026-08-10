@@ -663,14 +663,20 @@ static bool opt_targkey_length_is_set(const struct p11tool_arg *arg)
 static CK_RV parse_env_vars(void)
 {
     char *loc_env_pkcs_slot;
+    char *endptr;
+    unsigned long slot_val;
 
     loc_env_pkcs_slot = getenv(PKCS11_SLOT_ID_ENV_NAME);
     if (loc_env_pkcs_slot != NULL) {
-        /* * 
-         * ATOI gives 0 on an invalid string, but 0 is a valid
-         * slot ID, so no error checking to be done 
-         */
-        env_pkcs_slot = atoi(loc_env_pkcs_slot);
+        errno = 0;
+        slot_val = strtoul(loc_env_pkcs_slot, &endptr, 10);
+        if (errno != 0 || endptr == loc_env_pkcs_slot || *endptr != '\0' ||
+            loc_env_pkcs_slot[0] == '-') {
+            warnx("Invalid value for environment variable %s: '%s'",
+                  PKCS11_SLOT_ID_ENV_NAME, loc_env_pkcs_slot);
+            return CKR_ARGUMENTS_BAD;
+        }
+        env_pkcs_slot = (CK_SLOT_ID)slot_val;
     }
 
     env_pkcs_pin = getenv(PKCS11_USER_PIN_ENV_NAME);
