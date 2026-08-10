@@ -64,7 +64,7 @@ char *cacert = NULL;
 char *privkey = NULL;
 unsigned long flags = 0;
 
-static int secure_racf_passwd(const char *racfpwd, unsigned int len,
+static int secure_racf_passwd(const char *racfpwd, CK_ULONG len,
                               const char *tokname);
 
 static void usage(char *progname)
@@ -447,7 +447,7 @@ static int retrieve_all(const char *racfpwd)
     return 0;
 }
 
-static int secure_racf_passwd(const char *racfpwd, unsigned int len,
+static int secure_racf_passwd(const char *racfpwd, CK_ULONG len,
                               const char *tokname)
 {
     const char *sopin;
