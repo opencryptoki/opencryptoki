@@ -3708,12 +3708,14 @@ static CK_RV p11kmip_retrieve_remote_public_key(
     struct kmip_node *uid = NULL, *kobj = NULL, *kblock = NULL;
     struct kmip_node *kval = NULL, *wrap = NULL, *key = NULL;
     struct kmip_node *wkinfo = NULL, *wcparms = NULL;
+    const BIGNUM *modulus = NULL, *pub_exp = NULL;
 #if !OPENSSL_VERSION_PREREQ(3, 0)
-    const BIGNUM **modulus_ptr = NULL, **pub_exp_ptr = NULL;
-    BIGNUM *modulus = NULL, *pub_exp = NULL;
+    BIGNUM *modulus_dup = NULL, *pub_exp_dup = NULL;
     RSA *rsa_key = NULL;
 #else
-    const BIGNUM **modulus_ptr = NULL, **pub_exp_ptr = NULL;
+    EVP_PKEY_CTX *pctx = NULL;
+    OSSL_PARAM_BLD *tmpl = NULL;
+    OSSL_PARAM *params = NULL;
 #endif
     enum kmip_key_format_type ftype;
     enum kmip_object_type otype;
@@ -3819,50 +3821,94 @@ static CK_RV p11kmip_retrieve_remote_public_key(
         }
         break;
     case KMIP_KEY_FORMAT_TYPE_TRANSPARENT_RSA_PUBLIC_KEY:
-        rc = kmip_get_transparent_rsa_public_key(key, modulus_ptr, pub_exp_ptr);
-        if (rc != CKR_OK) {
+        rc = kmip_get_transparent_rsa_public_key(key, &modulus, &pub_exp);
+        if (rc != 0) {
             warnx("Failed to get RSA wrapping key parts");
             rc = CKR_FUNCTION_FAILED;
             goto out;
         }
 #if !OPENSSL_VERSION_PREREQ(3, 0)
+        /* BN_dup: RSA_set0_key takes ownership; modulus/pub_exp are
+         * owned by the kmip node and must not be freed here */
+        modulus_dup = BN_dup(modulus);
+        pub_exp_dup = BN_dup(pub_exp);
+        if (modulus_dup == NULL || pub_exp_dup == NULL) {
+            warnx("BN_dup failed.");
+            rc = CKR_HOST_MEMORY;
+            goto out;
+        }
+
         rsa_key = RSA_new();
         if (rsa_key == NULL) {
             warnx("RSA_new failed.");
+            ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
             rc = CKR_FUNCTION_FAILED;
             goto out;
         }
 
-        modulus = BN_copy(modulus, *modulus_ptr);
-
-        if (modulus == NULL) {
-            warnx("Copying modulus failed");
-            rc = CKR_FUNCTION_FAILED;
-            goto out;
-        }
-
-        pub_exp = BN_copy(pub_exp, *pub_exp_ptr);
-
-        if (pub_exp == NULL) {
-            warnx("Copying public exponent failed");
-            rc = CKR_FUNCTION_FAILED;
-            goto out;
-        }
-
-        if (RSA_set0_key(rsa_key, modulus, pub_exp, NULL)) {
+        if (RSA_set0_key(rsa_key, modulus_dup, pub_exp_dup, NULL) != 1) {
             warnx("RSA_set0_key failed.");
+            ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
+            rc = CKR_FUNCTION_FAILED;
+            goto out;
+        }
+        modulus_dup = pub_exp_dup = NULL; /* now owned by rsa_key */
+
+        *pub_key = EVP_PKEY_new();
+        if (*pub_key == NULL) {
+            warnx("EVP_PKEY_new failed.");
+            ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
             rc = CKR_FUNCTION_FAILED;
             goto out;
         }
 
-        if (EVP_PKEY_set1_RSA(*pub_key, (struct rsa_st *) rsa_key)) {
-            warnx("RSA_PKEY_set1_RSA failed.");
+        if (EVP_PKEY_assign_RSA(*pub_key, rsa_key) != 1) {
+            warnx("EVP_PKEY_assign_RSA failed.");
+            ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
             rc = CKR_FUNCTION_FAILED;
             goto out;
         }
+        rsa_key = NULL; /* now owned by *pub_key */
 #else
-        EVP_PKEY_set_bn_param(*pub_key, OSSL_PKEY_PARAM_RSA_N, *modulus_ptr);
-        EVP_PKEY_set_bn_param(*pub_key, OSSL_PKEY_PARAM_RSA_E, *pub_exp_ptr);
+        tmpl = OSSL_PARAM_BLD_new();
+        if (tmpl == NULL) {
+            warnx("OSSL_PARAM_BLD_new failed.");
+            ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
+            rc = CKR_FUNCTION_FAILED;
+            goto out;
+        }
+
+        if (!OSSL_PARAM_BLD_push_BN(tmpl, OSSL_PKEY_PARAM_RSA_N, modulus) ||
+            !OSSL_PARAM_BLD_push_BN(tmpl, OSSL_PKEY_PARAM_RSA_E, pub_exp)) {
+            warnx("OSSL_PARAM_BLD_push_BN failed.");
+            ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
+            rc = CKR_FUNCTION_FAILED;
+            goto out;
+        }
+
+        params = OSSL_PARAM_BLD_to_param(tmpl);
+        if (params == NULL) {
+            warnx("OSSL_PARAM_BLD_to_param failed.");
+            ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
+            rc = CKR_FUNCTION_FAILED;
+            goto out;
+        }
+
+        pctx = EVP_PKEY_CTX_new_id(EVP_PKEY_RSA, NULL);
+        if (pctx == NULL) {
+            warnx("EVP_PKEY_CTX_new_id failed.");
+            ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
+            rc = CKR_FUNCTION_FAILED;
+            goto out;
+        }
+
+        if (!EVP_PKEY_fromdata_init(pctx) ||
+            !EVP_PKEY_fromdata(pctx, pub_key, EVP_PKEY_PUBLIC_KEY, params)) {
+            warnx("EVP_PKEY_fromdata failed.");
+            ERR_print_errors_cb(p11tool_openssl_err_cb, NULL);
+            rc = CKR_FUNCTION_FAILED;
+            goto out;
+        }
 #endif
         break;
     default:
@@ -3887,8 +3933,19 @@ out:
     kmip_node_free(wcparms);
     kmip_node_free(key);
 #if !OPENSSL_VERSION_PREREQ(3, 0)
+    if (modulus_dup != NULL)
+        BN_free(modulus_dup);
+    if (pub_exp_dup != NULL)
+        BN_free(pub_exp_dup);
     if (rsa_key != NULL)
         RSA_free(rsa_key);
+#else
+    if (pctx != NULL)
+        EVP_PKEY_CTX_free(pctx);
+    if (tmpl != NULL)
+        OSSL_PARAM_BLD_free(tmpl);
+    if (params != NULL)
+        OSSL_PARAM_free(params);
 #endif
 
     return rc;
