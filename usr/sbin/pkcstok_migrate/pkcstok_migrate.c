@@ -2443,7 +2443,6 @@ static CK_RV folder_delete(const char *folder)
 {
     DIR *dir;
     char fname[PATH_MAX];
-    size_t len, path_len;
     struct stat statbuf;
     struct dirent *ent;
     CK_RV ret = CKR_OK;
@@ -2461,34 +2460,40 @@ static CK_RV folder_delete(const char *folder)
         return CKR_FUNCTION_FAILED;
     }
 
-    path_len = strlen(folder);
-    while (!ret && (ent = readdir(dir))) {
+    while ((ent = readdir(dir)) != NULL) {
         if (!strcmp(ent->d_name, ".") || !strcmp(ent->d_name, ".."))
             continue;
-        len = path_len + strlen(ent->d_name) + 2;
-        snprintf(fname, len, "%s/%s", folder, ent->d_name);
-        if (!stat(fname, &statbuf)) {
-            if (S_ISDIR(statbuf.st_mode)) {
-                ret = folder_delete(fname);
-                if (ret != CKR_OK)
-                    goto done;
-            } else {
-                ret = remove(fname);
-                if (ret != CKR_OK)
-                    goto done;
-            }
-        } else {
-            /* stat failed */
+
+        if (ock_snprintf(fname, sizeof(fname), "%s/%s",
+                         folder, ent->d_name) != 0) {
+            TRACE_ERROR("Path overflow for %s/%s\n", folder, ent->d_name);
+            ret = CKR_FUNCTION_FAILED;
+            goto done;
+        }
+
+        if (lstat(fname, &statbuf) != 0) {
             TRACE_ERROR("Cannot stat %s, errno=%s.\n", fname, strerror(errno));
             ret = CKR_FUNCTION_FAILED;
             goto done;
+        }
+
+        if (S_ISDIR(statbuf.st_mode)) {
+            ret = folder_delete(fname);
+            if (ret != CKR_OK)
+                goto done;
+        } else {
+            if (remove(fname) != 0) {
+                TRACE_ERROR("Cannot remove %s, errno=%s.\n",
+                            fname, strerror(errno));
+                ret = CKR_FUNCTION_FAILED;
+                goto done;
+            }
         }
     }
 
     ret = CKR_OK;
 
 done:
-
     closedir(dir);
     if (ret == CKR_OK)
         rmdir(folder);
