@@ -1262,10 +1262,51 @@ int p11kmip_print_certificates(const char *cert_pem)
  */
 static CK_RV init_kmip(void)
 {
+    char server_cert_path[PATH_MAX] = { 0 };
+    char server_pkey_path[PATH_MAX] = { 0 };
+    const char *tmpdir;
+    int cert_fd = -1, pkey_fd = -1;
     int rc = 0;
     CK_RV rv = CKR_OK;
     bool verified = false, self_signed = false, valid = false;
-    
+    mode_t old_umask;
+
+    tmpdir = secure_getenv("TMPDIR");
+    if (tmpdir == NULL)
+        tmpdir = P_tmpdir;
+
+    if (snprintf(server_cert_path, sizeof(server_cert_path),
+                 "%s/p11kmip-cert-XXXXXX", tmpdir) >= (int)sizeof(server_cert_path) ||
+        snprintf(server_pkey_path, sizeof(server_pkey_path),
+                 "%s/p11kmip-pkey-XXXXXX", tmpdir) >= (int)sizeof(server_pkey_path)) {
+        warnx("Temporary directory path too long");
+        rv = CKR_GENERAL_ERROR;
+        goto done;
+    }
+
+    old_umask = umask(0177);
+    cert_fd = mkstemp(server_cert_path);
+    if (cert_fd < 0) {
+        umask(old_umask);
+        warnx("Failed to create temporary file for server certificate: %s",
+              strerror(errno));
+        rv = CKR_GENERAL_ERROR;
+        goto done;
+    }
+    close(cert_fd);
+    cert_fd = -1;
+
+    pkey_fd = mkstemp(server_pkey_path);
+    umask(old_umask);
+    if (pkey_fd < 0) {
+        warnx("Failed to create temporary file for server public key: %s",
+              strerror(errno));
+        rv = CKR_GENERAL_ERROR;
+        goto done;
+    }
+    close(pkey_fd);
+    pkey_fd = -1;
+
     rc = build_kmip_config();
 
     if (rc != CKR_OK)
@@ -1276,8 +1317,8 @@ static CK_RV init_kmip(void)
                                          kmip_conf->tls_ca,
                                          kmip_conf->tls_client_key,
                                          kmip_conf->tls_client_cert,
-                                         P11KMIP_SERVER_CERT_PATH,
-                                         P11KMIP_SERVER_PKEY_PATH,
+                                         server_cert_path,
+                                         server_pkey_path,
                                          NULL, &verified, opt_verbose);
 
     if (rc != 0) {
@@ -1286,18 +1327,17 @@ static CK_RV init_kmip(void)
         goto done;
     }
 
-    rc = p11kmip_check_certificate(P11KMIP_SERVER_CERT_PATH, &self_signed,
-                                   &valid);
+    rc = p11kmip_check_certificate(server_cert_path, &self_signed, &valid);
 
     if (rc != 0) {
         warnx("Failed to check KMIP server certificate '%s'",
-              P11KMIP_SERVER_CERT_PATH);
+              server_cert_path);
         rv = CKR_GENERAL_ERROR;
         goto done;
     }
 
     if (!valid)
-        printf("ATTENTION: The certificate is expired or not yet " "valid.\n");
+        printf("ATTENTION: The certificate is expired or not yet valid.\n");
     if (self_signed)
         printf("ATTENTION: The certificate is self-signed "
                "and thus could not be verified.\n");
@@ -1309,17 +1349,17 @@ static CK_RV init_kmip(void)
                   "CA certificates. Use option "
                   "'--tls-no-verify-server-cert' to "
                   "connect to this server anyway.");
-            rv = CKR_GENERAL_ERROR;;
+            rv = CKR_GENERAL_ERROR;
             goto done;
         }
     }
 
     if (opt_tls_trust_server == false) {
-        rc = p11kmip_print_certificates(P11KMIP_SERVER_CERT_PATH);
+        rc = p11kmip_print_certificates(server_cert_path);
 
         if (rc != 0) {
             warnx("Failed to print KMIP server certificate '%s'",
-                  P11KMIP_SERVER_CERT_PATH);
+                  server_cert_path);
             rv = CKR_GENERAL_ERROR;
             goto done;
         }
@@ -1361,6 +1401,8 @@ static CK_RV init_kmip(void)
     printf("KMIP server version: %d.%d\n", kmip_vers.major, kmip_vers.minor);
 
 done:
+    unlink(server_cert_path);
+    unlink(server_pkey_path);
     return rv;
 }
 

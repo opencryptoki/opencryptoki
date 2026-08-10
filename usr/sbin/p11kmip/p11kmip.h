@@ -18,9 +18,6 @@
 #define P11KMIP_DEFAULT_PKCS11_LIB           "libopencryptoki.so";
 #define P11KMIP_CONFIG_FILE_NAME             "p11kmip.conf"
 #define P11KMIP_DEFAULT_CONFIG_FILE          OCK_CONFDIR "/" P11KMIP_CONFIG_FILE_NAME
-#define P11KMIP_SERVER_CERT_PATH             "/tmp/p11kmip-server-cert-tmp.pem"
-#define P11KMIP_SERVER_PKEY_PATH             "/tmp/p11kmip-server-pubkey-tmp.pem"
-
 #define P11KMIP_PKCSLIB_ENV_NAME             "PKCSLIB"
 #define P11KMIP_CONF_FILE_ENV_NAME           "P11KMIP_CONF_FILE"
 #define PKCS11_SLOT_ID_ENV_NAME              "PKCS11_SLOT_ID"
