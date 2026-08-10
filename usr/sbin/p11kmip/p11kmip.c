@@ -2503,11 +2503,21 @@ static CK_RV p11kmip_unwrap_local_secret_key(
      */
     for (i = 0; i < wrapped_key_num_attrs; i++) {
         if (wrapped_key_attrs[i].type == CKA_TOKEN) {
-            memcpy(wrapped_key_attrs[0].pValue, wrapped_key_attrs[i].pValue, 
-                wrapped_key_attrs[i].ulValueLen);
+            if (wrapped_key_attrs[i].ulValueLen > sizeof(CK_BBOOL)) {
+                rc = CKR_ATTRIBUTE_VALUE_INVALID;
+                warnx("Invalid length for CKA_TOKEN attribute");
+                goto done;
+            }
+            memcpy(unwrapped_template[0].pValue, wrapped_key_attrs[i].pValue,
+                   wrapped_key_attrs[i].ulValueLen);
         } else if (wrapped_key_attrs[i].type == CKA_SENSITIVE) {
-            memcpy(wrapped_key_attrs[1].pValue, wrapped_key_attrs[i].pValue, 
-                wrapped_key_attrs[i].ulValueLen);
+            if (wrapped_key_attrs[i].ulValueLen > sizeof(CK_BBOOL)) {
+                rc = CKR_ATTRIBUTE_VALUE_INVALID;
+                warnx("Invalid length for CKA_SENSITIVE attribute");
+                goto done;
+            }
+            memcpy(unwrapped_template[1].pValue, wrapped_key_attrs[i].pValue,
+                   wrapped_key_attrs[i].ulValueLen);
         } else {
             rc = p11tool_add_attribute(wrapped_key_attrs[i].type,
                                        wrapped_key_attrs[i].pValue,
@@ -2700,8 +2710,13 @@ static CK_RV p11kmip_create_local_public_key(
     for (i = 0; i < public_key_num_attrs; i++) {
         /* Handle non-default value */
         if (public_key_attrs[i].type == CKA_TOKEN) {
-            memcpy(public_template[0].pValue, public_key_attrs[i].pValue, 
-                    public_key_attrs[i].ulValueLen);
+            if (public_key_attrs[i].ulValueLen > sizeof(CK_BBOOL)) {
+                rc = CKR_ATTRIBUTE_VALUE_INVALID;
+                warnx("Invalid length for CKA_TOKEN attribute");
+                goto done;
+            }
+            memcpy(public_template[0].pValue, public_key_attrs[i].pValue,
+                   public_key_attrs[i].ulValueLen);
         } else {
             rc = p11tool_add_attribute(public_key_attrs[i].type,
                                        public_key_attrs[i].pValue,
