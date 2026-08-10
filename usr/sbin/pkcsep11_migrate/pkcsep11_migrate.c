@@ -380,6 +380,8 @@ static void usage(char *fct)
 static int do_ParseArgs(int argc, char **argv)
 {
     int i;
+    unsigned long val;
+    char *endptr;
 
     if (argc <= 1) {
         printf("No Arguments given. "
@@ -392,25 +394,46 @@ static int do_ParseArgs(int argc, char **argv)
             usage(argv[0]);
             return 0;
         } else if (strcmp(argv[i], "-slot") == 0) {
-            if (!isdigit(*argv[i + 1])) {
-                printf("Slot parameter is not numeric!\n");
+            if (i + 1 >= argc) {
+                printf("Slot parameter is missing!\n");
                 return -1;
             }
-            SLOT_ID = (int) strtol(argv[i + 1], NULL, 0);
+            errno = 0;
+            val = strtoul(argv[i + 1], &endptr, 10);
+            if (errno != 0 || endptr == argv[i + 1] || *endptr != '\0'
+                || argv[i + 1][0] == '-') {
+                printf("Slot parameter is not a valid number!\n");
+                return -1;
+            }
+            SLOT_ID = (CK_SLOT_ID) val;
             i++;
         } else if (strcmp(argv[i], "-adapter") == 0) {
-            if (!isdigit(*argv[i + 1])) {
-                printf("Adapter parameter is not numeric!\n");
+            if (i + 1 >= argc) {
+                printf("Adapter parameter is missing!\n");
                 return -1;
             }
-            adapter = (int) strtol(argv[i + 1], NULL, 0);
+            errno = 0;
+            val = strtoul(argv[i + 1], &endptr, 10);
+            if (errno != 0 || endptr == argv[i + 1] || *endptr != '\0'
+                || argv[i + 1][0] == '-') {
+                printf("Adapter parameter is not a valid number!\n");
+                return -1;
+            }
+            adapter = (CK_LONG) val;
             i++;
         } else if (strcmp(argv[i], "-domain") == 0) {
-            if (!isdigit(*argv[i + 1])) {
-                printf("Domain parameter is not numeric!\n");
+            if (i + 1 >= argc) {
+                printf("Domain parameter is missing!\n");
                 return -1;
             }
-            domain = (int) strtol(argv[i + 1], NULL, 0);
+            errno = 0;
+            val = strtoul(argv[i + 1], &endptr, 10);
+            if (errno != 0 || endptr == argv[i + 1] || *endptr != '\0'
+                || argv[i + 1][0] == '-') {
+                printf("Domain parameter is not a valid number!\n");
+                return -1;
+            }
+            domain = (CK_LONG) val;
             i++;
         } else {
             printf("Invalid argument passed as option: %s\n", argv[i]);
