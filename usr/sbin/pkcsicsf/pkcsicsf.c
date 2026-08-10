@@ -669,6 +669,12 @@ int main(int argc, char **argv)
                 rc = -1;
                 goto cleanup;
             }
+            if (strlen(racfpwd) >= PIN_SIZE) {
+                fprintf(stderr, "RACF passwd too long (max %d characters).\n",
+                        PIN_SIZE - 1);
+                rc = -1;
+                goto cleanup;
+            }
 
             /* bind to ldap server */
             rc = icsf_login(&ld, uri, binddn, racfpwd);
