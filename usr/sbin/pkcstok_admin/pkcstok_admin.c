@@ -235,7 +235,8 @@ retry:
     }
 
     errno = 0;
-    if (getgrnam_r(PKCS_GROUP, &grp_buf, buff, buf_size, &pkcs11_grp) != 0) {
+    if (getgrnam_r(PKCS_GROUP, &grp_buf, buff, buf_size, &pkcs11_grp) != 0 ||
+        pkcs11_grp == NULL) {
         err = (errno != 0 ? errno : ENOENT);
         if (err == ERANGE && buf_size < 64 * 1024) {
             free(buff);
