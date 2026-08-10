@@ -975,6 +975,9 @@ int replace_keys(CK_FUNCTION_LIST *funcs, CK_SESSION_HANDLE sess,
     struct key *key;
 
     for (key = keys; key; key = key->next) {
+        if (key->opaque_attr == NULL)
+            continue;
+
         new_attr->pValue = key->opaque_attr;
         new_attr->ulValueLen = key->attr_len;
 
@@ -1646,6 +1649,7 @@ int cca_migrate_old_rsa(struct key *keys, unsigned int *count,
         key->opaque_attr = malloc(target_len);
         if (key->opaque_attr == NULL) {
             print_error("Malloc of %ld bytes failed!", target_len);
+            key->attr_len = 0;
             (*count_failed)++;
             continue;
         }
