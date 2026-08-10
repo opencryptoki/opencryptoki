@@ -2083,7 +2083,7 @@ CK_RV p11tool_get_class_and_type_values(CK_OBJECT_HANDLE obj, char *label,
     CK_KEY_TYPE ktype_val = 0;
     CK_CERTIFICATE_TYPE ctype_val = 0;
     CK_ATTRIBUTE attrs[] = {
-        { CKA_CLASS, class_val, sizeof(class_val) },
+        { CKA_CLASS, class_val, sizeof(*class_val) },
         { CKA_KEY_TYPE, &ktype_val, sizeof(ktype_val) },
         { CKA_CERTIFICATE_TYPE, &ctype_val, sizeof(ctype_val) },
     };
