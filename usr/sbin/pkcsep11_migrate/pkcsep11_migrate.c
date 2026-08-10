@@ -21,6 +21,7 @@
 #include <dlfcn.h>
 #include <ctype.h>
 #include <errno.h>
+#include <openssl/crypto.h>
 
 #define OCK_NO_EP11_DEFINES
 #include "../../include/pkcs11types.h"
@@ -616,6 +617,7 @@ int main(int argc, char **argv)
 
     user_pin_len = (CK_ULONG) strlen((char *) user_pin);
     rc = funcs->C_Login(session, CKU_USER, user_pin, user_pin_len);
+    OPENSSL_cleanse(user_pin, sizeof(user_pin));
     if (rc != CKR_OK) {
         fprintf(stderr, "C_Login() rc = 0x%02x [%s]\n", rc, p11_get_ckr(rc));
         return rc;
