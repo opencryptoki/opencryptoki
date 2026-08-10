@@ -274,8 +274,8 @@ static int config_add_slotinfo(int num_of_slots,
         rc = add_token_config(configname, tokens[i], slot_id);
         if (rc == -1) {
             fprintf(stderr, "failed to add %s token.\n", tokens[i].name);
-            /* skip adding this entry */
-            continue;
+            confignode_deepfree(config);
+            return 1;
         }
 
         /* add the slot entry to the ock config file */
@@ -307,7 +307,8 @@ static int config_add_slotinfo(int num_of_slots,
             confignode_freebareval(confname_val);
             confignode_freebareval(tokname_val);
             confignode_freeeoc(eoc3);
-            continue;
+            confignode_deepfree(config);
+            return 1;
         }
 
         confignode_append(slot->value, &stdll_val->base);
