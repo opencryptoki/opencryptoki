@@ -38,6 +38,8 @@
 #include <pwd.h>
 
 #include "slotmgr.h"
+#define OCK_TOOL
+#include "pkcs_utils.h"
 
 #if defined(_AIX)
 #define SHM_PREFIX  "/"
@@ -54,6 +56,8 @@
 
 static bool verbose = false;
 static bool force = false;
+
+pkcs_trace_level_t trace_level = TRACE_LEVEL_NONE;
 
 static void print_usage(const char *progname)
 {
@@ -999,6 +1003,13 @@ int main(int argc, char **argv)
     }
     if (strcmp(token, "HSM_MK_CHANGE") == 0) {
         warnx("The token name 'HSM_MK_CHANGE' is reserved and can not be used.");
+        rc = EXIT_FAILURE;
+        goto out;
+    }
+    if (!is_valid_filename_component(token)) {
+        warnx("The token name '%s' is not valid. It must be 1 to %d "
+              "characters long and must not be '.' or '..', and must "
+              "not contain '/'", token, NAME_MAX);
         rc = EXIT_FAILURE;
         goto out;
     }
