@@ -427,7 +427,7 @@ CK_RV remove_files_in_directory(const char *directory, CK_BBOOL ignore_errors)
     CK_RV rc = CKR_OK;
     DIR *dir;
     struct dirent *entry;
-    char ent[PATH_MAX];
+    int dfd;
 
     dir = opendir_nofollow(directory);
     if (dir == NULL) {
@@ -436,14 +436,15 @@ CK_RV remove_files_in_directory(const char *directory, CK_BBOOL ignore_errors)
         return ignore_errors ? CKR_OK : CKR_FUNCTION_FAILED;
     }
 
+    dfd = dirfd(dir);
+
     while ((entry = readdir(dir)) != NULL) {
         if (strncmp(entry->d_name, ".", 1) == 0)
             continue;
 
-        snprintf(ent, PATH_MAX, "%s/%s", directory, entry->d_name);
-        if (remove(ent) != 0) {
-            TRACE_DEVEL("Failed to remove file '%s': %s\n", ent,
-                                strerror(errno));
+        if (unlinkat(dfd, entry->d_name, 0) != 0) {
+            TRACE_DEVEL("Failed to remove file '%s/%s': %s\n",
+                        directory, entry->d_name, strerror(errno));
 
             if (!ignore_errors) {
                 rc = CKR_FUNCTION_FAILED;
