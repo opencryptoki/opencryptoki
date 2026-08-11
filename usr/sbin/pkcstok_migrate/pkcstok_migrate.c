@@ -1374,17 +1374,24 @@ static CK_RV cleanup_repository_backup(const char *data_store)
 {
     static char *names[] = { "MK_SO", "MK_USER", "NVTOK.DAT" };
     int num_names = sizeof(names) / sizeof(char *);
-    char fname1[PATH_MAX + 9 + 1]; // satisfy compiler warning
-    char fname2[PATH_MAX + 1 + 1]; // satisfy compiler warning
-    int i, rc;
+    char name_312[NAME_MAX + 1];
+    int i, rc, dfd;
     CK_RV ret;
+    DIR *dir;
+
+    dir = opendir_nofollow(data_store);
+    if (dir == NULL) {
+        TRACE_ERROR("Cannot open %s: %s\n", data_store, strerror(errno));
+        return CKR_FUNCTION_FAILED;
+    }
+    dfd = dirfd(dir);
 
     /* Delete old files */
     for (i = 0; i < num_names; i++) {
-        snprintf(fname1, sizeof(fname1), "%s/%s", data_store, names[i]);
-        rc = remove(fname1);
+        rc = unlinkat(dfd, names[i], 0);
         if (rc) {
-            TRACE_ERROR("Cannot delete old file %s.\n", fname1);
+            TRACE_ERROR("Cannot delete %s/%s: %s\n",
+                        data_store, names[i], strerror(errno));
             ret = CKR_FUNCTION_FAILED;
             goto done;
         }
@@ -1392,11 +1399,15 @@ static CK_RV cleanup_repository_backup(const char *data_store)
 
     /* Rename new files */
     for (i = 0; i < num_names; i++) {
-        snprintf(fname1, sizeof(fname1), "%s/%s_312", data_store, names[i]);
-        snprintf(fname2, sizeof(fname2), "%s/%s", data_store, names[i]);
-        rc = rename(fname1, fname2);
+        if (ock_snprintf(name_312, sizeof(name_312), "%s_312", names[i]) != 0) {
+            TRACE_ERROR("Name overflow for %s_312\n", names[i]);
+            ret = CKR_FUNCTION_FAILED;
+            goto done;
+        }
+        rc = renameat(dfd, name_312, dfd, names[i]);
         if (rc) {
-            TRACE_ERROR("Cannot rename new file %s.\n", fname1);
+            TRACE_ERROR("Cannot rename %s/%s: %s\n",
+                        data_store, name_312, strerror(errno));
             ret = CKR_FUNCTION_FAILED;
             goto done;
         }
@@ -1405,6 +1416,7 @@ static CK_RV cleanup_repository_backup(const char *data_store)
     ret = CKR_OK;
 
 done:
+    closedir(dir);
 
     return ret;
 }
@@ -2132,17 +2144,26 @@ done:
  */
 static CK_RV update_opencryptoki_conf(CK_SLOT_ID slot_id, char *location)
 {
-    char dst_file[PATH_MAX], src_file[PATH_MAX], fname[PATH_MAX+20];
+    char src_file[PATH_MAX];
     struct ConfigBaseNode *config = NULL, *c;
     struct ConfigVersionValNode *v;
     struct ConfigIdxStructNode *slot;
     FILE *fp_w = NULL;
     CK_RV ret;
-    int rc;
+    int rc, dfd, fd_w;
+    DIR *dir;
 
     TRACE_INFO("Updating config file ...\n");
 
-    /* Open current conf file for read */
+    /* Open the config directory to anchor all subsequent file operations */
+    dir = opendir_nofollow(location);
+    if (dir == NULL) {
+        TRACE_ERROR("Cannot open %s: %s\n", location, strerror(errno));
+        return CKR_FUNCTION_FAILED;
+    }
+    dfd = dirfd(dir);
+
+    /* Open current conf file for read - config_parse needs a path */
     snprintf(src_file, PATH_MAX, "%s/%s", location, "opencryptoki.conf");
 
     config = config_parse(src_file, TRUE);
@@ -2152,7 +2173,7 @@ static CK_RV update_opencryptoki_conf(CK_SLOT_ID slot_id, char *location)
         goto done;
     }
 
-    /* Update the tokeversion for the selected slot */
+    /* Update the tokversion for the selected slot */
     slot = confignode_findidx(config, "slot", slot_id);
     if (slot == NULL) {
         TRACE_ERROR("failed to find slot %lu in config file %s\n", slot_id,
@@ -2194,34 +2215,44 @@ static CK_RV update_opencryptoki_conf(CK_SLOT_ID slot_id, char *location)
         confignode_append(slot->value, &v->base);
     }
 
-    /* Open new conf file for write */
-    snprintf(dst_file, PATH_MAX, "%s/%s", location, "opencryptoki.conf_new");
-    fp_w = fopen_nofollow(dst_file, "w");
-    if (!fp_w) {
-        TRACE_ERROR("fopen(%s) failed, errno=%s\n", dst_file, strerror(errno));
+    /* Open new conf file for write relative to dfd */
+    fd_w = openat_nofollow(dfd, "opencryptoki.conf_new",
+                           O_WRONLY | O_CREAT | O_TRUNC, 0600);
+    if (fd_w < 0) {
+        TRACE_ERROR("Cannot create opencryptoki.conf_new in %s: %s\n",
+                    location, strerror(errno));
         ret = CKR_FUNCTION_FAILED;
         goto done;
     }
-    fchmod(fileno(fp_w), S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+
+    fp_w = fdopen(fd_w, "w");
+    if (!fp_w) {
+        TRACE_ERROR("fdopen opencryptoki.conf_new failed: %s\n", strerror(errno));
+        close(fd_w);
+        ret = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+
+    fchmod(fd_w, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
 
     confignode_dump(fp_w, config, NULL, 2);
 
     fclose(fp_w);
     fp_w = NULL;
 
-    /* Rename old conf file */
-    snprintf(fname, sizeof(fname), "%s_BAK", src_file);
-    rc = rename(src_file, fname);
+    /* Rename old conf file to backup, then new file to canonical name */
+    rc = renameat(dfd, "opencryptoki.conf", dfd, "opencryptoki.conf_BAK");
     if (rc) {
-        TRACE_ERROR("Cannot rename %s\n", src_file);
+        TRACE_ERROR("Cannot rename opencryptoki.conf to .conf_BAK in %s: %s\n",
+                    location, strerror(errno));
         ret = CKR_FUNCTION_FAILED;
         goto done;
     }
 
-    /* Rename new file */
-    rc = rename(dst_file, src_file);
+    rc = renameat(dfd, "opencryptoki.conf_new", dfd, "opencryptoki.conf");
     if (rc) {
-        TRACE_ERROR("Cannot rename %s.\n", dst_file);
+        TRACE_ERROR("Cannot rename opencryptoki.conf_new to .conf in %s: %s\n",
+                    location, strerror(errno));
         ret = CKR_FUNCTION_FAILED;
         goto done;
     }
@@ -2230,9 +2261,9 @@ static CK_RV update_opencryptoki_conf(CK_SLOT_ID slot_id, char *location)
 
 done:
     confignode_deepfree(config);
+    closedir(dir);
 
     return ret;
-
 }
 
 /**
@@ -2266,43 +2297,67 @@ static CK_RV remove_shared_memory(char *location)
 }
 
 /**
- * Copy a file given by name from a src folder to a dst folder.
+ * Copy a file named @name from the directory referred to by @src_dfd into the
+ * directory referred to by @dst_dfd.  Both lookups are relative to the
+ * respective open directory file descriptors - no absolute paths are built.
  */
-static CK_RV file_copy(char *dst, const char *src, const char *name,
-                       const char *token_group)
+static CK_RV file_copy_at(int src_dfd, int dst_dfd, const char *name,
+                           const char *token_group)
 {
-    char dst_file[PATH_MAX], src_file[PATH_MAX], buf[4096];
+    char buf[4096];
     FILE *fp_r = NULL, *fp_w = NULL;
     size_t written;
     CK_RV ret;
+    int fd_r, fd_w;
 
-    snprintf(dst_file, PATH_MAX, "%s/%s", dst, name);
-    snprintf(src_file, PATH_MAX, "%s/%s", src, name);
+    fd_r = openat_nofollow(src_dfd, name, O_RDONLY);
+    if (fd_r < 0) {
+        if (errno == ELOOP)
+            TRACE_ERROR("Refusing to follow symlink: %s\n", name);
+        else
+            TRACE_ERROR("Cannot open source file %s: %s\n",
+                        name, strerror(errno));
+        return CKR_FUNCTION_FAILED;
+    }
 
-    fp_r = fopen(src_file, "r");
+    fp_r = fdopen(fd_r, "r");
     if (!fp_r) {
-        warnx("fopen(%s) failed, errno=%s", src_file, strerror(errno));
+        TRACE_ERROR("fdopen source %s failed: %s\n", name, strerror(errno));
+        close(fd_r);
+        return CKR_FUNCTION_FAILED;
+    }
+
+    /* Destination is a new file in a freshly created directory;
+     * O_NOFOLLOW still guards against a race replacing the name with a link */
+    fd_w = openat_nofollow(dst_dfd, name,
+                           O_WRONLY | O_CREAT | O_TRUNC, 0600);
+    if (fd_w < 0) {
+        TRACE_ERROR("Cannot create destination file %s: %s\n",
+                    name, strerror(errno));
         ret = CKR_FUNCTION_FAILED;
         goto done;
     }
 
-    fp_w = fopen_nofollow(dst_file, "w");
+    fp_w = fdopen(fd_w, "w");
     if (!fp_w) {
-        warnx("fopen(%s) failed, errno=%s", dst_file, strerror(errno));
+        TRACE_ERROR("fdopen destination %s failed: %s\n", name, strerror(errno));
+        close(fd_w);
         ret = CKR_FUNCTION_FAILED;
         goto done;
     }
-    ret = set_perm(fileno(fp_w), token_group);
-    if (ret != CKR_OK)
+
+    ret = set_perm(fd_w, token_group);
+    if (ret != CKR_OK) {
+        TRACE_ERROR("Cannot set permissions on %s\n", name);
         goto done;
+    }
 
     while (!feof(fp_r)) {
         size_t bytes = fread(buf, 1, sizeof(buf), fp_r);
-        if (bytes) { // can be zero, if file empty
+        if (bytes) { /* can be zero if file is empty */
             written = fwrite(buf, 1, bytes, fp_w);
             if (written != bytes) {
-                warnx("fwrite(%s) failed, errno=%s", dst_file,
-                      strerror(errno));
+                TRACE_ERROR("fwrite(%s) failed: %s\n", name, strerror(errno));
                 ret = CKR_FUNCTION_FAILED;
                 goto done;
             }
@@ -2312,7 +2367,6 @@ static CK_RV file_copy(char *dst, const char *src, const char *name,
     ret = CKR_OK;
 
 done:
-
     if (fp_r)
         fclose(fp_r);
     if (fp_w)
@@ -2322,37 +2376,100 @@ done:
 }
 
 /**
- * Change the group owner of the given directory to 'pkcs11'.
+ * Recursively copy the directory @src_name (inside @src_dfd) to @dst_name
+ * (inside @dst_dfd).  All path lookups are performed relative to the
+ * respective open directory file descriptors - no absolute paths are built.
  */
-static CK_RV change_owner(char *dir, const char *token_group)
+static CK_RV folder_copy_at(int src_dfd, const char *src_name,
+                            int dst_dfd, const char *dst_name,
+                            const char *token_group)
 {
-    struct group* grp;
-    CK_RV ret;
+    struct dirent *entry;
+    CK_RV ret = CKR_OK;
+    DIR *src_dir;
+    int src_fd, dst_fd;
 
-    if (token_group == NULL || token_group[0] == '\0')
-        token_group = PKCS_GROUP;
+    /* Open the source directory relative to src_dfd */
+    src_fd = openat_nofollow(src_dfd, src_name, O_RDONLY | O_DIRECTORY);
+    if (src_fd < 0) {
+        if (errno == ELOOP)
+            TRACE_ERROR("Refusing to follow symlink: %s\n", src_name);
+        else
+            TRACE_ERROR("Cannot open source folder %s: %s\n",
+                        src_name, strerror(errno));
+        return CKR_FUNCTION_FAILED;
+    }
 
-    /* Set group owner */
-    grp = getgrnam(token_group);
-    if (grp) {
-        if (chown(dir, -1, grp->gr_gid)) {
-            ret = CKR_FUNCTION_FAILED;
-            goto done;
+    src_dir = fdopendir(src_fd);
+    if (src_dir == NULL) {
+        TRACE_ERROR("Cannot open source folder %s: %s\n",
+                    src_name, strerror(errno));
+        close(src_fd);
+        return CKR_FUNCTION_FAILED;
+    }
+
+    /* Create the destination directory relative to dst_dfd */
+    if (mkdirat(dst_dfd, dst_name, 0) != 0) {
+        TRACE_ERROR("Cannot create destination folder %s: %s\n",
+                    dst_name, strerror(errno));
+        closedir(src_dir);
+        return CKR_FUNCTION_FAILED;
+    }
+
+    /* Open the newly created destination directory */
+    dst_fd = openat_nofollow(dst_dfd, dst_name, O_RDONLY | O_DIRECTORY);
+    if (dst_fd < 0) {
+        TRACE_ERROR("Cannot open destination folder %s: %s\n",
+                    dst_name, strerror(errno));
+        closedir(src_dir);
+        return CKR_FUNCTION_FAILED;
+    }
+
+    /* set_perm handles fchown + fchmod on the directory fd */
+    ret = set_perm(dst_fd, token_group);
+    if (ret != CKR_OK) {
+        TRACE_ERROR("Cannot set permissions on destination folder %s\n",
+                    dst_name);
+        close(dst_fd);
+        closedir(src_dir);
+        return CKR_FUNCTION_FAILED;
+    }
+
+    /* Recurse: skip "." and ".." */
+    while ((entry = readdir(src_dir)) != NULL) {
+        if (!strcmp(entry->d_name, ".") || !strcmp(entry->d_name, ".."))
+            continue;
+
+#if defined(_AIX)
+        {
+            /* POSIX does not mandate d_type, so use fstatat */
+            struct stat sb;
+
+            if (fstatat_nofollow(src_fd, entry->d_name, &sb) != 0) {
+                TRACE_ERROR("Cannot stat %s: %s\n",
+                            entry->d_name, strerror(errno));
+                ret = CKR_FUNCTION_FAILED;
+                break;
+            }
+            if (S_ISDIR(sb.st_mode))
+                ret = folder_copy_at(src_fd, entry->d_name,
+                                     dst_fd, entry->d_name, token_group);
+            else
+                ret = file_copy_at(src_fd, dst_fd, entry->d_name, token_group);
         }
-    } else {
-        ret = CKR_FUNCTION_FAILED;
-        goto done;
+#else
+        if (entry->d_type == DT_DIR)
+            ret = folder_copy_at(src_fd, entry->d_name,
+                                 dst_fd, entry->d_name, token_group);
+        else
+            ret = file_copy_at(src_fd, dst_fd, entry->d_name, token_group);
+#endif
+        if (ret != CKR_OK)
+            break;
     }
 
-    /* Fix group permissions (see man 2 mkdir for details) */
-    if (chmod(dir, 0770)) {
-        ret = CKR_FUNCTION_FAILED;
-        goto done;
-    }
-
-    ret = CKR_OK;
-
-done:
+    close(dst_fd);
+    closedir(src_dir); /* also closes src_fd */
 
     return ret;
 }
@@ -2363,77 +2480,76 @@ done:
  */
 static CK_RV folder_copy(char *dst, const char *src, const char *token_group)
 {
-    char d[PATH_MAX], s[PATH_MAX];
-    struct dirent *entry;
-    CK_RV ret;
-    DIR *dir;
+    TRACE_INFO("Copying folder %s -> %s\n", src, dst);
 
-    /* Open src */
-    dir = opendir_nofollow(src);
-    if (dir == NULL) {
-        TRACE_ERROR("Cannot open %s: %s\n", src, strerror(errno));
+    return folder_copy_at(AT_FDCWD, src, AT_FDCWD, dst, token_group);
+}
+
+/**
+ * Recursively remove the entry named @name inside the directory referred to
+ * by the open file descriptor @dfd.  All path lookups are performed relative
+ * to @dfd so no absolute paths are ever constructed, eliminating TOCTOU races
+ * between stat and the subsequent operation.
+ */
+static CK_RV folder_delete_at(int dfd, const char *name)
+{
+    struct stat sb;
+    struct dirent *ent;
+    CK_RV ret = CKR_OK;
+    DIR *dir;
+    int fd;
+
+    if (fstatat_nofollow(dfd, name, &sb) != 0) {
+        if (errno == ENOENT)
+            return CKR_OK;
+        TRACE_ERROR("Cannot stat %s: %s\n", name, strerror(errno));
         return CKR_FUNCTION_FAILED;
     }
 
-    /* Create dst */
-    if (mkdir(dst, 0) != 0) {
-        TRACE_ERROR("Cannot create %s\n", dst);
-        ret = CKR_FUNCTION_FAILED;
-        goto done;
-    }
-
-    /* Change group owner and set permissions */
-    ret = change_owner(dst, token_group);
-    if (ret != CKR_OK) {
-        TRACE_ERROR("Cannot change owner and permissions for %s\n", dst);
-        ret = CKR_FUNCTION_FAILED;
-        goto done;
-    }
-
-    /* Copy folder recursively, skip the "." and ".." entries */
-    while ((entry = readdir(dir)) != NULL) {
-#if defined(_AIX)
-        /* POSIX does not mandate the d_type member, so get that with stat */
-        struct stat buf;
-        int rc;
-
-        strncpy(s, src, PATH_MAX - NAME_MAX - 1);
-        /* strncpy will NOT include NULL if it copied exactly n bytes */
-        s[PATH_MAX - NAME_MAX] = '\0';
-        strncat(s, "/", 1);
-        strncat(s, entry->d_name, NAME_MAX);
-
-        rc = stat(s, &buf);
-        if (rc != 0) {
-            TRACE_ERROR("Cannot stat file %s: %d", entry->d_name, rc);
-            continue; /* something went wrong, skip */
+    if (!S_ISDIR(sb.st_mode)) {
+        if (unlinkat(dfd, name, 0) != 0) {
+            TRACE_ERROR("Cannot remove %s: %s\n", name, strerror(errno));
+            return CKR_FUNCTION_FAILED;
         }
-
-        if (S_ISDIR(buf.st_mode)) {
-#else
-        if (entry->d_type == DT_DIR) {
-#endif
-            if (strncmp(entry->d_name, ".", 1) != 0) {
-                snprintf(d, PATH_MAX, "%s/%s", dst, entry->d_name);
-                snprintf(s, PATH_MAX, "%s/%s", src, entry->d_name);
-                ret = folder_copy(d, s, token_group);
-                if (ret != CKR_OK)
-                    goto done;
-            }
-        } else {
-            ret = file_copy(dst, src, entry->d_name, token_group);
-            if (ret != CKR_OK)
-                goto done;
-        }
+        return CKR_OK;
     }
 
-    ret = CKR_OK;
+    /* It is a directory: open it relative to dfd, then recurse. */
+    fd = openat_nofollow(dfd, name, O_RDONLY | O_DIRECTORY);
+    if (fd < 0) {
+        if (errno == ELOOP)
+            TRACE_ERROR("Refusing to follow symlink: %s\n", name);
+        else
+            TRACE_ERROR("Cannot open folder %s: %s\n", name, strerror(errno));
+        return CKR_FUNCTION_FAILED;
+    }
 
-done:
+    dir = fdopendir(fd);
+    if (dir == NULL) {
+        TRACE_ERROR("Cannot open folder %s: %s\n", name, strerror(errno));
+        close(fd);
+        return CKR_FUNCTION_FAILED;
+    }
 
-    closedir(dir);
+    while ((ent = readdir(dir)) != NULL) {
+        if (!strcmp(ent->d_name, ".") || !strcmp(ent->d_name, ".."))
+            continue;
+        ret = folder_delete_at(dirfd(dir), ent->d_name);
+        if (ret != CKR_OK)
+            break;
+    }
 
-    return ret;
+    closedir(dir); /* also closes fd */
+
+    if (ret != CKR_OK)
+        return ret;
+
+    if (unlinkat(dfd, name, AT_REMOVEDIR) != 0) {
+        TRACE_ERROR("Cannot remove folder %s: %s\n", name, strerror(errno));
+        return CKR_FUNCTION_FAILED;
+    }
+
+    return CKR_OK;
 }
 
 /**
@@ -2441,62 +2557,13 @@ done:
  */
 static CK_RV folder_delete(const char *folder)
 {
-    DIR *dir;
-    char fname[PATH_MAX];
-    struct stat statbuf;
-    struct dirent *ent;
-    CK_RV ret = CKR_OK;
+    CK_RV ret;
 
-    dir = opendir_nofollow(folder);
-    if (dir == NULL) {
-        if (errno == ENOENT) {
-            TRACE_INFO("Folder %s doesn't exist.\n", folder);
-            return CKR_OK;
-        }
-        if (errno == ELOOP)
-            TRACE_ERROR("Refusing to follow symlink: %s\n", folder);
-        else
-            TRACE_ERROR("Cannot open folder %s: %s\n", folder, strerror(errno));
-        return CKR_FUNCTION_FAILED;
-    }
+    TRACE_INFO("Deleting folder %s\n", folder);
 
-    while ((ent = readdir(dir)) != NULL) {
-        if (!strcmp(ent->d_name, ".") || !strcmp(ent->d_name, ".."))
-            continue;
-
-        if (ock_snprintf(fname, sizeof(fname), "%s/%s",
-                         folder, ent->d_name) != 0) {
-            TRACE_ERROR("Path overflow for %s/%s\n", folder, ent->d_name);
-            ret = CKR_FUNCTION_FAILED;
-            goto done;
-        }
-
-        if (lstat(fname, &statbuf) != 0) {
-            TRACE_ERROR("Cannot stat %s, errno=%s.\n", fname, strerror(errno));
-            ret = CKR_FUNCTION_FAILED;
-            goto done;
-        }
-
-        if (S_ISDIR(statbuf.st_mode)) {
-            ret = folder_delete(fname);
-            if (ret != CKR_OK)
-                goto done;
-        } else {
-            if (remove(fname) != 0) {
-                TRACE_ERROR("Cannot remove %s, errno=%s.\n",
-                            fname, strerror(errno));
-                ret = CKR_FUNCTION_FAILED;
-                goto done;
-            }
-        }
-    }
-
-    ret = CKR_OK;
-
-done:
-    closedir(dir);
-    if (ret == CKR_OK)
-        rmdir(folder);
+    ret = folder_delete_at(AT_FDCWD, folder);
+    if (ret != CKR_OK)
+        TRACE_ERROR("Failed to delete folder %s\n", folder);
 
     return ret;
 }
