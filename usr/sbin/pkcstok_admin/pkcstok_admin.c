@@ -328,8 +328,8 @@ static bool check_file_exists(const char *fname, bool directory)
     return false;
 }
 
-static int set_file_permissions(const char *fname, const struct group *group,
-                                bool recursive)
+static int set_file_permissions_at(int dfd, const char *fname,
+                                   const struct group *group, bool recursive)
 {
     struct stat sb;
     struct passwd *pwd;
@@ -338,12 +338,11 @@ static int set_file_permissions(const char *fname, const struct group *group,
     uid_t uid = (uid_t)-1;
     DIR *dir;
     struct dirent *entry;
-    char ent[PATH_MAX];
 
     pr_verbose("Setting permissions for '%s' with group '%s'", fname,
                group->gr_name);
 
-    fd = open(fname, O_NOFOLLOW | O_RDONLY);
+    fd = openat_nofollow(dfd, fname, O_RDONLY);
     if (fd < 0) {
         err = errno;
         if (err == ELOOP)
@@ -405,9 +404,9 @@ static int set_file_permissions(const char *fname, const struct group *group,
 
     if (recursive && S_ISDIR(sb.st_mode)) {
         dir = fdopendir(fd);
-        fd = -1;
         if (dir == NULL) {
             err = errno;
+            close(fd);
             warnx("Failed to open directory '%s': %s", fname, strerror(err));
             return -1;
         }
@@ -424,35 +423,40 @@ static int set_file_permissions(const char *fname, const struct group *group,
                 continue;
             }
 
-            snprintf(ent, PATH_MAX, "%s/%s", fname, entry->d_name);
-            rc = set_file_permissions(ent, group, recursive);
+            rc = set_file_permissions_at(fd, entry->d_name, group, recursive);
             if (rc != 0)
                 break;
         }
 
-        closedir(dir);
+        closedir(dir); /* also closes fd */
 
         if (rc != 0)
             return rc;
+
+        return 0;
     }
 
-    if (fd >= 0)
-        close(fd);
+    close(fd);
 
     return 0;
 }
 
-static int remove_recursive(const char *fname, bool only_content)
+static int set_file_permissions(const char *fname, const struct group *group,
+                                bool recursive)
+{
+    return set_file_permissions_at(AT_FDCWD, fname, group, recursive);
+}
+
+static int remove_recursive_at(int dfd, const char *fname, bool only_content)
 {
     struct stat sb;
     DIR *dir;
     struct dirent *entry;
-    int rc, err;
-    char ent[PATH_MAX];
+    int rc, err, fd;
 
     pr_verbose("Removing %s'%s'", only_content ? "the content of " : "", fname);
 
-    if (lstat(fname, &sb) != 0) {
+    if (fstatat_nofollow(dfd, fname, &sb) != 0) {
         err = errno;
         if (err == ENOENT) {
             /* Removing a non-existing file is a no-op */
@@ -466,7 +470,7 @@ static int remove_recursive(const char *fname, bool only_content)
 
     if (S_ISLNK(sb.st_mode)) {
         /* unlink the symlink itself, do not follow it */
-        if (remove(fname) != 0) {
+        if (unlinkat(dfd, fname, 0) != 0) {
             err = errno;
             warnx("Failed to remove '%s': %s", fname, strerror(err));
             return -1;
@@ -475,9 +479,17 @@ static int remove_recursive(const char *fname, bool only_content)
     }
 
     if (S_ISDIR(sb.st_mode)) {
-        dir = opendir_nofollow(fname);
+        fd = openat_nofollow(dfd, fname, O_RDONLY | O_DIRECTORY);
+        if (fd < 0) {
+            err = errno;
+            warnx("Failed to open directory '%s': %s", fname, strerror(err));
+            return -1;
+        }
+
+        dir = fdopendir(fd);
         if (dir == NULL) {
             err = errno;
+            close(fd);
             warnx("Failed to open directory '%s': %s", fname, strerror(err));
             return -1;
         }
@@ -494,8 +506,7 @@ static int remove_recursive(const char *fname, bool only_content)
                 continue;
             }
 
-            snprintf(ent, PATH_MAX, "%s/%s", fname, entry->d_name);
-            rc = remove_recursive(ent, false);
+            rc = remove_recursive_at(fd, entry->d_name, false);
             if (rc != 0)
                 break;
         }
@@ -507,7 +518,7 @@ static int remove_recursive(const char *fname, bool only_content)
     }
 
     if (!only_content) {
-        rc = remove(fname);
+        rc = unlinkat(dfd, fname, S_ISDIR(sb.st_mode) ? AT_REMOVEDIR : 0);
         if (rc != 0) {
             err = errno;
             warnx("Failed to remove '%s': %s", fname, strerror(err));
@@ -516,6 +527,11 @@ static int remove_recursive(const char *fname, bool only_content)
     }
 
     return 0;
+}
+
+static int remove_recursive(const char *fname, bool only_content)
+{
+    return remove_recursive_at(AT_FDCWD, fname, only_content);
 }
 
 static int create_directory(const char *dirname, const struct group *group)
