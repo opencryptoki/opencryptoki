@@ -215,4 +215,84 @@ static inline DIR *opendir_nofollow(const char *path)
 #endif
 }
 
+/*
+ * Check for AT_SYMLINK_NOFOLLOW support at compile time.
+ * If not available, fall back to lstat() symlink check (has TOCTOU race).
+ */
+#ifndef AT_SYMLINK_NOFOLLOW
+#define OCK_NO_AT_SYMLINK_NOFOLLOW 1
+#warning "AT_SYMLINK_NOFOLLOW not supported, symlink protection uses racy lstat() fallback!"
+#endif
+
+/*
+ * CWE-59 fix: Stat a file without following symlinks.
+ *
+ * On platforms with AT_SYMLINK_NOFOLLOW support:
+ *   Uses fstatat(AT_SYMLINK_NOFOLLOW) for atomic symlink-safe stat.
+ *
+ * On platforms without AT_SYMLINK_NOFOLLOW (e.g., older AIX):
+ *   Falls back to lstat() when dfd is AT_FDCWD and path is absolute, or
+ *   returns ENOSYS otherwise. This has a TOCTOU race but catches pre-planted
+ *   symlinks. Better than no protection at all.
+ *
+ * Returns 0 on success, -1 on error (errno set).
+ */
+static inline int fstatat_nofollow(int dfd, const char *path, struct stat *sb)
+{
+#ifdef OCK_NO_AT_SYMLINK_NOFOLLOW
+    /*
+     * Fallback: lstat() only works reliably for absolute paths via AT_FDCWD.
+     * For relative paths over a real dfd there is no safe alternative without
+     * AT_SYMLINK_NOFOLLOW, so we report ENOSYS to let the caller decide.
+     */
+    if (dfd == AT_FDCWD || path[0] == '/') {
+        return lstat(path, sb);
+    }
+    errno = ENOSYS;
+    return -1;
+#else
+    return fstatat(dfd, path, sb, AT_SYMLINK_NOFOLLOW);
+#endif
+}
+
+/*
+ * CWE-59 fix: Open a file descriptor without following symlinks.
+ *
+ * On platforms with O_NOFOLLOW support:
+ *   Uses openat(O_NOFOLLOW) for atomic symlink rejection.
+ *
+ * On platforms without O_NOFOLLOW (e.g., older AIX):
+ *   Falls back to fstatat_nofollow() check + openat(). This has a TOCTOU
+ *   race but catches pre-planted symlinks. Better than no protection at all.
+ *
+ * Returns -1 with errno=ELOOP if path is a symlink.
+ */
+static inline int openat_nofollow(int dfd, const char *path, int flags, ...)
+{
+    mode_t mode = 0;
+    va_list ap;
+
+    if (flags & O_CREAT) {
+        va_start(ap, flags);
+        mode = va_arg(ap, int); /* mode_t is promoted to int in varargs */
+        va_end(ap);
+    }
+
+#ifdef OCK_NO_O_NOFOLLOW
+    {
+        struct stat sb;
+
+        if (fstatat_nofollow(dfd, path, &sb) == 0) {
+            if (S_ISLNK(sb.st_mode)) {
+                errno = ELOOP;
+                return -1;
+            }
+        }
+    }
+    return openat(dfd, path, flags, mode);
+#else
+    return openat(dfd, path, flags | O_NOFOLLOW, mode);
+#endif
+}
+
 #endif /* PLATFORM_H */
