@@ -7446,6 +7446,10 @@ out:
         OPENSSL_cleanse(priv_key, priv_len);
         free(priv_key);
     }
+    if (priv_seed != NULL) {
+        OPENSSL_cleanse(priv_seed, seed_len);
+        free(priv_seed);
+    }
     if (pub_key != NULL)
         free(pub_key);
 
@@ -7548,6 +7552,10 @@ out:
     if (priv_key != NULL) {
         OPENSSL_cleanse(priv_key, priv_len);
         free(priv_key);
+    }
+    if (priv_seed != NULL) {
+        OPENSSL_cleanse(priv_seed, seed_len);
+        free(priv_seed);
     }
     if (pub_key != NULL)
         free(pub_key);
@@ -7656,6 +7664,10 @@ out:
         OPENSSL_cleanse(priv_key, priv_len);
         free(priv_key);
     }
+    if (priv_seed != NULL) {
+        OPENSSL_cleanse(priv_seed, seed_len);
+        free(priv_seed);
+    }
     if (pub_key != NULL)
         free(pub_key);
 
@@ -7755,6 +7767,10 @@ out:
     if (priv_key != NULL) {
         OPENSSL_cleanse(priv_key, priv_len);
         free(priv_key);
+    }
+    if (priv_seed != NULL) {
+        OPENSSL_cleanse(priv_seed, seed_len);
+        free(priv_seed);
     }
     if (pub_key != NULL)
         free(pub_key);
@@ -9824,6 +9840,10 @@ out:
         OPENSSL_cleanse(priv_key, priv_len);
         free(priv_key);
     }
+    if (priv_seed != NULL) {
+        OPENSSL_cleanse(priv_seed, seed_len);
+        free(priv_seed);
+    }
     if (pub_key != NULL)
         free(pub_key);
     if (pctx != NULL)
@@ -10060,6 +10080,10 @@ out:
         OPENSSL_cleanse(priv_key, priv_len);
         free(priv_key);
     }
+    if (priv_seed != NULL) {
+        OPENSSL_cleanse(priv_seed, seed_len);
+        free(priv_seed);
+    }
     if (pub_key != NULL)
         free(pub_key);
     if (pctx != NULL)
@@ -10289,6 +10313,10 @@ out:
     if (priv_key != NULL) {
         OPENSSL_cleanse(priv_key, priv_len);
         free(priv_key);
+    }
+    if (priv_seed != NULL) {
+        OPENSSL_cleanse(priv_seed, seed_len);
+        free(priv_seed);
     }
     if (pub_key != NULL)
         free(pub_key);
