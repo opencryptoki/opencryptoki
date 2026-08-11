@@ -1621,7 +1621,8 @@ CK_RV priv_key_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
             }
 
             if (mode == MODE_CREATE || mode == MODE_KEYGEN ||
-                mode == MODE_ENCAPS || mode == MODE_DECAPS)
+                mode == MODE_UNWRAP || mode == MODE_ENCAPS ||
+                mode == MODE_DECAPS)
                 return CKR_OK;
 
             value = *(CK_BBOOL *) attr->pValue;
@@ -1644,7 +1645,8 @@ CK_RV priv_key_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
 
             value = *(CK_BBOOL *) attr->pValue;
             if ((mode != MODE_CREATE && mode != MODE_KEYGEN &&
-                 mode != MODE_ENCAPS) && value != FALSE) {
+                 mode != MODE_UNWRAP && mode != MODE_ENCAPS) &&
+                value != FALSE) {
                 TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_READ_ONLY));
                 return CKR_ATTRIBUTE_READ_ONLY;
             }
@@ -2247,8 +2249,9 @@ CK_RV secret_key_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
             }
             value = *(CK_BBOOL *) attr->pValue;
             if ((mode != MODE_CREATE && mode != MODE_DERIVE &&
-                 mode != MODE_KEYGEN && mode != MODE_ENCAPS  &&
-                 mode != MODE_DECAPS) && (value != TRUE)) {
+                 mode != MODE_KEYGEN && mode != MODE_UNWRAP &&
+                 mode != MODE_ENCAPS  && mode != MODE_DECAPS) &&
+                (value != TRUE)) {
                 TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_READ_ONLY));
                 return CKR_ATTRIBUTE_READ_ONLY;
             }
@@ -2268,12 +2271,13 @@ CK_RV secret_key_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
             }
             value = *(CK_BBOOL *) attr->pValue;
             if ((mode != MODE_CREATE && mode != MODE_DERIVE &&
-                 mode != MODE_KEYGEN && mode != MODE_ENCAPS &&
-                 mode != MODE_DECAPS) && (value != FALSE)) {
+                 mode != MODE_KEYGEN && mode != MODE_UNWRAP &&
+                 mode != MODE_ENCAPS && mode != MODE_DECAPS) &&
+                (value != FALSE)) {
                 TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_READ_ONLY));
                 return CKR_ATTRIBUTE_READ_ONLY;
             }
-            if (value == FALSE) {
+            if (value == TRUE) {
                 CK_ATTRIBUTE *attr;
 
                 attr = (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE) +
