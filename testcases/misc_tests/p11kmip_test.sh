@@ -30,6 +30,9 @@
 DIR=$(dirname "$0")
 
 status=0
+RC_P11SAK_IMPORT=0
+RC_P11SAK_REMOVE=0
+RC_PKMIP_GENERATE=0
 
 # Validate required environment variables
 if [[ -z "${PKCS11_USER_PIN}" ]]; then
@@ -225,6 +228,7 @@ setup_kmip_client() {
 }
 
 setup_pkcs11_keys() {
+	RC_P11SAK_IMPORT=0
 	# AES key for exporting
 	p11sak import-key aes --slot $PKCS11_SLOT_ID --pin $PKCS11_USER_PIN --label "$PKCS11_SECRET_KEY_LABEL-conf" --file $DIR/aes.key --attr sX
 	RC_P11SAK_IMPORT=$((RC_P11SAK_IMPORT + $?))
@@ -248,6 +252,7 @@ setup_pkcs11_keys() {
 }
 
 cleanup_pkcs11_keys() {
+	RC_P11SAK_REMOVE=0
 	# AES key for exporting
 	p11sak remove-key aes --force --slot $PKCS11_SLOT_ID --pin $PKCS11_USER_PIN --label "$PKCS11_SECRET_KEY_LABEL-conf"
 	RC_P11SAK_REMOVE=$((RC_P11SAK_REMOVE + $?))
@@ -280,6 +285,7 @@ cleanup_pkcs11_keys() {
 }
 
 setup_kmip_keys() {
+  RC_PKMIP_GENERATE=0
   RETRY_COUNT=0
   GET_LOGIN_TOKEN_DONE=1
   GEN_ASYM_KEY_DONE=0
@@ -474,7 +480,7 @@ key_import_tests() {
 		echo "stderr:"
 		cat "${TEST_BASE}_stderr"
 		echo "* TESTCASE p11kmip_test import-key-conf FAIL Failed to import keys using config file"
-		return
+		return $RC
 	fi
 	echo "* TESTCASE p11kmip_test import-key-conf PASS Sucessfully imported keys using config file"
 
@@ -506,7 +512,7 @@ key_import_tests() {
 		echo "stderr:"
 		cat "${TEST_BASE}_stderr"
 		echo "* TESTCASE p11kmip_test import-key-conf-128 FAIL Failed to import AES-128 keys using config file"
-		return
+		return $RC
 	fi
 	echo "* TESTCASE p11kmip_test import-key-conf-128 PASS Sucessfully imported AES-128 keys using config file"
 
@@ -537,7 +543,7 @@ key_import_tests() {
 		echo "stderr:"
 		cat "${TEST_BASE}_stderr"
 		echo "* TESTCASE p11kmip_test import-key-conf-192 FAIL Failed to import AES-192 keys using config file"
-		return
+		return $RC
 	fi
 	echo "* TESTCASE p11kmip_test import-key-conf-196 PASS Sucessfully imported AES-196 keys using config file"
 
@@ -590,7 +596,7 @@ key_import_tests() {
 		echo "stderr:"
 		cat "${TEST_BASE}_stderr"
 		echo "* TESTCASE p11kmip_test import-key-env FAIL Failed to import keys using env var"
-		return
+		return $RC
 	fi
 	echo "* TESTCASE p11kmip_test import-key-env PASS Sucessfully imported keys using env var"
 
@@ -623,7 +629,7 @@ key_import_tests() {
 		echo "stderr:"
 		cat "${TEST_BASE}_stderr"
 		echo "* TESTCASE p11kmip_test import-key-arg FAIL FAiled to import keys using command line arguments"
-		return
+		return $RC
 	fi
 	echo "* TESTCASE p11kmip_test import-key-arg PASS Sucessfully imported keys using command line arguments"
 }
@@ -673,7 +679,7 @@ key_export_tests() {
 		echo "stderr:"
 		cat "${TEST_BASE}_stderr"
 		echo "* TESTCASE p11kmip_test export-key-conf FAIL Failed to export keys using config file"
-		return
+		return $RC
 	fi
 	echo "* TESTCASE p11kmip_test export-key-conf PASS Sucessfully exported keys using config file"
 
@@ -700,7 +706,7 @@ key_export_tests() {
 		echo "stderr:"
 		cat "${TEST_BASE}_stderr"
 		echo "* TESTCASE p11kmip_test export-key-conf-128 FAIL FAiled to export AES-128 keys using config file"
-		return
+		return $RC
 	fi
 	echo "* TESTCASE p11kmip_test export-key-conf-128 PASS Sucessfully exported AES-128 keys using config file"
 
@@ -724,7 +730,7 @@ key_export_tests() {
 		echo "stderr:"
 		cat "${TEST_BASE}_stderr"
 		echo "* TESTCASE p11kmip_test export-key-conf-192 FAIL FAiled to export AES-192 keys using config file"
-		return
+		return $RC
 	fi
 	echo "* TESTCASE p11kmip_test export-key-conf-192 PASS Sucessfully exported AES-192 keys using config file"
 
@@ -774,7 +780,7 @@ key_export_tests() {
 		echo "stderr:"
 		cat "${TEST_BASE}_stderr"
 		echo "* TESTCASE p11kmip_test export-key-env FAIL Failed to export keys using env vars"
-		return
+		return $RC
 	fi
 	echo "* TESTCASE p11kmip_test export-key-env PASS Sucessfully exported keys using env vars"
 
@@ -806,7 +812,7 @@ key_export_tests() {
 		echo "stderr:"
 		cat "${TEST_BASE}_stderr"
 		echo "* TESTCASE p11kmip_test export-key-arg FAIL Failed to export keys using comand line arguments"
-		return
+		return $RC
 	fi
 	echo "* TESTCASE p11kmip_test export-key-arg PASS Sucessfully exported keys using comand line arguments"
 }
@@ -839,17 +845,19 @@ setup_pkcs11_keys
 
 if [[ $RC_P11SAK_IMPORT -ne 0 ]]; then
 	echo "* TESTCASE p11kmip_test setup-pkcs11-keys FAIL Failed to setup up PKCS#11 keys"
-	exit $RC_PKMIP_GENERATE
+	exit $RC_P11SAK_IMPORT
 fi
 echo "* TESTCASE p11kmip_test setup-pkcs11-keys PASS Sucessfully setup up PKCS#11 keys"
 
 echo "** Running key import tests - 'p11kmip_test.sh'"
 
 key_import_tests
+RC_IMPORT_TESTS=$?
 
 echo "** Running key export tests - 'p11kmip_test.sh'"
 
 key_export_tests
+RC_EXPORT_TESTS=$?
 
 echo "** Cleaning up remote and local test keys - 'p11kmip_test.sh'"
 
@@ -857,8 +865,12 @@ cleanup_pkcs11_keys
 
 if [[ $RC_P11SAK_REMOVE -ne 0 ]]; then
 	echo "* TESTCASE p11kmip_test remove-keys FAIL Failed to remove PKCS#11 keys"
-	exit $RC_P11SAK_REMOVE
+	status=$RC_P11SAK_REMOVE
+else
+	echo "* TESTCASE p11kmip_test remove-keys PASS Sucessfully removed PKCS#11 keys"
 fi
-echo "* TESTCASE p11kmip_test remove-keys PASS Sucessfully removed PKCS#11 keys"
 
-exit $RC
+[[ $RC_IMPORT_TESTS -ne 0 ]] && status=$RC_IMPORT_TESTS
+[[ $RC_EXPORT_TESTS -ne 0 ]] && status=$RC_EXPORT_TESTS
+
+exit $status
