@@ -3059,17 +3059,44 @@ done:
 CK_RV SC_DigestKey(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
                    CK_OBJECT_HANDLE hKey)
 {
-    UNUSED(sSession);
+    SESSION *sess = NULL;
+    CK_RV rc = CKR_OK;
+
     UNUSED(hKey);
 
     if (tokdata->initialized == FALSE) {
         TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
-        return CKR_CRYPTOKI_NOT_INITIALIZED;
+        rc = CKR_CRYPTOKI_NOT_INITIALIZED;
+        goto done;
+    }
+
+    sess = session_mgr_find_reset_error(tokdata, sSession->sessionh);
+    if (!sess) {
+        TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
+        rc = CKR_SESSION_HANDLE_INVALID;
+        goto done;
+    }
+
+    if (sess->digest_ctx.active == FALSE) {
+        TRACE_ERROR("%s\n", ock_err(ERR_OPERATION_NOT_INITIALIZED));
+        rc = CKR_OPERATION_NOT_INITIALIZED;
+        goto done;
     }
 
     /* The EP11 library does not support DigestKey */
-    TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
-    return CKR_KEY_INDIGESTIBLE;
+    rc = CKR_KEY_INDIGESTIBLE;
+    TRACE_ERROR("%s\n", ock_err(ERR_KEY_INDIGESTIBLE));
+
+    digest_mgr_cleanup(tokdata, sess, &sess->digest_ctx);
+
+done:
+    TRACE_INFO("C_DigestKey: rc = 0x%08lx, sess = %ld, key = %lu\n",
+               rc, (sess == NULL) ? -1 : (CK_LONG) sess->handle, hKey);
+
+    if (sess != NULL)
+        session_mgr_put(tokdata, sess);
+
+    return rc;
 }
 
 
