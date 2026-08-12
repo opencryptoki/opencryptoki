@@ -823,8 +823,6 @@ AC_LANG_POP([C++])
 
 AC_CONFIG_MACRO_DIRS([m4])
 
-AM_COND_IF([ENABLE_ICSFTOK],
-           [AC_CONFIG_FILES([man/man1/pkcsicsf.1])])
 AM_COND_IF([ENABLE_PKCSCCA],
            [AC_CONFIG_FILES([man/man1/pkcscca.1])])
 AM_COND_IF([ENABLE_PKCSHSM_MK_CHANGE],

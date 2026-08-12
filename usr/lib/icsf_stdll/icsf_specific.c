@@ -759,6 +759,26 @@ CK_RV token_specific_load_token_data(STDLL_TokData_t * tokdata,
     }
 
     if (fread(&data, sizeof(data), 1, fh) != 1) {
+        /*
+         * Short NVTOK.DAT: the common load_token_data() layer has already
+         * read and parsed the TOKEN_DATA portion (PIN hashes, flags, label).
+         * What is missing here is only the ICSF-specific struct slot_data
+         * appendage that follows TOKEN_DATA in a fully-written NVTOK.DAT.
+         * pkcsicsf -a intentionally omits this appendage so the stdll can
+         * fill it in on first use.
+         *
+         * Parse the per-token config file now to populate the connection
+         * details (URI, DN, cert paths, mech), then persist the full NVTOK.DAT
+         * so this path is not taken again.
+         */
+        if (feof(fh)) {
+            TRACE_DEVEL("NVTOK.DAT has no slot_data appendage yet, "
+                        "initializing from config file.\n");
+            rc = token_specific_init_token_data(tokdata, slot_id);
+            if (rc != CKR_OK)
+                return rc;
+            return save_token_data(tokdata, slot_id);
+        }
         TRACE_ERROR("Failed to read ICSF slot data.\n");
         return CKR_FUNCTION_FAILED;
     }
@@ -1479,7 +1499,8 @@ CK_RV icsftok_open_session(STDLL_TokData_t * tokdata, SESSION * sess)
      * pkcs#11v2.2 states that all sessions within a process have
      * same login state.
      */
-    if (session_mgr_user_session_exists(tokdata)) {
+    if (session_mgr_user_session_exists(tokdata) ||
+        session_mgr_so_session_exists(tokdata)) {
         ld = getLDAPhandle(tokdata, sess->session_info.slotID);
         if (ld == NULL) {
             TRACE_DEVEL("Failed to get LDAP handle for session.\n");

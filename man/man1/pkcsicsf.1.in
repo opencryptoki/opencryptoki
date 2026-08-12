@@ -19,7 +19,7 @@ to add one specific ICSF token to opencryptoki.
 
 The ICSF token must be added first to opencryptoki. This creates an
 entry in the opencryptoki.conf file for the ICSF token. It also creates
- a \fItoken_name.conf\fP configuration file in the same directory as
+a \fItoken_name.conf\fP configuration file in the same directory as
 the opencryptoki.conf file, containing ICSF specific information.
 This information is read by the ICSF token.
 
@@ -41,39 +41,111 @@ or adding a token.
 The \fBpkcsicsf\fP utility must be run as root when adding an ICSF token to
 opencryptoki.
 
+.SH "TOKEN INITIALIZATION"
+Unlike other openCryptoki tokens, the ICSF token does \fBnot\fP require
+\fBC_InitToken\fP (i.e.
+.BR pkcsconf (8)
+\fB-I\fP) to be run after adding the token.
+The cryptographic objects and key material reside on the remote z/OS ICSF
+server, which is already fully provisioned before \fBpkcsicsf\fP is invoked.
+Running \fBC_InitToken\fP on an ICSF token is therefore unnecessary.
+
+When \fBpkcsicsf \-a\fP succeeds it performs the full local initialization
+automatically:
+.RS
+.IP \(bu 4
+Creates the token directory under \fI@localstatedir@/lib/opencryptoki/\fP.
+.IP \(bu 4
+Creates the ICSF-specific configuration file
+\fI@sysconfdir@/opencryptoki/token_name.conf\fP.
+.IP \(bu 4
+Writes the initial token data file (\fINVTOK.DAT\fP) with:
+.RS
+.IP \(bu 4
+The SO PIN supplied during \fBpkcsicsf \-a\fP.
+.IP \(bu 4
+\fBCKF_TOKEN_INITIALIZED\fP already set \(em no further init step is needed.
+.IP \(bu 4
+\fBCKF_USER_PIN_TO_BE_CHANGED\fP set, indicating the user PIN must be
+established before first use.
+.RE
+.IP \(bu 4
+Writes the RACF file (\fIRACF\fP) with the encrypted RACF password.
+.RE
+
+The correct post-installation sequence is therefore:
+.RS
+.TP
+\fB1.\fP
+Add the token (run as root):
+.PP
+.RS
+\fBpkcsicsf \-a \fItoken-name\fB \-m simple \-u ldap://\fIhost\fR\fP
+.RE
+.TP
+\fB2.\fP
+Restart the slot daemon so the new token is visible:
+.PP
+.RS
+\fBsystemctl restart pkcsslotd\fP
+.RE
+.TP
+\fB3.\fP
+Set the user PIN:
+.PP
+.RS
+\fBpkcsconf \-u \-c \fIslot\fR\fP
+.RE
+.RE
+.PP
+After step\~3 the token is fully operational and
+\fBCKF_TOKEN_INITIALIZED\fP will be reported by
+.BR pkcsconf (8)
+\fB\-t\fP.
+
 .SH "OPTIONS"
-.IP "\fB-a\fP \fItoken name\fp" 10
-add the specified ICSF token to opencryptoki.
-.IP "\fB-b\fP \fIBINDND\fp" 10
-the distinguish name to bind when using simple authentication
-.IP "\fB-c\fP \fIclient-cert-file" 10
-the client certificate file when using SASL authentication
-.IP "\fB-C\fP \fICA-cert-file\fp" 10
-the CA certificate file when using SASL authentication
+.IP "\fB-a\fP \fItoken name\fP" 10
+Add the specified ICSF token to opencryptoki.
+See
+.B TOKEN INITIALIZATION
+above for the steps that follow.
+.IP "\fB-b\fP \fIBINDDN\fP" 10
+The distinguished name to bind when using simple authentication.
+.IP "\fB-c\fP \fIclient-cert-file\fP" 10
+The client certificate file when using SASL authentication.
+.IP "\fB-C\fP \fICA-cert-file\fP" 10
+The CA certificate file when using SASL authentication.
 .IP "\fB-h\fP" 10
-show usage information
+Show usage information.
 .IP "\fB-k\fP \fIprivatekey\fP" 10
-the client private key file when using SASL authentication
-.IP "\fB-m\fP \fImechanism\fp" 10
-the authentication mechanism to use when binding to the LDAP server
-(this should be either \fBsimple\fP or \fBsasl\fP)
+The client private key file when using SASL authentication.
+.IP "\fB-m\fP \fImechanism\fP" 10
+The authentication mechanism to use when binding to the LDAP server
+(either \fBsimple\fP or \fBsasl\fP).
 .IP "\fB-l\fP" 10
-list available ICSF tokens
-.IP "\fB-h\fP" 10
-show usage information
+List available ICSF tokens.
+.IP "\fB-u\fP \fIURI\fP" 10
+The URI of the LDAP server (e.g. \fBldap://hostname\fP or
+\fBldaps://hostname\fP).
 
 .SH "FILES"
 .IP "/etc/opencryptoki/opencryptoki.conf"
-the opencryptoki config file containing token configuration information
-.IP "/etc/opencryptoki/\fItoken_name.conf\fP"
-contains ICSF configuration information for the ICSF token
+The opencryptoki config file containing token configuration information.
+.IP "/etc/opencryptoki/\fItoken_name\fP.conf"
+Contains ICSF configuration information for the ICSF token.
+.IP "@localstatedir@/lib/opencryptoki/\fItoken_name\fP/NVTOK.DAT"
+Local token data file: stores PIN hashes and token flags including
+\fBCKF_TOKEN_INITIALIZED\fP.
+Written by \fBpkcsicsf \-a\fP and updated by \fBpkcsconf\fP.
+.IP "@localstatedir@/lib/opencryptoki/\fItoken_name\fP/RACF"
+Contains the RACF password encrypted with the token's master key.
 
 .SH SEE ALSO
 .PD 0
 .TP
 \fBopencryptoki\fP(7),
 .TP
-\fBpkcsslotd\fP(8).
+\fBpkcsslotd\fP(8),
 .TP
 \fBpkcsconf\fP(8).
 .PD
