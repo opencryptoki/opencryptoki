@@ -728,6 +728,15 @@ CK_RV token_specific_init_token_data(STDLL_TokData_t * tokdata,
     slot_data[slot_id]->initialized = 1;
     slot_data[slot_id]->mech = config.mech;
 
+    /*
+     * The ICSF token is provisioned by pkcsicsf -a without going through
+     * C_InitToken, so CKF_TOKEN_INITIALIZED is never set by the normal
+     * SC_InitToken path.  Set it here instead: this function is called
+     * exactly once, when NVTOK.DAT does not yet exist, which is the
+     * functional equivalent of "token has been initialised".
+     */
+    tokdata->nv_token_data->token_info.flags |= CKF_TOKEN_INITIALIZED;
+
 done:
     if (rc == CKR_OK)
         rc = XProcUnLock(tokdata);
@@ -1070,67 +1079,25 @@ done:
     return rc;
 }
 
-CK_RV destroy_objects(STDLL_TokData_t * tokdata, CK_SLOT_ID slot_id,
-                      CK_CHAR_PTR token_name, CK_CHAR_PTR pin, CK_ULONG pin_len)
-{
-    CK_RV rv = CKR_OK;
-    LDAP *ld = NULL;
-    struct icsf_object_record records[16];
-    struct icsf_object_record *previous = NULL;
-    size_t i, records_len;
-    int reason = 0;
-    int rc;
-
-    if (login(tokdata, &ld, slot_id, pin, pin_len, RACFFILE))
-        return CKR_FUNCTION_FAILED;
-
-    TRACE_DEVEL("Destroying objects in slot %lu.\n", slot_id);
-    do {
-        records_len = sizeof(records) / sizeof(records[0]);
-
-        rc = icsf_list_objects(ld, NULL, (char *)token_name, 0, NULL,
-                               previous, records, &records_len, 0);
-        if (ICSF_RC_IS_ERROR(rc)) {
-            TRACE_DEVEL("Failed to list objects for slot %lu.\n", slot_id);
-            rv = CKR_FUNCTION_FAILED;
-            goto done;
-        }
-
-        for (i = 0; i < records_len; i++) {
-            if ((rc = icsf_destroy_object(ld, &reason, &records[i]))) {
-                TRACE_DEVEL("Failed to destroy object "
-                            "%s/%lu/%c in slot %lu.\n",
-                            records[i].token_name,
-                            records[i].sequence, records[i].id, slot_id);
-                rv = icsf_to_ock_err(rc, reason);
-                goto done;
-            }
-        }
-
-        if (records_len)
-            previous = &records[records_len - 1];
-    } while (records_len);
-
-done:
-    if (icsf_logout(ld) && rv == CKR_OK)
-        rv = CKR_FUNCTION_FAILED;
-
-    return rv;
-}
-
 /*
  * Initialize token.
+ *
+ * C_InitToken resets the local credential store (NVTOK.DAT, MK_SO, MK_USER)
+ * without touching any objects stored on the remote z/OS ICSF server.
+ * Destroying remote ICSF objects is intentionally omitted: the ICSF token is
+ * managed externally and C_InitToken is not a meaningful "wipe" operation for
+ * it.  The local in-memory object cache is purged so that stale handles are
+ * not used after the credential reset.
  */
 CK_RV icsftok_init_token(STDLL_TokData_t * tokdata, CK_SLOT_ID slot_id,
                          CK_CHAR_PTR pin, CK_ULONG pin_len, CK_CHAR_PTR label)
 {
     CK_RV rc = CKR_OK;
     CK_BYTE hash_sha[SHA1_HASH_SIZE];
-    CK_CHAR token_name[sizeof(tokdata->nv_token_data->token_info.label) + 1];
 
     UNUSED(label);
 
-    /* Check pin */
+    /* Check SO PIN */
     rc = compute_sha1(tokdata, pin, pin_len, hash_sha);
     if (rc != CKR_OK)
         goto done;
@@ -1144,14 +1111,7 @@ CK_RV icsftok_init_token(STDLL_TokData_t * tokdata, CK_SLOT_ID slot_id,
     if ((rc = reset_token_data(tokdata, slot_id, pin, pin_len)))
         goto done;
 
-    strunpad((char *)token_name,
-             (const char *)tokdata->nv_token_data->token_info.label,
-             sizeof(tokdata->nv_token_data->token_info.label), ' ');
-
-    if ((rc = destroy_objects(tokdata, slot_id, token_name, pin, pin_len)))
-        goto done;
-
-    /* purge the object btree */
+    /* Purge the in-memory object handle cache only; remote objects are kept */
     if (purge_object_mapping(tokdata)) {
         TRACE_DEVEL("Failed to purge objects.\n");
         rc = CKR_FUNCTION_FAILED;
