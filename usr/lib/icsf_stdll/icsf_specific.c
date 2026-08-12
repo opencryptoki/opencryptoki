@@ -2467,6 +2467,30 @@ done:
     return rc;
 }
 
+static void icsf_multi_part_ctx_free(STDLL_TokData_t *tokdata,
+                                     SESSION *sess,
+                                     CK_BYTE *context,
+                                     CK_ULONG context_len)
+{
+    struct icsf_multi_part_context *multi_part_ctx =
+        (struct icsf_multi_part_context *) context;
+
+    UNUSED(tokdata);
+    UNUSED(sess);
+    UNUSED(context_len);
+
+    if (!multi_part_ctx)
+        return;
+
+    if (multi_part_ctx->data) {
+        OPENSSL_cleanse(multi_part_ctx->data, multi_part_ctx->data_len);
+        free(multi_part_ctx->data);
+        multi_part_ctx->data = NULL;
+    }
+    OPENSSL_cleanse(multi_part_ctx, sizeof(*multi_part_ctx));
+    free(multi_part_ctx);
+}
+
 /*
  * Free all data pointed by an encryption context and set everything to zero.
  */
@@ -2657,6 +2681,9 @@ CK_RV icsftok_encrypt_init(STDLL_TokData_t * tokdata,
 
     /* Chained data has always a fixed length */
     memset(multi_part_ctx, 0, sizeof(*multi_part_ctx));
+
+    encr_ctx->context_free_func = icsf_multi_part_ctx_free;
+    encr_ctx->state_unsaveable = TRUE;
 
     /* Check mechanism and get block size */
     rc = icsf_block_size(mech->mechanism, &block_size);
@@ -3189,6 +3216,9 @@ CK_RV icsftok_decrypt_init(STDLL_TokData_t * tokdata,
 
     /* Chained data has always a fixed length */
     memset(multi_part_ctx, 0, sizeof(*multi_part_ctx));
+
+    decr_ctx->context_free_func = icsf_multi_part_ctx_free;
+    decr_ctx->state_unsaveable = TRUE;
 
     /* Check mechanism and get block size */
     rc = icsf_block_size(mech->mechanism, &block_size);
@@ -4288,6 +4318,9 @@ CK_RV icsftok_sign_init(STDLL_TokData_t * tokdata,
          * is sent to ICSF.
          */
 
+        ctx->context_free_func = icsf_multi_part_ctx_free;
+        ctx->state_unsaveable = TRUE;
+
         if (datacaching) {
             size_t blocksize;
 
@@ -4937,6 +4970,9 @@ CK_RV icsftok_verify_init(STDLL_TokData_t * tokdata,
         /* keep a cache to ensure multiple of blocksize
          * is sent to ICSF.
          */
+
+        ctx->context_free_func = icsf_multi_part_ctx_free;
+        ctx->state_unsaveable = TRUE;
 
         if (datacaching) {
             size_t blocksize;
