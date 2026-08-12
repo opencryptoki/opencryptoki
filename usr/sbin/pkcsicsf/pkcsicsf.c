@@ -31,9 +31,15 @@
 #include "slotmgr.h"
 #include "pbkdf.h"
 #include "defs.h"
+#include "host_defs.h"
 #include "cfgparser.h"
 #include "configuration.h"
 #include "pin_prompt.h"
+
+#define OCK_TOOL
+#include "pkcs_utils.h"
+
+pkcs_trace_level_t trace_level = TRACE_LEVEL_NONE;
 
 #define CFG_ADD         0x0001
 #define CFG_LIST        0x0002
@@ -65,7 +71,7 @@ char *privkey = NULL;
 unsigned long flags = 0;
 
 static int secure_racf_passwd(const char *racfpwd, CK_ULONG len,
-                              const char *tokname);
+                              const struct icsf_token_record *token);
 
 static void usage(char *progname)
 {
@@ -112,15 +118,10 @@ static int get_free_slot(struct ConfigBaseNode *config)
 
 static int remove_file(char *filename)
 {
-    struct stat statbuf;
-
-    /* if file exists, then remove it */
-    if (stat(filename, &statbuf) == 0) {
-        if (unlink(filename) == -1) {
-            fprintf(stderr, "unlink failed for %s, line %d: %s\n",
-                    filename, __LINE__, strerror(errno));
-            return -1;
-        }
+    if (unlink(filename) == -1 && errno != ENOENT) {
+        fprintf(stderr, "unlink failed for %s, line %d: %s\n",
+                filename, __LINE__, strerror(errno));
+        return -1;
     }
 
     return 0;
@@ -426,6 +427,15 @@ static void remove_racf_file(const char *tokname)
     remove_file(fname);
 }
 
+static void remove_mk_so_file(const char *tokname)
+{
+    char fname[PATH_MAX];
+
+    /* remove the so and user files */
+    snprintf(fname, sizeof(fname), "%s/%s/MK_SO", CONFIG_PATH, tokname);
+    remove_file(fname);
+}
+
 static int retrieve_all(const char *racfpwd)
 {
     size_t tokenCount, i;
@@ -450,7 +460,7 @@ static int retrieve_all(const char *racfpwd)
     if (flags & CFG_MECH_SIMPLE) {
         /* when using simple auth, secure racf passwd. */
         for (i = 0; i < tokenCount; i++) {
-            rc = secure_racf_passwd(racfpwd, strlen(racfpwd), tokens[i].name);
+            rc = secure_racf_passwd(racfpwd, strlen(racfpwd), &tokens[i]);
             if (rc != 0)
                 return rc;
         }
@@ -459,9 +469,120 @@ static int retrieve_all(const char *racfpwd)
     return 0;
 }
 
-static int secure_racf_passwd(const char *racfpwd, CK_ULONG len,
-                              const char *tokname)
+/*
+ * Write an initial NVTOK.DAT for a freshly-added ICSF token so that
+ * so_pin_sha reflects the SO PIN used to create MK_SO.
+ *
+ * Only TOKEN_DATA is written; the ICSF-specific slot_data appendage is
+ * omitted and will be written by the stdll on the first save_token_data
+ * call (e.g. after pkcsconf -P).  token_specific_load_token_data handles
+ * the short-file case gracefully.
+ */
+static int write_initial_nvtok_dat(const char *tokname, const char *sopin,
+                                   size_t sopin_len,
+                                   const struct icsf_token_record *token)
 {
+    char fname[PATH_MAX];
+    TOKEN_DATA td;
+    unsigned char so_hash[SHA1_HASH_SIZE];
+    struct group *grp;
+    int fd = -1;
+    FILE *fp = NULL;
+    int rc = 0;
+
+    if (compute_sha1(sopin, sopin_len, (char *)so_hash) != 0) {
+        fprintf(stderr, "Failed to compute SO PIN hash.\n");
+        return -1;
+    }
+
+    memset(&td, 0, sizeof(td));
+
+    memcpy(td.so_pin_sha, so_hash, SHA1_HASH_SIZE);
+    /* user_pin_sha all-zero signals "not yet initialised" to icsftok_login */
+    memcpy(td.user_pin_sha, "00000000000000000000", SHA1_HASH_SIZE);
+
+    /*
+     * Initial flags: identical to what init_tokenInfo() sets, plus
+     * CKF_TOKEN_INITIALIZED (the ICSF token is already provisioned on
+     * z/OS - no C_InitToken is required).
+     */
+    td.token_info.flags = CKF_RNG | CKF_LOGIN_REQUIRED | CKF_CLOCK_ON_TOKEN |
+                          CKF_USER_PIN_TO_BE_CHANGED |
+                          CKF_DUAL_CRYPTO_OPERATIONS |
+                          CKF_TOKEN_INITIALIZED;
+
+    memset(td.token_info.label, ' ', sizeof(td.token_info.label));
+    memcpy(td.token_info.label, token->name,
+           MIN(strlen(token->name), sizeof(td.token_info.label)));
+    memset(td.token_info.manufacturerID, ' ',
+           sizeof(td.token_info.manufacturerID));
+    memcpy(td.token_info.manufacturerID, token->manufacturer,
+           MIN(strlen(token->manufacturer),
+               sizeof(td.token_info.manufacturerID)));
+    memset(td.token_info.model, ' ', sizeof(td.token_info.model));
+    memcpy(td.token_info.model, token->model,
+           MIN(strlen(token->model), sizeof(td.token_info.model)));
+    memset(td.token_info.serialNumber, ' ', sizeof(td.token_info.serialNumber));
+    memcpy(td.token_info.serialNumber, token->serial,
+           MIN(strlen(token->serial), sizeof(td.token_info.serialNumber)));
+
+    grp = getgrnam(PKCS_GROUP);
+    if (!grp) {
+        fprintf(stderr, "getgrnam(%s): %s\n", PKCS_GROUP, strerror(errno));
+        rc = -1;
+        goto done;
+    }
+
+    snprintf(fname, sizeof(fname), "%s/%s/" PK_LITE_NV, CONFIG_PATH, tokname);
+
+    fd = open_nofollow(fname, O_WRONLY | O_CREAT | O_EXCL, 0600);
+    if (fd < 0) {
+        if (errno == EEXIST) {
+            rc = 0;
+            goto done;
+        }
+        fprintf(stderr, "open(%s): %s\n", fname, strerror(errno));
+        rc = -1;
+        goto done;
+    }
+
+    if (fchown(fd, geteuid(), grp->gr_gid) != 0 ||
+        fchmod(fd, S_IRUSR | S_IWUSR | S_IRGRP) != 0) {
+        fprintf(stderr, "Failed to set permissions on %s: %s\n",
+                fname, strerror(errno));
+        rc = -1;
+        goto done;
+    }
+
+    fp = fdopen(fd, "w");
+    if (!fp) {
+        fprintf(stderr, "fdopen(%s): %s\n", fname, strerror(errno));
+        rc = -1;
+        goto done;
+    }
+    fd = -1; /* fp now owns the fd */
+
+    if (fwrite(&td, sizeof(td), 1, fp) != 1) {
+        fprintf(stderr, "fwrite(%s): %s\n", fname, strerror(errno));
+        rc = -1;
+    }
+
+done:
+    if (fp)
+        fclose(fp);
+    else if (fd >= 0)
+        close(fd);
+    OPENSSL_cleanse(so_hash, sizeof(so_hash));
+    /* On failure remove any partially-written file. */
+    if (rc != 0)
+        unlink(fname);
+    return rc;
+}
+
+static int secure_racf_passwd(const char *racfpwd, CK_ULONG len,
+                              const struct icsf_token_record *token)
+{
+    const char *tokname = token->name;
     const char *sopin;
     char *buf_so = NULL;
     unsigned char masterkey[AES_KEY_SIZE_256];
@@ -546,6 +667,18 @@ static int secure_racf_passwd(const char *racfpwd, CK_ULONG len,
         /* remove the racf file */
         remove_racf_file(tokname);
         rc = -1;
+        goto cleanup;
+    }
+
+    /*
+     * Write an initial NVTOK.DAT with so_pin_sha matching the PIN just
+     * used to create MK_SO. 
+     */
+    rc = write_initial_nvtok_dat(tokname, sopin, strlen(sopin), token);
+    if (rc != 0) {
+        fprintf(stderr, "Failed to write initial token data.\n");
+        remove_racf_file(tokname);
+        remove_mk_so_file(tokname);
         goto cleanup;
     }
 
@@ -735,7 +868,7 @@ int main(int argc, char **argv)
 
             if (flags & CFG_MECH_SIMPLE) {
                 /* when using simple auth, secure racf passwd. */
-                rc = secure_racf_passwd(racfpwd, strlen(racfpwd), tokenname);
+                rc = secure_racf_passwd(racfpwd, strlen(racfpwd), &found_token);
                 if (rc != 0)
                     goto cleanup;
             }
