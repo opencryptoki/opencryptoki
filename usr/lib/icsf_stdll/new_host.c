@@ -2124,6 +2124,8 @@ CK_RV SC_DigestKey(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
     SESSION *sess = NULL;
     CK_RV rc = CKR_OK;
 
+    UNUSED(hKey);
+
     if (tokdata->initialized == FALSE) {
         TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
         rc = CKR_CRYPTOKI_NOT_INITIALIZED;
@@ -2136,8 +2138,6 @@ CK_RV SC_DigestKey(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
         rc = CKR_SESSION_HANDLE_INVALID;
         goto done;
     }
-    //set the handle into the session.
-    sess->handle = sSession->sessionh;
 
     if (sess->digest_ctx.active == FALSE) {
         TRACE_ERROR("%s\n", ock_err(ERR_OPERATION_NOT_INITIALIZED));
@@ -2145,9 +2145,11 @@ CK_RV SC_DigestKey(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
         goto done;
     }
 
-    rc = digest_mgr_digest_key(tokdata, sess, &sess->digest_ctx, hKey);
-    if (rc != CKR_OK)
-        TRACE_DEVEL("digest_mgr_digest_key() failed.\n");
+    /* The ICSF token does not support DigestKey */
+    rc = CKR_KEY_INDIGESTIBLE;
+    TRACE_ERROR("%s\n", ock_err(ERR_KEY_INDIGESTIBLE));
+
+    digest_mgr_cleanup(tokdata, sess, &sess->digest_ctx);
 
 done:
     TRACE_INFO("C_DigestKey: rc = 0x%08lx, sess = %ld, key = %lu\n",
