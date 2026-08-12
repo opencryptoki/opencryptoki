@@ -1563,52 +1563,86 @@ static CK_RV close_session(STDLL_TokData_t * tokdata,
     unsigned long i;
     int reason = 0;
 
-    /* Remove each session object */
-    for (i = 1; i <= icsf_data->objects.size; i++) {
-        struct icsf_object_mapping *mapping;
+    /*
+     * Remove each session object from the ICSF server.
+     * In the fork child we must not send any LDAP PDUs over the socket
+     * file descriptor that the parent process is still using, so skip
+     * the remote destroy entirely.  The objects will remain on the ICSF
+     * server, but the parent's session is still alive and owns them.
+     */
+    if (!in_fork_initializer) {
+        for (i = 1; i <= icsf_data->objects.size; i++) {
+            struct icsf_object_mapping *mapping;
 
-        /* Skip missing ids */
-        if (!(mapping = bt_get_node_value(&icsf_data->objects, i)))
-            continue;
+            /* Skip missing ids */
+            if (!(mapping = bt_get_node_value(&icsf_data->objects, i)))
+                continue;
 
-        /* Skip object from other sessions */
-        if (mapping->session_id != session_state->session_id) {
+            /* Skip object from other sessions */
+            if (mapping->session_id != session_state->session_id) {
+                bt_put_node_value(&icsf_data->objects, mapping);
+                mapping = NULL;
+                continue;
+            }
+
+            /* Skip token objects */
+            if (mapping->icsf_object.id != ICSF_SESSION_OBJECT) {
+                bt_put_node_value(&icsf_data->objects, mapping);
+                mapping = NULL;
+                continue;
+            }
+
+            if ((rc = icsf_destroy_object(session_state->ld, &reason,
+                                          &mapping->icsf_object))) {
+                /* Log error */
+                TRACE_DEBUG("Failed to remove icsf object: %s/%lu/%c",
+                            mapping->icsf_object.token_name,
+                            mapping->icsf_object.sequence,
+                            mapping->icsf_object.id);
+                rc = icsf_to_ock_err(rc, reason);
+                bt_put_node_value(&icsf_data->objects, mapping);
+                mapping = NULL;
+                break;
+            }
+
             bt_put_node_value(&icsf_data->objects, mapping);
             mapping = NULL;
-            continue;
+
+            /* Remove object from object list */
+            bt_node_free(&icsf_data->objects, i, TRUE);
         }
-
-        /* Skip token objects */
-        if (mapping->icsf_object.id != ICSF_SESSION_OBJECT) {
-            bt_put_node_value(&icsf_data->objects, mapping);
-            mapping = NULL;
-            continue;
-        }
-
-        if ((rc = icsf_destroy_object(session_state->ld, &reason,
-                                      &mapping->icsf_object))) {
-            /* Log error */
-            TRACE_DEBUG("Failed to remove icsf object: %s/%lu/%c",
-                        mapping->icsf_object.token_name,
-                        mapping->icsf_object.sequence, mapping->icsf_object.id);
-            rc = icsf_to_ock_err(rc, reason);
-            bt_put_node_value(&icsf_data->objects, mapping);
-            mapping = NULL;
-            break;
-        }
-
-        bt_put_node_value(&icsf_data->objects, mapping);
-        mapping = NULL;
-
-        /* Remove object from object list */
-        bt_node_free(&icsf_data->objects, i, TRUE);
+        if (rc)
+            return rc;
     }
-    if (rc)
-        return rc;
 
     /* Log off from LDAP server */
     if (session_state->ld) {
-        if (!in_fork_initializer && icsf_logout(session_state->ld)) {
+        if (in_fork_initializer) {
+            /*
+             * In the fork child we must not send an LDAP Unbind PDU
+             * (ldap_unbind_ext_s) because doing so would signal the
+             * server to tear down the session the parent is still using.
+             *
+             * Close the child's copy of the socket fd before calling
+             * ldap_destroy().  A plain close() on a dup'd fd only
+             * decrements the kernel refcount (parent still holds it
+             * open, refcount 2->1), so no TCP FIN or TLS close_notify
+             * is sent - the parent's connection is left intact.
+             * ldap_destroy() then frees the heap; its own close() on
+             * the same fd number is a harmless EBADF no-op.
+             *
+             * There is no fd-reuse race between close() and
+             * ldap_destroy() here: fork() produces a single-threaded
+             * child (only the calling thread is cloned), so no other
+             * thread can allocate a new fd in that window.
+             */
+            int ldap_fd = -1;
+
+            ldap_get_option(session_state->ld, LDAP_OPT_DESC, &ldap_fd);
+            if (ldap_fd >= 0)
+                close(ldap_fd);
+            ldap_destroy(session_state->ld);
+        } else if (icsf_logout(session_state->ld)) {
             TRACE_DEVEL("Failed to disconnect from LDAP server.\n");
             return CKR_FUNCTION_FAILED;
         }
