@@ -4082,7 +4082,10 @@ static void free_sv_ctx(SIGN_VERIFY_CONTEXT * ctx)
     if (ctx->mech.pParameter)
         free(ctx->mech.pParameter);
 
-    memset(ctx, 0, sizeof(*ctx));
+    ctx->context = NULL;
+    ctx->context_len = 0;
+    ctx->context_free_func = NULL;
+    memset(&ctx->mech, 0, sizeof(ctx->mech));
 }
 
 /*
