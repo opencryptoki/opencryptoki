@@ -124,7 +124,7 @@ init_slot()
                 return 1
             fi
             ;;
-        CCA | EP11 | ICA | Software)
+        CCA | EP11 | ICA | Software | ICSF)
             echo "Initializing $TOKTYPE using init_token.sh"
             if ! $TESTDIR/init_token.sh $1; then
                 echo "Error initializing $TOKTYPE token"
@@ -170,6 +170,10 @@ check_slot()
         *EP11*)
             echo "EP11 Token type detected"
             TOKTYPE="EP11"
+            ;;
+        *HCR*)
+            echo "ICSF Token type detected"
+            TOKTYPE="ICSF"
             ;;
         *)
             echo "Error: unsupported or undetermined token type"
