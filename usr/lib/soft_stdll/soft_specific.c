@@ -411,8 +411,10 @@ CK_RV token_specific_init(STDLL_TokData_t *tokdata, CK_SLOT_ID SlotNumber,
      */
     soft_private->oqs_provider = OSSL_PROVIDER_load(NULL, "oqsprovider");
     if (soft_private->oqs_provider == NULL) {
+#if !OPENSSL_VERSION_PREREQ(3, 5)
         TRACE_DEVEL("OSSL_PROVIDER_load for 'oqsprovider' failed, no quantum "
                     "safe mechanisms are supported.\n");
+#endif
         ERR_pop_to_mark();
     };
 
