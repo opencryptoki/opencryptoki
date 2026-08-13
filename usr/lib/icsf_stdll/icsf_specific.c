@@ -332,7 +332,6 @@ struct slot_data {
     char key_file[PATH_MAX + 1];
     int mech;
 };
-struct slot_data *slot_data[NUMBER_SLOTS_MANAGED];
 
 /*
  * Converts an ICSF reason code to an ock error code
@@ -400,16 +399,9 @@ CK_RV icsftok_init(STDLL_TokData_t * tokdata, CK_SLOT_ID slot_id,
                    char *conf_name)
 {
     CK_RV rc;
-    struct slot_data *data;
     icsf_private_data_t *icsf_data;
 
     TRACE_INFO("icsf %s slot=%lu running\n", __func__, slot_id);
-
-    /* Check Slot ID */
-    if (slot_id >= NUMBER_SLOTS_MANAGED) {
-        TRACE_ERROR("Invalid slot ID: %lu\n", slot_id);
-        return CKR_FUNCTION_FAILED;
-    }
 
     rc = ock_generic_filter_mechanism_list(tokdata,
                                            icsf_mech_list,
@@ -438,22 +430,18 @@ CK_RV icsftok_init(STDLL_TokData_t * tokdata, CK_SLOT_ID slot_id,
     }
     tokdata->private_data = icsf_data;
 
+    icsf_data->slot_data = (struct slot_data *)
+                           ((unsigned char *)tokdata->global_shm
+                            + sizeof(*tokdata->global_shm));
+
     rc = XProcLock(tokdata);
     if (rc != CKR_OK)
         return CKR_FUNCTION_FAILED;
 
-    if (slot_data[slot_id] == NULL) {
-        TRACE_ERROR("ICSF slot data not initialized.\n");
-        rc = CKR_FUNCTION_FAILED;
-        goto done;
-    }
+    strncpy(icsf_data->slot_data->conf_name, conf_name,
+            sizeof(icsf_data->slot_data->conf_name) - 1);
+    icsf_data->slot_data->conf_name[sizeof(icsf_data->slot_data->conf_name) - 1] = '\0';
 
-    data = slot_data[slot_id];
-    data->initialized = 0;
-    strncpy(data->conf_name, conf_name, sizeof(data->conf_name) - 1);
-    data->conf_name[sizeof(data->conf_name) - 1] = '\0';
-
-done:
     if (rc == CKR_OK)
         rc = XProcUnLock(tokdata);
     else
@@ -658,35 +646,30 @@ done:
 CK_RV token_specific_init_token_data(STDLL_TokData_t * tokdata,
                                      CK_SLOT_ID slot_id)
 {
+    icsf_private_data_t *icsf_data = tokdata->private_data;
     CK_RV rc = CKR_OK;
     const char *conf_name = NULL;
     struct icsf_config config;
-
-    /* Check Slot ID */
-    if (slot_id >= NUMBER_SLOTS_MANAGED) {
-        TRACE_ERROR("Invalid slot ID: %lu\n", slot_id);
-        return CKR_FUNCTION_FAILED;
-    }
 
     rc = XProcLock(tokdata);
     if (rc != CKR_OK)
         return CKR_FUNCTION_FAILED;
 
-    if (slot_data[slot_id] == NULL) {
+    if (icsf_data->slot_data == NULL) {
         TRACE_ERROR("ICSF slot data not initialized.\n");
         rc = CKR_FUNCTION_FAILED;
         goto done;
     }
 
     /* Check if data needs to be retrieved for this slot */
-    if (slot_data[slot_id]->initialized) {
+    if (icsf_data->slot_data->initialized) {
         TRACE_DEVEL("Slot data already initialized for slot %lu. "
                     "Skipping it\n", slot_id);
         goto done;
     }
 
     /* Check config file */
-    conf_name = slot_data[slot_id]->conf_name;
+    conf_name = icsf_data->slot_data->conf_name;
     if (!conf_name || !conf_name[0]) {
         TRACE_ERROR("Missing config for slot %lu.\n", slot_id);
         rc = CKR_FUNCTION_FAILED;
@@ -715,18 +698,18 @@ CK_RV token_specific_init_token_data(STDLL_TokData_t * tokdata,
                sizeof(tokdata->nv_token_data->token_info.serialNumber)));
 
     /* Copy ICSF specific info */
-    memcpy(slot_data[slot_id]->uri, config.uri,
-           MIN(sizeof(config.uri), sizeof(slot_data[slot_id]->uri)));
-    memcpy(slot_data[slot_id]->dn, config.dn,
-           MIN(sizeof(config.dn), sizeof(slot_data[slot_id]->dn)));
-    memcpy(slot_data[slot_id]->ca_file, config.ca_file,
-           MIN(sizeof(config.ca_file), sizeof(slot_data[slot_id]->ca_file)));
-    memcpy(slot_data[slot_id]->cert_file, config.cert_file,
-           MIN(sizeof(config.cert_file), sizeof(slot_data[slot_id]->cert_file)));
-    memcpy(slot_data[slot_id]->key_file, config.key_file,
-           MIN(sizeof(config.key_file), sizeof(slot_data[slot_id]->key_file)));
-    slot_data[slot_id]->initialized = 1;
-    slot_data[slot_id]->mech = config.mech;
+    memcpy(icsf_data->slot_data->uri, config.uri,
+           MIN(sizeof(config.uri), sizeof(icsf_data->slot_data->uri)));
+    memcpy(icsf_data->slot_data->dn, config.dn,
+           MIN(sizeof(config.dn), sizeof(icsf_data->slot_data->dn)));
+    memcpy(icsf_data->slot_data->ca_file, config.ca_file,
+           MIN(sizeof(config.ca_file), sizeof(icsf_data->slot_data->ca_file)));
+    memcpy(icsf_data->slot_data->cert_file, config.cert_file,
+           MIN(sizeof(config.cert_file), sizeof(icsf_data->slot_data->cert_file)));
+    memcpy(icsf_data->slot_data->key_file, config.key_file,
+           MIN(sizeof(config.key_file), sizeof(icsf_data->slot_data->key_file)));
+    icsf_data->slot_data->initialized = 1;
+    icsf_data->slot_data->mech = config.mech;
 
     /*
      * The ICSF token is provisioned by pkcsicsf -a without going through
@@ -749,14 +732,9 @@ done:
 CK_RV token_specific_load_token_data(STDLL_TokData_t * tokdata,
                                      CK_SLOT_ID slot_id, FILE * fh)
 {
+    icsf_private_data_t *icsf_data = tokdata->private_data;
     CK_RV rc;
     struct slot_data data;
-
-    /* Check Slot ID */
-    if (slot_id >= NUMBER_SLOTS_MANAGED) {
-        TRACE_ERROR("Invalid slot ID: %lu\n", slot_id);
-        return CKR_FUNCTION_FAILED;
-    }
 
     if (fread(&data, sizeof(data), 1, fh) != 1) {
         /*
@@ -787,13 +765,13 @@ CK_RV token_specific_load_token_data(STDLL_TokData_t * tokdata,
     if (rc != CKR_OK)
         return CKR_FUNCTION_FAILED;
 
-    if (slot_data[slot_id] == NULL) {
+    if (icsf_data->slot_data == NULL) {
         TRACE_ERROR("ICSF slot data not initialized.\n");
         rc = CKR_FUNCTION_FAILED;
         goto done;
     }
 
-    memcpy(slot_data[slot_id], &data, sizeof(data));
+    memcpy(icsf_data->slot_data, &data, sizeof(data));
 
 done:
     if (rc == CKR_OK)
@@ -807,25 +785,22 @@ done:
 CK_RV token_specific_save_token_data(STDLL_TokData_t * tokdata,
                                      CK_SLOT_ID slot_id, FILE * fh)
 {
+    icsf_private_data_t *icsf_data = tokdata->private_data;
     CK_RV rc;
 
-    /* Check Slot ID */
-    if (slot_id >= NUMBER_SLOTS_MANAGED) {
-        TRACE_ERROR("Invalid slot ID: %lu\n", slot_id);
-        return CKR_FUNCTION_FAILED;
-    }
+    UNUSED(slot_id);
 
     rc = XProcLock(tokdata);
     if (rc != CKR_OK)
         return CKR_FUNCTION_FAILED;
 
-    if (slot_data[slot_id] == NULL) {
+    if (icsf_data->slot_data == NULL) {
         TRACE_ERROR("ICSF slot data not initialized.\n");
         rc = CKR_FUNCTION_FAILED;
         goto done;
     }
 
-    if (!fwrite(slot_data[slot_id], sizeof(**slot_data), 1, fh)) {
+    if (!fwrite(icsf_data->slot_data, sizeof(*icsf_data->slot_data), 1, fh)) {
         TRACE_ERROR("Failed to write ICSF slot data.\n");
         rc = CKR_FUNCTION_FAILED;
         goto done;
@@ -851,13 +826,10 @@ CK_RV token_specific_attach_shm(STDLL_TokData_t * tokdata, CK_SLOT_ID slot_id)
     int ret;
     void *ptr;
     LW_SHM_TYPE **shm = &tokdata->global_shm;
-    size_t len = sizeof(**shm) + sizeof(**slot_data);
+    size_t len = sizeof(**shm) + sizeof(struct slot_data);
     char shm_id[PATH_MAX];
 
-    if (slot_id >= NUMBER_SLOTS_MANAGED) {
-        TRACE_ERROR("Invalid slot ID: %lu\n", slot_id);
-        return CKR_FUNCTION_FAILED;
-    }
+    UNUSED(slot_id);
 
     if (get_pk_dir(tokdata, shm_id, PATH_MAX) == NULL) {
         TRACE_ERROR("pk_dir buffer overflow");
@@ -883,8 +855,6 @@ CK_RV token_specific_attach_shm(STDLL_TokData_t * tokdata, CK_SLOT_ID slot_id)
     }
 
     *shm = ptr;
-    slot_data[slot_id] = (struct slot_data *)((unsigned char *)ptr
-                                              + sizeof(**shm));
 
 done:
     if (rc == CKR_OK)
@@ -898,18 +868,14 @@ done:
 CK_RV login(STDLL_TokData_t * tokdata, LDAP ** ld, CK_SLOT_ID slot_id,
             CK_BYTE * pin, CK_ULONG pin_len, const char *pass_file_type)
 {
+    icsf_private_data_t *icsf_data = tokdata->private_data;
     CK_RV rc;
     struct slot_data data;
     LDAP *ldapd = NULL;
     int ret;
 
+    UNUSED(slot_id);
     UNUSED(pass_file_type);
-
-    /* Check Slot ID */
-    if (slot_id >= NUMBER_SLOTS_MANAGED) {
-        TRACE_ERROR("Invalid slot ID: %lu\n", slot_id);
-        return CKR_FUNCTION_FAILED;
-    }
 
     rc = XProcLock(tokdata);
     if (rc != CKR_OK) {
@@ -918,13 +884,13 @@ CK_RV login(STDLL_TokData_t * tokdata, LDAP ** ld, CK_SLOT_ID slot_id,
     }
 
     /* Check slot data */
-    if (slot_data[slot_id] == NULL || !slot_data[slot_id]->initialized) {
+    if (icsf_data->slot_data == NULL || !icsf_data->slot_data->initialized) {
         TRACE_ERROR("ICSF slot data not initialized.\n");
         rc = CKR_FUNCTION_FAILED;
         XProcUnLock(tokdata);
         return rc;
     }
-    memcpy(&data, slot_data[slot_id], sizeof(data));
+    memcpy(&data, icsf_data->slot_data, sizeof(data));
 
     rc = XProcUnLock(tokdata);
     if (rc != CKR_OK) {
@@ -1005,6 +971,7 @@ done:
 CK_RV reset_token_data(STDLL_TokData_t * tokdata, CK_SLOT_ID slot_id,
                        CK_CHAR_PTR pin, CK_ULONG pin_len)
 {
+    icsf_private_data_t *icsf_data = tokdata->private_data;
     CK_BYTE mk[MAX_KEY_SIZE] = { 0 };
     CK_BYTE racf_pass[PIN_SIZE] = { 0 };
     int mk_len = sizeof(mk);
@@ -1014,7 +981,7 @@ CK_RV reset_token_data(STDLL_TokData_t * tokdata, CK_SLOT_ID slot_id,
     CK_RV rc = CKR_OK;
 
     /* Remove user's masterkey */
-    if (slot_data[slot_id]->mech == ICSF_CFG_MECH_SIMPLE) {
+    if (icsf_data->slot_data->mech == ICSF_CFG_MECH_SIMPLE) {
         if (get_pk_dir(tokdata, pk_dir_buf, PATH_MAX) == NULL) {
             TRACE_ERROR("pk_dir_buf overflow\n");
             rc = CKR_FUNCTION_FAILED;
@@ -1070,7 +1037,7 @@ CK_RV reset_token_data(STDLL_TokData_t * tokdata, CK_SLOT_ID slot_id,
     }
 
     /* Reset token data and keep token name */
-    slot_data[slot_id]->initialized = 0;
+    icsf_data->slot_data->initialized = 0;
     load_token_data(tokdata, slot_id);
     init_slotInfo(&tokdata->slot_info);
     tokdata->nv_token_data->token_info.flags |= CKF_TOKEN_INITIALIZED;
@@ -1078,7 +1045,7 @@ CK_RV reset_token_data(STDLL_TokData_t * tokdata, CK_SLOT_ID slot_id,
             CKF_USER_PIN_LOCKED | CKF_USER_PIN_FINAL_TRY |
             CKF_USER_PIN_COUNT_LOW);
 
-    if (slot_data[slot_id]->mech == ICSF_CFG_MECH_SIMPLE) {
+    if (icsf_data->slot_data->mech == ICSF_CFG_MECH_SIMPLE) {
         /* Save master key */
         if (secure_masterkey(tokdata, mk, mk_len, pin, pin_len, fname)) {
             TRACE_DEVEL("Failed to save the new master key.\n");
@@ -1144,14 +1111,13 @@ done:
 CK_RV icsftok_init_pin(STDLL_TokData_t * tokdata, SESSION * sess,
                        CK_CHAR_PTR pPin, CK_ULONG ulPinLen)
 {
+    icsf_private_data_t *icsf_data = tokdata->private_data;
     CK_RV rc = CKR_OK;
     CK_BYTE hash_sha[SHA1_HASH_SIZE];
-    CK_SLOT_ID sid;
     char fname[PATH_MAX];
     char pk_dir_buf[PATH_MAX];
 
-    /* get slot id */
-    sid = sess->session_info.slotID;
+    UNUSED(sess);
 
     /* compute the SHA of the user pin */
     rc = compute_sha1(tokdata, pPin, ulPinLen, hash_sha);
@@ -1164,7 +1130,7 @@ CK_RV icsftok_init_pin(STDLL_TokData_t * tokdata, SESSION * sess,
      * to authenticate to ldao server. The masterkey protects the
      * racf passwd.
      */
-    if (slot_data[sid]->mech == ICSF_CFG_MECH_SIMPLE) {
+    if (icsf_data->slot_data->mech == ICSF_CFG_MECH_SIMPLE) {
         if (get_pk_dir(tokdata, pk_dir_buf, PATH_MAX) == NULL) {
             TRACE_ERROR("pk_dir_buf overflow\n");
             OPENSSL_cleanse(hash_sha, sizeof(hash_sha));
@@ -1212,14 +1178,11 @@ CK_RV icsftok_set_pin(STDLL_TokData_t * tokdata, SESSION * sess,
                       CK_CHAR_PTR pOldPin, CK_ULONG ulOldLen,
                       CK_CHAR_PTR pNewPin, CK_ULONG ulNewLen)
 {
+    icsf_private_data_t *icsf_data = tokdata->private_data;
     CK_RV rc = CKR_OK;
     CK_BYTE new_hash_sha[SHA1_HASH_SIZE];
     CK_BYTE old_hash_sha[SHA1_HASH_SIZE];
-    CK_SLOT_ID sid;
     char fname[PATH_MAX];
-
-    /* get slot id */
-    sid = sess->session_info.slotID;
 
     rc = compute_sha1(tokdata, pNewPin, ulNewLen, new_hash_sha);
     rc |= compute_sha1(tokdata, pOldPin, ulOldLen, old_hash_sha);
@@ -1257,7 +1220,7 @@ CK_RV icsftok_set_pin(STDLL_TokData_t * tokdata, SESSION * sess,
         }
 
         /* if using simple auth, encrypt masterkey with new pin */
-        if (slot_data[sid]->mech == ICSF_CFG_MECH_SIMPLE) {
+        if (icsf_data->slot_data->mech == ICSF_CFG_MECH_SIMPLE) {
             if (get_pk_dir(tokdata, fname, PATH_MAX) == NULL) {
                 TRACE_ERROR("pk_dir buffer overflow\n");
                 OPENSSL_cleanse(new_hash_sha, sizeof(new_hash_sha));
@@ -1324,7 +1287,7 @@ CK_RV icsftok_set_pin(STDLL_TokData_t * tokdata, SESSION * sess,
             return CKR_PIN_INVALID;
         }
 
-        if (slot_data[sid]->mech == ICSF_CFG_MECH_SIMPLE) {
+        if (icsf_data->slot_data->mech == ICSF_CFG_MECH_SIMPLE) {
             /*
              * if using simle auth, encrypt masterkey with new pin
              */
@@ -1380,7 +1343,7 @@ CK_RV icsftok_set_pin(STDLL_TokData_t * tokdata, SESSION * sess,
         return CKR_SESSION_READ_ONLY;
     }
 
-    rc = save_token_data(tokdata, sid);
+    rc = save_token_data(tokdata, sess->session_info.slotID);
     if (rc != CKR_OK) {
         TRACE_ERROR("Save Token Failed.\n");
         OPENSSL_cleanse(new_hash_sha, sizeof(new_hash_sha));
@@ -1395,18 +1358,19 @@ CK_RV icsftok_set_pin(STDLL_TokData_t * tokdata, SESSION * sess,
 
 LDAP *getLDAPhandle(STDLL_TokData_t * tokdata, CK_SLOT_ID slot_id)
 {
+    icsf_private_data_t *icsf_data = tokdata->private_data;
     CK_BYTE racfpwd[PIN_SIZE] = { 0 };
     int racflen = sizeof(racfpwd);
     char *ca_dir = NULL;
     LDAP *new_ld = NULL;
     CK_RV rc = CKR_OK;
 
-    if (slot_data[slot_id] == NULL) {
+    if (icsf_data->slot_data == NULL) {
         TRACE_ERROR("ICSF slot data not initialized.\n");
         return NULL;
     }
     /* Check if using sasl or simple auth */
-    if (slot_data[slot_id]->mech == ICSF_CFG_MECH_SIMPLE) {
+    if (icsf_data->slot_data->mech == ICSF_CFG_MECH_SIMPLE) {
         TRACE_INFO("Using SIMPLE auth with slot ID: %lu\n", slot_id);
         /* get racf passwd */
         rc = get_racf(tokdata, tokdata->master_key, AES_KEY_SIZE_256,
@@ -1417,8 +1381,8 @@ LDAP *getLDAPhandle(STDLL_TokData_t * tokdata, CK_SLOT_ID slot_id)
         }
 
         /* ok got the passwd, perform simple ldap bind call */
-        rc = icsf_login(&new_ld, slot_data[slot_id]->uri,
-                        slot_data[slot_id]->dn, (char *)racfpwd);
+        rc = icsf_login(&new_ld, icsf_data->slot_data->uri,
+                        icsf_data->slot_data->dn, (char *)racfpwd);
         if (rc != 0) {
             TRACE_DEVEL("Failed to bind to ldap server.\n");
             new_ld = NULL;
@@ -1426,10 +1390,10 @@ LDAP *getLDAPhandle(STDLL_TokData_t * tokdata, CK_SLOT_ID slot_id)
         }
     } else {
         TRACE_INFO("Using SASL auth with slot ID: %lu\n", slot_id);
-        rc = icsf_sasl_login(&new_ld, slot_data[slot_id]->uri,
-                             slot_data[slot_id]->cert_file,
-                             slot_data[slot_id]->key_file,
-                             slot_data[slot_id]->ca_file, ca_dir);
+        rc = icsf_sasl_login(&new_ld, icsf_data->slot_data->uri,
+                             icsf_data->slot_data->cert_file,
+                             icsf_data->slot_data->key_file,
+                             icsf_data->slot_data->ca_file, ca_dir);
         if (rc != 0) {
             TRACE_DEVEL("Failed to bind to ldap server.\n");
             new_ld = NULL;
@@ -1719,17 +1683,13 @@ CK_RV icsftok_final(STDLL_TokData_t * tokdata, CK_BBOOL finalize,
 CK_RV icsftok_login(STDLL_TokData_t * tokdata, SESSION * sess,
                     CK_USER_TYPE userType, CK_CHAR_PTR pPin, CK_ULONG ulPinLen)
 {
+    icsf_private_data_t *icsf_data = tokdata->private_data;
     CK_RV rc = CKR_OK;
     char fname[PATH_MAX];
     CK_BYTE hash_sha[SHA1_HASH_SIZE];
     int mklen = sizeof(tokdata->master_key);
-    CK_SLOT_ID slot_id = sess->session_info.slotID;
 
-    /* Check Slot ID */
-    if (slot_id >= NUMBER_SLOTS_MANAGED) {
-        TRACE_ERROR("Invalid slot ID: %lu\n", slot_id);
-        return CKR_FUNCTION_FAILED;
-    }
+    UNUSED(sess);
 
     /* compute the sha of the pin. */
     rc = compute_sha1(tokdata, pPin, ulPinLen, hash_sha);
@@ -1763,7 +1723,7 @@ CK_RV icsftok_login(STDLL_TokData_t * tokdata, SESSION * sess,
         }
 
         /* now load the master key */
-        if (slot_data[slot_id]->mech == ICSF_CFG_MECH_SIMPLE) {
+        if (icsf_data->slot_data->mech == ICSF_CFG_MECH_SIMPLE) {
             if (get_pk_dir(tokdata, fname, PATH_MAX) == NULL) {
                 TRACE_ERROR("pk_dir buffer overflow\n");
                 rc = CKR_FUNCTION_FAILED;
@@ -1794,7 +1754,7 @@ CK_RV icsftok_login(STDLL_TokData_t * tokdata, SESSION * sess,
             goto done;
         }
 
-        if (slot_data[slot_id]->mech == ICSF_CFG_MECH_SIMPLE) {
+        if (icsf_data->slot_data->mech == ICSF_CFG_MECH_SIMPLE) {
             /* now load the master key */
             if (get_pk_dir(tokdata, fname, PATH_MAX) == NULL) {
                 TRACE_ERROR("pk_dir buffer overflow\n");

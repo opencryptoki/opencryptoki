@@ -26,8 +26,7 @@ This information is read by the ICSF token.
 The ICSF token must bind and authenticate to an LDAP server.
 The supported authentication mechanisms are simple and sasl.
 One of these mechanisms must be entered when listing the available
-ICSF tokens or when adding an ICSF token. Opencryptoki currently
-supports adding only one ICSF token.
+ICSF tokens or when adding an ICSF token.
 
 The system admin can either allow the ldap calls to utilize existing
 ldap configs, such as ldap.conf or .ldaprc for bind and
