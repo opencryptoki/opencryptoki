@@ -1895,7 +1895,7 @@ CK_RV icsftok_copy_object(STDLL_TokData_t * tokdata,
     /* check ldap handle */
     if (session_state->ld == NULL) {
         TRACE_ERROR("No LDAP handle.\n");
-        rc = CKR_FUNCTION_FAILED;
+        rc = CKR_USER_NOT_LOGGED_IN;
         goto done;
     }
 
@@ -2032,7 +2032,7 @@ CK_RV icsftok_create_object(STDLL_TokData_t * tokdata, SESSION * session,
     /* check ldap handle */
     if (session_state->ld == NULL) {
         TRACE_ERROR("No LDAP handle.\n");
-        rc = CKR_FUNCTION_FAILED;
+        rc = CKR_USER_NOT_LOGGED_IN;
         goto done;
     }
 
@@ -2232,7 +2232,7 @@ CK_RV icsftok_generate_key_pair(STDLL_TokData_t * tokdata, SESSION * session,
     /* check ldap handle */
     if (session_state->ld == NULL) {
         TRACE_ERROR("No LDAP handle.\n");
-        rc = CKR_FUNCTION_FAILED;
+        rc = CKR_USER_NOT_LOGGED_IN;
         goto done;
     }
 
@@ -2392,7 +2392,7 @@ CK_RV icsftok_generate_key(STDLL_TokData_t * tokdata, SESSION * session,
     /* check ldap handle */
     if (session_state->ld == NULL) {
         TRACE_ERROR("No LDAP handle.\n");
-        rc = CKR_FUNCTION_FAILED;
+        rc = CKR_USER_NOT_LOGGED_IN;
         goto done;
     }
 
@@ -2731,7 +2731,7 @@ CK_RV icsftok_encrypt(STDLL_TokData_t * tokdata,
     /* check ldap handle */
     if (session_state->ld == NULL) {
         TRACE_ERROR("No LDAP handle.\n");
-        rc = CKR_FUNCTION_FAILED;
+        rc = CKR_USER_NOT_LOGGED_IN;
         goto done;
     }
 
@@ -2833,7 +2833,7 @@ CK_RV icsftok_encrypt_update(STDLL_TokData_t * tokdata,
     /* check ldap handle */
     if (session_state->ld == NULL) {
         TRACE_ERROR("No LDAP handle.\n");
-        rc = CKR_FUNCTION_FAILED;
+        rc = CKR_USER_NOT_LOGGED_IN;
         goto done;
     }
 
@@ -3023,7 +3023,7 @@ CK_RV icsftok_encrypt_final(STDLL_TokData_t * tokdata,
     /* check ldap handle */
     if (session_state->ld == NULL) {
         TRACE_ERROR("No LDAP handle.\n");
-        rc = CKR_FUNCTION_FAILED;
+        rc = CKR_USER_NOT_LOGGED_IN;
         goto done;
     }
 
@@ -3266,7 +3266,7 @@ CK_RV icsftok_decrypt(STDLL_TokData_t * tokdata,
     /* check ldap handle */
     if (session_state->ld == NULL) {
         TRACE_ERROR("No LDAP handle.\n");
-        rc = CKR_FUNCTION_FAILED;
+        rc = CKR_USER_NOT_LOGGED_IN;
         goto done;
     }
 
@@ -3369,7 +3369,7 @@ CK_RV icsftok_decrypt_update(STDLL_TokData_t * tokdata,
     /* check ldap handle */
     if (session_state->ld == NULL) {
         TRACE_ERROR("No LDAP handle.\n");
-        rc = CKR_FUNCTION_FAILED;
+        rc = CKR_USER_NOT_LOGGED_IN;
         goto done;
     }
 
@@ -3574,7 +3574,7 @@ CK_RV icsftok_decrypt_final(STDLL_TokData_t * tokdata,
     /* check ldap handle */
     if (session_state->ld == NULL) {
         TRACE_ERROR("No LDAP handle.\n");
-        rc = CKR_FUNCTION_FAILED;
+        rc = CKR_USER_NOT_LOGGED_IN;
         goto done;
     }
 
@@ -3687,7 +3687,7 @@ CK_RV icsftok_get_attribute_value(STDLL_TokData_t * tokdata,
     /* check ldap handle */
     if (session_state->ld == NULL) {
         TRACE_ERROR("No LDAP handle.\n");
-        return CKR_FUNCTION_FAILED;
+        return CKR_USER_NOT_LOGGED_IN;
     }
 
     /* get the object handle */
@@ -3710,7 +3710,8 @@ CK_RV icsftok_get_attribute_value(STDLL_TokData_t * tokdata,
 
     if (priv_obj == TRUE) {
         if (sess->session_info.state == CKS_RO_PUBLIC_SESSION ||
-            sess->session_info.state == CKS_RW_PUBLIC_SESSION) {
+            sess->session_info.state == CKS_RW_PUBLIC_SESSION ||
+            sess->session_info.state == CKS_RW_SO_FUNCTIONS) {
             TRACE_ERROR("%s\n", ock_err(ERR_USER_NOT_LOGGED_IN));
             rc = CKR_USER_NOT_LOGGED_IN;
             goto done;
@@ -3780,7 +3781,7 @@ CK_RV icsftok_set_attribute_value(STDLL_TokData_t * tokdata,
     /* check ldap handle */
     if (session_state->ld == NULL) {
         TRACE_ERROR("No LDAP handle.\n");
-        return CKR_FUNCTION_FAILED;
+        return CKR_USER_NOT_LOGGED_IN;
     }
 
     /* get the object handle */
@@ -3846,20 +3847,11 @@ CK_RV icsftok_find_objects_init(STDLL_TokData_t * tokdata, SESSION * sess,
     int reason = 0;
     CK_RV rv = CKR_OK;
     struct icsf_policy_attr pattr = { 0 };
-
-    /* Whether we retrieve public or private objects is determined by
-     * the caller's SAF authority on the token, something ock doesn't
-     * control.
-     * Since an app MUST have authenticated to ICSF token to use it,
-     * we can always assume it is an authenticated session and anything else
-     * is an error.
-     */
-    if (sess->session_info.state == CKS_RO_PUBLIC_SESSION ||
-        sess->session_info.state == CKS_RW_PUBLIC_SESSION ||
-        sess->session_info.state == CKS_RW_SO_FUNCTIONS) {
-        TRACE_ERROR("You must authenticate to access ICSF token.\n");
-        return CKR_FUNCTION_FAILED;
-    }
+    CK_ATTRIBUTE *effective_template = NULL;
+    CK_ULONG effective_count = 0;
+    CK_BBOOL priv_false = FALSE;
+    CK_BBOOL tmpl_priv = FALSE;
+    CK_BBOOL tmpl_has_priv = FALSE;
 
     /* Initialize the found object list. In keeping with other tokens,
      * if the list does not exist, allocate list big enough for MAX_RECORD
@@ -3905,7 +3897,64 @@ CK_RV icsftok_find_objects_init(STDLL_TokData_t * tokdata, SESSION * sess,
     /* check ldap handle */
     if (session_state->ld == NULL) {
         TRACE_ERROR("No LDAP handle.\n");
-        return CKR_FUNCTION_FAILED;
+        return CKR_USER_NOT_LOGGED_IN;
+    }
+
+    /*
+     * Build the effective template to pass to ICSF.
+     *
+     * Public and SO sessions may only see public objects (CKA_PRIVATE=FALSE).
+     * If the session state is CKS_RW_SO_FUNCTIONS or a public session state,
+     * enforce CKA_PRIVATE=FALSE in the search template:
+     *   - If the caller's template already requests CKA_PRIVATE=TRUE, no
+     *     objects can be visible to this session — return an empty result.
+     *   - Otherwise append CKA_PRIVATE=FALSE to the template so that ICSF
+     *     performs the filtering server-side.
+     *
+     * User sessions (RO or RW) see all objects that ICSF returns; no extra
+     * filtering is needed because the LDAP credential already limits access.
+     */
+    if (sess->session_info.state == CKS_RO_PUBLIC_SESSION ||
+        sess->session_info.state == CKS_RW_PUBLIC_SESSION ||
+        sess->session_info.state == CKS_RW_SO_FUNCTIONS) {
+
+        for (i = 0; i < ulCount; i++) {
+            if (pTemplate[i].type == CKA_PRIVATE &&
+                pTemplate[i].pValue != NULL &&
+                pTemplate[i].ulValueLen == sizeof(CK_BBOOL)) {
+                tmpl_has_priv = TRUE;
+                tmpl_priv = *(CK_BBOOL *) pTemplate[i].pValue;
+            }
+        }
+        if (tmpl_has_priv && tmpl_priv == TRUE) {
+            /* Caller asks for private objects but session cannot see them. */
+            sess->find_active = TRUE;
+            goto done;
+        }
+
+        if (tmpl_has_priv) {
+            /* CKA_PRIVATE=FALSE is already in the template; use as-is. */
+            effective_template = pTemplate;
+            effective_count = ulCount;
+        } else {
+            /* Build augmented template with CKA_PRIVATE=FALSE appended. */
+            effective_count = ulCount + 1;
+            effective_template = malloc(effective_count * sizeof(CK_ATTRIBUTE));
+            if (!effective_template) {
+                TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+                rv = CKR_HOST_MEMORY;
+                goto done;
+            }
+            if (ulCount > 0)
+                memcpy(effective_template, pTemplate,
+                       ulCount * sizeof(CK_ATTRIBUTE));
+            effective_template[ulCount].type = CKA_PRIVATE;
+            effective_template[ulCount].pValue = &priv_false;
+            effective_template[ulCount].ulValueLen = sizeof(priv_false);
+        }
+    } else {
+        effective_template = pTemplate;
+        effective_count = ulCount;
     }
 
     /* clear out records */
@@ -3914,8 +3963,8 @@ CK_RV icsftok_find_objects_init(STDLL_TokData_t * tokdata, SESSION * sess,
     do {
         records_len = sizeof(records) / sizeof(struct icsf_object_record);
         rc = icsf_list_objects(session_state->ld, &reason, token_name,
-                               ulCount, pTemplate, previous, records,
-                               &records_len, 0);
+                               effective_count, effective_template, previous,
+                               records, &records_len, 0);
         if (ICSF_RC_IS_ERROR(rc)) {
             TRACE_DEVEL("Failed to list objects.\n");
             rv = icsf_to_ock_err(rc, reason);
@@ -4022,6 +4071,8 @@ CK_RV icsftok_find_objects_init(STDLL_TokData_t * tokdata, SESSION * sess,
     sess->find_active = TRUE;
 
 done:
+    if (effective_template != pTemplate)
+        free(effective_template);
     return rv;
 }
 
@@ -4036,18 +4087,21 @@ CK_RV icsftok_destroy_object(STDLL_TokData_t * tokdata, SESSION * sess,
     struct icsf_object_mapping *mapping = NULL;
     int reason;
     CK_RV rc = CKR_OK;
-
+    CK_BBOOL is_priv;
+    CK_ATTRIBUTE priv_attr[] = {
+        {CKA_PRIVATE, &is_priv, sizeof(is_priv)},
+    };
 
     /* Get session state */
     if (!(session_state = get_session_state(tokdata, sess->handle))) {
         TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
-        return CKR_SESSION_HANDLE_INVALID;;
+        return CKR_SESSION_HANDLE_INVALID;
     }
 
     /* check ldap handle */
     if (session_state->ld == NULL) {
         TRACE_ERROR("No LDAP handle.\n");
-        return CKR_FUNCTION_FAILED;
+        return CKR_USER_NOT_LOGGED_IN;
     }
 
     /* get the object handle */
@@ -4057,6 +4111,22 @@ CK_RV icsftok_destroy_object(STDLL_TokData_t * tokdata, SESSION * sess,
         TRACE_ERROR("%s\n", ock_err(ERR_OBJECT_HANDLE_INVALID));
         rc = CKR_OBJECT_HANDLE_INVALID;
         goto done;
+    }
+
+    /* SO sessions may not access private objects. */
+    if (sess->session_info.state == CKS_RW_SO_FUNCTIONS) {
+        rc = icsf_get_attribute(session_state->ld, &reason, NULL,
+                                &mapping->icsf_object, priv_attr, 1);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("icsf_get_attribute failed\n");
+            rc = icsf_to_ock_err(rc, reason);
+            goto done;
+        }
+        if (is_priv == TRUE) {
+            TRACE_ERROR("%s\n", ock_err(ERR_USER_NOT_LOGGED_IN));
+            rc = CKR_USER_NOT_LOGGED_IN;
+            goto done;
+        }
     }
 
     /* Now remove the object from ICSF */
@@ -4366,7 +4436,7 @@ CK_RV icsftok_sign(STDLL_TokData_t * tokdata,
     /* check ldap handle */
     if (session_state->ld == NULL) {
         TRACE_ERROR("No LDAP handle.\n");
-        rc = CKR_FUNCTION_FAILED;
+        rc = CKR_USER_NOT_LOGGED_IN;
         goto done;
     }
 
@@ -4502,7 +4572,7 @@ CK_RV icsftok_sign_update(STDLL_TokData_t * tokdata,
     /* check ldap handle */
     if (session_state->ld == NULL) {
         TRACE_ERROR("No LDAP handle.\n");
-        rc = CKR_FUNCTION_FAILED;
+        rc = CKR_USER_NOT_LOGGED_IN;
         goto done;
     }
 
@@ -4678,7 +4748,7 @@ CK_RV icsftok_sign_final(STDLL_TokData_t * tokdata,
     /* check ldap handle */
     if (session_state->ld == NULL) {
         TRACE_ERROR("No LDAP handle.\n");
-        rc = CKR_FUNCTION_FAILED;
+        rc = CKR_USER_NOT_LOGGED_IN;
         goto done;
     }
 
@@ -5019,7 +5089,7 @@ CK_RV icsftok_verify(STDLL_TokData_t * tokdata,
     /* check ldap handle */
     if (session_state->ld == NULL) {
         TRACE_ERROR("No LDAP handle.\n");
-        rc = CKR_FUNCTION_FAILED;
+        rc = CKR_USER_NOT_LOGGED_IN;
         goto done;
     }
 
@@ -5127,7 +5197,7 @@ CK_RV icsftok_verify_update(STDLL_TokData_t * tokdata,
     /* check ldap handle */
     if (session_state->ld == NULL) {
         TRACE_ERROR("No LDAP handle.\n");
-        rc = CKR_FUNCTION_FAILED;
+        rc = CKR_USER_NOT_LOGGED_IN;
         goto done;
     }
 
@@ -5308,7 +5378,7 @@ CK_RV icsftok_verify_final(STDLL_TokData_t * tokdata,
     /* check ldap handle */
     if (session_state->ld == NULL) {
         TRACE_ERROR("No LDAP handle.\n");
-        rc = CKR_FUNCTION_FAILED;
+        rc = CKR_USER_NOT_LOGGED_IN;
         goto done;
     }
 
@@ -5430,7 +5500,7 @@ CK_RV icsftok_wrap_key(STDLL_TokData_t * tokdata,
     /* check ldap handle */
     if (session_state->ld == NULL) {
         TRACE_ERROR("No LDAP handle.\n");
-        return CKR_FUNCTION_FAILED;
+        return CKR_USER_NOT_LOGGED_IN;
     }
 
     /* Check if keys exist */
@@ -5561,7 +5631,7 @@ CK_RV icsftok_unwrap_key(STDLL_TokData_t * tokdata,
     /* check ldap handle */
     if (session_state->ld == NULL) {
         TRACE_ERROR("No LDAP handle.\n");
-        return CKR_FUNCTION_FAILED;
+        return CKR_USER_NOT_LOGGED_IN;
     }
 
     /* Check if key exists */
@@ -5754,7 +5824,7 @@ CK_RV icsftok_derive_key(STDLL_TokData_t * tokdata, SESSION * session,
     /* check ldap handle */
     if (session_state->ld == NULL) {
         TRACE_ERROR("No LDAP handle.\n");
-        rc = CKR_FUNCTION_FAILED;
+        rc = CKR_USER_NOT_LOGGED_IN;
         goto done;
     }
 
