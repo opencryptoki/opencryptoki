@@ -38,6 +38,14 @@ typedef struct {
      * object handles. The tree index is used as the PKCS#11 handle.
      */
     struct btree objects;
+
+    /*
+     * Pointer into the shared memory region for this token's slot_data.
+     * The actual struct slot_data lives in shared memory (appended after
+     * LW_SHM_TYPE by token_specific_attach_shm) so all processes sharing
+     * the token see the same connection config.  
+     */
+    struct slot_data *slot_data;
 } icsf_private_data_t;
 
 CK_RV icsftok_init(STDLL_TokData_t * tokdata, CK_SLOT_ID slot_id,
