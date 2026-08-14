@@ -436,6 +436,57 @@ static void remove_mk_so_file(const char *tokname)
     remove_file(fname);
 }
 
+static int create_directory(const char *parent_dir, const char *tokname)
+{
+    char fname[PATH_MAX];
+    struct group *grp;
+    int dfd;
+
+    grp = getgrnam(PKCS_GROUP);
+    if (grp == NULL) {
+        fprintf(stderr, "getgrname(%s): %s\n", PKCS_GROUP, strerror(errno));
+        return -1;
+    }
+
+    snprintf(fname, sizeof(fname), "%s/%s", parent_dir, tokname);
+    if (mkdir(fname, S_IRWXU | S_IRWXG) != 0) {
+        if (errno == EEXIST)
+            return 0;
+        fprintf(stderr, "Failed to create token directory '%s': %s\n",
+                fname, strerror(errno));
+        return -1;
+    }
+
+    dfd = open_nofollow(fname, O_RDONLY | O_DIRECTORY);
+    if (dfd < 0) {
+        fprintf(stderr, "Failed to open token directory '%s': %s\n",
+                fname, strerror(errno));
+        rmdir(fname);
+        return -1;
+    }
+
+    /* set ownership to euid, and token group */
+    if (fchown(dfd, geteuid(), grp->gr_gid) != 0) {
+        fprintf(stderr, "Failed to set owner:group ownership on '%s' "
+                "directory\n", fname);
+        close(dfd);
+        rmdir(fname);
+        return -1;
+    }
+
+    /* mkdir does not set group permission right, set explicitly here */
+    if (fchmod(dfd, S_IRWXU | S_IRWXG) != 0) {
+        fprintf(stderr, "Failed to change permissions on '%s' directory\n",
+                fname);
+        close(dfd);
+        rmdir(fname);
+        return -1;
+    }
+
+    close(dfd);
+    return 0;
+}
+
 static int retrieve_all(const char *racfpwd)
 {
     size_t tokenCount, i;
@@ -587,16 +638,7 @@ static int secure_racf_passwd(const char *racfpwd, CK_ULONG len,
     char *buf_so = NULL;
     unsigned char masterkey[AES_KEY_SIZE_256];
     char fname[PATH_MAX];
-    struct stat sb;
-    struct group *grp;
     int rc;
-
-    grp = getgrnam(PKCS_GROUP);
-    if (grp == NULL) {
-        fprintf(stderr, "getgrname(%s): %s\n", PKCS_GROUP, strerror(errno));
-        rc = -1;
-        goto cleanup;
-    }
 
     if (!is_valid_filename_component(tokname)) {
         fprintf(stderr, "Token name '%s' is not valid (must not be empty, "
@@ -606,30 +648,15 @@ static int secure_racf_passwd(const char *racfpwd, CK_ULONG len,
     }
 
     /* Create the token directory, if not already existent */
-    snprintf(fname, sizeof(fname), "%s/%s", CONFIG_PATH, tokname);
-    if (stat(fname, &sb) != 0 && errno == ENOENT) {
-        if (mkdir(fname, S_IRWXU | S_IRWXG) != 0) {
-            fprintf(stderr, "Failed to create token directory '%s': %s\n",
-                    fname, strerror(errno));
-            rc = -1;
-            goto cleanup;
-        }
+    if (create_directory(CONFIG_PATH, tokname) != 0) {
+        rc = -1;
+        goto cleanup;
+    }
 
-        /* set ownership to euid, and token group */
-        if (chown(fname, geteuid(), grp->gr_gid) != 0) {
-            fprintf(stderr, "Failed to set owner:group ownership on '%s' "
-                    "directory\n", fname);
-            rc = -1;
-            goto cleanup;
-        }
-
-        /* mkdir does not set group permission right, set explicitly here */
-        if (chmod(fname, S_IRWXU | S_IRWXG) != 0) {
-            fprintf(stderr, "Failed to change permissions on '%s' directory\n",
-                    fname);
-            rc = -1;
-            goto cleanup;
-        }
+    /* Create the lock directory, if not already existent */
+    if (create_directory(LOCKDIR_PATH, tokname) != 0) {
+        rc = -1;
+        goto cleanup;
     }
 
     /* get the SO PIN */
