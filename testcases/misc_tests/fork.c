@@ -94,7 +94,13 @@ CK_RV do_fork(CK_SESSION_HANDLE parent_session, CK_OBJECT_HANDLE parent_object)
     if (child_pid != 0) {
         // parent process: wait until child exits
         waitpid(child_pid, &status, 0);
-        return status;
+        if (WIFEXITED(status))
+            return WEXITSTATUS(status);
+        /* child was killed by a signal */
+        testcase_notice("child process %d killed by signal %d (%s)",
+                        child_pid, WTERMSIG(status),
+                        strsignal(WTERMSIG(status)));
+        return CKR_FUNCTION_FAILED;
     }
 
     // child process flows here
