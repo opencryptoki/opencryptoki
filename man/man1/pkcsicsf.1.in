@@ -107,7 +107,8 @@ After step\~3 the token is fully operational and
 Add the specified ICSF token to opencryptoki.
 See
 .B TOKEN INITIALIZATION
-above for the steps that follow.
+above for the steps that follow. To add all available ICSF token,
+specify \fBall\fP.
 .IP "\fB-b\fP \fIBINDDN\fP" 10
 The distinguished name to bind when using simple authentication.
 .IP "\fB-c\fP \fIclient-cert-file\fP" 10

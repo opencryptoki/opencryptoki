@@ -638,6 +638,7 @@ static int secure_racf_passwd(const char *racfpwd, CK_ULONG len,
     char *buf_so = NULL;
     unsigned char masterkey[AES_KEY_SIZE_256];
     char fname[PATH_MAX];
+    char msg[PATH_MAX];
     int rc;
 
     if (!is_valid_filename_component(tokname)) {
@@ -660,7 +661,8 @@ static int secure_racf_passwd(const char *racfpwd, CK_ULONG len,
     }
 
     /* get the SO PIN */
-    sopin = pin_prompt(&buf_so, "Enter the SO PIN: ");
+    snprintf(msg, sizeof(msg), "Enter the SO PIN for token '%s': ", tokname);
+    sopin = pin_prompt(&buf_so, msg);
     if (!sopin) {
         fprintf(stderr, "Could not get SO PIN.\n");
         rc = -1;
