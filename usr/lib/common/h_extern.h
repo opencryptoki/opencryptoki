@@ -420,6 +420,8 @@ CK_RV dp_x9dh_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode);
 CK_RV dp_x9dh_validate_attribute(TEMPLATE *tmpl,
                                  CK_ATTRIBUTE *attr, CK_ULONG mode);
 
+int is_valid_filename_component(const char *name);
+
 CK_RV save_token_object(STDLL_TokData_t *tokdata, OBJECT *obj);
 CK_RV save_private_token_object(STDLL_TokData_t *tokdata, OBJECT *obj);
 CK_RV save_public_token_object(STDLL_TokData_t *tokdata, OBJECT *obj);

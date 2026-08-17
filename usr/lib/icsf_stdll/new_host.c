@@ -90,6 +90,18 @@ CK_RV ST_Initialize(API_Slot_t *sltp, CK_SLOT_ID SlotNumber,
     }
 
     if (strlen(sinfp->tokname)) {
+        if (strcmp(sinfp->tokname, "HSM_MK_CHANGE") == 0) {
+            TRACE_ERROR("tokname 'HSM_MK_CHANGE' is reserved\n");
+            rc = CKR_FUNCTION_FAILED;
+            goto done;
+        }
+        if (!is_valid_filename_component(sinfp->tokname)) {
+            TRACE_ERROR("tokname '%s' is not valid (must not be empty, "
+                        "must not be '.' or '..', and must not contain '/')\n",
+                        sinfp->tokname);
+            rc = CKR_FUNCTION_FAILED;
+            goto done;
+        }
         if (ock_snprintf(abs_tokdir_name, PATH_MAX, "%s/%s",
                          CONFIG_PATH, sinfp->tokname) != 0) {
             TRACE_ERROR("abs_tokdir_name buffer overflow\n");
@@ -135,6 +147,17 @@ CK_RV ST_Initialize(API_Slot_t *sltp, CK_SLOT_ID SlotNumber,
     /* Create lockfile */
     if (CreateXProcLock(sinfp->tokname, sltp->TokData) != CKR_OK) {
         TRACE_ERROR("Process lock failed.\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+
+    /* Validate confname: relative names are restricted to safe filename
+     * components; absolute paths are used as-is and need no further check. */
+    if (strlen(sinfp->confname) > 0 && sinfp->confname[0] != '/' &&
+        !is_valid_filename_component(sinfp->confname)) {
+        TRACE_ERROR("confname '%s' is not valid (must not be empty, "
+                    "must not be '.' or '..', and must not contain '/')\n",
+                    sinfp->confname);
         rc = CKR_FUNCTION_FAILED;
         goto done;
     }
