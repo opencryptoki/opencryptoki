@@ -1158,3 +1158,29 @@ CK_RV init_hsm_mk_change_lock(STDLL_TokData_t *tokdata)
 
     return CKR_OK;
 }
+
+int is_valid_filename_component(const char *name)
+{
+    size_t len;
+
+    if (name == NULL)
+        return 0;
+
+    len = strlen(name);
+    if (len == 0 || len > NAME_MAX)
+        return 0;
+
+    /* Reject "." and ".." which resolve to current/parent directory */
+    if (strcmp(name, ".") == 0 || strcmp(name, "..") == 0)
+        return 0;
+
+    /*
+     * Reject any name containing '/' - that is the only character that
+     * could escape the token directory when the name is appended to a
+     * path.  All other characters are valid filename components on POSIX.
+     */
+    if (strchr(name, '/') != NULL)
+        return 0;
+
+    return 1;
+}
