@@ -86,12 +86,34 @@ minor version number (the hundredths portion of the version).
 If the slot is associated with a token that has its own configuration file,
 this option identifies the name of that configuration file.
 For example, confname=ep11tok.conf
+
+The value is either an absolute path to the configuration file, or a plain
+filename.
+A plain filename must not contain a
+.RB ' / '
+character, must not be empty, and must not be
+.RB ' . '
+or
+.RB ' .. '.
+Any other characters are permitted.
 .TP
 .BR tokname
-If a token want to have its own token directory name that is different from the
+If a token wants to have its own token directory name that is different from the
 default name, especially if multiple tokens of the same type are configured,
-this option defines the name of the token individual directory.
+this option defines the name of the token's individual directory.
 For example, tokname=ep11tok01
+
+The value must be a plain directory name (not a path): it must not contain a
+.RB ' / '
+character, must not be empty, and must not be
+.RB ' . '
+or
+.RB ' .. '.
+Any other characters are permitted.
+
+The name
+.B HSM_MK_CHANGE
+is reserved for internal use and may not be specified as a token name.
 
 Note: This key-value pair is optional: If only one token per token type is used,
 you don't need that entry. In that case the default directory name is used.

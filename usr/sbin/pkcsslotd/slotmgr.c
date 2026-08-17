@@ -27,6 +27,8 @@
 #include "cfgparser.h"
 #include "configuration.h"
 #include "platform.h"
+#define OCK_TOOL
+#include "pkcs_utils.h"
 
 #define OBJ_DIR "TOK_OBJ"
 #define SHA256_HASH_SIZE 32
@@ -45,6 +47,8 @@
     #include <sys/capability.h>
     #define DEF_SLOTDESC    "Linux"
 #endif
+
+pkcs_trace_level_t trace_level = TRACE_LEVEL_NONE;
 
 typedef char sha256_hash_entry[SHA256_HASH_SIZE];
 sha256_hash_entry tokname_hash_table[NUMBER_SLOTS_MANAGED];
@@ -803,6 +807,15 @@ static int config_parse_slot(const char *config_file,
                        config_file, c->key, str, 0))
                 return 1;
 
+            if (sinfo[slot_no].confname[0] != '/' &&
+                !is_valid_filename_component(sinfo[slot_no].confname)) {
+                ErrLog("Error parsing config file '%s': confname '%s' is not "
+                       "valid (must not be empty, must not be '.' or '..', "
+                       "and must not contain '/')\n",
+                       config_file, sinfo[slot_no].confname);
+                return 1;
+            }
+
             continue;
         }
 
@@ -812,6 +825,20 @@ static int config_parse_slot(const char *config_file,
                        sizeof(sinfo[slot_no].tokname),
                        config_file, c->key, str, 0))
                 return 1;
+
+            if (strcmp(sinfo[slot_no].tokname, "HSM_MK_CHANGE") == 0) {
+                ErrLog("Error parsing config file '%s': tokname 'HSM_MK_CHANGE' "
+                       "is reserved\n", config_file);
+                return 1;
+            }
+
+            if (!is_valid_filename_component(sinfo[slot_no].tokname)) {
+                ErrLog("Error parsing config file '%s': tokname '%s' is not "
+                       "valid (must not be empty, must not be '.' or '..', "
+                       "and must not contain '/')\n",
+                       config_file, sinfo[slot_no].tokname);
+                return 1;
+            }
 
             continue;
         }

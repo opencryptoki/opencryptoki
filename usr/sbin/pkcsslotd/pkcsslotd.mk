@@ -30,7 +30,8 @@ usr_sbin_pkcsslotd_pkcsslotd_SOURCES =							\
 	usr/sbin/pkcsslotd/log.c usr/sbin/pkcsslotd/daemon.c				\
 	usr/sbin/pkcsslotd/garbage_linux.c usr/sbin/pkcsslotd/pkcsslotd_util.c		\
 	usr/sbin/pkcsslotd/socket_server.c usr/lib/config/configuration.c		\
-	usr/lib/config/cfgparse.y usr/lib/config/cfglex.l
+	usr/lib/config/cfgparse.y usr/lib/config/cfglex.l				\
+	usr/lib/common/pkcs_utils.c
 
 if AIX
 usr_sbin_pkcsslotd_pkcsslotd_LDFLAGS += -lbsd
