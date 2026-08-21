@@ -4719,17 +4719,17 @@ static void print_custom_attrs(CK_OBJECT_HANDLE key,
                                P11SAK_CONFIG_KEYWORD_TYPE);
 
         if (name == NULL || !confignode_hastype(name, CT_BAREVAL)) {
-            warnx("Sytax error in config file: Missing '%s' in attribute at line %u\n",
+            warnx("Syntax error in config file: Missing '%s' in attribute at line %u\n",
                   P11SAK_CONFIG_KEYWORD_NAME, c->line);
             return;
         }
         if (id == NULL || !confignode_hastype(id, CT_INTVAL)) {
-            warnx("Sytax error in config file: Missing '%s' in attribute at line %u\n",
+            warnx("Syntax error in config file: Missing '%s' in attribute at line %u\n",
                   P11SAK_CONFIG_KEYWORD_ID, c->line);
             return;
         }
         if (type == NULL || !confignode_hastype(type, CT_BAREVAL)) {
-            warnx("Sytax error in config file: Missing '%s' in attribute at line %u\n",
+            warnx("Syntax error in config file: Missing '%s' in attribute at line %u\n",
                   P11SAK_CONFIG_KEYWORD_TYPE, c->line);
             return;
         }
@@ -4740,7 +4740,7 @@ static void print_custom_attrs(CK_OBJECT_HANDLE key,
                 break;
         }
         if (atype->type == NULL) {
-            warnx("Sytax error in config file: Invalid '%s' value in attribute at line %u\n",
+            warnx("Syntax error in config file: Invalid '%s' value in attribute at line %u\n",
                    P11SAK_CONFIG_KEYWORD_TYPE, c->line);
             return;
         }
