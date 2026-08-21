@@ -1,4 +1,4 @@
-.TH P11KMIP.CONF 5 "August 2023" "@PACKAGE_VERSION@" "openCryptoki"
+.TH P11KMIP.CONF 5 "August 2026" "@PACKAGE_VERSION@" "openCryptoki"
 .SH NAME
 p11kmip.conf \- Configuration file for the \fBp11kmip\fP
 command.
@@ -8,13 +8,14 @@ command.
 .SH DESCRIPTION
 The
 .B p11kmip
-tool uses the configuration file \fB/etc/opencryptoki/p11kmip.conf\fP to read information about
+tool uses the configuration file \fB@sysconfdir@/opencryptoki/p11kmip.conf\fP to read information about
 how to connect to a KMIP server and interact with a PKCS\~#11 token repository.
 .PP
-A custom file path can be set with  environment variable
-\fBP11KMIP_DEFAULT_CONF_FILE\fP. If the environment variable is not set, then
-the global \fB/etc/opencryptoki/p11kmip.conf\fP config file is read.
-If this file is unavailable, an error message is displayed.
+A custom file path can be set with the environment variable
+\fBP11KMIP_CONF_FILE\fP. If the environment variable is not set, then the
+user-specific file \fB~/.p11kmip.conf\fP is checked first. If that file is
+also absent, the global \fB@sysconfdir@/opencryptoki/p11kmip.conf\fP config file is
+read. If this file is also unavailable, an error message is displayed.
 .
 .
 .
@@ -45,50 +46,77 @@ kmip {
 }
 
 
-The
+.TP
 .B host
-attribute must be specified in the format "hostname[:port]" when using plain TLS, where 
-"hostname" may be an IPv4 address, IPv6 address, or a symbolical hostname, and 
-"port" may optionally be used to specify a non-standard port number. If 
-"port" is not specified, 5696 is used as the default.
+Must be specified in the format \fB"hostname[:port]"\fP, where "hostname" may be
+an IPv4 address, IPv6 address, or a symbolic hostname, and "port" may optionally
+specify a non-standard port number. If "port" is not specified, 5696 is used as
+the default.
 
-The
+.TP
 .B tls_client_cert
-attribute must specify the path to a PEM format file containing the client certificate
+Must specify the path to a PEM format file containing the client certificate
 used for TLS authentication to the KMIP server.
 
-The
+.TP
 .B tls_client_key
-attribute must specify the path to a PEM format file containing the client private key
+Must specify the path to a PEM format file containing the client private key
 used for TLS authentication to the KMIP server.
 
-The
+.TP
 .B wrap_key_format
-attribute specifies the format used to transmit the wrapping key, and must be one of "PKCS1", 
-"PKCS8", or "TransparentPublicKey".
+Required. Specifies the format used to transmit the wrapping key.
+Valid values:
+.RS
+.IP \(bu
+\fBPKCS1\fP \- PKCS #1 encoded RSA public key
+.IP \(bu
+\fBPKCS8\fP \- PKCS #8 encoded public key
+.IP \(bu
+\fBTransparentPublicKey\fP \- transparent RSA public key structure
+.RE
 
-The 
+.TP
 .B wrap_key_algorithm
-attribute specifies the algorithm used for key wrapping. Currently only "RSA" is supported.
+Required. Specifies the algorithm used for key wrapping.
+Valid values:
+.RS
+.IP \(bu
+\fBRSA\fP \- currently the only supported wrapping algorithm
+.RE
 
-The
+.TP
 .B wrap_key_size
-attribute specifies the length of the key used for wrapping. This value must match the length of 
-the actual wrapping and unwrapping key which are provided when the tool is invoked.
+Required. An unquoted integer specifying the length in bits of the wrapping key.
+This value must match the length of the actual wrapping and unwrapping key
+provided when the tool is invoked.
 
-The
+.TP
 .B wrap_padding_method
-attribute specifies padding method used during the key wrap. Currently padding methods
-"PKCS1.5" and "OAEP" are supported.
+Required. Specifies the padding method used during the key wrap.
+Valid values:
+.RS
+.IP \(bu
+\fBPKCS1.5\fP \- PKCS #1 v1.5 padding
+.IP \(bu
+\fBOAEP\fP \- Optimal Asymmetric Encryption Padding
+.RE
 
-The
+.TP
 .B wrap_hashing_algorithm
-specifies the hashing algorithm used by the padding method. Only the "OAEP" padding
-method requires a hashing algorithm to be specified. For the "OAEP" padding method, only the "SHA-1" and "SHA-256" hashing algorithms
-are supported. For all other padding methods this field is ignored, and may be absent.
+Optional. Specifies the hashing algorithm used by the padding method.
+Required only when \fBwrap_padding_method\fP is \fBOAEP\fP; ignored and may be
+absent for all other padding methods.
+Valid values when \fBwrap_padding_method\fP is \fBOAEP\fP:
+.RS
+.IP \(bu
+\fBSHA-1\fP
+.IP \(bu
+\fBSHA-256\fP
+.RE
 
 The second section configures interaction with the PKCS\~#11 token repository. It contains
-the following keyword: 
+the following keyword:
 .B slot .
 
 .PP
@@ -97,9 +125,9 @@ pkcs11 {
    slot = 0
 }
 
-The
+.TP
 .B slot
-attribute must be an integer specifying the slot number to use.
+An unquoted integer specifying the PKCS\~#11 slot number to use.
 
 Of these attributes, the 
 .B host
@@ -115,9 +143,13 @@ attribute of the
 .B pkcs11 
 section may be absent from the file if specified by an environment variable or command option.
 
-The remaining attributes will be treated as the the default values shown in this example when they are
-absent. The configuration file need not be present if all required attributes are specified by other means.
-Attributes and groups may be specified in any order within the configuration file. 
+The attributes \fBwrap_key_format\fP, \fBwrap_key_algorithm\fP, \fBwrap_key_size\fP,
+and \fBwrap_padding_method\fP can only be specified in the configuration file;
+there are no corresponding environment variables or command-line options.
+When a configuration file is present, all four of these attributes are required.
+The \fBwrap_hashing_algorithm\fP attribute is optional, but required when
+\fBwrap_padding_method\fP is "OAEP".
+Attributes and groups may be specified in any order within the configuration file.
 
 .PP
 
