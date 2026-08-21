@@ -1,12 +1,14 @@
-.TH PKCSCONF 1 "May 2007" "@PACKAGE_VERSION@" "openCryptoki"
+.TH PKCSCONF 1 "August 2026" "@PACKAGE_VERSION@" "openCryptoki"
 .SH NAME
 pkcsconf \- configuration utility for the pkcsslotd daemon
 
 .SH SYNOPSIS
 \fBpkcsconf\fP
 [\fB-itsmlIupPh\fP]
-[\fB-c\fP \fIslotnumber\fP \fB-U\fP \fIuserPIN\fP
-\fB-S\fP \fISOPin\fP \fB-n\fP \fInewpin\fP]
+[\fB-c\fP \fIslotnumber\fP]
+[\fB-U\fP \fIuserPIN\fP]
+[\fB-S\fP \fISOPIN\fP]
+[\fB-n\fP \fInewpin\fP]
 
 .SH DESCRIPTION
 The \fBpkcsconf\fP utility displays and configures the state of the
@@ -24,26 +26,46 @@ display mechanism list
 .IP "\fB-l\fP" 10
 display slot description
 .IP "\fB-I\fP" 10
-initialize token 
+initialize token; requires \fB-c\fP.
+The SO PIN must be supplied via \fB-S\fP or will be prompted for.
 .IP "\fB-u\fP" 10
-initialize user PIN
+initialize user PIN; requires \fB-c\fP.
+The SO PIN must be supplied via \fB-S\fP or will be prompted for.
+The new user PIN must be supplied via \fB-n\fP or will be prompted for.
 .IP "\fB-p\fP" 10
-set the user PIN
+set the user PIN; requires \fB-c\fP.
+The current user PIN must be supplied via \fB-U\fP or will be prompted for.
+The new user PIN must be supplied via \fB-n\fP or will be prompted for.
+Mutually exclusive with \fB-P\fP.
 .IP "\fB-P\fP" 10
-set the SO PIN
+set the SO PIN; requires \fB-c\fP.
+The current SO PIN must be supplied via \fB-S\fP or will be prompted for.
+The new SO PIN must be supplied via \fB-n\fP or will be prompted for.
+Mutually exclusive with \fB-p\fP.
 .IP "\fB-c\fP \fISLOT\fP" 10
-specify the token slot for the operation
+specify the token slot for the operation;
+required when using \fB-I\fP, \fB-u\fP, \fB-p\fP, or \fB-P\fP
 .IP "\fB-U\fP \fIUSERPIN\fP" 10
-the current user pin (for use when changing the user pin; -u and -p options);
+the current user PIN (for use when changing the user PIN; \fB-p\fP option);
 if not specified, user will be prompted
 .IP "\fB-S\fP \fISOPIN\fP" 10
-the current Security Officer (SO) pin (for use when changing the SO pin;
--P option); if not specified, user will be prompted
+the current Security Officer (SO) PIN (for use when initializing the token or
+user PIN, or changing the SO PIN; \fB-I\fP, \fB-u\fP, and \fB-P\fP options);
+if not specified, user will be prompted
 .IP "\fB-n\fP \fINEWPIN\fP" 10
-the new pin (for use when changing either the user pin or the SO pin; -u, -p
-and -P options); if not specified, user will be prompted
+the new PIN (for use when initializing the user PIN or changing the user or SO
+PIN; \fB-u\fP, \fB-p\fP, and \fB-P\fP options); if not specified, user will be
+prompted
 .IP "\fB-h\fP" 10
 show usage information
+
+.SH EXIT STATUS
+.TP
+.B 0
+Success.
+.TP
+.B >0
+A PKCS#11 error code is returned on failure.
 
 .SH SEE ALSO
 .PD 0
