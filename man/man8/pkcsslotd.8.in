@@ -1,12 +1,26 @@
-.TH PKCSSLOTD 8 "May 2007" "@PACKAGE_VERSION@" "openCryptoki"
+.TH PKCSSLOTD 8 "August 2026" "@PACKAGE_VERSION@" "openCryptoki"
 .SH NAME
-pkcsslotd - shared memory manager for opencryptoki
+pkcsslotd - shared memory manager for openCryptoki
+
+.SH SYNOPSIS
+.B pkcsslotd
 
 .SH DESCRIPTION
-The \fBpkcsslotd\fP daemon manages PKCS#11 objects between
-PKCS#11-enabled applications. When 2 or more processes are accessing
-the same cryptographic token, the daemon is notified and updates
-each application when the token's objects change.
+The \fBpkcsslotd\fP daemon coordinates PKCS#11-enabled applications that use
+openCryptoki. It maintains a shared memory segment that tracks, per slot,
+the number of open sessions across all processes, and reclaims sessions of
+processes that terminate without calling \fBC_Finalize\fP.
+.PP
+\fBpkcsslotd\fP also delivers asynchronous events to running openCryptoki
+applications over a Unix domain socket. This includes notifications about
+cryptographic adapters (APQNs) becoming available or unavailable, and
+coordination events used by the \fBpkcshsm_mk_change\fP(1) tool when
+changing a hardware security module's master key.
+.PP
+At startup, \fBpkcsslotd\fP reads the \fBopencryptoki.conf\fP(5)
+configuration file to determine which slots and tokens are available. It
+passes this slot and token configuration to openCryptoki applications over
+the same Unix domain socket during their \fBC_Initialize\fP call.
 
 .SH NOTES
 Only one instance of the pkcsslotd daemon should be running on any
@@ -24,6 +38,11 @@ openCryptoki need to be members of the group. Only trusted users should be
 assigned to the group, see the "SECURITY NOTE" in the \fBopencryptoki\fP(7)
 manual page for details.
 
+\fBpkcsslotd\fP normally runs under the \fI@pkcsslotd_user@\fP user (and the
+\fI@pkcs_group@\fP group). If started as \fBroot\fP, it performs its
+privileged initialization steps and then drops privileges to the
+\fI@pkcsslotd_user@\fP user before proceeding.
+
 .SH "SEE ALSO"
 .PD 0
 .TP
@@ -32,4 +51,8 @@ manual page for details.
 \fBopencryptoki.conf\fP(5),
 .TP
 \fBpkcsconf\fP(1),
+.TP
+\fBpkcsstats\fP(1),
+.TP
+\fBpkcshsm_mk_change\fP(1).
 .PD
