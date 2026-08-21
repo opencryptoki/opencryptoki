@@ -1,10 +1,10 @@
-.TH STRENGTH.CONF 5 "September 2021" "@PACKAGE_VERSION@" "openCryptoki"
+.TH STRENGTH.CONF 5 "August 2026" "@PACKAGE_VERSION@" "openCryptoki"
 .SH NAME
 strength.conf \- Configuration file for openCryptoki strength configuration.
 
 .SH DESCRIPTION
 openCryptoki uses a strength configuration file at
-/etc/opencryptoki/strength.conf
+@sysconfdir@/opencryptoki/strength.conf
 
 This configuration file allows users to configure openCryptoki
 cryptographic key strength determination based on key attributes.
@@ -38,7 +38,7 @@ where
 .B value
 is an unsigned number.
 
-The following keywords are valid:
+The following keywords are valid.  All keywords are case-sensitive.
 
 .TP
 .BR MOD_EXP
@@ -80,11 +80,13 @@ definition does not constrain the size of signatures.
 
 .SH NOTES
 
-The strength configuration file has to be owned by \fBroot:@pkcs_group@\fP,
-have mode 0640, and be parsable.  Otherwise, openCryptoki will return
-\fBCKR_FUNCTION_FAILED\fR on \fBC_Initialize\fR and log a
-corresponding message to syslog detailing the reason why the strength
-configuration could not be used.  In this case, fix the problem
+The strength configuration file is always required.  If it does not
+exist, openCryptoki will return \fBCKR_GENERAL_ERROR\fR on
+\fBC_Initialize\fR.  The file has to be owned by \fBroot:@pkcs_group@\fP,
+have mode 0640, and be parsable.  If the file exists but has wrong
+ownership, wrong permissions, or cannot be parsed, openCryptoki will
+return \fBCKR_GENERAL_ERROR\fR on \fBC_Initialize\fR and log a
+corresponding message to syslog detailing the reason.  Fix the problem
 described in syslog to be able to use openCryptoki again.
 
 .PP
@@ -97,7 +99,7 @@ before and after the braces.
 .SH "SEE ALSO"
 .PD 0
 .TP
-\fBstrength.conf\fP(5),
+\fBpolicy.conf\fP(5),
 .TP
 \fBopencryptoki\fP(7),
 .TP
