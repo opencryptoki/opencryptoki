@@ -1,9 +1,9 @@
-.TH OPENCRYPTOKI.CONF 5 "September 2012" "@PACKAGE_VERSION@" "openCryptoki"
+.TH OPENCRYPTOKI.CONF 5 "August 2026" "@PACKAGE_VERSION@" "openCryptoki"
 .SH NAME
 opencryptoki.conf \- Configuration file for pkcsslotd.
 
 .SH DESCRIPTION
-pkcsslotd uses a configuration file at /etc/opencryptoki/opencryptoki.conf
+pkcsslotd uses a configuration file at @sysconfdir@/opencryptoki/opencryptoki.conf
 
 This is a text file that contains information used to configure
 pkcs#11 slots. At startup, the pkcsslotd daemon parses this file to
@@ -15,14 +15,21 @@ This file is made up of optional global definitions, and slot descriptions.
 The following global definitions are valid:
 
 .TP
+.BR version\ \fIstring\fP
+An optional file version tag of the form \fBversion opencryptoki-\fIX.Y\fR.
+When present it must appear before any slot or other global definitions.
+pkcsslotd accepts but otherwise ignores this line.
+
+.TP
 .BR disable-event-support
 If this keyword is specified the openCryptoki event support is disabled.
 
 .TP
 .BR statistics\~(off | on [ ,implicit ][ ,internal ] )
 Enables or disables collection of statistics of mechanism usage. By default,
-statistics collection is enabled. A value of \fB(off)\fP disables all statistics
-collection. A value of \fB(on)\fP enables collection of mechanism usage.
+statistics collection is enabled and implicit and internal collection are
+disabled. A value of \fB(off)\fP disables all statistics collection.
+A value of \fB(on)\fP enables collection of mechanism usage.
 The collected statistics can be displayed using the \fBpkcsstats\fP tool.
 
 In addition to enabling statistics collection for mechanisms used by PKCS#11
@@ -34,7 +41,7 @@ ECDH allows to specify a key derivation function (KDF) in the mechanism
 parameter.
 
 You can additionally enable statistics collection of mechanisms internally used
-by Opencryptoki by specifying \fB(on,internal)\fP. This additionally collects
+by openCryptoki by specifying \fB(on,internal)\fP. This additionally collects
 usage statistics for crypto operations used internally for pin handling and
 encryption of private token objects in the data store.
 
@@ -74,13 +81,13 @@ defines this as a 32 byte long string.
 .BR hwversion
 Version number of the slot's hardware, if any. The version number is composed
 of a major version number (the integer portion of the version) and a
-minor version number (the hundredths portion of the version).
+minor version number (the decimal value after the dot).
 For example, version 1.2, major = 1, minor = 2
 .TP
 .BR firmwareversion
 Version number of the slot's firmware, if any. The version number is composed
 of a major version number (the integer portion of the version) and a
-minor version number (the hundredths portion of the version).
+minor version number (the decimal value after the dot).
 .TP
 .BR confname
 If the slot is associated with a token that has its own configuration file,
@@ -126,8 +133,8 @@ Specifies the name of a user group that is set as the owner of the token
 directory. Only users that are members of this group have access to the token
 and its objects. Users that are not a member of this group will not see the
 token as being available (e.g. via \fBpkcsconf -t\fP or via
-\fBC_GetTokenInfo\fP). All uses that are a member of this group must also be
-members of the \fB@pkcs_group@\fP group to be able to use Opencryptoki.
+\fBC_GetTokenInfo\fP). All users that are a member of this group must also be
+members of the \fB@pkcs_group@\fP group to be able to use openCryptoki.
 
 Note: This key-value pair is optional: If not specified, the token belongs
 to the \fB@pkcs_group@\fP group.
@@ -135,8 +142,9 @@ to the \fB@pkcs_group@\fP group.
 .SH Notes
 The pound sign ('#') is used to indicate a comment.
 Both the comment character and any text after it, up to the end of the line,
-are ignored. The comment character cannot be used inside the brackets of
-slot descriptions, as this will cause a syntax error.
+are ignored. Comments may appear on their own line inside a slot description,
+but not on the same line as a key-value pair after the value, as this will
+cause a syntax error.
 
 .SH "SEE ALSO"
 .PD 0
