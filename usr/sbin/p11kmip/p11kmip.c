@@ -1102,6 +1102,46 @@ static CK_RV build_kmip_config(void)
         }
     }
 
+    /* Wrap key attributes can only come from the config file; verify they
+     * were set regardless of whether a config file was found.
+     */
+    if (kmip_wrap_key_format == 0) {
+        warnx("Required attribute 'wrap_key_format' missing%s",
+              p11kmip_cfg == NULL ? " (no config file provided)" :
+                                   " in config file");
+        rc = CKR_ARGUMENTS_BAD;
+        goto done;
+    }
+    if (kmip_wrap_key_alg == 0) {
+        warnx("Required attribute 'wrap_key_algorithm' missing%s",
+              p11kmip_cfg == NULL ? " (no config file provided)" :
+                                   " in config file");
+        rc = CKR_ARGUMENTS_BAD;
+        goto done;
+    }
+    if (kmip_wrap_key_size == 0) {
+        warnx("Required attribute 'wrap_key_size' missing%s",
+              p11kmip_cfg == NULL ? " (no config file provided)" :
+                                   " in config file");
+        rc = CKR_ARGUMENTS_BAD;
+        goto done;
+    }
+    if (kmip_wrap_padding_method == 0) {
+        warnx("Required attribute 'wrap_padding_method' missing%s",
+              p11kmip_cfg == NULL ? " (no config file provided)" :
+                                   " in config file");
+        rc = CKR_ARGUMENTS_BAD;
+        goto done;
+    }
+    if (kmip_wrap_padding_method == KMIP_PADDING_METHOD_OAEP &&
+        kmip_wrap_hash_alg == 0) {
+        warnx("Required attribute 'wrap_hashing_algorithm' missing%s",
+              p11kmip_cfg == NULL ? " (no config file provided)" :
+                                   " in config file");
+        rc = CKR_ARGUMENTS_BAD;
+        goto done;
+    }
+
     /* Environment variables have priority over configuration file settings */
     if (env_kmip_hostname != NULL)
         kmip_conf->server = env_kmip_hostname;

@@ -29,7 +29,6 @@
 #define P11KMIP_CONFIG_KEYWORD_KMIP          "kmip"
 #define P11KMIP_CONFIG_KEYWORD_PKCS11        "pkcs11"
 #define P11KMIP_CONFIG_KEYWORD_HOST          "host"
-#define P11KMIP_CONFIG_KEYWORD_PORT          "port"
 #define P11KMIP_CONFIG_KEYWORD_CLIENT_CERT   "tls_client_cert"
 #define P11KMIP_CONFIG_KEYWORD_CLIENT_KEY    "tls_client_key"
 #define P11KMIP_CONFIG_KEYWORD_WRAP_KEY_FMT  "wrap_key_format"
