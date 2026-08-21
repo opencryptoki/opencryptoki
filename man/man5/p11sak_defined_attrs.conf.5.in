@@ -1,7 +1,7 @@
-.TH P11SAK_DEFINED_ATTRS.CONF 5 "September 2021" "@PACKAGE_VERSION@" "openCryptoki"
+.TH P11SAK_DEFINED_ATTRS.CONF 5 "August 2026" "@PACKAGE_VERSION@" "openCryptoki"
 .SH NAME
-p11sak_defined_attrs.conf \- Configuration file for \fBp11sak list\-key\fP
-command.
+p11sak_defined_attrs.conf \- Configuration file for \fBp11sak list\-key\fP and
+\fBp11sak list\-cert\fP commands.
 .
 .
 .
@@ -9,15 +9,16 @@ command.
 The
 .B p11sak
 tool uses the configuration files \fB~/.p11sak_defined_attrs.conf\fP and
-\fB/etc/opencryptoki/p11sak_defined_attrs.conf\fP to read information about
-custom attributes that shall be printed with the \fBp11sak list\-key\fP command.
+\fB@sysconfdir@/opencryptoki/p11sak_defined_attrs.conf\fP to read information about
+custom attributes that shall be printed with the \fBp11sak list\-key\fP and
+\fBp11sak list\-cert\fP commands.
 .PP
-This configuration file path can be overwritten by the user with the environment
+This configuration file path can be overridden by the user with the environment
 variable \fBP11SAK_DEFAULT_CONF_FILE\fP.
 If the environment variable is not set, then
-\fB.p11sak_defined_attrs.conf\fP is first tried to be read from the current
+\fB~/.p11sak_defined_attrs.conf\fP is first tried to be read from the current
 user's home directory. If this is not available, the global
-\fB/etc/opencryptoki/p11sak_defined_attrs.conf\fP config file is read.
+\fB@sysconfdir@/opencryptoki/p11sak_defined_attrs.conf\fP config file is read.
 If none of these files are available, a warning message is displayed, and
 printing of custom attributes is not available.
 .
@@ -38,6 +39,7 @@ Example:
      type = CK_BBOOL
  }
 
+.PP
 All three keywords
 .B name
 ,
@@ -48,11 +50,11 @@ are required to define an attribute.
 
 The
 .B name
-must start with a letter followed by an arbitrary number of letters, numbers,
-underscores, dots, minuses, or slashes.
+must start with a letter, a dot, or a slash, followed by an arbitrary number of
+letters, numbers, underscores, dots, minuses, or slashes.
 The
 .B id
-can be in decimal as well as in hexadecimal, when started with 0x, format.
+can be a non-negative decimal integer or a hexadecimal integer prefixed with \fB0x\fP.
 The only valid values for
 .B type
 are:
