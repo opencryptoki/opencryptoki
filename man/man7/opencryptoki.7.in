@@ -1,4 +1,4 @@
-.TH OPENCRYPTOKI 7 "May 2007" "@PACKAGE_VERSION@" "openCryptoki"
+.TH OPENCRYPTOKI 7 "August 2026" "@PACKAGE_VERSION@" "openCryptoki"
 .SH NAME
 openCryptoki \- A PKCS#11 implementation.
 
@@ -6,15 +6,57 @@ openCryptoki \- A PKCS#11 implementation.
 \fBopenCryptoki\fP is an implementation of the PKCS#11 API standard. It
 provides an interface to the functions of underlying cryptographic
 tokens, which may be implemented via software or hardware. The PKCS#11
-specification has been released by RSA Labs. More information on PKCS#11
-can be found on the RSA labs website: http://www.rsa.com/rsalabs.
+specification is maintained by OASIS. More information on PKCS#11
+can be found on the OASIS website: https://www.oasis-open.org/committees/pkcs11/
 
-To use openCryptoki, run the \fIpkcsslotd\fP daemon. The daemon will 
-read the \fIopencryptoki.conf\fP file to collect information about the 
+openCryptoki implements PKCS#11 version 3.0 and partially versions 3.1
+and 3.2.
+
+.SS "Supported Platforms"
+openCryptoki runs on Linux on IBM Z (s390x), Linux on IBM Power (ppc64le),
+Linux on x86-64 (x86_64), Linux on ARM (aarch64), and AIX. Not all token
+backends are available on every platform; see the individual token
+descriptions below.
+
+.SS "Token Backends"
+The following token backends are available:
+.TP
+.B Software token (swtok)
+A pure-software token using OpenSSL. Available on all supported platforms.
+.TP
+.B ICA token (icatok)
+A token using the IBM libica library for hardware-accelerated cryptography.
+Only available on Linux on IBM Z (s390x).
+.TP
+.B CCA token (ccatok)
+A token using the IBM Common Cryptographic Architecture (CCA) library
+with IBM Crypto Express adapters. Available on Linux on IBM Z (s390x),
+Linux on IBM Power (ppc64le), Linux on x86-64, and AIX.
+.TP
+.B EP11 token (ep11tok)
+A token using IBM Crypto Express adapters configured with Enterprise
+PKCS#11 (EP11) firmware. Only available on Linux on IBM Z (s390x).
+.TP
+.B ICSF token (icsftok)
+A token using the z/OS Integrated Cryptographic Service Facility (ICSF)
+via LDAP, for remote cryptographic operations on IBM Z. Available on
+Linux; not supported on AIX.
+.TP
+.B TPM token (tpmtok, deprecated)
+A token using a Trusted Platform Module (TPM 1.2 only). Available on
+Linux platforms where the TrouSerS stack is present. This token is
+deprecated and will be removed in a future release.
+
+To use openCryptoki, run the \fIpkcsslotd\fP daemon. The daemon will
+read the \fIopencryptoki.conf\fP file to collect information about the
 tokens and their slots.
 
 Use the \fIpkcsconf\fP utility to further configure openCryptoki once the
-daemon is running.
+daemon is running. The \fIp11sak\fP tool can be used to manage keys and
+certificates in a token repository. Mechanism usage statistics can be
+collected and displayed using the \fIpkcsstats\fP tool. Algorithm and
+key-strength policies can be configured via \fIpolicy.conf\fP and
+\fIstrength.conf\fP.
 
 .SH "SECURITY NOTE"
 All non-root users that require access to PKCS#11 tokens using openCryptoki
@@ -30,5 +72,19 @@ from accessing PKCS#11 tokens.
 .TP
 \fBpkcsconf\fP(1),
 .TP
-\fBopencryptoki.conf\fP(5).
+\fBp11sak\fP(1),
+.TP
+\fBpkcsstats\fP(1),
+.TP
+\fBpkcstok_migrate\fP(1),
+.TP
+\fBpkcstok_admin\fP(1),
+.TP
+\fBpkcshsm_mk_change\fP(1),
+.TP
+\fBopencryptoki.conf\fP(5),
+.TP
+\fBpolicy.conf\fP(5),
+.TP
+\fBstrength.conf\fP(5).
 .PD
