@@ -1,10 +1,10 @@
-.TH POLICY.CONF 5 "September 2021" "@PACKAGE_VERSION@" "openCryptoki"
+.TH POLICY.CONF 5 "August 2026" "@PACKAGE_VERSION@" "openCryptoki"
 .SH NAME
 policy.conf \- Configuration file for openCryptoki policies.
 
 .SH DESCRIPTION
 openCryptoki uses a policy configuration file at
-/etc/opencryptoki/policy.conf
+@sysconfdir@/opencryptoki/policy.conf
 
 This configuration file restricts the operations of openCryptoki to a
 specific set of allowed operations.  The policy allows users to
@@ -26,7 +26,7 @@ syntax depends of the value of the key:
 
 This key defines the minimal required strength for keys, and digest
 and signature sizes.  It corresponds to the definition in
-/etc/opencryptoki/strength.conf.  Valid values are 0, 112, 128, 192,
+@sysconfdir@/opencryptoki/strength.conf.  Valid values are 0, 112, 128, 192,
 and 256.  The special value 0 allows every key and arbitrary size of
 digests and signatures.  The format is a simple assignment:
 
@@ -110,6 +110,8 @@ CURVE448
 ED25519
 .IP \(bu
 ED448
+.IP \(bu
+BLS12_381
 .RE
 
 Note: This key is optional.  If not present, all curves are allowed.
@@ -127,13 +129,45 @@ key:
 
 allowedmgfs ( mgf1, mgf2 )
 
+Valid MGF names are:
+
+.RS
+.IP \(bu
+CKG_MGF1_SHA1
+.IP \(bu
+CKG_MGF1_SHA224
+.IP \(bu
+CKG_MGF1_SHA256
+.IP \(bu
+CKG_MGF1_SHA384
+.IP \(bu
+CKG_MGF1_SHA512
+.IP \(bu
+CKG_MGF1_SHA3_224
+.IP \(bu
+CKG_MGF1_SHA3_256
+.IP \(bu
+CKG_MGF1_SHA3_384
+.IP \(bu
+CKG_MGF1_SHA3_512
+.IP \(bu
+CKG_IBM_MGF1_SHA3_224
+.IP \(bu
+CKG_IBM_MGF1_SHA3_256
+.IP \(bu
+CKG_IBM_MGF1_SHA3_384
+.IP \(bu
+CKG_IBM_MGF1_SHA3_512
+.RE
+
 Note: This key is optional.  If not present, all MGFs are allowed.  An
 empty list allows no MGF.
 .TP
 .BR allowedkdfs
 
 This key specifies the allowed Key Derivation Functions (KDFs) for use
-in ECDH key derivation and Kyber KEM.  The value is a list of
+in ECDH key derivation, Kyber KEM, ML-KEM, and ECDH-AES key wrap
+mechanisms.  The value is a list of
 .BR CKD_
 constants supported by openCryptoki.  This list has the same format as
 the
@@ -142,16 +176,76 @@ key:
 
 allowedkdfs ( kdf1, kdf2 )
 
+Valid KDF names are:
+
+.RS
+.IP \(bu
+CKD_NULL
+.IP \(bu
+CKD_SHA1_KDF
+.IP \(bu
+CKD_SHA1_KDF_ASN1
+.IP \(bu
+CKD_SHA1_KDF_CONCATENATE
+.IP \(bu
+CKD_SHA224_KDF
+.IP \(bu
+CKD_SHA256_KDF
+.IP \(bu
+CKD_SHA384_KDF
+.IP \(bu
+CKD_SHA512_KDF
+.IP \(bu
+CKD_SHA3_224_KDF
+.IP \(bu
+CKD_SHA3_256_KDF
+.IP \(bu
+CKD_SHA3_384_KDF
+.IP \(bu
+CKD_SHA3_512_KDF
+.IP \(bu
+CKD_SHA1_KDF_SP800
+.IP \(bu
+CKD_SHA224_KDF_SP800
+.IP \(bu
+CKD_SHA256_KDF_SP800
+.IP \(bu
+CKD_SHA384_KDF_SP800
+.IP \(bu
+CKD_SHA512_KDF_SP800
+.IP \(bu
+CKD_SHA3_224_KDF_SP800
+.IP \(bu
+CKD_SHA3_256_KDF_SP800
+.IP \(bu
+CKD_SHA3_384_KDF_SP800
+.IP \(bu
+CKD_SHA3_512_KDF_SP800
+.IP \(bu
+CKD_IBM_HYBRID_NULL
+.IP \(bu
+CKD_IBM_HYBRID_SHA1_KDF
+.IP \(bu
+CKD_IBM_HYBRID_SHA224_KDF
+.IP \(bu
+CKD_IBM_HYBRID_SHA256_KDF
+.IP \(bu
+CKD_IBM_HYBRID_SHA384_KDF
+.IP \(bu
+CKD_IBM_HYBRID_SHA512_KDF
+.RE
+
 Note: This key is optional.  If not present, all KDFs are allowed.  An
 empty list allows no KDF.
 .TP
 .BR allowedprfs
 
 This key specifies the allowed Pseudo-Random Functions (PRFs) for use
-in PKCS #5 PBKDF.  The value is a list of PRFs.  Currently, the only
-supported value is
+in PKCS #5 PBKDF.  The value is a list of PRF constants.  The
+currently supported values are
 .BR CKP_PKCS5_PBKD2_HMAC_SHA256
-.BR CKP_PKCS5_PBKD2_HMAC_SHA512
+and
+.BR CKP_PKCS5_PBKD2_HMAC_SHA512 ,
 which leads to the list
 
 allowedprfs ( CKP_PKCS5_PBKD2_HMAC_SHA512, CKP_PKCS5_PBKD2_HMAC_SHA256 )
@@ -162,8 +256,9 @@ empty list allows no PRF.
 .SH NOTES
 
 The policy configuration file has to be owned by \fBroot:@pkcs_group@\fP and
-have mode 0640.  Otherwise, openCryptoki will return
-\fBCKR_FUNCTION_FAILED\fR on \fBC_Initialize\fR and log the reason
+have mode 0640.  If the file exists but has wrong ownership, wrong
+permissions, or cannot be parsed, openCryptoki will return
+\fBCKR_GENERAL_ERROR\fR on \fBC_Initialize\fR and log the reason
 into syslog.
 
 .PP
@@ -222,7 +317,7 @@ Tokens cannot be loaded if their token store format is not supported
 by the policy.  If a token cannot be loaded, a message is printed into
 syslog detailing the policy violation.  To fix this problem, make sure
 the token format is allowed by your policy (either by satisfying above
-constraints or by temporarily removing /etc/opencryptoki/policy.conf)
+constraints or by temporarily removing @sysconfdir@/opencryptoki/policy.conf)
 and migrate your token store, e.g., to the FIPS-compliant format.
 
 .SH "SEE ALSO"
