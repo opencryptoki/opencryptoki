@@ -14,10 +14,11 @@ reconfiguring, and a file `config.log' containing compiler output
 (useful mainly for debugging `configure').
 
    If you need to do unusual things to compile the package, please try
-to figure out how `configure' could check whether to do them, and mail
-diffs or instructions to the address given in the `README' so they can
-be considered for the next release.  If at some point `config.cache'
-contains results you don't want to keep, you may remove or edit it.
+to figure out how `configure' could check whether to do them, and open
+an issue or pull request at https://github.com/opencryptoki/opencryptoki
+so they can be considered for the next release.  If at some point
+`config.cache' contains results you don't want to keep, you may remove
+or edit it.
 
    The file `configure.ac' is used to create `configure' by a program
 called `autoconf'.  You only need `configure.ac' if you want to change
@@ -82,11 +83,13 @@ architecture.
 Installation Names
 ==================
 
-   By default, `make install' will install the pkcs11 API in the directory
-`/usr/lib/pkcs11/', any STDLLs that were built in `/usr/lib/pkcs11/stdll',
-the config programs in `/usr/lib/pkcs11/methods', and the slot daemon in
-`/usr/sbin/'. You can specify an installation prefix other than `/usr/local'
-bygiving `configure' the option `--prefix=PATH'.
+   By default, `make install' will install the opencryptoki library under
+`${prefix}/${libdir}/opencryptoki/' (e.g. `/usr/local/lib64/opencryptoki/'),
+STDLLs under `${prefix}/${libdir}/opencryptoki/stdll/', tools under
+`${prefix}/sbin/', and configuration files under
+`${prefix}/etc/opencryptoki/'.  Compatibility symlinks are also created under
+`${prefix}/${libdir}/pkcs11/'.  You can specify an installation prefix other
+than `/usr/local' by giving `configure' the option `--prefix=PATH'.
 
 Optional Features
 =================
