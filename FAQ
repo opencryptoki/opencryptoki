@@ -13,7 +13,7 @@
     A2. Check that the device driver for your hardware token is loaded.
     (`lsmod` in Linux).
 
-    A3. If you're doing development, this error will also be returned of your
+    A3. If you're doing development, this error will also be returned if your
     token's STDLL has unresolved symbols in it.  Enable debugging and
     check the debug log to find out what symbols are undefined.
 
@@ -64,8 +64,8 @@
 	OPENCRYPTOKI_TRACE_LEVEL=5.
 
        All trace output is logged into trace.<pid> file in the
-       /var/log/opencryptoki directory. A trace file is created per
-       process.
+       ${localstatedir}/log/opencryptoki directory (typically
+       /var/log/opencryptoki). A trace file is created per process.
 
        Prior to opencryptoki version 3.3, opencryptoki had to be compiled
        with debugging enabled, i.e configure --enable-debug. Debug messages
