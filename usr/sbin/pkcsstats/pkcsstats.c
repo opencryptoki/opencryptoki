@@ -48,7 +48,7 @@ static void usage(char *progname)
     printf("Usage: %s [OPTIONS]\n\n", progname);
     printf("Display mechanism usage statistics for openCryptoki.\n\n");
     printf("OPTIONS:\n");
-    printf(" -U, --user USERID  show the statistics from one user. (root user only)\n");
+    printf(" -U, --user USER    show the statistics from one user. (root user only)\n");
     printf(" -S, --summary      show the accumulated statistics from all users. (root user only)\n");
     printf(" -A, --all          show the statistic tables from all users. (root user only)\n");
     printf(" -a, --all-mechs    show all mechanisms, also those with all zero counters.\n");
@@ -343,10 +343,10 @@ static int reset_shm(uid_t user_id, const char *user_name,
 
     if (rc == 0) {
         if (slot_id_specified)
-            printf("Resetted statistics for user '%s' and slot %lu\n",
+            printf("Reset statistics for user '%s' and slot %lu\n",
                    user_name, slot_id);
         else
-            printf("Resetted statistics for user '%s'\n", user_name);
+            printf("Reset statistics for user '%s'\n", user_name);
     }
 
     close_shm(shm_data, shm_size);
