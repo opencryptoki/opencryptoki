@@ -1,9 +1,4 @@
-.\" pkcsstats.1
-.\"
-.\" Copyright IBM Corp. 2021
-.\" See LICENSE for details.
-.\"
-.TH PKCSSTATS 1 "October 2021" "@PACKAGE_VERSION@" "openCryptoki"
+.TH PKCSSTATS 1 "August 2026" "@PACKAGE_VERSION@" "openCryptoki"
 .SH NAME
 pkcsstats \- utility to display mechanism usage statistics for openCryptoki.
 
@@ -24,7 +19,7 @@ counters exist, one for each cryptographic strength of the cryptographic
 key used with the mechanism.
 .PP
 The available strengths are defined in the strength configuration file
-\fB/etc/opencryptoki/strength.conf\fP. Supported strengths are 112, 128, 192,
+\fB@sysconfdir@/opencryptoki/strength.conf\fP. Supported strengths are 112, 128, 192,
 and 256 representing the corresponding strength in bits.
 The strength configuration file defines how the strength is determined for the
 various key types. A strength of zero is used to count those mechanisms that
@@ -41,7 +36,7 @@ strength configuration file).
 .PP
 Statistics collection is enabled by default. It can be disabled and configured
 in the openCryptoki configuration file
-\fB/etc/opencryptoki/opencryptoki.conf\fP.
+\fB@sysconfdir@/opencryptoki/opencryptoki.conf\fP.
 By default only explicit mechanism usage statistics from PKCS#11 applications
 are collected.
 .PP
@@ -64,7 +59,9 @@ Statistics are collected in a POSIX shared memory segment per user. This shared
 memory segment contains all counters for all configured slots, mechanisms, and
 strengths. The shared memory segments are named
 \fBvar.lib.opencryptoki_stats_<uid>\fP, where \fBuid\fP is the numeric user\-id
-of the user the statistics belong to. The shared memory segments are
+of the user the statistics belong to (the prefix \fBvar.lib.opencryptoki\fP
+reflects the default installation path and may differ for non-default builds).
+The shared memory segments are
 automatically created for a user on the first attempt to collect statistics
 (when not already existent). The shared memory segments can be deleted using
 the \fBpkcsstats\fP command with the \fB\-\-delete\fP, or \fB\-\-delete\-all\fP
@@ -78,7 +75,7 @@ of a numeric value. In JSON output an additional field
 when the counter has saturated.
 .PP
 The usage of a mechanism is counted once when the cryptographic operation is
-sucessfully initialized, i.e. during \fBC_DigestInit\fP, \fBC_EncryptInit\fP,
+successfully initialized, i.e. during \fBC_DigestInit\fP, \fBC_EncryptInit\fP,
 \fBC_DecryptInit\fP, \fBC_SignInit\fP, \fBC_SignRecoverInit\fP, and
 \fBC_VerifyInit\fP. Multi-part operations involving the update functions like
 \fBC_DigestUpdate\fP, \fBC_EncryptUpdate\fP, \fBC_DecryptUpdate\fP,
@@ -86,16 +83,16 @@ sucessfully initialized, i.e. during \fBC_DigestInit\fP, \fBC_EncryptInit\fP,
 .PP
 Other operations such as key generation, key derivation, key wrapping and
 unwrapping are counted during the respective functions like \fBC_GenerateKey\fP,
-\fBC_GenerateKeyPair\fP, \fBC_DeriveKey\fP, \fBC_DeriveKey\fP,
+\fBC_GenerateKeyPair\fP, \fBC_DeriveKey\fP, \fBC_WrapKey\fP,
 \fBC_UnwrapKey\fP.
 
 .SH "OPTIONS"
 
 .TP
-.BR \-U ", " \-\-user\~\fIuser\-id\fP
-Specifies the user\-id of the user to display, reset, or delete statistics for.
+.BR \-U ", " \-\-user\~\fIusername\fP
+Specifies the username of the user to display, reset, or delete statistics for.
 If this option is omitted, the statistics of the current user are displayed,
-resetted, or deleted. Only the \fBroot\fP user can display, reset, or delete
+reset, or deleted. Only the \fBroot\fP user can display, reset, or delete
 statistics of other users.
 .TP
 .BR \-S ", " \-\-summary
@@ -114,6 +111,7 @@ one counter is non\-zero.
 .BR \-s ", " \-\-slot\~\fIslot\-id\fP
 Specifies the slot\-id to display statistics for. If this option is omitted,
 the statistics for all configured slots are displayed.
+This option cannot be used together with \fB\-\-delete\fP or \fB\-\-delete\-all\fP.
 .TP
 .BR \-r ", " \-\-reset
 Resets the statistics counters for the current user, or for the user specified
@@ -145,10 +143,10 @@ Displays help text and exits.
 .SH SEE ALSO
 .PD 0
 .TP
-\fBopencryptoki.conf\fP(5).
+\fBopencryptoki.conf\fP(5),
 .TP
 \fBstrength.conf\fP(5),
 .TP
-\fBopencryptoki\fP(7),
+\fBopencryptoki\fP(7).
 
 .PD
