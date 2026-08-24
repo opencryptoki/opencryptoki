@@ -178,7 +178,7 @@ AC_ARG_ENABLE([p11sak],
 
 dnl --- p11kmip tool
 AC_ARG_ENABLE([p11kmip],
-	AS_HELP_STRING([--enable-p11kmip],[build p11kmip tool @<:@default=no@:>@]),
+	AS_HELP_STRING([--enable-p11kmip],[build p11kmip tool @<:@default=yes@:>@]),
 	[],
 	[enable_p11kmip=yes])
 
