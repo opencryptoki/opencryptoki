@@ -1,17 +1,18 @@
-.TH PKCSICSF 1 "April 2013" "@PACKAGE_VERSION@" "openCryptoki"
+.TH PKCSICSF 1 "August 2026" "@PACKAGE_VERSION@" "openCryptoki"
 .SH NAME
 pkcsicsf \- configuration utility for the ICSF token
 
 .SH SYNOPSIS
 \fBpkcsicsf\fP
 [\fB-h\fP]
-[\fB-l|-a\fP \fItoken name\fP]
+[\fB-l\fP]
+[\fB-a\fP \fItoken-name\fP]
+\fB-m\fP \fImechanism\fP
+[\fB-u\fP \fIURI\fP]
 [\fB-b\fP \fIBINDDN\fP]
 [\fB-c\fP \fIclient-cert-file\fP]
 [\fB-C\fP \fICA-cert-file\fP]
 [\fB-k\fP \fIprivatekey\fP]
-[\fB-m\fP \fImechanism\fP]
-[\fB-u\fP \fIURI\fP]
 
 .SH DESCRIPTION
 The \fBpkcsicsf\fP utility lists available ICSF tokens and allows user
@@ -43,7 +44,7 @@ opencryptoki.
 .SH "TOKEN INITIALIZATION"
 Unlike other openCryptoki tokens, the ICSF token does \fBnot\fP require
 \fBC_InitToken\fP (i.e.
-.BR pkcsconf (8)
+.BR pkcsconf (1)
 \fB-I\fP) to be run after adding the token.
 The cryptographic objects and key material reside on the remote z/OS ICSF
 server, which is already fully provisioned before \fBpkcsicsf\fP is invoked.
@@ -90,7 +91,7 @@ Restart the slot daemon so the new token is visible:
 .RE
 .TP
 \fB3.\fP
-Set the user PIN:
+Initialize the user PIN (run as SO):
 .PP
 .RS
 \fBpkcsconf \-u \-c \fIslot\fR\fP
@@ -99,7 +100,7 @@ Set the user PIN:
 .PP
 After step\~3 the token is fully operational and
 \fBCKF_TOKEN_INITIALIZED\fP will be reported by
-.BR pkcsconf (8)
+.BR pkcsconf (1)
 \fB\-t\fP.
 
 .SH "OPTIONS"
@@ -112,26 +113,30 @@ specify \fBall\fP.
 .IP "\fB-b\fP \fIBINDDN\fP" 10
 The distinguished name to bind when using simple authentication.
 .IP "\fB-c\fP \fIclient-cert-file\fP" 10
-The client certificate file when using SASL authentication.
+The client certificate file for SASL authentication.
+If not specified, the value from \fBldap.conf\fP(5) or \fI~/.ldaprc\fP is used.
 .IP "\fB-C\fP \fICA-cert-file\fP" 10
-The CA certificate file when using SASL authentication.
+The CA certificate file for SASL authentication.
+If not specified, the value from \fBldap.conf\fP(5) or \fI~/.ldaprc\fP is used.
 .IP "\fB-h\fP" 10
 Show usage information.
 .IP "\fB-k\fP \fIprivatekey\fP" 10
-The client private key file when using SASL authentication.
+The client private key file for SASL authentication.
+If not specified, the value from \fBldap.conf\fP(5) or \fI~/.ldaprc\fP is used.
+.IP "\fB-l\fP" 10
+List available ICSF tokens.
 .IP "\fB-m\fP \fImechanism\fP" 10
 The authentication mechanism to use when binding to the LDAP server
 (either \fBsimple\fP or \fBsasl\fP).
-.IP "\fB-l\fP" 10
-List available ICSF tokens.
+This option is required whenever \fB\-l\fP or \fB\-a\fP is used.
 .IP "\fB-u\fP \fIURI\fP" 10
 The URI of the LDAP server (e.g. \fBldap://hostname\fP or
 \fBldaps://hostname\fP).
 
 .SH "FILES"
-.IP "/etc/opencryptoki/opencryptoki.conf"
+.IP "@sysconfdir@/opencryptoki/opencryptoki.conf"
 The opencryptoki config file containing token configuration information.
-.IP "/etc/opencryptoki/\fItoken_name\fP.conf"
+.IP "@sysconfdir@/opencryptoki/\fItoken_name\fP.conf"
 Contains ICSF configuration information for the ICSF token.
 .IP "@localstatedir@/lib/opencryptoki/\fItoken_name\fP/NVTOK.DAT"
 Local token data file: stores PIN hashes and token flags including
@@ -147,5 +152,5 @@ Contains the RACF password encrypted with the token's master key.
 .TP
 \fBpkcsslotd\fP(8),
 .TP
-\fBpkcsconf\fP(8).
+\fBpkcsconf\fP(1).
 .PD
