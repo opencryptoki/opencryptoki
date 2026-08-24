@@ -860,7 +860,7 @@ int main(int argc, char **argv)
             /* bind to ldap server */
             rc = icsf_login(&ld, uri, binddn, racfpwd);
         } else {
-            rc = icsf_sasl_login(&ld, uri, NULL, NULL, NULL, NULL);
+            rc = icsf_sasl_login(&ld, uri, cert, privkey, cacert, NULL);
         }
         if (rc) {
             fprintf(stderr, "Failed to bind to the ldap server: %s (%d)\n",
