@@ -125,11 +125,47 @@ directory and do the following:
 
    See `./configure --help` for info on various options. The default behavior is
    to build all tokens that have their prerequisites met. The ICA and EP11 tokens
-   can only be built on s390x, since that is the only platform that fulfils the
-   prerequisites. On AIX, only the CCA and software tokens can be built. Other
-   tokens may be enabled using the corresponding `--enable-<tok>` configuration
-   option, provided the appropriate libraries are available and the token is
-   supported on the platform you are compiling.
+   are only enabled automatically on s390x, since that is the only platform where
+   their prerequisites (libica, `asm/pkey.h`) are normally present. They can be
+   explicitly requested with `--enable-icatok` / `--enable-ep11tok` on other
+   platforms if the required headers and libraries are available. On AIX, only
+   the CCA and software tokens can be built. Other tokens may be enabled using
+   the corresponding `--enable-<tok>` configuration option, provided the
+   appropriate libraries are available and the token is supported on the platform
+   you are compiling.
+
+   Common configure options:
+
+   | Option | Default | Description |
+   |---|---|---|
+   | `--enable-debug` | no | Enable debug build (`-g3 -O0`, defines `DEBUG`) |
+   | `--enable-sanitizer` | no | Enable AddressSanitizer / UBSan |
+   | `--enable-testcases` | no | Build the test suite |
+   | `--enable-daemon` | yes | Build `pkcsslotd` daemon |
+   | `--enable-library` | yes | Build `libopencryptoki` |
+   | `--enable-icatok` | auto | Build ICA token (requires libica) |
+   | `--enable-ccatok` | yes | Build CCA token |
+   | `--enable-swtok` | yes | Build software token |
+   | `--enable-ep11tok` | auto | Build EP11 token (requires libica + pkey) |
+   | `--enable-tpmtok` | auto | Build TPM token (deprecated; requires TrouSerS) |
+   | `--enable-icsftok` | auto | Build ICSF token (requires OpenLDAP) |
+   | `--enable-p11sak` | yes | Build `p11sak` tool |
+   | `--enable-p11kmip` | yes | Build `p11kmip` tool |
+   | `--enable-pkcsstats` | yes | Build `pkcsstats` tool |
+   | `--enable-pkcscca` | yes | Build `pkcscca` tool |
+   | `--enable-pkcshsm_mk_change` | yes | Build `pkcshsm_mk_change` tool |
+   | `--enable-pkcstok_migrate` | yes | Build `pkcstok_migrate` tool |
+   | `--enable-pkcstok_admin` | yes | Build `pkcstok_admin` tool |
+   | `--enable-pkcsep11_migrate` | auto | Build `pkcsep11_migrate` (needs EP11 token) |
+   | `--enable-pkcsep11_session` | auto | Build `pkcsep11_session` (needs EP11 token) |
+   | `--enable-md2` | no | Enable MD2 support |
+   | `--with-systemd[=DIR]` | yes | Install systemd unit file (use `--without-systemd` for init-d) |
+   | `--with-openssl[=DIR]` | auto | OpenSSL development files location |
+   | `--with-libica[=DIR]` | auto | libica development files location |
+   | `--with-tss[=DIR]` | auto | TrouSerS development files location |
+   | `--with-pkcsslotd-user=USER` | `pkcsslotd` | User under which `pkcsslotd` runs |
+   | `--with-pkcs-group=GROUP` | `pkcs11` | Group that openCryptoki applications must belong to |
+   | `--with-max-token-objects=N` | 2048 | Maximum number of token objects supported |
 
    While running, `configure` prints some messages telling which features it is
    checking for.
@@ -245,7 +281,13 @@ directories:
    ${prefix}/${libdir}/opencryptoki/stdll/PKCS11_SW.so
     - Symlink to ${prefix}/${libdir}/opencryptoki/stdll/libpkcs11_sw.so
 
+   ${prefix}/${libdir}/opencryptoki/stdll/PKCS11_TPM.so
+    - Symlink to ${prefix}/${libdir}/opencryptoki/stdll/libpkcs11_tpm.so
+
    ${prefix}/${libdir}/pkcs11/PKCS11_API.so
+    - Symlink to ${prefix}/${libdir}/opencryptoki/libopencryptoki.so
+
+   ${prefix}/${libdir}/pkcs11/libopencryptoki.so
     - Symlink to ${prefix}/${libdir}/opencryptoki/libopencryptoki.so
 
    ${prefix}/${libdir}/pkcs11
@@ -262,7 +304,7 @@ directories:
    demand. Note that if `prefix` is `/usr`, then `${prefix}/var` and `${prefix}/etc`
    resolve to `/var` and `/etc`. On the `make install` stage, if content exists
    in the old `${prefix}/etc/pkcs11` directory, it will be migrated to the new
-   '${prefix}/var/lib/opencryptoki` location.
+   `${prefix}/var/lib/opencryptoki` location.
 
    If you are installing in your home directory make sure that `/home/luser/bin`
    is in your path.  If you're using the bash shell add this line at the end of
@@ -292,7 +334,7 @@ Prior to version 3, openCryptoki used `pk_config_data` as its configuration
 file. This file was created upon running `pkcs11_startup`. In version 3,
 `pkcs11_startup` and `pk_config_data` have been removed and replaced with a
 customizable config file named, `opencryptoki.conf`. It contains an entry for
-each token currently supported by openCryptoki. However, only those token, whose
+each token currently supported by openCryptoki. However, only those tokens, whose
 hardware and software requirements are available on the local system, will show
 up as present and available upon running the `pkcsconf -t` command.
 
@@ -303,7 +345,7 @@ for further instructions.
 Initialize a particular token by running `pkcsconf`:
 
 ```bash
-$ pkcsconf -I -c
+$ pkcsconf -I -c <slot>
 ```
 
 In this version of openCryptoki, the default SO PIN is `87654321`. This should
@@ -312,19 +354,19 @@ be changed to a different PIN value before use.
 You can change the SO PIN by running pkcsconf:
 
 ```bash
-$ pkcsconf -P -c
+$ pkcsconf -P -c <slot>
 ```
 
 You can initialize and change the user PIN by typing:
 
 ```bash
-$ pkcsconf -u -c
+$ pkcsconf -u -c <slot>
 ```
 
 You can later change the user PIN again by typing:
 
 ```bash
-$ pkcsconf -p -c
+$ pkcsconf -p -c <slot>
 ```
 
 ## CONTRIBUTING
