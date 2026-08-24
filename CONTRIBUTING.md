@@ -76,8 +76,11 @@ Basic development tools (git, gcc, make, editors) should not be listed.
 
 ## Submitting Changes
 
-* Sign your commits, as mentioned above.
-* Submit a pull request to the opencryptoki repository on opencryptoki organization.
+* The human submitter must sign the commits with a `Signed-off-by:` tag to
+  certify the Developer Certificate of Origin (DCO), as described above.
+  AI agents must not add this tag themselves.
+* Submit a pull request to the opencryptoki repository at
+  https://github.com/opencryptoki/opencryptoki.
 * Include test information/results on the pull request.
 * Wait for the Maintainers feedback about your changes. Although we are always
 working on the project, sometimes we have our attention caught up on higher
