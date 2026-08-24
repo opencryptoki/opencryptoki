@@ -797,6 +797,7 @@ static CK_RV ep11tok_mk_change_reencipher(STDLL_TokData_t *tokdata,
 {
     ep11_private_data_t *ep11_data = tokdata->private_data;
     struct reencipher_data rd = { 0 };
+    struct apqn_check_data acd;
     CK_RV rc = CKR_OK;
     const unsigned char *wkvp;
     int new_wkvp_set = 0;
@@ -832,6 +833,35 @@ static CK_RV ep11tok_mk_change_reencipher(STDLL_TokData_t *tokdata,
 
     /* Activate this MK change operation */
     if (ep11_data->mk_change_active == FALSE) {
+        /*
+         * Verify the hardware state before activating the operation:
+         * - current WK must match the token's expected WKVP
+         * - new WK register must hold the WKVP claimed in the event
+         * This mirrors the check done in INITIATE_QUERY and prevents a
+         * spurious REENCIPHER event from activating a stranded operation
+         * state or switching to single-APQN mode unnecessarily.
+         */
+        memset(&acd, 0, sizeof(acd));
+        acd.ep11_data = ep11_data;
+        acd.slot = tokdata->slot_id;
+        acd.op = op;
+        acd.info = info;
+        acd.error = FALSE;
+
+        rc = handle_all_ep11_cards(&ep11_data->target_list,
+                                   mk_change_apqn_check_handler, &acd);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s handle_all_ep11_cards failed: 0x%lx\n",
+                        __func__, rc);
+            goto out;
+        }
+        if (acd.error) {
+            TRACE_ERROR("%s APQN WK state check failed for op: %s\n",
+                        __func__, op->id);
+            rc = CKR_FUNCTION_FAILED;
+            goto out;
+        }
+
         rc = ep11tok_activate_mk_change_op(tokdata, op->id, info);
         if (rc != CKR_OK)
             goto out;
@@ -1207,10 +1237,9 @@ static CK_RV ep11tok_mk_change_finalize_cancel(STDLL_TokData_t *tokdata,
                                                CK_BBOOL cancel)
 {
     ep11_private_data_t *ep11_data = tokdata->private_data;
+    struct apqn_check_data acd;
     CK_RV rc = CKR_OK;
     CK_BBOOL token_objs = FALSE;
-
-    UNUSED(info);
 
     TRACE_DEVEL("%s %s MK change op: %s\n", __func__,
                 cancel ? "canceling" : "finalizing", op->id);
@@ -1237,6 +1266,39 @@ static CK_RV ep11tok_mk_change_finalize_cancel(STDLL_TokData_t *tokdata,
 
     if (ep11_data->mk_change_active == FALSE)
         goto out;
+
+    /*
+     * For FINALIZE: verify that the new WK has actually been activated on
+     * the card (current WK == new_wkvp) before promoting re-enciphered key
+     * blobs.  This mirrors the check done in FINALIZE_QUERY and prevents a
+     * spurious FINALIZE event from committing key objects when the new WK
+     * has not actually been activated on the card.
+     * For CANCEL: no hardware check needed - cancellation only discards the
+     * re-enciphered blobs and is safe regardless of hardware state.
+     */
+    if (!cancel) {
+        memset(&acd, 0, sizeof(acd));
+        acd.ep11_data = ep11_data;
+        acd.slot = tokdata->slot_id;
+        acd.op = op;
+        acd.info = info;
+        acd.finalize = TRUE; /* Current WK must equal new_wkvp */
+        acd.error = FALSE;
+
+        rc = handle_all_ep11_cards(&ep11_data->target_list,
+                                   mk_change_apqn_check_handler, &acd);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s handle_all_ep11_cards failed: 0x%lx\n",
+                        __func__, rc);
+            goto out;
+        }
+        if (acd.error) {
+            TRACE_ERROR("%s APQN WK state check failed for op: %s\n",
+                        __func__, op->id);
+            rc = CKR_FUNCTION_FAILED;
+            goto out;
+        }
+    }
 
     /*
      * Finalize/cancel token objects.
