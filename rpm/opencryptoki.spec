@@ -5,11 +5,9 @@ Summary:		Implementation of the PKCS#11 (Cryptoki) specification v3.0 and partia
 Version:		3.27.0
 Release:		1%{?dist}
 License:		CPL
-Group:			System Environment/Base
 URL:			https://github.com/opencryptoki/opencryptoki
 Source:			https://github.com/%{name}/%{name}/archive/v%{version}.tar.gz#/%{name}-%{version}.tar.gz
 
-Requires(pre):		coreutils
 BuildRequires:		gcc
 BuildRequires:		openssl-devel >= 1.1.1
 %if 0%{?tpmtok}
@@ -20,6 +18,7 @@ BuildRequires:		autoconf automake libtool autoconf-archive
 BuildRequires:		bison flex
 %ifarch s390 s390x
 BuildRequires:		systemd-devel
+BuildRequires:		libudev-devel
 %endif
 BuildRequires:		libcap-devel
 BuildRequires:		make
@@ -44,7 +43,6 @@ This package contains the Slot Daemon (pkcsslotd) and general utilities.
 
 
 %package libs
-Group:			System Environment/Libraries
 Summary:		The run-time libraries for opencryptoki package
 Requires(pre):		shadow-utils
 
@@ -60,7 +58,6 @@ functional.
 
 
 %package devel
-Group:			Development/Libraries
 Summary:		Development files for openCryptoki
 Requires:		%{name}-libs%{?_isa} = %{version}-%{release}
 
@@ -70,7 +67,6 @@ opencryptoki and PKCS#11 based applications
 
 
 %package swtok
-Group:			System Environment/Libraries
 Summary:		The software token implementation for opencryptoki
 Requires(pre):		%{name}-libs%{?_isa} = %{version}-%{release}
 Requires:		%{name}-libs%{?_isa} = %{version}-%{release}
@@ -87,7 +83,6 @@ without any specific cryptographic hardware.
 
 
 %package tpmtok
-Group:			System Environment/Libraries
 Summary:		Trusted Platform Module (TPM) device support for opencryptoki
 Requires(pre):		%{name}-libs%{?_isa} = %{version}-%{release}
 Requires:		%{name}-libs%{?_isa} = %{version}-%{release}
@@ -104,7 +99,6 @@ Trusted Platform Module (TPM) devices in the opencryptoki stack.
 
 
 %package icsftok
-Group:			System Environment/Libraries
 Summary:		ICSF token support for opencryptoki
 Requires(pre):		%{name}-libs%{?_isa} = %{version}-%{release}
 Requires:		%{name}-libs%{?_isa} = %{version}-%{release}
@@ -122,7 +116,6 @@ ICSF token in the opencryptoki stack.
 
 %ifarch s390 s390x
 %package icatok
-Group:			System Environment/Libraries
 Summary:		ICA cryptographic devices (clear-key) support for opencryptoki
 Requires(pre):		%{name}-libs%{?_isa} = %{version}-%{release}
 Requires:		%{name}-libs%{?_isa} = %{version}-%{release}
@@ -141,7 +134,6 @@ cryptographic hardware such as IBM 4767, 4768, 4769 and 4770 that uses the
 %endif
 
 %package ccatok
-Group:			System Environment/Libraries
 Summary:		CCA cryptographic devices (secure-key) support for opencryptoki
 Requires(pre):		%{name}-libs%{?_isa} = %{version}-%{release}
 Requires:		%{name}-libs%{?_isa} = %{version}-%{release}
@@ -160,7 +152,6 @@ cryptographic hardware such as IBM 4767, 4768, 4769 and 4770 that uses the
 
 %ifarch s390 s390x
 %package ep11tok
-Group:			System Environment/Libraries
 Summary:		EP11 cryptographic devices (secure-key) support for opencryptoki
 Requires(pre):		%{name}-libs%{?_isa} = %{version}-%{release}
 Requires:		%{name}-libs%{?_isa} = %{version}-%{release}
@@ -187,6 +178,10 @@ configured with Enterprise PKCS#11 (EP11) firmware.
 
 %configure --with-systemd=%{_unitdir}	\
     --with-pkcsslotd-user=pkcsslotd --with-pkcs-group=pkcs11	\
+    --enable-swtok						\
+    --enable-icsftok						\
+    --enable-p11sak						\
+    --enable-p11kmip						\
 %if 0%{?tpmtok}
     --enable-tpmtok \
 %else
@@ -219,7 +214,9 @@ rm -f $RPM_BUILD_ROOT/%{_libdir}/%{name}/stdll/*.la
 %ifarch s390 s390x
 %post icatok -p /sbin/ldconfig
 %endif
+%ifarch s390 s390x x86_64 ppc64le
 %post ccatok -p /sbin/ldconfig
+%endif
 %ifarch s390 s390x
 %post ep11tok -p /sbin/ldconfig
 %endif
@@ -231,7 +228,9 @@ rm -f $RPM_BUILD_ROOT/%{_libdir}/%{name}/stdll/*.la
 %ifarch s390 s390x
 %postun icatok -p /sbin/ldconfig
 %endif
+%ifarch s390 s390x x86_64 ppc64le
 %postun ccatok -p /sbin/ldconfig
+%endif
 %ifarch s390 s390x
 %postun ep11tok -p /sbin/ldconfig
 %endif
@@ -256,8 +255,8 @@ exit 0
 %doc ChangeLog FAQ README.md
 %doc doc/opencryptoki-howto.md
 %doc doc/README.token_data
-%doc doc/policy-example.conf
 %doc doc/strength-example.conf
+%{_docdir}/%{name}/policy-example.conf
 %dir %{_sysconfdir}/%{name}
 %config(noreplace) %{_sysconfdir}/%{name}/%{name}.conf
 %attr(0640, root, pkcs11) %config(noreplace) %{_sysconfdir}/%{name}/strength.conf
@@ -292,7 +291,6 @@ exit 0
 %dir %attr(770,root,pkcs11) %{_sharedstatedir}/%{name}
 %dir %attr(770,root,pkcs11) %{_sharedstatedir}/%{name}/HSM_MK_CHANGE/
 %dir %attr(770,root,pkcs11) %{_localstatedir}/lock/%{name}
-%dir %attr(770,root,pkcs11) %{_localstatedir}/lock/%{name}/*
 %dir %attr(710,pkcsslotd,pkcs11) /run/%{name}/
 
 %files libs
@@ -321,6 +319,7 @@ exit 0
 %{_libdir}/opencryptoki/stdll/PKCS11_SW.so
 %dir %attr(770,root,pkcs11) %{_sharedstatedir}/%{name}/swtok/
 %dir %attr(770,root,pkcs11) %{_sharedstatedir}/%{name}/swtok/TOK_OBJ/
+%dir %attr(770,root,pkcs11) %{_localstatedir}/lock/%{name}/swtok/
 
 %if 0%{?tpmtok}
 %files tpmtok
@@ -328,6 +327,7 @@ exit 0
 %{_libdir}/opencryptoki/stdll/libpkcs11_tpm.*
 %{_libdir}/opencryptoki/stdll/PKCS11_TPM.so
 %dir %attr(770,root,pkcs11) %{_sharedstatedir}/%{name}/tpm/
+%dir %attr(770,root,pkcs11) %{_localstatedir}/lock/%{name}/tpm/
 %endif
 
 %files icsftok
@@ -337,6 +337,7 @@ exit 0
 %{_libdir}/opencryptoki/stdll/libpkcs11_icsf.*
 %{_libdir}/opencryptoki/stdll/PKCS11_ICSF.so
 %dir %attr(770,root,pkcs11) %{_sharedstatedir}/%{name}/icsf/
+%dir %attr(770,root,pkcs11) %{_localstatedir}/lock/%{name}/icsf/
 
 %ifarch s390 s390x
 %files icatok
@@ -344,6 +345,7 @@ exit 0
 %{_libdir}/opencryptoki/stdll/PKCS11_ICA.so
 %dir %attr(770,root,pkcs11) %{_sharedstatedir}/%{name}/lite/
 %dir %attr(770,root,pkcs11) %{_sharedstatedir}/%{name}/lite/TOK_OBJ/
+%dir %attr(770,root,pkcs11) %{_localstatedir}/lock/%{name}/lite/
 %endif
 
 %ifarch s390 s390x x86_64 ppc64le
@@ -356,6 +358,7 @@ exit 0
 %{_libdir}/opencryptoki/stdll/PKCS11_CCA.so
 %dir %attr(770,root,pkcs11) %{_sharedstatedir}/%{name}/ccatok/
 %dir %attr(770,root,pkcs11) %{_sharedstatedir}/%{name}/ccatok/TOK_OBJ/
+%dir %attr(770,root,pkcs11) %{_localstatedir}/lock/%{name}/ccatok/
 %endif
 
 %ifarch s390 s390x
@@ -371,6 +374,7 @@ exit 0
 %{_libdir}/opencryptoki/stdll/PKCS11_EP11.so
 %dir %attr(770,root,pkcs11) %{_sharedstatedir}/%{name}/ep11tok/
 %dir %attr(770,root,pkcs11) %{_sharedstatedir}/%{name}/ep11tok/TOK_OBJ/
+%dir %attr(770,root,pkcs11) %{_localstatedir}/lock/%{name}/ep11tok/
 %endif
 
 
