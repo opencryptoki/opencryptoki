@@ -1,9 +1,4 @@
-.\" pkcstok_migrate.1
-.\"
-.\" Copyright IBM Corp. 2020
-.\" See LICENSE for details.
-.\"
-.TH PKCSTOK_MIGRATE 1 "June 2020" "@PACKAGE_VERSION@" "openCryptoki"
+.TH PKCSTOK_MIGRATE 1 "August 2026" "@PACKAGE_VERSION@" "openCryptoki"
 .SH NAME
 pkcstok_migrate \- utility to migrate an ICA, CCA, Soft, or EP11 token repository
 to the FIPS compliant format introduced with openCryptoki 3.12.
@@ -11,9 +6,9 @@ to the FIPS compliant format introduced with openCryptoki 3.12.
 .SH SYNOPSIS
 \fBpkcstok_migrate\fP [\fB-h\fP]
 .br
-\fBpkcstok_migrate\fP \fB--slotid\fP \fIslot-number\fP \fB--datastore\fP \fIdatastore\fP
-\fB--confdir\fP \fIconfdir\fP [\fB--sopin\fP \fIsopin\fP] [\fB--userpin\fP
-\fIuserpin\fP] [\fB--verbose\fP \fIlevel\fP]
+\fBpkcstok_migrate\fP \fB-s\fP|\fB--slotid\fP \fIslot-number\fP \fB-d\fP|\fB--datastore\fP \fIdatastore\fP
+\fB-c\fP|\fB--confdir\fP \fIconfdir\fP [\fB-p\fP|\fB--sopin\fP \fIsopin\fP] [\fB-u\fP|\fB--userpin\fP
+\fIuserpin\fP] [\fB-v\fP|\fB--verbose\fP \fIlevel\fP]
 
 .SH DESCRIPTION
 Convert all objects inside a token repository to the new format introduced with
@@ -40,24 +35,27 @@ file is still available as opencryptoki.conf_BAK and may be removed by the user
 manually.
 
 After an unsuccessful migration, the original repository is still available
-unchanged. 
+unchanged.
+
+Before the migration begins, the tool displays the token information read from
+the data store and asks for confirmation (\fBy/n\fP) before proceeding.
 
 The \fBpkcstok_migrate\fP utility must be run as root.
 
 .SH "OPTIONS SUMMARY"
-.IP "\fB--slotid -s\fP \fISLOT-NUMBER\fP" 10
+.IP "\fB-s\fP, \fB--slotid\fP \fISLOT-NUMBER\fP" 10
 specifies the token slot number of the token repository to be migrated
-.IP "\fB--datastore -d\fP \fIDATASTORE\fP" 10
+.IP "\fB-d\fP, \fB--datastore\fP \fIDATASTORE\fP" 10
 specifies the directory of the token repository to be migrated.
-.IP "\fB--confdir -c\fP \fICONFDIR\fP" 10
+.IP "\fB-c\fP, \fB--confdir\fP \fICONFDIR\fP" 10
 specifies the directory where the opencryptoki.conf file is located.
-.IP "\fB--sopin -p\fP \fISOPIN\fP" 10
+.IP "\fB-p\fP, \fB--sopin\fP \fISOPIN\fP" 10
 specifies the SO pin. If not specified, the SO pin is prompted.
-.IP "\fB--userpin -u\fP \fIUSERPIN\fP" 10
+.IP "\fB-u\fP, \fB--userpin\fP \fIUSERPIN\fP" 10
 specifies the user pin. If not specified, the user pin is prompted.
-.IP "\fB--verbose -v\fP \fILEVEL\fP" 10
-specifies the verbose level: \fInone\fP, error, warn, info, devel, debug
-.IP "\fB--help -h\fP" 10
+.IP "\fB-v\fP, \fB--verbose\fP \fILEVEL\fP" 10
+specifies the verbose level: \fInone\fP (default), \fIerror\fP, \fIwarn\fP, \fIinfo\fP, \fIdevel\fP, \fIdebug\fP
+.IP "\fB-h\fP, \fB--help\fP" 10
 show usage information
 
 .SH SEE ALSO
