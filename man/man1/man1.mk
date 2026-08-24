@@ -33,6 +33,12 @@ endif
 if ENABLE_CCATOK
 if ENABLE_PKCSCCA
 man1_MANS += man/man1/pkcscca.1
+
+man/man1/pkcscca.1: man/man1/pkcscca.1.in
+	$(AM_V_GEN)@SED@ -e s!\@sysconfdir\@!"$(sysconfdir)"!g		\
+			 -e s!\@localstatedir\@!"$(localstatedir)"!g	\
+			 < $< > $@-t &&					\
+	$(am__mv) $@-t $@
 endif
 endif
 
@@ -55,5 +61,5 @@ man/man1/pkcstok_admin.1: man/man1/pkcstok_admin.1.in
 	$(am__mv) $@-t $@
 endif
 
-EXTRA_DIST += man/man1/pkcstok_admin.1.in man/man1/pkcsicsf.1.in
+EXTRA_DIST += man/man1/pkcstok_admin.1.in man/man1/pkcsicsf.1.in man/man1/pkcscca.1.in
 CLEANFILES += man/man1/*.1
