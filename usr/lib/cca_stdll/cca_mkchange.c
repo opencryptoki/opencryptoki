@@ -1853,6 +1853,7 @@ static CK_RV cca_mk_change_reencipher(STDLL_TokData_t *tokdata,
     CK_RV rc = CKR_OK;
     unsigned int op_idx;
     CK_BBOOL token_objs = FALSE;
+    struct apqn_check_data acd;
 
     if ((op->flags & EVENT_MK_CHANGE_FLAGS_TOK_OBJS) != 0) {
         token_objs = TRUE;
@@ -1899,6 +1900,35 @@ static CK_RV cca_mk_change_reencipher(STDLL_TokData_t *tokdata,
                         __func__, op->id);
             OCK_SYSLOG(LOG_ERR, "Slot %lu: No CCA MK type found in MK change "
                        "operation: %s\n", tokdata->slot_id, op->id);
+            rc = CKR_FUNCTION_FAILED;
+            goto out;
+        }
+
+        /*
+         * Verify the hardware state before activating the operation:
+         * - current MK must match the token's expected MKVP
+         * - new MK register must hold the MKVP claimed in the event
+         * This mirrors the check done in INITIATE_QUERY and prevents a
+         * spurious REENCIPHER event from activating a stranded operation
+         * state when no matching new MK is actually loaded.
+         */
+        memset(&acd, 0, sizeof(acd));
+        acd.slot = tokdata->slot_id;
+        acd.op = op;
+        acd.info = info;
+        acd.sym_new_mk = new_sym_mk;
+        acd.aes_new_mk = new_aes_mk;
+        acd.apka_new_mk = new_apka_mk;
+
+        rc = cca_iterate_adapters(tokdata, cca_mk_change_apqn_check_cb, &acd);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s cca_iterate_adapters failed: 0x%lx\n",
+                        __func__, rc);
+            goto out;
+        }
+        if (acd.error) {
+            TRACE_ERROR("%s APQN MK state check failed for op: %s\n",
+                        __func__, op->id);
             rc = CKR_FUNCTION_FAILED;
             goto out;
         }
@@ -1971,10 +2001,9 @@ static CK_RV cca_mk_change_finalize_cancel(STDLL_TokData_t *tokdata,
 {
     struct cca_private_data *cca_private = tokdata->private_data;
     struct cca_mk_change_op *mk_change_op;
+    struct apqn_check_data acd;
     CK_RV rc = CKR_OK;
     CK_BBOOL token_objs = FALSE;
-
-    UNUSED(info);
 
     TRACE_DEVEL("%s %s MK change op: %s\n", __func__,
                 cancel ? "canceling" : "finalizing", op->id);
@@ -2002,6 +2031,43 @@ static CK_RV cca_mk_change_finalize_cancel(STDLL_TokData_t *tokdata,
     mk_change_op = cca_mk_change_find_op(tokdata, op->id, NULL);
     if (mk_change_op == NULL)
         goto out;
+
+    /*
+     * For FINALIZE: verify the hardware state matches the expected new MKs
+     * stored in the active operation before promoting re-enciphered key
+     * blobs.  This mirrors the check done in FINALIZE_QUERY and prevents a
+     * spurious FINALIZE event from committing key objects when the new MK
+     * has not actually been activated on the card.
+     * For CANCEL: no hardware check needed - cancellation only discards the
+     * re-enciphered blobs and is safe regardless of hardware state.
+     */
+    if (!cancel) {
+        memset(&acd, 0, sizeof(acd));
+        acd.slot = tokdata->slot_id;
+        acd.op = op;
+        acd.info = info;
+        acd.finalize = TRUE; /* New MKs must be current ones */
+
+        if (mk_change_op->new_sym_mkvp_set)
+            acd.sym_new_mk = mk_change_op->new_sym_mkvp;
+        if (mk_change_op->new_aes_mkvp_set)
+            acd.aes_new_mk = mk_change_op->new_aes_mkvp;
+        if (mk_change_op->new_apka_mkvp_set)
+            acd.apka_new_mk = mk_change_op->new_apka_mkvp;
+
+        rc = cca_iterate_adapters(tokdata, cca_mk_change_apqn_check_cb, &acd);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s cca_iterate_adapters failed: 0x%lx\n",
+                        __func__, rc);
+            goto out;
+        }
+        if (acd.error) {
+            TRACE_ERROR("%s APQN MK state check failed for op: %s\n",
+                        __func__, op->id);
+            rc = CKR_FUNCTION_FAILED;
+            goto out;
+        }
+    }
 
     /*
      * Finalize/cancel token objects.
