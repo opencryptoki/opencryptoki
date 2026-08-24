@@ -125,8 +125,8 @@ static int get_pin(CK_BYTE *dest, const char *name)
         goto out;
     }
     if (pinlen > XCP_MAX_PINBYTES) {
-        fprintf(stderr, "The %s must be less than %d chars in length.\n", name,
-                (int) XCP_MAX_PINBYTES);
+        fprintf(stderr, "The %s must not be more than %d chars in length.\n",
+                name, (int) XCP_MAX_PINBYTES);
         goto out;
     }
 
