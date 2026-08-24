@@ -420,7 +420,8 @@ static int do_ParseArgs(int argc, char **argv)
                 return -1;
             }
             errno = 0;
-            val = strtoul(argv[i + 1], &endptr, 10);
+            val = strtoul(argv[i + 1], &endptr,
+                          strncasecmp(argv[i + 1], "0x", 2) == 0 ? 16 : 10);
             if (errno != 0 || endptr == argv[i + 1] || *endptr != '\0'
                 || argv[i + 1][0] == '-') {
                 printf("Adapter parameter is not a valid number!\n");
@@ -434,7 +435,8 @@ static int do_ParseArgs(int argc, char **argv)
                 return -1;
             }
             errno = 0;
-            val = strtoul(argv[i + 1], &endptr, 10);
+            val = strtoul(argv[i + 1], &endptr,
+                          strncasecmp(argv[i + 1], "0x", 2) == 0 ? 16 : 10);
             if (errno != 0 || endptr == argv[i + 1] || *endptr != '\0'
                 || argv[i + 1][0] == '-') {
                 printf("Domain parameter is not a valid number!\n");
