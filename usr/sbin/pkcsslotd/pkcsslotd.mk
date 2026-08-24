@@ -10,7 +10,7 @@ usr_sbin_pkcsslotd_pkcsslotd_LDFLAGS = -lpthread -lcrypto
 if AIX
 usr_sbin_pkcsslotd_pkcsslotd_LDFLAGS += -Wl,-blibpath:$(libdir)/opencryptoki:$(libdir)/opencryptoki/stdll:/usr/lib:/usr/lib64
 else
-usr_sbin_pkcsslotd_pkcsslotd_LDFLAGS += -lcap
+usr_sbin_pkcsslotd_pkcsslotd_LDFLAGS += $(LIBCAP_LIBS)
 endif
 
 if HAVE_LIBUDEV

@@ -312,7 +312,7 @@ ci-cleanup:
 	@sbindir@/pkcsstats --delete-all || true
 	$(KILLALL) -HUP pkcsslotd || true
 #	@sbindir@/pkcsslotd
-#	cd ${srcdir}/testcases && PKCS11_USER_PIN=$(PKCS11_USER_PIN) PKCSLIB=$(PKCLSIB) ./cleanup_vhsm.exp 42
+#	cd ${srcdir}/testcases && PKCS11_USER_PIN=$(PKCS11_USER_PIN) PKCSLIB=$(PKCSLIB) ./cleanup_vhsm.exp 42
 #	$(KILLALL) -HUP pkcsslotd
 	rm ${srcdir}/testcases/test_combined_extract.slots -f
 

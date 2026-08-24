@@ -12,7 +12,7 @@ endif
 
 EXTRA_DIST += usr/sbin/p11kmip/p11kmip.conf
 
-usr_sbin_p11kmip_p11kmip_CFLAGS = -DLINUX -DPROGRAM_NAME=\"$(@)\"	\
+usr_sbin_p11kmip_p11kmip_CFLAGS = -DPROGRAM_NAME=\"$(@)\"		\
 	-I${srcdir}/usr/include -I${srcdir}/usr/lib/common		\
 	-I${srcdir}/usr/sbin/p11kmip -I${srcdir}/usr/lib/config		\
 	-I${top_builddir}/usr/lib/config -I${top_builddir}/usr/lib/api	\
