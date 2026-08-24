@@ -6,12 +6,11 @@ with Crypto Express 4S adapters) configured with Enterprise PKCS#11 (EP11)
 firmware. By convention, Crypto Express n adapters with that firmware load are
 also called CEXnP adapters for n >= 4.
 
-The EP11 token is only supported on the System z architecture and requires a
+The EP11 token is only supported on the IBM Z (s390x) architecture and requires a
 Crypto Express adapter with EP11 firmware load, a zcrypt/ap device driver loaded
 into the kernel and the availability of EP11 library libep11.
 
-The token directory of the EP11 token is opencryptoki/ep11tok typically located
-in /var/lib.
+The token directory of the EP11 token is typically /var/lib/opencryptoki/ep11tok.
 
 There is a possibility to configure multiple EP11 tokens.
 Thus dedicated adapter/domains can be assigned to different tokens respectively
@@ -48,14 +47,14 @@ confname = ep11tok02.conf
 tokname = ep11token02
 }
 
-The sample entry define the name of the configuration files of the EP11 token
+The sample entry defines the name of the configuration files of the EP11 token
 to be e.g. ep11tok01.conf. Per default this file is searched in the directory
 where openCryptoki searches its global configuration file. This default path
-can be overriden using the OCK_EP11_TOKEN_DIR environment variable.
+can be overridden using the OCK_EP11_TOKEN_DIR environment variable.
 
 The tokname attribute specifies the name of the individual token directory.
-Typically it's located in /var/lib/opencryptoki/. Each token directory contain
-it's own token individual objects that are separated from other ep11 tokens.
+Typically it's located in /var/lib/opencryptoki/. Each token directory contains
+its own token individual objects that are separated from other ep11 tokens.
 
 EP11 token configuration files defines a list of adapter/domain pairs to which
 the EP11 token sends its cryptographic requests. This list can be specified as a
@@ -69,6 +68,58 @@ firmware load that are available to the system shall be used as target adapters.
 An adapter number corresponds to the numerical part xx of an adapter id of the
 form cardxx as displayed by the lszcrypt tool or in the sys file system (e.g. in
 /sys/bus/ap/devices).
+
+The following keywords are supported in the EP11 token configuration file:
+
+APQN_ALLOWLIST ... END
+    Specifies the list of adapter/domain pairs (APQNs) to use. Each pair is
+    given as two integers on a separate line. Exactly one of APQN_ALLOWLIST
+    or APQN_ANY must be present. The legacy spelling APQN_WHITELIST is also
+    accepted.
+
+APQN_ANY
+    Instructs the token to use all available APQNs with EP11 firmware.
+    Exactly one of APQN_ALLOWLIST or APQN_ANY must be present.
+
+FORCE_SENSITIVE
+    Sets the default value of CKA_SENSITIVE to TRUE for all newly created
+    secret keys.
+
+CPFILTER <filename>
+    Path to a CP-Filter configuration file (default: ep11cpfilter.conf in
+    the same directory as the token config file).
+
+STRICT_MODE
+    Enables strict compliance mode on the adapter. Cannot be combined with
+    FIPS_SESSION_MODE.
+
+VHSM_MODE
+    Enables Virtual HSM mode. Cannot be combined with FIPS_SESSION_MODE.
+
+FIPS_SESSION_MODE
+    Enables FIPS session mode. Cannot be combined with STRICT_MODE or
+    VHSM_MODE.
+
+OPTIMIZE_SINGLE_PART_OPERATIONS
+    Enables optimized single-part crypto operations where supported.
+
+PKEY_MODE <mode>
+    Controls protected-key (PKEY) usage. Accepted values: DISABLED, DEFAULT,
+    ENABLE4NONEXTR, ENABLE4EXTR, ENABLE4ALL.
+
+DIGEST_LIBICA <path|DEFAULT|OFF>
+    Controls whether digest operations are offloaded to libica. Specify a
+    path to the libica shared library, DEFAULT to use the system default, or
+    OFF to disable.
+
+USE_PRANDOM
+    Disables the token's hardware RNG and uses the OS pseudo-random number
+    generator instead.
+
+EXPECTED_WKVP "<hex-string>"
+    A quoted 32-byte hex string representing the expected Wrapping Key
+    Verification Pattern. The token will fail to initialize if the current
+    WKVP does not match.
 
 Crypto Express Adapter EP11 Master Key Management
 -------------------------------------------------
@@ -102,7 +153,7 @@ C_CreateObject. You can change the default for CKA_SENSITIVE to TRUE by
 specifying keyword FORCE_SENSITIVE in the EP11 token config file.
 
 When creating keys the default values of the attributes CKA_ENCRYPT,
-CKA_DECRYPT, CKA_VERYFY, CKA_SIGN, CKA_WRAP and CKA_UNWRAP are CK_TRUE. Note, no
+CKA_DECRYPT, CKA_VERIFY, CKA_SIGN, CKA_WRAP and CKA_UNWRAP are CK_TRUE. Note, no
 EP11 mechanism supports the Sign/Recover or Verify/Recover functions.
 
 All RSA key must have a public exponent (CKA_PUBLIC_EXPONENT) greater than or
@@ -118,10 +169,10 @@ length that is a multiple of the block size of DES3 or AES respectively.
 
 See the mechanism list and mechanism info (pkcsconf -m) for supported mechanisms
 together with supported functions and key sizes. Note the supported mechanism
-list is currently fix and matches the most stringent setting of the Crypto
+list is currently fixed and matches the most stringent setting of the Crypto
 Express adapter.
 
 Note, the EP11 coprocessor adapter can be configured to restrict the
 cryptographic capabilities in order for the adapter to comply with specific
 security requirements and regulations. Such restrictions on the adapter impact
-the capabilitiy of the EP11 token.
+the capability of the EP11 token.

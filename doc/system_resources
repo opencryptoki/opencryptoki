@@ -2,78 +2,202 @@ The following are the system resources used by openCryptoki
 
 Please also see https://www.ibm.com/docs/en/linux-on-systems?topic=features-architecture-components-opencryptoki
 
-1.Shared memory = 1 per token + 1 segment between pkcsslotd & api + 1 statistic
-  segment per user (if statistics are enabled)
+The user under which pkcsslotd runs (default: pkcsslotd) and the group that all
+openCryptoki applications must belong to (default: pkcs11) can be configured at
+build time using:
+    ./configure --with-pkcsslotd-user=USER --with-pkcs-group=GROUP
+
+Throughout this document PKCSSLOTD_USER refers to that configured user and
+PKCS_GROUP refers to that configured group.
+
+Each token can additionally have its own user group, configured per slot in
+opencryptoki.conf with the keyword:
+    usergroup = GROUP
+If usergroup is not set for a slot, TOKEN_GROUP defaults to PKCS_GROUP.
+Throughout this document TOKEN_GROUP refers to that per-token group.
+All members of TOKEN_GROUP must also be members of PKCS_GROUP.
+PKCSSLOTD_USER must also be a member of PKCS_GROUP.
+
+1. Shared memory = 1 per token + 1 segment between pkcsslotd & api + 1 statistic
+   segment per user (if statistics are enabled)
+
     a. Between pkcsslotd and api
        The pkcsslotd daemon has its own shared memory segment that it creates
-       and shares with API. Part of the data is passed through sockets but
-       there is still some data shared via shared memory.
+       and shares with the API library. Part of the data is passed through
+       sockets but there is still some data shared via shared memory.
+       Owner: PKCSSLOTD_USER  Group: PKCS_GROUP  Mode: 0660 (rw-rw----)
+       Size: sizeof(Slot_Mgr_Shr_t) - a fixed structure holding per-process and
+       per-slot session counters for up to 1000 processes and 1024 slots.
+       Approximately 12 MB on 64-bit platforms.
 
-    b. Each token has its own shared memory segment. Opencryptoki processes
+    b. Each token has its own shared memory segment. openCryptoki processes
        attach to the token segment and shared memory acts as a global state
        tracking mechanism.
-       # ls /dev/shm
-       var.lib.opencryptoki.ccatok   var.lib.opencryptoki.swtok
-       var.lib.opencryptoki.ep11tok  var.lib.opencryptoki.tpm.root
-       var.lib.opencryptoki.lite
+       Owner: the first application process to open the token
+       Group: TOKEN_GROUP  Mode: 0660 (rw-rw----)
+       Size: sizeof(LW_SHM_TYPE) - holds a TOKEN_DATA mirror plus two arrays
+       of MAX_TOK_OBJS object index entries (default: 2048 public + 2048
+       private). Approximately 65 KB per token at the default setting.
+       MAX_TOK_OBJS can be set at build time:
+           ./configure --with-max-token-objects=N
+       Example segment names visible under /dev/shm:
+           var.lib.opencryptoki.ccatok   var.lib.opencryptoki.swtok
+           var.lib.opencryptoki.ep11tok  var.lib.opencryptoki.tpm.root
+           var.lib.opencryptoki.lite
 
     c. If collection of statistics is enabled, there is one shared memory
        segment per user. It is created at the first usage of openCryptoki of
        a user, and is named var.lib.opencryptoki_stats_<uid> where <uid> is
        the numeric user id of the user.
+       Owner: the user  Group: the user's primary group  Mode: 0600 (rw-------)
+       Size: num_configured_slots × MECHTABLE_NUM_ELEMS ×
+             (NUM_SUPPORTED_STRENGTHS + 1) × sizeof(CK_ULONG)
+           = num_slots × approximately 200 mechanisms × 5 strength buckets
+           × 8 bytes = approximately 16 KB per configured slot.
        Use the pkcsstats tool to display the statistics, and remove statistics
        segments for users no longer needed.
 
-2. Sockets - 1
-   a.Unix socket between pkcsslotd and api to transfer slot information.
+2. Sockets - up to 3
+   a. Unix socket between pkcsslotd and API processes to transfer slot
+      information.
+      Path: /run/opencryptoki/pkcsslotd.socket
+      Owner: PKCSSLOTD_USER  Group: PKCS_GROUP  Mode: 0660 (rw-rw----)
 
-   b.Unix socket between pkcsslotd and an event source to deliver events to
-     tokens of running openCryptoki applications.
+   b. Unix socket between pkcsslotd and event sources (e.g. pkcshsm_mk_change)
+      to deliver events to tokens of running openCryptoki applications.
+      Path: /run/opencryptoki/pkcsslotd.admin.socket
+      Owner: PKCSSLOTD_USER  Group: PKCS_GROUP  Mode: 0660 (rw-rw----)
 
-   c.Netlink socket owned by pkcsslotd to listen for udev events (s390 platform
-     only). This is used to produce events on APQNs becoming online or offline.
+   c. Netlink socket owned by pkcsslotd to listen for udev events (s390 platform
+      only). This is used to produce events on APQNs becoming online or offline.
 
-   d.epoll socket owned by pkcsslotd to wait for events on all the other
-     sockets.
+   Note: pkcsslotd also uses an epoll file descriptor internally to multiplex
+   all of the above, but it is not a socket and leaves no on-disk resource.
 
 3. Files
-    a. Lock files - 1 global API LCK file + 1 per token (except tpm) +
-       1 lock file per user on tpm token
-       # ls -lh /var/lock/opencryptoki/
-       LCK..APIlock
-       ccatok/LCK..ccatok
-       ep11tok/LCK..ep11tok
-       icsf/LCK..icsf
-       lite/LCK..lite
-       swtok/LCK..swtok
-       tpm/<USER>/LCK..tpm
+    Note: on Linux the runtime directory is /run. On AIX it is /var/run.
+    All paths below that start with /run/opencryptoki/ are therefore
+    /var/run/opencryptoki/ on AIX.
 
-    b. Trace files - These are generated based on the environment variable
-       OPENCRYPTOKI_TRACE_LEVEL per process in /var/log/opencryptoki. No max
-       limit.
+    a. Directories
+       The following directories are created by pkcsslotd at startup if they
+       do not already exist. They are normally pre-created by tmpfiles.d.
 
-    c. Config files (some are optional)
-       # ls -lh /etc/opencryptoki/
-       total 32K
-       -rw-r--r--. 1 root root   4.6K Mar 15 13:47 ep11cpfilter.conf
-       -rw-r--r--. 1 root root   4.0K Mar 15 13:24 ep11tok.conf
-       -rw-r--r--. 1 root root    808 Mar 15 13:49 opencryptoki.conf
-       -rw-r-----. 1 root pkcs11  584 Feb  1 16:38 p11sak_defined_attrs.conf
-       -rw-r-----. 1 root pkcs11 5.6K Mar  2 16:45 policy.conf
-       -rw-r-----. 1 root pkcs11  865 Feb  1 16:38 strength.conf
+       /run/opencryptoki/
+           Owner: PKCSSLOTD_USER  Group: PKCS_GROUP  Mode: 0710 (rwx--x---)
+       /var/lock/opencryptoki/
+           Owner: PKCSSLOTD_USER  Group: PKCS_GROUP  Mode: 0770 (rwxrwx---)
+       /var/log/opencryptoki/
+           Owner: PKCSSLOTD_USER  Group: PKCS_GROUP  Mode: 0770 (rwxrwx---)
+       /var/lib/opencryptoki/
+           Owner: PKCSSLOTD_USER  Group: PKCS_GROUP  Mode: 0770 (rwxrwx---)
+       /var/lib/opencryptoki/HSM_MK_CHANGE/
+           Owner: PKCSSLOTD_USER  Group: PKCS_GROUP  Mode: 0770 (rwxrwx---)
 
-    d. Token data files - 3 files per token + 1 additional RACF file for icsf
-    token + 1 MK_PRIVATE file for tpm token
-       NVTOK.DAT - Token data like user pin, so pin etc
-       MK_SO - Master key used for internal encryption hashed with SOPIN. This
-               file does not exist on tpm token.
-       MK_USER - Master key used for internal encryption hashed with USERPIN.
-                 This file does not exist on tpm token.
-       RACF - icsf racf password encrypted. tpm token has wrapped keys per user
-              /var/lib/opencryptoki/tpm/${USER}/PRIVATE_ROOT_KEY.pem
-              /var/lib/opencryptoki/tpm/${USER}/PUBLIC_ROOT_KEY.pem
+       Each token's data directory (e.g. /var/lib/opencryptoki/swtok/) and its
+       TOK_OBJ/ subdirectory are created by pkcsslotd when a token is first
+       seen, or by the 'pkcstok_admin create' command.
+       When created by pkcsslotd (only possible when TOKEN_GROUP == PKCS_GROUP;
+       if usergroup= is set to a different group, pkcsslotd refuses and requires
+       'pkcstok_admin create' to be used instead):
+           Owner: PKCSSLOTD_USER  Group: TOKEN_GROUP  Mode: 0770 (rwxrwx---)
+       When created by 'pkcstok_admin create' (must be run as root):
+           Owner: root  Group: TOKEN_GROUP  Mode: 0770 (rwxrwx---)
+       Use 'pkcstok_admin chown' to reassign group ownership after creation.
 
-    e. Token object files - 1 OBJ_IDX file per token and the private object
-       files + as many number of private token objects for tokens
-       OBJ_IDX - A list of current token objects.
+       The TPM token uses per-user subdirectories instead:
+           /var/lib/opencryptoki/tpm/${USER}/
+           Owner: the user  Group: the user's primary group  Mode: 0700
 
+    b. Lock files
+       All lock files are owned by whoever creates the file first.
+       LCK..APIlock is created by pkcsslotd (owner: PKCSSLOTD_USER).
+       LCK..HSM_MK_CHANGElock is created by pkcshsm_mk_change or the first
+       application to acquire it (owner: that process's user).
+       Per-token lock subdirectories and lock files are created by the
+       application process and are thus owned by the application user.
+       Mode: 0440 (r--r-----) Linux / 0220 (-w--w----) AIX
+       # ls /var/lock/opencryptoki/
+       LCK..APIlock              (Owner: PKCSSLOTD_USER  Group: PKCS_GROUP)
+       LCK..HSM_MK_CHANGElock    (Owner: application user  Group: PKCS_GROUP)
+       ccatok/LCK..ccatok        (Owner: application user  Group: TOKEN_GROUP)
+       ep11tok/LCK..ep11tok      (Owner: application user  Group: TOKEN_GROUP)
+       icsf/LCK..icsf            (Owner: application user  Group: TOKEN_GROUP)
+       lite/LCK..lite            (Owner: application user  Group: TOKEN_GROUP)
+       swtok/LCK..swtok          (Owner: application user  Group: TOKEN_GROUP)
+       tpm/<USER>/LCK..tpm       (Owner: application user  Group: TOKEN_GROUP)
+
+    c. Trace files
+       Generated per process when OPENCRYPTOKI_TRACE_LEVEL is set.
+       Path: /var/log/opencryptoki/trace.<pid>
+       Owner: the process owner  Group: PKCS_GROUP  Mode: 0640 (rw-r-----)
+       No size limit; one file per process while tracing is active.
+
+    d. Config files (some are optional)
+       # ls /etc/opencryptoki/
+       opencryptoki.conf          root:root       0644  main slot configuration
+       ep11tok.conf               root:root       0644  EP11 token configuration
+                                                        (name set via confname= in opencryptoki.conf)
+       ep11cpfilter.conf          root:root       0644  EP11 CP-filter config
+                                                        (name set via CPFILTER in ep11tok.conf)
+       ccatok.conf                root:root       0644  CCA token configuration
+                                                        (name set via confname= in opencryptoki.conf)
+       <tokenname>.conf           root:root       0644  ICSF token configuration
+                                                        (created by pkcsicsf, name = ICSF token name)
+       p11kmip.conf               root:PKCS_GROUP 0640  p11kmip tool config
+       p11sak_defined_attrs.conf  root:PKCS_GROUP 0640  p11sak custom attributes
+       policy.conf                root:PKCS_GROUP 0640  key policy configuration
+       strength.conf              root:PKCS_GROUP 0640  key strength configuration
+
+    e. PID file - created by pkcsslotd at startup
+       Path: /run/opencryptoki/pkcsslotd.pid
+       Owner: PKCSSLOTD_USER  Group: PKCS_GROUP  Mode: 0644 (rw-r--r--)
+       Size: a few bytes (ASCII decimal PID followed by newline).
+       Note: pkcsslotd drops root privileges via setuid/setgid + execv before
+       any files are created, so all files it writes are owned by
+       PKCSSLOTD_USER with primary group PKCS_GROUP.
+
+    f. Token data files
+       3 files per token + 1 additional RACF file for the ICSF token
+       + wrapped key files for the TPM token (per user).
+       Owner: the application user performing the operation (C_InitToken,
+              C_SetPIN, etc.)  Group: TOKEN_GROUP  Mode: 0660 (rw-rw----)
+       (TPM token: owner = the user, no group sharing, mode 0600)
+
+       NVTOK.DAT  - Token metadata (label, flags, PIN hashes, version info).
+                    Size: sizeof(TOKEN_DATA), a fixed ~400-byte structure.
+       MK_SO      - Master key encrypted with the SO PIN. Not present on TPM
+                    token.
+       MK_USER    - Master key encrypted with the USER PIN. Not present on TPM
+                    token.
+       RACF       - ICSF token only: encrypted RACF password.
+       /var/lib/opencryptoki/tpm/${USER}/PRIVATE_ROOT_KEY.pem
+       /var/lib/opencryptoki/tpm/${USER}/PUBLIC_ROOT_KEY.pem
+                  - TPM token only: per-user software root key pair.
+
+    g. Token object files
+       One OBJ.IDX index file and one binary file per stored token object,
+       all inside the token's TOK_OBJ/ directory.
+       Both file types are written by the application process and share the
+       same ownership model: the owner is the application user that performed
+       the operation (who must be a member of TOKEN_GROUP).
+       Group: TOKEN_GROUP  Mode: 0660 (rw-rw----)
+       (TPM token: mode 0600, no group access)
+       OBJ.IDX   - Text index listing the names of all current token objects,
+                   one per line. Appended to when objects are created,
+                   rewritten (via IDX.TMP) when objects are deleted.
+       OBxxxxxx  - Individual token object files. Each file stores one
+                   serialized PKCS#11 object in binary format (encrypted for
+                   private objects). The 8-character filename is generated by
+                   mkstemp() using the template "OBXXXXXX" and is never reused.
+       The maximum number of token objects per token is MAX_TOK_OBJS
+       (default: 2048 public + 2048 private). Configurable at build time:
+           ./configure --with-max-token-objects=N
+
+    h. HSM master key change state files
+       /var/lib/opencryptoki/HSM_MK_CHANGE/
+           Directory created by pkcsslotd; used by pkcshsm_mk_change to
+           persist MK change operation state across slots.
+       State files within that directory are written by pkcshsm_mk_change:
+           Owner: the user running pkcshsm_mk_change  Group: PKCS_GROUP
+           Mode: 0660 (rw-rw----)

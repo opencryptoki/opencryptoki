@@ -6,7 +6,7 @@ in its own file and given a unique name that is never reused. Each object is
 stored in a binary format that gives openCryptoki the ability to check for
 corruption when reading in the object into memory.
 
-Starting with openCryptoki vesion 3.12, a new, FIPS compliant format can be used
+Starting with openCryptoki version 3.12, a new, FIPS compliant format can be used
 to store the token objects. You may now want to migrate the data stores of an
 EP11 token, a CCA token, an ICA token, or a Soft token to a FIPS compliant
 format using the pkcstok_migrate tool. For details, please see

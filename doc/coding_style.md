@@ -84,7 +84,7 @@ beginning of the next line, e.g.:
     }
 ```
 
-Follow other examples:
+More examples:
 
 ```c
     do {
@@ -156,7 +156,7 @@ E.g.:
 Do **not** add spaces around (inside) parenthesized expressions, e.g.:
 
 ```c
-    if ( x == 1 ) {
+    if ( x == 1 ) {  /* Wrong - don't do this */
         ..
     }
 ```
