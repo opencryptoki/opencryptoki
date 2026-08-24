@@ -4,7 +4,7 @@ Overview
 --------
 The CCA token is a secure key token.
 A Secure key - key value does not exist in the clear outside of the HSM
-(secure, tamper-resistent boundary of the card). It is a clear key wrapped
+(secure, tamper-resistant boundary of the card). It is a clear key wrapped
 with the appropriate MasterKey that has been installed into the secure hardware.
 A clear key is generated in the hardware, wrapped with the appropriate
 master key that has been installed into the hardware. The wrapped key is then
@@ -99,7 +99,7 @@ MK_USER: The des3 key used for internal on-disk encryption, encrypted
 MK_SO: The des3 key used for internal on-disk encryption, encrypted
          under the SO's PIN by software routines
 
-NKTOK.DAT: Token information.
+NVTOK.DAT: Token information.
 
 TOK_OBJ: The directory in which token objects are stored.
 
@@ -113,10 +113,11 @@ if it is running.
 
 4.  Run the pkcscca tool to perform the migration.
 For example,
-	pkcscca -m v2objectsv3 -v
+	pkcscca -m v2objectsv3 -v info
 
-Note that the "-v" option will allow you to see which objects did and did not
-get migrated. Specify the "-d" flag if you wish to migrate CCA token objects
+Note that the "-v" option sets the verbosity level (none, error, warn, info,
+devel, debug). Using "-v info" will allow you to see which objects did and did
+not get migrated. Specify the "-d" flag if you wish to migrate CCA token objects
 stored in a data-store different from the default, /var/lib/opencryptoki/ccatok.
 
 5. (Optional) Removing shared memory may be required to pick up
@@ -204,8 +205,8 @@ CCA token.
 3. Back up the token object repository of the CCA token. For example, you can
 use the following commands:
 
-	cd /var/lib/opencryptoki/cca/
-	tar -cvzf ~/cca/TOK_OBJ_backup.tgz TOK_OBJ
+	cd /var/lib/opencryptoki/ccatok/
+	tar -cvzf ~/ccatok/TOK_OBJ_backup.tgz TOK_OBJ
 
 4. Migrate the keys of the CCA token object repository with the pkcscca
 migration tool.
@@ -221,7 +222,7 @@ The following parameters are mandatory:
 
 All the specified token objects representing extractable keys that are
 found for the CCA token, are re-encrypted and ready for use. Keys with an
-attribute CKA_EXTRACTABLE=FALSE are not migratable.The keys that failed to
+attribute CKA_EXTRACTABLE=FALSE are not migratable. The keys that failed to
 migrate are displayed to the user.
 
 5. Re-start the previously stopped openCryptoki processes.

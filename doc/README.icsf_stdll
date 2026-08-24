@@ -59,7 +59,7 @@ You have the option of using,
 
     2. you can give the information to openCryptoki to store and use when
        binding and authenticating to LDAP server. This is done through the
-       pkcsiscf utility.
+       pkcsicsf utility.
 
 The first option involves using an existing LDAP config file to bind and
 authenticate to the remote server.
@@ -75,7 +75,7 @@ When using this option,
       will be securely stored on disk by openCryptoki for subsequent use.
 
     - with SASL authentication, you need to specify the authentication mechanism
-      as sasl when adding the ICSF token into opecryptoki with the pkcsicsf
+      as sasl when adding the ICSF token into openCryptoki with the pkcsicsf
       utility. SASL does not require an RACF password, so you will not be
       prompted for this information.
 
@@ -88,7 +88,7 @@ the credentials are stored in one place for all who access openCryptoki's ICSF
 token.
 
 When openCryptoki calls the openldap function to bind and authenticate, it will
-pass along the information stored in the ICFS config file to the function call.
+pass along the information stored in the ICSF config file to the function call.
 For example, when simple authentication, it will pass the BINDDN and URI found
 in this config file to the function.
 
@@ -101,11 +101,11 @@ When using this option,
 
     - with SASL authentication, you need to specify the authentication mechanism
       as sasl, along with the CERT, CACERT, and KEY when adding the ICSF token
-      into openCryptoki with the pkcsiscf utility. SASL does not require an RACF
+      into openCryptoki with the pkcsicsf utility. SASL does not require an RACF
       password, so you will not be prompted for it.
 
 When required, the RACF password is stored securely on disk for subsequent use
-in /prefix/var/lib/opencryptoki/icsf/RACF.
+in /var/lib/opencryptoki/icsf/RACF.
 
 **Note: Setup of LDAP and SASL are outside the scope of this README.
 
@@ -115,7 +115,7 @@ openCryptoki's ICSF token setup
 The installed opencryptoki.conf does not contain an entry for the ICSF token. An
 entry is created upon setting up the ICSF token with the pkcsicsf utility.
 
-openCryptoki's ICSF token must first be set up with the pkcsiscf utility before
+openCryptoki's ICSF token must first be set up with the pkcsicsf utility before
 the token can be initialized with the pkcsconf utility.
 
 Setup
@@ -140,7 +140,7 @@ confname = /usr/local/etc/opencryptoki/JML.conf
 }
 
 Also, a separate ICSF token config file will be created,
-/prefix/etc/opencryptoki/<tokenname>.conf, containing information required to
+/etc/opencryptoki/<tokenname>.conf, containing information required to
 bind to the LDAP server if any was specified. It will also contain information
 from the remote server about the particular ICSF token that was added.
 
@@ -162,10 +162,10 @@ EXAMPLE OF HOW TO CONFIGURE THE ICSF TOKEN
 ------------------------------------------
 First, get a list of the available tokens from the remote server. From the list
 choose one token and add it into openCryptoki. After successfully adding the
-ICSF token and any relatedinformation into openCryptoki, initialize the ICSF
+ICSF token and any related information into openCryptoki, initialize the ICSF
 token.
 
-Examples to  get a list of available tokens
+Examples to get a list of available tokens
 -------------------------------------------
 1. Using simple authentication and .ldaprc which has BINDDN and URI set in it,
 get a list of the available tokens from the remote.
@@ -197,8 +197,9 @@ get a list of available tokens from the remote.
 
 
 Examples to add a token into openCryptoki
------------------------------------------ 1. Using simple authentication and
-.ldaprc which has BINDDN and URI set in it, add the token named, Foo.
+-----------------------------------------
+1. Using simple authentication and .ldaprc which has BINDDN and URI set in it,
+add the token named, Foo.
 
         pkcsicsf -a Foo -m simple
 
@@ -267,7 +268,7 @@ utility.
         You will be prompted twice to enter the new user PIN. Enter 8 digits for
         the new user pin. Remember it so you can use it later.
 
-6. Set a new SO PIN
+5. Set a new SO PIN
         pkcsconf -P -c 5
 
         you will be prompted to enter the SO PIN. Enter the default SO PIN,
@@ -275,7 +276,7 @@ utility.
         You will then be prompted to enter the new SO PIN. Enter 8 digits for
         the new SO PIN. Remember it for later use.
 
-7. List the token and ensure it is ready.
+6. List the token and ensure it is ready.
         pkcsconf -t -c 5
 
 Sample output:
@@ -296,5 +297,5 @@ Token #5 Info:
     Time: 22:09:20
 
 
-You are now done configuring the ICSF token into openCryptoki and its ready to
+You are now done configuring the ICSF token into openCryptoki and it's ready to
 be used.
