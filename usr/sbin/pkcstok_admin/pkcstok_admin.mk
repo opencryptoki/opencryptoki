@@ -6,11 +6,15 @@ usr_sbin_pkcstok_admin_pkcstok_admin_CFLAGS  =		\
 	-DSTDLL_NAME=\"pkcstok_admin\"			\
 	-I${srcdir}/usr/include 			\
 	-I${srcdir}/usr/lib/common			\
+	-I${srcdir}/usr/lib/api				\
+	-I${top_builddir}/usr/lib/api			\
 	-I${srcdir}/usr/sbin/pkcstok_admin
 
 usr_sbin_pkcstok_admin_pkcstok_admin_SOURCES =		\
 	usr/sbin/pkcstok_admin/pkcstok_admin.c		\
 	usr/lib/common/pkcs_utils.c
+
+nodist_usr_sbin_pkcstok_admin_pkcstok_admin_SOURCES = usr/lib/api/mechtable.c
 
 if AIX
 usr_sbin_pkcstok_admin_pkcstok_admin_SOURCES += 	\
