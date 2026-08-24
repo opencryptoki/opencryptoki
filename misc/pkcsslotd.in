@@ -33,11 +33,11 @@ start() {
     echo
     [ $RETVAL -eq 0 ] && touch $LOCKFILE
     return $RETVAL
-}	
+}
 
 stop() {
     echo -n $"Shutting down pkcsslotd:"
-    killproc pkcsslotd
+    killproc $SLOTDBIN
     RETVAL=$?
     echo
     [ $RETVAL -eq 0 ] && rm -f $LOCKFILE
