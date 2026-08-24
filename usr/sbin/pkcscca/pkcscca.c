@@ -1895,7 +1895,7 @@ int main(int argc, char **argv)
     struct option long_opts[] = {
         {"datastore", required_argument, NULL, 'd'},
         {"slotid", required_argument, NULL, 's'},
-        {"verbose", no_argument, NULL, 'v'},
+        {"verbose", required_argument, NULL, 'v'},
         {0, 0, 0, 0}
     };
 
