@@ -1,6 +1,6 @@
-.TH pkcstok_admin 1 "July 2024" "@PACKAGE_VERSION@" "openCryptoki"
+.TH pkcstok_admin 1 "August 2026" "@PACKAGE_VERSION@" "openCryptoki"
 .SH NAME
-pkcstok_admin \- utility to administrate token directories of the Opencryptoki
+pkcstok_admin \- utility to administer token directories of the openCryptoki
 token repository.
 .
 .
@@ -22,8 +22,8 @@ token repository.
 .
 .SH DESCRIPTION
 .
-The \fBpkcstok_admin\fP utility can be used to administrate token directories of
-the Opencryptoki token repository with proper permissions and owners.
+The \fBpkcstok_admin\fP utility can be used to administer token directories of
+the openCryptoki token repository with proper permissions and owners.
 By default token directories are owned by the \fB@pkcs_group@\fP group, and
 every user that is a member of the \fB@pkcs_group@\fP group has access to the
 token and its token objects (i.e. keys, certificates, etc.).
@@ -37,15 +37,15 @@ have access to the token and its token objects. Users that are only members of
 the \fB@pkcs_group@\fP group, but are not also members of the token specific
 group do not have access to the token. Users of the token specific group must
 still also be members of the \fB@pkcs_group@\fP group to be able to use
-Opencryptoki.
+openCryptoki.
 .PP
 Token specific files are usually stored in
 \fB@localstatedir@/lib/opencryptoki/<token-name>/\fP. Additionally token
 specific lock files are stored in
 \fB@localstatedir@/lock/opencryptoki/<token-name>/\fP.
-Furthermore, a token specific POSIX shared memory segment exists under
-\fB/dev/shm/\fP. All files and directories within these token specific
-directories as well as the shared memory segment are owned by the token
+Furthermore, a token specific POSIX shared memory segment exists. On Linux it is
+visible under \fB/dev/shm/\fP. All files and directories within these token
+specific directories as well as the shared memory segment are owned by the token
 specific group, or by the \fB@pkcs_group@\fP group if no token specific group
 has been configured.
 .PP
@@ -65,7 +65,7 @@ It does not work with TPM version 2.0.
 .
 .SH COMMANDS
 .
-The \fBpkcstok_admin\fP tool supports various commands to administrate token
+The \fBpkcstok_admin\fP tool supports various commands to administer token
 directories.
 .PP
 .SS "Creating a new token and its directories"
@@ -83,9 +83,13 @@ Use the \fBcreate\fP command to create a new token and its directories.
 Use the
 .BR \-\-token | \-t
 .I TOKNAME
-option to specify the name of the token to create. The token name must also be
-specified in the slot definition in the \fBopencryptoki.conf\fP configuration
-file located in \fB@sysconfdir@/opencryptoki/\fP with keyword \fBtokname\fP.
+option to specify the name of the token to create. This option is mandatory.
+The token name must be specified in the slot definition in the
+\fBopencryptoki.conf\fP configuration file located in
+\fB@sysconfdir@/opencryptoki/\fP with keyword \fBtokname\fP. The token name
+must be 1 to 255 characters long, must not be \fB.\fP or \fB..\fP, and must
+not contain \fB/\fP. The token name \fBHSM_MK_CHANGE\fP is reserved and must
+not be used.
 .PP
 Use the
 .RB [ \-\-group | \-g
@@ -124,16 +128,18 @@ directories.
 Use the
 .BR \-\-token | \-t
 .I TOKNAME
-option to specify the name of the token to change the owner for. The token name
-is usually specified in the slot definition in the \fBopencryptoki.conf\fP
-configuration file located in \fB@sysconfdir@/opencryptoki/\fP with keyword
-\fBtokname\fP.
-If the slot definition does not specify a \fBtokname\fP keyword, then a
-default token name is used, dependent on the token model. The \fBICA token\fP
-uses \fBlite\fP as default token name, the \fBCCA token\fP uses \fBccatok\fP,
-the \fBSoft token\fP uses \fBswtok\fP, the \fBEP11 token\fP uses \fBep11tok\fP,
-the \fBICSF token\fP uses \fBicsf\fP, and the \fBTPM token\fP (deprecated) uses
-\fBtpm\fP.
+option to specify the name of the token to change the owner for. This option is
+mandatory. The token name must match the token directory name. It is usually
+specified in the slot definition in the \fBopencryptoki.conf\fP configuration
+file located in \fB@sysconfdir@/opencryptoki/\fP with keyword \fBtokname\fP.
+For tokens whose slot definition does not specify a \fBtokname\fP keyword,
+specify the default token name explicitly: the \fBICA token\fP uses
+\fBlite\fP, the \fBCCA token\fP uses \fBccatok\fP, the \fBSoft token\fP uses
+\fBswtok\fP, the \fBEP11 token\fP uses \fBep11tok\fP, the \fBICSF token\fP
+uses \fBicsf\fP, and the \fBTPM token\fP (deprecated) uses \fBtpm\fP. The
+token name must be 1 to 255 characters long, must not be \fB.\fP or
+\fB..\fP, and must not contain \fB/\fP. The token name \fBHSM_MK_CHANGE\fP is
+reserved and must not be used.
 .PP
 Use the
 .RB [ \-\-group | \-g
@@ -174,16 +180,19 @@ This also removes all token objects of that token. Use with care!
 Use the
 .BR \-\-token | \-t
 .I TOKNAME
-option to specify the name of the token to remove. You must also remove the
-corresponding slot definition from the \fBopencryptoki.conf\fP configuration
-file located in \fB@sysconfdir@/opencryptoki/\fP. The token name is usually
-specified in the slot definition in the \fBopencryptoki.conf\fP configuration
-file. If the slot definition does not specify a \fBtokname\fP keyword, then a
-default token name is used, dependent on the token model. The \fBICA token\fP
-uses \fBlite\fP as default token name, the \fBCCA token\fP uses \fBccatok\fP,
-the \fBSoft token\fP uses \fBswtok\fP, the \fBEP11 token\fP uses \fBep11tok\fP,
-the \fBICSF token\fP uses \fBicsf\fP, and the \fBTPM token\fP (deprecated) uses
-\fBtpm\fP.
+option to specify the name of the token to remove. This option is mandatory.
+You must also remove the corresponding slot definition from the
+\fBopencryptoki.conf\fP configuration file located in
+\fB@sysconfdir@/opencryptoki/\fP. The token name must match the token
+directory name. It is usually specified in the slot definition in the
+\fBopencryptoki.conf\fP configuration file. For tokens whose slot definition
+does not specify a \fBtokname\fP keyword, specify the default token name
+explicitly: the \fBICA token\fP uses \fBlite\fP, the \fBCCA token\fP uses
+\fBccatok\fP, the \fBSoft token\fP uses \fBswtok\fP, the \fBEP11 token\fP
+uses \fBep11tok\fP, the \fBICSF token\fP uses \fBicsf\fP, and the \fBTPM
+token\fP (deprecated) uses \fBtpm\fP. The token name must be 1 to 255
+characters long, must not be \fB.\fP or \fB..\fP, and must not contain
+\fB/\fP. The token name \fBHSM_MK_CHANGE\fP is reserved and must not be used.
 .PP
 The \fBpkcstok_admin\fP tool prompts for a confirmation before the token
 directories are removed. To omit the prompt, specify the
@@ -214,19 +223,21 @@ locked due to too many login attempts using a wrong SO PIN.
 Use the
 .BR \-\-token | \-t
 .I TOKNAME
-option to specify the name of the token to reset. The token name
-is usually specified in the slot definition in the \fBopencryptoki.conf\fP
-configuration file located in \fB@sysconfdir@/opencryptoki/\fP with keyword
-\fBtokname\fP.
-If the slot definition does not specify a \fBtokname\fP keyword, then a
-default token name is used, dependent on the token model. The \fBICA token\fP
-uses \fBlite\fP as default token name, the \fBCCA token\fP uses \fBccatok\fP,
-the \fBSoft token\fP uses \fBswtok\fP, the \fBEP11 token\fP uses \fBep11tok\fP,
-the \fBICSF token\fP uses \fBicsf\fP, and the \fBTPM token\fP (deprecated) uses
-\fBtpm\fP.
+option to specify the name of the token to reset. This option is mandatory.
+The token name must match the token directory name. It is usually specified in
+the slot definition in the \fBopencryptoki.conf\fP configuration file located
+in \fB@sysconfdir@/opencryptoki/\fP with keyword \fBtokname\fP. For tokens
+whose slot definition does not specify a \fBtokname\fP keyword, specify the
+default token name explicitly: the \fBICA token\fP uses \fBlite\fP, the
+\fBCCA token\fP uses \fBccatok\fP, the \fBSoft token\fP uses \fBswtok\fP,
+the \fBEP11 token\fP uses \fBep11tok\fP, the \fBICSF token\fP uses
+\fBicsf\fP, and the \fBTPM token\fP (deprecated) uses \fBtpm\fP. The token
+name must be 1 to 255 characters long, must not be \fB.\fP or \fB..\fP, and
+must not contain \fB/\fP. The token name \fBHSM_MK_CHANGE\fP is reserved and
+must not be used.
 .PP
 The \fBpkcstok_admin\fP tool prompts for a confirmation before the token
-is resetted. To omit the prompt, specify the
+is reset. To omit the prompt, specify the
 .B \-\-force
 option. Use this option with care!
 .PP
@@ -236,7 +247,7 @@ option to see more detailed messages about the actions the tool is performing.
 .PP
 After resetting a token, it must be initialized freshly using \fBpkcsconf -I\fP,
 setting the SO pin using \fBpkcsconf -P\fP and then initializing the USER pin
-using \fBpkcsconf -u\P.
+using \fBpkcsconf -u\fP.
 .
 .
 .
@@ -244,15 +255,17 @@ using \fBpkcsconf -u\P.
 .
 .TP 8
 .BR \-\-token | \-t\~\fITOKNAME\fP
-Specifies the name of the token to operate on. The token name must also be
-specified in the slot definition in the \fBopencryptoki.conf\fP configuration
-file located in \fB@sysconfdir@/opencryptoki/\fP with keyword \fBtokname\fP.
-If the slot definition does not specify a \fBtokname\fP keyword, then a
-default token name is used, dependent on the token model. The \fBICA token\fP
-uses \fBlite\fP as default token name, the \fBCCA token\fP uses \fBccatok\fP,
-the \fBSoft token\fP uses \fBswtok\fP, the \fBEP11 token\fP uses \fBep11tok\fP,
-the \fBICSF token\fP uses \fBicsf\fP, and the \fBTPM token\fP (deprecated) uses
-\fBtpm\fP.
+Specifies the name of the token to operate on. This option is mandatory. The
+token name must match the token directory name. It is usually specified in the
+slot definition in the \fBopencryptoki.conf\fP configuration file located in
+\fB@sysconfdir@/opencryptoki/\fP with keyword \fBtokname\fP. For tokens whose
+slot definition does not specify a \fBtokname\fP keyword, specify the default
+token name explicitly: the \fBICA token\fP uses \fBlite\fP, the \fBCCA
+token\fP uses \fBccatok\fP, the \fBSoft token\fP uses \fBswtok\fP, the
+\fBEP11 token\fP uses \fBep11tok\fP, the \fBICSF token\fP uses \fBicsf\fP,
+and the \fBTPM token\fP (deprecated) uses \fBtpm\fP. The token name must be 1
+to 255 characters long, must not be \fB.\fP or \fB..\fP, and must not contain
+\fB/\fP. The token name \fBHSM_MK_CHANGE\fP is reserved and must not be used.
 .RE
 .PP
 .
@@ -268,9 +281,8 @@ file located in \fB@sysconfdir@/opencryptoki/\fP with keyword \fBusergroup\fP.
 .
 .TP 8
 .BR \-\-force | \-f
-The \fBpkcstok_admin\fP tool prompts for a confirmation before the token
-directories are created. To omit the prompt, specify this option. Use this with
-care!
+The \fBpkcstok_admin\fP tool prompts for a confirmation before performing the
+requested action. To omit the prompt, specify this option. Use this with care!
 .RE
 .PP
 .
@@ -311,10 +323,11 @@ contains the token objects and an index file (\fBOBJ.IDX\fP).
 Contains a token specific lock file (\fBLCK..<tokname>\fP) that is used to
 synchronize access to the token data across multiple processes.
 
-.SS "Token specific POSIX shared memory segment under /dev/shm/"
+.SS "Token specific POSIX shared memory segment"
 Contains token specific shared state data for tracking updates to token objects
-done by processes. Its name is derived from the token specific directory
-under \fB@localstatedir@/lib/opencryptoki/\fP.
+done by processes. On Linux it is visible under \fB/dev/shm/\fP. Its name is
+derived from the token specific directory under
+\fB@localstatedir@/lib/opencryptoki/\fP.
 .
 .
 .
