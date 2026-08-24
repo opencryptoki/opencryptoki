@@ -1,10 +1,10 @@
-.TH PKCSEP11_SESSION 1 "Dec 2023" "@PACKAGE_VERSION@" "openCryptoki"
+.TH PKCSEP11_SESSION 1 "August 2026" "@PACKAGE_VERSION@" "openCryptoki"
 .SH NAME
 pkcsep11_session \- manage EP11 sessions.
 
 .SH SYNOPSIS
-.B pkcep11_session
-.RB [ -h ]
+.B pkcsep11_session
+.RB [ -h | --help ]
 .RB [ show | logout | vhsmpin | fipspin | status ]
 .RB [ -slot
 .IR slot-number ]
@@ -18,7 +18,7 @@ pkcsep11_session \- manage EP11 sessions.
 
 .SH DESCRIPTION
 Use
-.B pkcep11_session
+.B pkcsep11_session
 to set the VHSM and FIPS-session pins, and list and logout leftover EP11
 sessions.
 
@@ -33,21 +33,21 @@ token that created it. These PKCS#11 session keys expire when the session ends.
 .br
 .SH "COMMAND SUMMARY"
 .IP "\fBshow\fP" 10
-displays all leftover EP11 sessions. Use the -session-ID, -pid or -date
+displays all leftover EP11 sessions. Use the -id, -pid or -date
 options to filter the list of sessions.
 .IP "\fBlogout\fP" 10
-logs out all leftover EP11 sessions. Use the -session-ID, -pid or -date
+logs out all leftover EP11 sessions. Use the -id, -pid or -date
 options to filter the list of sessions.
 .IP "\fBvhsmpin\fP" 10
 sets the VHSM PIN used for the VHSM_MODE (virtual HSM). The VHSM PIN must
-contain between 8 and 16 alphanumeric characters. Set the VHSM PIN before
+contain between 8 and 16 characters. Set the VHSM PIN before
 enabling the VHSM_MODE in the EP11 configuration file.
 .br
 \fBNote:\fP When changing the VHSM PIN, all existing keys stored as
 token objects become unusable!
 .IP "\fBfipspin\fP" 10
 sets the FIPS PIN used for the FIPS_SESSION_MODE. The FIPS PIN must
-contain between 8 and 16 alphanumeric characters. Set the FIPS PIN before
+contain between 8 and 16 characters. Set the FIPS PIN before
 enabling the FIPS_SESSION_MODE in the EP11 configuration file.
 .br
 \fBNote:\fP When changing the FIPS PIN, all existing keys stored as
@@ -68,9 +68,9 @@ specifies the EP11 session ID.
 specifies the process-ID (pid) for which to display or logout EP11 sessions.
 .IP "\fB-date\fP \fIyyyy/mm/dd\fP" 10
 filters the EP11 sessions by the specified date.
-Any EP11 session with a matching or earlier date are
-displayed or logged out. 
-.IP "\fB-h\fP" 10
+Any EP11 session with a matching or earlier date is
+displayed or logged out.
+.IP "\fB-h\fP, \fB--help\fP" 10
 show usage information
 
 .SH SEE ALSO
