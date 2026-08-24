@@ -1,4 +1,4 @@
-.TH P11KMIP 1 "August 2023" "@PACKAGE_VERSION@" "openCryptoki"
+.TH P11KMIP 1 "August 2026" "@PACKAGE_VERSION@" "openCryptoki"
 .SH NAME
 p11kmip \- Transfer cryptographic keys between PKCS\~#11 and KMIP.
 .
@@ -165,7 +165,7 @@ or as PKCS#11 URI (\fB'pkcs11:....;type=private'\fP) and the client certificate
 (\fB'/path_to_client_certificate/selfsigned_client.crt'\fP)
 with the \fBp11kmip\fP commands described below. You can specify the client key
 and client certificate using options \fB\-\-kmip\-client\-key\fP and
-\fB\-\-kmip\-client\-cert\fP, or in the \fB/etc/opencryptoki/p11kmip.conf\fP
+\fB\-\-kmip\-client\-cert\fP, or in the \fB@sysconfdir@/opencryptoki/p11kmip.conf\fP
 configuration file, or via environment variables.
 .PP
 When using a URI-PEM file, or a password-protected PEM file as client key, then
@@ -680,27 +680,29 @@ tool and then exits.
 .
 .SH "FILES"
 .
-.SS "/etc/opencryptoki/p11kmip.conf"
+.SS "@sysconfdir@/opencryptoki/p11kmip.conf"
 This configuration file can be used to specify persistent settings to be used
 by the
 .B p11kmip
 for connections to KMIP servers and interactions with PKCS\~#11 token
-repositories. A custom file path can be set with  environment variable
-\fBP11KMIP_DEFAULT_CONF_FILE\fP. If the environment variable is not set, then
-the global \fB/etc/opencryptoki/p11kmip.conf\fP config file is read.
-If this file is unavailable, an error message is displayed.
+repositories. A custom file path can be set with the environment variable
+\fBP11KMIP_CONF_FILE\fP. If the environment variable is not set, then the
+user-specific file \fB~/.p11kmip.conf\fP is checked first. If that file is
+also absent, the global \fB@sysconfdir@/opencryptoki/p11kmip.conf\fP config
+file is read. If this file is also unavailable, an error message is displayed.
 .PP
 .
 .
 .
 .SH "ENVIRONMENT VARIABLES"
 
-.SS "P11KMIP_DEFAULT_CONF_FILE"
+.SS "P11KMIP_CONF_FILE"
 A custom path for the \fBp11kmip.conf\fP config file can be set
-with the environment variable \fBP11KMIP_DEFAULT_CONF_FILE\fP.
-If the environment variable is not set, then
-the global \fB/etc/opencryptoki/p11kmip.conf\fP config file is read.
-If this file is unavailable, an error message is displayed.
+with the environment variable \fBP11KMIP_CONF_FILE\fP.
+If the environment variable is not set, then the user-specific file
+\fB~/.p11kmip.conf\fP is checked first. If that file is also absent,
+the global \fB@sysconfdir@/opencryptoki/p11kmip.conf\fP config file is read.
+If this file is also unavailable, an error message is displayed.
 .PP
 .
 .SS "PKCS11_USER_PIN"
