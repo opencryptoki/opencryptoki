@@ -14,7 +14,7 @@ ExecStart=@sbindir@/pkcsslotd
 # AmbientCapabilities=CAP_NET_ADMIN 
 
 # Sandboxing Settings:
-# Many of them are not really needed, pkcsslotd run under an unpriviledged user.
+# Many of them are not really needed, pkcsslotd run under an unprivileged user.
 NoNewPrivileges=yes
 UMask=0022
 PrivateTmp=yes
@@ -31,7 +31,7 @@ ProtectHome=yes
 ProtectHostname=yes
 ProtectProc=default
 ProtectSystem=strict
-ReadWritePaths=@localstatedir@
+ReadWritePaths=@localstatedir@ @rundir@
 ProcSubset=all
 MemoryDenyWriteExecute=yes
 RestrictRealtime=yes
