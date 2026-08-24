@@ -1,4 +1,4 @@
-.TH P11SAK 1 "May 2025" "@PACKAGE_VERSION@" "openCryptoki"
+.TH P11SAK 1 "August 2026" "@PACKAGE_VERSION@" "openCryptoki"
 .SH NAME
 p11sak \- Manage token keys in a PKCS\~#11 token repository.
 .
@@ -49,7 +49,7 @@ tool has exited.
 .
 .SH COMMANDS
 The \fBp11sak\fP tool supports various commands to generate, list, remove,
-update, import, and export token keys and certificates in a PKCS\~#11 token 
+update, import, and export token keys and certificates in a PKCS\~#11 token
 repository.
 .PP
 .SS "Generating symmetric and asymmetric keys"
@@ -525,7 +525,7 @@ argument to generate an EC key (\fBCKK_EC\fP), where
 specifies the elliptic curve used to create the EC key. The following arguments
 can be used for respective curves:
 .BR prime256v1 |\: prime192 |\: secp224 |\: secp384r1 |\: secp521r1 |\: \
-secp265k1 |\: brainpoolP160r1 |\: brainpoolP160t1 |\: brainpoolP192r1 |\: \
+secp256k1 |\: brainpoolP160r1 |\: brainpoolP160t1 |\: brainpoolP192r1 |\: \
 brainpoolP192t1 |\: brainpoolP224r1 |\: brainpoolP224t1 |\: brainpoolP256r1 \
 |\: brainpoolP256t1 |\: brainpoolP320r1 |\: brainpoolP320t1 |\: \
 brainpoolP384r1 |\: brainpoolP384t1 |\: brainpoolP512r1 |\: brainpoolP512t1 \
@@ -1091,7 +1091,7 @@ must be specified as hex string (not prefixed with 0x) of any number of bytes.
 .PP
 By default, the keys are listed in a short, tabular format showing only the
 boolean attributes, the key type (\fBCKA_KEY_TYPE\fP) and the key label
-(\fPCKA_LABEL\fP). The attributes are denoted using the same single letters
+(\fBCKA_LABEL\fP). The attributes are denoted using the same single letters
 as used with the
 .BR \-\-attr | \-a
 .IR ATTRS | PUB\-ATTRS : PRIV\-ATTRS
@@ -1217,7 +1217,7 @@ option.
 .RB [ \-\-help | \-h ]
 .PP
 Use the
-.B set\-key\-attrs | set\-key | set
+.B set\-key\-attr | set\-key | set
 command and the optional
 .I KEYTYPE
 argument to set or update boolean attributes of symmetric or asymmetric keys.
@@ -1407,7 +1407,7 @@ Use the
 .BR import\-key | import | imp
 command and
 .I KEYTYPE
-argument to import an symmetric or asymmetric key from a file. When importing
+argument to import a symmetric or asymmetric key from a file. When importing
 an asymmetric key, the
 .I KIND
 argument is required and specifies to either import a
@@ -2273,8 +2273,8 @@ The
 must be specified as hex string (not prefixed with 0x) of any number of bytes.
 .PP
 By default, the certificates are listed in a short, tabular format showing only the
-boolean attributes, the certificate type (\fBCKA_CERTIFICATE_TYPE\fP) and the 
-certificate label (\fPCKA_LABEL\fP). The attributes are denoted using the same 
+boolean attributes, the certificate type (\fBCKA_CERTIFICATE_TYPE\fP) and the
+certificate label (\fBCKA_LABEL\fP). The attributes are denoted using the same
 single letters as used with the
 .BR \-\-attr | \-a
 .I ATTRS
@@ -2283,8 +2283,8 @@ option. When option
 is specified, the certificates are listed in long format, displaying the values
 of all attributes defined for the certificate type, including non-boolean attributes.
 .PP
-By default, the certificates are displayed in the order as they are retrieved 
-from the PKCS\~#11 implementation. To display the certificates in a certain 
+By default, the certificates are displayed in the order as they are retrieved
+from the PKCS\~#11 implementation. To display the certificates in a certain
 order, specify the
 .BR \-\-sort | \-S
 .I SORT\-SPEC
@@ -2386,7 +2386,7 @@ option.
 .RB [ \-\-help | \-h ]
 .PP
 Use the
-.B set\-cert\-attrs | set\-cert | sect
+.B set\-cert\-attr | set\-cert | setc
 command and the optional
 .I CERTTYPE
 argument to set or update boolean attributes of certificates.
@@ -2618,7 +2618,7 @@ as Certificate Authority (CA) certificate.
 .RB [ \-\-force | \-f ]
 .BR \-\-file | \-F
 .I FILENAME
-.RB [ \-\-der | \- D ]
+.RB [ \-\-der | \-D ]
 .RB [ \-\-uri\-pem | \-u ]
 .RB [ \-\-uri\-pin\-value ]
 .RB [ \-\-uri\-pin\-source
@@ -2813,7 +2813,7 @@ argument as filter, such as the
 command, the
 .B remove\-key
 command, the
-.B set\-key\-attrs
+.B set\-key\-attr
 command, or the
 .B export\-key
 command.
@@ -2898,7 +2898,7 @@ details about this command.
 Specifies the curve for an EC, EC-Edwards, or EC-Montgomery key. 
 For the EC key type possible values are:
 .BR prime256v1 |\: prime192 |\: secp224 |\: secp384r1 |\: secp521r1 |\: \
-secp265k1 |\: brainpoolP160r1 |\: brainpoolP160t1 |\: brainpoolP192r1 |\: \
+secp256k1 |\: brainpoolP160r1 |\: brainpoolP160t1 |\: brainpoolP192r1 |\: \
 brainpoolP192t1 |\: brainpoolP224r1 |\: brainpoolP224t1 |\: brainpoolP256r1 \
 |\: brainpoolP256t1 |\: brainpoolP320r1 |\: brainpoolP320t1 |\: \
 brainpoolP384r1 |\: brainpoolP384t1 |\: brainpoolP512r1 |\: brainpoolP512t1 \
@@ -3062,9 +3062,9 @@ label string after the colon is used for the private key object.
 To set the public and private key label the exact same, use \fBpub\-label:=\fP.
 The equal sign (\fB=\fP) means to use the same label string for the private
 key objects as for the public key object.
-In case a colon character or a equal sign is supposed to appear within
+In case a colon character or an equal sign is supposed to appear within
 a label string, it must be escaped using a back slash (\fB\\\fP), e.g.
-\fBabc\\:xyz\fP results in \fBabx:xyz\fP where the colon is not treated as
+\fBabc\\:xyz\fP results in \fBabc:xyz\fP where the colon is not treated as
 separator character.
 Note that the shell may interpret escape characters as well, so better quote
 the \fILABEL\fP|\fIPUB\-LABEL\fP:\fIPRIV\-LABEL\fP specification.
@@ -3261,7 +3261,7 @@ colon.
 .
 .TP 8
 .BR \-\-new\-attr | \-A\~\fIATTRS\fP
-Specifies the boolean attributes to set or update for a key with the
+Specifies the boolean attributes to set or update for a key or certificate with the
 .B set\-key\-attr
 or
 .B copy\-key
@@ -3273,7 +3273,7 @@ option above for a list of letters that are associated with the respective
 .
 .
 .TP 8
-.BR \-\-new\-label | \-L\~\fILABEL\fP
+.BR \-\-new\-label | \-l\~\fILABEL\fP
 Specifies the new label attribute value (\fBCKA_LABEL\fP) to set for the key.
 .RE
 .PP
@@ -3457,7 +3457,7 @@ material is contained.
 .
 .
 .TP 8
-.BR \-\-encrypted\-pem
+.BR \-\-encrypted\-pem | \-e
 Encrypt the PEM file using
 .B AES\-CBC
 with an 
@@ -3499,8 +3499,10 @@ is set, you are prompted for the PEM password.
 .TP 8
 .BR \-\-force\-pem\-pwd\-prompt
 Enforce the
-import\-key
-command to prompt for the PEM password (regardless if it has been specified
+.B import\-key
+and
+.B export\-key
+commands to prompt for the PEM password (regardless if it has been specified
 elsewhere).
 .RE
 .PP
@@ -3508,7 +3510,7 @@ elsewhere).
 .
 .
 .TP 8
-.BR \-\-opaque
+.BR \-\-opaque | \-o
 The key material in the file specified with the
 .BR \-\-file | \-F
 .I FILENAME
@@ -3625,7 +3627,7 @@ must be escaped (\fB\e\e\fP).
 .
 .
 .TP 8
-.BR \-\-kek\-id | \-k\~\fILABEL\fP
+.BR \-\-kek\-id | \-k\~\fIID\fP
 Select the key encrypting key (KEK) by ID. Only keys with the right object
 class and key type that fit to the wrapping mechanism are selected.
 Specify a hex string (not prefixed with 0x) of any number of bytes.
@@ -3811,7 +3813,7 @@ with 0x) of any number of bytes. The default is that no shared data is used.
 .
 .SH "FILES"
 .
-.SS "/etc/opencryptoki/p11sak_defined_attrs.conf"
+.SS "@sysconfdir@/opencryptoki/p11sak_defined_attrs.conf"
 .SS "~/.p11sak_defined_attrs.conf"
 In the output config file a user can define additional attributes, which are not
 mentioned in the PKCS#11 standard or are not known by the
@@ -3820,7 +3822,7 @@ tool. A custom file path can be set with  environment variable
 \fBP11SAK_DEFAULT_CONF_FILE\fP. If the environment variable is not set, then
 \fB.p11sak_defined_attrs.conf\fP is first tried to be read from the current
 user's home directory. If this is not available, the global
-\fB/etc/opencryptoki/p11sak_defined_attrs.conf\fP config file is read.
+\fB@sysconfdir@/opencryptoki/p11sak_defined_attrs.conf\fP config file is read.
 If none of these files are available, a warning message is displayed, and
 printing of custom attributes is not available.
 .PP
@@ -3835,7 +3837,7 @@ with the environment variable \fBP11SAK_DEFAULT_CONF_FILE\fP.
 If the environment variable is not set, then
 \fB.p11sak_defined_attrs.conf\fP is first tried to be read from the current
 user's home directory. If this is not available, the global
-\fB/etc/opencryptoki/p11sak_defined_attrs.conf\fP config file is read.
+\fB@sysconfdir@/opencryptoki/p11sak_defined_attrs.conf\fP config file is read.
 If none of these files are available, a warning message is displayed, and
 printing of custom attributes is not available.
 .PP
