@@ -13,7 +13,7 @@ dnl Checks for header files.
 AC_DISABLE_STATIC
 LT_INIT
 
-AC_HEADER_STDC
+AC_CHECK_HEADERS([assert.h stdlib.h string.h])
 AC_CHECK_HEADER_STDBOOL
 AC_CHECK_HEADERS([arpa/inet.h fcntl.h libintl.h limits.h locale.h malloc.h \
 		  nl_types.h stddef.h sys/file.h sys/socket.h sys/time.h   \
@@ -48,7 +48,7 @@ AC_CHECK_FUNCS([atexit ftruncate gettimeofday localtime_r memchr memmove \
 		strdup strerror strncasecmp strrchr strstr strtol strtoul])
 
 dnl Used in various scripts
-AC_PATH_PROG([ID], [id], [/us/bin/id])
+AC_PATH_PROG([ID], [id], [/usr/bin/id])
 AC_PATH_PROG([USERMOD], [usermod], [/usr/sbin/usermod])
 AC_PATH_PROG([GROUPADD], [mkgroup], [/usr/sbin/groupadd])
 AC_PATH_PROG([USERADD], [useradd], [/usr/sbin/useradd])
@@ -61,7 +61,8 @@ AC_PROG_INSTALL
 AC_PROG_LN_S
 AC_PROG_MAKE_SET
 
-AM_PROG_LEX
+AC_PROG_LEX([noyywrap])
+AM_PROG_LEX([noyywrap])
 if test "x$LEX" != "xflex"; then
     AC_MSG_ERROR(['flex' is missing on your system. Please install 'flex'.])
 fi
@@ -134,7 +135,7 @@ AC_ARG_ENABLE([swtok],
 dnl --- EP11 token
 AC_ARG_ENABLE([ep11tok],
     AS_HELP_STRING([--enable-ep11tok],[build ep11 token @<:@default=enabled
-	if libica development files are present@:>@]),
+ if libica and kernel pkey development files are present@:>@]),
     [],
     [enable_ep11tok=check])
 
@@ -266,7 +267,7 @@ AC_ARG_WITH([pkcs-group],
 dnl --- max-token-objects
 AC_ARG_WITH([max-token-objects],
 	AS_HELP_STRING([--with-max-token-objects=NUMBER],[set the maximum number of token objects that are supported (default: 2048).
-			Opencryptioki supports up to that number of public token objects (CKA_PRIVATE=FALSE) plus up to that number of private token objects (CKA_PRIVATE=TRUE).]),
+			openCryptoki supports up to that number of public token objects (CKA_PRIVATE=FALSE) plus up to that number of private token objects (CKA_PRIVATE=TRUE).]),
 	[max_token_objects=$withval],
 	[max_token_objects=2048])
 
@@ -352,10 +353,15 @@ fi
 
 dnl --- enable_debug
 if test "x$enable_debug" = "xyes"; then
-	if test "x$build_aix" = "xyes"; then
-		CFLAGS="$CFLAGS -g3 -O0"
+	if test "x$enable_sanitizer" = "xyes"; then
+		ock_debug_opt=-O1
 	else
-		CFLAGS="$CFLAGS -gdwarf-2 -g3 -O0"
+		ock_debug_opt=-O0
+	fi
+	if test "x$build_aix" = "xyes"; then
+		CFLAGS="$CFLAGS -g3 $ock_debug_opt"
+	else
+		CFLAGS="$CFLAGS -gdwarf-2 -g3 $ock_debug_opt"
 	fi
 	AC_DEFINE([DEBUG])
 else
@@ -369,7 +375,7 @@ if test "x$enable_sanitizer" = "xyes"; then
 	AC_CHECK_LIB([ubsan], [strcpy], [LDFLAGS="-lubsan $LDFLAGS"],
 			[AC_MSG_ERROR(['libubsan' library is missing on your system. Please install 'libubsan'.])])
 	if test "x$enable_debug" = "xyes"; then
-		CFLAGS="$CFLAGS -O2 -g3 -DDEBUG"
+		CFLAGS="$CFLAGS -DDEBUG"
 	fi
 	CFLAGS="$CFLAGS -fstack-protector-all -fsanitize=address,signed-integer-overflow,undefined -Wformat -Wformat-security -Werror=format-security -Warray-bounds -Werror=array-bounds -D_FORTIFY_SOURCE=2"
 	AC_DEFINE([WITH_SANITIZER])
@@ -787,7 +793,6 @@ AC_SUBST([pkcs_group])
 AC_DEFINE([PKCS64])
 AC_DEFINE([_XOPEN_SOURCE], [600], [POSIX 2004])
 AC_PROG_CC([xlc xlc_r gcc clang])
-AC_PROG_CC_STDC
 if test "x$build_aix" = "xyes"; then
 	CFLAGS="$CFLAGS -qinfo=pro:cns:lan:nocmp:nocnv:nogot:notrd -qalign=natural -qarch=pwr7 -qsuppress=1506-1527:1500-029 -qlanglvl=stdc99 -qsrcmsg -lbsd -q64 -qtls"
 	# msg is used to ensure compilers that ignore the error pragma are still caught
@@ -799,7 +804,7 @@ if test "x$build_aix" = "xyes"; then
 		[AC_MSG_ERROR([xlc 16.x or newer is required. Please install a newer release of the xlc compiler.])])
 else
 	CFLAGS="$CFLAGS -Wall -Wextra"
-	CFLAGS+=" -std=c99 -Werror=implicit-int -Werror=implicit-function-declaration -Werror=int-conversion -Werror=strict-prototypes -Werror=old-style-definition -pedantic"
+	CFLAGS="$CFLAGS -std=c99 -Werror=implicit-int -Werror=implicit-function-declaration -Werror=int-conversion -Werror=strict-prototypes -Werror=old-style-definition -pedantic"
 fi
 
 AC_DEFINE_UNQUOTED([PKCSSLOTD_USER], "$pkcsslotd_user")

@@ -13,8 +13,9 @@ usr_sbin_pkcsstats_pkcsstats_CFLAGS  =			\
 usr_sbin_pkcsstats_pkcsstats_SOURCES =			\
 	usr/sbin/pkcsstats/pkcsstats.c			\
 	usr/lib/common/p11util.c			\
-	usr/lib/api/supportedstrengths.c		\
-	usr/lib/api/mechtable.c
+	usr/lib/api/supportedstrengths.c
+
+nodist_usr_sbin_pkcsstats_pkcsstats_SOURCES = usr/lib/api/mechtable.c
 
 if AIX
 usr_sbin_pkcsstats_pkcsstats_SOURCES += usr/lib/common/aix/err.c \
