@@ -48,6 +48,7 @@ EXTRA_DIST += testcases/misc_tests/dh-key.pem				\
 	testcases/misc_tests/p11sak_ed25519cert.crt			\
 	testcases/misc_tests/p11sak_ed448cert.crt			\
 	testcases/misc_tests/migration.sh				\
+	testcases/misc_tests/pkcstok_migrate_test.sh			\
 	testcases/misc_tests/p11sak_test.sh				\
 	testcases/misc_tests/pkcsconf_test.sh				\
 	testcases/misc_tests/spinlock_tests.sh				\
