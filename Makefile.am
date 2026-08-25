@@ -273,6 +273,7 @@ ci-prepare:
 	for slot in `awk '/^slot (.*)/ { print $$2; }' $(sysconfdir)/opencryptoki/opencryptoki.conf`; do @sbindir@/pkcsconf -c $$slot -t | grep "Flags:" | grep -q TOKEN_INITIALIZED || PKCS11_USER_PIN=$(PKCS11_USER_PIN) PKCS11_SO_PIN=$(PKCS11_SO_PIN) PKCSLIB=$(PKCSLIB) ${srcdir}/testcases/init_token.sh $$slot || exit; done
 #	cd ${srcdir}/testcases && PKCS11_USER_PIN=$(PKCS11_USER_PIN) PKCS11_VHSM_PIN=$(PKCS11_VHSM_PIN) PKCSLIB=$(PKCSLIB) ./init_vhsm.exp 42
 #	echo "VHSM_MODE" >> "$(sysconfdir)/opencryptoki/ep11tok42.conf"
+	@sbindir@/pkcsep11_session status || true
 
 installcheck-local: all check
 	$(KILLALL) -HUP pkcsslotd || true
@@ -290,18 +291,21 @@ installcheck-local: all check
 ci-installcheck: ci-prepare installcheck
 	$(KILLALL) -HUP pkcsslotd || true
 	@sbindir@/pkcsslotd
+	@sbindir@/pkcshsm_mk_change list || true
 	cd ${srcdir}/testcases						\
-	&& export PKCSLIB=$(PKCSLIB)	\
+	&& export PKCSLIB=$(PKCSLIB)					\
 	&& export PKCS11_USER_PIN=$(PKCS11_USER_PIN)			\
 	&& export PKCS11_SO_PIN=$(PKCS11_SO_PIN)			\
 	&& SBINDIR=@sbindir@ ./misc_tests/p11sak_test.sh   | tee log-p11sak.txt		\
 	&& SBINDIR=@sbindir@ ./misc_tests/pkcsconf_test.sh | tee log-pkcsconf.txt
 	if [[ -n "${KMIP_IP}" ]] && [[ -n "${KMIP_REST_USER}" ]] && [[ -n "${KMIP_REST_PASSWORD}" ]]; then \
-		cd ${srcdir}/testcases							\
-		&& export PKCSLIB=$(PKCSLIB)						\
-		&& export PKCS11_USER_PIN=$(PKCS11_USER_PIN)				\
-		&& export PKCS11_SO_PIN=$(PKCS11_SO_PIN)				\
-		&& SBINDIR=@sbindir@ ./misc_tests/p11kmip_test.sh | tee log-p11kmip.txt;\
+		cd ${srcdir}/testcases					\
+		&& export PKCSLIB=$(PKCSLIB)				\
+		&& export PKCS11_USER_PIN=$(PKCS11_USER_PIN)		\
+		&& export PKCS11_SO_PIN=$(PKCS11_SO_PIN)		\
+		&& SBINDIR=@sbindir@ 					\
+		   PKCS11_SLOT_ID=30					\
+		   ./misc_tests/p11kmip_test.sh | tee log-p11kmip.txt;\
 	fi
 	cd ${srcdir}/testcases						\
 	&& export PKCSLIB=$(PKCSLIB)					\
@@ -323,6 +327,7 @@ ci-cleanup:
 #	@sbindir@/pkcsslotd
 #	cd ${srcdir}/testcases && PKCS11_USER_PIN=$(PKCS11_USER_PIN) PKCSLIB=$(PKCLSIB) ./cleanup_vhsm.exp 42
 #	$(KILLALL) -HUP pkcsslotd
+	@sbindir@/pkcsep11_session status || true
 	rm ${srcdir}/testcases/test_combined_extract.slots -f
 
 ci-uninstall: uninstall
