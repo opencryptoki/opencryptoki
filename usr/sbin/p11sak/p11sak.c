@@ -1732,7 +1732,7 @@ static const struct p11tool_enum_value p11sak_dh_group[] = {
     { .value = "ffdhe6144", .args = NULL,
       .private = { .num = NID_ffdhe6144 }, },
     { .value = "ffdhe8192", .args = NULL,
-      .private = { .num = NID_ffdhe6144 }, },
+      .private = { .num = NID_ffdhe8192 }, },
 #ifdef NID_modp_1536
     { .value = "modp1536", .args = NULL,
       .private = { .num = NID_modp_1536 }, },
@@ -2669,7 +2669,7 @@ static const struct p11tool_opt p11sak_export_cert_opts[] = {
     { .short_opt = 'u', .long_opt = "uri-pem", .required = false,
       .arg = { .type = ARG_TYPE_PLAIN, .required = false,
                .value.plain = &opt_uri_pem, },
-      .description = "Export the certifcate's PKCS#11 URI in PEM form instead "
+      .description = "Export the certificate's PKCS#11 URI in PEM form instead "
                      "of the certificate material. Such an URI-PEM file can "
                      "then be used with the pkcs11-provider (https://github.com"
                      "/latchset/pkcs11-provider).", },
@@ -2677,7 +2677,7 @@ static const struct p11tool_opt p11sak_export_cert_opts[] = {
        .long_opt_val = OPT_URI_PIN_VALUE,
       .arg = { .type = ARG_TYPE_PLAIN, .required = false,
                .value.plain = &opt_uri_pin_value, },
-      .description = "When exporting the certifcate's PKCS#11 URI in PEM form, "
+      .description = "When exporting the certificate's PKCS#11 URI in PEM form, "
                      "include the PKCS#11 user PIN value in the URI using "
                      "the 'pin-value' query attribute. This reveals the "
                      "PKCS#11 user PIN in clear, use with care! "
@@ -2688,7 +2688,7 @@ static const struct p11tool_opt p11sak_export_cert_opts[] = {
       .long_opt_val = OPT_URI_PIN_SOURCE,
       .arg = { .type = ARG_TYPE_STRING, .required = true,
                .value.string = &opt_uri_pin_source, .name = "FILENAME" },
-      .description = "When exporting the certifcate's PKCS#11 URI in PEM form, "
+      .description = "When exporting the certificate's PKCS#11 URI in PEM form, "
                      "include the 'pin-source' query attribute in the URI, "
                      "referencing the file name specified with this option. "
                      "The PKCS#11 user PIN value is written into that file as "
