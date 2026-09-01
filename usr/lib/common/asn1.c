@@ -341,6 +341,10 @@ CK_RV ber_encode_PrivateKeyInfo(CK_BBOOL length_only,
         len += total;
     }
 
+    if (ADD_OVERFLOW(len, algorithm_id_len)) {
+        TRACE_ERROR("%s Integer overflow in allocation size\n", __func__);
+        return CKR_FUNCTION_FAILED;
+    }
     len += algorithm_id_len;
 
     rc = ber_encode_OCTET_STRING(TRUE, NULL, &total, priv_key, priv_key_len);
@@ -348,7 +352,10 @@ CK_RV ber_encode_PrivateKeyInfo(CK_BBOOL length_only,
         TRACE_DEVEL("ber_encode_OCTET_STRING failed\n");
         return rc;
     }
-
+    if (ADD_OVERFLOW(len, total)) {
+        TRACE_ERROR("%s Integer overflow in allocation size\n", __func__);
+        return CKR_FUNCTION_FAILED;
+    }
     len += total;
 
     // for this stuff, attributes can be suppressed.
@@ -573,22 +580,40 @@ CK_RV ber_encode_RSAPrivateKey(CK_BBOOL length_only,
     rc = 0;
 
     rc |= ber_encode_INTEGER(TRUE, NULL, &len, NULL, sizeof(version));
+    if (ADD_OVERFLOW(offset, len))
+        goto overflow;
     offset += len;
     rc |= ber_encode_INTEGER(TRUE, NULL, &len, NULL, modulus->ulValueLen);
+    if (ADD_OVERFLOW(offset, len))
+        goto overflow;
     offset += len;
     rc |= ber_encode_INTEGER(TRUE, NULL, &len, NULL, publ_exp->ulValueLen);
+    if (ADD_OVERFLOW(offset, len))
+        goto overflow;
     offset += len;
     rc |= ber_encode_INTEGER(TRUE, NULL, &len, NULL, priv_exp->ulValueLen);
+    if (ADD_OVERFLOW(offset, len))
+        goto overflow;
     offset += len;
     rc |= ber_encode_INTEGER(TRUE, NULL, &len, NULL, prime1->ulValueLen);
+    if (ADD_OVERFLOW(offset, len))
+        goto overflow;
     offset += len;
     rc |= ber_encode_INTEGER(TRUE, NULL, &len, NULL, prime2->ulValueLen);
+    if (ADD_OVERFLOW(offset, len))
+        goto overflow;
     offset += len;
     rc |= ber_encode_INTEGER(TRUE, NULL, &len, NULL, exponent1->ulValueLen);
+    if (ADD_OVERFLOW(offset, len))
+        goto overflow;
     offset += len;
     rc |= ber_encode_INTEGER(TRUE, NULL, &len, NULL, exponent2->ulValueLen);
+    if (ADD_OVERFLOW(offset, len))
+        goto overflow;
     offset += len;
     rc |= ber_encode_INTEGER(TRUE, NULL, &len, NULL, coeff->ulValueLen);
+    if (ADD_OVERFLOW(offset, len))
+        goto overflow;
     offset += len;
 
     if (rc != CKR_OK) {
@@ -762,6 +787,11 @@ error:
         free(buf);
 
     return rc;
+
+overflow:
+    TRACE_ERROR("%s Integer overflow in allocation size\n", __func__);
+    rc = CKR_FUNCTION_FAILED;
+    goto error;
 }
 
 
@@ -1109,6 +1139,8 @@ CK_RV ber_encode_RSAPublicKey(CK_BBOOL length_only, CK_BYTE **data,
     rc |= ber_encode_INTEGER(TRUE, NULL, &len, NULL, modulus->ulValueLen);
     offset += len;
     rc |= ber_encode_INTEGER(TRUE, NULL, &len, NULL, publ_exp->ulValueLen);
+    if (ADD_OVERFLOW(offset, len))
+        goto overflow;
     offset += len;
 
     if (rc != CKR_OK) {
@@ -1203,6 +1235,11 @@ out:
     free(bitstr);
     free(buf3);
     return rc;
+
+overflow:
+    TRACE_ERROR("%s Integer overflow in allocation size\n", __func__);
+    rc = CKR_FUNCTION_FAILED;
+    goto out;
 }
 
 CK_RV ber_decode_RSAPublicKey(CK_BYTE *data,
@@ -1334,10 +1371,16 @@ CK_RV ber_encode_DSAPrivateKey(CK_BBOOL length_only,
     len = 0;
 
     rc |= ber_encode_INTEGER(TRUE, NULL, &len, NULL, prime1->ulValueLen);
+    if (ADD_OVERFLOW(offset, len))
+        goto overflow;
     offset += len;
     rc |= ber_encode_INTEGER(TRUE, NULL, &len, NULL, prime2->ulValueLen);
+    if (ADD_OVERFLOW(offset, len))
+        goto overflow;
     offset += len;
     rc |= ber_encode_INTEGER(TRUE, NULL, &len, NULL, base->ulValueLen);
+    if (ADD_OVERFLOW(offset, len))
+        goto overflow;
     offset += len;
 
     if (rc != CKR_OK) {
@@ -1481,6 +1524,11 @@ error:
         free(tmp);
 
     return rc;
+
+overflow:
+    TRACE_ERROR("%s Integer overflow in allocation size\n", __func__);
+    rc = CKR_FUNCTION_FAILED;
+    goto error;
 }
 
 
@@ -1994,6 +2042,8 @@ CK_RV der_encode_ECPrivateKey(CK_BBOOL length_only,
     // private key octet
     rc |= ber_encode_OCTET_STRING(TRUE, NULL, &len, NULL,
                                   privkey->ulValueLen);
+    if (ADD_OVERFLOW(offset, len))
+        goto overflow;
     offset += len;
     if (rc != CKR_OK) {
         TRACE_DEVEL("der encoding failed\n");
@@ -2035,6 +2085,8 @@ CK_RV der_encode_ECPrivateKey(CK_BBOOL length_only,
             return CKR_FUNCTION_FAILED;
        }
 
+        if (ADD_OVERFLOW(offset, len))
+            goto overflow;
         offset += len;
     }
 
@@ -2189,6 +2241,11 @@ error:
         free(buf);
 
     return rc;
+
+overflow:
+    TRACE_ERROR("%s Integer overflow in allocation size\n", __func__);
+    rc = CKR_FUNCTION_FAILED;
+    goto error;
 }
 
 //
@@ -2729,8 +2786,12 @@ CK_RV ber_encode_DHPrivateKey(CK_BBOOL length_only,
     len = 0;
 
     rc |= ber_encode_INTEGER(TRUE, NULL, &len, NULL, prime->ulValueLen);
+    if (ADD_OVERFLOW(offset, len))
+        goto overflow;
     offset += len;
     rc |= ber_encode_INTEGER(TRUE, NULL, &len, NULL, base->ulValueLen);
+    if (ADD_OVERFLOW(offset, len))
+        goto overflow;
     offset += len;
 
     if (rc != CKR_OK) {
@@ -2854,6 +2915,11 @@ error:
         free(tmp);
 
     return rc;
+
+overflow:
+    TRACE_ERROR("%s Integer overflow in allocation size\n", __func__);
+    rc = CKR_FUNCTION_FAILED;
+    goto error;
 }
 
 //
@@ -3289,6 +3355,8 @@ static CK_RV ber_encode_IBM_DilithiumPublicKey(CK_BBOOL length_only,
     rc |= ber_encode_INTEGER(TRUE, NULL, &len, NULL, rho->ulValueLen);
     offset += len;
     rc |= ber_encode_INTEGER(TRUE, NULL, &len, NULL, t1->ulValueLen);
+    if (ADD_OVERFLOW(offset, len))
+        goto overflow;
     offset += len;
 
     if (rc != CKR_OK) {
@@ -3414,7 +3482,6 @@ static CK_RV ber_encode_IBM_DilithiumPublicKey(CK_BBOOL length_only,
         TRACE_ERROR("%s ber_encode_Seq failed with rc=0x%lx\n", __func__, rc);
 
 error:
-
     if (buf)
         free(buf);
     if (buf2)
@@ -3423,6 +3490,11 @@ error:
         free(buf3);
 
     return rc;
+
+overflow:
+    TRACE_ERROR("%s Integer overflow in allocation size\n", __func__);
+    rc = CKR_FUNCTION_FAILED;
+    goto error;
 }
 
 
@@ -3583,20 +3655,34 @@ static CK_RV ber_encode_IBM_DilithiumPrivateKey(CK_BBOOL length_only,
     rc |= ber_encode_INTEGER(TRUE, NULL, &len, NULL, sizeof(version));
     offset += len;
     rc |= ber_encode_BIT_STRING(TRUE, NULL, &len, NULL, rho->ulValueLen, 0);
+    if (ADD_OVERFLOW(offset, len))
+        goto overflow;
     offset += len;
     rc |= ber_encode_BIT_STRING(TRUE, NULL, &len, NULL, seed->ulValueLen, 0);
+    if (ADD_OVERFLOW(offset, len))
+        goto overflow;
     offset += len;
     rc |= ber_encode_BIT_STRING(TRUE, NULL, &len, NULL, tr->ulValueLen, 0);
+    if (ADD_OVERFLOW(offset, len))
+        goto overflow;
     offset += len;
     rc |= ber_encode_BIT_STRING(TRUE, NULL, &len, NULL, s1->ulValueLen, 0);
+    if (ADD_OVERFLOW(offset, len))
+        goto overflow;
     offset += len;
     rc |= ber_encode_BIT_STRING(TRUE, NULL, &len, NULL, s2->ulValueLen, 0);
+    if (ADD_OVERFLOW(offset, len))
+        goto overflow;
     offset += len;
     rc |= ber_encode_BIT_STRING(TRUE, NULL, &len, NULL, t0->ulValueLen, 0);
+    if (ADD_OVERFLOW(offset, len))
+        goto overflow;
     offset += len;
     if (t1) {
         rc |= ber_encode_BIT_STRING(TRUE, NULL, &len2, NULL, t1->ulValueLen, 0);
         rc |= ber_encode_CHOICE(TRUE, 0, NULL, &len, NULL, len2, TRUE);
+        if (ADD_OVERFLOW(offset, len))
+            goto overflow;
         offset += len;
     }
 
@@ -3770,6 +3856,11 @@ error:
         free(algid);
 
     return rc;
+
+overflow:
+    TRACE_ERROR("%s Integer overflow in allocation size\n", __func__);
+    rc = CKR_FUNCTION_FAILED;
+    goto error;
 }
 
 /**
@@ -4322,11 +4413,18 @@ static CK_RV ber_encode_IBM_KyberPrivateKey(CK_BBOOL length_only,
     rc |= ber_encode_INTEGER(TRUE, NULL, &len, NULL, sizeof(version));
     offset += len;
     rc |= ber_encode_BIT_STRING(TRUE, NULL, &len, NULL, sk->ulValueLen, 0);
+    if (ADD_OVERFLOW(offset, len))
+        goto overflow;
     offset += len;
     if (pk) {
+        if (ADD_OVERFLOW(pk->ulValueLen, pqc_oid->len_info.ml_kem.fs_len))
+            goto overflow;
         rc |= ber_encode_BIT_STRING(TRUE, NULL, &len2, NULL,
-                                    pk->ulValueLen + 64, 0);
+                                    pk->ulValueLen +
+                                    pqc_oid->len_info.ml_kem.fs_len, 0);
         rc |= ber_encode_CHOICE(TRUE, 0, NULL, &len, NULL, len2, TRUE);
+        if (ADD_OVERFLOW(offset, len))
+            goto overflow;
         offset += len;
     }
 
@@ -4399,7 +4497,7 @@ static CK_RV ber_encode_IBM_KyberPrivateKey(CK_BBOOL length_only,
 
         rc = ber_encode_BIT_STRING(FALSE, &buf3, &len2,
                                    pk_fs, pk->ulValueLen +
-                                           pqc_oid->len_info.ml_kem.fs_len, 0);
+                                   pqc_oid->len_info.ml_kem.fs_len, 0);
         rc |= ber_encode_CHOICE(FALSE, 0, &buf2, &len, buf3, len2, TRUE);
         if (rc != CKR_OK) {
             TRACE_ERROR("encoding of pk value failed\n");
@@ -4456,6 +4554,11 @@ error:
         free(pk_fs);
 
     return rc;
+
+overflow:
+    TRACE_ERROR("%s Integer overflow in allocation size\n", __func__);
+    rc = CKR_FUNCTION_FAILED;
+    goto error;
 }
 
 /**
@@ -4848,7 +4951,7 @@ CK_RV ber_encode_IBM_ML_DSA_PrivateKey(CK_MECHANISM_TYPE mech,
 {
     CK_BBOOL priv_avail, priv_seed_avail;
     CK_ULONG priv_seed_len = 0, exp_key_len = 0, priv_key_len = 0;
-    CK_ULONG alg_len = 0, ofs = 0;
+    CK_ULONG alg_len = 0, ofs = 0, exp_key_raw_len = 0;
     CK_BYTE *alg = NULL, *buf = NULL, *priv_key = NULL, *exp_key = NULL;
     CK_BYTE *pseed = NULL;
     CK_RV rc;
@@ -4868,15 +4971,34 @@ CK_RV ber_encode_IBM_ML_DSA_PrivateKey(CK_MECHANISM_TYPE mech,
     priv_seed_avail = (priv_seed != NULL && priv_seed->ulValueLen != 0 &&
                        priv_seed->pValue != NULL);
 
+    /* Compute raw expanded-key length once, with overflow checks */
+    if (priv_avail) {
+        exp_key_raw_len = rho->ulValueLen;
+        if (ADD_OVERFLOW(exp_key_raw_len, seed->ulValueLen) ||
+            ADD_OVERFLOW(exp_key_raw_len + seed->ulValueLen, tr->ulValueLen) ||
+            ADD_OVERFLOW(exp_key_raw_len + seed->ulValueLen +
+                         tr->ulValueLen, s1->ulValueLen) ||
+            ADD_OVERFLOW(exp_key_raw_len + seed->ulValueLen +
+                         tr->ulValueLen + s1->ulValueLen, s2->ulValueLen) ||
+            ADD_OVERFLOW(exp_key_raw_len + seed->ulValueLen +
+                         tr->ulValueLen + s1->ulValueLen +
+                         s2->ulValueLen, t0->ulValueLen)) {
+            TRACE_ERROR("%s Integer overflow in key component lengths\n",
+                        __func__);
+            return CKR_FUNCTION_FAILED;
+        }
+        exp_key_raw_len = rho->ulValueLen + seed->ulValueLen +
+                          tr->ulValueLen + s1->ulValueLen +
+                          s2->ulValueLen + t0->ulValueLen;
+    }
+
     /* Calculate length of key material */
     rc = ber_encode_SEQUENCE(TRUE, NULL, &alg_len, NULL, oid_len);
 
     if (priv_avail && priv_seed_avail) {
         /* both format */
         rc |= ber_encode_OCTET_STRING(TRUE, NULL, &exp_key_len, NULL,
-                                      rho->ulValueLen + seed->ulValueLen +
-                                      tr->ulValueLen + s1->ulValueLen +
-                                      s2->ulValueLen + t0->ulValueLen);
+                                      exp_key_raw_len);
         rc |= ber_encode_OCTET_STRING(TRUE, NULL, &priv_seed_len, NULL,
                                       priv_seed->ulValueLen);
         rc |= ber_encode_SEQUENCE(TRUE, NULL, &priv_key_len, NULL,
@@ -4884,9 +5006,7 @@ CK_RV ber_encode_IBM_ML_DSA_PrivateKey(CK_MECHANISM_TYPE mech,
     } else if (priv_avail) {
         /* expanded key only */
         rc |= ber_encode_OCTET_STRING(TRUE, NULL, &priv_key_len, NULL,
-                                      rho->ulValueLen + seed->ulValueLen +
-                                      tr->ulValueLen + s1->ulValueLen +
-                                      s2->ulValueLen + t0->ulValueLen);
+                                      exp_key_raw_len);
     } else if (priv_seed_avail) {
         /* private-seed only */
         rc = ber_encode_CHOICE(TRUE, 0x00, NULL, &priv_key_len, NULL,
@@ -4915,8 +5035,7 @@ CK_RV ber_encode_IBM_ML_DSA_PrivateKey(CK_MECHANISM_TYPE mech,
     rc = ber_encode_SEQUENCE(FALSE, &alg, &alg_len, (CK_BYTE *)oid, oid_len);
 
     if (priv_avail) {
-        buf = malloc(rho->ulValueLen + seed->ulValueLen + tr->ulValueLen +
-                     s1->ulValueLen + s2->ulValueLen + t0->ulValueLen);
+        buf = malloc(exp_key_raw_len);
         if (buf == NULL) {
             TRACE_ERROR("%s Memory allocation failed\n", __func__);
             rc = CKR_HOST_MEMORY;
@@ -4941,9 +5060,7 @@ CK_RV ber_encode_IBM_ML_DSA_PrivateKey(CK_MECHANISM_TYPE mech,
     if (priv_avail && priv_seed_avail) {
         /* both format */
         rc |= ber_encode_OCTET_STRING(FALSE, &exp_key, &exp_key_len, buf,
-                                      rho->ulValueLen + seed->ulValueLen +
-                                      tr->ulValueLen + s1->ulValueLen +
-                                      s2->ulValueLen + t0->ulValueLen);
+                                      exp_key_raw_len);
         rc |= ber_encode_OCTET_STRING(FALSE, &pseed, &priv_seed_len,
                                       priv_seed->pValue, priv_seed->ulValueLen);
         if (rc != CKR_OK) {
@@ -4975,9 +5092,7 @@ CK_RV ber_encode_IBM_ML_DSA_PrivateKey(CK_MECHANISM_TYPE mech,
     } else if (priv_avail) {
         /* expanded key only */
         rc |= ber_encode_OCTET_STRING(FALSE, &priv_key, &priv_key_len, buf,
-                                      rho->ulValueLen + seed->ulValueLen +
-                                      tr->ulValueLen + s1->ulValueLen +
-                                      s2->ulValueLen + t0->ulValueLen);
+                                      exp_key_raw_len);
     } else if (priv_seed_avail) {
         /* private-seed only */
         rc = ber_encode_CHOICE(FALSE, 0x00, &priv_key, &priv_key_len,
