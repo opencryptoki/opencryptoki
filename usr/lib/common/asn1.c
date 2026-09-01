@@ -16,8 +16,6 @@
 #include <pthread.h>
 #include <stdlib.h>
 #include <string.h>
-#include <lber.h>
-
 #include "pkcs11types.h"
 #include "p11util.h"
 #include "defs.h"
@@ -1829,8 +1827,8 @@ CK_RV ber_encode_RSAPublicKey(CK_BBOOL length_only, CK_BYTE **data,
     CK_BYTE *buf = NULL;
     CK_BYTE *buf2 = NULL;
     CK_BYTE *buf3 = NULL;
-    BerValue *val = NULL;
-    BerElement *ber;
+    CK_BYTE *bitstr = NULL;
+    CK_ULONG bitstr_len = 0;
 
     UNUSED(length_only);
 
@@ -1917,28 +1915,23 @@ CK_RV ber_encode_RSAPublicKey(CK_BBOOL length_only, CK_BYTE **data,
     total_len += ber_AlgIdRSAEncryptionLen;
 
     /* need a bitstring */
-    ber = ber_alloc_t(LBER_USE_DER);
-    rc = (ber_put_bitstring(ber, (char *)buf2, len * 8, 0x03) <= 0 ? 1 : 0);
-    rc |= ber_flatten(ber, &val);
-    if (rc != 0) {
-        TRACE_DEVEL("%s ber_alloc_t/ber_flatten failed \n", __func__);
-        rc = CKR_FUNCTION_FAILED;
-        ber_free(ber, 1);
-        ber_bvfree(val);
-        free(buf2);
+    rc = ber_encode_BIT_STRING(FALSE, &bitstr, &bitstr_len, buf2, len, 0);
+    free(buf2);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("%s ber_encode_BIT_STRING failed\n", __func__);
         goto out;
     }
-    memcpy(buf3 + total_len, val->bv_val, val->bv_len);
-    total_len += val->bv_len;
-    ber_free(ber, 1);
-    ber_bvfree(val);
-    free(buf2);
+    memcpy(buf3 + total_len, bitstr, bitstr_len);
+    total_len += bitstr_len;
+    free(bitstr);
+    bitstr = NULL;
 
     rc = ber_encode_SEQUENCE(FALSE, data, data_len, buf3, total_len);
     if (rc != CKR_OK)
         TRACE_DEVEL("%s ber_encode_Seq failed with rc=0x%lx\n", __func__, rc);
 
 out:
+    free(bitstr);
     free(buf3);
     return rc;
 }
@@ -2397,8 +2390,8 @@ CK_RV ber_encode_DSAPublicKey(CK_BBOOL length_only, CK_BYTE **data,
     CK_RV rc = 0;
     CK_BYTE *buf = NULL;
     CK_BYTE *buf2 = NULL;
-    BerValue *val = NULL;
-    BerElement *ber;
+    CK_BYTE *bitstr = NULL;
+    CK_ULONG bitstr_len = 0;
 
     /* Calculate the BER container length
      *
@@ -2429,24 +2422,12 @@ CK_RV ber_encode_DSAPublicKey(CK_BBOOL length_only, CK_BYTE **data,
     rc |=
         ber_encode_SEQUENCE(TRUE, NULL, &id_len, NULL, ber_idDSALen + parm_len);
 
-    /* public key */
+    /* public key: compute encoded size only */
     rc |=
         ber_encode_INTEGER(FALSE, &buf, &len, value->pValue, value->ulValueLen);
-    ber = ber_alloc_t(LBER_USE_DER);
-    rc |= (ber_put_bitstring(ber, (char *)buf, len * 8, 0x03) <= 0 ? 1 : 0);
-    rc |= ber_flatten(ber, &val);
-    if (rc != 0) {
-        TRACE_DEVEL("%s ber_alloc_t/ber_flatten failed \n", __func__);
-        ber_free(ber, 1);
-        ber_bvfree(val);
-        free(buf);
-        return CKR_FUNCTION_FAILED;
-    }
-
-    pub_len = val->bv_len;
-    ber_free(ber, 1);
     free(buf);
-    ber_bvfree(val);
+    buf = NULL;
+    rc |= ber_encode_BIT_STRING(TRUE, NULL, &pub_len, NULL, len, 0);
 
     rc = ber_encode_SEQUENCE(TRUE, NULL, &total, NULL, id_len + pub_len);
 
@@ -2536,23 +2517,19 @@ CK_RV ber_encode_DSAPublicKey(CK_BBOOL length_only, CK_BYTE **data,
         return rc;
     }
 
-    ber = ber_alloc_t(LBER_USE_DER);
-    rc = (ber_put_bitstring(ber, (char *)buf, len * 8, 0x03) <= 0 ? 1 : 0);
-    rc |= ber_flatten(ber, &val);
+    rc = ber_encode_BIT_STRING(FALSE, &bitstr, &bitstr_len, buf, len, 0);
     free(buf);
-    if (rc != 0) {
-        TRACE_DEVEL("%s ber_put_bitstring/ber_flatten failed\n", __func__);
-        ber_free(ber, 1);
-        ber_bvfree(val);
+    buf = NULL;
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("%s ber_encode_BIT_STRING failed\n", __func__);
         free(buf2);
-        return CKR_FUNCTION_FAILED;
+        return rc;
     }
 
-    pub_len = val->bv_len;
+    pub_len = bitstr_len;
     if (ADD_OVERFLOW(id_len, pub_len)) {
         TRACE_ERROR("%s Integer overflow in allocation size\n", __func__);
-        ber_free(ber, 1);
-        ber_bvfree(val);
+        free(bitstr);
         free(buf2);
         return CKR_HOST_MEMORY;
     }
@@ -2560,16 +2537,15 @@ CK_RV ber_encode_DSAPublicKey(CK_BBOOL length_only, CK_BYTE **data,
     buf = (CK_BYTE *) malloc(id_len + pub_len);
     if (!buf) {
         TRACE_ERROR("%s Memory allocation failed\n", __func__);
-        ber_free(ber, 1);
-        ber_bvfree(val);
+        free(bitstr);
         free(buf2);
         return CKR_HOST_MEMORY;
     }
     memcpy(buf, buf2, id_len);
-    memcpy(buf + id_len, val->bv_val, pub_len);
+    memcpy(buf + id_len, bitstr, pub_len);
     free(buf2);
-    ber_free(ber, 1);
-    ber_bvfree(val);
+    free(bitstr);
+    bitstr = NULL;
 
     /* outer sequence */
     rc = ber_encode_SEQUENCE(FALSE, data, data_len, buf, id_len + pub_len);
@@ -3745,8 +3721,8 @@ CK_RV ber_encode_DHPublicKey(CK_BBOOL length_only, CK_BYTE **data,
     CK_RV rc = 0;
     CK_BYTE *buf = NULL;
     CK_BYTE *buf2 = NULL;
-    BerValue *val = NULL;
-    BerElement *ber;
+    CK_BYTE *bitstr = NULL;
+    CK_ULONG bitstr_len = 0;
 
     /* Calculate the BER container length
      *
@@ -3775,24 +3751,12 @@ CK_RV ber_encode_DHPublicKey(CK_BBOOL length_only, CK_BYTE **data,
     rc |=
         ber_encode_SEQUENCE(TRUE, NULL, &id_len, NULL, ber_idDHLen + parm_len);
 
-    /* public key */
+    /* public key: compute encoded size only */
     rc |=
         ber_encode_INTEGER(FALSE, &buf, &len, value->pValue, value->ulValueLen);
-    ber = ber_alloc_t(LBER_USE_DER);
-    rc |= (ber_put_bitstring(ber, (char *)buf, len * 8, 0x03) <= 0 ? 1 : 0);
-    rc |= ber_flatten(ber, &val);
-    if (rc != CKR_OK) {
-        TRACE_DEVEL("%s ber_put_bitstring/ber_flatten failed\n", __func__);
-        ber_free(ber, 1);
-        ber_bvfree(val);
-        free(buf);
-        return CKR_FUNCTION_FAILED;
-    }
-
-    pub_len = val->bv_len;
-    ber_free(ber, 1);
-    ber_bvfree(val);
     free(buf);
+    buf = NULL;
+    rc |= ber_encode_BIT_STRING(TRUE, NULL, &pub_len, NULL, len, 0);
 
     rc |= ber_encode_SEQUENCE(TRUE, NULL, &total, NULL, id_len + pub_len);
 
@@ -3871,23 +3835,19 @@ CK_RV ber_encode_DHPublicKey(CK_BBOOL length_only, CK_BYTE **data,
         return rc;
     }
 
-    ber = ber_alloc_t(LBER_USE_DER);
-    rc = (ber_put_bitstring(ber, (char *)buf, len * 8, 0x03) <= 0 ? 1 : 0);
-    rc |= ber_flatten(ber, &val);
+    rc = ber_encode_BIT_STRING(FALSE, &bitstr, &bitstr_len, buf, len, 0);
     free(buf);
+    buf = NULL;
     if (rc != CKR_OK) {
-        TRACE_DEVEL("%s ber_put_bitstring/ber_flatten failed\n", __func__);
-        ber_free(ber, 1);
-        ber_bvfree(val);
+        TRACE_DEVEL("%s ber_encode_BIT_STRING failed\n", __func__);
         free(buf2);
-        return CKR_FUNCTION_FAILED;
+        return rc;
     }
 
-    pub_len = val->bv_len;
+    pub_len = bitstr_len;
     if (ADD_OVERFLOW(id_len, pub_len)) {
         TRACE_ERROR("%s Integer overflow in allocation size\n", __func__);
-        ber_free(ber, 1);
-        ber_bvfree(val);
+        free(bitstr);
         free(buf2);
         return CKR_HOST_MEMORY;
     }
@@ -3895,16 +3855,15 @@ CK_RV ber_encode_DHPublicKey(CK_BBOOL length_only, CK_BYTE **data,
     buf = (CK_BYTE *) malloc(id_len + pub_len);
     if (!buf) {
         TRACE_ERROR("%s Memory allocation failed\n", __func__);
-        ber_free(ber, 1);
-        ber_bvfree(val);
+        free(bitstr);
         free(buf2);
         return CKR_HOST_MEMORY;
     }
     memcpy(buf, buf2, id_len);
-    memcpy(buf + id_len, val->bv_val, pub_len);
+    memcpy(buf + id_len, bitstr, pub_len);
     free(buf2);
-    ber_free(ber, 1);
-    ber_bvfree(val);
+    free(bitstr);
+    bitstr = NULL;
 
     /* outer sequence */
     rc = ber_encode_SEQUENCE(FALSE, data, data_len, buf, id_len + pub_len);

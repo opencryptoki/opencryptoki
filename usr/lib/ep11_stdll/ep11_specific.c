@@ -44,7 +44,6 @@
 #include <fcntl.h>
 #include <syslog.h>
 #include <dlfcn.h>
-#include <lber.h>
 #include <grp.h>
 #include <sys/time.h>
 #include <time.h>

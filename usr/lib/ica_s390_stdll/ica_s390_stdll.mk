@@ -13,7 +13,7 @@ opencryptoki_stdll_libpkcs11_ica_la_CFLAGS =				\
 opencryptoki_stdll_libpkcs11_ica_la_LDFLAGS =				\
 	$(LIBICA_LIBS) -nostartfiles -shared				\
 	-Wl,-z,defs,-Bsymbolic -Wl,-soname,$@ -lc -lpthread -lica -ldl	\
-	-lcrypto -lrt -llber						\
+	-lcrypto -lrt							\
 	-Wl,--version-script=${srcdir}/opencryptoki_tok.map
 
 opencryptoki_stdll_libpkcs11_ica_la_SOURCES =				\

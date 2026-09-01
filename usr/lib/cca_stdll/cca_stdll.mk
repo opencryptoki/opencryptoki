@@ -19,12 +19,12 @@ opencryptoki_stdll_libpkcs11_cca_la_CFLAGS =				\
 
 if AIX
 opencryptoki_stdll_libpkcs11_cca_la_LDFLAGS = -qmkshrobj -lcrypto \
-	-lpthread -qnocrt -lrt -ldl -Wl,-bnoautoexp -Wl,-bstatic,-llber,-bdynamic \
+	-lpthread -qnocrt -lrt -ldl -Wl,-bnoautoexp \
 	-export-symbols ${srcdir}/opencryptoki_tok.map.sym
 else
 opencryptoki_stdll_libpkcs11_cca_la_LDFLAGS = -shared			\
 	-Wl,-z,defs,-Bsymbolic -lcrypto -lpthread -nostartfiles		\
-	-Wl,-soname,$@ -lrt -ldl -llber					\
+	-Wl,-soname,$@ -lrt -ldl					\
 	-Wl,--version-script=${srcdir}/opencryptoki_tok.map
 endif
 

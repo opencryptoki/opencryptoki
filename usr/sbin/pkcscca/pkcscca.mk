@@ -1,7 +1,7 @@
 sbin_PROGRAMS += usr/sbin/pkcscca/pkcscca
 noinst_HEADERS += usr/sbin/pkcscca/pkcscca.h
 
-usr_sbin_pkcscca_pkcscca_LDFLAGS = -lcrypto -ldl -lrt -llber -lpthread
+usr_sbin_pkcscca_pkcscca_LDFLAGS = -lcrypto -ldl -lrt -lpthread
 
 if AIX
 usr_sbin_pkcscca_pkcscca_LDFLAGS += -lbsd -Wl,-blibpath:$(libdir)/opencryptoki:$(libdir)/opencryptoki/stdll:/usr/lib:/usr/lib64

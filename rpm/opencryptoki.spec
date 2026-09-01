@@ -13,7 +13,9 @@ BuildRequires:		openssl-devel >= 1.1.1
 %if 0%{?tpmtok}
 BuildRequires:		trousers-devel
 %endif
+%if !0%{?no_icsftok}
 BuildRequires:		openldap-devel
+%endif
 BuildRequires:		autoconf automake libtool autoconf-archive
 BuildRequires:		bison flex
 %ifarch s390 s390x
@@ -179,7 +181,11 @@ configured with Enterprise PKCS#11 (EP11) firmware.
 %configure --with-systemd=%{_unitdir}	\
     --with-pkcsslotd-user=pkcsslotd --with-pkcs-group=pkcs11	\
     --enable-swtok						\
-    --enable-icsftok						\
+%if !0%{?no_icsftok}
+    --enable-icsftok \
+%else
+    --disable-icsftok \
+%endif
     --enable-p11sak						\
     --enable-p11kmip						\
 %if 0%{?tpmtok}
