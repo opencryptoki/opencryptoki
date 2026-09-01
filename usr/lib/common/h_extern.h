@@ -3111,20 +3111,20 @@ CK_RV mp_exp(CK_BYTE *bigint_a, CK_ULONG a_len,
 
 // ASN.1 routines
 //
-CK_ULONG ber_encode_INTEGER(CK_BBOOL length_only,
-                            CK_BYTE **ber_int,
-                            CK_ULONG *ber_int_len,
-                            CK_BYTE *data, CK_ULONG data_len);
+CK_RV ber_encode_INTEGER(CK_BBOOL length_only,
+                         CK_BYTE **ber_int,
+                         CK_ULONG *ber_int_len,
+                         CK_BYTE *data, CK_ULONG data_len);
 
 CK_RV ber_decode_INTEGER(CK_BYTE *ber_int, CK_ULONG ber_int_len,
                          CK_BYTE **data,
                          CK_ULONG *data_len, CK_ULONG *field_len);
 
-CK_ULONG ber_encode_BIT_STRING(CK_BBOOL length_only,
-                               CK_BYTE **ber_str,
-                               CK_ULONG *ber_str_len, CK_BYTE *data,
-                               CK_ULONG data_len,
-                               CK_BYTE unused_bits);
+CK_RV ber_encode_BIT_STRING(CK_BBOOL length_only,
+                            CK_BYTE **ber_str,
+                            CK_ULONG *ber_str_len, CK_BYTE *data,
+                            CK_ULONG data_len,
+                            CK_BYTE unused_bits);
 
 CK_RV ber_decode_BIT_STRING(CK_BYTE *str, CK_ULONG str_len,
                             CK_BYTE **data,

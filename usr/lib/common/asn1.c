@@ -27,158 +27,169 @@
 
 #define ADD_OVERFLOW(a, b)  ((b) > ULONG_MAX - (a))
 
-//
-//
-CK_ULONG ber_encode_INTEGER(CK_BBOOL length_only,
-                            CK_BYTE **ber_int,
-                            CK_ULONG *ber_int_len, CK_BYTE *data,
-                            CK_ULONG data_len)
+static CK_RV ber_encode_tlv(CK_BBOOL length_only, CK_BYTE tag,
+                            CK_BYTE **out, CK_ULONG *out_len,
+                            const CK_BYTE *prefix, CK_ULONG prefix_len,
+                            const CK_BYTE *data, CK_ULONG data_len)
 {
     CK_BYTE *buf = NULL;
-    CK_ULONG len, padding = 0;
+    CK_ULONG content_len, length_octets, total_len, offset, i;
+
+    if ((tag & 0x1f) == 0x1f) {
+        /* Long tag form, not supported */
+        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
+        return CKR_FUNCTION_FAILED;
+    }
+
+    if (ADD_OVERFLOW(prefix_len, data_len)) {
+        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
+        return CKR_FUNCTION_FAILED;
+    }
+    content_len = prefix_len + data_len;
+
+    /* Determine number of length octets needed (short form: 0 extra bytes) */
+    if (content_len < 128) {
+        length_octets = 0;
+    } else {
+        length_octets = 1;
+        while (length_octets < sizeof(CK_ULONG) &&
+               (content_len >> (length_octets * 8)) != 0)
+            length_octets++;
+    }
+
+    /* 1 (tag) + 1 (length id) + length_octets + content */
+    if (ADD_OVERFLOW(content_len, 2 + length_octets)) {
+        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
+        return CKR_FUNCTION_FAILED;
+    }
+    total_len = 1 + 1 + length_octets + content_len;
+
+    if (length_only == TRUE) {
+        *out_len = total_len;
+        return CKR_OK;
+    }
+
+    buf = (CK_BYTE *)malloc(total_len);
+    if (buf == NULL) {
+        TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+        return CKR_HOST_MEMORY;
+    }
+
+    buf[0] = tag;
+    if (length_octets == 0) {
+        buf[1] = (CK_BYTE)content_len;
+        offset = 2;
+    } else {
+        buf[1] = (CK_BYTE)(0x80 | length_octets);
+        for (i = 0; i < length_octets; i++)
+            buf[2 + i] =
+               (CK_BYTE)((content_len >> ((length_octets - 1 - i) * 8)) & 0xFF);
+        offset = 2 + length_octets;
+    }
+
+    if (prefix != NULL && prefix_len > 0) {
+        memcpy(&buf[offset], prefix, prefix_len);
+        offset += prefix_len;
+    }
+
+    if (data != NULL && data_len > 0)
+        memcpy(&buf[offset], data, data_len);
+
+    *out_len = total_len;
+    *out = buf;
+
+    return CKR_OK;
+}
+
+static CK_RV ber_decode_tlv(CK_BYTE expected_tag, CK_BYTE *out_tag,
+                            CK_BYTE *ber, CK_ULONG ber_len,
+                            CK_BYTE **data, CK_ULONG *data_len,
+                            CK_ULONG *field_len)
+{
+    CK_ULONG len, length_octets = 0, i;
+
+    if (ber == NULL || ber_len < 2) {
+        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
+        return CKR_FUNCTION_FAILED;
+    }
+
+    if ((ber[0] & 0x1f) == 0x1f) {
+        /* Long tag form, not supported */
+        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
+        return CKR_FUNCTION_FAILED;
+    }
+
+    if (expected_tag != 0 && ber[0] != expected_tag) {
+        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
+        return CKR_FUNCTION_FAILED;
+    }
+
+    if (out_tag != NULL)
+        *out_tag = ber[0];
+
+    if ((ber[1] & 0x80) == 0) {
+        len = ber[1] & 0x7F;
+        goto done;
+    }
+
+    length_octets = ber[1] & 0x7F;
+    if (length_octets > sizeof(CK_ULONG) || ber_len < 2 + length_octets) {
+        TRACE_ERROR("BER length is larger than encoded data.\n");
+        return CKR_FUNCTION_FAILED;
+    }
+
+    len = 0;
+    for (i = 0; i < length_octets; i++) {
+        len <<= 8;
+        len |= ber[2 + i];
+    }
+
+done:
+    if (ADD_OVERFLOW(len, (CK_ULONG)(2 + length_octets)) ||
+        ber_len < 2 + length_octets + len) {
+        TRACE_ERROR("BER length is larger than encoded data.\n");
+        return CKR_FUNCTION_FAILED;
+    }
+
+    *data = &ber[2 + length_octets];
+    *data_len = len;
+    *field_len = 2 + length_octets + len;
+
+    return CKR_OK;
+}
+
+CK_RV ber_encode_INTEGER(CK_BBOOL length_only,
+                         CK_BYTE **ber_int,
+                         CK_ULONG *ber_int_len, CK_BYTE *data,
+                         CK_ULONG data_len)
+{
+    CK_BYTE pad = 0x00;
+    CK_ULONG padding = 0;
 
     // ber encoded integers are alway signed. So if the msb of the first byte
     // is set, this would indicate an negative value if we just copy the
     // (unsigned) big integer from *data to the ber buffer. So in this case
     // a preceding 0x00 byte is stored before the actual data. The decode
     // function does the reverse and may skip this padding.
-
-    if ((length_only && data_len && (!data || *data & 0x80))
-        || (data_len && data && *data & 0x80))
+    if ((length_only && data_len && (!data || (*data & 0x80)))
+        || (data_len && data && (*data & 0x80)))
         padding = 1;
 
-    /*
-     * Reject inputs that would overflow the BER content-length field.
-     * The maximum DER length we encode here is 3 bytes (< 2^24), so
-     * data_len + padding must fit in that range.
-     */
-    if (data_len > (1 << 24) - 1 - padding) {
-        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
-        return CKR_FUNCTION_FAILED;
-    }
-
-    // if data_len < 127 use short-form length id
-    // if data_len < 256 use long-form length id with 1-byte length field
-    // if data_len < 65536 use long-form length id with 2-byte length field
-    // if data_len < 16777216 use long-form length id with 3-byte length field
-    //
-    if (data_len + padding < 128) {
-        len = 1 + 1 + padding + data_len;
-    } else if (data_len + padding < 256) {
-        len = 1 + (1 + 1) + padding + data_len;
-    } else if (data_len + padding < (1 << 16)) {
-        len = 1 + (1 + 2) + padding + data_len;
-    } else if (data_len + padding < (1 << 24)) {
-        len = 1 + (1 + 3) + padding + data_len;
-    } else {
-        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
-        return CKR_FUNCTION_FAILED;
-    }
-    if (length_only == TRUE) {
-        *ber_int_len = len;
-        return CKR_OK;
-    }
-
-    buf = (CK_BYTE *) malloc(len);
-    if (!buf) {
-        TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-        return CKR_HOST_MEMORY;
-    }
-
-    if (data_len + padding < 128) {
-        buf[0] = 0x02;
-        buf[1] = data_len + padding;
-        if (padding) {
-            buf[2] = 0x00;
-            if (data && data_len)
-                memcpy(&buf[3], data, data_len);
-        } else {
-            if (data && data_len)
-                memcpy(&buf[2], data, data_len);
-        }
-        *ber_int_len = len;
-        *ber_int = buf;
-        return CKR_OK;
-    }
-
-    if (data_len + padding < 256) {
-        buf[0] = 0x02;
-        buf[1] = 0x81;
-        buf[2] = data_len + padding;
-        if (padding) {
-            buf[3] = 0x00;
-            if (data && data_len)
-                memcpy(&buf[4], data, data_len);
-        } else {
-            if (data && data_len)
-                memcpy(&buf[3], data, data_len);
-        }
-        *ber_int_len = len;
-        *ber_int = buf;
-        return CKR_OK;
-    }
-
-    if (data_len + padding < (1 << 16)) {
-        buf[0] = 0x02;
-        buf[1] = 0x82;
-        buf[2] = ((data_len + padding) >> 8) & 0xFF;
-        buf[3] = ((data_len + padding)) & 0xFF;
-        if (padding) {
-            buf[4] = 0x00;
-            if (data && data_len)
-                memcpy(&buf[5], data, data_len);
-        } else {
-            if (data && data_len)
-                memcpy(&buf[4], data, data_len);
-        }
-        *ber_int_len = len;
-        *ber_int = buf;
-        return CKR_OK;
-    }
-
-    if (data_len + padding < (1 << 24)) {
-        buf[0] = 0x02;
-        buf[1] = 0x83;
-        buf[2] = ((data_len + padding) >> 16) & 0xFF;
-        buf[3] = ((data_len + padding) >> 8) & 0xFF;
-        buf[4] = ((data_len + padding)) & 0xFF;
-        if (padding) {
-            buf[5] = 0x00;
-            if (data)
-                memcpy(&buf[6], data, data_len);
-        } else {
-            if (data)
-                memcpy(&buf[5], data, data_len);
-        }
-        *ber_int_len = len;
-        *ber_int = buf;
-        return CKR_OK;
-    }
-    // we should never reach this
-    //
-    free(buf);
-    TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
-
-    return CKR_FUNCTION_FAILED;
+    return ber_encode_tlv(length_only, 0x02, ber_int, ber_int_len,
+                          padding ? &pad : NULL, padding, data, data_len);
 }
 
-
-//
-//
 CK_RV ber_decode_INTEGER(CK_BYTE *ber_int, CK_ULONG ber_int_len,
                          CK_BYTE **data, CK_ULONG *data_len,
                          CK_ULONG *field_len)
 {
-    CK_ULONG len, length_octets;
+    CK_RV rc;
 
-    if (ber_int == NULL || ber_int_len < 2) {
-        TRACE_ERROR("Invalid function argument.\n");
-        return CKR_FUNCTION_FAILED;
-    }
-    if (ber_int[0] != 0x02) {
-        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
-        return CKR_FUNCTION_FAILED;
-    }
+    rc = ber_decode_tlv(0x02, NULL, ber_int, ber_int_len, data, data_len,
+                        field_len);
+    if (rc != CKR_OK)
+        return rc;
+
     // ber encoded integers are alway signed. So it may be that the very first
     // byte is just a padding 0x00 value because the following byte has the msb
     // set and without the padding the value would indicate a negative value.
@@ -186,388 +197,42 @@ CK_RV ber_decode_INTEGER(CK_BYTE *ber_int, CK_ULONG ber_int_len,
     // even when the msb is set, there is no preceding 0x00. Even more some
     // tests may fail e.g. the size in bytes of a modulo big integer should be
     // modulo bits / 8 which is not true with preceeding 0x00 byte.
-
-    // short form lengths are easy
-    //
-    if ((ber_int[1] & 0x80) == 0) {
-        len = ber_int[1] & 0x7F;
-        if (1 + 1 + len > ber_int_len) {
-            TRACE_ERROR("BER length is larger than encoded data.\n");
-            return CKR_FUNCTION_FAILED;
-        }
-        *data = &ber_int[2];
-        *data_len = len;
-        if (len > 0 && ber_int[2] == 0x00) {
-            *data = &ber_int[3];
-            *data_len = len - 1;
-        }
-        *field_len = 1 + 1 + len;
-        return CKR_OK;
+    if (*data_len > 1 && (*data)[0] == 0x00 && (*data)[1] & 0x80) {
+        *data = &(*data)[1];
+        *data_len = *data_len - 1;
     }
 
-    length_octets = ber_int[1] & 0x7F;
-    if (1 + 1 + length_octets > ber_int_len) {
-        TRACE_ERROR("BER length is larger than encoded data.\n");
-        return CKR_FUNCTION_FAILED;
-    }
-
-    if (length_octets == 1) {
-        len = ber_int[2];
-        if (1 + (1 + 1) + len > ber_int_len) {
-            TRACE_ERROR("BER length is larger than encoded data.\n");
-            return CKR_FUNCTION_FAILED;
-        }
-        *data = &ber_int[3];
-        *data_len = len;
-        if (len > 0 && ber_int[3] == 0x00) {
-            *data = &ber_int[4];
-            *data_len = len - 1;
-        }
-        *field_len = 1 + (1 + 1) + len;
-        return CKR_OK;
-    }
-
-    if (length_octets == 2) {
-        len = ber_int[2];
-        len = len << 8;
-        len |= ber_int[3];
-        if (1 + (1 + 2) + len > ber_int_len) {
-            TRACE_ERROR("BER length is larger than encoded data.\n");
-            return CKR_FUNCTION_FAILED;
-        }
-        *data = &ber_int[4];
-        *data_len = len;
-        if (len > 0 && ber_int[4] == 0x00) {
-            *data = &ber_int[5];
-            *data_len = len - 1;
-        }
-        *field_len = 1 + (1 + 2) + len;
-        return CKR_OK;
-    }
-
-    if (length_octets == 3) {
-        len = ber_int[2];
-        len = len << 8;
-        len |= ber_int[3];
-        len = len << 8;
-        len |= ber_int[4];
-        if (1 + (1 + 3) + len > ber_int_len) {
-            TRACE_ERROR("BER length is larger than encoded data.\n");
-            return CKR_FUNCTION_FAILED;
-        }
-        *data = &ber_int[5];
-        *data_len = len;
-        if (len > 0 && ber_int[5] == 0x00) {
-            *data = &ber_int[6];
-            *data_len = len - 1;
-        }
-        *field_len = 1 + (1 + 3) + len;
-        return CKR_OK;
-    }
-    // > 3 length octets implies a length > 16MB which isn't possible for
-    // the coprocessor
-    //
-    TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
-
-    return CKR_FUNCTION_FAILED;
+    return CKR_OK;
 }
 
-
-//
-//
 CK_RV ber_encode_OCTET_STRING(CK_BBOOL length_only,
                               CK_BYTE **str,
                               CK_ULONG *str_len, CK_BYTE *data,
                               CK_ULONG data_len)
 {
-    CK_BYTE *buf = NULL;
-    CK_ULONG len;
-
-    // I only support Primitive encoding for OCTET STRINGS
-    //
-
-    // if data_len < 128 use short-form length id
-    // if data_len < 256 use long-form length id with 1-byte length field
-    // if data_len < 65536 use long-form length id with 2-byte length field
-    //
-
-    if (data_len < 128) {
-        len = 1 + 1 + data_len;
-    } else if (data_len < 256) {
-        len = 1 + (1 + 1) + data_len;
-    } else if (data_len < (1 << 16)) {
-        len = 1 + (1 + 2) + data_len;
-    } else if (data_len < (1 << 24)) {
-        len = 1 + (1 + 3) + data_len;
-    } else {
-        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
-        return CKR_FUNCTION_FAILED;
-    }
-    if (length_only == TRUE) {
-        *str_len = len;
-        return CKR_OK;
-    }
-
-    buf = (CK_BYTE *) malloc(len);
-    if (!buf) {
-        TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-        return CKR_HOST_MEMORY;
-    }
-
-    if (data_len < 128) {
-        buf[0] = 0x04;          // primitive, OCTET STRING
-        buf[1] = data_len;
-        memcpy(&buf[2], data, data_len);
-
-        *str_len = len;
-        *str = buf;
-        return CKR_OK;
-    }
-
-    if (data_len < 256) {
-        buf[0] = 0x04;          // primitive, OCTET STRING
-        buf[1] = 0x81;          // length header -- 1 length octets
-        buf[2] = data_len;
-
-        memcpy(&buf[3], data, data_len);
-
-        *str_len = len;
-        *str = buf;
-        return CKR_OK;
-    }
-
-    if (data_len < (1 << 16)) {
-        buf[0] = 0x04;          // primitive, OCTET STRING
-        buf[1] = 0x82;          // length header -- 2 length octets
-        buf[2] = (data_len >> 8) & 0xFF;
-        buf[3] = (data_len) & 0xFF;
-
-        memcpy(&buf[4], data, data_len);
-
-        *str_len = len;
-        *str = buf;
-        return CKR_OK;
-    }
-
-    if (data_len < (1 << 24)) {
-        buf[0] = 0x04;          // primitive, OCTET STRING
-        buf[1] = 0x83;          // length header -- 3 length octets
-        buf[2] = (data_len >> 16) & 0xFF;
-        buf[3] = (data_len >> 8) & 0xFF;
-        buf[4] = (data_len) & 0xFF;
-
-        memcpy(&buf[5], data, data_len);
-
-        *str_len = len;
-        *str = buf;
-        return CKR_OK;
-    }
-    // we should never reach this
-    //
-    free(buf);
-    TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
-
-    return CKR_FUNCTION_FAILED;
+    return ber_encode_tlv(length_only, 0x04, str, str_len,
+                          NULL, 0, data, data_len);
 }
 
-
-//
-//
 CK_RV ber_decode_OCTET_STRING(CK_BYTE *str, CK_ULONG str_len,
                               CK_BYTE **data,
                               CK_ULONG *data_len, CK_ULONG *field_len)
 {
-    CK_ULONG len, length_octets;
-
-    // I only support decoding primitive OCTET STRINGS
-    //
-
-    if (!str || str_len < 2) {
-        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
-        return CKR_FUNCTION_FAILED;
-    }
-    if (str[0] != 0x04) {
-        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
-        return CKR_FUNCTION_FAILED;
-    }
-    // short form lengths are easy
-    //
-    if ((str[1] & 0x80) == 0) {
-        len = str[1] & 0x7F;
-        if (1 + 1 + len > str_len) {
-            TRACE_ERROR("BER length is larger than encoded data.\n");
-            return CKR_FUNCTION_FAILED;
-        }
-
-        *data = &str[2];
-        *data_len = len;
-        *field_len = 1 + (1) + len;
-        return CKR_OK;
-    }
-
-    length_octets = str[1] & 0x7F;
-    if (1 + 1 + length_octets > str_len) {
-        TRACE_ERROR("BER length is larger than encoded data.\n");
-        return CKR_FUNCTION_FAILED;
-    }
-
-    if (length_octets == 1) {
-        len = str[2];
-        if (1 + (1 + 1) + len > str_len) {
-            TRACE_ERROR("BER length is larger than encoded data.\n");
-            return CKR_FUNCTION_FAILED;
-        }
-
-        *data = &str[3];
-        *data_len = len;
-        *field_len = 1 + (1 + 1) + len;
-        return CKR_OK;
-    }
-
-    if (length_octets == 2) {
-        len = str[2];
-        len = len << 8;
-        len |= str[3];
-        if (1 + (1 + 2) + len > str_len) {
-            TRACE_ERROR("BER length is larger than encoded data.\n");
-            return CKR_FUNCTION_FAILED;
-        }
-
-        *data = &str[4];
-        *data_len = len;
-        *field_len = 1 + (1 + 2) + len;
-        return CKR_OK;
-    }
-
-    if (length_octets == 3) {
-        len = str[2];
-        len = len << 8;
-        len |= str[3];
-        len = len << 8;
-        len |= str[4];
-        if (1 + (1 + 3) + len > str_len) {
-            TRACE_ERROR("BER length is larger than encoded data.\n");
-            return CKR_FUNCTION_FAILED;
-        }
-
-        *data = &str[5];
-        *data_len = len;
-        *field_len = 1 + (1 + 3) + len;
-        return CKR_OK;
-    }
-    // > 3 length octets implies a length > 16MB
-    //
-    TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
-
-    return CKR_FUNCTION_FAILED;
+    return ber_decode_tlv(0x04, NULL, str, str_len, data, data_len, field_len);
 }
 
 /**
  * Here we assume that the indication about unused bits is NOT
  * part of the data. It will be added by this function.
  */
-CK_ULONG ber_encode_BIT_STRING(CK_BBOOL length_only,
+CK_RV ber_encode_BIT_STRING(CK_BBOOL length_only,
                             CK_BYTE **ber_str,
                             CK_ULONG *ber_str_len, CK_BYTE *data,
                             CK_ULONG data_len,
                             CK_BYTE unused_bits)
 {
-    CK_BYTE *buf = NULL;
-    CK_ULONG len;
-
-    // if data_len < 127 use short-form length id
-    // if data_len < 256 use long-form length id with 1-byte length field
-    // if data_len < 65536 use long-form length id with 2-byte length field
-    // if data_len < 16777216 use long-form length id with 3-byte length field
-
-    /*
-     * The encoded BIT STRING content length is data_len + 1 (for the
-     * unused-bits byte).  Guard against data_len + 1 wrapping when
-     * data_len is close to ULONG_MAX before any of the comparisons below.
-     */
-    if (data_len >= (1 << 24) - 1) {
-        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
-        return CKR_FUNCTION_FAILED;
-    }
-
-    if (data_len + 1 < 128) {
-        len = 1 + 1 + 1 + data_len;
-    } else if (data_len + 1 < 256) {
-        len = 1 + (1 + 1) + 1 + data_len;
-    } else if (data_len + 1 < (1 << 16)) {
-        len = 1 + (1 + 2) + 1 + data_len;
-    } else if (data_len + 1 < (1 << 24)) {
-        len = 1 + (1 + 3) + 1 + data_len;
-    } else {
-        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
-        return CKR_FUNCTION_FAILED;
-    }
-    if (length_only == TRUE) {
-        *ber_str_len = len;
-        return CKR_OK;
-    }
-
-    buf = (CK_BYTE *) malloc(len);
-    if (!buf) {
-        TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-        return CKR_HOST_MEMORY;
-    }
-
-    if (data_len + 1 < 128) {
-        buf[0] = 0x03;
-        buf[1] = data_len + 1;
-        buf[2] = unused_bits;
-        if (data && data_len)
-            memcpy(&buf[3], data, data_len);
-        *ber_str_len = len;
-        *ber_str = buf;
-        return CKR_OK;
-    }
-
-    if (data_len + 1 < 256) {
-        buf[0] = 0x03;
-        buf[1] = 0x81;
-        buf[2] = data_len + 1;
-        buf[3] = unused_bits;
-        if (data && data_len)
-            memcpy(&buf[4], data, data_len);
-        *ber_str_len = len;
-        *ber_str = buf;
-        return CKR_OK;
-    }
-
-    if (data_len + 1 < (1 << 16)) {
-        buf[0] = 0x03;
-        buf[1] = 0x82;
-        buf[2] = ((data_len + 1) >> 8) & 0xFF;
-        buf[3] = ((data_len + 1)) & 0xFF;
-        buf[4] = unused_bits;
-        if (data && data_len)
-            memcpy(&buf[5], data, data_len);
-        *ber_str_len = len;
-        *ber_str = buf;
-        return CKR_OK;
-    }
-
-    if (data_len + 1 < (1 << 24)) {
-        buf[0] = 0x03;
-        buf[1] = 0x83;
-        buf[2] = ((data_len + 1) >> 16) & 0xFF;
-        buf[3] = ((data_len + 1) >> 8) & 0xFF;
-        buf[4] = ((data_len + 1)) & 0xFF;
-        buf[5] = unused_bits;
-        if (data)
-            memcpy(&buf[6], data, data_len);
-        *ber_str_len = len;
-        *ber_str = buf;
-        return CKR_OK;
-    }
-    // we should never reach this
-    //
-    free(buf);
-    TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
-
-    return CKR_FUNCTION_FAILED;
+    return ber_encode_tlv(length_only, 0x03, ber_str, ber_str_len,
+                          &unused_bits, 1, data, data_len);
 }
 
 /**
@@ -579,379 +244,46 @@ CK_RV ber_decode_BIT_STRING(CK_BYTE *str, CK_ULONG str_len,
                             CK_BYTE **data,
                             CK_ULONG *data_len, CK_ULONG *field_len)
 {
-    CK_ULONG len, length_octets;
+    CK_RV rc;
 
-    if (!str || str_len < 2) {
-        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
-        return CKR_FUNCTION_FAILED;
-    }
-    if (str[0] != 0x03) {
-        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
-        return CKR_FUNCTION_FAILED;
-    }
+    rc = ber_decode_tlv(0x03, NULL, str, str_len, data, data_len, field_len);
+    if (rc != CKR_OK)
+        return rc;
 
-    if ((str[1] & 0x80) == 0) {
-        len = str[1] & 0x7F;
-        if (1 + 1 + len > str_len) {
-            TRACE_ERROR("BER length is larger than encoded data.\n");
-            return CKR_FUNCTION_FAILED;
-        }
-        if (len < 1) {
-            TRACE_ERROR("BER length is too small to include the "
-                        "unused-bits-byte\n");
-            return CKR_FUNCTION_FAILED;
-        }
-
-        *data = &str[2];
-        *data_len = len;
-        *field_len = 1 + (1) + len;
-        return CKR_OK;
-    }
-
-    length_octets = str[1] & 0x7F;
-    if (1 + 1 + length_octets > str_len) {
-        TRACE_ERROR("BER length is larger than encoded data.\n");
+    if (*data_len < 1) {
+        TRACE_ERROR("BER length is too small to include the "
+                    "unused-bits-byte\n");
         return CKR_FUNCTION_FAILED;
     }
 
-    if (length_octets == 1) {
-        len = str[2];
-        if (1 + (1 + 1) + len > str_len) {
-            TRACE_ERROR("BER length is larger than encoded data.\n");
-            return CKR_FUNCTION_FAILED;
-        }
-        if (len < 1) {
-            TRACE_ERROR("BER length is too small to include the "
-                        "unused-bits-byte\n");
-            return CKR_FUNCTION_FAILED;
-        }
-
-        *data = &str[3];
-        *data_len = len;
-        *field_len = 1 + (1 + 1) + len;
-        return CKR_OK;
-    }
-
-    if (length_octets == 2) {
-        len = str[2];
-        len = len << 8;
-        len |= str[3];
-        if (1 + (1 + 2) + len > str_len) {
-            TRACE_ERROR("BER length is larger than encoded data.\n");
-            return CKR_FUNCTION_FAILED;
-        }
-        if (len < 1) {
-            TRACE_ERROR("BER length is too small to include the "
-                        "unused-bits-byte\n");
-            return CKR_FUNCTION_FAILED;
-        }
-
-        *data = &str[4];
-        *data_len = len;
-        *field_len = 1 + (1 + 2) + len;
-        return CKR_OK;
-    }
-
-    if (length_octets == 3) {
-        len = str[2];
-        len = len << 8;
-        len |= str[3];
-        len = len << 8;
-        len |= str[4];
-        if (1 + (1 + 3) + len > str_len) {
-            TRACE_ERROR("BER length is larger than encoded data.\n");
-            return CKR_FUNCTION_FAILED;
-        }
-        if (len < 1) {
-            TRACE_ERROR("BER length is too small to include the "
-                        "unused-bits-byte\n");
-            return CKR_FUNCTION_FAILED;
-        }
-
-        *data = &str[5];
-        *data_len = len;
-        *field_len = 1 + (1 + 3) + len;
-        return CKR_OK;
-    }
-    // > 3 length octets implies a length > 16MB
-    //
-    TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
-
-    return CKR_FUNCTION_FAILED;
+    return CKR_OK;
 }
 
-//
-//
 CK_RV ber_encode_SEQUENCE(CK_BBOOL length_only,
                           CK_BYTE **seq,
                           CK_ULONG *seq_len, CK_BYTE *data, CK_ULONG data_len)
 {
-    CK_BYTE *buf = NULL;
-    CK_ULONG len;
-
-    // if data_len < 127 use short-form length id
-    // if data_len < 65536 use long-form length id with 2-byte length field
-    //
-
-    if (data_len < 128) {
-        len = 1 + 1 + data_len;
-    } else if (data_len < 256) {
-        len = 1 + (1 + 1) + data_len;
-    } else if (data_len < (1 << 16)) {
-        len = 1 + (1 + 2) + data_len;
-    } else if (data_len < (1 << 24)) {
-        len = 1 + (1 + 3) + data_len;
-    } else {
-        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
-        return CKR_FUNCTION_FAILED;
-    }
-    if (length_only == TRUE) {
-        *seq_len = len;
-        return CKR_OK;
-    }
-
-    buf = (CK_BYTE *) malloc(len);
-    if (!buf) {
-        TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-        return CKR_HOST_MEMORY;
-    }
-
-    if (data_len < 128) {
-        buf[0] = 0x30;          // constructed, SEQUENCE
-        buf[1] = data_len;
-        memcpy(&buf[2], data, data_len);
-
-        *seq_len = len;
-        *seq = buf;
-        return CKR_OK;
-    }
-
-    if (data_len < 256) {
-        buf[0] = 0x30;          // constructed, SEQUENCE
-        buf[1] = 0x81;          // length header -- 1 length octets
-        buf[2] = data_len;
-
-        memcpy(&buf[3], data, data_len);
-
-        *seq_len = len;
-        *seq = buf;
-        return CKR_OK;
-    }
-
-    if (data_len < (1 << 16)) {
-        buf[0] = 0x30;          // constructed, SEQUENCE
-        buf[1] = 0x82;          // length header -- 2 length octets
-        buf[2] = (data_len >> 8) & 0xFF;
-        buf[3] = (data_len) & 0xFF;
-
-        memcpy(&buf[4], data, data_len);
-
-        *seq_len = len;
-        *seq = buf;
-        return CKR_OK;
-    }
-
-    if (data_len < (1 << 24)) {
-        buf[0] = 0x30;          // constructed, SEQUENCE
-        buf[1] = 0x83;          // length header -- 3 length octets
-        buf[2] = (data_len >> 16) & 0xFF;
-        buf[3] = (data_len >> 8) & 0xFF;
-        buf[4] = (data_len) & 0xFF;
-
-        memcpy(&buf[5], data, data_len);
-
-        *seq_len = len;
-        *seq = buf;
-        return CKR_OK;
-    }
-
-    free(buf);
-    TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
-
-    return CKR_FUNCTION_FAILED;
+    return ber_encode_tlv(length_only, 0x30, seq, seq_len,
+                          NULL, 0, data, data_len);
 }
 
-
-//
-//
 CK_RV ber_decode_SEQUENCE(CK_BYTE *seq, CK_ULONG seq_len,
                           CK_BYTE **data, CK_ULONG *data_len,
                           CK_ULONG *field_len)
 {
-    CK_ULONG len, length_octets;
-
-
-    if (!seq || seq_len < 2) {
-        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
-        return CKR_FUNCTION_FAILED;
-    }
-    if (seq[0] != 0x30) {
-        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
-        return CKR_FUNCTION_FAILED;
-    }
-    // short form lengths are easy
-    //
-    if ((seq[1] & 0x80) == 0) {
-        len = seq[1] & 0x7F;
-        if (1 + 1 + len > seq_len) {
-            TRACE_ERROR("BER length is larger than encoded data.\n");
-            return CKR_FUNCTION_FAILED;
-        }
-
-        *data = &seq[2];
-        *data_len = len;
-        *field_len = 1 + (1) + len;
-        return CKR_OK;
-    }
-
-    length_octets = seq[1] & 0x7F;
-    if (1 + 1 + length_octets > seq_len) {
-        TRACE_ERROR("BER length is larger than encoded data.\n");
-        return CKR_FUNCTION_FAILED;
-    }
-
-    if (length_octets == 1) {
-        len = seq[2];
-        if (1 + (1 + 1) + len > seq_len) {
-            TRACE_ERROR("BER length is larger than encoded data.\n");
-            return CKR_FUNCTION_FAILED;
-        }
-
-        *data = &seq[3];
-        *data_len = len;
-        *field_len = 1 + (1 + 1) + len;
-        return CKR_OK;
-    }
-
-    if (length_octets == 2) {
-        len = seq[2];
-        len = len << 8;
-        len |= seq[3];
-        if (1 + (1 + 2) + len > seq_len) {
-            TRACE_ERROR("BER length is larger than encoded data.\n");
-            return CKR_FUNCTION_FAILED;
-        }
-
-        *data = &seq[4];
-        *data_len = len;
-        *field_len = 1 + (1 + 2) + len;
-        return CKR_OK;
-    }
-
-    if (length_octets == 3) {
-        len = seq[2];
-        len = len << 8;
-        len |= seq[3];
-        len = len << 8;
-        len |= seq[4];
-        if (1 + (1 + 3) + len > seq_len) {
-            TRACE_ERROR("BER length is larger than encoded data.\n");
-            return CKR_FUNCTION_FAILED;
-        }
-
-        *data = &seq[5];
-        *data_len = len;
-        *field_len = 1 + (1 + 3) + len;
-        return CKR_OK;
-    }
-    // > 3 length octets implies a length > 16MB
-    //
-    TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
-
-    return CKR_FUNCTION_FAILED;
+    return ber_decode_tlv(0x30, NULL, seq, seq_len, data, data_len, field_len);
 }
 
-//
-//
 CK_RV ber_encode_CHOICE(CK_BBOOL length_only,
                         CK_BYTE option,
                         CK_BYTE **str,
                         CK_ULONG *str_len, CK_BYTE *data, CK_ULONG data_len,
                         CK_BBOOL constructed)
 {
-    CK_BYTE *buf = NULL;
-    CK_ULONG len;
+    CK_BYTE tag = 0x80 | (constructed ? 0x20 : 0x00) | option;
 
-    /*
-     *  if data_len < 127 use short-form length id
-     *  if data_len < 65536 use long-form length id with 2-byte length field
-     */
-
-    if (data_len < 128) {
-        len = 1 + 1 + data_len;
-    } else if (data_len < 256) {
-        len = 1 + (1 + 1) + data_len;
-    } else if (data_len < (1 << 16)) {
-        len = 1 + (1 + 2) + data_len;
-    } else if (data_len < (1 << 24)) {
-        len = 1 + (1 + 3) + data_len;
-    } else {
-        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
-        return CKR_FUNCTION_FAILED;
-    }
-    if (length_only == TRUE) {
-        *str_len = len;
-        return CKR_OK;
-    }
-
-    buf = (CK_BYTE *) malloc(len);
-    if (!buf) {
-        TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-        return CKR_HOST_MEMORY;
-    }
-
-    if (data_len < 128) {
-        buf[0] = 0x80 | (constructed ? 0x20 : 0x00) | option; // CHOICE
-        buf[1] = data_len;
-        memcpy(&buf[2], data, data_len);
-
-        *str_len = len;
-        *str = buf;
-        return CKR_OK;
-    }
-
-    if (data_len < 256) {
-        buf[0] = 0x80 | (constructed ? 0x20 : 0x00) | option; // CHOICE
-        buf[1] = 0x81;          // length header -- 1 length octets
-        buf[2] = data_len;
-
-        memcpy(&buf[3], data, data_len);
-
-        *str_len = len;
-        *str = buf;
-        return CKR_OK;
-    }
-
-    if (data_len < (1 << 16)) {
-        buf[0] = 0x80 | (constructed ? 0x20 : 0x00) | option; // CHOICE
-        buf[1] = 0x82;          // length header -- 2 length octets
-        buf[2] = (data_len >> 8) & 0xFF;
-        buf[3] = (data_len) & 0xFF;
-
-        memcpy(&buf[4], data, data_len);
-
-        *str_len = len;
-        *str = buf;
-        return CKR_OK;
-    }
-    if (data_len < (1 << 24)) {
-        buf[0] = 0x80 | (constructed ? 0x20 : 0x00) | option; // CHOICE
-        buf[1] = 0x83;          // length header -- 3 length octets
-        buf[2] = (data_len >> 16) & 0xFF;
-        buf[3] = (data_len >> 8) & 0xFF;
-        buf[4] = (data_len) & 0xFF;
-
-        memcpy(&buf[5], data, data_len);
-
-        *str_len = len;
-        *str = buf;
-        return CKR_OK;
-    }
-
-    free(buf);
-    TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
-
-    return CKR_FUNCTION_FAILED;
+    return ber_encode_tlv(length_only, tag, str, str_len,
+                          NULL, 0, data, data_len);
 }
 
 CK_RV ber_decode_CHOICE(CK_BYTE *choice, CK_ULONG choice_len,
@@ -960,86 +292,23 @@ CK_RV ber_decode_CHOICE(CK_BYTE *choice, CK_ULONG choice_len,
                         CK_ULONG *data_len, CK_ULONG *field_len,
                         CK_ULONG *option)
 {
-    CK_ULONG len, length_octets;
+    CK_BYTE tag;
+    CK_RV rc;
 
+    rc = ber_decode_tlv(0, &tag, choice, choice_len, data, data_len,
+                        field_len);
+    if (rc != CKR_OK)
+        return rc;
 
-    if (!choice || choice_len < 2) {
+    if ((tag & 0xE0) != (0x80 | (constructed ? 0x20 : 0x00))) {
         TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
         return CKR_FUNCTION_FAILED;
     }
 
-    if ((choice[0] & 0xE0) != (0x80 | (constructed ? 0x20 : 0x00))) {
-        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
-        return CKR_FUNCTION_FAILED;
-    }
+    if (option != NULL)
+        *option = tag & 0x1F;
 
-    *option = choice[0] & 0x1F;
-
-    // short form lengths are easy
-    //
-    if ((choice[1] & 0x80) == 0) {
-        len = choice[1] & 0x7F;
-        if (1 + 1 + len > choice_len) {
-            TRACE_ERROR("BER length is larger than encoded data.\n");
-            return CKR_FUNCTION_FAILED;
-        }
-        *data = &choice[2];
-        *data_len = len;
-        *field_len = 1 + (1) + len;
-        return CKR_OK;
-    }
-
-    length_octets = choice[1] & 0x7F;
-    if (1 + 1 + length_octets > choice_len) {
-        TRACE_ERROR("BER length is larger than encoded data.\n");
-        return CKR_FUNCTION_FAILED;
-    }
-
-    if (length_octets == 1) {
-        len = choice[2];
-        if (1 + (1 + 1) + len > choice_len) {
-            TRACE_ERROR("BER length is larger than encoded data.\n");
-            return CKR_FUNCTION_FAILED;
-        }
-        *data = &choice[3];
-        *data_len = len;
-        *field_len = 1 + (1 + 1) + len;
-        return CKR_OK;
-    }
-
-    if (length_octets == 2) {
-        len = choice[2];
-        len = len << 8;
-        len |= choice[3];
-        if (1 + (1 + 2) + len > choice_len) {
-            TRACE_ERROR("BER length is larger than encoded data.\n");
-            return CKR_FUNCTION_FAILED;
-        }
-        *data = &choice[4];
-        *data_len = len;
-        *field_len = 1 + (1 + 2) + len;
-        return CKR_OK;
-    }
-
-    if (length_octets == 3) {
-        len = choice[2];
-        len = len << 8;
-        len |= choice[3];
-        len = len << 8;
-        len |= choice[4];
-        if (1 + (1 + 3) + len > choice_len) {
-            TRACE_ERROR("BER length is larger than encoded data.\n");
-            return CKR_FUNCTION_FAILED;
-        }
-        *data = &choice[5];
-        *data_len = len;
-        *field_len = 1 + (1 + 3) + len;
-        return CKR_OK;
-    }
-    // > 3 length octets implies a length > 16MB
-    //
-    TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
-    return CKR_FUNCTION_FAILED;
+    return CKR_OK;
 }
 
 // PrivateKeyInfo ::= SEQUENCE {

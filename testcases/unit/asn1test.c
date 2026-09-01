@@ -25,10 +25,10 @@
 #include "asn1test_pqckeys.h"
 
 /* Function prototypes from asn1.c */
-CK_ULONG ber_encode_INTEGER(CK_BBOOL length_only,
-                            CK_BYTE **ber_int,
-                            CK_ULONG *ber_int_len, CK_BYTE *data,
-                            CK_ULONG data_len);
+CK_RV ber_encode_INTEGER(CK_BBOOL length_only,
+                         CK_BYTE **ber_int,
+                         CK_ULONG *ber_int_len, CK_BYTE *data,
+                         CK_ULONG data_len);
 
 CK_RV ber_decode_INTEGER(CK_BYTE *ber_int, CK_ULONG ber_int_len,
                          CK_BYTE **data, CK_ULONG *data_len,
