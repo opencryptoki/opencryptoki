@@ -89,124 +89,11 @@ CK_RV ber_decode_SPKI(CK_BYTE *spki, CK_ULONG spki_len,
                       CK_BYTE **param, CK_ULONG *param_len,
                       CK_BYTE **key, CK_ULONG *key_len);
 
-CK_RV ber_encode_RSAPrivateKey(CK_BBOOL length_only,
-                               CK_BYTE **data,
-                               CK_ULONG *data_len,
-                               CK_ATTRIBUTE *modulus,
-                               CK_ATTRIBUTE *publ_exp,
-                               CK_ATTRIBUTE *priv_exp,
-                               CK_ATTRIBUTE *prime1,
-                               CK_ATTRIBUTE *prime2,
-                               CK_ATTRIBUTE *exponent1,
-                               CK_ATTRIBUTE *exponent2,
-                               CK_ATTRIBUTE *coeff);
-
-CK_RV ber_decode_RSAPrivateKey(CK_BYTE *data,
-                               CK_ULONG data_len,
-                               CK_ATTRIBUTE **modulus,
-                               CK_ATTRIBUTE **publ_exp,
-                               CK_ATTRIBUTE **priv_exp,
-                               CK_ATTRIBUTE **prime1,
-                               CK_ATTRIBUTE **prime2,
-                               CK_ATTRIBUTE **exponent1,
-                               CK_ATTRIBUTE **exponent2,
-                               CK_ATTRIBUTE **coeff);
-
-CK_RV ber_encode_RSAPublicKey(CK_BBOOL length_only, CK_BYTE **data,
-                              CK_ULONG *data_len, CK_ATTRIBUTE *modulus,
-                              CK_ATTRIBUTE *publ_exp);
-
-CK_RV ber_decode_RSAPublicKey(CK_BYTE *data,
-                              CK_ULONG data_len,
-                              CK_ATTRIBUTE **modulus,
-                              CK_ATTRIBUTE **publ_exp);
-
-CK_RV ber_encode_DSAPrivateKey(CK_BBOOL length_only,
-                               CK_BYTE **data,
-                               CK_ULONG *data_len,
-                               CK_ATTRIBUTE *prime1,
-                               CK_ATTRIBUTE *prime2,
-                               CK_ATTRIBUTE *base,
-                               CK_ATTRIBUTE *priv_key);
-
-CK_RV ber_decode_DSAPrivateKey(CK_BYTE *data,
-                               CK_ULONG data_len,
-                               CK_ATTRIBUTE **prime,
-                               CK_ATTRIBUTE **subprime,
-                               CK_ATTRIBUTE **base,
-                               CK_ATTRIBUTE **priv_key);
-
-CK_RV ber_encode_DSAPublicKey(CK_BBOOL length_only,
-                              CK_BYTE **data,
-                              CK_ULONG *data_len,
-                              CK_ATTRIBUTE *prime,
-                              CK_ATTRIBUTE *subprime,
-                              CK_ATTRIBUTE *base,
-                              CK_ATTRIBUTE *value);
-
-CK_RV ber_decode_DSAPublicKey(CK_BYTE *data,
-                              CK_ULONG data_len,
-                              CK_ATTRIBUTE **prime,
-                              CK_ATTRIBUTE **subprime,
-                              CK_ATTRIBUTE **base,
-                              CK_ATTRIBUTE **value);
-
-/* DH key encoding/decoding function prototypes */
-CK_RV ber_encode_DHPrivateKey(CK_BBOOL length_only,
-                              CK_BYTE **data,
-                              CK_ULONG *data_len,
-                              CK_ATTRIBUTE *prime,
-                              CK_ATTRIBUTE *base,
-                              CK_ATTRIBUTE *priv_key);
-
-CK_RV ber_decode_DHPrivateKey(CK_BYTE *data,
-                              CK_ULONG data_len,
-                              CK_ATTRIBUTE **prime,
-                              CK_ATTRIBUTE **base,
-                              CK_ATTRIBUTE **priv_key);
-
-CK_RV ber_encode_DHPublicKey(CK_BBOOL length_only,
-                             CK_BYTE **data,
-                             CK_ULONG *data_len,
-                             CK_ATTRIBUTE *prime,
-                             CK_ATTRIBUTE *base,
-                             CK_ATTRIBUTE *value);
-
-CK_RV ber_decode_DHPublicKey(CK_BYTE *data,
-                             CK_ULONG data_len,
-                             CK_ATTRIBUTE **prime,
-                             CK_ATTRIBUTE **base,
-                             CK_ATTRIBUTE **value);
-
-/* EC key encoding/decoding function prototypes */
-CK_RV der_encode_ECPrivateKey(CK_BBOOL length_only,
-                              CK_BYTE **data,
-                              CK_ULONG *data_len,
-                              CK_ATTRIBUTE *params,
-                              CK_ATTRIBUTE *privkey,
-                              CK_ATTRIBUTE *pubkey,
-                              CK_KEY_TYPE key_type);
-
-CK_RV der_decode_ECPrivateKey(CK_BYTE *data,
-                              CK_ULONG data_len,
-                              CK_ATTRIBUTE **params,
-                              CK_ATTRIBUTE **pub_key,
-                              CK_ATTRIBUTE **priv_key,
-                              CK_KEY_TYPE key_type);
-
-CK_RV ber_encode_ECPublicKey(CK_BBOOL length_only,
-                             CK_BYTE **data,
-                             CK_ULONG *data_len,
-                             CK_ATTRIBUTE *params,
-                             CK_ATTRIBUTE *point,
-                             CK_KEY_TYPE key_type);
-
-CK_RV der_decode_ECPublicKey(CK_BYTE *data,
-                             CK_ULONG data_len,
-                             CK_ATTRIBUTE **ec_params,
-                             CK_ATTRIBUTE **ec_point,
-                             CK_KEY_TYPE key_type);
-
+CK_RV ber_encode_SPKI(CK_BBOOL length_only, CK_BYTE **data,
+                      CK_ULONG *data_len,
+                      const CK_BYTE *oid, CK_ULONG oid_len,
+                      const CK_BYTE *param, CK_ULONG param_len,
+                      const CK_BYTE *key, CK_ULONG key_len);
 
 /* Helper function to compare byte arrays */
 static int compare_bytes(const char *test_name, CK_BYTE *expected,
@@ -3101,6 +2988,279 @@ static int test_decode_spki_short_algid(void)
     return 0;
 }
 
+/* Test ber_encode_SPKI with OID + NULL parameter (RSA-style) */
+static int test_encode_spki_with_null_param(void)
+{
+    /*
+     * RSA OID: 1.2.840.113549.1.1.1  (tag 06, length 09)
+     * param:   NULL (05 00)
+     * key:     16 bytes of test data
+     *
+     * Expected SPKI:
+     *   30 22               SEQUENCE, length 34
+     *     30 0D             AlgorithmIdentifier SEQUENCE, length 13
+     *       06 09 2A 86 48 86 F7 0D 01 01 01   OID rsaEncryption
+     *       05 00           NULL
+     *     03 11             BIT STRING, length 17
+     *       00              unused bits = 0
+     *       01 02 ... 10    key bytes
+     */
+    static const CK_BYTE oid[] = {
+        0x06, 0x09, 0x2A, 0x86, 0x48, 0x86, 0xF7, 0x0D, 0x01, 0x01, 0x01
+    };
+    static const CK_BYTE param[] = {0x05, 0x00};
+    static const CK_BYTE key[] = {
+        0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
+        0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F, 0x10
+    };
+    static const CK_BYTE expected[] = {
+        0x30, 0x22,
+        0x30, 0x0D,
+        0x06, 0x09, 0x2A, 0x86, 0x48, 0x86, 0xF7, 0x0D, 0x01, 0x01, 0x01,
+        0x05, 0x00,
+        0x03, 0x11, 0x00,
+        0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
+        0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F, 0x10
+    };
+    CK_BYTE *out = NULL;
+    CK_ULONG out_len = 0;
+    CK_RV rv;
+    int result = 0;
+
+    rv = ber_encode_SPKI(FALSE, &out, &out_len,
+                         oid, sizeof(oid),
+                         param, sizeof(param),
+                         key, sizeof(key));
+    if (rv != CKR_OK) {
+        fprintf(stderr,
+                "[FAIL] test_encode_spki_with_null_param: encode failed rv=%lu\n",
+                rv);
+        return 1;
+    }
+
+    if (out_len != sizeof(expected)) {
+        fprintf(stderr,
+                "[FAIL] test_encode_spki_with_null_param: length mismatch "
+                "(expected %lu, got %lu)\n",
+                (unsigned long)sizeof(expected), out_len);
+        result = 1;
+    } else {
+        result = compare_bytes("test_encode_spki_with_null_param",
+                               (CK_BYTE *)expected, out, out_len);
+    }
+
+    free(out);
+    if (result == 0)
+        printf("[PASS] test_encode_spki_with_null_param\n");
+    return result;
+}
+
+/* Test ber_encode_SPKI with no parameter (ML-DSA / ML-KEM style) */
+static int test_encode_spki_no_param(void)
+{
+    /*
+     * ML-DSA-44 OID: 2.16.840.1.101.3.4.3.17  (tag 06, length 09)
+     * param:   none (NULL pointer)
+     * key:     8 bytes of test data
+     *
+     * Expected SPKI:
+     *   30 18               SEQUENCE, length 24
+     *     30 0B             AlgorithmIdentifier SEQUENCE, length 11
+     *       06 09 60 86 48 01 65 03 04 03 11   OID id-ml-dsa-44
+     *     03 09             BIT STRING, length 9
+     *       00              unused bits = 0
+     *       AA BB CC DD EE FF 11 22   key bytes
+     */
+    static const CK_BYTE oid[] = {
+        0x06, 0x09, 0x60, 0x86, 0x48, 0x01, 0x65, 0x03, 0x04, 0x03, 0x11
+    };
+    static const CK_BYTE key[] = {
+        0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF, 0x11, 0x22
+    };
+    static const CK_BYTE expected[] = {
+        0x30, 0x18,
+        0x30, 0x0B,
+        0x06, 0x09, 0x60, 0x86, 0x48, 0x01, 0x65, 0x03, 0x04, 0x03, 0x11,
+        0x03, 0x09, 0x00,
+        0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF, 0x11, 0x22
+    };
+    CK_BYTE *out = NULL;
+    CK_ULONG out_len = 0;
+    CK_RV rv;
+    int result = 0;
+
+    rv = ber_encode_SPKI(FALSE, &out, &out_len,
+                         oid, sizeof(oid),
+                         NULL, 0,
+                         key, sizeof(key));
+    if (rv != CKR_OK) {
+        fprintf(stderr,
+                "[FAIL] test_encode_spki_no_param: encode failed rv=%lu\n",
+                rv);
+        return 1;
+    }
+
+    if (out_len != sizeof(expected)) {
+        fprintf(stderr,
+                "[FAIL] test_encode_spki_no_param: length mismatch "
+                "(expected %lu, got %lu)\n",
+                (unsigned long)sizeof(expected), out_len);
+        result = 1;
+    } else {
+        result = compare_bytes("test_encode_spki_no_param",
+                               (CK_BYTE *)expected, out, out_len);
+    }
+
+    free(out);
+    if (result == 0)
+        printf("[PASS] test_encode_spki_no_param\n");
+    return result;
+}
+
+/* Test ber_encode_SPKI length_only mode */
+static int test_encode_spki_length_only(void)
+{
+    static const CK_BYTE oid[] = {
+        0x06, 0x09, 0x2A, 0x86, 0x48, 0x86, 0xF7, 0x0D, 0x01, 0x01, 0x01
+    };
+    static const CK_BYTE param[] = {0x05, 0x00};
+    static const CK_BYTE key[] = {
+        0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
+        0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F, 0x10
+    };
+    CK_BYTE *out = NULL;
+    CK_ULONG len_only = 0, full_len = 0;
+    CK_RV rv;
+
+    /* Get length only */
+    rv = ber_encode_SPKI(TRUE, &out, &len_only,
+                         oid, sizeof(oid),
+                         param, sizeof(param),
+                         key, sizeof(key));
+    if (rv != CKR_OK) {
+        fprintf(stderr,
+                "[FAIL] test_encode_spki_length_only: length_only call failed rv=%lu\n",
+                rv);
+        return 1;
+    }
+    if (out != NULL) {
+        fprintf(stderr,
+                "[FAIL] test_encode_spki_length_only: data pointer written in length_only mode\n");
+        free(out);
+        return 1;
+    }
+
+    /* Encode for real to compare sizes */
+    rv = ber_encode_SPKI(FALSE, &out, &full_len,
+                         oid, sizeof(oid),
+                         param, sizeof(param),
+                         key, sizeof(key));
+    if (rv != CKR_OK) {
+        fprintf(stderr,
+                "[FAIL] test_encode_spki_length_only: full encode failed rv=%lu\n",
+                rv);
+        return 1;
+    }
+
+    free(out);
+
+    if (len_only != full_len) {
+        fprintf(stderr,
+                "[FAIL] test_encode_spki_length_only: length mismatch "
+                "(length_only=%lu, full=%lu)\n", len_only, full_len);
+        return 1;
+    }
+
+    printf("[PASS] test_encode_spki_length_only\n");
+    return 0;
+}
+
+/* Test round-trip: ber_encode_SPKI then ber_decode_SPKI */
+static int test_roundtrip_spki(void)
+{
+    /* RSA OID */
+    static const CK_BYTE oid[] = {
+        0x06, 0x09, 0x2A, 0x86, 0x48, 0x86, 0xF7, 0x0D, 0x01, 0x01, 0x01
+    };
+    static const CK_BYTE param[] = {0x05, 0x00};
+    static const CK_BYTE key[] = {
+        0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
+        0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F, 0x10
+    };
+    CK_BYTE *spki = NULL;
+    CK_ULONG spki_len = 0;
+    CK_BYTE *dec_oid = NULL;
+    CK_ULONG dec_oid_len = 0;
+    CK_BYTE *dec_param = NULL;
+    CK_ULONG dec_param_len = 0;
+    CK_BYTE *dec_key = NULL;
+    CK_ULONG dec_key_len = 0;
+    CK_RV rv;
+    int result = 0;
+
+    rv = ber_encode_SPKI(FALSE, &spki, &spki_len,
+                         oid, sizeof(oid),
+                         param, sizeof(param),
+                         key, sizeof(key));
+    if (rv != CKR_OK) {
+        fprintf(stderr,
+                "[FAIL] test_roundtrip_spki: encode failed rv=%lu\n", rv);
+        return 1;
+    }
+
+    rv = ber_decode_SPKI(spki, spki_len,
+                         &dec_oid, &dec_oid_len,
+                         &dec_param, &dec_param_len,
+                         &dec_key, &dec_key_len);
+    if (rv != CKR_OK) {
+        fprintf(stderr,
+                "[FAIL] test_roundtrip_spki: decode failed rv=%lu\n", rv);
+        free(spki);
+        return 1;
+    }
+
+    /* OID should round-trip exactly */
+    if (dec_oid_len != sizeof(oid)) {
+        fprintf(stderr,
+                "[FAIL] test_roundtrip_spki: OID length mismatch "
+                "(expected %lu, got %lu)\n",
+                (unsigned long)sizeof(oid), dec_oid_len);
+        result = 1;
+    } else {
+        result |= compare_bytes("test_roundtrip_spki OID",
+                                (CK_BYTE *)oid, dec_oid, dec_oid_len);
+    }
+
+    /* param should round-trip exactly */
+    if (dec_param_len != sizeof(param)) {
+        fprintf(stderr,
+                "[FAIL] test_roundtrip_spki: param length mismatch "
+                "(expected %lu, got %lu)\n",
+                (unsigned long)sizeof(param), dec_param_len);
+        result = 1;
+    } else {
+        result |= compare_bytes("test_roundtrip_spki param",
+                                (CK_BYTE *)param, dec_param, dec_param_len);
+    }
+
+    /* key bytes should round-trip exactly */
+    if (dec_key_len != sizeof(key)) {
+        fprintf(stderr,
+                "[FAIL] test_roundtrip_spki: key length mismatch "
+                "(expected %lu, got %lu)\n",
+                (unsigned long)sizeof(key), dec_key_len);
+        result = 1;
+    } else {
+        result |= compare_bytes("test_roundtrip_spki key",
+                                (CK_BYTE *)key, dec_key, dec_key_len);
+    }
+
+    free(spki);
+    if (result == 0)
+        printf("[PASS] test_roundtrip_spki\n");
+    return result;
+}
+
 int main(void)
 {
     int failed = 0;
@@ -3204,6 +3364,10 @@ int main(void)
     failed += test_decode_spki_valid();
     failed += test_decode_spki_truncated();
     failed += test_decode_spki_short_algid();
+    failed += test_encode_spki_with_null_param();
+    failed += test_encode_spki_no_param();
+    failed += test_encode_spki_length_only();
+    failed += test_roundtrip_spki();
 
     /* RSA Private Key tests */
     printf("\n--- RSA Private Key Tests ---\n");
