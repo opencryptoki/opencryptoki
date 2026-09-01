@@ -2351,33 +2351,25 @@ static int test_encode_choice_length_only(void)
     return 0;
 }
 
-/* Test ber_encode_CHOICE with maximum option value (0x1F) */
-static int test_encode_choice_max_option(void)
+/* Test that ber_encode_CHOICE rejects option value 0x1F (long-form tag) */
+static int test_encode_choice_rejects_long_tag(void)
 {
     CK_BYTE data[] = {0x01, 0x02};
     CK_BYTE *encoded = NULL;
     CK_ULONG encoded_len = 0;
-    CK_BYTE option = 0x1F;  /* Maximum 5-bit value */
     CK_RV rv;
-    int result = 0;
 
-    rv = ber_encode_CHOICE(FALSE, option, &encoded, &encoded_len, data, sizeof(data), FALSE);
-    if (rv != CKR_OK) {
-        fprintf(stderr, "[FAIL] test_encode_choice_max_option: encode failed with rv=%lu\n", rv);
+    rv = ber_encode_CHOICE(FALSE, 0x1F, &encoded, &encoded_len,
+                           data, sizeof(data), FALSE);
+    if (rv == CKR_OK) {
+        fprintf(stderr, "[FAIL] test_encode_choice_rejects_long_tag: "
+                "expected failure for option=0x1F, got CKR_OK\n");
+        free(encoded);
         return 1;
     }
 
-    /* Expected: 0x9F (context-specific, primitive, tag 31), length, data */
-    if (encoded[0] != 0x9F) {
-        fprintf(stderr, "[FAIL] test_encode_choice_max_option: tag mismatch (expected 0x9F, got %02X)\n",
-                encoded[0]);
-        result = 1;
-    }
-
-    free(encoded);
-    if (result == 0)
-        printf("[PASS] test_encode_choice_max_option\n");
-    return result;
+    printf("[PASS] test_encode_choice_rejects_long_tag\n");
+    return 0;
 }
 
 /* Test ber_decode_CHOICE with primitive short form */
@@ -3187,7 +3179,7 @@ int main(void)
     failed += test_encode_choice_3byte_long_form();
     failed += test_encode_choice_4byte_long_form();
     failed += test_encode_choice_length_only();
-    failed += test_encode_choice_max_option();
+    failed += test_encode_choice_rejects_long_tag();
     failed += test_decode_choice_primitive_short();
     failed += test_decode_choice_constructed_short();
     failed += test_decode_choice_invalid_constructed();
