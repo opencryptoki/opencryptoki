@@ -267,8 +267,13 @@ static int kmip_get_attribute_v1(const struct kmip_node *node,
 		goto out;
 	}
 
-	if (name != NULL)
+	if (name != NULL) {
 		*name = kmip_node_get_text_string(nam);
+		if (*name == NULL) {
+			rc = -EBADMSG;
+			goto out;
+		}
+	}
 	if (index != NULL)
 		*index = (idx != NULL ? kmip_node_get_integer(idx) : 0);
 	if (value != NULL)
@@ -585,6 +590,11 @@ int kmip_v2_attr_from_v1_attr(struct kmip_node *v1_attr,
 	rc = kmip_get_attribute_v1(v1_attr, &name, NULL, &value);
 	if (rc != 0)
 		return rc;
+
+	if (name == NULL) {
+		kmip_node_free(value);
+		return -EBADMSG;
+	}
 
 	if (strncmp(name, "x-", 2) == 0 ||
 	    strncmp(name, "y-", 2) == 0) {
