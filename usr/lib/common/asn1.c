@@ -544,6 +544,139 @@ CK_RV ber_decode_SPKI(CK_BYTE *spki, CK_ULONG spki_len,
     return CKR_OK;
 }
 
+/*
+ * Build a SubjectPublicKeyInfo (SPKI):
+ *
+ *   SubjectPublicKeyInfo ::= SEQUENCE {
+ *       algorithm        AlgorithmIdentifier,
+ *       subjectPublicKey BIT STRING
+ *   }
+ *
+ *   AlgorithmIdentifier ::= SEQUENCE {
+ *       algorithm   OBJECT IDENTIFIER,
+ *       parameters  ANY DEFINED BY algorithm OPTIONAL
+ *   }
+ *
+ * oid/oid_len:     DER-encoded OID (tag 0x06 + length + value).
+ * param/param_len: already-encoded parameter bytes appended verbatim after the
+ *                  OID inside the AlgorithmIdentifier SEQUENCE.  Pass NULL (or
+ *                  param_len 0) when the AlgorithmIdentifier has no parameters.
+ *                  This is the same representation ber_decode_SPKI returns.
+ * key/key_len:     raw bytes to wrap in the BIT STRING (content is opaque;
+ *                  may itself be a SEQUENCE for legacy key types).
+ *
+ * If length_only is TRUE, *data_len receives the required size and *data is
+ * not written.
+ */
+CK_RV ber_encode_SPKI(CK_BBOOL length_only, CK_BYTE **data,
+                      CK_ULONG *data_len,
+                      const CK_BYTE *oid, CK_ULONG oid_len,
+                      const CK_BYTE *param, CK_ULONG param_len,
+                      const CK_BYTE *key, CK_ULONG key_len)
+{
+    CK_BYTE *algid = NULL;
+    CK_ULONG algid_len = 0;
+    CK_BYTE *algid_content = NULL;
+    CK_ULONG algid_content_len;
+    CK_BYTE *bitstr = NULL;
+    CK_ULONG bitstr_len, total;
+    CK_BYTE *buf = NULL;
+    CK_RV rc;
+
+    /* Build AlgorithmIdentifier content: OID || param (if any) */
+    if (param == NULL)
+        param_len = 0;
+
+    if (ADD_OVERFLOW(oid_len, param_len)) {
+        TRACE_ERROR("%s Integer overflow in allocation size\n", __func__);
+        return CKR_HOST_MEMORY;
+    }
+    algid_content_len = oid_len + param_len;
+
+    algid_content = malloc(algid_content_len);
+    if (algid_content == NULL) {
+        TRACE_ERROR("%s Memory allocation failed\n", __func__);
+        return CKR_HOST_MEMORY;
+    }
+    memcpy(algid_content, oid, oid_len);
+    if (param_len > 0)
+        memcpy(algid_content + oid_len, param, param_len);
+
+    rc = ber_encode_SEQUENCE(FALSE, &algid, &algid_len,
+                             algid_content, algid_content_len);
+    free(algid_content);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("%s ber_encode_SEQUENCE (AlgId) failed rc=0x%lx\n",
+                    __func__, rc);
+        return rc;
+    }
+
+    /* Size of BIT STRING wrapping the key bytes */
+    rc = ber_encode_BIT_STRING(TRUE, NULL, &bitstr_len, NULL, key_len, 0);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("%s ber_encode_BIT_STRING failed rc=0x%lx\n",
+                    __func__, rc);
+        free(algid);
+        return rc;
+    }
+
+    if (ADD_OVERFLOW(algid_len, bitstr_len)) {
+        TRACE_ERROR("%s Integer overflow in allocation size\n", __func__);
+        free(algid);
+        return CKR_HOST_MEMORY;
+    }
+
+    rc = ber_encode_SEQUENCE(TRUE, NULL, &total, NULL, algid_len + bitstr_len);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("%s ber_encode_SEQUENCE failed rc=0x%lx\n",
+                    __func__, rc);
+        free(algid);
+        return rc;
+    }
+
+    if (length_only == TRUE) {
+        *data_len = total;
+        free(algid);
+        return CKR_OK;
+    }
+
+    rc = ber_encode_BIT_STRING(FALSE, &bitstr, &bitstr_len,
+                               (CK_BYTE *)key, key_len, 0);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("%s ber_encode_BIT_STRING failed rc=0x%lx\n",
+                    __func__, rc);
+        free(algid);
+        return rc;
+    }
+
+    if (ADD_OVERFLOW(algid_len, bitstr_len)) {
+        TRACE_ERROR("%s Integer overflow in allocation size\n", __func__);
+        free(algid);
+        free(bitstr);
+        return CKR_HOST_MEMORY;
+    }
+
+    buf = malloc(algid_len + bitstr_len);
+    if (buf == NULL) {
+        TRACE_ERROR("%s Memory allocation failed\n", __func__);
+        free(algid);
+        free(bitstr);
+        return CKR_HOST_MEMORY;
+    }
+    memcpy(buf, algid, algid_len);
+    memcpy(buf + algid_len, bitstr, bitstr_len);
+    free(algid);
+    free(bitstr);
+
+    rc = ber_encode_SEQUENCE(FALSE, data, data_len,
+                             buf, algid_len + bitstr_len);
+    if (rc != CKR_OK)
+        TRACE_DEVEL("%s ber_encode_SEQUENCE failed rc=0x%lx\n",
+                    __func__, rc);
+    free(buf);
+    return rc;
+}
+
 
 // RSAPrivateKey ::= SEQUENCE {
 //    version  Version  -- always '0' for now
@@ -1121,26 +1254,21 @@ CK_RV ber_encode_RSAPublicKey(CK_BBOOL length_only, CK_BYTE **data,
                               CK_ULONG *data_len, CK_ATTRIBUTE *modulus,
                               CK_ATTRIBUTE *publ_exp)
 {
-    CK_ULONG len = 0, offset, total, total_len;
+    CK_ULONG len = 0, offset;
     CK_RV rc;
     CK_BYTE *buf = NULL;
     CK_BYTE *buf2 = NULL;
-    CK_BYTE *buf3 = NULL;
-    CK_BYTE *bitstr = NULL;
-    CK_ULONG bitstr_len = 0;
-
-    UNUSED(length_only);
 
     offset = 0;
     rc = 0;
-    total_len = ber_AlgIdRSAEncryptionLen;
-    total = 0;
 
     rc |= ber_encode_INTEGER(TRUE, NULL, &len, NULL, modulus->ulValueLen);
     offset += len;
     rc |= ber_encode_INTEGER(TRUE, NULL, &len, NULL, publ_exp->ulValueLen);
-    if (ADD_OVERFLOW(offset, len))
-        goto overflow;
+    if (ADD_OVERFLOW(offset, len)) {
+        TRACE_ERROR("%s Integer overflow in allocation size\n", __func__);
+        return CKR_FUNCTION_FAILED;
+    }
     offset += len;
 
     if (rc != CKR_OK) {
@@ -1178,68 +1306,22 @@ CK_RV ber_encode_RSAPublicKey(CK_BBOOL length_only, CK_BYTE **data,
     memcpy(buf + offset, buf2, len);
     offset += len;
     free(buf2);
+    buf2 = NULL;
 
+    /* Build SEQUENCE { INTEGER modulus, INTEGER publicExponent } */
     rc = ber_encode_SEQUENCE(FALSE, &buf2, &len, buf, offset);
-    if (rc != CKR_OK) {
-        TRACE_DEVEL("%s ber_encode_Seq failed with rc=0x%lx\n", __func__, rc);
-        free(buf);
-        return rc;
-    }
     free(buf);
-
-    /* size estimate for buf3: AlgId + BIT STRING wrapping buf2/len */
-    rc = ber_encode_BIT_STRING(TRUE, NULL, &total, NULL, len, 0);
     if (rc != CKR_OK) {
-        TRACE_DEVEL("%s ber_encode_BIT_STRING failed with rc=0x%lx\n",
-                    __func__, rc);
-        free(buf2);
+        TRACE_DEVEL("%s ber_encode_Seq failed with rc=0x%lx\n", __func__, rc);
         return rc;
     }
-    if (total > ULONG_MAX - total_len) {
-        TRACE_ERROR("%s key encoding length overflow\n", __func__);
-        free(buf2);
-        return CKR_KEY_SIZE_RANGE;
-    }
-    total_len += total;
 
-    /* mem for outer sequence */
-    buf3 = (CK_BYTE *) malloc(total_len);
-    if (!buf3) {
-        TRACE_ERROR("%s Memory allocation failed\n", __func__);
-        free(buf2);
-        return CKR_HOST_MEMORY;
-    }
-    total_len = 0;
-
-    /* copy alg id */
-    memcpy(buf3 + total_len, ber_AlgIdRSAEncryption, ber_AlgIdRSAEncryptionLen);
-    total_len += ber_AlgIdRSAEncryptionLen;
-
-    /* need a bitstring */
-    rc = ber_encode_BIT_STRING(FALSE, &bitstr, &bitstr_len, buf2, len, 0);
+    rc = ber_encode_SPKI(length_only, data, data_len,
+                         ber_rsaEncryption, ber_rsaEncryptionLen,
+                         ber_NULL, ber_NULLLen,
+                         buf2, len);
     free(buf2);
-    if (rc != CKR_OK) {
-        TRACE_DEVEL("%s ber_encode_BIT_STRING failed\n", __func__);
-        goto out;
-    }
-    memcpy(buf3 + total_len, bitstr, bitstr_len);
-    total_len += bitstr_len;
-    free(bitstr);
-    bitstr = NULL;
-
-    rc = ber_encode_SEQUENCE(FALSE, data, data_len, buf3, total_len);
-    if (rc != CKR_OK)
-        TRACE_DEVEL("%s ber_encode_Seq failed with rc=0x%lx\n", __func__, rc);
-
-out:
-    free(bitstr);
-    free(buf3);
     return rc;
-
-overflow:
-    TRACE_ERROR("%s Integer overflow in allocation size\n", __func__);
-    rc = CKR_FUNCTION_FAILED;
-    goto out;
 }
 
 CK_RV ber_decode_RSAPublicKey(CK_BYTE *data,
@@ -1703,74 +1785,33 @@ CK_RV ber_encode_DSAPublicKey(CK_BBOOL length_only, CK_BYTE **data,
                               CK_ATTRIBUTE *subprime, CK_ATTRIBUTE *base,
                               CK_ATTRIBUTE *value)
 {
-    CK_ULONG len = 0, parm_len, id_len, pub_len, offset, total;
+    CK_ULONG len = 0, parm_len, offset;
     CK_RV rc = 0;
     CK_BYTE *buf = NULL;
     CK_BYTE *buf2 = NULL;
-    CK_BYTE *bitstr = NULL;
-    CK_ULONG bitstr_len = 0;
-
-    /* Calculate the BER container length
-     *
-     * SPKI := SEQUENCE {
-     *  SEQUENCE {
-     *      OID
-     *      Parameters
-     *  }
-     *  BITSTRING public key
-     * }
-     */
 
     offset = 0;
-    rc = 0;
-    total = 0;
-    parm_len = 0;
-    id_len = 0;
-    pub_len = 0;
 
-    /* OID and parameters */
+    /* Compute size of params content: INTEGER p + INTEGER q + INTEGER g */
     rc |= ber_encode_INTEGER(TRUE, NULL, &len, NULL, prime->ulValueLen);
     offset += len;
     rc |= ber_encode_INTEGER(TRUE, NULL, &len, NULL, subprime->ulValueLen);
     offset += len;
     rc |= ber_encode_INTEGER(TRUE, NULL, &len, NULL, base->ulValueLen);
     offset += len;
-    rc |= ber_encode_SEQUENCE(TRUE, NULL, &parm_len, NULL, offset);
-    rc |=
-        ber_encode_SEQUENCE(TRUE, NULL, &id_len, NULL, ber_idDSALen + parm_len);
-
-    /* public key: compute encoded size only */
-    rc |=
-        ber_encode_INTEGER(FALSE, &buf, &len, value->pValue, value->ulValueLen);
-    free(buf);
-    buf = NULL;
-    rc |= ber_encode_BIT_STRING(TRUE, NULL, &pub_len, NULL, len, 0);
-
-    rc = ber_encode_SEQUENCE(TRUE, NULL, &total, NULL, id_len + pub_len);
 
     if (rc != CKR_OK) {
-        TRACE_DEVEL("%s der_encode_sequence failed with rc=0x%lx\n", __func__,
-                    rc);
+        TRACE_DEVEL("%s ber_encode_Int failed with rc=0x%lx\n", __func__, rc);
         return rc;
     }
 
-    if (length_only == TRUE) {
-        *data_len = total;
-        return rc;
-    }
-
-    if (ADD_OVERFLOW(id_len, pub_len)) {
-        TRACE_ERROR("%s Integer overflow in allocation size\n", __func__);
-        return CKR_HOST_MEMORY;
-    }
-
-    buf = (CK_BYTE *) malloc(id_len + pub_len);
+    buf = (CK_BYTE *) malloc(offset);
     if (!buf) {
         TRACE_ERROR("%s Memory allocation failed\n", __func__);
         return CKR_HOST_MEMORY;
     }
 
-    /* Parameters */
+    /* Encode parameters: SEQUENCE { INTEGER p, INTEGER q, INTEGER g } */
     offset = 0;
     rc = ber_encode_INTEGER(FALSE, &buf2, &len, prime->pValue,
                             prime->ulValueLen);
@@ -1803,29 +1844,17 @@ CK_RV ber_encode_DSAPublicKey(CK_BBOOL length_only, CK_BYTE **data,
     memcpy(buf + offset, buf2, len);
     offset += len;
     free(buf2);
+    buf2 = NULL;
 
+    /* Build SEQUENCE { INTEGER p, INTEGER q, INTEGER g } as AlgId param */
     rc = ber_encode_SEQUENCE(FALSE, &buf2, &parm_len, buf, offset);
-    if (rc != CKR_OK) {
-        TRACE_DEVEL("%s ber_encode_Seq failed with rc=0x%lx\n", __func__, rc);
-        free(buf);
-        return rc;
-    }
-
-    /* OID and parameters */
-    memcpy(buf, ber_idDSA, ber_idDSALen);
-    memcpy(buf + ber_idDSALen, buf2, parm_len);
-    free(buf2);
-
-    rc = ber_encode_SEQUENCE(FALSE, &buf2, &id_len, buf,
-                             ber_idDSALen + parm_len);
-    if (rc != CKR_OK) {
-        TRACE_DEVEL("%s ber_encode_Seq failed with rc=0x%lx\n", __func__, rc);
-        free(buf);
-        return rc;
-    }
     free(buf);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("%s ber_encode_Seq failed with rc=0x%lx\n", __func__, rc);
+        return rc;
+    }
 
-    /* public key */
+    /* Encode public key value as INTEGER */
     rc = ber_encode_INTEGER(FALSE, &buf, &len, value->pValue,
                             value->ulValueLen);
     if (rc != CKR_OK) {
@@ -1834,45 +1863,11 @@ CK_RV ber_encode_DSAPublicKey(CK_BBOOL length_only, CK_BYTE **data,
         return rc;
     }
 
-    rc = ber_encode_BIT_STRING(FALSE, &bitstr, &bitstr_len, buf, len, 0);
-    free(buf);
-    buf = NULL;
-    if (rc != CKR_OK) {
-        TRACE_DEVEL("%s ber_encode_BIT_STRING failed\n", __func__);
-        free(buf2);
-        return rc;
-    }
-
-    pub_len = bitstr_len;
-    if (ADD_OVERFLOW(id_len, pub_len)) {
-        TRACE_ERROR("%s Integer overflow in allocation size\n", __func__);
-        free(bitstr);
-        free(buf2);
-        return CKR_HOST_MEMORY;
-    }
-
-    buf = (CK_BYTE *) malloc(id_len + pub_len);
-    if (!buf) {
-        TRACE_ERROR("%s Memory allocation failed\n", __func__);
-        free(bitstr);
-        free(buf2);
-        return CKR_HOST_MEMORY;
-    }
-    memcpy(buf, buf2, id_len);
-    memcpy(buf + id_len, bitstr, pub_len);
+    rc = ber_encode_SPKI(length_only, data, data_len,
+                         ber_idDSA, ber_idDSALen, buf2, parm_len,
+                         buf, len);
     free(buf2);
-    free(bitstr);
-    bitstr = NULL;
-
-    /* outer sequence */
-    rc = ber_encode_SEQUENCE(FALSE, data, data_len, buf, id_len + pub_len);
-    if (rc != CKR_OK) {
-        TRACE_DEVEL("%s der_encode_Seq failed with rc=0x%lx\n", __func__, rc);
-        free(buf);
-        return rc;
-    }
     free(buf);
-
     return rc;
 }
 
@@ -2481,12 +2476,13 @@ CK_RV ber_encode_ECPublicKey(CK_BBOOL length_only, CK_BYTE **data,
                              CK_ULONG *data_len, CK_ATTRIBUTE *params,
                              CK_ATTRIBUTE *point, CK_KEY_TYPE key_type)
 {
-    CK_ULONG len, len2, total, ofs;
-    CK_ULONG algid_len;
     CK_RV rc = 0;
-    CK_BYTE *buf = NULL, *buf2 = NULL;
     CK_BYTE *ecpoint;
     CK_ULONG ecpoint_len, field_len;
+    const CK_BYTE *oid;
+    CK_ULONG oid_len;
+    const CK_BYTE *param;
+    CK_ULONG param_len;
 
     switch (key_type) {
     case CKK_EC:
@@ -2499,8 +2495,11 @@ CK_RV ber_encode_ECPublicKey(CK_BBOOL length_only, CK_BYTE **data,
             return CKR_ATTRIBUTE_VALUE_INVALID;
         }
 
-        /* AlgID param is curve OID. */
-        algid_len = der_AlgIdECBaseLen + params->ulValueLen;
+        /* AlgorithmIdentifier: SEQUENCE { ber_idEC, curve-OID-params } */
+        oid = ber_idEC;
+        oid_len = ber_idECLen;
+        param = params->pValue;
+        param_len = params->ulValueLen;
         break;
     case CKK_EC_EDWARDS:
     case CKK_EC_MONTGOMERY:
@@ -2508,115 +2507,20 @@ CK_RV ber_encode_ECPublicKey(CK_BBOOL length_only, CK_BYTE **data,
         ecpoint = point->pValue;
         ecpoint_len = point->ulValueLen;
 
-        /* ALgID itself is curve OID */
-        rc = ber_encode_SEQUENCE(TRUE, NULL, &algid_len, NULL,
-                                 params->ulValueLen);
-        if (rc != CKR_OK) {
-            TRACE_DEVEL("%s der_encode_sequence failed with rc=0x%lx\n",
-                        __func__, rc);
-            return rc;
-        }
+        /* AlgorithmIdentifier: SEQUENCE { curve-OID } — no separate param */
+        oid = params->pValue;
+        oid_len = params->ulValueLen;
+        param = NULL;
+        param_len = 0;
         break;
     default:
         TRACE_DEVEL("Key type 0x%lx not supported.\n", key_type);
         return CKR_KEY_TYPE_INCONSISTENT;
     }
 
-    /* Calculate the BER container length
-     *
-     * SPKI := SEQUENCE {
-     *      SEQUENCE {
-     *              OID
-     *              Parameters
-     *      }
-     *      BITSTRING public key
-     * }
-     */
-    rc = ber_encode_SEQUENCE(TRUE, NULL, &len, NULL, algid_len);
-    if (rc != CKR_OK) {
-        TRACE_DEVEL("%s der_encode_sequence failed with rc=0x%lx\n",
-                    __func__, rc);
-        return rc;
-    }
-
-    /* public key */
-    rc = ber_encode_BIT_STRING(TRUE, NULL, &len2, NULL, ecpoint_len, 0);
-    if (rc != CKR_OK) {
-        TRACE_DEVEL("%s ber_encode_BIT_STRING failed with rc=0x%lx\n",
-                    __func__, rc);
-        return rc;
-    }
-
-    rc = ber_encode_SEQUENCE(TRUE, NULL, &total, NULL, len + len2);
-    if (rc != CKR_OK) {
-        TRACE_DEVEL("%s der_encode_sequence failed with rc=0x%lx\n",
-                    __func__, rc);
-        return rc;
-    }
-
-    if (length_only == TRUE) {
-        *data_len = total;
-        return rc;
-    }
-
-    /* Now compute with real data */
-    buf = (CK_BYTE *) malloc(total);
-    if (!buf) {
-        TRACE_ERROR("%s Memory allocation failed\n", __func__);
-        return CKR_HOST_MEMORY;
-    }
-
-    switch (key_type) {
-    case CKK_EC:
-        /* AlgID param is curve OID. */
-        memcpy(buf, der_AlgIdECBase, der_AlgIdECBaseLen);
-        memcpy(buf + der_AlgIdECBaseLen, params->pValue, params->ulValueLen);
-        buf[1] += params->ulValueLen;
-        ofs = der_AlgIdECBaseLen + params->ulValueLen;
-        break;
-    case CKK_EC_EDWARDS:
-    case CKK_EC_MONTGOMERY:
-        /* ALgID itself is curve OID */
-        rc = ber_encode_SEQUENCE(FALSE, &buf2, &len, params->pValue,
-                                 params->ulValueLen);
-        if (rc != CKR_OK) {
-            TRACE_DEVEL("%s der_encode_sequence failed with rc=0x%lx\n",
-                        __func__, rc);
-            free(buf);
-            return rc;
-        }
-        memcpy(buf, buf2, len);
-        free(buf2);
-        buf2 = NULL;
-        ofs = len;
-        break;
-    default:
-        TRACE_DEVEL("Key type 0x%lx not supported.\n", key_type);
-        free(buf);
-        return CKR_KEY_TYPE_INCONSISTENT;
-    }
-
-    /* generate bitstring */
-    rc = ber_encode_BIT_STRING(FALSE, &buf2, &len2, ecpoint, ecpoint_len, 0);
-    if (rc != CKR_OK) {
-        TRACE_DEVEL("%s ber_encode_BIT_STRING failed with rc=0x%lx\n",
-                    __func__, rc);
-        free(buf);
-        return rc;
-    }
-
-    memcpy(buf + ofs, buf2, len2);
-    free(buf2);
-
-    rc = ber_encode_SEQUENCE(FALSE, data, data_len, buf, algid_len + len2);
-    if (rc != CKR_OK) {
-        TRACE_DEVEL("%s der_encode_Seq failed with rc=0x%lx\n", __func__, rc);
-        free(buf);
-        return rc;
-    }
-    free(buf);
-
-    return rc;
+    return ber_encode_SPKI(length_only, data, data_len,
+                           oid, oid_len, param, param_len,
+                           ecpoint, ecpoint_len);
 }
 
 /*
@@ -3052,72 +2956,31 @@ CK_RV ber_encode_DHPublicKey(CK_BBOOL length_only, CK_BYTE **data,
                              CK_ULONG *data_len, CK_ATTRIBUTE *prime,
                              CK_ATTRIBUTE *base, CK_ATTRIBUTE *value)
 {
-    CK_ULONG len = 0, parm_len, id_len, pub_len, offset, total;
+    CK_ULONG len = 0, parm_len, offset;
     CK_RV rc = 0;
     CK_BYTE *buf = NULL;
     CK_BYTE *buf2 = NULL;
-    CK_BYTE *bitstr = NULL;
-    CK_ULONG bitstr_len = 0;
-
-    /* Calculate the BER container length
-     *
-     * SPKI := SEQUENCE {
-     *  SEQUENCE {
-     *      OID
-     *      Parameters
-     *  }
-     *  BITSTRING public key
-     * }
-     */
 
     offset = 0;
-    rc = 0;
-    total = 0;
-    parm_len = 0;
-    id_len = 0;
-    pub_len = 0;
 
-    /* OID and parameters */
+    /* Compute size of params content: INTEGER p + INTEGER g */
     rc |= ber_encode_INTEGER(TRUE, NULL, &len, NULL, prime->ulValueLen);
     offset += len;
     rc |= ber_encode_INTEGER(TRUE, NULL, &len, NULL, base->ulValueLen);
     offset += len;
-    rc |= ber_encode_SEQUENCE(TRUE, NULL, &parm_len, NULL, offset);
-    rc |=
-        ber_encode_SEQUENCE(TRUE, NULL, &id_len, NULL, ber_idDHLen + parm_len);
-
-    /* public key: compute encoded size only */
-    rc |=
-        ber_encode_INTEGER(FALSE, &buf, &len, value->pValue, value->ulValueLen);
-    free(buf);
-    buf = NULL;
-    rc |= ber_encode_BIT_STRING(TRUE, NULL, &pub_len, NULL, len, 0);
-
-    rc |= ber_encode_SEQUENCE(TRUE, NULL, &total, NULL, id_len + pub_len);
 
     if (rc != CKR_OK) {
-        TRACE_DEVEL("%s der_encode_sequence failed with rc=0x%lx\n", __func__,
-                    rc);
+        TRACE_DEVEL("%s ber_encode_Int failed with rc=0x%lx\n", __func__, rc);
         return rc;
     }
 
-    if (length_only == TRUE) {
-        *data_len = total;
-        return rc;
-    }
-
-    if (ADD_OVERFLOW(id_len, pub_len)) {
-        TRACE_ERROR("%s Integer overflow in allocation size\n", __func__);
-        return CKR_HOST_MEMORY;
-    }
-
-    buf = (CK_BYTE *) malloc(id_len + pub_len);
+    buf = (CK_BYTE *) malloc(offset);
     if (!buf) {
         TRACE_ERROR("%s Memory allocation failed\n", __func__);
         return CKR_HOST_MEMORY;
     }
 
-    /* Parameters */
+    /* Encode parameters: SEQUENCE { INTEGER p, INTEGER g } */
     offset = 0;
     rc = ber_encode_INTEGER(FALSE, &buf2, &len, prime->pValue,
                             prime->ulValueLen);
@@ -3139,29 +3002,17 @@ CK_RV ber_encode_DHPublicKey(CK_BBOOL length_only, CK_BYTE **data,
     memcpy(buf + offset, buf2, len);
     offset += len;
     free(buf2);
+    buf2 = NULL;
 
+    /* Build SEQUENCE { INTEGER p, INTEGER g } as AlgId param */
     rc = ber_encode_SEQUENCE(FALSE, &buf2, &parm_len, buf, offset);
-    if (rc != CKR_OK) {
-        TRACE_DEVEL("%s ber_encode_Seq failed with rc=0x%lx\n", __func__, rc);
-        free(buf);
-        return rc;
-    }
-
-    /* OID and parameters */
-    memcpy(buf, ber_idDH, ber_idDHLen);
-    memcpy(buf + ber_idDHLen, buf2, parm_len);
-    free(buf2);
-
-    rc = ber_encode_SEQUENCE(FALSE, &buf2, &id_len, buf,
-                             ber_idDHLen + parm_len);
-    if (rc != CKR_OK) {
-        TRACE_DEVEL("%s ber_encode_Seq failed with rc=0x%lx\n", __func__, rc);
-        free(buf);
-        return rc;
-    }
     free(buf);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("%s ber_encode_Seq failed with rc=0x%lx\n", __func__, rc);
+        return rc;
+    }
 
-    /* public key */
+    /* Encode public key value as INTEGER */
     rc = ber_encode_INTEGER(FALSE, &buf, &len, value->pValue,
                             value->ulValueLen);
     if (rc != CKR_OK) {
@@ -3170,44 +3021,11 @@ CK_RV ber_encode_DHPublicKey(CK_BBOOL length_only, CK_BYTE **data,
         return rc;
     }
 
-    rc = ber_encode_BIT_STRING(FALSE, &bitstr, &bitstr_len, buf, len, 0);
-    free(buf);
-    buf = NULL;
-    if (rc != CKR_OK) {
-        TRACE_DEVEL("%s ber_encode_BIT_STRING failed\n", __func__);
-        free(buf2);
-        return rc;
-    }
-
-    pub_len = bitstr_len;
-    if (ADD_OVERFLOW(id_len, pub_len)) {
-        TRACE_ERROR("%s Integer overflow in allocation size\n", __func__);
-        free(bitstr);
-        free(buf2);
-        return CKR_HOST_MEMORY;
-    }
-
-    buf = (CK_BYTE *) malloc(id_len + pub_len);
-    if (!buf) {
-        TRACE_ERROR("%s Memory allocation failed\n", __func__);
-        free(bitstr);
-        free(buf2);
-        return CKR_HOST_MEMORY;
-    }
-    memcpy(buf, buf2, id_len);
-    memcpy(buf + id_len, bitstr, pub_len);
+    rc = ber_encode_SPKI(length_only, data, data_len,
+                         ber_idDH, ber_idDHLen, buf2, parm_len,
+                         buf, len);
     free(buf2);
-    free(bitstr);
-    bitstr = NULL;
-
-    /* outer sequence */
-    rc = ber_encode_SEQUENCE(FALSE, data, data_len, buf, id_len + pub_len);
     free(buf);
-    if (rc != CKR_OK) {
-        TRACE_DEVEL("%s der_encode_Seq failed with rc=0x%lx\n", __func__, rc);
-        return rc;
-    }
-
     return rc;
 }
 
@@ -3335,52 +3153,44 @@ static CK_RV ber_encode_IBM_DilithiumPublicKey(CK_BBOOL length_only,
                                                CK_ATTRIBUTE *rho,
                                                CK_ATTRIBUTE *t1)
 {
-    CK_BYTE *buf = NULL, *buf2 = NULL, *buf3 = NULL, *buf4 = NULL;
-    CK_BYTE *buf5 = NULL, *algid = NULL;
-    CK_ULONG len = 0, len4, offset, total, total_len, algid_len;
+    CK_BYTE *buf = NULL, *buf2 = NULL;
+    CK_ULONG len = 0, offset;
     CK_RV rc;
 
-    UNUSED(length_only);
-
+    /* Compute sizes for BIT STRING rho + BIT STRING t1 inside a SEQUENCE */
     offset = 0;
-    rc = 0;
-    total_len = 0;
-    total = 0;
-
-    /* Calculate storage for AlgID sequence */
-    rc |= ber_encode_SEQUENCE(TRUE, NULL, &total_len, NULL,
-                              oid_len + ber_NULLLen);
-
-    /* Calculate storage for inner sequence */
-    rc |= ber_encode_INTEGER(TRUE, NULL, &len, NULL, rho->ulValueLen);
-    offset += len;
-    rc |= ber_encode_INTEGER(TRUE, NULL, &len, NULL, t1->ulValueLen);
-    if (ADD_OVERFLOW(offset, len))
-        goto overflow;
-    offset += len;
-
+    rc = ber_encode_BIT_STRING(TRUE, NULL, &len, NULL, rho->ulValueLen, 0);
     if (rc != CKR_OK) {
-        TRACE_ERROR("%s ber_encode_Int failed with rc=0x%lx\n", __func__, rc);
+        TRACE_ERROR("%s ber_encode_BIT_STRING failed rc=0x%lx\n",
+                    __func__, rc);
         return rc;
     }
+    offset += len;
+    rc = ber_encode_BIT_STRING(TRUE, NULL, &len, NULL, t1->ulValueLen, 0);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s ber_encode_BIT_STRING failed rc=0x%lx\n",
+                    __func__, rc);
+        return rc;
+    }
+    if (ADD_OVERFLOW(offset, len)) {
+        TRACE_ERROR("%s Integer overflow in allocation size\n", __func__);
+        return CKR_FUNCTION_FAILED;
+    }
+    offset += len;
 
-    /* Allocate storage for inner sequence */
-    buf = (CK_BYTE *) malloc(offset);
+    buf = malloc(offset);
     if (!buf) {
         TRACE_ERROR("%s Memory allocation failed\n", __func__);
         return CKR_HOST_MEMORY;
     }
 
-    /**
-     *    SEQUENCE (2 elem)
-     *       BIT STRING -> rho
-     *       BIT STRING -> t
-     */
+    /* Fill buf: BIT STRING rho, BIT STRING t1 */
     offset = 0;
     rc = ber_encode_BIT_STRING(FALSE, &buf2, &len,
                                rho->pValue, rho->ulValueLen, 0);
     if (rc != CKR_OK) {
-        TRACE_ERROR("%s ber_encode_Int failed with rc=0x%lx\n", __func__, rc);
+        TRACE_ERROR("%s ber_encode_BIT_STRING failed rc=0x%lx\n",
+                    __func__, rc);
         goto error;
     }
     memcpy(buf + offset, buf2, len);
@@ -3391,7 +3201,8 @@ static CK_RV ber_encode_IBM_DilithiumPublicKey(CK_BBOOL length_only,
     rc = ber_encode_BIT_STRING(FALSE, &buf2, &len,
                                t1->pValue, t1->ulValueLen, 0);
     if (rc != CKR_OK) {
-        TRACE_ERROR("%s ber_encode_Int failed with rc=0x%lx\n", __func__, rc);
+        TRACE_ERROR("%s ber_encode_BIT_STRING failed rc=0x%lx\n",
+                    __func__, rc);
         goto error;
     }
     memcpy(buf + offset, buf2, len);
@@ -3399,102 +3210,24 @@ static CK_RV ber_encode_IBM_DilithiumPublicKey(CK_BBOOL length_only,
     free(buf2);
     buf2 = NULL;
 
+    /* Wrap in SEQUENCE -> buf2/len is the BIT STRING content */
     rc = ber_encode_SEQUENCE(FALSE, &buf2, &len, buf, offset);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("%s ber_encode_Seq failed with rc=0x%lx\n", __func__, rc);
-        goto error;
-    }
     free(buf);
     buf = NULL;
-
-    /* Calculate length of outer sequence */
-    rc = ber_encode_BIT_STRING(TRUE, NULL, &total, buf2, len, 0);
     if (rc != CKR_OK) {
-        TRACE_ERROR("%s ber_encode_Oct_Str failed with rc=0x%lx\n", __func__, rc);
-        goto error;
-    } else {
-        total_len += total;
-    }
-
-    /* Allocate storage for outer sequence and bit string */
-    buf3 = (CK_BYTE *) malloc(total_len);
-    if (!buf3) {
-        TRACE_ERROR("%s Memory allocation failed\n", __func__);
-        rc = CKR_HOST_MEMORY;
+        TRACE_ERROR("%s ber_encode_SEQUENCE failed rc=0x%lx\n",
+                    __func__, rc);
         goto error;
     }
 
-    /*
-     * SEQUENCE (2 elem)
-     *      OBJECT IDENTIFIER 1.3.6.1.4.1.2.267.xxx
-     *      NULL  <- no parms for this oid
-     */
-    buf5 = (CK_BYTE *) malloc(oid_len + ber_NULLLen);
-    if (!buf5) {
-        TRACE_ERROR("%s Memory allocation failed\n", __func__);
-        rc = CKR_HOST_MEMORY;
-        goto error;
-    }
-    memcpy(buf5, oid, oid_len);
-    memcpy(buf5 + oid_len, ber_NULL, ber_NULLLen);
-
-    rc = ber_encode_SEQUENCE(FALSE, &algid, &algid_len, buf5,
-                             oid_len + ber_NULLLen);
-    free(buf5);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("%s ber_encode_SEQUENCE failed with rc=0x%lx\n", __func__, rc);
-        goto error;
-    }
-
-    total_len = algid_len;
-    memcpy(buf3, algid, algid_len);
-    free(algid);
-    algid = NULL;
-
-    /*
-     * BIT STRING (1 elem)
-     *       SEQUENCE (2 elem)
-     *          BIT STRING  -> rho
-     *          BIT STRING  -> t1
-     */
-    rc = ber_encode_BIT_STRING(FALSE, &buf4, &len4, buf2, len, 0);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("%s ber_encode_BIT_STRING failed with rc=0x%lx\n", __func__, rc);
-        goto error;
-    }
-    memcpy(buf3 + total_len, buf4, len4);
-    total_len += len4;
-    free(buf4);
-    buf4 = NULL;
-
-    /**
-     * SEQUENCE (2 elem)
-     *    SEQUENCE (2 elem)
-     *       OBJECT IDENTIFIER 1.3.6.1.4.1.2.267.1.6.5
-     *       NULL -> no parms for this oid
-     *    BIT STRING (1 elem)
-     *       SEQUENCE (2 elem)
-     *          BIT STRING  -> rho
-     *          BIT STRING  -> t1
-     */
-    rc = ber_encode_SEQUENCE(FALSE, data, data_len, buf3, total_len);
-    if (rc != CKR_OK)
-        TRACE_ERROR("%s ber_encode_Seq failed with rc=0x%lx\n", __func__, rc);
+    rc = ber_encode_SPKI(length_only, data, data_len,
+                         oid, oid_len, ber_NULL, ber_NULLLen,
+                         buf2, len);
 
 error:
-    if (buf)
-        free(buf);
-    if (buf2)
-        free(buf2);
-    if (buf3)
-        free(buf3);
-
+    free(buf);
+    free(buf2);
     return rc;
-
-overflow:
-    TRACE_ERROR("%s Integer overflow in allocation size\n", __func__);
-    rc = CKR_FUNCTION_FAILED;
-    goto error;
 }
 
 
@@ -4144,143 +3877,47 @@ static CK_RV ber_encode_IBM_KyberPublicKey(CK_BBOOL length_only,
                                            const CK_BYTE *oid, CK_ULONG oid_len,
                                            CK_ATTRIBUTE *pk)
 {
-    CK_BYTE *buf = NULL, *buf2 = NULL, *buf3 = NULL, *buf4 = NULL;
-    CK_BYTE *buf5 = NULL, *algid = NULL;
-    CK_ULONG len, len4, offset, total, total_len, algid_len;
+    CK_BYTE *buf = NULL, *buf2 = NULL;
+    CK_ULONG len = 0, offset;
     CK_RV rc;
 
-    UNUSED(length_only);
-
-    offset = 0;
-    rc = 0;
-    total_len = 0;
-    total = 0;
-
-    /* Calculate storage for AlgID sequence */
-    rc |= ber_encode_SEQUENCE(TRUE, NULL, &total_len, NULL,
-                              oid_len + ber_NULLLen);
-
-    /* Calculate storage for inner sequence */
-    rc |= ber_encode_INTEGER(TRUE, NULL, &len, NULL, pk->ulValueLen);
-    offset += len;
-
-    if (rc != CKR_OK) {
-        TRACE_ERROR("%s ber_encode_Int failed with rc=0x%lx\n", __func__, rc);
-        return rc;
-    }
-
-    /* Allocate storage for inner sequence */
-    buf = (CK_BYTE *) malloc(offset);
-    if (!buf) {
-        TRACE_ERROR("%s Memory allocation failed\n", __func__);
-        return CKR_HOST_MEMORY;
-    }
-
-    /**
-     *    SEQUENCE (1 elem)
-     *       BIT STRING -> pk
-     */
-    offset = 0;
+    /* Build BIT STRING pk */
     rc = ber_encode_BIT_STRING(FALSE, &buf2, &len,
                                pk->pValue, pk->ulValueLen, 0);
     if (rc != CKR_OK) {
-        TRACE_ERROR("%s ber_encode_Int failed with rc=0x%lx\n", __func__, rc);
+        TRACE_ERROR("%s ber_encode_BIT_STRING failed rc=0x%lx\n",
+                    __func__, rc);
+        return rc;
+    }
+
+    /* Wrap in SEQUENCE -> buf/offset is the BIT STRING content */
+    offset = len;
+    buf = malloc(offset);
+    if (!buf) {
+        TRACE_ERROR("%s Memory allocation failed\n", __func__);
+        rc = CKR_HOST_MEMORY;
         goto error;
     }
-    memcpy(buf + offset, buf2, len);
-    offset += len;
+    memcpy(buf, buf2, len);
     free(buf2);
     buf2 = NULL;
 
     rc = ber_encode_SEQUENCE(FALSE, &buf2, &len, buf, offset);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("%s ber_encode_Seq failed with rc=0x%lx\n", __func__, rc);
-        goto error;
-    }
     free(buf);
     buf = NULL;
-
-    /* Calculate length of outer sequence */
-    rc = ber_encode_BIT_STRING(TRUE, NULL, &total, buf2, len, 0);
     if (rc != CKR_OK) {
-        TRACE_ERROR("%s ber_encode_Oct_Str failed with rc=0x%lx\n", __func__, rc);
-        goto error;
-    } else {
-        total_len += total;
-    }
-
-    /* Allocate storage for outer sequence and bit string */
-    buf3 = (CK_BYTE *) malloc(total_len);
-    if (!buf3) {
-        TRACE_ERROR("%s Memory allocation failed\n", __func__);
-        rc = CKR_HOST_MEMORY;
+        TRACE_ERROR("%s ber_encode_SEQUENCE failed rc=0x%lx\n",
+                    __func__, rc);
         goto error;
     }
 
-    /*
-     * SEQUENCE (2 elem)
-     *      OBJECT IDENTIFIER 1.3.6.1.4.1.2.267.5.xxx
-     *      NULL  <- no parms for this oid
-     */
-    buf5 = (CK_BYTE *) malloc(oid_len + ber_NULLLen);
-    if (!buf5) {
-        TRACE_ERROR("%s Memory allocation failed\n", __func__);
-        rc = CKR_HOST_MEMORY;
-        goto error;
-    }
-    memcpy(buf5, oid, oid_len);
-    memcpy(buf5 + oid_len, ber_NULL, ber_NULLLen);
-
-    rc = ber_encode_SEQUENCE(FALSE, &algid, &algid_len, buf5,
-                             oid_len + ber_NULLLen);
-    free(buf5);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("%s ber_encode_SEQUENCE failed with rc=0x%lx\n", __func__, rc);
-        goto error;
-    }
-
-    total_len = algid_len;
-    memcpy(buf3, algid, algid_len);
-    free(algid);
-    algid = NULL;
-
-    /*
-     * BIT STRING (1 elem)
-     *       SEQUENCE (1 elem)
-     *          BIT STRING  -> pk
-     */
-    rc = ber_encode_BIT_STRING(FALSE, &buf4, &len4, buf2, len, 0);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("%s ber_encode_BIT_STRING failed with rc=0x%lx\n", __func__, rc);
-        goto error;
-    }
-    memcpy(buf3 + total_len, buf4, len4);
-    total_len += len4;
-    free(buf4);
-    buf4 = NULL;
-
-    /**
-     * SEQUENCE (2 elem)
-     *    SEQUENCE (2 elem)
-     *       OBJECT IDENTIFIER 1.3.6.1.4.1.2.267.5.xxx
-     *       NULL -> no parms for this oid
-     *    BIT STRING (1 elem)
-     *       SEQUENCE (2 elem)
-     *          BIT STRING  -> pk
-     */
-    rc = ber_encode_SEQUENCE(FALSE, data, data_len, buf3, total_len);
-    if (rc != CKR_OK)
-        TRACE_ERROR("%s ber_encode_Seq failed with rc=0x%lx\n", __func__, rc);
+    rc = ber_encode_SPKI(length_only, data, data_len,
+                         oid, oid_len, ber_NULL, ber_NULLLen,
+                         buf2, len);
 
 error:
-
-    if (buf)
-        free(buf);
-    if (buf2)
-        free(buf2);
-    if (buf3)
-        free(buf3);
-
+    free(buf);
+    free(buf2);
     return rc;
 }
 
@@ -4730,98 +4367,32 @@ CK_RV ber_encode_IBM_ML_DSA_PublicKey(CK_MECHANISM_TYPE mech,
                                       const CK_BYTE *oid, CK_ULONG oid_len,
                                       CK_ATTRIBUTE *rho, CK_ATTRIBUTE *t1)
 {
-    CK_BYTE *buf = NULL, *pub = NULL, *alg = NULL;
-    CK_ULONG alg_len = 0, pub_len = 0, total_len = 0;
+    CK_BYTE *buf = NULL;
+    CK_ULONG buf_len = 0;
     CK_RV rc;
 
     if (mech == CKM_IBM_DILITHIUM)
         return ber_encode_IBM_DilithiumPublicKey(length_only, data, data_len,
                                                  oid, oid_len, rho, t1);
 
-    /* Calculate storage for AlgID sequence */
-    rc = ber_encode_SEQUENCE(TRUE, NULL, &alg_len, NULL, oid_len);
-
-    /* Calculate storage for public key bitsring */
-    rc |= ber_encode_BIT_STRING(TRUE, NULL, &pub_len, NULL,
-                                rho->ulValueLen + t1->ulValueLen, 0);
-
-    /* Calculate storage for outer sequence */
-    rc |= ber_encode_SEQUENCE(TRUE, NULL, &total_len, NULL, alg_len + pub_len);
-
-    if (rc != CKR_OK) {
-        TRACE_ERROR("%s ber_encode failed with rc=0x%lx\n", __func__, rc);
-        return rc;
-    }
-
-    if (length_only) {
-        *data_len = total_len;
-        return CKR_OK;
-    }
-
-    /* Allocate storage for public key */
+    /* Concatenate rho || t1 as the raw public key bytes */
     if (ADD_OVERFLOW(rho->ulValueLen, t1->ulValueLen)) {
         TRACE_ERROR("%s Integer overflow in allocation size\n", __func__);
         return CKR_HOST_MEMORY;
     }
-
-    buf = malloc(rho->ulValueLen + t1->ulValueLen);
+    buf_len = rho->ulValueLen + t1->ulValueLen;
+    buf = malloc(buf_len);
     if (buf == NULL) {
         TRACE_ERROR("%s Memory allocation failed\n", __func__);
         return CKR_HOST_MEMORY;
     }
-
     memcpy(buf, rho->pValue, rho->ulValueLen);
     memcpy(buf + rho->ulValueLen, t1->pValue, t1->ulValueLen);
 
-    rc = ber_encode_BIT_STRING(FALSE, &pub, &pub_len, buf,
-                               rho->ulValueLen + t1->ulValueLen, 0);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("%s ber_encode_BIT_STRING failed with rc=0x%lx\n",
-                    __func__, rc);
-        goto error;
-    }
+    rc = ber_encode_SPKI(length_only, data, data_len,
+                         oid, oid_len, NULL, 0,
+                         buf, buf_len);
     free(buf);
-    buf = NULL;
-
-    rc = ber_encode_SEQUENCE(FALSE, &alg, &alg_len, (CK_BYTE *)oid, oid_len);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("%s ber_encode_SEQUENCE failed with rc=0x%lx\n",
-                    __func__, rc);
-        goto error;
-    }
-
-    /* Allocate storage for outer sequence */
-    if (ADD_OVERFLOW(alg_len, pub_len)) {
-        TRACE_ERROR("%s Integer overflow in allocation size\n", __func__);
-        rc = CKR_HOST_MEMORY;
-        goto error;
-    }
-
-    buf = malloc(alg_len + pub_len);
-    if (buf == NULL) {
-        TRACE_ERROR("%s Memory allocation failed\n", __func__);
-        rc = CKR_HOST_MEMORY;
-        goto error;
-    }
-
-    memcpy(buf, alg, alg_len);
-    memcpy(buf + alg_len, pub, pub_len);
-
-    rc = ber_encode_SEQUENCE(FALSE, data, data_len, buf, alg_len + pub_len);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("%s ber_encode_SEQUENCE failed with rc=0x%lx\n",
-                    __func__, rc);
-        goto error;
-    }
-
-error:
-    if (buf != NULL)
-        free(buf);
-    if (pub != NULL)
-        free(pub);
-    if (alg != NULL)
-        free(alg);
-
     return rc;
 }
 
@@ -5352,7 +4923,7 @@ cleanup:
 }
 
 /**
- * An IBM ML-DSA public key is given by:
+ * An IBM ML-KEM public key is given by:
  *
  *  SEQUENCE (2 elem)
  *    SEQUENCE (2 elem)
@@ -5365,82 +4936,13 @@ CK_RV ber_encode_IBM_ML_KEM_PublicKey(CK_MECHANISM_TYPE mech,
                                       const CK_BYTE *oid, CK_ULONG oid_len,
                                       CK_ATTRIBUTE *pk)
 {
-    CK_BYTE *buf = NULL, *pub = NULL, *alg = NULL;
-    CK_ULONG alg_len = 0, pub_len = 0, total_len = 0;
-    CK_RV rc;
-
     if (mech == CKM_IBM_KYBER)
         return ber_encode_IBM_KyberPublicKey(length_only, data, data_len,
                                              oid, oid_len, pk);
 
-    /* Calculate storage for AlgID sequence */
-    rc = ber_encode_SEQUENCE(TRUE, NULL, &alg_len, NULL, oid_len);
-
-    /* Calculate storage for public key bitsring */
-    rc |= ber_encode_BIT_STRING(TRUE, NULL, &pub_len, NULL, pk->ulValueLen, 0);
-
-    /* Calculate storage for outer sequence */
-    rc |= ber_encode_SEQUENCE(TRUE, NULL, &total_len, NULL, alg_len + pub_len);
-
-    if (rc != CKR_OK) {
-        TRACE_ERROR("%s ber_encode failed with rc=0x%lx\n", __func__, rc);
-        return rc;
-    }
-
-    if (length_only) {
-        *data_len = total_len;
-        return CKR_OK;
-    }
-
-    rc = ber_encode_BIT_STRING(FALSE, &pub, &pub_len, pk->pValue,
-                               pk->ulValueLen, 0);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("%s ber_encode_BIT_STRING failed with rc=0x%lx\n",
-                    __func__, rc);
-        goto error;
-    }
-
-    rc = ber_encode_SEQUENCE(FALSE, &alg, &alg_len, (CK_BYTE *)oid, oid_len);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("%s ber_encode_SEQUENCE failed with rc=0x%lx\n",
-                    __func__, rc);
-        goto error;
-    }
-
-    /* Allocate storage for outer sequence */
-    if (ADD_OVERFLOW(alg_len, pub_len)) {
-        TRACE_ERROR("%s Integer overflow in allocation size\n", __func__);
-        rc = CKR_HOST_MEMORY;
-        goto error;
-    }
-
-    buf = malloc(alg_len + pub_len);
-    if (buf == NULL) {
-        TRACE_ERROR("%s Memory allocation failed\n", __func__);
-        rc = CKR_HOST_MEMORY;
-        goto error;
-    }
-
-    memcpy(buf, alg, alg_len);
-    memcpy(buf + alg_len, pub, pub_len);
-
-    rc = ber_encode_SEQUENCE(FALSE, data, data_len, buf, alg_len + pub_len);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("%s ber_encode_SEQUENCE failed with rc=0x%lx\n",
-                    __func__, rc);
-        goto error;
-    }
-
-error:
-    if (buf != NULL)
-        free(buf);
-    if (pub != NULL)
-        free(pub);
-    if (alg != NULL)
-        free(alg);
-
-    return rc;
-
+    return ber_encode_SPKI(length_only, data, data_len,
+                           oid, oid_len, NULL, 0,
+                           pk->pValue, pk->ulValueLen);
 }
 
 CK_RV ber_decode_IBM_ML_KEM_PublicKey(CK_MECHANISM_TYPE mech,
@@ -5840,78 +5342,9 @@ CK_RV ber_encode_ML_DSA_PublicKey(CK_BBOOL length_only,
                                   const CK_BYTE *oid, CK_ULONG oid_len,
                                   CK_ATTRIBUTE *value)
 {
-    CK_BYTE *buf = NULL, *pub = NULL, *alg = NULL;
-    CK_ULONG alg_len = 0, pub_len = 0, total_len = 0;
-    CK_RV rc;
-
-    /* Calculate storage for AlgID sequence */
-    rc = ber_encode_SEQUENCE(TRUE, NULL, &alg_len, NULL, oid_len);
-
-    /* Calculate storage for public key bitsring */
-    rc |= ber_encode_BIT_STRING(TRUE, NULL, &pub_len, NULL,
-                                value->ulValueLen, 0);
-
-    /* Calculate storage for outer sequence */
-    rc |= ber_encode_SEQUENCE(TRUE, NULL, &total_len, NULL, alg_len + pub_len);
-
-    if (rc != CKR_OK) {
-        TRACE_ERROR("%s ber_encode failed with rc=0x%lx\n", __func__, rc);
-        return rc;
-    }
-
-    if (length_only) {
-        *data_len = total_len;
-        return CKR_OK;
-    }
-
-    rc = ber_encode_BIT_STRING(FALSE, &pub, &pub_len, value->pValue,
-                               value->ulValueLen, 0);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("%s ber_encode_BIT_STRING failed with rc=0x%lx\n",
-                    __func__, rc);
-        goto error;
-    }
-
-    rc = ber_encode_SEQUENCE(FALSE, &alg, &alg_len, (CK_BYTE *)oid, oid_len);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("%s ber_encode_SEQUENCE failed with rc=0x%lx\n",
-                    __func__, rc);
-        goto error;
-    }
-
-    /* Allocate storage for outer sequence */
-    if (ADD_OVERFLOW(alg_len, pub_len)) {
-        TRACE_ERROR("%s Integer overflow in allocation size\n", __func__);
-        rc = CKR_HOST_MEMORY;
-        goto error;
-    }
-
-    buf = malloc(alg_len + pub_len);
-    if (buf == NULL) {
-        TRACE_ERROR("%s Memory allocation failed\n", __func__);
-        rc = CKR_HOST_MEMORY;
-        goto error;
-    }
-
-    memcpy(buf, alg, alg_len);
-    memcpy(buf + alg_len, pub, pub_len);
-
-    rc = ber_encode_SEQUENCE(FALSE, data, data_len, buf, alg_len + pub_len);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("%s ber_encode_SEQUENCE failed with rc=0x%lx\n",
-                    __func__, rc);
-        goto error;
-    }
-
-error:
-    if (buf != NULL)
-        free(buf);
-    if (pub != NULL)
-        free(pub);
-    if (alg != NULL)
-        free(alg);
-
-    return rc;
+    return ber_encode_SPKI(length_only, data, data_len,
+                           oid, oid_len, NULL, 0,
+                           value->pValue, value->ulValueLen);
 }
 
 CK_RV ber_decode_ML_DSA_PublicKey(CK_BYTE *data, CK_ULONG data_len,
@@ -6259,78 +5692,9 @@ CK_RV ber_encode_ML_KEM_PublicKey(CK_BBOOL length_only,
                                   const CK_BYTE *oid, CK_ULONG oid_len,
                                   CK_ATTRIBUTE *value)
 {
-    CK_BYTE *buf = NULL, *pub = NULL, *alg = NULL;
-    CK_ULONG alg_len = 0, pub_len = 0, total_len = 0;
-    CK_RV rc;
-
-    /* Calculate storage for AlgID sequence */
-    rc = ber_encode_SEQUENCE(TRUE, NULL, &alg_len, NULL, oid_len);
-
-    /* Calculate storage for public key bitsring */
-    rc |= ber_encode_BIT_STRING(TRUE, NULL, &pub_len, NULL,
-                                value->ulValueLen, 0);
-
-    /* Calculate storage for outer sequence */
-    rc |= ber_encode_SEQUENCE(TRUE, NULL, &total_len, NULL, alg_len + pub_len);
-
-    if (rc != CKR_OK) {
-        TRACE_ERROR("%s ber_encode failed with rc=0x%lx\n", __func__, rc);
-        return rc;
-    }
-
-    if (length_only) {
-        *data_len = total_len;
-        return CKR_OK;
-    }
-
-    rc = ber_encode_BIT_STRING(FALSE, &pub, &pub_len, value->pValue,
-                               value->ulValueLen, 0);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("%s ber_encode_BIT_STRING failed with rc=0x%lx\n",
-                    __func__, rc);
-        goto error;
-    }
-
-    rc = ber_encode_SEQUENCE(FALSE, &alg, &alg_len, (CK_BYTE *)oid, oid_len);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("%s ber_encode_SEQUENCE failed with rc=0x%lx\n",
-                    __func__, rc);
-        goto error;
-    }
-
-    /* Allocate storage for outer sequence */
-    if (ADD_OVERFLOW(alg_len, pub_len)) {
-        TRACE_ERROR("%s Integer overflow in allocation size\n", __func__);
-        rc = CKR_HOST_MEMORY;
-        goto error;
-    }
-
-    buf = malloc(alg_len + pub_len);
-    if (buf == NULL) {
-        TRACE_ERROR("%s Memory allocation failed\n", __func__);
-        rc = CKR_HOST_MEMORY;
-        goto error;
-    }
-
-    memcpy(buf, alg, alg_len);
-    memcpy(buf + alg_len, pub, pub_len);
-
-    rc = ber_encode_SEQUENCE(FALSE, data, data_len, buf, alg_len + pub_len);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("%s ber_encode_SEQUENCE failed with rc=0x%lx\n",
-                    __func__, rc);
-        goto error;
-    }
-
-error:
-    if (buf != NULL)
-        free(buf);
-    if (pub != NULL)
-        free(pub);
-    if (alg != NULL)
-        free(alg);
-
-    return rc;
+    return ber_encode_SPKI(length_only, data, data_len,
+                           oid, oid_len, NULL, 0,
+                           value->pValue, value->ulValueLen);
 }
 
 CK_RV ber_decode_ML_KEM_PublicKey(CK_BYTE *data, CK_ULONG data_len,
