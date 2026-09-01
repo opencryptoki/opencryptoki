@@ -3176,6 +3176,12 @@ CK_RV ber_decode_SPKI(CK_BYTE *spki, CK_ULONG spki_len,
                       CK_BYTE **param, CK_ULONG *param_len,
                       CK_BYTE **key, CK_ULONG *key_len);
 
+CK_RV ber_encode_SPKI(CK_BBOOL length_only, CK_BYTE **data,
+                      CK_ULONG *data_len,
+                      const CK_BYTE *oid, CK_ULONG oid_len,
+                      const CK_BYTE *param, CK_ULONG param_len,
+                      const CK_BYTE *key, CK_ULONG key_len);
+
 CK_RV ber_encode_RSAPrivateKey(CK_BBOOL length_only,
                                CK_BYTE **data,
                                CK_ULONG *data_len,
