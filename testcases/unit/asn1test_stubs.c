@@ -111,8 +111,8 @@ const CK_BYTE ber_idEC[] = {
 };
 const CK_ULONG ber_idECLen = sizeof(ber_idEC);
 
-const CK_BYTE ber_NULL[] = {0x00};
-const CK_ULONG ber_NULLLen = 0;
+const CK_BYTE ber_NULL[] = {0x05, 0x00};
+const CK_ULONG ber_NULLLen = sizeof(ber_NULL);
 
 /* ML-DSA OID constants for testing */
 /* ML-DSA-44: 2.16.840.1.101.3.4.3.17 */

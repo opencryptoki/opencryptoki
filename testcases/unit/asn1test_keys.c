@@ -146,81 +146,6 @@ CK_RV der_decode_ECPublicKey(CK_BYTE *data,
                              CK_ATTRIBUTE **ec_point,
                              CK_KEY_TYPE key_type);
 
-/* ML-DSA key encoding/decoding function prototypes */
-CK_RV ber_encode_IBM_ML_DSA_PublicKey(CK_MECHANISM_TYPE mech,
-                                      CK_BBOOL length_only,
-                                      CK_BYTE **data, CK_ULONG *data_len,
-                                      const CK_BYTE *oid, CK_ULONG oid_len,
-                                      CK_ATTRIBUTE *rho, CK_ATTRIBUTE *t1);
-
-CK_RV ber_decode_IBM_ML_DSA_PublicKey(CK_MECHANISM_TYPE mech,
-                                      CK_BYTE *data,
-                                      CK_ULONG data_len,
-                                      CK_ATTRIBUTE **rho_attr,
-                                      CK_ATTRIBUTE **t1_attr,
-                                      CK_ATTRIBUTE **value_attr,
-                                      const struct pqc_oid **oid);
-
-CK_RV ber_encode_IBM_ML_DSA_PrivateKey(CK_MECHANISM_TYPE mech,
-                                       CK_BBOOL length_only,
-                                       CK_BYTE **data,
-                                       CK_ULONG *data_len,
-                                       const CK_BYTE *oid, CK_ULONG oid_len,
-                                       CK_ATTRIBUTE *rho,
-                                       CK_ATTRIBUTE *seed,
-                                       CK_ATTRIBUTE *tr,
-                                       CK_ATTRIBUTE *s1,
-                                       CK_ATTRIBUTE *s2,
-                                       CK_ATTRIBUTE *t0,
-                                       CK_ATTRIBUTE *t1,
-                                       CK_ATTRIBUTE *priv_seed);
-
-CK_RV ber_decode_IBM_ML_DSA_PrivateKey(CK_MECHANISM_TYPE mech,
-                                       CK_BYTE *data,
-                                       CK_ULONG data_len,
-                                       CK_ATTRIBUTE **rho,
-                                       CK_ATTRIBUTE **seed,
-                                       CK_ATTRIBUTE **tr,
-                                       CK_ATTRIBUTE **s1,
-                                       CK_ATTRIBUTE **s2,
-                                       CK_ATTRIBUTE **t0,
-                                       CK_ATTRIBUTE **t1,
-                                       CK_ATTRIBUTE **priv_seed,
-                                       CK_ATTRIBUTE **value,
-                                       const struct pqc_oid **oid);
-
-/* ML-KEM key encoding/decoding function prototypes */
-CK_RV ber_encode_IBM_ML_KEM_PublicKey(CK_MECHANISM_TYPE mech,
-                                      CK_BBOOL length_only,
-                                      CK_BYTE **data, CK_ULONG *data_len,
-                                      const CK_BYTE *oid, CK_ULONG oid_len,
-                                      CK_ATTRIBUTE *pk);
-
-CK_RV ber_decode_IBM_ML_KEM_PublicKey(CK_MECHANISM_TYPE mech,
-                                      CK_BYTE *data,
-                                      CK_ULONG data_len,
-                                      CK_ATTRIBUTE **pk_attr,
-                                      CK_ATTRIBUTE **value_attr,
-                                      const struct pqc_oid **oid);
-
-CK_RV ber_encode_IBM_ML_KEM_PrivateKey(CK_MECHANISM_TYPE mech,
-                                       CK_BBOOL length_only,
-                                       CK_BYTE **data,
-                                       CK_ULONG *data_len,
-                                       const CK_BYTE *oid, CK_ULONG oid_len,
-                                       CK_ATTRIBUTE *sk,
-                                       CK_ATTRIBUTE *pk,
-                                       CK_ATTRIBUTE *priv_seed);
-
-CK_RV ber_decode_IBM_ML_KEM_PrivateKey(CK_MECHANISM_TYPE mech,
-                                       CK_BYTE *data,
-                                       CK_ULONG data_len,
-                                       CK_ATTRIBUTE **sk,
-                                       CK_ATTRIBUTE **pk,
-                                       CK_ATTRIBUTE **priv_seed,
-                                       CK_ATTRIBUTE **value,
-                                       const struct pqc_oid **oid);
-
 
 /* Helper function to free attributes */
 static void free_attributes(CK_ATTRIBUTE **attrs, int count)
@@ -1454,8 +1379,6 @@ int test_encode_dh_private_key_basic(void)
         0x55, 0x66, 0x77, 0x88, 0x99, 0xAA, 0xBB, 0xCC
     };
 
-    printf("Testing ber_encode_DHPrivateKey (basic)... ");
-
     /* Create attributes */
     prime = create_attribute(CKA_PRIME, prime_data, sizeof(prime_data));
     base = create_attribute(CKA_BASE, base_data, sizeof(base_data));
@@ -1481,7 +1404,7 @@ int test_encode_dh_private_key_basic(void)
         goto cleanup;
     }
 
-    printf("[PASS]\n");
+    printf("[PASS] test_encode_dh_private_key_basic\n");
 
 cleanup:
     if (prime)
@@ -1513,8 +1436,6 @@ int test_encode_dh_private_key_length_only(void)
         0x55, 0x66, 0x77, 0x88, 0x99, 0xAA, 0xBB, 0xCC
     };
 
-    printf("Testing ber_encode_DHPrivateKey (length only)... ");
-
     prime = create_attribute(CKA_PRIME, prime_data, sizeof(prime_data));
     base = create_attribute(CKA_BASE, base_data, sizeof(base_data));
     priv_key = create_attribute(CKA_VALUE, priv_key_data, sizeof(priv_key_data));
@@ -1539,7 +1460,7 @@ int test_encode_dh_private_key_length_only(void)
         goto cleanup;
     }
 
-    printf("[PASS]\n");
+    printf("[PASS] test_encode_dh_private_key_length_only\n");
 
 cleanup:
     if (prime)
@@ -1570,8 +1491,6 @@ int test_decode_dh_private_key_valid(void)
     CK_BYTE priv_key_data[] = {
         0x55, 0x66, 0x77, 0x88, 0x99, 0xAA, 0xBB, 0xCC
     };
-
-    printf("Testing ber_decode_DHPrivateKey (valid)... ");
 
     /* Create and encode */
     orig_prime = create_attribute(CKA_PRIME, prime_data, sizeof(prime_data));
@@ -1619,7 +1538,7 @@ int test_decode_dh_private_key_valid(void)
     }
 
     if (result == 0)
-        printf("[PASS]\n");
+        printf("[PASS] test_decode_dh_private_key_valid\n");
 
 cleanup:
     if (orig_prime)
@@ -1658,8 +1577,6 @@ int test_roundtrip_dh_private_key(void)
     CK_BYTE priv_key_data[] = {
         0x55, 0x66, 0x77, 0x88, 0x99, 0xAA, 0xBB, 0xCC
     };
-
-    printf("Testing DH private key roundtrip... ");
 
     /* Create attributes */
     orig_prime = create_attribute(CKA_PRIME, prime_data, sizeof(prime_data));
@@ -1708,7 +1625,7 @@ int test_roundtrip_dh_private_key(void)
     }
 
     if (result == 0)
-        printf("[PASS]\n");
+        printf("[PASS] test_roundtrip_dh_private_key\n");
 
 cleanup:
     if (orig_prime)
@@ -1752,8 +1669,6 @@ int test_encode_dh_public_key_basic(void)
         0x55, 0x66, 0x77, 0x88, 0x99, 0xAA, 0xBB, 0xCC
     };
 
-    printf("Testing ber_encode_DHPublicKey (basic)... ");
-
     /* Create attributes */
     prime = create_attribute(CKA_PRIME, prime_data, sizeof(prime_data));
     base = create_attribute(CKA_BASE, base_data, sizeof(base_data));
@@ -1779,7 +1694,7 @@ int test_encode_dh_public_key_basic(void)
         goto cleanup;
     }
 
-    printf("[PASS]\n");
+    printf("[PASS] test_encode_dh_public_key_basic\n");
 
 cleanup:
     if (prime)
@@ -1812,8 +1727,6 @@ int test_decode_dh_public_key_valid(void)
     CK_BYTE value_data[] = {
         0x55, 0x66, 0x77, 0x88, 0x99, 0xAA, 0xBB, 0xCC
     };
-
-    printf("Testing ber_decode_DHPublicKey (valid)... ");
 
     /* Create and encode */
     orig_prime = create_attribute(CKA_PRIME, prime_data, sizeof(prime_data));
@@ -1861,7 +1774,7 @@ int test_decode_dh_public_key_valid(void)
     }
 
     if (result == 0)
-        printf("[PASS]\n");
+        printf("[PASS] test_decode_dh_public_key_valid\n");
 
 cleanup:
     if (orig_prime)
@@ -1900,8 +1813,6 @@ int test_roundtrip_dh_public_key(void)
     CK_BYTE value_data[] = {
         0x55, 0x66, 0x77, 0x88, 0x99, 0xAA, 0xBB, 0xCC
     };
-
-    printf("Testing DH public key roundtrip... ");
 
     /* Create attributes */
     orig_prime = create_attribute(CKA_PRIME, prime_data, sizeof(prime_data));
@@ -1950,7 +1861,7 @@ int test_roundtrip_dh_public_key(void)
     }
 
     if (result == 0)
-        printf("[PASS]\n");
+        printf("[PASS] test_roundtrip_dh_public_key\n");
 
 cleanup:
     if (orig_prime)
@@ -2007,8 +1918,6 @@ int test_encode_ec_private_key_basic(void)
         0x41, 0x42, 0x43, 0x44, 0x45, 0x46, 0x47, 0x48
     };
 
-    printf("Testing der_encode_ECPrivateKey (basic)... ");
-
     params = create_attribute(CKA_EC_PARAMS, params_data, sizeof(params_data));
     privkey = create_attribute(CKA_VALUE, privkey_data, sizeof(privkey_data));
     pubkey = create_attribute(CKA_EC_POINT, pubkey_data, sizeof(pubkey_data));
@@ -2032,7 +1941,7 @@ int test_encode_ec_private_key_basic(void)
         goto cleanup;
     }
 
-    printf("[PASS]\n");
+    printf("[PASS] test_encode_ec_private_key_basic\n");
 
 cleanup:
     if (params) free(params);
@@ -2059,8 +1968,6 @@ int test_encode_ec_private_key_length_only(void)
         0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38
     };
 
-    printf("Testing der_encode_ECPrivateKey (length only)... ");
-
     params = create_attribute(CKA_EC_PARAMS, params_data, sizeof(params_data));
     privkey = create_attribute(CKA_VALUE, privkey_data, sizeof(privkey_data));
 
@@ -2083,7 +1990,7 @@ int test_encode_ec_private_key_length_only(void)
         goto cleanup;
     }
 
-    printf("[PASS]\n");
+    printf("[PASS] test_encode_ec_private_key_length_only\n");
 
 cleanup:
     if (params) free(params);
@@ -2109,8 +2016,6 @@ int test_decode_ec_private_key_valid(void)
         0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27, 0x28,
         0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38
     };
-
-    printf("Testing der_decode_ECPrivateKey (valid)... ");
 
     orig_params = create_attribute(CKA_EC_PARAMS, params_data, sizeof(params_data));
     orig_privkey = create_attribute(CKA_VALUE, privkey_data, sizeof(privkey_data));
@@ -2161,7 +2066,7 @@ int test_decode_ec_private_key_valid(void)
     }
 
     if (result == 0)
-        printf("[PASS]\n");
+        printf("[PASS] test_decode_ec_private_key_valid\n");
 
 cleanup:
     if (orig_params) free(orig_params);
@@ -2192,8 +2097,6 @@ int test_roundtrip_ec_private_key(void)
         0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27, 0x28,
         0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38
     };
-
-    printf("Testing EC private key roundtrip... ");
 
     orig_params = create_attribute(CKA_EC_PARAMS, params_data, sizeof(params_data));
     orig_privkey = create_attribute(CKA_VALUE, privkey_data, sizeof(privkey_data));
@@ -2244,7 +2147,7 @@ int test_roundtrip_ec_private_key(void)
     }
 
     if (result == 0)
-        printf("[PASS]\n");
+        printf("[PASS] test_roundtrip_ec_private_key\n");
 
 cleanup:
     if (orig_params) free(orig_params);
@@ -2279,8 +2182,6 @@ int test_encode_edwards_private_key_basic(void)
         0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38
     };
 
-    printf("Testing der_encode_ECPrivateKey (Edwards basic)... ");
-
     params = create_attribute(CKA_EC_PARAMS, params_data, sizeof(params_data));
     privkey = create_attribute(CKA_VALUE, privkey_data, sizeof(privkey_data));
 
@@ -2303,7 +2204,7 @@ int test_encode_edwards_private_key_basic(void)
         goto cleanup;
     }
 
-    printf("[PASS]\n");
+    printf("[PASS] test_encode_edwards_private_key_basic\n");
 
 cleanup:
     if (params) free(params);
@@ -2331,8 +2232,6 @@ int test_roundtrip_edwards_private_key(void)
         0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27, 0x28,
         0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38
     };
-
-    printf("Testing Edwards private key roundtrip... ");
 
     orig_params = create_attribute(CKA_EC_PARAMS, params_data, sizeof(params_data));
     orig_privkey = create_attribute(CKA_VALUE, privkey_data, sizeof(privkey_data));
@@ -2370,7 +2269,7 @@ int test_roundtrip_edwards_private_key(void)
     }
 
     if (result == 0)
-        printf("[PASS]\n");
+        printf("[PASS] test_roundtrip_edwards_private_key\n");
 
 cleanup:
     if (orig_params) free(orig_params);
@@ -2406,8 +2305,6 @@ int test_encode_edwards_public_key_basic(void)
         0x71, 0x72, 0x73, 0x74, 0x75, 0x76, 0x77, 0x78
     };
 
-    printf("Testing ber_encode_ECPublicKey (Edwards basic)... ");
-
     params = create_attribute(CKA_EC_PARAMS, params_data, sizeof(params_data));
     point = create_attribute(CKA_EC_POINT, point_data, sizeof(point_data));
 
@@ -2430,7 +2327,7 @@ int test_encode_edwards_public_key_basic(void)
         goto cleanup;
     }
 
-    printf("[PASS]\n");
+    printf("[PASS] test_encode_edwards_public_key_basic\n");
 
 cleanup:
     if (params) free(params);
@@ -2459,8 +2356,6 @@ int test_roundtrip_edwards_public_key(void)
         0x61, 0x62, 0x63, 0x64, 0x65, 0x66, 0x67, 0x68,
         0x71, 0x72, 0x73, 0x74, 0x75, 0x76, 0x77, 0x78
     };
-
-    printf("Testing Edwards public key roundtrip... ");
 
     orig_params = create_attribute(CKA_EC_PARAMS, params_data, sizeof(params_data));
     orig_point = create_attribute(CKA_EC_POINT, point_data, sizeof(point_data));
@@ -2498,7 +2393,7 @@ int test_roundtrip_edwards_public_key(void)
     }
 
     if (result == 0)
-        printf("[PASS]\n");
+        printf("[PASS] test_roundtrip_edwards_public_key\n");
 
 cleanup:
     if (orig_params) free(orig_params);
@@ -2532,8 +2427,6 @@ int test_encode_montgomery_private_key_basic(void)
         0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38
     };
 
-    printf("Testing der_encode_ECPrivateKey (Montgomery basic)... ");
-
     params = create_attribute(CKA_EC_PARAMS, params_data, sizeof(params_data));
     privkey = create_attribute(CKA_VALUE, privkey_data, sizeof(privkey_data));
 
@@ -2556,7 +2449,7 @@ int test_encode_montgomery_private_key_basic(void)
         goto cleanup;
     }
 
-    printf("[PASS]\n");
+    printf("[PASS] test_encode_montgomery_private_key_basic\n");
 
 cleanup:
     if (params) free(params);
@@ -2584,8 +2477,6 @@ int test_roundtrip_montgomery_private_key(void)
         0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27, 0x28,
         0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38
     };
-
-    printf("Testing Montgomery private key roundtrip... ");
 
     orig_params = create_attribute(CKA_EC_PARAMS, params_data, sizeof(params_data));
     orig_privkey = create_attribute(CKA_VALUE, privkey_data, sizeof(privkey_data));
@@ -2623,7 +2514,7 @@ int test_roundtrip_montgomery_private_key(void)
     }
 
     if (result == 0)
-        printf("[PASS]\n");
+        printf("[PASS] test_roundtrip_montgomery_private_key\n");
 
 cleanup:
     if (orig_params) free(orig_params);
@@ -2659,8 +2550,6 @@ int test_encode_montgomery_public_key_basic(void)
         0x71, 0x72, 0x73, 0x74, 0x75, 0x76, 0x77, 0x78
     };
 
-    printf("Testing ber_encode_ECPublicKey (Montgomery basic)... ");
-
     params = create_attribute(CKA_EC_PARAMS, params_data, sizeof(params_data));
     point = create_attribute(CKA_EC_POINT, point_data, sizeof(point_data));
 
@@ -2683,7 +2572,7 @@ int test_encode_montgomery_public_key_basic(void)
         goto cleanup;
     }
 
-    printf("[PASS]\n");
+    printf("[PASS] test_encode_montgomery_public_key_basic\n");
 
 cleanup:
     if (params) free(params);
@@ -2712,8 +2601,6 @@ int test_roundtrip_montgomery_public_key(void)
         0x61, 0x62, 0x63, 0x64, 0x65, 0x66, 0x67, 0x68,
         0x71, 0x72, 0x73, 0x74, 0x75, 0x76, 0x77, 0x78
     };
-
-    printf("Testing Montgomery public key roundtrip... ");
 
     orig_params = create_attribute(CKA_EC_PARAMS, params_data, sizeof(params_data));
     orig_point = create_attribute(CKA_EC_POINT, point_data, sizeof(point_data));
@@ -2751,7 +2638,7 @@ int test_roundtrip_montgomery_public_key(void)
     }
 
     if (result == 0)
-        printf("[PASS]\n");
+        printf("[PASS] test_roundtrip_montgomery_public_key\n");
 
 cleanup:
     if (orig_params) free(orig_params);
@@ -2791,8 +2678,6 @@ int test_encode_ec_public_key_basic(void)
         0x41, 0x42, 0x43, 0x44, 0x45, 0x46, 0x47, 0x48
     };
 
-    printf("Testing ber_encode_ECPublicKey (basic)... ");
-
     params = create_attribute(CKA_EC_PARAMS, params_data, sizeof(params_data));
     point = create_attribute(CKA_EC_POINT, point_data, sizeof(point_data));
 
@@ -2815,7 +2700,7 @@ int test_encode_ec_public_key_basic(void)
         goto cleanup;
     }
 
-    printf("[PASS]\n");
+    printf("[PASS] test_encode_ec_public_key_basic\n");
 
 cleanup:
     if (params) free(params);
@@ -2848,8 +2733,6 @@ int test_decode_ec_public_key_valid(void)
         0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38,
         0x41, 0x42, 0x43, 0x44, 0x45, 0x46, 0x47, 0x48
     };
-
-    printf("Testing der_decode_ECPublicKey (valid)... ");
 
     orig_params = create_attribute(CKA_EC_PARAMS, params_data, sizeof(params_data));
     orig_point = create_attribute(CKA_EC_POINT, point_data, sizeof(point_data));
@@ -2887,7 +2770,7 @@ int test_decode_ec_public_key_valid(void)
     }
 
     if (result == 0)
-        printf("[PASS]\n");
+        printf("[PASS] test_decode_ec_public_key_valid\n");
 
 cleanup:
     if (orig_params) free(orig_params);
@@ -2922,8 +2805,6 @@ int test_roundtrip_ec_public_key(void)
         0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38,
         0x41, 0x42, 0x43, 0x44, 0x45, 0x46, 0x47, 0x48
     };
-
-    printf("Testing EC public key roundtrip... ");
 
     orig_params = create_attribute(CKA_EC_PARAMS, params_data, sizeof(params_data));
     orig_point = create_attribute(CKA_EC_POINT, point_data, sizeof(point_data));
@@ -2961,7 +2842,7 @@ int test_roundtrip_ec_public_key(void)
     }
 
     if (result == 0)
-        printf("[PASS]\n");
+        printf("[PASS] test_roundtrip_ec_public_key\n");
 
 cleanup:
     if (orig_params) free(orig_params);
