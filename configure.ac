@@ -388,12 +388,18 @@ if test "x$build_aix" = "xno"; then
 	AC_SUBST([LIBCAP_LIBS])
 fi
 
-dnl --- cca and soft tokens need lber, icsf needs only ldap
+dnl --- icsf token needs lber and ldap (OpenLDAP)
 OPENLDAP_LIBS=
-AC_CHECK_HEADERS([lber.h ldap.h],
-		[OPENLDAP_LIBS="-llber -lldap"],
-		[AC_MSG_ERROR([lber.h and ldap.h are missing. Please install
-			      'openldap-devel'.])])
+if test "x$enable_icsftok" != "xno"; then
+	AC_CHECK_HEADERS([lber.h ldap.h],
+			[OPENLDAP_LIBS="-llber -lldap"],
+			[if test "x$enable_icsftok" = "xyes"; then
+				AC_MSG_ERROR([ICSF token build requested but lber.h/ldap.h are missing. Please install 'openldap-devel'.])
+			else
+				AC_MSG_WARN([lber.h or ldap.h not found -- disabling ICSF token (install 'openldap-devel' to enable)])
+				enable_icsftok=no
+			fi])
+fi
 AC_SUBST([OPENLDAP_LIBS])
 
 dnl --- first, check what external software is present or specified

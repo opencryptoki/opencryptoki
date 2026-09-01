@@ -12,12 +12,12 @@ opencryptoki_stdll_libpkcs11_sw_la_CFLAGS =				\
 
 if AIX
 opencryptoki_stdll_libpkcs11_sw_la_LDFLAGS = -qmkshrobj -lc \
-	-lpthread -lcrypto -lrt -Wl,-bnoautoexp -Wl,-bstatic,-llber,-bdynamic \
+	-lpthread -lcrypto -lrt -Wl,-bnoautoexp \
 	-export-symbols ${srcdir}/opencryptoki_tok.map.sym
 else
 opencryptoki_stdll_libpkcs11_sw_la_LDFLAGS =				\
 	-shared -Wl,-z,defs,-Bsymbolic -lc -lpthread -lcrypto -lrt	\
-	-llber -Wl,--version-script=${srcdir}/opencryptoki_tok.map
+	-Wl,--version-script=${srcdir}/opencryptoki_tok.map
 endif
 
 opencryptoki_stdll_libpkcs11_sw_la_SOURCES =				\

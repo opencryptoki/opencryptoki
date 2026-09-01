@@ -20,7 +20,7 @@ opencryptoki_stdll_libpkcs11_ep11_la_CFLAGS =				\
 
 opencryptoki_stdll_libpkcs11_ep11_la_LDFLAGS =				\
 	-shared -Wl,-z,defs,-Bsymbolic -lc -lpthread -lcrypto -lrt	\
-	-llber -ldl -Wl,--version-script=${srcdir}/opencryptoki_tok.map
+	-ldl -Wl,--version-script=${srcdir}/opencryptoki_tok.map
 
 opencryptoki_stdll_libpkcs11_ep11_la_SOURCES = usr/lib/common/asn1.c	\
 	usr/lib/common/cert.c usr/lib/common/hwf_obj.c			\
