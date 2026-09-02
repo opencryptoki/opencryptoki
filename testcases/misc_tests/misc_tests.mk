@@ -52,7 +52,8 @@ EXTRA_DIST += testcases/misc_tests/dh-key.pem				\
 	testcases/misc_tests/p11sak_test.sh				\
 	testcases/misc_tests/pkcsconf_test.sh				\
 	testcases/misc_tests/spinlock_tests.sh				\
-	testcases/misc_tests/spinlock_child.sh
+	testcases/misc_tests/spinlock_child.sh				\
+	testcases/misc_tests/tok2tok_test.sh
 
 testcases_misc_tests_obj_mgmt_tests_CFLAGS = ${testcases_inc}
 testcases_misc_tests_obj_mgmt_tests_LDADD =				\
