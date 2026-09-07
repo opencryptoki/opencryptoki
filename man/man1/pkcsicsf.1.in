@@ -13,10 +13,13 @@ pkcsicsf \- configuration utility for the ICSF token
 [\fB-c\fP \fIclient-cert-file\fP]
 [\fB-C\fP \fICA-cert-file\fP]
 [\fB-k\fP \fIprivatekey\fP]
+.br
+\fBpkcsicsf\fP \fB-p\fP \fItoken-name\fP
 
 .SH DESCRIPTION
-The \fBpkcsicsf\fP utility lists available ICSF tokens and allows user
-to add one specific ICSF token to opencryptoki.
+The \fBpkcsicsf\fP utility lists available ICSF tokens, adds a specific
+ICSF token to opencryptoki, and updates the locally stored RACF password
+for an existing token.
 
 The ICSF token must be added first to opencryptoki. This creates an
 entry in the opencryptoki.conf file for the ICSF token. It also creates
@@ -111,6 +114,59 @@ After step\~3 the token is fully operational and
 \fBCKF_TOKEN_INITIALIZED\fP will be reported by
 .BR pkcsconf (1)
 \fB\-t\fP.
+
+.SH "RACF PASSWORD CHANGE"
+When the RACF password for a bind DN is changed on the z/OS ICSF server,
+the locally stored encrypted copy must be updated using \fBpkcsicsf \-p\fP.
+No token removal or re-initialization is required; the cryptographic
+objects on the z/OS server are not affected.
+.PP
+Procedure:
+.RS
+.TP
+\fB1.\fP
+Change the RACF password on the z/OS server (outside of openCryptoki).
+.TP
+\fB2.\fP
+Run \fBpkcsicsf \-p\fP \fBimmediately\fP afterwards:
+.PP
+.RS
+\fBpkcsicsf \-p \fItoken-name\fR\fP
+.RE
+.PP
+The authentication mechanism, URI, and bind DN are read automatically
+from the existing token configuration.
+You will be prompted for the new RACF password and then for the SO PIN.
+The new RACF password is first verified against the LDAP server.
+If that succeeds, the master key is unwrapped using the SO PIN and the
+RACF file is re-encrypted with the new password.
+.RE
+.PP
+No restart of \fBpkcsslotd\fP or of any application using the token is
+required.
+Both the v3 token format (tokversion\~=\~3.28) and the legacy format are
+supported.
+.PP
+.B "Operational timing requirement \(em minimise the update window"
+.PP
+There is an unavoidable service window between step\~1 and step\~2.
+During this window, any new LDAP connection that the token needs to
+establish \(em for a new \fBC_Login\fP or \fBC_OpenSession\fP call \(em
+will attempt to bind with the old, now-invalid RACF password and will
+fail.
+The caller will receive \fBCKR_FUNCTION_FAILED\fP or
+\fBCKR_USER_NOT_LOGGED_IN\fP until \fBpkcsicsf \-p\fP has been run.
+.PP
+\fBAlready-established LDAP connections are not affected:\fP a session
+that completed \fBC_Login\fP before the password was changed on the z/OS
+server retains a live, authenticated LDAP connection and continues to
+operate normally throughout the window.
+.PP
+To keep the window as short as possible, run \fBpkcsicsf \-p\fP
+immediately after the RACF password is changed on z/OS.
+Repeated failed bind attempts during the window may trigger the RACF
+account lockout policy on the z/OS server; consult your z/OS security
+administrator for the applicable lockout threshold.
 
 .SH "TOKEN DATA FORMAT"
 Tokens added by \fBpkcsicsf\fP always use the FIPS-compliant data store
@@ -211,6 +267,23 @@ List available ICSF tokens.
 The authentication mechanism to use when binding to the LDAP server
 (either \fBsimple\fP or \fBsasl\fP).
 This option is required whenever \fB\-l\fP or \fB\-a\fP is used.
+Must not be specified with \fB\-p\fP.
+.IP "\fB-p\fP \fItoken-name\fP" 10
+Update the locally stored RACF password for the named token after the
+RACF password has been changed on the z/OS ICSF server.
+The authentication mechanism, URI, and bind DN are read automatically from
+the existing token configuration; \fB\-m\fP, \fB\-u\fP, and \fB\-b\fP
+must not be specified.
+Only tokens using simple authentication have a locally stored RACF password;
+the command will refuse with an error if the token uses SASL.
+The new RACF password is prompted for and verified by binding to the LDAP
+server before anything is written locally.
+The SO PIN is then prompted for to unwrap the token master key, which is
+used to re-encrypt the RACF password in place.
+The caller must be a member of the \fBpkcs11\fP group.
+See
+.B "RACF PASSWORD CHANGE"
+below for the full procedure.
 .IP "\fB-u\fP \fIURI\fP" 10
 The URI of the LDAP server (e.g. \fBldap://hostname\fP or
 \fBldaps://hostname\fP).
@@ -239,7 +312,7 @@ Written when the user PIN is initialized or changed.
 .IP "@localstatedir@/lib/opencryptoki/\fItoken_name\fP/RACF"
 Contains the RACF password encrypted with AES-256-GCM under the token
 master key.
-Written by \fBpkcsicsf \-a\fP.
+Written by \fBpkcsicsf \-a\fP and updated by \fBpkcsicsf \-p\fP.
 
 .SH SEE ALSO
 .PD 0

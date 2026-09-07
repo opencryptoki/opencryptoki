@@ -23,6 +23,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <sys/file.h>
 #include <string.h>
 #include <grp.h>
 #include <openssl/crypto.h>
@@ -69,6 +70,12 @@ pkcs_trace_level_t trace_level = TRACE_LEVEL_NONE;
 #define CFG_MECH        0x0080
 #define CFG_MECH_SASL   0x0100
 #define CFG_MECH_SIMPLE 0x0200
+#define CFG_CHGPWD      0x0400
+
+/* Token authentication mechanism values, matching ICSF_CFG_MECH_* in
+ * icsf_config.h */
+#define TOK_MECH_SIMPLE 0
+#define TOK_MECH_SASL   1
 
 #define SALT_SIZE   16
 #define SASL    "sasl"
@@ -96,6 +103,7 @@ static void usage(char *progname)
     printf("usage:\t%s [-h] [ -l | -a token-name] [-b BINDDN]"
            " [-c client-cert-file] [-C CA-cert-file] [-k key] [-u URI]"
            " [-m MECHANISM]\n", progname);
+    printf("      \t%s -p token-name\n", progname);
     printf("\t-a add specified token\n");
     printf("\t-b the distinguish name to bind for simple mode\n");
     printf("\t-C the CA certificate file for SASL mode\n");
@@ -105,6 +113,7 @@ static void usage(char *progname)
     printf("\t-l list available tokens\n");
     printf("\t-m the authentication mechanism, "
            "it can be 'simple' or 'sasl'\n");
+    printf("\t-p change the RACF password for an existing token\n");
     printf("\t-u the URI to connect to\n");
 
     exit(-1);
@@ -243,6 +252,146 @@ static struct ConfigBaseNode *config_parse(const char *config_file,
         return NULL;
 
     return config;
+}
+
+/*
+ * read_token_config - find the token config file for @tokname by looking up
+ * the 'tokname' + 'confname' keys in opencryptoki.conf, then parse MECH,
+ * URI, and BINDDN out of that config file.
+ *
+ * The confname is stored in opencryptoki.conf (written by pkcsicsf -a).
+ * It is NOT stored in NVTOK.DAT: the slot_data appendage that holds it is
+ * only written on the first login, so it may not be present.
+ * Using opencryptoki.conf is therefore the only reliable path.
+ *
+ * Returns 0 on success, -1 on error.
+ */
+static int read_token_config(const char *tokname, int *out_mech,
+                              char *out_uri, char *out_dn)
+{
+    struct ConfigBaseNode *config = NULL, *c, *child;
+    struct ConfigIdxStructNode *slot;
+    char confname[PATH_MAX] = { 0 };
+    char confpath[PATH_MAX];
+    char mech_str[64] = { 0 };
+    int i, j, found_slot = 0, found_conf = 0;
+
+    *out_uri = '\0';
+    *out_dn  = '\0';
+
+    /* Step 1: find the confname for this tokname in opencryptoki.conf */
+    config = config_parse(OCK_CONFIG, FALSE);
+    if (!config) {
+        fprintf(stderr, "Cannot parse config file '%s'.\n", OCK_CONFIG);
+        return -1;
+    }
+
+    confignode_foreach(c, config, i) {
+        char this_tokname[256] = { 0 };
+        char this_confname[PATH_MAX] = { 0 };
+
+        if (!confignode_hastype(c, CT_IDX_STRUCT))
+            continue;
+        slot = confignode_to_idxstruct(c);
+        if (strcmp(slot->base.key, "slot") != 0)
+            continue;
+
+        confignode_foreach(child, slot->value, j) {
+            char *val = confignode_getstr(child);
+
+            if (!val)
+                continue;
+            if (strcasecmp(child->key, "tokname") == 0)
+                strncpy(this_tokname, val, sizeof(this_tokname) - 1);
+            else if (strcasecmp(child->key, "confname") == 0)
+                strncpy(this_confname, val, sizeof(this_confname) - 1);
+        }
+
+        if (strcasecmp(this_tokname, tokname) == 0 &&
+            this_confname[0] != '\0') {
+            memcpy(confname, this_confname, sizeof(confname));
+            found_slot = 1;
+            break;
+        }
+    }
+    confignode_deepfree(config);
+    config = NULL;
+
+    if (!found_slot) {
+        fprintf(stderr,
+                "Token '%s' not found in '%s'.\n"
+                "Has it been added with pkcsicsf -a?\n",
+                tokname, OCK_CONFIG);
+        return -1;
+    }
+
+    /* Step 2: resolve confname to an absolute path */
+    if (confname[0] == '/') {
+        if (ock_snprintf(confpath, sizeof(confpath), "%s", confname) != 0) {
+            fprintf(stderr, "Token config file path too long: '%s'.\n",
+                    confname);
+            return -1;
+        }
+    } else {
+        if (ock_snprintf(confpath, sizeof(confpath), "%s/%s",
+                         OCK_CONFDIR, confname) != 0) {
+            fprintf(stderr, "Token config file path too long: '%s/%s'.\n",
+                    OCK_CONFDIR, confname);
+            return -1;
+        }
+    }
+
+    /* Step 3: parse MECH, URI, BINDDN from the token config file */
+    config = config_parse(confpath, FALSE);
+    if (!config) {
+        fprintf(stderr, "Cannot parse token config file '%s'.\n", confpath);
+        return -1;
+    }
+
+    confignode_foreach(c, config, i) {
+        if (!confignode_hastype(c, CT_IDX_STRUCT))
+            continue;
+        slot = confignode_to_idxstruct(c);
+        if (strcmp(slot->base.key, "slot") != 0)
+            continue;
+
+        confignode_foreach(child, slot->value, j) {
+            char *val = confignode_getstr(child);
+
+            if (!val)
+                continue;
+            if (strcasecmp(child->key, "MECH") == 0)
+                strncpy(mech_str, val, sizeof(mech_str) - 1);
+            else if (strcasecmp(child->key, "URI") == 0)
+                strncpy(out_uri, val, PATH_MAX - 1);
+            else if (strcasecmp(child->key, "BINDDN") == 0)
+                strncpy(out_dn, val, NAME_MAX - 1);
+        }
+        found_conf = 1;
+        break;
+    }
+    confignode_deepfree(config);
+
+    if (!found_conf) {
+        fprintf(stderr, "No slot entry found in '%s'.\n", confpath);
+        return -1;
+    }
+    if (mech_str[0] == '\0') {
+        fprintf(stderr, "No MECH key found in '%s'.\n", confpath);
+        return -1;
+    }
+
+    if (strcasecmp(mech_str, "SIMPLE") == 0) {
+        *out_mech = TOK_MECH_SIMPLE;
+    } else if (strcasecmp(mech_str, "SASL") == 0) {
+        *out_mech = TOK_MECH_SASL;
+    } else {
+        fprintf(stderr, "Unknown MECH value '%s' in '%s'.\n",
+                mech_str, confpath);
+        return -1;
+    }
+
+    return 0;
 }
 
 static int config_add_slotinfo(int num_of_slots,
@@ -799,6 +948,256 @@ cleanup:
     return rc;
 }
 
+/*
+ * change_racf_passwd - update the encrypted RACF password for an existing
+ * ICSF token after the RACF password has been changed on the z/OS server.
+ *
+ * Reads MECH, URI, and BINDDN from the existing token configuration
+ * (via opencryptoki.conf + the per-token conf file) so the user does not
+ * need to supply -m/-u/-b on the command line.
+ * Refuses with a clear error if the token uses SASL authentication, as
+ * SASL tokens do not use a RACF password file.
+ *
+ * Prompts for the new RACF password, verifies it by binding to the LDAP
+ * server, then prompts for the SO PIN to unwrap the master key and
+ * re-encrypts the RACF file in place.
+ *
+ * Supports both the v3 token format (tokversion >= 3.28, 40-byte MK_SO)
+ * and the legacy format (v1/v2 MK_SO).
+ *
+ * Steps:
+ *   1. Read MECH/URI/BINDDN from opencryptoki.conf + token conf file.
+ *   2. Prompt for the new RACF password; verify via icsf_login().
+ *   3. Read NVTOK.DAT; verify version and cross-check MK_SO size.
+ *   4. Prompt for the SO PIN; unwrap the master key.
+ *   5. Re-encrypt the RACF file with the new password and the same master key.
+ */
+static int change_racf_passwd(const char *tokname)
+{
+    char nvtok_fname[PATH_MAX];
+    char mk_so_fname[PATH_MAX];
+    char lockfile[PATH_MAX];
+    char tok_uri[PATH_MAX + 1];
+    char tok_dn[NAME_MAX + 1];
+    TOKEN_DATA td;
+    TOKEN_DATA_VERSION *dat = &td.dat;
+    uint32_t tok_version;
+    struct stat sb;
+    int is_v3;
+    int tok_mech;
+    int lockfd = -1;
+    LDAP *chg_ld = NULL;
+    const char *racfpwd;
+    char *buf_racfpwd = NULL;
+    CK_ULONG racflen;
+    unsigned char wrap_key[32];
+    unsigned char masterkey[AES_KEY_SIZE_256];
+    int mk_len = AES_KEY_SIZE_256;
+    const char *sopin;
+    char *buf_so = NULL;
+    char msg[PATH_MAX];
+    FILE *fp;
+    int rc = -1;
+    CK_RV rv;
+
+    if (!is_valid_filename_component(tokname)) {
+        fprintf(stderr, "Token name '%s' is not valid.\n", tokname);
+        return -1;
+    }
+
+    /* Step 1: read authentication config from the existing token config files */
+    if (read_token_config(tokname, &tok_mech, tok_uri, tok_dn) != 0)
+        return -1;
+
+    if (tok_mech != TOK_MECH_SIMPLE) {
+        fprintf(stderr,
+                "Token '%s' uses SASL authentication. "
+                "SASL tokens do not use a RACF password file; "
+                "no update is needed.\n", tokname);
+        return -1;
+    }
+
+    /* Step 2: prompt for the new RACF password and verify it via LDAP */
+    snprintf(msg, sizeof(msg),
+             "Enter the new RACF passwd for token '%s': ", tokname);
+    racfpwd = pin_prompt(&buf_racfpwd, msg);
+    if (!racfpwd) {
+        fprintf(stderr, "Could not get RACF passwd.\n");
+        goto cleanup;
+    }
+    racflen = strlen(racfpwd);
+    if (racflen >= PIN_SIZE) {
+        fprintf(stderr, "RACF passwd too long (max %d characters).\n",
+                PIN_SIZE - 1);
+        goto cleanup;
+    }
+
+    rc = icsf_login(&chg_ld, tok_uri, tok_dn, racfpwd);
+    if (rc) {
+        fprintf(stderr, "Failed to bind to the LDAP server with the new "
+                "RACF password: %s (%d)\n", ldap_err2string(rc), rc);
+        rc = -1;
+        goto cleanup;
+    }
+    /* Login succeeded — new password is valid. Close the LDAP session;
+     * we do not need it for the local file update that follows. */
+    icsf_logout(chg_ld);
+    chg_ld = NULL;
+    rc = -1; /* reset; success set explicitly below */
+
+    /*
+     * Step 3: acquire the token cross-process lock before touching any
+     * files in the token data directory.
+     */
+    snprintf(lockfile, sizeof(lockfile), "%s/%s/LCK..%s",
+             LOCKDIR_PATH, tokname, tokname);
+    lockfd = open_nofollow(lockfile, OPEN_MODE);
+    if (lockfd < 0) {
+        fprintf(stderr, "Cannot open lock file %s: %s\n",
+                lockfile, strerror(errno));
+        goto cleanup;
+    }
+    if (flock(lockfd, LOCK_EX) != 0) {
+        fprintf(stderr, "flock(%s): %s\n", lockfile, strerror(errno));
+        goto cleanup;
+    }
+
+    /* Step 4: read and validate the token data store (under the lock) */
+    snprintf(nvtok_fname, sizeof(nvtok_fname), "%s/%s/" PK_LITE_NV,
+             CONFIG_PATH, tokname);
+    snprintf(mk_so_fname, sizeof(mk_so_fname), "%s/%s/MK_SO",
+             CONFIG_PATH, tokname);
+
+    fp = fopen(nvtok_fname, "r");
+    if (!fp) {
+        fprintf(stderr, "Cannot open %s: %s\n", nvtok_fname, strerror(errno));
+        fprintf(stderr, "Token '%s' does not appear to have been added "
+                "with pkcsicsf -a.\n", tokname);
+        goto cleanup;
+    }
+    if (fread(&td, sizeof(td), 1, fp) != 1) {
+        fprintf(stderr, "Failed to read %s: %s\n", nvtok_fname, strerror(errno));
+        fclose(fp);
+        goto cleanup;
+    }
+    fclose(fp);
+
+    /* TOKEN_DATA_VERSION.version is big-endian on disk */
+    tok_version = be32toh(dat->version);
+    is_v3 = (tok_version >= 0x0003001cu);
+
+    /* Cross-check: MK_SO file size must agree with the version */
+    if (stat(mk_so_fname, &sb) != 0) {
+        fprintf(stderr, "Cannot stat %s: %s\n", mk_so_fname, strerror(errno));
+        goto cleanup;
+    }
+    if (is_v3 && sb.st_size != ICSF_MK_FILE_V3_SIZE) {
+        fprintf(stderr,
+                "NVTOK.DAT reports tokversion 0x%08x (>= 3.28) but MK_SO "
+                "has unexpected size %lld (expected %d).\n"
+                "The token data store may be corrupted.\n",
+                tok_version, (long long)sb.st_size, ICSF_MK_FILE_V3_SIZE);
+        goto cleanup;
+    }
+
+    /* Release the lock before the interactive SO PIN prompt and the
+     * CPU-bound PBKDF2 derivation.  MK_SO is stable at this point:
+     * no other pkcsicsf invocation can modify it (only pkcsicsf -a
+     * writes MK_SO, and that requires the token to not exist yet).
+     * The lock is re-acquired below before writing the RACF file. */
+    flock(lockfd, LOCK_UN);
+    close(lockfd);
+    lockfd = -1;
+
+    /* Step 5: prompt for the SO PIN and unwrap the master key */
+    snprintf(msg, sizeof(msg), "Enter the SO PIN for token '%s': ", tokname);
+    sopin = pin_prompt(&buf_so, msg);
+    if (!sopin) {
+        fprintf(stderr, "Could not get SO PIN.\n");
+        goto cleanup;
+    }
+
+    if (is_v3) {
+        /* Byte-swap the on-disk big-endian iteration count before use */
+        dat->so_wrap_it = be64toh(dat->so_wrap_it);
+
+        /* Derive the SO wrap key: PBKDF2-SHA-512(sopin, so_wrap_salt, it, 32) */
+        if (dat->so_wrap_it > INT_MAX ||
+            PKCS5_PBKDF2_HMAC(sopin, (int)strlen(sopin),
+                               dat->so_wrap_salt, 64,
+                               (int)dat->so_wrap_it, EVP_sha512(),
+                               32, wrap_key) != 1) {
+            fprintf(stderr, "Failed to derive wrap key from SO PIN.\n");
+            goto cleanup;
+        }
+
+        rv = get_masterkey_v3(NULL, wrap_key, mk_so_fname, masterkey);
+        if (rv != CKR_OK) {
+            fprintf(stderr,
+                    "Failed to unwrap master key from MK_SO - wrong SO PIN?\n");
+            goto cleanup;
+        }
+    } else {
+        /*
+         * Legacy format: get_masterkey() reads the salt and format version
+         * from MK_SO itself and handles both v1 and v2 KDF variants.
+         */
+        rv = get_masterkey(NULL, (CK_BYTE *)sopin, (CK_ULONG)strlen(sopin),
+                           mk_so_fname, masterkey, &mk_len);
+        if (rv != CKR_OK) {
+            fprintf(stderr,
+                    "Failed to decrypt master key from MK_SO - wrong SO PIN?\n");
+            goto cleanup;
+        }
+    }
+
+    /* Step 6: re-acquire the lock and write the updated RACF file atomically
+     * with respect to concurrent stdll readers (getLDAPhandle / reset_token_data
+     * both hold XProcLock, which is flock on the same LCK.. file). */
+    lockfd = open_nofollow(lockfile, OPEN_MODE);
+    if (lockfd < 0) {
+        fprintf(stderr, "Cannot re-open lock file %s: %s\n",
+                lockfile, strerror(errno));
+        goto cleanup;
+    }
+    if (flock(lockfd, LOCK_EX) != 0) {
+        fprintf(stderr, "flock(%s): %s\n", lockfile, strerror(errno));
+        goto cleanup;
+    }
+
+    if (is_v3) {
+        rv = secure_racf_v3(NULL, (const CK_BYTE *)racfpwd, racflen,
+                            masterkey, tokname);
+        if (rv != CKR_OK) {
+            fprintf(stderr, "Failed to write updated RACF file.\n");
+            goto cleanup;
+        }
+    } else {
+        rv = secure_racf(NULL, (CK_BYTE *)racfpwd, racflen,
+                         masterkey, (CK_ULONG)mk_len, tokname);
+        if (rv != CKR_OK) {
+            fprintf(stderr, "Failed to write updated RACF file.\n");
+            goto cleanup;
+        }
+    }
+
+    printf("RACF password updated successfully for token '%s'.\n", tokname);
+    rc = 0;
+
+cleanup:
+    if (lockfd >= 0) {
+        flock(lockfd, LOCK_UN);
+        close(lockfd);
+    }
+    if (chg_ld)
+        icsf_logout(chg_ld);
+    OPENSSL_cleanse(wrap_key, sizeof(wrap_key));
+    OPENSSL_cleanse(masterkey, sizeof(masterkey));
+    pin_free(&buf_racfpwd);
+    pin_free(&buf_so);
+    return rc;
+}
+
 int main(int argc, char **argv)
 {
     const char *racfpwd = NULL;
@@ -808,10 +1207,18 @@ int main(int argc, char **argv)
     int rc = 0;
     struct icsf_token_record found_token;
 
-    while ((c = getopt(argc, argv, "hla:b:u:m:k:c:C:")) != (-1)) {
+    while ((c = getopt(argc, argv, "hla:b:u:m:k:c:C:p:")) != (-1)) {
         switch (c) {
         case 'a':
             flags |= CFG_ADD;
+            if ((tokenname = strdup(optarg)) == NULL) {
+                rc = -1;
+                fprintf(stderr, "strdup failed: line %d\n", __LINE__);
+                goto cleanup;
+            }
+            break;
+        case 'p':
+            flags |= CFG_CHGPWD;
             if ((tokenname = strdup(optarg)) == NULL) {
                 rc = -1;
                 fprintf(stderr, "strdup failed: line %d\n", __LINE__);
@@ -889,7 +1296,8 @@ int main(int argc, char **argv)
         usage(argv[0]);
 
     /* If there were no options, print usage. */
-    if ((!flags) || (!(flags & CFG_ADD) && !(flags & CFG_LIST)))
+    if ((!flags) ||
+        (!(flags & CFG_ADD) && !(flags & CFG_LIST) && !(flags & CFG_CHGPWD)))
         usage(argv[0]);
 
     /* If add, then must specify a mechanism and a name */
@@ -900,8 +1308,19 @@ int main(int argc, char **argv)
     if ((flags & CFG_LIST) && !(flags & CFG_MECH))
         usage(argv[0]);
 
-    /* Cannot add and list at the same time */
-    if ((flags & CFG_LIST) && (flags & CFG_ADD))
+    /* If change password, only a token name is required; the mechanism and
+     * connection details are read from the existing token configuration.
+     * Reject -m/-u/-b/-c/-C/-k to avoid silent mismatches. */
+    if ((flags & CFG_CHGPWD) && tokenname == NULL)
+        usage(argv[0]);
+    if ((flags & CFG_CHGPWD) &&
+        (flags & (CFG_MECH | CFG_URI | CFG_BINDDN |
+                  CFG_CERT | CFG_PRIVKEY | CFG_CACERT)))
+        usage(argv[0]);
+
+    /* Cannot combine operations */
+    if (!!(flags & CFG_LIST) + !!(flags & CFG_ADD) +
+        !!(flags & CFG_CHGPWD) > 1)
         usage(argv[0]);
 
     /* May only specify one mechanism */
@@ -922,7 +1341,7 @@ int main(int argc, char **argv)
         exit(-1);
     }
 
-    /* get racf password if needed */
+    /* get racf password and bind for -a and -l; -p handles this itself */
     if ((flags & CFG_ADD) || (flags & CFG_LIST)) {
         if (flags & CFG_MECH_SIMPLE) {
             racfpwd = pin_prompt(&buf_racfpwd, "Enter the RACF passwd: ");
@@ -938,7 +1357,6 @@ int main(int argc, char **argv)
                 goto cleanup;
             }
 
-            /* bind to ldap server */
             rc = icsf_login(&ld, uri, binddn, racfpwd);
         } else {
             rc = icsf_sasl_login(&ld, uri, cert, privkey, cacert, NULL);
@@ -950,6 +1368,11 @@ int main(int argc, char **argv)
         }
     }
 
+    /* Change RACF password for an existing token */
+    if (flags & CFG_CHGPWD) {
+        rc = change_racf_passwd(tokenname);
+        goto cleanup;
+    }
 
     /* Add token(s) */
     if (flags & CFG_ADD) {

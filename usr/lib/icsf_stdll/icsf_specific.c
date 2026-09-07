@@ -879,7 +879,7 @@ CK_RV reset_token_data(STDLL_TokData_t * tokdata, CK_SLOT_ID slot_id,
     char pk_dir_buf[PATH_MAX];
     char fname[PATH_MAX];
     const char *tokname;
-    CK_RV rc = CKR_OK;
+    CK_RV rc = CKR_OK, rc2;
 
     /* Remove user's masterkey */
     if (icsf_data->slot_data->mech == ICSF_CFG_MECH_SIMPLE) {
@@ -928,6 +928,15 @@ CK_RV reset_token_data(STDLL_TokData_t * tokdata, CK_SLOT_ID slot_id,
             }
         }
 
+        /* Hold XProcLock across the RACF read-modify-write so that a
+         * concurrent 'pkcsicsf -p' cannot overwrite the RACF file while we
+         * are reading it, and vice versa. */
+        rc = XProcLock(tokdata);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("Process Lock Failed.\n");
+            goto done;
+        }
+
         /* Load RACF password */
         if (tokdata->version >= TOK_NEW_DATA_STORE) {
             rc = get_racf_v3(tokdata, mk, racf_pass, &racf_pass_len);
@@ -935,12 +944,18 @@ CK_RV reset_token_data(STDLL_TokData_t * tokdata, CK_SLOT_ID slot_id,
             rc = get_racf(tokdata, mk, mk_len, racf_pass, &racf_pass_len);
         }
         if (rc != CKR_OK) {
+            rc = XProcUnLock(tokdata);
+            if (rc != CKR_OK)
+                TRACE_ERROR("Failed to release process lock.\n");
             TRACE_DEVEL("Failed to get RACF password.\n");
             goto done;
         }
 
         /* Generate new master key */
         if (get_randombytes(mk, AES_KEY_SIZE_256)) {
+            rc = XProcUnLock(tokdata);
+            if (rc != CKR_OK)
+                TRACE_ERROR("Failed to release process lock.\n");
             TRACE_DEVEL("Failed to generate new master key.\n");
             rc = CKR_FUNCTION_FAILED;
             goto done;
@@ -962,6 +977,13 @@ CK_RV reset_token_data(STDLL_TokData_t * tokdata, CK_SLOT_ID slot_id,
         } else {
             rc = secure_racf(tokdata, racf_pass, (CK_ULONG)racf_pass_len,
                              mk, (CK_ULONG)mk_len, tokname);
+        }
+        rc2 = XProcUnLock(tokdata);
+        if (rc2 != CKR_OK) {
+            TRACE_ERROR("Failed to release process lock.\n");
+            if (rc == CKR_OK)
+                rc = rc2;
+            goto done;
         }
         if (rc != CKR_OK) {
             TRACE_DEVEL("Failed to save racf password.\n");
@@ -1180,7 +1202,9 @@ CK_RV icsftok_init_pin(STDLL_TokData_t * tokdata, SESSION * sess,
         rc = compute_sha1(tokdata, pPin, ulPinLen, hash_sha);
         if (rc != CKR_OK) {
             TRACE_ERROR("Hash Computation Failed.\n");
-            XProcUnLock(tokdata);
+            rc = XProcUnLock(tokdata);
+            if (rc != CKR_OK)
+                TRACE_ERROR("Failed to release process lock.\n");
             OPENSSL_cleanse(hash_sha, sizeof(hash_sha));
             goto done;
         }
@@ -1528,7 +1552,7 @@ LDAP *getLDAPhandle(STDLL_TokData_t * tokdata, CK_SLOT_ID slot_id)
     int racflen = sizeof(racfpwd);
     char *ca_dir = NULL;
     LDAP *new_ld = NULL;
-    CK_RV rc = CKR_OK;
+    CK_RV rc = CKR_OK, rc2;
 
     if (icsf_data->slot_data == NULL) {
         TRACE_ERROR("ICSF slot data not initialized.\n");
@@ -1537,13 +1561,26 @@ LDAP *getLDAPhandle(STDLL_TokData_t * tokdata, CK_SLOT_ID slot_id)
     /* Check if using sasl or simple auth */
     if (icsf_data->slot_data->mech == ICSF_CFG_MECH_SIMPLE) {
         TRACE_INFO("Using SIMPLE auth with slot ID: %lu\n", slot_id);
-        /* get racf passwd */
+        /* get racf passwd - hold XProcLock so pkcsicsf -p cannot update
+         * the RACF file concurrently and leave us reading a partial write */
+        rc = XProcLock(tokdata);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("Process Lock Failed.\n");
+            goto done;
+        }
         if (tokdata->version >= TOK_NEW_DATA_STORE) {
             rc = get_racf_v3(tokdata, tokdata->master_key,
                              racfpwd, &racflen);
         } else {
             rc = get_racf(tokdata, tokdata->master_key, AES_KEY_SIZE_256,
                           racfpwd, &racflen);
+        }
+        rc2 = XProcUnLock(tokdata);
+        if (rc2 != CKR_OK) {
+            TRACE_ERROR("Failed to release process lock.\n");
+            if (rc == CKR_OK)
+                rc = rc2;
+            goto done;
         }
         if (rc != CKR_OK) {
             TRACE_DEVEL("Failed to get racf passwd.\n");
