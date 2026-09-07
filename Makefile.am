@@ -265,14 +265,28 @@ else
 PKCSLIB ?= @libdir@/opencryptoki/libopencryptoki.so
 endif
 
+# ci-prepare: set up tokens and configuration for ci-installcheck.
+#
+# When OCK_CI_REUSE_TOKENS is set to a non-empty value, the existing
+# opencryptoki.conf is left untouched and only uninitialised slots are
+# initialised.  This lets callers reuse a previously configured token
+# setup instead of destroying it.  By default (OCK_CI_REUSE_TOKENS
+# unset) the original behaviour is preserved: ciconfig.sh regenerates
+# the full slot configuration from scratch.
 ci-prepare:
 	$(KILLALL) -HUP pkcsslotd || true
-	${srcdir}/testcases/ciconfig.sh "$(sysconfdir)/opencryptoki" "$(sysconfdir)/opencryptoki" "$(sysconfdir)/opencryptoki" "${srcdir}/testcases/test_combined_extract.slots"
+	if [ -z "$${OCK_CI_REUSE_TOKENS}" ]; then \
+		${srcdir}/testcases/ciconfig.sh "$(sysconfdir)/opencryptoki" "$(sysconfdir)/opencryptoki" "$(sysconfdir)/opencryptoki" "${srcdir}/testcases/test_combined_extract.slots"; \
+	else \
+		echo "OCK_CI_REUSE_TOKENS set - skipping ciconfig.sh, reusing existing token configuration"; \
+	fi
 	@sbindir@/pkcsslotd
 	@sbindir@/pkcsstats --reset-all
 	for slot in `awk '/^slot (.*)/ { print $$2; }' $(sysconfdir)/opencryptoki/opencryptoki.conf`; do @sbindir@/pkcsconf -c $$slot -t | grep "Flags:" | grep -q TOKEN_INITIALIZED || PKCS11_USER_PIN=$(PKCS11_USER_PIN) PKCS11_SO_PIN=$(PKCS11_SO_PIN) PKCSLIB=$(PKCSLIB) ${srcdir}/testcases/init_token.sh $$slot || exit; done
-#	cd ${srcdir}/testcases && PKCS11_USER_PIN=$(PKCS11_USER_PIN) PKCS11_VHSM_PIN=$(PKCS11_VHSM_PIN) PKCSLIB=$(PKCSLIB) ./init_vhsm.exp 42
-#	echo "VHSM_MODE" >> "$(sysconfdir)/opencryptoki/ep11tok42.conf"
+#	if [ -z "$${OCK_CI_REUSE_TOKENS}" ]; then \
+#		cd ${srcdir}/testcases && PKCS11_USER_PIN=$(PKCS11_USER_PIN) PKCS11_VHSM_PIN=$(PKCS11_VHSM_PIN) PKCSLIB=$(PKCSLIB) ./init_vhsm.exp 42; \
+#		echo "VHSM_MODE" >> "$(sysconfdir)/opencryptoki/ep11tok42.conf"; \
+#	fi
 	@sbindir@/pkcsep11_session status || true
 
 installcheck-local: all check
@@ -288,6 +302,13 @@ installcheck-local: all check
 	fi
 	$(KILLALL) -HUP pkcsslotd
 
+# Slot number and datastore used by the soft-token-based test scripts.
+# When OCK_CI_REUSE_TOKENS is set, callers may override these via
+# OCK_CI_SWTOK_SLOT      (default: 30)
+# OCK_CI_SWTOK_DATASTORE (default: $(localstatedir)/lib/opencryptoki/sw0)
+CI_SWTOK_SLOT      = $${OCK_CI_SWTOK_SLOT:-30}
+CI_SWTOK_DATASTORE = $${OCK_CI_SWTOK_DATASTORE:-$(localstatedir)/lib/opencryptoki/sw0}
+
 ci-installcheck: ci-prepare installcheck
 	$(KILLALL) -HUP pkcsslotd || true
 	@sbindir@/pkcsslotd
@@ -296,7 +317,7 @@ ci-installcheck: ci-prepare installcheck
 	&& export PKCSLIB=$(PKCSLIB)					\
 	&& export PKCS11_USER_PIN=$(PKCS11_USER_PIN)			\
 	&& export PKCS11_SO_PIN=$(PKCS11_SO_PIN)			\
-	&& SBINDIR=@sbindir@ ./misc_tests/p11sak_test.sh   | tee log-p11sak.txt		\
+	&& SBINDIR=@sbindir@ SLOT=$(CI_SWTOK_SLOT) ./misc_tests/p11sak_test.sh   | tee log-p11sak.txt		\
 	&& SBINDIR=@sbindir@ ./misc_tests/pkcsconf_test.sh | tee log-pkcsconf.txt	\
 	&& SBINDIR=@sbindir@ ./misc_tests/tok2tok_test.sh  | tee log-tok2tok.txt
 	if [[ -n "${KMIP_IP}" ]] && [[ -n "${KMIP_REST_USER}" ]] && [[ -n "${KMIP_REST_PASSWORD}" ]]; then \
@@ -305,7 +326,7 @@ ci-installcheck: ci-prepare installcheck
 		&& export PKCS11_USER_PIN=$(PKCS11_USER_PIN)		\
 		&& export PKCS11_SO_PIN=$(PKCS11_SO_PIN)		\
 		&& SBINDIR=@sbindir@ 					\
-		   PKCS11_SLOT_ID=30					\
+		   PKCS11_SLOT_ID=$(CI_SWTOK_SLOT)			\
 		   ./misc_tests/p11kmip_test.sh | tee log-p11kmip.txt;\
 	fi
 	cd ${srcdir}/testcases						\
@@ -313,9 +334,9 @@ ci-installcheck: ci-prepare installcheck
 	&& export PKCS11_USER_PIN=$(PKCS11_USER_PIN)			\
 	&& export PKCS11_SO_PIN=$(PKCS11_SO_PIN)			\
 	&& SBINDIR=@sbindir@						\
-	   SLOT=30							\
+	   SLOT=$(CI_SWTOK_SLOT)					\
 	   OCK_CONFDIR=$(sysconfdir)/opencryptoki			\
-	   OCK_DATASTORE=$(localstatedir)/lib/opencryptoki/sw0		\
+	   OCK_DATASTORE=$(CI_SWTOK_DATASTORE)				\
 	   ./misc_tests/pkcstok_migrate_test.sh | tee log-pkcstok-migrate.txt
 	@sbindir@/pkcsstats --all
 	$(KILLALL) -HUP pkcsslotd
