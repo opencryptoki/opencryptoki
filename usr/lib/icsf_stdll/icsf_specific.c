@@ -27,6 +27,8 @@
 #include <fcntl.h>
 #include <pthread.h>
 #include <errno.h>
+#include <openssl/evp.h>
+#include <openssl/crypto.h>
 #include "pkcs11types.h"
 #include "defs.h"
 #include "host_defs.h"
@@ -865,119 +867,18 @@ done:
     return rc;
 }
 
-CK_RV login(STDLL_TokData_t * tokdata, LDAP ** ld, CK_SLOT_ID slot_id,
-            CK_BYTE * pin, CK_ULONG pin_len, const char *pass_file_type)
-{
-    icsf_private_data_t *icsf_data = tokdata->private_data;
-    CK_RV rc;
-    struct slot_data data;
-    LDAP *ldapd = NULL;
-    int ret;
-
-    UNUSED(slot_id);
-    UNUSED(pass_file_type);
-
-    rc = XProcLock(tokdata);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("Failed to get process lock.\n");
-        return rc;
-    }
-
-    /* Check slot data */
-    if (icsf_data->slot_data == NULL || !icsf_data->slot_data->initialized) {
-        TRACE_ERROR("ICSF slot data not initialized.\n");
-        rc = CKR_FUNCTION_FAILED;
-        XProcUnLock(tokdata);
-        return rc;
-    }
-    memcpy(&data, icsf_data->slot_data, sizeof(data));
-
-    rc = XProcUnLock(tokdata);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("Failed to release process lock.\n");
-        return rc;
-    }
-
-    if (data.mech == ICSF_CFG_MECH_SIMPLE) {
-        CK_BYTE mk[MAX_KEY_SIZE];
-        CK_BYTE racf_pass[PIN_SIZE];
-        int mk_len = sizeof(mk);
-        int racf_pass_len = sizeof(racf_pass);
-        char fname[PATH_MAX];
-
-        /* Load master key */
-        if (get_pk_dir(tokdata, fname, PATH_MAX) == NULL) {
-            TRACE_ERROR("pk_dir buffer overflow\n");
-            rc = CKR_FUNCTION_FAILED;
-            goto done_simple;
-        }
-
-        if (PATH_MAX - strlen(fname) > strlen("/MK_SO")) {
-            strcat(fname, "/MK_SO");
-        } else {
-            TRACE_ERROR("MK_SO buffer overflow\n");
-            rc = CKR_FUNCTION_FAILED;
-            goto done_simple;
-        }
-        if (get_masterkey(tokdata, pin, pin_len, fname, mk, &mk_len)) {
-            TRACE_DEVEL("Failed to get masterkey \"%s\".\n", fname);
-            rc = CKR_FUNCTION_FAILED;
-            goto done_simple;
-        }
-
-        /* Load RACF password */
-        if (get_racf(tokdata, mk, mk_len, racf_pass, &racf_pass_len)) {
-            TRACE_DEVEL("Failed to get RACF password.\n");
-            rc = CKR_FUNCTION_FAILED;
-            goto done_simple;
-        }
-
-        /* Simple bind */
-        ret = icsf_login(&ldapd, data.uri, data.dn, (char *)racf_pass);
-
-done_simple:
-        OPENSSL_cleanse(mk, sizeof(mk));
-        OPENSSL_cleanse(racf_pass, sizeof(racf_pass));
-
-        if (rc != CKR_OK)
-            goto done;
-    } else {
-        /* SASL bind */
-        ret = icsf_sasl_login(&ldapd, data.uri, data.cert_file,
-                              data.key_file, data.ca_file, NULL);
-    }
-
-    if (ret) {
-        TRACE_DEVEL("Failed to bind to %s\n", data.uri);
-        rc = CKR_FUNCTION_FAILED;
-        goto done;
-    }
-
-    if (icsf_check_pkcs_extension(ldapd)) {
-        TRACE_ERROR("ICSF LDAP externsion not supported.\n");
-        rc = CKR_FUNCTION_FAILED;
-        goto done;
-    }
-
-done:
-    if (rc == CKR_OK && ld)
-        *ld = ldapd;
-    else if (ldapd)
-        icsf_logout(ldapd);
-
-    return rc;
-}
-
 CK_RV reset_token_data(STDLL_TokData_t * tokdata, CK_SLOT_ID slot_id,
                        CK_CHAR_PTR pin, CK_ULONG pin_len)
 {
     icsf_private_data_t *icsf_data = tokdata->private_data;
+    TOKEN_DATA_VERSION *dat = &tokdata->nv_token_data->dat;
     CK_BYTE mk[MAX_KEY_SIZE] = { 0 };
     CK_BYTE racf_pass[PIN_SIZE] = { 0 };
     int mk_len = sizeof(mk);
     int racf_pass_len = sizeof(racf_pass);
     char pk_dir_buf[PATH_MAX];
     char fname[PATH_MAX];
+    const char *tokname;
     CK_RV rc = CKR_OK;
 
     /* Remove user's masterkey */
@@ -995,31 +896,56 @@ CK_RV reset_token_data(STDLL_TokData_t * tokdata, CK_SLOT_ID slot_id,
         if (unlink(fname) && errno == ENOENT)
             TRACE_WARNING("Failed to remove \"%s\".\n", fname);
 
-        /* Load master key */
+        /* Load master key from MK_SO */
         if (ock_snprintf(fname, PATH_MAX, "%s/MK_SO", pk_dir_buf) != 0) {
             TRACE_ERROR("MK_SO filename buffer overflow\n");
             rc = CKR_FUNCTION_FAILED;
             goto done;
         }
-        if (get_masterkey(tokdata, pin, pin_len, fname, mk, &mk_len)) {
-            TRACE_DEVEL("Failed to load masterkey \"%s\".\n", fname);
-            rc = CKR_FUNCTION_FAILED;
-            goto done;
+        if (tokdata->version >= TOK_NEW_DATA_STORE) {
+            /* New format: derive SO wrap key from current dat params + pin */
+            rc = compute_PKCS5_PBKDF2_HMAC(tokdata, pin, pin_len,
+                                           dat->so_wrap_salt, 64,
+                                           dat->so_wrap_it, EVP_sha512(),
+                                           256 / 8, tokdata->so_wrap_key);
+            if (rc != CKR_OK) {
+                TRACE_DEVEL("PBKDF2 for SO wrap key failed.\n");
+                goto done;
+            }
+            rc = get_masterkey_v3(tokdata, tokdata->so_wrap_key, fname,
+                                  tokdata->master_key);
+            if (rc != CKR_OK) {
+                TRACE_DEVEL("Failed to load masterkey v3 \"%s\".\n", fname);
+                goto done;
+            }
+            mk_len = AES_KEY_SIZE_256;
+            memcpy(mk, tokdata->master_key, mk_len);
+        } else {
+            if (get_masterkey(tokdata, pin, pin_len, fname, mk, &mk_len)) {
+                TRACE_DEVEL("Failed to load masterkey \"%s\".\n", fname);
+                rc = CKR_FUNCTION_FAILED;
+                goto done;
+            }
         }
 
         /* Load RACF password */
-        if (get_racf(tokdata, mk, mk_len, racf_pass, &racf_pass_len)) {
+        if (tokdata->version >= TOK_NEW_DATA_STORE) {
+            rc = get_racf_v3(tokdata, mk, racf_pass, &racf_pass_len);
+        } else {
+            rc = get_racf(tokdata, mk, mk_len, racf_pass, &racf_pass_len);
+        }
+        if (rc != CKR_OK) {
             TRACE_DEVEL("Failed to get RACF password.\n");
-            rc = CKR_FUNCTION_FAILED;
             goto done;
         }
 
-        /* Generate new key */
-        if (get_randombytes(mk, mk_len)) {
+        /* Generate new master key */
+        if (get_randombytes(mk, AES_KEY_SIZE_256)) {
             TRACE_DEVEL("Failed to generate new master key.\n");
             rc = CKR_FUNCTION_FAILED;
             goto done;
         }
+        mk_len = AES_KEY_SIZE_256;
 
         if ((tokdata->statistics->flags & STATISTICS_FLAG_COUNT_INTERNAL) != 0)
             tokdata->statistics->increment_func(tokdata->statistics,
@@ -1027,11 +953,18 @@ CK_RV reset_token_data(STDLL_TokData_t * tokdata, CK_SLOT_ID slot_id,
                                                 &tokdata->store_strength.mk_keygen,
                                                 tokdata->store_strength.mk_strength);
 
-        /* Save racf password using the new master key */
-        if (secure_racf(tokdata, racf_pass, racf_pass_len, mk, mk_len,
-                        tokdata->data_store)) {
+        /* Save RACF password under the new master key */
+        tokname = strrchr(tokdata->data_store, '/');
+        tokname = tokname ? tokname + 1 : tokdata->data_store;
+        if (tokdata->version >= TOK_NEW_DATA_STORE) {
+            rc = secure_racf_v3(tokdata, racf_pass,
+                                (CK_ULONG)racf_pass_len, mk, tokname);
+        } else {
+            rc = secure_racf(tokdata, racf_pass, (CK_ULONG)racf_pass_len,
+                             mk, (CK_ULONG)mk_len, tokname);
+        }
+        if (rc != CKR_OK) {
             TRACE_DEVEL("Failed to save racf password.\n");
-            rc = CKR_FUNCTION_FAILED;
             goto done;
         }
     }
@@ -1046,10 +979,45 @@ CK_RV reset_token_data(STDLL_TokData_t * tokdata, CK_SLOT_ID slot_id,
             CKF_USER_PIN_COUNT_LOW);
 
     if (icsf_data->slot_data->mech == ICSF_CFG_MECH_SIMPLE) {
-        /* Save master key */
-        if (secure_masterkey(tokdata, mk, mk_len, pin, pin_len, fname)) {
+        if (tokdata->version >= TOK_NEW_DATA_STORE) {
+            /*
+             * New format: re-derive SO login and wrap keys for the actual
+             * SO pin and store them in the reloaded TOKEN_DATA_VERSION.
+             * dat now points to the freshly loaded nv_token_data after
+             * load_token_data above.
+             */
+            dat = &tokdata->nv_token_data->dat;
+
+            rc = compute_PKCS5_PBKDF2_HMAC(tokdata, pin, pin_len,
+                                           dat->so_login_salt, 64,
+                                           dat->so_login_it, EVP_sha512(),
+                                           256 / 8, dat->so_login_key);
+            if (rc != CKR_OK) {
+                TRACE_DEVEL("PBKDF2 for SO login key failed.\n");
+                goto done;
+            }
+
+            rc = compute_PKCS5_PBKDF2_HMAC(tokdata, pin, pin_len,
+                                           dat->so_wrap_salt, 64,
+                                           dat->so_wrap_it, EVP_sha512(),
+                                           256 / 8, tokdata->so_wrap_key);
+            if (rc != CKR_OK) {
+                TRACE_DEVEL("PBKDF2 for SO wrap key failed.\n");
+                goto done;
+            }
+
+            memcpy(tokdata->master_key, mk, AES_KEY_SIZE_256);
+            if (ock_snprintf(fname, PATH_MAX, "%s/MK_SO", pk_dir_buf) != 0) {
+                TRACE_ERROR("MK_SO filename buffer overflow\n");
+                rc = CKR_FUNCTION_FAILED;
+                goto done;
+            }
+            rc = secure_masterkey_v3(tokdata, mk, tokdata->so_wrap_key, fname);
+        } else {
+            rc = secure_masterkey(tokdata, mk, mk_len, pin, pin_len, fname);
+        }
+        if (rc != CKR_OK) {
             TRACE_DEVEL("Failed to save the new master key.\n");
-            rc = CKR_FUNCTION_FAILED;
             goto done;
         }
     }
@@ -1079,20 +1047,38 @@ done:
 CK_RV icsftok_init_token(STDLL_TokData_t * tokdata, CK_SLOT_ID slot_id,
                          CK_CHAR_PTR pin, CK_ULONG pin_len, CK_CHAR_PTR label)
 {
-    CK_RV rc = CKR_OK;
+    TOKEN_DATA_VERSION *dat = &tokdata->nv_token_data->dat;
     CK_BYTE hash_sha[SHA1_HASH_SIZE];
+    CK_BYTE login_key[32];
+    CK_RV rc = CKR_OK;
 
     UNUSED(label);
 
     /* Check SO PIN */
-    rc = compute_sha1(tokdata, pin, pin_len, hash_sha);
-    if (rc != CKR_OK)
-        goto done;
-    if (memcmp(tokdata->nv_token_data->so_pin_sha, hash_sha,
-               SHA1_HASH_SIZE) != 0) {
-        TRACE_ERROR("%s\n", ock_err(ERR_PIN_INCORRECT));
-        rc = CKR_PIN_INCORRECT;
-        goto done;
+    if (tokdata->version >= TOK_NEW_DATA_STORE) {
+        rc = compute_PKCS5_PBKDF2_HMAC(tokdata, pin, pin_len,
+                                       dat->so_login_salt, 64,
+                                       dat->so_login_it, EVP_sha512(),
+                                       256 / 8, login_key);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("PBKDF2 failed.\n");
+            goto done;
+        }
+        if (CRYPTO_memcmp(dat->so_login_key, login_key, 32) != 0) {
+            TRACE_ERROR("%s\n", ock_err(ERR_PIN_INCORRECT));
+            rc = CKR_PIN_INCORRECT;
+            goto done;
+        }
+    } else {
+        rc = compute_sha1(tokdata, pin, pin_len, hash_sha);
+        if (rc != CKR_OK)
+            goto done;
+        if (memcmp(tokdata->nv_token_data->so_pin_sha, hash_sha,
+                   SHA1_HASH_SIZE) != 0) {
+            TRACE_ERROR("%s\n", ock_err(ERR_PIN_INCORRECT));
+            rc = CKR_PIN_INCORRECT;
+            goto done;
+        }
     }
 
     if ((rc = reset_token_data(tokdata, slot_id, pin, pin_len)))
@@ -1105,6 +1091,8 @@ CK_RV icsftok_init_token(STDLL_TokData_t * tokdata, CK_SLOT_ID slot_id,
     }
 
 done:
+    OPENSSL_cleanse(hash_sha, sizeof(hash_sha));
+    OPENSSL_cleanse(login_key, sizeof(login_key));
     return rc;
 }
 
@@ -1112,65 +1100,103 @@ CK_RV icsftok_init_pin(STDLL_TokData_t * tokdata, SESSION * sess,
                        CK_CHAR_PTR pPin, CK_ULONG ulPinLen)
 {
     icsf_private_data_t *icsf_data = tokdata->private_data;
+    TOKEN_DATA_VERSION *dat = &tokdata->nv_token_data->dat;
     CK_RV rc = CKR_OK;
     CK_BYTE hash_sha[SHA1_HASH_SIZE];
+    CK_BYTE user_login_key[32];
     char fname[PATH_MAX];
     char pk_dir_buf[PATH_MAX];
 
     UNUSED(sess);
 
-    /* compute the SHA of the user pin */
-    rc = compute_sha1(tokdata, pPin, ulPinLen, hash_sha);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("Hash Computation Failed.\n");
-        return rc;
-    }
+    memset(user_login_key, 0, sizeof(user_login_key));
 
-    /* encrypt the masterkey and store in MK_USER if using SIMPLE AUTH
-     * to authenticate to ldao server. The masterkey protects the
-     * racf passwd.
+    /* Protect the master key in MK_USER and (for new format) derive the
+     * user login key into a local buffer; it will be copied into shared
+     * memory inside XProcLock below.
      */
     if (icsf_data->slot_data->mech == ICSF_CFG_MECH_SIMPLE) {
         if (get_pk_dir(tokdata, pk_dir_buf, PATH_MAX) == NULL) {
             TRACE_ERROR("pk_dir_buf overflow\n");
-            OPENSSL_cleanse(hash_sha, sizeof(hash_sha));
-            return CKR_FUNCTION_FAILED;
+            rc = CKR_FUNCTION_FAILED;
+            goto done;
         }
         if (ock_snprintf(fname, PATH_MAX, "%s/MK_USER", pk_dir_buf) != 0) {
             TRACE_ERROR("MK_USER filename buffer overflow\n");
-            OPENSSL_cleanse(hash_sha, sizeof(hash_sha));
-            return CKR_FUNCTION_FAILED;
+            rc = CKR_FUNCTION_FAILED;
+            goto done;
         }
 
-        rc = secure_masterkey(tokdata, tokdata->master_key,
-                              AES_KEY_SIZE_256, pPin, ulPinLen, fname);
+        if (tokdata->version >= TOK_NEW_DATA_STORE) {
+            rc = compute_PKCS5_PBKDF2_HMAC(tokdata, pPin, ulPinLen,
+                                           dat->user_login_salt, 64,
+                                           dat->user_login_it, EVP_sha512(),
+                                           256 / 8, user_login_key);
+            if (rc != CKR_OK) {
+                TRACE_DEVEL("PBKDF2 for user login key failed.\n");
+                goto done;
+            }
+            rc = compute_PKCS5_PBKDF2_HMAC(tokdata, pPin, ulPinLen,
+                                           dat->user_wrap_salt, 64,
+                                           dat->user_wrap_it, EVP_sha512(),
+                                           256 / 8, tokdata->user_wrap_key);
+            if (rc != CKR_OK) {
+                TRACE_DEVEL("PBKDF2 for user wrap key failed.\n");
+                goto done;
+            }
+            rc = secure_masterkey_v3(tokdata, tokdata->master_key,
+                                     tokdata->user_wrap_key, fname);
+        } else {
+            rc = secure_masterkey(tokdata, tokdata->master_key,
+                                  AES_KEY_SIZE_256, pPin, ulPinLen, fname);
+        }
         if (rc != CKR_OK) {
             TRACE_DEVEL("Could not create MK_USER.\n");
-            OPENSSL_cleanse(hash_sha, sizeof(hash_sha));
-            return rc;
+            goto done;
+        }
+    } else if (tokdata->version >= TOK_NEW_DATA_STORE) {
+        /* SASL mode: derive user login key into local buffer */
+        rc = compute_PKCS5_PBKDF2_HMAC(tokdata, pPin, ulPinLen,
+                                       dat->user_login_salt, 64,
+                                       dat->user_login_it, EVP_sha512(),
+                                       256 / 8, user_login_key);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("PBKDF2 for user login key failed.\n");
+            goto done;
         }
     }
 
     rc = XProcLock(tokdata);
     if (rc != CKR_OK) {
         TRACE_ERROR("Failed to get process lock.\n");
-        OPENSSL_cleanse(hash_sha, sizeof(hash_sha));
-        return rc;
+        goto done;
     }
 
-    memcpy(tokdata->nv_token_data->user_pin_sha, hash_sha, SHA1_HASH_SIZE);
+    if (tokdata->version >= TOK_NEW_DATA_STORE) {
+        /* New format: commit the derived login key into shared memory */
+        memcpy(dat->user_login_key, user_login_key, 32);
+    } else {
+        /* Legacy: compute SHA1 and store in user_pin_sha */
+        rc = compute_sha1(tokdata, pPin, ulPinLen, hash_sha);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("Hash Computation Failed.\n");
+            XProcUnLock(tokdata);
+            OPENSSL_cleanse(hash_sha, sizeof(hash_sha));
+            goto done;
+        }
+        memcpy(tokdata->nv_token_data->user_pin_sha, hash_sha, SHA1_HASH_SIZE);
+        OPENSSL_cleanse(hash_sha, sizeof(hash_sha));
+    }
     tokdata->nv_token_data->token_info.flags |= CKF_USER_PIN_INITIALIZED;
     tokdata->nv_token_data->token_info.flags &= ~(CKF_USER_PIN_TO_BE_CHANGED);
     tokdata->nv_token_data->token_info.flags &= ~(CKF_USER_PIN_LOCKED);
 
     rc = XProcUnLock(tokdata);
-    if (rc != CKR_OK) {
+    if (rc != CKR_OK)
         TRACE_ERROR("Process Lock Failed.\n");
-        OPENSSL_cleanse(hash_sha, sizeof(hash_sha));
-        return rc;
-    }
 
-    OPENSSL_cleanse(hash_sha, sizeof(hash_sha));
+done:
+    OPENSSL_cleanse(user_login_key, sizeof(user_login_key));
     return rc;
 }
 
@@ -1179,180 +1205,319 @@ CK_RV icsftok_set_pin(STDLL_TokData_t * tokdata, SESSION * sess,
                       CK_CHAR_PTR pNewPin, CK_ULONG ulNewLen)
 {
     icsf_private_data_t *icsf_data = tokdata->private_data;
+    TOKEN_DATA_VERSION *dat = &tokdata->nv_token_data->dat;
     CK_RV rc = CKR_OK;
     CK_BYTE new_hash_sha[SHA1_HASH_SIZE];
     CK_BYTE old_hash_sha[SHA1_HASH_SIZE];
+    CK_BYTE old_login_key[32];
+    CK_BYTE new_login_key[32];
+    CK_BYTE new_wrap_key[32];
+    CK_BYTE new_login_salt[64];
+    CK_BYTE new_wrap_salt[64];
+    uint64_t new_login_it, new_wrap_it;
+    char pk_dir_buf[PATH_MAX];
     char fname[PATH_MAX];
-
-    rc = compute_sha1(tokdata, pNewPin, ulNewLen, new_hash_sha);
-    rc |= compute_sha1(tokdata, pOldPin, ulOldLen, old_hash_sha);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("Hash Computation Failed.\n");
-        return rc;
-    }
-
-    /* check that the old pin  and new pin are not the same. */
-    if (memcmp(old_hash_sha, new_hash_sha, SHA1_HASH_SIZE) == 0) {
-        TRACE_ERROR("%s\n", ock_err(ERR_PIN_INVALID));
-        OPENSSL_cleanse(new_hash_sha, sizeof(new_hash_sha));
-        OPENSSL_cleanse(old_hash_sha, sizeof(old_hash_sha));
-        return CKR_PIN_INVALID;
-    }
 
     /* check the length requirements */
     if ((ulNewLen < MIN_PIN_LEN) || (ulNewLen > MAX_PIN_LEN)) {
         TRACE_ERROR("%s\n", ock_err(ERR_PIN_LEN_RANGE));
-        OPENSSL_cleanse(new_hash_sha, sizeof(new_hash_sha));
-        OPENSSL_cleanse(old_hash_sha, sizeof(old_hash_sha));
         return CKR_PIN_LEN_RANGE;
     }
 
     if ((sess->session_info.state == CKS_RW_USER_FUNCTIONS) ||
         (sess->session_info.state == CKS_RW_PUBLIC_SESSION)) {
-        /* check that old pin matches what is in NVTOK.DAT */
-        if (memcmp
-            (tokdata->nv_token_data->user_pin_sha, old_hash_sha,
-             SHA1_HASH_SIZE) != 0) {
-            TRACE_ERROR("%s\n", ock_err(ERR_PIN_INCORRECT));
-            OPENSSL_cleanse(new_hash_sha, sizeof(new_hash_sha));
-            OPENSSL_cleanse(old_hash_sha, sizeof(old_hash_sha));
-            return CKR_PIN_INCORRECT;
+
+        /* Verify old user PIN */
+        if (tokdata->version >= TOK_NEW_DATA_STORE) {
+            rc = compute_PKCS5_PBKDF2_HMAC(tokdata, pOldPin, ulOldLen,
+                                           dat->user_login_salt, 64,
+                                           dat->user_login_it, EVP_sha512(),
+                                           256 / 8, old_login_key);
+            if (rc != CKR_OK) {
+                TRACE_DEVEL("PBKDF2 failed.\n");
+                goto done;
+            }
+            if (CRYPTO_memcmp(dat->user_login_key, old_login_key, 32) != 0) {
+                TRACE_ERROR("%s\n", ock_err(ERR_PIN_INCORRECT));
+                rc = CKR_PIN_INCORRECT;
+                goto done;
+            }
+            /* Generate fresh salts for the new PIN */
+            new_login_it = USER_KDF_LOGIN_IT;
+            memcpy(new_login_salt, USER_KDF_LOGIN_PURPOSE, 32);
+            rng_generate(tokdata, new_login_salt + 32, 32);
+
+            new_wrap_it = USER_KDF_WRAP_IT;
+            memcpy(new_wrap_salt, USER_KDF_WRAP_PURPOSE, 32);
+            rng_generate(tokdata, new_wrap_salt + 32, 32);
+
+            /* Derive new login key with the fresh salt and check it
+             * differs from the old one (compare under the old salt so
+             * a same-PIN rejection works even when the salt changes) */
+            rc = compute_PKCS5_PBKDF2_HMAC(tokdata, pNewPin, ulNewLen,
+                                           dat->user_login_salt, 64,
+                                           dat->user_login_it, EVP_sha512(),
+                                           256 / 8, new_login_key);
+            if (rc != CKR_OK) {
+                TRACE_DEVEL("PBKDF2 failed.\n");
+                goto done;
+            }
+            if (CRYPTO_memcmp(old_login_key, new_login_key, 32) == 0) {
+                TRACE_ERROR("%s\n", ock_err(ERR_PIN_INVALID));
+                rc = CKR_PIN_INVALID;
+                goto done;
+            }
+
+            /* Re-derive new login key under the fresh salt for storage */
+            rc = compute_PKCS5_PBKDF2_HMAC(tokdata, pNewPin, ulNewLen,
+                                           new_login_salt, 64,
+                                           new_login_it, EVP_sha512(),
+                                           256 / 8, new_login_key);
+            if (rc != CKR_OK) {
+                TRACE_DEVEL("PBKDF2 failed.\n");
+                goto done;
+            }
+        } else {
+            rc = compute_sha1(tokdata, pNewPin, ulNewLen, new_hash_sha);
+            rc |= compute_sha1(tokdata, pOldPin, ulOldLen, old_hash_sha);
+            if (rc != CKR_OK) {
+                TRACE_ERROR("Hash Computation Failed.\n");
+                goto done;
+            }
+            if (memcmp(old_hash_sha, new_hash_sha, SHA1_HASH_SIZE) == 0) {
+                TRACE_ERROR("%s\n", ock_err(ERR_PIN_INVALID));
+                rc = CKR_PIN_INVALID;
+                goto done;
+            }
+            if (memcmp(tokdata->nv_token_data->user_pin_sha, old_hash_sha,
+                       SHA1_HASH_SIZE) != 0) {
+                TRACE_ERROR("%s\n", ock_err(ERR_PIN_INCORRECT));
+                rc = CKR_PIN_INCORRECT;
+                goto done;
+            }
+            /* check that new pin is not the default */
+            if (memcmp(new_hash_sha, default_user_pin_sha,
+                       SHA1_HASH_SIZE) == 0) {
+                TRACE_ERROR("%s\n", ock_err(ERR_PIN_INVALID));
+                rc = CKR_PIN_INVALID;
+                goto done;
+            }
         }
 
-        /* if using simple auth, encrypt masterkey with new pin */
+        /* Re-wrap master key with new user pin */
         if (icsf_data->slot_data->mech == ICSF_CFG_MECH_SIMPLE) {
-            if (get_pk_dir(tokdata, fname, PATH_MAX) == NULL) {
+            if (get_pk_dir(tokdata, pk_dir_buf, PATH_MAX) == NULL) {
                 TRACE_ERROR("pk_dir buffer overflow\n");
-                OPENSSL_cleanse(new_hash_sha, sizeof(new_hash_sha));
-                OPENSSL_cleanse(old_hash_sha, sizeof(old_hash_sha));
-                return CKR_FUNCTION_FAILED;
+                rc = CKR_FUNCTION_FAILED;
+                goto done;
             }
-            if (PATH_MAX - strlen(fname) > strlen("/MK_USER")) {
-                strcat(fname, "/MK_USER");
-            } else {
+            if (ock_snprintf(fname, PATH_MAX, "%s/MK_USER", pk_dir_buf) != 0) {
                 TRACE_ERROR("MK_USER buffer overflow\n");
-                OPENSSL_cleanse(new_hash_sha, sizeof(new_hash_sha));
-                OPENSSL_cleanse(old_hash_sha, sizeof(old_hash_sha));
-                return CKR_FUNCTION_FAILED;
+                rc = CKR_FUNCTION_FAILED;
+                goto done;
             }
-            rc = secure_masterkey(tokdata, tokdata->master_key,
-                                  AES_KEY_SIZE_256, pNewPin, ulNewLen, fname);
+            if (tokdata->version >= TOK_NEW_DATA_STORE) {
+                rc = compute_PKCS5_PBKDF2_HMAC(tokdata, pNewPin, ulNewLen,
+                                               new_wrap_salt, 64,
+                                               new_wrap_it, EVP_sha512(),
+                                               256 / 8, new_wrap_key);
+                if (rc != CKR_OK) {
+                    TRACE_DEVEL("PBKDF2 for user wrap key failed.\n");
+                    goto done;
+                }
+                rc = secure_masterkey_v3(tokdata, tokdata->master_key,
+                                         new_wrap_key, fname);
+            } else {
+                rc = secure_masterkey(tokdata, tokdata->master_key,
+                                      AES_KEY_SIZE_256, pNewPin, ulNewLen,
+                                      fname);
+            }
             if (rc != CKR_OK) {
                 TRACE_ERROR("Save Master Key Failed.\n");
-                OPENSSL_cleanse(new_hash_sha, sizeof(new_hash_sha));
-                OPENSSL_cleanse(old_hash_sha, sizeof(old_hash_sha));
-                return rc;
+                goto done;
             }
         }
 
-        /* grab lock and change shared memory */
+        /* grab lock and update shared memory */
         rc = XProcLock(tokdata);
         if (rc != CKR_OK) {
             TRACE_ERROR("Process Lock Failed.\n");
-            OPENSSL_cleanse(new_hash_sha, sizeof(new_hash_sha));
-            OPENSSL_cleanse(old_hash_sha, sizeof(old_hash_sha));
-            return rc;
+            goto done;
         }
 
-        memcpy(tokdata->nv_token_data->user_pin_sha, new_hash_sha,
-               SHA1_HASH_SIZE);
+        if (tokdata->version >= TOK_NEW_DATA_STORE) {
+            memcpy(dat->user_login_key, new_login_key, 32);
+            memcpy(dat->user_login_salt, new_login_salt, 64);
+            dat->user_login_it = new_login_it;
+            memcpy(tokdata->user_wrap_key, new_wrap_key, 32);
+            memcpy(dat->user_wrap_salt, new_wrap_salt, 64);
+            dat->user_wrap_it = new_wrap_it;
+        } else {
+            memcpy(tokdata->nv_token_data->user_pin_sha, new_hash_sha,
+                   SHA1_HASH_SIZE);
+        }
         tokdata->nv_token_data->token_info.flags &=
             ~(CKF_USER_PIN_TO_BE_CHANGED);
 
         rc = XProcUnLock(tokdata);
         if (rc != CKR_OK) {
             TRACE_ERROR("Process Lock Failed.\n");
-            OPENSSL_cleanse(new_hash_sha, sizeof(new_hash_sha));
-            OPENSSL_cleanse(old_hash_sha, sizeof(old_hash_sha));
-            return rc;
+            goto done;
         }
 
     } else if (sess->session_info.state == CKS_RW_SO_FUNCTIONS) {
 
-        /* check that old pin matches what is in NVTOK.DAT */
-        if (memcmp
-            (tokdata->nv_token_data->so_pin_sha, old_hash_sha,
-             SHA1_HASH_SIZE) != 0) {
-            TRACE_ERROR("%s\n", ock_err(ERR_PIN_INCORRECT));
-            OPENSSL_cleanse(new_hash_sha, sizeof(new_hash_sha));
-            OPENSSL_cleanse(old_hash_sha, sizeof(old_hash_sha));
-            return CKR_PIN_INCORRECT;
-        }
+        /* Verify old SO PIN */
+        if (tokdata->version >= TOK_NEW_DATA_STORE) {
+            rc = compute_PKCS5_PBKDF2_HMAC(tokdata, pOldPin, ulOldLen,
+                                           dat->so_login_salt, 64,
+                                           dat->so_login_it, EVP_sha512(),
+                                           256 / 8, old_login_key);
+            if (rc != CKR_OK) {
+                TRACE_DEVEL("PBKDF2 failed.\n");
+                goto done;
+            }
+            if (CRYPTO_memcmp(dat->so_login_key, old_login_key, 32) != 0) {
+                TRACE_ERROR("%s\n", ock_err(ERR_PIN_INCORRECT));
+                rc = CKR_PIN_INCORRECT;
+                goto done;
+            }
+            /* Generate fresh salts for the new SO PIN */
+            new_login_it = SO_KDF_LOGIN_IT;
+            memcpy(new_login_salt, SO_KDF_LOGIN_PURPOSE, 32);
+            rng_generate(tokdata, new_login_salt + 32, 32);
 
-        /* check that new pin is not the default */
-        if (memcmp(new_hash_sha, default_so_pin_sha, SHA1_HASH_SIZE) == 0) {
-            TRACE_ERROR("%s\n", ock_err(ERR_PIN_INVALID));
-            OPENSSL_cleanse(new_hash_sha, sizeof(new_hash_sha));
-            OPENSSL_cleanse(old_hash_sha, sizeof(old_hash_sha));
-            return CKR_PIN_INVALID;
+            new_wrap_it = SO_KDF_WRAP_IT;
+            memcpy(new_wrap_salt, SO_KDF_WRAP_PURPOSE, 32);
+            rng_generate(tokdata, new_wrap_salt + 32, 32);
+
+            /* Same-PIN rejection: compare under the old salt */
+            rc = compute_PKCS5_PBKDF2_HMAC(tokdata, pNewPin, ulNewLen,
+                                           dat->so_login_salt, 64,
+                                           dat->so_login_it, EVP_sha512(),
+                                           256 / 8, new_login_key);
+            if (rc != CKR_OK) {
+                TRACE_DEVEL("PBKDF2 failed.\n");
+                goto done;
+            }
+            if (CRYPTO_memcmp(old_login_key, new_login_key, 32) == 0) {
+                TRACE_ERROR("%s\n", ock_err(ERR_PIN_INVALID));
+                rc = CKR_PIN_INVALID;
+                goto done;
+            }
+
+            /* Re-derive new login key under the fresh salt for storage */
+            rc = compute_PKCS5_PBKDF2_HMAC(tokdata, pNewPin, ulNewLen,
+                                           new_login_salt, 64,
+                                           new_login_it, EVP_sha512(),
+                                           256 / 8, new_login_key);
+            if (rc != CKR_OK) {
+                TRACE_DEVEL("PBKDF2 failed.\n");
+                goto done;
+            }
+        } else {
+            rc = compute_sha1(tokdata, pNewPin, ulNewLen, new_hash_sha);
+            rc |= compute_sha1(tokdata, pOldPin, ulOldLen, old_hash_sha);
+            if (rc != CKR_OK) {
+                TRACE_ERROR("Hash Computation Failed.\n");
+                goto done;
+            }
+            if (memcmp(old_hash_sha, new_hash_sha, SHA1_HASH_SIZE) == 0) {
+                TRACE_ERROR("%s\n", ock_err(ERR_PIN_INVALID));
+                rc = CKR_PIN_INVALID;
+                goto done;
+            }
+            if (memcmp(tokdata->nv_token_data->so_pin_sha, old_hash_sha,
+                       SHA1_HASH_SIZE) != 0) {
+                TRACE_ERROR("%s\n", ock_err(ERR_PIN_INCORRECT));
+                rc = CKR_PIN_INCORRECT;
+                goto done;
+            }
+            /* check that new pin is not the default */
+            if (memcmp(new_hash_sha, default_so_pin_sha, SHA1_HASH_SIZE) == 0) {
+                TRACE_ERROR("%s\n", ock_err(ERR_PIN_INVALID));
+                rc = CKR_PIN_INVALID;
+                goto done;
+            }
         }
 
         if (icsf_data->slot_data->mech == ICSF_CFG_MECH_SIMPLE) {
-            /*
-             * if using simle auth, encrypt masterkey with new pin
-             */
-            if (get_pk_dir(tokdata, fname, PATH_MAX) == NULL) {
+            /* Re-wrap master key with new SO pin */
+            if (get_pk_dir(tokdata, pk_dir_buf, PATH_MAX) == NULL) {
                 TRACE_ERROR("pk_dir buffer overflow\n");
-                OPENSSL_cleanse(new_hash_sha, sizeof(new_hash_sha));
-                OPENSSL_cleanse(old_hash_sha, sizeof(old_hash_sha));
-                return CKR_FUNCTION_FAILED;
+                rc = CKR_FUNCTION_FAILED;
+                goto done;
             }
-            if (PATH_MAX - strlen(fname) > strlen("/MK_SO")) {
-                strcat(fname, "/MK_SO");
-            } else {
+            if (ock_snprintf(fname, PATH_MAX, "%s/MK_SO", pk_dir_buf) != 0) {
                 TRACE_ERROR("MK_SO buffer overflow\n");
-                OPENSSL_cleanse(new_hash_sha, sizeof(new_hash_sha));
-                OPENSSL_cleanse(old_hash_sha, sizeof(old_hash_sha));
-                return CKR_FUNCTION_FAILED;
+                rc = CKR_FUNCTION_FAILED;
+                goto done;
             }
-
-            rc = secure_masterkey(tokdata, tokdata->master_key,
-                                  AES_KEY_SIZE_256, pNewPin, ulNewLen, fname);
+            if (tokdata->version >= TOK_NEW_DATA_STORE) {
+                rc = compute_PKCS5_PBKDF2_HMAC(tokdata, pNewPin, ulNewLen,
+                                               new_wrap_salt, 64,
+                                               new_wrap_it, EVP_sha512(),
+                                               256 / 8, new_wrap_key);
+                if (rc != CKR_OK) {
+                    TRACE_DEVEL("PBKDF2 for SO wrap key failed.\n");
+                    goto done;
+                }
+                rc = secure_masterkey_v3(tokdata, tokdata->master_key,
+                                         new_wrap_key, fname);
+            } else {
+                rc = secure_masterkey(tokdata, tokdata->master_key,
+                                      AES_KEY_SIZE_256, pNewPin, ulNewLen,
+                                      fname);
+            }
             if (rc != CKR_OK) {
                 TRACE_ERROR("Save Master Key Failed.\n");
-                OPENSSL_cleanse(new_hash_sha, sizeof(new_hash_sha));
-                OPENSSL_cleanse(old_hash_sha, sizeof(old_hash_sha));
-                return rc;
+                goto done;
             }
         }
 
-        /* grab lock and change shared memory */
+        /* grab lock and update shared memory */
         rc = XProcLock(tokdata);
         if (rc != CKR_OK) {
             TRACE_ERROR("Process Lock Failed.\n");
-            OPENSSL_cleanse(new_hash_sha, sizeof(new_hash_sha));
-            OPENSSL_cleanse(old_hash_sha, sizeof(old_hash_sha));
-            return rc;
+            goto done;
         }
 
-        memcpy(tokdata->nv_token_data->so_pin_sha, new_hash_sha,
-               SHA1_HASH_SIZE);
+        if (tokdata->version >= TOK_NEW_DATA_STORE) {
+            memcpy(dat->so_login_key, new_login_key, 32);
+            memcpy(dat->so_login_salt, new_login_salt, 64);
+            dat->so_login_it = new_login_it;
+            memcpy(tokdata->so_wrap_key, new_wrap_key, 32);
+            memcpy(dat->so_wrap_salt, new_wrap_salt, 64);
+            dat->so_wrap_it = new_wrap_it;
+        } else {
+            memcpy(tokdata->nv_token_data->so_pin_sha, new_hash_sha,
+                   SHA1_HASH_SIZE);
+        }
         tokdata->nv_token_data->token_info.flags &= ~(CKF_SO_PIN_TO_BE_CHANGED);
 
         rc = XProcUnLock(tokdata);
         if (rc != CKR_OK) {
             TRACE_ERROR("Process Lock Failed.\n");
-            OPENSSL_cleanse(new_hash_sha, sizeof(new_hash_sha));
-            OPENSSL_cleanse(old_hash_sha, sizeof(old_hash_sha));
-            return rc;
+            goto done;
         }
     } else {
         TRACE_ERROR("%s\n", ock_err(ERR_SESSION_READ_ONLY));
-        OPENSSL_cleanse(new_hash_sha, sizeof(new_hash_sha));
-        OPENSSL_cleanse(old_hash_sha, sizeof(old_hash_sha));
-        return CKR_SESSION_READ_ONLY;
+        rc = CKR_SESSION_READ_ONLY;
+        goto done;
     }
 
     rc = save_token_data(tokdata, sess->session_info.slotID);
-    if (rc != CKR_OK) {
+    if (rc != CKR_OK)
         TRACE_ERROR("Save Token Failed.\n");
-        OPENSSL_cleanse(new_hash_sha, sizeof(new_hash_sha));
-        OPENSSL_cleanse(old_hash_sha, sizeof(old_hash_sha));
-        return rc;
-    }
 
+done:
     OPENSSL_cleanse(new_hash_sha, sizeof(new_hash_sha));
     OPENSSL_cleanse(old_hash_sha, sizeof(old_hash_sha));
+    OPENSSL_cleanse(old_login_key, sizeof(old_login_key));
+    OPENSSL_cleanse(new_login_key, sizeof(new_login_key));
+    OPENSSL_cleanse(new_wrap_key, sizeof(new_wrap_key));
+    OPENSSL_cleanse(new_login_salt, sizeof(new_login_salt));
+    OPENSSL_cleanse(new_wrap_salt, sizeof(new_wrap_salt));
     return rc;
 }
 
@@ -1373,8 +1538,13 @@ LDAP *getLDAPhandle(STDLL_TokData_t * tokdata, CK_SLOT_ID slot_id)
     if (icsf_data->slot_data->mech == ICSF_CFG_MECH_SIMPLE) {
         TRACE_INFO("Using SIMPLE auth with slot ID: %lu\n", slot_id);
         /* get racf passwd */
-        rc = get_racf(tokdata, tokdata->master_key, AES_KEY_SIZE_256,
-                      racfpwd, &racflen);
+        if (tokdata->version >= TOK_NEW_DATA_STORE) {
+            rc = get_racf_v3(tokdata, tokdata->master_key,
+                             racfpwd, &racflen);
+        } else {
+            rc = get_racf(tokdata, tokdata->master_key, AES_KEY_SIZE_256,
+                          racfpwd, &racflen);
+        }
         if (rc != CKR_OK) {
             TRACE_DEVEL("Failed to get racf passwd.\n");
             goto done;
@@ -1684,100 +1854,193 @@ CK_RV icsftok_login(STDLL_TokData_t * tokdata, SESSION * sess,
                     CK_USER_TYPE userType, CK_CHAR_PTR pPin, CK_ULONG ulPinLen)
 {
     icsf_private_data_t *icsf_data = tokdata->private_data;
+    TOKEN_DATA_VERSION *dat = &tokdata->nv_token_data->dat;
     CK_RV rc = CKR_OK;
+    char pk_dir_buf[PATH_MAX];
     char fname[PATH_MAX];
     CK_BYTE hash_sha[SHA1_HASH_SIZE];
-    int mklen = sizeof(tokdata->master_key);
+    CK_BYTE login_key[32];
 
     UNUSED(sess);
-
-    /* compute the sha of the pin. */
-    rc = compute_sha1(tokdata, pPin, ulPinLen, hash_sha);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("Hash Computation Failed.\n");
-        return rc;
-    }
 
     rc = XProcLock(tokdata);
     if (rc != CKR_OK) {
         TRACE_ERROR("Process Lock Failed.\n");
-        OPENSSL_cleanse(hash_sha, sizeof(hash_sha));
         return rc;
     }
 
     if (userType == CKU_USER) {
-        /* check if pin initialized */
-        if (memcmp(tokdata->nv_token_data->user_pin_sha,
-                   "00000000000000000000", SHA1_HASH_SIZE) == 0) {
-            TRACE_ERROR("%s\n", ock_err(ERR_USER_PIN_NOT_INITIALIZED));
-            rc = CKR_USER_PIN_NOT_INITIALIZED;
-            goto done;
-        }
-
-        /* check that pin is the same as the one in NVTOK.DAT */
-        if (memcmp(tokdata->nv_token_data->user_pin_sha, hash_sha,
-                   SHA1_HASH_SIZE) != 0) {
-            TRACE_ERROR("%s\n", ock_err(ERR_PIN_INCORRECT));
-            rc = CKR_PIN_INCORRECT;
-            goto done;
-        }
-
-        /* now load the master key */
-        if (icsf_data->slot_data->mech == ICSF_CFG_MECH_SIMPLE) {
-            if (get_pk_dir(tokdata, fname, PATH_MAX) == NULL) {
-                TRACE_ERROR("pk_dir buffer overflow\n");
-                rc = CKR_FUNCTION_FAILED;
+        if (tokdata->version >= TOK_NEW_DATA_STORE) {
+            /* New format: PBKDF2 login key verification */
+            if (!(tokdata->nv_token_data->token_info.flags &
+                  CKF_USER_PIN_INITIALIZED)) {
+                TRACE_ERROR("%s\n", ock_err(ERR_USER_PIN_NOT_INITIALIZED));
+                rc = CKR_USER_PIN_NOT_INITIALIZED;
                 goto done;
             }
-            if (PATH_MAX - strlen(fname) > strlen("/MK_USER")) {
-                strcat(fname, "/MK_USER");
-            } else {
-                TRACE_ERROR("MK_USER buffer overflow\n");
-                rc = CKR_FUNCTION_FAILED;
-                goto done;
-            }
-            rc = get_masterkey(tokdata, pPin, ulPinLen, fname,
-                               tokdata->master_key, &mklen);
+            rc = compute_PKCS5_PBKDF2_HMAC(tokdata, pPin, ulPinLen,
+                                           dat->user_login_salt, 64,
+                                           dat->user_login_it, EVP_sha512(),
+                                           256 / 8, login_key);
             if (rc != CKR_OK) {
-                TRACE_DEVEL("Failed to load master key.\n");
+                TRACE_DEVEL("PBKDF2 failed.\n");
                 goto done;
+            }
+            if (CRYPTO_memcmp(dat->user_login_key, login_key, 32) != 0) {
+                TRACE_ERROR("%s\n", ock_err(ERR_PIN_INCORRECT));
+                rc = CKR_PIN_INCORRECT;
+                goto done;
+            }
+            /* Load master key using PBKDF2 wrap key */
+            if (icsf_data->slot_data->mech == ICSF_CFG_MECH_SIMPLE) {
+                if (get_pk_dir(tokdata, pk_dir_buf, PATH_MAX) == NULL) {
+                    TRACE_ERROR("pk_dir buffer overflow\n");
+                    rc = CKR_FUNCTION_FAILED;
+                    goto done;
+                }
+                if (ock_snprintf(fname, PATH_MAX, "%s/MK_USER",
+                                 pk_dir_buf) != 0) {
+                    TRACE_ERROR("MK_USER buffer overflow\n");
+                    rc = CKR_FUNCTION_FAILED;
+                    goto done;
+                }
+                rc = compute_PKCS5_PBKDF2_HMAC(tokdata, pPin, ulPinLen,
+                                               dat->user_wrap_salt, 64,
+                                               dat->user_wrap_it, EVP_sha512(),
+                                               256 / 8, tokdata->user_wrap_key);
+                if (rc != CKR_OK) {
+                    TRACE_DEVEL("PBKDF2 for user wrap key failed.\n");
+                    goto done;
+                }
+                rc = get_masterkey_v3(tokdata, tokdata->user_wrap_key, fname,
+                                      tokdata->master_key);
+                if (rc != CKR_OK) {
+                    TRACE_DEVEL("Failed to load master key v3.\n");
+                    goto done;
+                }
+            }
+        } else {
+            /* Legacy: SHA1 PIN verification */
+            rc = compute_sha1(tokdata, pPin, ulPinLen, hash_sha);
+            if (rc != CKR_OK) {
+                TRACE_ERROR("Hash Computation Failed.\n");
+                goto done;
+            }
+            if (memcmp(tokdata->nv_token_data->user_pin_sha,
+                       "00000000000000000000", SHA1_HASH_SIZE) == 0) {
+                TRACE_ERROR("%s\n", ock_err(ERR_USER_PIN_NOT_INITIALIZED));
+                rc = CKR_USER_PIN_NOT_INITIALIZED;
+                goto done;
+            }
+            if (memcmp(tokdata->nv_token_data->user_pin_sha, hash_sha,
+                       SHA1_HASH_SIZE) != 0) {
+                TRACE_ERROR("%s\n", ock_err(ERR_PIN_INCORRECT));
+                rc = CKR_PIN_INCORRECT;
+                goto done;
+            }
+            if (icsf_data->slot_data->mech == ICSF_CFG_MECH_SIMPLE) {
+                int mklen = sizeof(tokdata->master_key);
+
+                if (get_pk_dir(tokdata, pk_dir_buf, PATH_MAX) == NULL) {
+                    TRACE_ERROR("pk_dir buffer overflow\n");
+                    rc = CKR_FUNCTION_FAILED;
+                    goto done;
+                }
+                if (ock_snprintf(fname, PATH_MAX, "%s/MK_USER",
+                                 pk_dir_buf) != 0) {
+                    TRACE_ERROR("MK_USER buffer overflow\n");
+                    rc = CKR_FUNCTION_FAILED;
+                    goto done;
+                }
+                rc = get_masterkey(tokdata, pPin, ulPinLen, fname,
+                                   tokdata->master_key, &mklen);
+                if (rc != CKR_OK) {
+                    TRACE_DEVEL("Failed to load master key.\n");
+                    goto done;
+                }
             }
         }
     } else {
-        /* if SO ... */
-
-        /* check that pin is the same as the one in NVTOK.DAT */
-        if (memcmp(tokdata->nv_token_data->so_pin_sha, hash_sha,
-                   SHA1_HASH_SIZE) != 0) {
-            TRACE_ERROR("%s\n", ock_err(ERR_PIN_INCORRECT));
-            rc = CKR_PIN_INCORRECT;
-            goto done;
-        }
-
-        if (icsf_data->slot_data->mech == ICSF_CFG_MECH_SIMPLE) {
-            /* now load the master key */
-            if (get_pk_dir(tokdata, fname, PATH_MAX) == NULL) {
-                TRACE_ERROR("pk_dir buffer overflow\n");
-                rc = CKR_FUNCTION_FAILED;
-                goto done;
-            }
-            if (PATH_MAX - strlen(fname) > strlen("/MK_SO")) {
-                strcat(fname, "/MK_SO");
-            } else {
-                TRACE_ERROR("MK_SO buffer overflow\n");
-                rc = CKR_FUNCTION_FAILED;
-                goto done;
-            }
-            rc = get_masterkey(tokdata, pPin, ulPinLen, fname,
-                               tokdata->master_key, &mklen);
+        /* SO login */
+        if (tokdata->version >= TOK_NEW_DATA_STORE) {
+            rc = compute_PKCS5_PBKDF2_HMAC(tokdata, pPin, ulPinLen,
+                                           dat->so_login_salt, 64,
+                                           dat->so_login_it, EVP_sha512(),
+                                           256 / 8, login_key);
             if (rc != CKR_OK) {
-                TRACE_DEVEL("Failed to load master key.\n");
+                TRACE_DEVEL("PBKDF2 failed.\n");
                 goto done;
+            }
+            if (CRYPTO_memcmp(dat->so_login_key, login_key, 32) != 0) {
+                TRACE_ERROR("%s\n", ock_err(ERR_PIN_INCORRECT));
+                rc = CKR_PIN_INCORRECT;
+                goto done;
+            }
+            if (icsf_data->slot_data->mech == ICSF_CFG_MECH_SIMPLE) {
+                if (get_pk_dir(tokdata, pk_dir_buf, PATH_MAX) == NULL) {
+                    TRACE_ERROR("pk_dir buffer overflow\n");
+                    rc = CKR_FUNCTION_FAILED;
+                    goto done;
+                }
+                if (ock_snprintf(fname, PATH_MAX, "%s/MK_SO",
+                                 pk_dir_buf) != 0) {
+                    TRACE_ERROR("MK_SO buffer overflow\n");
+                    rc = CKR_FUNCTION_FAILED;
+                    goto done;
+                }
+                rc = compute_PKCS5_PBKDF2_HMAC(tokdata, pPin, ulPinLen,
+                                               dat->so_wrap_salt, 64,
+                                               dat->so_wrap_it, EVP_sha512(),
+                                               256 / 8, tokdata->so_wrap_key);
+                if (rc != CKR_OK) {
+                    TRACE_DEVEL("PBKDF2 for SO wrap key failed.\n");
+                    goto done;
+                }
+                rc = get_masterkey_v3(tokdata, tokdata->so_wrap_key, fname,
+                                      tokdata->master_key);
+                if (rc != CKR_OK) {
+                    TRACE_DEVEL("Failed to load master key v3.\n");
+                    goto done;
+                }
+            }
+        } else {
+            /* Legacy: SHA1 SO PIN verification */
+            rc = compute_sha1(tokdata, pPin, ulPinLen, hash_sha);
+            if (rc != CKR_OK) {
+                TRACE_ERROR("Hash Computation Failed.\n");
+                goto done;
+            }
+            if (memcmp(tokdata->nv_token_data->so_pin_sha, hash_sha,
+                       SHA1_HASH_SIZE) != 0) {
+                TRACE_ERROR("%s\n", ock_err(ERR_PIN_INCORRECT));
+                rc = CKR_PIN_INCORRECT;
+                goto done;
+            }
+            if (icsf_data->slot_data->mech == ICSF_CFG_MECH_SIMPLE) {
+                int mklen = sizeof(tokdata->master_key);
+
+                if (get_pk_dir(tokdata, pk_dir_buf, PATH_MAX) == NULL) {
+                    TRACE_ERROR("pk_dir buffer overflow\n");
+                    rc = CKR_FUNCTION_FAILED;
+                    goto done;
+                }
+                if (ock_snprintf(fname, PATH_MAX, "%s/MK_SO",
+                                 pk_dir_buf) != 0) {
+                    TRACE_ERROR("MK_SO buffer overflow\n");
+                    rc = CKR_FUNCTION_FAILED;
+                    goto done;
+                }
+                rc = get_masterkey(tokdata, pPin, ulPinLen, fname,
+                                   tokdata->master_key, &mklen);
+                if (rc != CKR_OK) {
+                    TRACE_DEVEL("Failed to load master key.\n");
+                    goto done;
+                }
             }
         }
     }
-    /* Now that user is authenticated, can get racf passwd and
-     * establish ldap handle for session. This will get done
+    /* Now that user is authenticated, can get RACF passwd and
+     * establish LDAP handle for session. This will get done
      * when we call icsf_get_handles() in SC_Login().
      */
 done:
@@ -1787,6 +2050,7 @@ done:
         XProcUnLock(tokdata);
 
     OPENSSL_cleanse(hash_sha, sizeof(hash_sha));
+    OPENSSL_cleanse(login_key, sizeof(login_key));
 
     return rc;
 }

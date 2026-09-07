@@ -26,7 +26,7 @@
 #include <string.h>
 #include <grp.h>
 #include <openssl/crypto.h>
-
+#include <openssl/evp.h>
 #include "icsf.h"
 #include "slotmgr.h"
 #include "pbkdf.h"
@@ -38,6 +38,24 @@
 
 #define OCK_TOOL
 #include "pkcs_utils.h"
+
+/*
+ * KDF purpose strings and iteration counts.
+ * These MUST stay identical to SO_KDF_LOGIN_PURPOSE, SO_KDF_WRAP_PURPOSE,
+ * USER_KDF_LOGIN_PURPOSE, USER_KDF_WRAP_PURPOSE, and the corresponding _IT
+ * values defined in usr/lib/common/h_extern.h.
+ * They are duplicated here because h_extern.h declares stdll functions that
+ * are not linked into this tool.  If any value changes in h_extern.h it must
+ * be updated here too.
+ */
+#define ICSF_SO_KDF_LOGIN_IT       100000ULL
+#define ICSF_SO_KDF_LOGIN_PURPOSE  "so_login_purpose________________"
+#define ICSF_SO_KDF_WRAP_IT        100000ULL
+#define ICSF_SO_KDF_WRAP_PURPOSE   "so_wrap_purpose_________________"
+#define ICSF_USER_KDF_LOGIN_IT     100000ULL
+#define ICSF_USER_KDF_LOGIN_PURPOSE "user_login_purpose______________"
+#define ICSF_USER_KDF_WRAP_IT      100000ULL
+#define ICSF_USER_KDF_WRAP_PURPOSE "user_wrap_purpose_______________"
 
 pkcs_trace_level_t trace_level = TRACE_LEVEL_NONE;
 
@@ -235,6 +253,7 @@ static int config_add_slotinfo(int num_of_slots,
     struct ConfigBaseNode *config = NULL;
     struct ConfigIdxStructNode *slot;
     struct ConfigBareValNode *stdll_val, *confname_val, *tokname_val;
+    struct ConfigVersionValNode *tokversion_val;
     struct ConfigEOCNode *eoc1, *eoc2, *eoc3;
     FILE *fp = NULL;
     int i, rc;
@@ -301,10 +320,12 @@ static int config_add_slotinfo(int num_of_slots,
                                                        0, NULL);
         tokname_val = confignode_allocbarevaldumpable("tokname", tokens[i].name,
                                                        0, NULL);
+        tokversion_val = confignode_allocversionvaldumpable("tokversion",
+                                                             0x0003001c, 0, NULL);
 
         if (slot == NULL || stdll_val == NULL || confname_val == NULL ||
-            tokname_val == NULL || eoc1 == NULL || eoc2 == NULL ||
-            eoc3 == NULL) {
+            tokname_val == NULL || tokversion_val == NULL ||
+            eoc1 == NULL || eoc2 == NULL || eoc3 == NULL) {
             fprintf(stderr, "Failed to add an entry for %s token: %s\n",
                     tokens[i].name, strerror(errno));
             remove_file(configname);
@@ -316,6 +337,7 @@ static int config_add_slotinfo(int num_of_slots,
             confignode_freebareval(stdll_val);
             confignode_freebareval(confname_val);
             confignode_freebareval(tokname_val);
+            confignode_freeversionval(tokversion_val);
             confignode_freeeoc(eoc3);
             confignode_deepfree(config);
             return 1;
@@ -324,6 +346,7 @@ static int config_add_slotinfo(int num_of_slots,
         confignode_append(slot->value, &stdll_val->base);
         confignode_append(slot->value, &confname_val->base);
         confignode_append(slot->value, &tokname_val->base);
+        confignode_append(slot->value, &tokversion_val->base);
         confignode_append(config, &eoc3->base);
         confignode_append(config, &slot->base);
     }
@@ -427,15 +450,6 @@ static void remove_racf_file(const char *tokname)
     remove_file(fname);
 }
 
-static void remove_mk_so_file(const char *tokname)
-{
-    char fname[PATH_MAX];
-
-    /* remove the so and user files */
-    snprintf(fname, sizeof(fname), "%s/%s/MK_SO", CONFIG_PATH, tokname);
-    remove_file(fname);
-}
-
 static int create_directory(const char *parent_dir, const char *tokname)
 {
     char fname[PATH_MAX];
@@ -521,8 +535,12 @@ static int retrieve_all(const char *racfpwd)
 }
 
 /*
- * Write an initial NVTOK.DAT for a freshly-added ICSF token so that
- * so_pin_sha reflects the SO PIN used to create MK_SO.
+ * Write an initial NVTOK.DAT for a freshly-added ICSF token using the new
+ * FIPS-compliant format (tokversion = 3.28, i.e. 0x0003001c).
+ *
+ * TOKEN_DATA_VERSION is populated with PBKDF2-SHA512 SO login/wrap parameters
+ * derived from the SO PIN.  The derived SO wrap key is returned in
+ * *out_so_wrap_key so the caller can pass it to secure_masterkey_v3().
  *
  * Only TOKEN_DATA is written; the ICSF-specific slot_data appendage is
  * omitted and will be written by the stdll on the first save_token_data
@@ -531,36 +549,87 @@ static int retrieve_all(const char *racfpwd)
  */
 static int write_initial_nvtok_dat(const char *tokname, const char *sopin,
                                    size_t sopin_len,
-                                   const struct icsf_token_record *token)
+                                   const struct icsf_token_record *token,
+                                   unsigned char out_so_wrap_key[32])
 {
     char fname[PATH_MAX];
     TOKEN_DATA td;
-    unsigned char so_hash[SHA1_HASH_SIZE];
+    TOKEN_DATA_VERSION *dat = &td.dat;
     struct group *grp;
     int fd = -1;
     FILE *fp = NULL;
     int rc = 0;
 
-    if (compute_sha1(sopin, sopin_len, (char *)so_hash) != 0) {
-        fprintf(stderr, "Failed to compute SO PIN hash.\n");
-        return -1;
-    }
-
     memset(&td, 0, sizeof(td));
 
-    memcpy(td.so_pin_sha, so_hash, SHA1_HASH_SIZE);
-    /* user_pin_sha all-zero signals "not yet initialised" to icsftok_login */
-    memcpy(td.user_pin_sha, "00000000000000000000", SHA1_HASH_SIZE);
+    /* Version 3.28 = 0x0003001c */
+    dat->version = 0x0003001c;
+
+    /* SO login key - PBKDF2(sopin, purpose_salt || random32, 100000, SHA-512, 32) */
+    dat->so_login_it = ICSF_SO_KDF_LOGIN_IT;
+    memcpy(dat->so_login_salt, ICSF_SO_KDF_LOGIN_PURPOSE, 32);
+    if (local_rng(dat->so_login_salt + 32, 32) != CKR_OK) {
+        fprintf(stderr, "Failed to generate SO login salt.\n");
+        rc = -1;
+        goto done;
+    }
+    if (PKCS5_PBKDF2_HMAC(sopin, (int)sopin_len,
+                           dat->so_login_salt, 64,
+                           (int)dat->so_login_it, EVP_sha512(),
+                           32, dat->so_login_key) != 1) {
+        fprintf(stderr, "PBKDF2 for SO login key failed.\n");
+        rc = -1;
+        goto done;
+    }
+
+    /* SO wrap key */
+    dat->so_wrap_it = ICSF_SO_KDF_WRAP_IT;
+    memcpy(dat->so_wrap_salt, ICSF_SO_KDF_WRAP_PURPOSE, 32);
+    if (local_rng(dat->so_wrap_salt + 32, 32) != CKR_OK) {
+        fprintf(stderr, "Failed to generate SO wrap salt.\n");
+        rc = -1;
+        goto done;
+    }
+    if (PKCS5_PBKDF2_HMAC(sopin, (int)sopin_len,
+                           dat->so_wrap_salt, 64,
+                           (int)dat->so_wrap_it, EVP_sha512(),
+                           32, out_so_wrap_key) != 1) {
+        fprintf(stderr, "PBKDF2 for SO wrap key failed.\n");
+        rc = -1;
+        goto done;
+    }
+
+    /*
+     * User login/wrap keys are left all-zero; all-zero user_login_key
+     * signals "user PIN not yet initialised" in icsftok_login().
+     * The user KDF params (salts and iteration counts) must still be
+     * set so that icsftok_init_pin() can derive keys against them.
+     */
+    dat->user_login_it = ICSF_USER_KDF_LOGIN_IT;
+    memcpy(dat->user_login_salt, ICSF_USER_KDF_LOGIN_PURPOSE, 32);
+    if (local_rng(dat->user_login_salt + 32, 32) != CKR_OK) {
+        fprintf(stderr, "Failed to generate user login salt.\n");
+        rc = -1;
+        goto done;
+    }
+    dat->user_wrap_it = ICSF_USER_KDF_WRAP_IT;
+    memcpy(dat->user_wrap_salt, ICSF_USER_KDF_WRAP_PURPOSE, 32);
+    if (local_rng(dat->user_wrap_salt + 32, 32) != CKR_OK) {
+        fprintf(stderr, "Failed to generate user wrap salt.\n");
+        rc = -1;
+        goto done;
+    }
 
     /*
      * Initial flags: identical to what init_tokenInfo() sets, plus
      * CKF_TOKEN_INITIALIZED (the ICSF token is already provisioned on
      * z/OS - no C_InitToken is required).
      */
-    td.token_info.flags = CKF_RNG | CKF_LOGIN_REQUIRED | CKF_CLOCK_ON_TOKEN |
-                          CKF_USER_PIN_TO_BE_CHANGED |
-                          CKF_DUAL_CRYPTO_OPERATIONS |
-                          CKF_TOKEN_INITIALIZED;
+    td.token_info.flags = htobe32(CKF_RNG | CKF_LOGIN_REQUIRED |
+                                  CKF_CLOCK_ON_TOKEN |
+                                  CKF_USER_PIN_TO_BE_CHANGED |
+                                  CKF_DUAL_CRYPTO_OPERATIONS |
+                                  CKF_TOKEN_INITIALIZED);
 
     memset(td.token_info.label, ' ', sizeof(td.token_info.label));
     memcpy(td.token_info.label, token->name,
@@ -576,6 +645,13 @@ static int write_initial_nvtok_dat(const char *tokname, const char *sopin,
     memset(td.token_info.serialNumber, ' ', sizeof(td.token_info.serialNumber));
     memcpy(td.token_info.serialNumber, token->serial,
            MIN(strlen(token->serial), sizeof(td.token_info.serialNumber)));
+
+    /* Byte-swap the TOKEN_DATA_VERSION integer fields for on-disk big-endian */
+    dat->version    = htobe32(dat->version);
+    dat->so_login_it  = htobe64(dat->so_login_it);
+    dat->user_login_it = htobe64(dat->user_login_it);
+    dat->so_wrap_it   = htobe64(dat->so_wrap_it);
+    dat->user_wrap_it  = htobe64(dat->user_wrap_it);
 
     grp = getgrnam(PKCS_GROUP);
     if (!grp) {
@@ -623,10 +699,10 @@ done:
         fclose(fp);
     else if (fd >= 0)
         close(fd);
-    OPENSSL_cleanse(so_hash, sizeof(so_hash));
     /* On failure remove any partially-written file. */
     if (rc != 0)
         unlink(fname);
+    OPENSSL_cleanse(&td, sizeof(td));
     return rc;
 }
 
@@ -637,6 +713,7 @@ static int secure_racf_passwd(const char *racfpwd, CK_ULONG len,
     const char *sopin;
     char *buf_so = NULL;
     unsigned char masterkey[AES_KEY_SIZE_256];
+    unsigned char so_wrap_key[32];
     char fname[PATH_MAX];
     char msg[PATH_MAX];
     int rc;
@@ -670,49 +747,53 @@ static int secure_racf_passwd(const char *racfpwd, CK_ULONG len,
     }
 
     /* generate a masterkey */
-    if ((get_randombytes(masterkey, AES_KEY_SIZE_256)) != CKR_OK) {
+    if (local_rng(masterkey, AES_KEY_SIZE_256) != CKR_OK) {
         fprintf(stderr, "Could not generate masterkey.\n");
         rc = -1;
         goto cleanup;
     }
 
-    /* use the master key to secure the racf passwd */
-    rc = secure_racf(NULL, (CK_BYTE *)racfpwd, len, masterkey, AES_KEY_SIZE_256,
-                     tokname);
+    /* use the master key to secure the RACF passwd (new v3 GCM format) */
+    rc = (int)secure_racf_v3(NULL, (CK_BYTE *)racfpwd, len, masterkey, tokname);
     if (rc != 0) {
         fprintf(stderr, "Failed to secure racf passwd.\n");
         rc = -1;
         goto cleanup;
     }
 
-    /* now secure the master key with a derived key */
-    /* first get the filename to put the  encrypted masterkey */
-    snprintf(fname, sizeof(fname), "%s/%s/MK_SO", CONFIG_PATH, tokname);
-    rc = secure_masterkey(NULL, masterkey, AES_KEY_SIZE_256, (CK_BYTE *)sopin,
-                          strlen(sopin), fname);
-
-    if (rc != 0) {
-        fprintf(stderr, "Failed to secure masterkey.\n");
-        /* remove the racf file */
-        remove_racf_file(tokname);
-        rc = -1;
-        goto cleanup;
-    }
-
     /*
-     * Write an initial NVTOK.DAT with so_pin_sha matching the PIN just
-     * used to create MK_SO. 
+     * Write an initial NVTOK.DAT in new FIPS-compliant format.
+     * The function also returns the derived SO wrap key that we
+     * need to protect MK_SO.
      */
-    rc = write_initial_nvtok_dat(tokname, sopin, strlen(sopin), token);
+    rc = write_initial_nvtok_dat(tokname, sopin, strlen(sopin), token,
+                                 so_wrap_key);
     if (rc != 0) {
         fprintf(stderr, "Failed to write initial token data.\n");
         remove_racf_file(tokname);
-        remove_mk_so_file(tokname);
+        goto cleanup;
+    }
+
+    /* Protect the master key with AES-256-KW under the SO wrap key */
+    snprintf(fname, sizeof(fname), "%s/%s/MK_SO", CONFIG_PATH, tokname);
+    rc = secure_masterkey_v3(NULL, masterkey, so_wrap_key, fname);
+    if (rc != 0) {
+        char nvtok[PATH_MAX];
+
+        fprintf(stderr, "Failed to secure masterkey.\n");
+        remove_racf_file(tokname);
+        unlink(fname);  /* remove partial MK_SO if any */
+        /* remove NVTOK.DAT */
+        snprintf(nvtok, sizeof(nvtok), "%s/%s/" PK_LITE_NV,
+                 CONFIG_PATH, tokname);
+        unlink(nvtok);
+        rc = -1;
         goto cleanup;
     }
 
 cleanup:
     OPENSSL_cleanse(masterkey, sizeof(masterkey));
+    OPENSSL_cleanse(so_wrap_key, sizeof(so_wrap_key));
     pin_free(&buf_so);
 
     return rc;

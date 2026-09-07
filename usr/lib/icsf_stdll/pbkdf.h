@@ -33,6 +33,31 @@
 
 #define ICSF_MK_FILE_VERSION    2
 
+/*
+ * Version 3 master key file format (tokversion >= 3.28):
+ *   u8   wrapped[40]  = AES-256-KW (RFC 3394) of the 32-byte master key
+ *                       under the PBKDF2-SHA-512 wrap key stored in
+ *                       TOKEN_DATA_VERSION.{so,user}_wrap_key.
+ *
+ * No version field - identical layout to loadsave.c save_masterkey_so/user.
+ * File size (40 bytes) is the implicit format discriminator.
+ */
+/* Size of an AES-256-KW output for a 32-byte plaintext (RFC 3394) */
+#define ICSF_MK_FILE_V3_SIZE    40
+
+/*
+ * Version 3 RACF file format (tokversion >= 3.28):
+ *   u32  version         = ICSF_RACF_FILE_VERSION_3
+ *   u8   iv[12]          random GCM nonce
+ *   u8   tag[16]         GCM authentication tag
+ *   u32  ciphertext_len  length of the encrypted RACF password
+ *   u8   ciphertext[...]
+ *
+ * The 32-byte AES master key is used directly as the GCM key.
+ * The token name (tokname) is passed as AAD.
+ */
+#define ICSF_RACF_FILE_VERSION_3    3
+
 CK_RV get_randombytes(unsigned char *output, int bytes);
 
 CK_RV encrypt_aes(STDLL_TokData_t *tokdata,
@@ -67,5 +92,34 @@ CK_RV secure_racf(STDLL_TokData_t *tokdata,
 CK_RV secure_masterkey(STDLL_TokData_t *tokdata,
                        CK_BYTE * masterkey, CK_ULONG len, CK_BYTE * pin,
                        CK_ULONG pinlen, const char *fname);
+
+/*
+ * New-format (v3) master key helpers - used when tokversion >= 3.28.
+ * The wrap key is the caller's PBKDF2-derived so_wrap_key / user_wrap_key
+ * from TOKEN_DATA_VERSION (32 bytes).
+ */
+CK_RV secure_masterkey_v3(STDLL_TokData_t *tokdata,
+                           const CK_BYTE *masterkey,
+                           const CK_BYTE wrap_key[32],
+                           const char *fname);
+
+CK_RV get_masterkey_v3(STDLL_TokData_t *tokdata,
+                       const CK_BYTE wrap_key[32],
+                       const char *fname,
+                       CK_BYTE masterkey[32]);
+
+/*
+ * New-format (v3) RACF file helpers - used when tokversion >= 3.28.
+ * The master key (32 bytes) is used directly as the AES-256-GCM key.
+ * The token name string is passed as AAD.
+ */
+CK_RV secure_racf_v3(STDLL_TokData_t *tokdata,
+                     const CK_BYTE *racf, CK_ULONG racflen,
+                     const CK_BYTE masterkey[32],
+                     const char *tokname);
+
+CK_RV get_racf_v3(STDLL_TokData_t *tokdata,
+                  const CK_BYTE masterkey[32],
+                  CK_BYTE *racfpwd, int *racflen);
 
 #endif
