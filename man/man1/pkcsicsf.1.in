@@ -1,4 +1,4 @@
-.TH PKCSICSF 1 "August 2026" "@PACKAGE_VERSION@" "openCryptoki"
+.TH PKCSICSF 1 "September 2026" "@PACKAGE_VERSION@" "openCryptoki"
 .SH NAME
 pkcsicsf \- configuration utility for the ICSF token
 
@@ -68,9 +68,18 @@ The SO PIN supplied during \fBpkcsicsf \-a\fP.
 .IP \(bu 4
 \fBCKF_USER_PIN_TO_BE_CHANGED\fP set, indicating the user PIN must be
 established before first use.
+.IP \(bu 4
+\fBtokversion = 3.28\fP recorded in \fIopencryptoki.conf\fP, enabling the
+FIPS-compliant data store format (see
+.B "TOKEN DATA FORMAT"
+below).
 .RE
 .IP \(bu 4
-Writes the RACF file (\fIRACF\fP) with the encrypted RACF password.
+Writes the RACF file (\fIRACF\fP) with the RACF password encrypted using
+AES-256-GCM under the token master key.
+.IP \(bu 4
+Writes \fIMK_SO\fP with the token master key wrapped using AES-256 Key Wrap
+(RFC\~3394) under a PBKDF2-SHA-512 derived key.
 .RE
 
 The correct post-installation sequence is therefore:
@@ -102,6 +111,79 @@ After step\~3 the token is fully operational and
 \fBCKF_TOKEN_INITIALIZED\fP will be reported by
 .BR pkcsconf (1)
 \fB\-t\fP.
+
+.SH "TOKEN DATA FORMAT"
+Tokens added by \fBpkcsicsf\fP always use the FIPS-compliant data store
+format introduced in openCryptoki 3.28.
+This is indicated by \fBtokversion = 3.28\fP in the slot entry in
+\fIopencryptoki.conf\fP.
+.PP
+The format uses the following security properties:
+.RS
+.IP \(bu 4
+\fINVTOK.DAT\fP \(em PIN verification and master-key wrapping use
+PBKDF2-SHA-512 with 100,000 iterations and a 64-byte random salt.
+The derived login key is stored for PIN verification; a separately
+derived wrap key protects the master key.
+.IP \(bu 4
+\fIMK_SO\fP / \fIMK_USER\fP \(em the 256-bit AES token master key is
+wrapped using AES-256 Key Wrap (RFC\~3394) under the PBKDF2-derived wrap
+key.
+The file contains exactly 40 bytes (the RFC\~3394 output) with no
+additional header.
+.IP \(bu 4
+\fIRACF\fP \(em the RACF password is encrypted using AES-256-GCM.
+The token name is used as Additional Authenticated Data (AAD), binding
+the ciphertext to the specific token and detecting any tampering or
+accidental file substitution.
+The file contains a big-endian version field, a 12-byte random nonce,
+a 16-byte GCM authentication tag, a big-endian ciphertext length, and
+the ciphertext.
+.RE
+.PP
+Existing ICSF tokens that do not have \fBtokversion = 3.28\fP in their
+slot entry continue to use the previous data format and are not affected.
+
+.SH "MIGRATION TO THE NEW DATA FORMAT"
+There is no automated migration tool.
+To migrate an existing ICSF token to the FIPS-compliant data format,
+remove the token and add it again using \fBpkcsicsf\fP:
+.RS
+.TP
+\fB1.\fP
+Remove the existing slot entry from \fIopencryptoki.conf\fP and delete
+the token's local data directory:
+.PP
+.RS
+\fBrm \-rf @localstatedir@/lib/opencryptoki/\fItoken_name\fR\fP
+.RE
+.TP
+\fB2.\fP
+Re-add the token (run as root):
+.PP
+.RS
+\fBpkcsicsf \-a \fItoken-name\fB \-m \fImechanism\fR \fI[options]\fR\fP
+.RE
+.TP
+\fB3.\fP
+Restart the slot daemon:
+.PP
+.RS
+\fBsystemctl restart pkcsslotd\fP
+.RE
+.TP
+\fB4.\fP
+Re-initialize the user PIN (run as SO):
+.PP
+.RS
+\fBpkcsconf \-u \-c \fIslot\fR\fP
+.RE
+.RE
+.PP
+The cryptographic objects and key material reside on the remote z/OS ICSF
+server and are not stored locally.
+They are therefore \fBnot affected\fP by the migration and remain fully
+available after the token is re-added.
 
 .SH "OPTIONS"
 .IP "\fB-a\fP \fItoken name\fP" 10
@@ -136,14 +218,28 @@ The URI of the LDAP server (e.g. \fBldap://hostname\fP or
 .SH "FILES"
 .IP "@sysconfdir@/opencryptoki/opencryptoki.conf"
 The opencryptoki config file containing token configuration information.
+A slot entry for the ICSF token is added here by \fBpkcsicsf \-a\fP,
+including \fBtokversion = 3.28\fP to enable the FIPS-compliant data
+store format.
 .IP "@sysconfdir@/opencryptoki/\fItoken_name\fP.conf"
 Contains ICSF configuration information for the ICSF token.
 .IP "@localstatedir@/lib/opencryptoki/\fItoken_name\fP/NVTOK.DAT"
-Local token data file: stores PIN hashes and token flags including
-\fBCKF_TOKEN_INITIALIZED\fP.
+Local token data file.
+Stores PBKDF2-SHA-512 PIN verification keys, wrap-key parameters, and
+token flags including \fBCKF_TOKEN_INITIALIZED\fP.
 Written by \fBpkcsicsf \-a\fP and updated by \fBpkcsconf\fP.
+.IP "@localstatedir@/lib/opencryptoki/\fItoken_name\fP/MK_SO"
+Contains the token master key wrapped under the SO PBKDF2-derived wrap
+key using AES-256 Key Wrap (RFC\~3394).
+Written by \fBpkcsicsf \-a\fP and updated when the SO PIN is changed.
+.IP "@localstatedir@/lib/opencryptoki/\fItoken_name\fP/MK_USER"
+Contains the token master key wrapped under the user PBKDF2-derived wrap
+key using AES-256 Key Wrap (RFC\~3394).
+Written when the user PIN is initialized or changed.
 .IP "@localstatedir@/lib/opencryptoki/\fItoken_name\fP/RACF"
-Contains the RACF password encrypted with the token's master key.
+Contains the RACF password encrypted with AES-256-GCM under the token
+master key.
+Written by \fBpkcsicsf \-a\fP.
 
 .SH SEE ALSO
 .PD 0

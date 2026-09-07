@@ -10,7 +10,7 @@ opencryptoki_stdll_libpkcs11_icsf_la_CFLAGS =				\
 	-DNODSA -DNODH	-DMMAP -I${srcdir}/usr/lib/icsf_stdll		\
 	-I${srcdir}/usr/lib/common -I${srcdir}/usr/include		\
 	-DSTDLL_NAME=\"icsftok\"					\
-	-DTOK_NEW_DATA_STORE=0xffffffff					\
+	-DTOK_NEW_DATA_STORE=0x0003001c					\
 	-I${top_builddir}/usr/lib/icsf_stdll				\
 	-I${top_builddir}/usr/lib/api -I${srcdir}/usr/lib/api		\
 	-I${top_builddir}/usr/lib/config -I${srcdir}/usr/lib/config

@@ -28,6 +28,116 @@
 #include "trace.h"
 #include "platform.h"
 
+/*
+ * Local AES-256 Key Wrap / Unwrap (RFC 3394) helpers.
+ * These mirror aes_256_wrap/aes_256_unwrap from pkcs_utils.c but are
+ * self-contained here to avoid pulling in the full pkcs_utils.c into
+ * the ICSF stdll build (pkcs_utils.c uses OCK_TOOL tracing).
+ */
+static CK_RV icsf_aes_256_wrap(unsigned char out[40],
+                                const unsigned char in[32],
+                                const unsigned char kek[32])
+{
+    EVP_CIPHER_CTX *ctx;
+    int outlen = 0, finaln = 0;
+    CK_RV rc = CKR_FUNCTION_FAILED;
+    unsigned char buf[40 + EVP_MAX_BLOCK_LENGTH];
+
+    ctx = EVP_CIPHER_CTX_new();
+    if (!ctx) {
+        TRACE_ERROR("EVP_CIPHER_CTX_new failed.\n");
+        return CKR_HOST_MEMORY;
+    }
+    EVP_CIPHER_CTX_set_flags(ctx, EVP_CIPHER_CTX_FLAG_WRAP_ALLOW);
+    if (EVP_CipherInit_ex(ctx, EVP_aes_256_wrap(), NULL, kek, NULL, 1) != 1
+        || EVP_CipherUpdate(ctx, buf, &outlen, in, 32) != 1
+        || EVP_CipherFinal_ex(ctx, buf + outlen, &finaln) != 1) {
+        TRACE_ERROR("AES-256 key wrap failed.\n");
+        goto done;
+    }
+    memcpy(out, buf, 40);
+    rc = CKR_OK;
+done:
+    EVP_CIPHER_CTX_free(ctx);
+    OPENSSL_cleanse(buf, sizeof(buf));
+    return rc;
+}
+
+static CK_RV icsf_aes_256_unwrap(unsigned char key[32],
+                                  const unsigned char in[40],
+                                  const unsigned char kek[32])
+{
+    EVP_CIPHER_CTX *ctx;
+    int outlen = 0, finaln = 0;
+    CK_RV rc = CKR_FUNCTION_FAILED;
+    unsigned char buf[32 + EVP_MAX_BLOCK_LENGTH];
+
+    ctx = EVP_CIPHER_CTX_new();
+    if (!ctx) {
+        TRACE_ERROR("EVP_CIPHER_CTX_new failed.\n");
+        return CKR_HOST_MEMORY;
+    }
+    EVP_CIPHER_CTX_set_flags(ctx, EVP_CIPHER_CTX_FLAG_WRAP_ALLOW);
+    if (EVP_CipherInit_ex(ctx, EVP_aes_256_wrap(), NULL, kek, NULL, 0) != 1
+        || EVP_CipherUpdate(ctx, buf, &outlen, in, 40) != 1
+        || EVP_CipherFinal_ex(ctx, buf + outlen, &finaln) != 1) {
+        TRACE_ERROR("AES-256 key unwrap failed.\n");
+        goto done;
+    }
+    memcpy(key, buf, 32);
+    rc = CKR_OK;
+done:
+    EVP_CIPHER_CTX_free(ctx);
+    OPENSSL_cleanse(buf, sizeof(buf));
+    return rc;
+}
+
+/*
+ * Local AES-256-GCM unseal (decrypt + verify tag).
+ * Mirrors aes_256_gcm_seal from pkcs_utils.c but is self-contained here.
+ *
+ * @out      plaintext output buffer (at least inlen bytes)
+ * @tag      expected 16-byte GCM authentication tag
+ * @aad/@aadlen  additional authenticated data
+ * @in/@inlen    ciphertext
+ * @key      32-byte AES key
+ * @iv       12-byte GCM nonce
+ *
+ * Returns CKR_OK on success, CKR_FUNCTION_FAILED if tag verification fails.
+ */
+static CK_RV icsf_aes_256_gcm_unseal(unsigned char *out,
+                                      const unsigned char tag[16],
+                                      const unsigned char *aad, size_t aadlen,
+                                      const unsigned char *in, size_t inlen,
+                                      const unsigned char key[32],
+                                      const unsigned char iv[12])
+{
+    EVP_CIPHER_CTX *ctx;
+    int aad_len = 0, outlen = 0, finaln = 0;
+    CK_RV rc = CKR_FUNCTION_FAILED;
+
+    ctx = EVP_CIPHER_CTX_new();
+    if (!ctx) {
+        TRACE_ERROR("EVP_CIPHER_CTX_new failed.\n");
+        return CKR_HOST_MEMORY;
+    }
+
+    if (EVP_CipherInit_ex(ctx, EVP_aes_256_gcm(), NULL, NULL, NULL, -1) != 1
+        || EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_IVLEN, 12, NULL) != 1
+        || EVP_CipherInit_ex(ctx, NULL, NULL, key, iv, 0) != 1
+        || EVP_CipherUpdate(ctx, NULL, &aad_len, aad, aadlen) != 1
+        || EVP_CipherUpdate(ctx, out, &outlen, in, inlen) != 1
+        || EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_TAG, 16,
+                               (void *)tag) != 1
+        || EVP_CipherFinal_ex(ctx, out + outlen, &finaln) != 1) {
+        TRACE_ERROR("AES-256-GCM unseal failed (bad tag or data).\n");
+        goto done;
+    }
+    rc = CKR_OK;
+done:
+    EVP_CIPHER_CTX_free(ctx);
+    return rc;
+}
 
 CK_RV get_randombytes(unsigned char *output, int bytes)
 {
@@ -432,8 +542,8 @@ CK_RV pbkdf_openssl(STDLL_TokData_t *tokdata,
         return CKR_FUNCTION_FAILED;
     }
 
-    rc = PKCS5_PBKDF2_HMAC((char *)password, len, salt, SALTSIZE,
-                            ITERATIONS, EVP_sha256(), klen, dkey);
+    rc = PKCS5_PBKDF2_HMAC((char *)password, (int)len, salt, SALTSIZE,
+                            ITERATIONS, EVP_sha256(), (int)klen, dkey);
     if (rc != 1) {
         TRACE_ERROR("PBKDF2 failed.\n");
         return CKR_FUNCTION_FAILED;
@@ -736,5 +846,373 @@ CK_RV secure_masterkey(STDLL_TokData_t *tokdata,
 
     fclose(fp);
     OPENSSL_cleanse(dkey, sizeof(dkey));
+    return rc;
+}
+
+/*
+ * secure_masterkey_v3 - write a version-3 MK_SO or MK_USER file.
+ *
+ * Format: 40 raw bytes = AES-256-KW(RFC 3394) of the 32-byte master key.
+ * No version field — identical to loadsave.c save_masterkey_so/user.
+ * The file size (40 bytes) is the implicit format discriminator.
+ *
+ * @tokdata   - token data (may be NULL when called from pkcsicsf tool)
+ * @masterkey - 32-byte AES master key to protect
+ * @wrap_key  - 32-byte PBKDF2-derived wrapping key from TOKEN_DATA_VERSION
+ * @fname     - destination file path
+ */
+CK_RV secure_masterkey_v3(STDLL_TokData_t *tokdata,
+                           const CK_BYTE *masterkey,
+                           const CK_BYTE wrap_key[32],
+                           const char *fname)
+{
+    unsigned char wrapped[40];
+    FILE *fp;
+    int truncret;
+    CK_RV rc;
+
+    rc = icsf_aes_256_wrap(wrapped, masterkey, wrap_key);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("icsf_aes_256_wrap failed.\n");
+        return rc;
+    }
+
+    fp = fopen_nofollow(fname, "w");
+    if (!fp) {
+        if (errno == ELOOP)
+            TRACE_ERROR("Refusing to follow symlink: %s\n", fname);
+        else
+            TRACE_ERROR("fopen failed: %s\n", strerror(errno));
+        return CKR_FUNCTION_FAILED;
+    }
+
+    rc = set_perms(fileno(fp), tokdata != NULL ? tokdata->tokgroup : NULL);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Failed to set permissions on master key file.\n");
+        fclose(fp);
+        return CKR_FUNCTION_FAILED;
+    }
+
+    if (fwrite(wrapped, sizeof(wrapped), 1, fp) != 1) {
+        TRACE_ERROR("Failed to write v3 master key file: %s\n",
+                    strerror(errno));
+        truncret = ftruncate(fileno(fp), 0);
+        UNUSED(truncret);
+        fclose(fp);
+        return CKR_FUNCTION_FAILED;
+    }
+
+    fclose(fp);
+    return CKR_OK;
+}
+
+/*
+ * get_masterkey_v3 - read and unwrap a version-3 MK_SO or MK_USER file.
+ *
+ * Format: 40 raw bytes = AES-256-KW(RFC 3394) of the 32-byte master key.
+ * No version field — file size is the implicit format discriminator.
+ *
+ * @tokdata   - token data (may be NULL when called from pkcsicsf tool)
+ * @wrap_key  - 32-byte PBKDF2-derived wrapping key from TOKEN_DATA_VERSION
+ * @fname     - source file path
+ * @masterkey - output: 32-byte unwrapped master key
+ */
+CK_RV get_masterkey_v3(STDLL_TokData_t *tokdata,
+                       const CK_BYTE wrap_key[32],
+                       const char *fname,
+                       CK_BYTE masterkey[32])
+{
+    unsigned char wrapped[40];
+    struct stat sb;
+    FILE *fp;
+    CK_RV rc;
+
+    UNUSED(tokdata);
+
+    fp = fopen(fname, "r");
+    if (fp == NULL) {
+        TRACE_ERROR("fopen(%s) failed: %s\n", fname, strerror(errno));
+        return CKR_FUNCTION_FAILED;
+    }
+
+    /*
+     * Verify the file is exactly ICSF_MK_FILE_V3_SIZE (40) bytes before
+     * attempting to read it as a v3 AES-256-KW blob. A different size
+     * means the file is a legacy v1/v2 MK file (68 or 72 bytes).
+     */
+    if (fstat(fileno(fp), &sb) != 0) {
+        TRACE_ERROR("fstat(%s) failed: %s\n", fname, strerror(errno));
+        fclose(fp);
+        return CKR_FUNCTION_FAILED;
+    }
+    if (sb.st_size != ICSF_MK_FILE_V3_SIZE) {
+        TRACE_ERROR("v3 master key file \"%s\" has unexpected size %lld "
+                    "(expected %d) -- file may be in legacy format; "
+                    "check that tokversion = 3.28 is correct for this "
+                    "token.\n",
+                    fname, (long long)sb.st_size, ICSF_MK_FILE_V3_SIZE);
+        fclose(fp);
+        return CKR_FUNCTION_FAILED;
+    }
+
+    if (fread(wrapped, sizeof(wrapped), 1, fp) != 1) {
+        TRACE_ERROR("fread failed on v3 master key file: %s\n", fname);
+        fclose(fp);
+        return CKR_FUNCTION_FAILED;
+    }
+    fclose(fp);
+
+    rc = icsf_aes_256_unwrap(masterkey, wrapped, wrap_key);
+    OPENSSL_cleanse(wrapped, sizeof(wrapped));
+    if (rc != CKR_OK) {
+        TRACE_ERROR("icsf_aes_256_unwrap failed.\n");
+        OPENSSL_cleanse(masterkey, 32);
+    }
+    return rc;
+}
+
+/*
+ * Local AES-256-GCM seal (encrypt + produce tag).
+ * Self-contained so pbkdf.c does not depend on pkcs_utils.c.
+ */
+static CK_RV icsf_aes_256_gcm_seal(unsigned char *out, unsigned char tag[16],
+                                    const unsigned char *aad, size_t aadlen,
+                                    const unsigned char *in, size_t inlen,
+                                    const unsigned char key[32],
+                                    const unsigned char iv[12])
+{
+    EVP_CIPHER_CTX *ctx;
+    int aad_len = 0, outlen = 0, finaln = 0;
+    CK_RV rc = CKR_FUNCTION_FAILED;
+
+    ctx = EVP_CIPHER_CTX_new();
+    if (!ctx) {
+        TRACE_ERROR("EVP_CIPHER_CTX_new failed.\n");
+        return CKR_HOST_MEMORY;
+    }
+
+    if (EVP_CipherInit_ex(ctx, EVP_aes_256_gcm(), NULL, NULL, NULL, -1) != 1
+        || EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_IVLEN, 12, NULL) != 1
+        || EVP_CipherInit_ex(ctx, NULL, NULL, key, iv, 1) != 1
+        || EVP_CipherUpdate(ctx, NULL, &aad_len, aad, aadlen) != 1
+        || EVP_CipherUpdate(ctx, out, &outlen, in, inlen) != 1
+        || EVP_CipherFinal_ex(ctx, out + outlen, &finaln) != 1
+        || EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_GET_TAG, 16, tag) != 1) {
+        TRACE_ERROR("AES-256-GCM seal failed.\n");
+        goto done;
+    }
+    rc = CKR_OK;
+done:
+    EVP_CIPHER_CTX_free(ctx);
+    return rc;
+}
+
+/*
+ * secure_racf_v3 - write a version-3 RACF file using AES-256-GCM.
+ *
+ * Format on disk (all multi-byte integers in big-endian):
+ *   u32  version         = ICSF_RACF_FILE_VERSION_3  (big-endian)
+ *   u8   iv[12]          random GCM nonce
+ *   u8   tag[16]         GCM authentication tag
+ *   u32  ciphertext_len  length of ciphertext         (big-endian)
+ *   u8   ciphertext[ciphertext_len]
+ *
+ * @tokdata    token data (may be NULL when called from pkcsicsf tool)
+ * @racf       RACF password bytes (not NUL-terminated)
+ * @racflen    length of @racf
+ * @masterkey  32-byte AES master key used as GCM key
+ * @tokname    token directory name, used as path component and as AAD
+ */
+CK_RV secure_racf_v3(STDLL_TokData_t *tokdata,
+                     const CK_BYTE *racf, CK_ULONG racflen,
+                     const CK_BYTE masterkey[32],
+                     const char *tokname)
+{
+    CK_ULONG_32 version = htobe32(ICSF_RACF_FILE_VERSION_3);
+    CK_ULONG_32 ciphertext_len_be;
+    unsigned char iv[12];
+    unsigned char tag[16];
+    unsigned char *ciphertext = NULL;
+    FILE *fp = NULL;
+    char fname[PATH_MAX];
+    int truncret;
+    CK_RV rc;
+
+    if (racflen == 0 || racflen > PIN_SIZE - 1) {
+        TRACE_ERROR("RACF password length invalid (%lu, max %d).\n",
+                    (unsigned long)racflen, PIN_SIZE - 1);
+        return CKR_FUNCTION_FAILED;
+    }
+
+    if (get_randombytes(iv, sizeof(iv)) != CKR_OK) {
+        TRACE_ERROR("Could not generate GCM IV.\n");
+        return CKR_FUNCTION_FAILED;
+    }
+
+    ciphertext = malloc(racflen);
+    if (!ciphertext) {
+        TRACE_ERROR("malloc failed.\n");
+        return CKR_HOST_MEMORY;
+    }
+
+    /* Use tokname as AAD to bind the ciphertext to this specific token */
+    rc = icsf_aes_256_gcm_seal(ciphertext, tag,
+                                (const unsigned char *)tokname, strlen(tokname),
+                                racf, racflen,
+                                masterkey, iv);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("AES-256-GCM seal of RACF password failed.\n");
+        goto done;
+    }
+    ciphertext_len_be = htobe32((CK_ULONG_32)racflen);
+
+    snprintf(fname, sizeof(fname), "%s/%s/%s", CONFIG_PATH, tokname, RACFFILE);
+    fp = fopen_nofollow(fname, "w");
+    if (!fp) {
+        if (errno == ELOOP)
+            TRACE_ERROR("Refusing to follow symlink: %s\n", fname);
+        else
+            TRACE_ERROR("fopen failed: %s\n", strerror(errno));
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+
+    rc = set_perms(fileno(fp), tokdata != NULL ? tokdata->tokgroup : NULL);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Failed to set permissions on RACF file.\n");
+        fclose(fp);
+        fp = NULL;
+        goto done;
+    }
+
+    if (fwrite(&version, sizeof(version), 1, fp) != 1 ||
+        fwrite(iv, sizeof(iv), 1, fp) != 1 ||
+        fwrite(tag, sizeof(tag), 1, fp) != 1 ||
+        fwrite(&ciphertext_len_be, sizeof(ciphertext_len_be), 1, fp) != 1 ||
+        fwrite(ciphertext, racflen, 1, fp) != 1) {
+        TRACE_ERROR("Failed to write v3 RACF file: %s\n", strerror(errno));
+        truncret = ftruncate(fileno(fp), 0);
+        UNUSED(truncret);
+        rc = CKR_FUNCTION_FAILED;
+    }
+
+done:
+    if (fp)
+        fclose(fp);
+    free(ciphertext);
+    return rc;
+}
+
+/*
+ * get_racf_v3 - read and authenticate-decrypt a version-3 RACF file.
+ *
+ * @tokdata    token data (provides data_store path and tokgroup)
+ * @masterkey  32-byte AES master key used as GCM key
+ * @racfpwd    output buffer for the decrypted RACF password (caller
+ *             supplies a buffer of at least PIN_SIZE bytes)
+ * @racflen    in/out: on entry the buffer size, on exit the password length
+ *
+ * The token name for AAD is derived from tokdata->data_store.
+ */
+CK_RV get_racf_v3(STDLL_TokData_t *tokdata,
+                  const CK_BYTE masterkey[32],
+                  CK_BYTE *racfpwd, int *racflen)
+{
+    char fname[PATH_MAX];
+    const char *tokname;
+    CK_ULONG_32 version, ciphertext_len_be, ciphertext_len;
+    unsigned char iv[12];
+    unsigned char tag[16];
+    unsigned char *ciphertext = NULL;
+    FILE *fp;
+    CK_RV rc;
+    struct stat statbuf;
+
+    snprintf(fname, sizeof(fname), "%s/%s", tokdata->data_store, RACFFILE);
+
+    if ((stat(fname, &statbuf) < 0) && errno == ENOENT) {
+        TRACE_ERROR("RACF file does not exist: %s\n", fname);
+        return CKR_FUNCTION_FAILED;
+    }
+
+    fp = fopen(fname, "r");
+    if (!fp) {
+        TRACE_ERROR("fopen(%s) failed: %s\n", fname, strerror(errno));
+        return CKR_FUNCTION_FAILED;
+    }
+
+    if (fread(&version, sizeof(version), 1, fp) != 1) {
+        TRACE_ERROR("fread failed on v3 RACF file.\n");
+        fclose(fp);
+        return CKR_FUNCTION_FAILED;
+    }
+
+    if (be32toh(version) != ICSF_RACF_FILE_VERSION_3) {
+        TRACE_ERROR("Unexpected version %u in RACF file (expected %u).\n",
+                    (unsigned int)be32toh(version), ICSF_RACF_FILE_VERSION_3);
+        fclose(fp);
+        return CKR_FUNCTION_FAILED;
+    }
+
+    if (fread(iv, sizeof(iv), 1, fp) != 1 ||
+        fread(tag, sizeof(tag), 1, fp) != 1 ||
+        fread(&ciphertext_len_be, sizeof(ciphertext_len_be), 1, fp) != 1) {
+        TRACE_ERROR("fread failed on v3 RACF file header.\n");
+        fclose(fp);
+        return CKR_FUNCTION_FAILED;
+    }
+    ciphertext_len = be32toh(ciphertext_len_be);
+
+    if (ciphertext_len == 0 || ciphertext_len >= (CK_ULONG_32)PIN_SIZE) {
+        TRACE_ERROR("Invalid ciphertext_len %u in v3 RACF file.\n",
+                    (unsigned int)ciphertext_len);
+        fclose(fp);
+        return CKR_FUNCTION_FAILED;
+    }
+
+    ciphertext = malloc(ciphertext_len);
+    if (!ciphertext) {
+        TRACE_ERROR("malloc failed.\n");
+        fclose(fp);
+        return CKR_HOST_MEMORY;
+    }
+
+    if (fread(ciphertext, ciphertext_len, 1, fp) != 1) {
+        TRACE_ERROR("fread of ciphertext failed in v3 RACF file.\n");
+        fclose(fp);
+        free(ciphertext);
+        return CKR_FUNCTION_FAILED;
+    }
+    fclose(fp);
+
+    /*
+     * Derive the AAD from the last component of data_store (the token name).
+     * data_store is the full path; the token name is the basename.
+     */
+    tokname = strrchr(tokdata->data_store, '/');
+    tokname = tokname ? tokname + 1 : tokdata->data_store;
+
+    if (*racflen < (int)ciphertext_len + 1) {
+        TRACE_ERROR("racfpwd buffer too small (%d < %u).\n",
+                    *racflen, (unsigned int)ciphertext_len + 1);
+        free(ciphertext);
+        return CKR_BUFFER_TOO_SMALL;
+    }
+
+    rc = icsf_aes_256_gcm_unseal(racfpwd, tag,
+                                  (const unsigned char *)tokname, strlen(tokname),
+                                  ciphertext, ciphertext_len,
+                                  masterkey, iv);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("AES-256-GCM unseal of RACF password failed "
+                    "(tampered file or wrong master key).\n");
+        OPENSSL_cleanse(racfpwd, ciphertext_len);
+    } else {
+        *racflen = (int)ciphertext_len;
+        racfpwd[*racflen] = '\0';
+    }
+
+    OPENSSL_cleanse(ciphertext, ciphertext_len);
+    free(ciphertext);
     return rc;
 }
