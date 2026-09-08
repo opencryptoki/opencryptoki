@@ -377,7 +377,7 @@ static CK_RV policy_extract_key_data(get_attr_val_f getattr, void *d,
     case CKK_SHA512_256_HMAC:
         rv = getattr(d, CKA_VALUE_LEN, &keysize);
         if (rv != CKR_OK) {
-            TRACE_ERROR("Did not find CKA_PRIME for key type 0x%lx\n",
+            TRACE_ERROR("Did not find CKA_VALUE_LEN for key type 0x%lx\n",
                         *(CK_ULONG *)keytype->pValue);
             goto out;
         }
