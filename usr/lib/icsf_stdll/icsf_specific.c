@@ -1123,6 +1123,7 @@ CK_RV icsftok_init_pin(STDLL_TokData_t * tokdata, SESSION * sess,
 {
     icsf_private_data_t *icsf_data = tokdata->private_data;
     TOKEN_DATA_VERSION *dat = &tokdata->nv_token_data->dat;
+    TOKEN_DATA_VERSION dat_snap;
     CK_RV rc = CKR_OK;
     CK_BYTE hash_sha[SHA1_HASH_SIZE];
     CK_BYTE user_login_key[32];
@@ -1132,6 +1133,26 @@ CK_RV icsftok_init_pin(STDLL_TokData_t * tokdata, SESSION * sess,
     UNUSED(sess);
 
     memset(user_login_key, 0, sizeof(user_login_key));
+
+    /*
+     * Snapshot the salt/iteration parameters from shared memory under
+     * XProcLock before any PBKDF2 derivation.  A concurrent SC_SetPIN from
+     * another process must not be able to overwrite them mid-derivation.
+     */
+    if (tokdata->version >= TOK_NEW_DATA_STORE) {
+        rc = XProcLock(tokdata);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("Failed to get process lock.\n");
+            return rc;
+        }
+        dat_snap = tokdata->nv_token_data->dat;
+        rc = XProcUnLock(tokdata);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("Failed to release process lock.\n");
+            OPENSSL_cleanse(&dat_snap, sizeof(dat_snap));
+            return rc;
+        }
+    }
 
     /* Protect the master key in MK_USER and (for new format) derive the
      * user login key into a local buffer; it will be copied into shared
@@ -1151,17 +1172,19 @@ CK_RV icsftok_init_pin(STDLL_TokData_t * tokdata, SESSION * sess,
 
         if (tokdata->version >= TOK_NEW_DATA_STORE) {
             rc = compute_PKCS5_PBKDF2_HMAC(tokdata, pPin, ulPinLen,
-                                           dat->user_login_salt, 64,
-                                           dat->user_login_it, EVP_sha512(),
-                                           256 / 8, user_login_key);
+                                           dat_snap.user_login_salt, 64,
+                                           dat_snap.user_login_it,
+                                           EVP_sha512(), 256 / 8,
+                                           user_login_key);
             if (rc != CKR_OK) {
                 TRACE_DEVEL("PBKDF2 for user login key failed.\n");
                 goto done;
             }
             rc = compute_PKCS5_PBKDF2_HMAC(tokdata, pPin, ulPinLen,
-                                           dat->user_wrap_salt, 64,
-                                           dat->user_wrap_it, EVP_sha512(),
-                                           256 / 8, tokdata->user_wrap_key);
+                                           dat_snap.user_wrap_salt, 64,
+                                           dat_snap.user_wrap_it,
+                                           EVP_sha512(), 256 / 8,
+                                           tokdata->user_wrap_key);
             if (rc != CKR_OK) {
                 TRACE_DEVEL("PBKDF2 for user wrap key failed.\n");
                 goto done;
@@ -1179,9 +1202,9 @@ CK_RV icsftok_init_pin(STDLL_TokData_t * tokdata, SESSION * sess,
     } else if (tokdata->version >= TOK_NEW_DATA_STORE) {
         /* SASL mode: derive user login key into local buffer */
         rc = compute_PKCS5_PBKDF2_HMAC(tokdata, pPin, ulPinLen,
-                                       dat->user_login_salt, 64,
-                                       dat->user_login_it, EVP_sha512(),
-                                       256 / 8, user_login_key);
+                                       dat_snap.user_login_salt, 64,
+                                       dat_snap.user_login_it,
+                                       EVP_sha512(), 256 / 8, user_login_key);
         if (rc != CKR_OK) {
             TRACE_DEVEL("PBKDF2 for user login key failed.\n");
             goto done;
@@ -1220,6 +1243,7 @@ CK_RV icsftok_init_pin(STDLL_TokData_t * tokdata, SESSION * sess,
         TRACE_ERROR("Process Lock Failed.\n");
 
 done:
+    OPENSSL_cleanse(&dat_snap, sizeof(dat_snap));
     OPENSSL_cleanse(user_login_key, sizeof(user_login_key));
     return rc;
 }
@@ -1230,7 +1254,10 @@ CK_RV icsftok_set_pin(STDLL_TokData_t * tokdata, SESSION * sess,
 {
     icsf_private_data_t *icsf_data = tokdata->private_data;
     TOKEN_DATA_VERSION *dat = &tokdata->nv_token_data->dat;
+    TOKEN_DATA_VERSION dat_snap;
     CK_RV rc = CKR_OK;
+    CK_BYTE user_pin_sha_snap[SHA1_HASH_SIZE];
+    CK_BYTE so_pin_sha_snap[SHA1_HASH_SIZE];
     CK_BYTE new_hash_sha[SHA1_HASH_SIZE];
     CK_BYTE old_hash_sha[SHA1_HASH_SIZE];
     CK_BYTE old_login_key[32];
@@ -1248,20 +1275,43 @@ CK_RV icsftok_set_pin(STDLL_TokData_t * tokdata, SESSION * sess,
         return CKR_PIN_LEN_RANGE;
     }
 
+    /*
+     * Snapshot PIN material from shared memory under XProcLock before any
+     * PBKDF2 derivation.  A concurrent SC_Login or SC_SetPIN from another
+     * process must not overwrite those fields mid-derivation.
+     */
+    rc = XProcLock(tokdata);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Failed to get process lock.\n");
+        return rc;
+    }
+    dat_snap = tokdata->nv_token_data->dat;
+    memcpy(user_pin_sha_snap, tokdata->nv_token_data->user_pin_sha,
+           SHA1_HASH_SIZE);
+    memcpy(so_pin_sha_snap, tokdata->nv_token_data->so_pin_sha,
+           SHA1_HASH_SIZE);
+    rc = XProcUnLock(tokdata);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Failed to release process lock.\n");
+        goto done;
+    }
+
     if ((sess->session_info.state == CKS_RW_USER_FUNCTIONS) ||
         (sess->session_info.state == CKS_RW_PUBLIC_SESSION)) {
 
         /* Verify old user PIN */
         if (tokdata->version >= TOK_NEW_DATA_STORE) {
             rc = compute_PKCS5_PBKDF2_HMAC(tokdata, pOldPin, ulOldLen,
-                                           dat->user_login_salt, 64,
-                                           dat->user_login_it, EVP_sha512(),
-                                           256 / 8, old_login_key);
+                                           dat_snap.user_login_salt, 64,
+                                           dat_snap.user_login_it,
+                                           EVP_sha512(), 256 / 8,
+                                           old_login_key);
             if (rc != CKR_OK) {
                 TRACE_DEVEL("PBKDF2 failed.\n");
                 goto done;
             }
-            if (CRYPTO_memcmp(dat->user_login_key, old_login_key, 32) != 0) {
+            if (CRYPTO_memcmp(dat_snap.user_login_key, old_login_key,
+                              32) != 0) {
                 TRACE_ERROR("%s\n", ock_err(ERR_PIN_INCORRECT));
                 rc = CKR_PIN_INCORRECT;
                 goto done;
@@ -1279,9 +1329,10 @@ CK_RV icsftok_set_pin(STDLL_TokData_t * tokdata, SESSION * sess,
              * differs from the old one (compare under the old salt so
              * a same-PIN rejection works even when the salt changes) */
             rc = compute_PKCS5_PBKDF2_HMAC(tokdata, pNewPin, ulNewLen,
-                                           dat->user_login_salt, 64,
-                                           dat->user_login_it, EVP_sha512(),
-                                           256 / 8, new_login_key);
+                                           dat_snap.user_login_salt, 64,
+                                           dat_snap.user_login_it,
+                                           EVP_sha512(), 256 / 8,
+                                           new_login_key);
             if (rc != CKR_OK) {
                 TRACE_DEVEL("PBKDF2 failed.\n");
                 goto done;
@@ -1313,8 +1364,7 @@ CK_RV icsftok_set_pin(STDLL_TokData_t * tokdata, SESSION * sess,
                 rc = CKR_PIN_INVALID;
                 goto done;
             }
-            if (memcmp(tokdata->nv_token_data->user_pin_sha, old_hash_sha,
-                       SHA1_HASH_SIZE) != 0) {
+            if (memcmp(user_pin_sha_snap, old_hash_sha, SHA1_HASH_SIZE) != 0) {
                 TRACE_ERROR("%s\n", ock_err(ERR_PIN_INCORRECT));
                 rc = CKR_PIN_INCORRECT;
                 goto done;
@@ -1394,14 +1444,15 @@ CK_RV icsftok_set_pin(STDLL_TokData_t * tokdata, SESSION * sess,
         /* Verify old SO PIN */
         if (tokdata->version >= TOK_NEW_DATA_STORE) {
             rc = compute_PKCS5_PBKDF2_HMAC(tokdata, pOldPin, ulOldLen,
-                                           dat->so_login_salt, 64,
-                                           dat->so_login_it, EVP_sha512(),
-                                           256 / 8, old_login_key);
+                                           dat_snap.so_login_salt, 64,
+                                           dat_snap.so_login_it,
+                                           EVP_sha512(), 256 / 8,
+                                           old_login_key);
             if (rc != CKR_OK) {
                 TRACE_DEVEL("PBKDF2 failed.\n");
                 goto done;
             }
-            if (CRYPTO_memcmp(dat->so_login_key, old_login_key, 32) != 0) {
+            if (CRYPTO_memcmp(dat_snap.so_login_key, old_login_key, 32) != 0) {
                 TRACE_ERROR("%s\n", ock_err(ERR_PIN_INCORRECT));
                 rc = CKR_PIN_INCORRECT;
                 goto done;
@@ -1417,9 +1468,10 @@ CK_RV icsftok_set_pin(STDLL_TokData_t * tokdata, SESSION * sess,
 
             /* Same-PIN rejection: compare under the old salt */
             rc = compute_PKCS5_PBKDF2_HMAC(tokdata, pNewPin, ulNewLen,
-                                           dat->so_login_salt, 64,
-                                           dat->so_login_it, EVP_sha512(),
-                                           256 / 8, new_login_key);
+                                           dat_snap.so_login_salt, 64,
+                                           dat_snap.so_login_it,
+                                           EVP_sha512(), 256 / 8,
+                                           new_login_key);
             if (rc != CKR_OK) {
                 TRACE_DEVEL("PBKDF2 failed.\n");
                 goto done;
@@ -1451,8 +1503,7 @@ CK_RV icsftok_set_pin(STDLL_TokData_t * tokdata, SESSION * sess,
                 rc = CKR_PIN_INVALID;
                 goto done;
             }
-            if (memcmp(tokdata->nv_token_data->so_pin_sha, old_hash_sha,
-                       SHA1_HASH_SIZE) != 0) {
+            if (memcmp(so_pin_sha_snap, old_hash_sha, SHA1_HASH_SIZE) != 0) {
                 TRACE_ERROR("%s\n", ock_err(ERR_PIN_INCORRECT));
                 rc = CKR_PIN_INCORRECT;
                 goto done;
@@ -1535,6 +1586,9 @@ CK_RV icsftok_set_pin(STDLL_TokData_t * tokdata, SESSION * sess,
         TRACE_ERROR("Save Token Failed.\n");
 
 done:
+    OPENSSL_cleanse(&dat_snap, sizeof(dat_snap));
+    OPENSSL_cleanse(user_pin_sha_snap, sizeof(user_pin_sha_snap));
+    OPENSSL_cleanse(so_pin_sha_snap, sizeof(so_pin_sha_snap));
     OPENSSL_cleanse(new_hash_sha, sizeof(new_hash_sha));
     OPENSSL_cleanse(old_hash_sha, sizeof(old_hash_sha));
     OPENSSL_cleanse(old_login_key, sizeof(old_login_key));
@@ -1891,7 +1945,7 @@ CK_RV icsftok_login(STDLL_TokData_t * tokdata, SESSION * sess,
                     CK_USER_TYPE userType, CK_CHAR_PTR pPin, CK_ULONG ulPinLen)
 {
     icsf_private_data_t *icsf_data = tokdata->private_data;
-    TOKEN_DATA_VERSION *dat = &tokdata->nv_token_data->dat;
+    TOKEN_DATA_VERSION dat_snap;
     CK_RV rc = CKR_OK;
     char pk_dir_buf[PATH_MAX];
     char fname[PATH_MAX];
@@ -1900,6 +1954,13 @@ CK_RV icsftok_login(STDLL_TokData_t * tokdata, SESSION * sess,
 
     UNUSED(sess);
 
+    /*
+     * Snapshot the PIN verification material from shared memory under
+     * XProcLock.  The lock is released before the slow PBKDF2 computation,
+     * then reacquired for the final compare so that a concurrent SC_SetPIN
+     * from another process cannot overwrite the material mid-derivation.
+     * The legacy SHA1 path is fast so it stays entirely under the lock.
+     */
     rc = XProcLock(tokdata);
     if (rc != CKR_OK) {
         TRACE_ERROR("Process Lock Failed.\n");
@@ -1908,72 +1969,93 @@ CK_RV icsftok_login(STDLL_TokData_t * tokdata, SESSION * sess,
 
     if (userType == CKU_USER) {
         if (tokdata->version >= TOK_NEW_DATA_STORE) {
-            /* New format: PBKDF2 login key verification */
+            /* New format: snapshot then PBKDF2 outside the lock */
             if (!(tokdata->nv_token_data->token_info.flags &
                   CKF_USER_PIN_INITIALIZED)) {
                 TRACE_ERROR("%s\n", ock_err(ERR_USER_PIN_NOT_INITIALIZED));
                 rc = CKR_USER_PIN_NOT_INITIALIZED;
-                goto done;
+                goto done_locked;
             }
+            dat_snap = tokdata->nv_token_data->dat;
+            rc = XProcUnLock(tokdata);
+            if (rc != CKR_OK) {
+                TRACE_ERROR("Failed to release process lock.\n");
+                return rc;
+            }
+
             rc = compute_PKCS5_PBKDF2_HMAC(tokdata, pPin, ulPinLen,
-                                           dat->user_login_salt, 64,
-                                           dat->user_login_it, EVP_sha512(),
-                                           256 / 8, login_key);
+                                           dat_snap.user_login_salt, 64,
+                                           dat_snap.user_login_it,
+                                           EVP_sha512(), 256 / 8, login_key);
             if (rc != CKR_OK) {
                 TRACE_DEVEL("PBKDF2 failed.\n");
-                goto done;
+                goto done_unlocked;
             }
-            if (CRYPTO_memcmp(dat->user_login_key, login_key, 32) != 0) {
+
+            rc = XProcLock(tokdata);
+            if (rc != CKR_OK) {
+                TRACE_ERROR("Process Lock Failed.\n");
+                goto done_unlocked;
+            }
+            if (CRYPTO_memcmp(tokdata->nv_token_data->dat.user_login_key,
+                              login_key, 32) != 0) {
                 TRACE_ERROR("%s\n", ock_err(ERR_PIN_INCORRECT));
                 rc = CKR_PIN_INCORRECT;
-                goto done;
+                goto done_locked;
             }
             /* Load master key using PBKDF2 wrap key */
             if (icsf_data->slot_data->mech == ICSF_CFG_MECH_SIMPLE) {
                 if (get_pk_dir(tokdata, pk_dir_buf, PATH_MAX) == NULL) {
                     TRACE_ERROR("pk_dir buffer overflow\n");
                     rc = CKR_FUNCTION_FAILED;
-                    goto done;
+                    goto done_locked;
+                }
+                rc = XProcUnLock(tokdata);
+                if (rc != CKR_OK) {
+                    TRACE_ERROR("Failed to release process lock.\n");
+                    goto done_unlocked;
                 }
                 if (ock_snprintf(fname, PATH_MAX, "%s/MK_USER",
                                  pk_dir_buf) != 0) {
                     TRACE_ERROR("MK_USER buffer overflow\n");
                     rc = CKR_FUNCTION_FAILED;
-                    goto done;
+                    goto done_unlocked;
                 }
                 rc = compute_PKCS5_PBKDF2_HMAC(tokdata, pPin, ulPinLen,
-                                               dat->user_wrap_salt, 64,
-                                               dat->user_wrap_it, EVP_sha512(),
-                                               256 / 8, tokdata->user_wrap_key);
+                                               dat_snap.user_wrap_salt, 64,
+                                               dat_snap.user_wrap_it,
+                                               EVP_sha512(), 256 / 8,
+                                               tokdata->user_wrap_key);
                 if (rc != CKR_OK) {
                     TRACE_DEVEL("PBKDF2 for user wrap key failed.\n");
-                    goto done;
+                    goto done_unlocked;
                 }
                 rc = get_masterkey_v3(tokdata, tokdata->user_wrap_key, fname,
                                       tokdata->master_key);
                 if (rc != CKR_OK) {
                     TRACE_DEVEL("Failed to load master key v3.\n");
-                    goto done;
+                    goto done_unlocked;
                 }
+                goto done_unlocked;
             }
         } else {
-            /* Legacy: SHA1 PIN verification */
+            /* Legacy: SHA1 PIN verification - fast, stays under lock */
             rc = compute_sha1(tokdata, pPin, ulPinLen, hash_sha);
             if (rc != CKR_OK) {
                 TRACE_ERROR("Hash Computation Failed.\n");
-                goto done;
+                goto done_locked;
             }
             if (memcmp(tokdata->nv_token_data->user_pin_sha,
                        "00000000000000000000", SHA1_HASH_SIZE) == 0) {
                 TRACE_ERROR("%s\n", ock_err(ERR_USER_PIN_NOT_INITIALIZED));
                 rc = CKR_USER_PIN_NOT_INITIALIZED;
-                goto done;
+                goto done_locked;
             }
             if (memcmp(tokdata->nv_token_data->user_pin_sha, hash_sha,
                        SHA1_HASH_SIZE) != 0) {
                 TRACE_ERROR("%s\n", ock_err(ERR_PIN_INCORRECT));
                 rc = CKR_PIN_INCORRECT;
-                goto done;
+                goto done_locked;
             }
             if (icsf_data->slot_data->mech == ICSF_CFG_MECH_SIMPLE) {
                 int mklen = sizeof(tokdata->master_key);
@@ -1981,77 +2063,105 @@ CK_RV icsftok_login(STDLL_TokData_t * tokdata, SESSION * sess,
                 if (get_pk_dir(tokdata, pk_dir_buf, PATH_MAX) == NULL) {
                     TRACE_ERROR("pk_dir buffer overflow\n");
                     rc = CKR_FUNCTION_FAILED;
-                    goto done;
+                    goto done_locked;
                 }
                 if (ock_snprintf(fname, PATH_MAX, "%s/MK_USER",
                                  pk_dir_buf) != 0) {
                     TRACE_ERROR("MK_USER buffer overflow\n");
                     rc = CKR_FUNCTION_FAILED;
-                    goto done;
+                    goto done_locked;
+                }
+                rc = XProcUnLock(tokdata);
+                if (rc != CKR_OK) {
+                    TRACE_ERROR("Failed to release process lock.\n");
+                    goto done_unlocked;
                 }
                 rc = get_masterkey(tokdata, pPin, ulPinLen, fname,
                                    tokdata->master_key, &mklen);
                 if (rc != CKR_OK) {
                     TRACE_DEVEL("Failed to load master key.\n");
-                    goto done;
+                    goto done_unlocked;
                 }
+                goto done_unlocked;
             }
         }
     } else {
         /* SO login */
         if (tokdata->version >= TOK_NEW_DATA_STORE) {
+            /* New format: snapshot then PBKDF2 outside the lock */
+            dat_snap = tokdata->nv_token_data->dat;
+            rc = XProcUnLock(tokdata);
+            if (rc != CKR_OK) {
+                TRACE_ERROR("Failed to release process lock.\n");
+                return rc;
+            }
+
             rc = compute_PKCS5_PBKDF2_HMAC(tokdata, pPin, ulPinLen,
-                                           dat->so_login_salt, 64,
-                                           dat->so_login_it, EVP_sha512(),
-                                           256 / 8, login_key);
+                                           dat_snap.so_login_salt, 64,
+                                           dat_snap.so_login_it,
+                                           EVP_sha512(), 256 / 8, login_key);
             if (rc != CKR_OK) {
                 TRACE_DEVEL("PBKDF2 failed.\n");
-                goto done;
+                goto done_unlocked;
             }
-            if (CRYPTO_memcmp(dat->so_login_key, login_key, 32) != 0) {
+
+            rc = XProcLock(tokdata);
+            if (rc != CKR_OK) {
+                TRACE_ERROR("Process Lock Failed.\n");
+                goto done_unlocked;
+            }
+            if (CRYPTO_memcmp(tokdata->nv_token_data->dat.so_login_key,
+                              login_key, 32) != 0) {
                 TRACE_ERROR("%s\n", ock_err(ERR_PIN_INCORRECT));
                 rc = CKR_PIN_INCORRECT;
-                goto done;
+                goto done_locked;
             }
             if (icsf_data->slot_data->mech == ICSF_CFG_MECH_SIMPLE) {
                 if (get_pk_dir(tokdata, pk_dir_buf, PATH_MAX) == NULL) {
                     TRACE_ERROR("pk_dir buffer overflow\n");
                     rc = CKR_FUNCTION_FAILED;
-                    goto done;
+                    goto done_locked;
+                }
+                rc = XProcUnLock(tokdata);
+                if (rc != CKR_OK) {
+                    TRACE_ERROR("Failed to release process lock.\n");
+                    goto done_unlocked;
                 }
                 if (ock_snprintf(fname, PATH_MAX, "%s/MK_SO",
                                  pk_dir_buf) != 0) {
                     TRACE_ERROR("MK_SO buffer overflow\n");
                     rc = CKR_FUNCTION_FAILED;
-                    goto done;
+                    goto done_unlocked;
                 }
                 rc = compute_PKCS5_PBKDF2_HMAC(tokdata, pPin, ulPinLen,
-                                               dat->so_wrap_salt, 64,
-                                               dat->so_wrap_it, EVP_sha512(),
-                                               256 / 8, tokdata->so_wrap_key);
+                                               dat_snap.so_wrap_salt, 64,
+                                               dat_snap.so_wrap_it,
+                                               EVP_sha512(), 256 / 8,
+                                               tokdata->so_wrap_key);
                 if (rc != CKR_OK) {
                     TRACE_DEVEL("PBKDF2 for SO wrap key failed.\n");
-                    goto done;
+                    goto done_unlocked;
                 }
                 rc = get_masterkey_v3(tokdata, tokdata->so_wrap_key, fname,
                                       tokdata->master_key);
                 if (rc != CKR_OK) {
                     TRACE_DEVEL("Failed to load master key v3.\n");
-                    goto done;
+                    goto done_unlocked;
                 }
+                goto done_unlocked;
             }
         } else {
-            /* Legacy: SHA1 SO PIN verification */
+            /* Legacy: SHA1 SO PIN verification - fast, stays under lock */
             rc = compute_sha1(tokdata, pPin, ulPinLen, hash_sha);
             if (rc != CKR_OK) {
                 TRACE_ERROR("Hash Computation Failed.\n");
-                goto done;
+                goto done_locked;
             }
             if (memcmp(tokdata->nv_token_data->so_pin_sha, hash_sha,
                        SHA1_HASH_SIZE) != 0) {
                 TRACE_ERROR("%s\n", ock_err(ERR_PIN_INCORRECT));
                 rc = CKR_PIN_INCORRECT;
-                goto done;
+                goto done_locked;
             }
             if (icsf_data->slot_data->mech == ICSF_CFG_MECH_SIMPLE) {
                 int mklen = sizeof(tokdata->master_key);
@@ -2059,20 +2169,26 @@ CK_RV icsftok_login(STDLL_TokData_t * tokdata, SESSION * sess,
                 if (get_pk_dir(tokdata, pk_dir_buf, PATH_MAX) == NULL) {
                     TRACE_ERROR("pk_dir buffer overflow\n");
                     rc = CKR_FUNCTION_FAILED;
-                    goto done;
+                    goto done_locked;
                 }
                 if (ock_snprintf(fname, PATH_MAX, "%s/MK_SO",
                                  pk_dir_buf) != 0) {
                     TRACE_ERROR("MK_SO buffer overflow\n");
                     rc = CKR_FUNCTION_FAILED;
-                    goto done;
+                    goto done_locked;
+                }
+                rc = XProcUnLock(tokdata);
+                if (rc != CKR_OK) {
+                    TRACE_ERROR("Failed to release process lock.\n");
+                    goto done_unlocked;
                 }
                 rc = get_masterkey(tokdata, pPin, ulPinLen, fname,
                                    tokdata->master_key, &mklen);
                 if (rc != CKR_OK) {
                     TRACE_DEVEL("Failed to load master key.\n");
-                    goto done;
+                    goto done_unlocked;
                 }
+                goto done_unlocked;
             }
         }
     }
@@ -2080,12 +2196,13 @@ CK_RV icsftok_login(STDLL_TokData_t * tokdata, SESSION * sess,
      * establish LDAP handle for session. This will get done
      * when we call icsf_get_handles() in SC_Login().
      */
-done:
+done_locked:
     if (rc == CKR_OK)
         rc = XProcUnLock(tokdata);
     else
         XProcUnLock(tokdata);
-
+done_unlocked:
+    OPENSSL_cleanse(&dat_snap, sizeof(dat_snap));
     OPENSSL_cleanse(hash_sha, sizeof(hash_sha));
     OPENSSL_cleanse(login_key, sizeof(login_key));
 
