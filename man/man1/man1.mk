@@ -2,12 +2,6 @@ man1_MANS += man/man1/pkcsconf.1
 
 if ENABLE_ICSFTOK
 man1_MANS += man/man1/pkcsicsf.1
-
-man/man1/pkcsicsf.1: man/man1/pkcsicsf.1.in
-	$(AM_V_GEN)@SED@ -e s!\@sysconfdir\@!"$(sysconfdir)"!g		\
-			 -e s!\@localstatedir\@!"$(localstatedir)"!g 	\
-			 < $< > $@-t &&					\
-	$(am__mv) $@-t $@
 endif
 
 if ENABLE_PKCSHSM_MK_CHANGE
@@ -33,12 +27,6 @@ endif
 if ENABLE_CCATOK
 if ENABLE_PKCSCCA
 man1_MANS += man/man1/pkcscca.1
-
-man/man1/pkcscca.1: man/man1/pkcscca.1.in
-	$(AM_V_GEN)@SED@ -e s!\@sysconfdir\@!"$(sysconfdir)"!g		\
-			 -e s!\@localstatedir\@!"$(localstatedir)"!g	\
-			 < $< > $@-t &&					\
-	$(am__mv) $@-t $@
 endif
 endif
 
@@ -52,14 +40,21 @@ endif
 
 if ENABLE_PKCSTOK_ADMIN
 man1_MANS += man/man1/pkcstok_admin.1
-
-man/man1/pkcstok_admin.1: man/man1/pkcstok_admin.1.in
-	$(AM_V_GEN)@SED@ -e s!\@sysconfdir\@!"$(sysconfdir)"!g		\
-			 -e s!\@pkcs_group\@!"$(pkcs_group)"!g		\
-			 -e s!\@localstatedir\@!"$(localstatedir)"!g 	\
-			 < $< > $@-t &&					\
-	$(am__mv) $@-t $@
 endif
 
-EXTRA_DIST += man/man1/pkcstok_admin.1.in man/man1/pkcsicsf.1.in man/man1/pkcscca.1.in
+man/man1/%.1: man/man1/%.1.in
+	@$(MKDIR_P) man/man1
+	$(MAN_SUBST) < $< > $@-t && $(am__mv) $@-t $@
+
+EXTRA_DIST += man/man1/pkcsconf.1.in \
+	      man/man1/pkcsicsf.1.in \
+	      man/man1/pkcshsm_mk_change.1.in \
+	      man/man1/pkcsstats.1.in \
+	      man/man1/pkcstok_migrate.1.in \
+	      man/man1/pkcsep11_migrate.1.in \
+	      man/man1/pkcsep11_session.1.in \
+	      man/man1/pkcscca.1.in \
+	      man/man1/p11sak.1.in \
+	      man/man1/p11kmip.1.in \
+	      man/man1/pkcstok_admin.1.in
 CLEANFILES += man/man1/*.1

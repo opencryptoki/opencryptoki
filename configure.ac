@@ -834,32 +834,9 @@ AC_LANG_POP([C++])
 
 AC_CONFIG_MACRO_DIRS([m4])
 
-AM_COND_IF([ENABLE_PKCSHSM_MK_CHANGE],
-           [AC_CONFIG_FILES([man/man1/pkcshsm_mk_change.1])])
-AM_COND_IF([ENABLE_PKCSSTATS],
-           [AC_CONFIG_FILES([man/man1/pkcsstats.1])])
-AM_COND_IF([ENABLE_P11SAK],
-           [AC_CONFIG_FILES([man/man1/p11sak.1])])
-AM_COND_IF([ENABLE_P11KMIP],
-           [AC_CONFIG_FILES([man/man1/p11kmip.1])])
-AM_COND_IF([ENABLE_PKCSEP11_MIGRATE],
-           [AC_CONFIG_FILES([man/man1/pkcsep11_migrate.1])])
-AM_COND_IF([ENABLE_PKCSEP11_SESSION],
-           [AC_CONFIG_FILES([man/man1/pkcsep11_session.1])])
-AM_COND_IF([ENABLE_PKCSTOK_MIGRATE],
-           [AC_CONFIG_FILES([man/man1/pkcstok_migrate.1])])
-
 AC_CONFIG_FILES([Makefile				\
 		 misc/opencryptoki.pc			\
-		 usr/lib/api/shrd_mem.c			\
-		 man/man1/pkcsconf.1			\
-		 man/man5/opencryptoki.conf.5		\
-		 man/man5/p11sak_defined_attrs.conf.5	\
-		 man/man5/strength.conf.5		\
-		 man/man5/policy.conf.5			\
-		 man/man5/p11kmip.conf.5        \
-		 man/man7/opencryptoki.7		\
-		 man/man8/pkcsslotd.8])
+		 usr/lib/api/shrd_mem.c])
 
 AC_OUTPUT
 
