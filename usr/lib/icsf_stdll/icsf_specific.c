@@ -4437,18 +4437,18 @@ CK_RV icsftok_find_objects_init(STDLL_TokData_t * tokdata, SESSION * sess,
                 /* Policy check */
                 pattr.ld = session_state->ld;
                 pattr.icsf_object = &new_mapping->icsf_object;
-                rc = tokdata->policy->store_object_strength(
+                /* Ignore policy violations here since the point is to get
+                 * the correct strength classification for the usage scenario
+                 * which will then allow or block key usage. */
+                tokdata->policy->store_object_strength(
                      tokdata->policy, &new_mapping->strength,
                      icsf_policy_get_attr, &pattr, icsf_policy_free_attr, sess);
-                if (rc != CKR_OK) {
-                    TRACE_ERROR("POLICY VIOLATION: Object too weak\n");
-                    goto done;
-                }
 
                 if (!(node_number = bt_node_add(&icsf_data->objects,
                                                 new_mapping))) {
                     TRACE_ERROR("Failed to add object to " "binary tree.\n");
                     rv = CKR_FUNCTION_FAILED;
+                    free(new_mapping);
                     goto done;
                 }
             }
