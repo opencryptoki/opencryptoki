@@ -352,6 +352,10 @@ int icsf_to_ock_err(int icsf_return_code, int icsf_reason_code)
         break;
     case 8:
         switch (icsf_reason_code) {
+        case 874:
+            return CKR_CURVE_NOT_SUPPORTED;
+        case 2116:
+            return CKR_MECHANISM_PARAM_INVALID;
         case 2154:
             return CKR_KEY_TYPE_INCONSISTENT;
         case 2028:
@@ -371,6 +375,7 @@ int icsf_to_ock_err(int icsf_return_code, int icsf_reason_code)
         case 3033:
             return CKR_TEMPLATE_INCOMPLETE;
         case 3034:
+            return CKR_ACTION_PROHIBITED;
         case 3035:
             return CKR_ATTRIBUTE_READ_ONLY;
         case 3038:
