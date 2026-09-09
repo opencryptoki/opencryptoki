@@ -3316,6 +3316,7 @@ int icsf_derive_key(LDAP * ld, int *reason, CK_MECHANISM_PTR mech,
     struct berval kdfCode = { 0, NULL };
     struct berval sharedData = { 0, NULL };
     CK_BYTE kdf = 0;
+    uint32_t kdf_be = 0;
 
     CHECK_ARG_NON_NULL(ld);
     CHECK_ARG_NON_NULL(mech);
@@ -3419,9 +3420,15 @@ int icsf_derive_key(LDAP * ld, int *reason, CK_MECHANISM_PTR mech,
     case CKM_ECDH1_DERIVE:
         ecdh_params = (CK_ECDH1_DERIVE_PARAMS *)mech->pParameter;
 
-        kdf = ecdh_params->kdf;
-        kdfCode.bv_val = (char *)&kdf;
-        kdfCode.bv_len = sizeof(kdf);
+        if (ecdh_params->kdf > 0xFF) {
+            kdf_be = htobe32(ecdh_params->kdf);
+            kdfCode.bv_val = (char *)&kdf_be;
+            kdfCode.bv_len = sizeof(kdf_be);
+        } else {
+            kdf = ecdh_params->kdf;
+            kdfCode.bv_val = (char *)&kdf;
+            kdfCode.bv_len = sizeof(kdf);
+        }
         sharedData.bv_val = (char *)ecdh_params->pSharedData;
         sharedData.bv_len = ecdh_params->ulSharedDataLen;
         publicValue.bv_val = (char *)ecdh_params->pPublicData;
