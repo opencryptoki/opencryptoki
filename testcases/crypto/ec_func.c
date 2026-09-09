@@ -635,7 +635,7 @@ CK_RV run_DeriveECDHKey(CK_BBOOL cofactor_mode)
             continue;
         }
 
-        if (is_cca_token(SLOT_ID)) {
+        if (is_cca_token(SLOT_ID) || is_icsf_token(SLOT_ID)) {
             if (der_ec_supported[i].twisted) {
                 testcase_skip("Slot %u doesn't support this curve: %s",
                               (unsigned int) SLOT_ID, der_ec_supported[i].name);
@@ -835,6 +835,21 @@ CK_RV run_DeriveECDHKey(CK_BBOOL cofactor_mode)
                 break;
             }
 
+            if (is_icsf_token(SLOT_ID)) {
+                switch (kdfs[j]) {
+                case CKD_SHA1_KDF:
+                case CKD_SHA224_KDF:
+                case CKD_SHA256_KDF:
+                case CKD_SHA384_KDF:
+                    break;
+                default:
+                    testcase_skip("The ICSF token in slot %u doesn't support "
+                                  "%s\n",
+                                  (unsigned int) SLOT_ID, p11_get_ckd(kdfs[j]));
+                    continue;
+                }
+            }
+
             for (k=0; k<NUM_SECRET_KEY_LENGTHS; k++) {
 
                 if (too_many_key_bytes_requested(i, j, secret_key_len[k])) {
@@ -987,6 +1002,17 @@ CK_RV run_DeriveECDHKey(CK_BBOOL cofactor_mode)
                                           p11_get_ckd(kdfs[j]));
                             continue;
                         }
+                        if (is_icsf_token(SLOT_ID) &&
+                            rc == CKR_MECHANISM_PARAM_INVALID &&
+                            kdfs[j] != CKD_NULL &&
+                            kdfs[j] != CKD_SHA224_KDF &&
+                            kdfs[j] != CKD_SHA256_KDF &&
+                            kdfs[j] != CKD_SHA384_KDF &&
+                            kdfs[j] != CKD_SHA512_KDF) {
+                            testcase_skip("ICSF does not support KDF %s\n",
+                                          p11_get_ckd(kdfs[j]));
+                            continue;
+                        }
                         if (is_rejected_by_policy(rc, session)) {
                             testcase_skip("key derivation is not allowed by policy");
                             continue;
@@ -1067,6 +1093,17 @@ CK_RV run_DeriveECDHKey(CK_BBOOL cofactor_mode)
                                           p11_get_ckd(kdfs[j]));
                             if (secret_keyA != CK_INVALID_HANDLE)
                                 funcs->C_DestroyObject(session, secret_keyA);
+                            continue;
+                        }
+                        if (is_icsf_token(SLOT_ID) &&
+                            rc == CKR_MECHANISM_PARAM_INVALID &&
+                            kdfs[j] != CKD_NULL &&
+                            kdfs[j] != CKD_SHA224_KDF &&
+                            kdfs[j] != CKD_SHA256_KDF &&
+                            kdfs[j] != CKD_SHA384_KDF &&
+                            kdfs[j] != CKD_SHA512_KDF) {
+                            testcase_skip("ICSF does not support KDF %s\n",
+                                          p11_get_ckd(kdfs[j]));
                             continue;
                         }
                         if (is_rejected_by_policy(rc, session)) {
@@ -1381,6 +1418,21 @@ CK_RV run_DeriveECDHKeyKAT(void)
             break;
         }
 
+        if (is_icsf_token(SLOT_ID)) {
+            switch (ecdh_tv[i].kdf) {
+            case CKD_SHA1_KDF:
+            case CKD_SHA224_KDF:
+            case CKD_SHA256_KDF:
+            case CKD_SHA384_KDF:
+                break;
+            default:
+                testcase_skip("The ICSF token in slot %u doesn't support "
+                              "%s\n",
+                              (unsigned int) SLOT_ID, p11_get_ckd(ecdh_tv[i].kdf));
+                continue;
+            }
+        }
+
         if (is_ep11_token(SLOT_ID) && ecdh_tv[i].derived_key_len > 256) {
             testcase_skip("EP11 cannot provide %lu key bytes with "
                           "curve %s\n", ecdh_tv[i].derived_key_len,
@@ -1396,6 +1448,21 @@ CK_RV run_DeriveECDHKeyKAT(void)
                           "can not be verified.",
                           ecdh_tv[i].derived_key_len);
             continue;
+        }
+
+        if (is_icsf_token(SLOT_ID)) {
+            if (der_ec_supported[i].twisted) {
+                testcase_skip("Slot %u doesn't support this curve: %s",
+                              (unsigned int) SLOT_ID, der_ec_supported[i].name);
+                continue;
+            }
+            if (der_ec_supported[i].type != CURVE_BRAINPOOL &&
+                der_ec_supported[i].type != CURVE_PRIME &&
+                der_ec_supported[i].type != CURVE_KOBLITZ) {
+                testcase_skip("Slot %u doesn't support this curve: %s",
+                              (unsigned int) SLOT_ID,der_ec_supported[i].name);
+                continue;
+            }
         }
 
         // First, import the EC key pair for party A
@@ -1539,6 +1606,16 @@ CK_RV run_DeriveECDHKeyKAT(void)
                 if (publ_keyB != CK_INVALID_HANDLE)
                     funcs->C_DestroyObject(session, publ_keyB);
                 continue;
+            } else if (is_icsf_token(SLOT_ID) &&
+                rc == CKR_MECHANISM_PARAM_INVALID &&
+                ecdh_tv[i].kdf != CKD_NULL &&
+                ecdh_tv[i].kdf != CKD_SHA224_KDF &&
+                ecdh_tv[i].kdf != CKD_SHA256_KDF &&
+                ecdh_tv[i].kdf != CKD_SHA384_KDF &&
+                ecdh_tv[i].kdf != CKD_SHA512_KDF) {
+                testcase_skip("ICSF does not support KDF %s\n",
+                              p11_get_ckd(ecdh_tv[i].kdf));
+                continue;
             }
 
             testcase_fail("C_DeriveKey #1: rc = %s", p11_get_ckr(rc));
@@ -1585,6 +1662,16 @@ CK_RV run_DeriveECDHKeyKAT(void)
                     funcs->C_DestroyObject(session, priv_keyB);
                 if (publ_keyB != CK_INVALID_HANDLE)
                     funcs->C_DestroyObject(session, publ_keyB);
+                continue;
+            } else if (is_icsf_token(SLOT_ID) &&
+                rc == CKR_MECHANISM_PARAM_INVALID &&
+                ecdh_tv[i].kdf != CKD_NULL &&
+                ecdh_tv[i].kdf != CKD_SHA224_KDF &&
+                ecdh_tv[i].kdf != CKD_SHA256_KDF &&
+                ecdh_tv[i].kdf != CKD_SHA384_KDF &&
+                ecdh_tv[i].kdf != CKD_SHA512_KDF) {
+                testcase_skip("ICSF does not support KDF %s\n",
+                              p11_get_ckd(ecdh_tv[i].kdf));
                 continue;
             }
 
@@ -2096,6 +2183,15 @@ CK_RV run_GenerateECCKeyPairSignVerify(void)
                 continue;
             }
         }
+        if (is_icsf_token(SLOT_ID)) {
+            if (der_ec_supported[i].twisted ||
+                der_ec_supported[i].type == CURVE_EDWARDS ||
+                der_ec_supported[i].type == CURVE_BLS12_381) {
+                testcase_skip("Slot %u doesn't support this curve: %s",
+                              (unsigned int) SLOT_ID, der_ec_supported[i].name);
+                continue;
+            }
+        }
 
         rc = generate_EC_KeyPair(session, CKM_EC_KEY_PAIR_GEN,
                                  (CK_BYTE *)der_ec_supported[i].curve,
@@ -2454,14 +2550,15 @@ CK_RV run_TransferECCKeyPairSignVerify(void)
     }
 
     for (i = 0; i < EC_TV_NUM; i++) {
-        if (is_cca_token(SLOT_ID)) {
+        if (is_cca_token(SLOT_ID) || is_icsf_token(SLOT_ID)) {
             if (strstr((char *)ec_tv[i].name, "t1") != NULL) {
                 testcase_skip("Slot %u doesn't support curve %s",
                               (unsigned int)SLOT_ID, ec_tv[i].name);
                 continue;
             }
             if (ec_tv[i].curve_type == CURVE_EDWARDS ||
-                ec_tv[i].curve_type == CURVE_MONTGOMERY) {
+                ec_tv[i].curve_type == CURVE_MONTGOMERY ||
+                ec_tv[i].curve_type == CURVE_BLS12_381) {
                 testcase_skip("Slot %u doesn't support curve %s",
                               (unsigned int)SLOT_ID, ec_tv[i].name);
                 continue;
