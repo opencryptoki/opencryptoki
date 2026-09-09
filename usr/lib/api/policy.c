@@ -319,7 +319,7 @@ static CK_RV policy_extract_key_data(get_attr_val_f getattr, void *d,
         if (rv != CKR_OK) {
             TRACE_ERROR("Did not find CKA_PRIME for key type 0x%lx\n",
                         *(CK_ULONG *)keytype->pValue);
-            return rv;
+            goto out;
         }
         *size = keysize->ulValueLen * 8;
         *comptarget = COMPARE_MODEXP;
