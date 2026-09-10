@@ -81,6 +81,8 @@ struct _ec {
 
 extern const struct _ec der_ec_supported[NUMEC];
 
+#define MAX_EC_OID_LEN               14
+
 #define MAX_ECDH_SHARED_SECRET_SIZE  66
 #define MAX_SUPPORTED_HASH_LENGTH 64
 

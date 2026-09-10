@@ -32,6 +32,7 @@
 #include "pkcs11types.h"
 #include "defs.h"
 #include "host_defs.h"
+#include "ec_defs.h"
 #include "pbkdf.h"
 #include "h_extern.h"
 #include "tok_specific.h"
@@ -2401,6 +2402,164 @@ done:
 }
 
 /*
+ * ICSF only accepts EC public keys with an uncompressed EC point in
+ * CKA_EC_POINT, encoded as a BER OCTET STRING.  This helper detects any
+ * other encoding (compressed, hybrid, no format byte, or bare raw point)
+ * and, when needed, builds a patched attribute array with a normalised
+ * CKA_EC_POINT.  Call free() on *out_attrs when done if *out_attrs differs
+ * from attrs.
+ */
+static CK_RV icsf_fixup_ec_public_key_point(CK_ATTRIBUTE_PTR attrs,
+                                             CK_ULONG attrs_len,
+                                             CK_ATTRIBUTE_PTR *out_attrs,
+                                             CK_ULONG *out_attrs_len)
+{
+    CK_ULONG i;
+    CK_OBJECT_CLASS obj_class = 0;
+    CK_KEY_TYPE key_type = 0;
+    CK_ATTRIBUTE *ec_point_attr = NULL;
+    CK_ATTRIBUTE *ec_params_attr = NULL;
+    CK_ULONG prime_len = 0;
+    CK_BBOOL allocated = FALSE;
+    CK_BYTE *unc_point = NULL;
+    CK_ULONG unc_point_len = 0;
+    CK_BYTE *enc_point = NULL;
+    CK_ULONG enc_point_len = 0;
+    CK_ATTRIBUTE_PTR new_attrs = NULL;
+    CK_RV rc = CKR_OK;
+    int idx;
+
+    *out_attrs = attrs;
+    *out_attrs_len = attrs_len;
+
+    /* Scan for CKA_CLASS, CKA_KEY_TYPE, CKA_EC_PARAMS, CKA_EC_POINT */
+    for (i = 0; i < attrs_len; i++) {
+        switch (attrs[i].type) {
+        case CKA_CLASS:
+            if (attrs[i].pValue && attrs[i].ulValueLen == sizeof(CK_OBJECT_CLASS))
+                obj_class = *(CK_OBJECT_CLASS *)attrs[i].pValue;
+            break;
+        case CKA_KEY_TYPE:
+            if (attrs[i].pValue && attrs[i].ulValueLen == sizeof(CK_KEY_TYPE))
+                key_type = *(CK_KEY_TYPE *)attrs[i].pValue;
+            break;
+        case CKA_EC_PARAMS:
+            if (attrs[i].pValue && attrs[i].ulValueLen > 0)
+                ec_params_attr = &attrs[i];
+            break;
+        case CKA_EC_POINT:
+            if (attrs[i].pValue && attrs[i].ulValueLen > 0)
+                ec_point_attr = &attrs[i];
+            break;
+        default:
+            break;
+        }
+    }
+
+    /* Only process EC public keys that have both EC params and EC point */
+    if (obj_class != CKO_PUBLIC_KEY || key_type != CKK_EC ||
+        ec_params_attr == NULL || ec_point_attr == NULL)
+        return CKR_OK;
+
+    /* Determine prime length in bytes from the curve OID */
+    for (i = 0; i < NUMEC; i++) {
+        if (der_ec_supported[i].data_size == ec_params_attr->ulValueLen &&
+            memcmp(der_ec_supported[i].data, ec_params_attr->pValue,
+                   ec_params_attr->ulValueLen) == 0) {
+            prime_len = (der_ec_supported[i].prime_bits + 7) / 8;
+            break;
+        }
+    }
+    if (prime_len == 0) {
+        TRACE_ERROR("EC curve not recognised, cannot fix up EC point\n");
+        return CKR_CURVE_NOT_SUPPORTED;
+    }
+
+    /*
+     * ec_point_uncompressed_from_public_data() accepts either a raw EC
+     * point or a BER-encoded OCTET STRING wrapping one, and returns the
+     * EC point in uncompressed raw form.  Pass allow_raw=TRUE so both
+     * encodings are tried.
+     */
+    rc = ec_point_uncompressed_from_public_data(
+                (CK_BYTE *)ec_point_attr->pValue, ec_point_attr->ulValueLen,
+                prime_len,
+                (CK_BYTE *)ec_params_attr->pValue, ec_params_attr->ulValueLen,
+                TRUE, &allocated, &unc_point, &unc_point_len);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("ec_point_uncompressed_from_public_data failed\n");
+        return rc;
+    }
+
+    /*
+     * If the point was not re-allocated it means ec_point_from_public_data()
+     * returned a pointer into the original attribute value buffer, which
+     * happens when it found a well-formed uncompressed or hybrid raw point
+     * directly, or when it decoded a BER OCTET STRING whose inner value is
+     * already an uncompressed/hybrid point.  In the latter case the original
+     * CKA_EC_POINT is already a valid BER OCTET STRING of an uncompressed
+     * point and we have nothing to do.  Detect this by checking that
+     * unc_point falls within the attribute value buffer and that the
+     * attribute value starts with the BER OCTET STRING tag (0x04).
+     */
+    if (!allocated &&
+        (CK_BYTE *)ec_point_attr->pValue != NULL &&
+        unc_point >= (CK_BYTE *)ec_point_attr->pValue &&
+        unc_point < (CK_BYTE *)ec_point_attr->pValue + ec_point_attr->ulValueLen &&
+        ((CK_BYTE *)ec_point_attr->pValue)[0] == 0x04) {
+        /* Already a correctly-formed BER OCTET STRING of an uncompressed point */
+        goto done;
+    }
+
+    /* Wrap the uncompressed raw point in a BER OCTET STRING */
+    rc = ber_encode_OCTET_STRING(FALSE, &enc_point, &enc_point_len,
+                                 unc_point, unc_point_len);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("ber_encode_OCTET_STRING failed for EC point\n");
+        goto done;
+    }
+
+    /*
+     * Build a shallow copy of the attrs array, replacing only the
+     * CKA_EC_POINT entry with the newly encoded value.
+     */
+    new_attrs = malloc(attrs_len * sizeof(CK_ATTRIBUTE));
+    if (new_attrs == NULL) {
+        TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+        rc = CKR_HOST_MEMORY;
+        goto done;
+    }
+    memcpy(new_attrs, attrs, attrs_len * sizeof(CK_ATTRIBUTE));
+
+    /* Find the index of CKA_EC_POINT in the copy and patch it */
+    idx = -1;
+    for (i = 0; i < attrs_len; i++) {
+        if (new_attrs[i].type == CKA_EC_POINT) {
+            idx = (int)i;
+            break;
+        }
+    }
+    /* idx is guaranteed to be valid since we found ec_point_attr above */
+    new_attrs[idx].pValue = enc_point;
+    new_attrs[idx].ulValueLen = enc_point_len;
+    enc_point = NULL;           /* ownership transferred to new_attrs slot */
+
+    *out_attrs = new_attrs;
+    *out_attrs_len = attrs_len;
+    new_attrs = NULL;
+
+done:
+    if (allocated && unc_point != NULL)
+        free(unc_point);
+    if (enc_point != NULL)
+        free(enc_point);
+    if (new_attrs != NULL)
+        free(new_attrs);
+
+    return rc;
+}
+
+/*
  * Create a new object.
  */
 CK_RV icsftok_create_object(STDLL_TokData_t * tokdata, SESSION * session,
@@ -2415,6 +2574,9 @@ CK_RV icsftok_create_object(STDLL_TokData_t * tokdata, SESSION * session,
     char token_name[sizeof(tokdata->nv_token_data->token_info.label) + 1];
     int reason = 0;
     struct icsf_policy_attr pattr = { 0 };
+    CK_ATTRIBUTE_PTR send_attrs = NULL;
+    CK_ULONG send_attrs_len = 0;
+    CK_ULONG k;
 
     /* Check permissions based on attributes and session */
     rc = check_session_permissions(session, attrs, attrs_len);
@@ -2459,9 +2621,23 @@ CK_RV icsftok_create_object(STDLL_TokData_t * tokdata, SESSION * session,
         goto done;
     }
 
+    /*
+     * ICSF requires CKA_EC_POINT to be a BER-encoded OCTET STRING
+     * containing an uncompressed EC point (0x04 || X || Y).  Normalise
+     * the point before sending it to ICSF if the caller supplied it in
+     * compressed, hybrid, or bare (no format byte) form.
+     */
+    rc = icsf_fixup_ec_public_key_point(attrs, attrs_len,
+                                        &send_attrs, &send_attrs_len);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("icsf_fixup_ec_public_key_point failed\n");
+        goto done;
+    }
+
     /* Call ICSF service */
     if ((rc = icsf_create_object(session_state->ld, &reason, token_name,
-                                 attrs, attrs_len, &mapping->icsf_object))) {
+                                 send_attrs, send_attrs_len,
+                                 &mapping->icsf_object))) {
         TRACE_DEVEL("icsf_create_object failed\n");
         rc = icsf_to_ock_err(rc, reason);
         goto done;
@@ -2489,6 +2665,24 @@ CK_RV icsftok_create_object(STDLL_TokData_t * tokdata, SESSION * session,
     *handle = node_number;
 
 done:
+    /* Free the patched attribute array if a new one was allocated */
+    if (send_attrs != NULL && send_attrs != attrs) {
+        /*
+         * The enc_point buffer was placed into send_attrs[idx].pValue.
+         * We need to free it before freeing the array itself.  Find it
+         * by walking the array for the CKA_EC_POINT slot whose pValue
+         * differs from the original.
+         */
+        for (k = 0; k < send_attrs_len; k++) {
+            if (send_attrs[k].type == CKA_EC_POINT &&
+                send_attrs[k].pValue != NULL &&
+                (k >= attrs_len ||
+                 send_attrs[k].pValue != attrs[k].pValue))
+                free(send_attrs[k].pValue);
+        }
+        free(send_attrs);
+    }
+
     /* If allocated, object must be freed in case of failure */
     if (rc && mapping)
         free(mapping);
@@ -6165,6 +6359,73 @@ done:
 }
 
 /*
+ * Fetch CKA_EC_PARAMS from an ICSF object and normalise an ECDH peer public
+ * key to a raw uncompressed EC point (0x04 || X || Y), as required by ICSF.
+ *
+ * The caller supplies the raw or BER-encoded public data in @pub_data /
+ * @pub_data_len.  On success, *out_point points to the uncompressed raw point
+ * and *out_len is its length.  When *out_allocated is TRUE the buffer was
+ * heap-allocated and the caller must free() it; otherwise it is a pointer into
+ * @pub_data and must not be freed.
+ */
+static CK_RV icsf_ecdh_fixup_public_data(LDAP *ld,
+                                          struct icsf_object_record *obj,
+                                          CK_BYTE *pub_data,
+                                          CK_ULONG pub_data_len,
+                                          CK_BYTE **out_point,
+                                          CK_ULONG *out_len,
+                                          CK_BBOOL *out_allocated)
+{
+    CK_BYTE ec_params_buf[MAX_EC_OID_LEN];
+    CK_ATTRIBUTE ec_params_attr = { CKA_EC_PARAMS, ec_params_buf,
+                                    sizeof(ec_params_buf) };
+    CK_ULONG prime_len = 0;
+    CK_ULONG i;
+    int reason = 0;
+    CK_RV rc;
+
+    /* Fetch CKA_EC_PARAMS directly into the stack buffer */
+    rc = icsf_get_attribute(ld, &reason, NULL, obj, &ec_params_attr, 1);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Failed to get CKA_EC_PARAMS from base key\n");
+        return icsf_to_ock_err(rc, reason);
+    }
+    if (ec_params_attr.ulValueLen == 0 ||
+        ec_params_attr.ulValueLen == CK_UNAVAILABLE_INFORMATION ||
+        ec_params_attr.ulValueLen > sizeof(ec_params_buf)) {
+        TRACE_ERROR("CKA_EC_PARAMS not available or too large\n");
+        return CKR_KEY_TYPE_INCONSISTENT;
+    }
+
+    /* Look up prime_len from the curve OID */
+    for (i = 0; i < NUMEC; i++) {
+        if (der_ec_supported[i].data_size == ec_params_attr.ulValueLen &&
+            memcmp(der_ec_supported[i].data, ec_params_attr.pValue,
+                   ec_params_attr.ulValueLen) == 0) {
+            prime_len = (der_ec_supported[i].prime_bits + 7) / 8;
+            break;
+        }
+    }
+    if (prime_len == 0) {
+        TRACE_ERROR("EC curve not recognised for ECDH derive\n");
+        return CKR_CURVE_NOT_SUPPORTED;
+    }
+
+    /* Normalise the public data to a raw uncompressed EC point */
+    rc = ec_point_uncompressed_from_public_data(pub_data, pub_data_len,
+                                                prime_len,
+                                                ec_params_attr.pValue,
+                                                ec_params_attr.ulValueLen,
+                                                TRUE, out_allocated,
+                                                out_point, out_len);
+    if (rc != CKR_OK)
+        TRACE_ERROR("ec_point_uncompressed_from_public_data failed "
+                    "for ECDH derive\n");
+
+    return rc;
+}
+
+/*
  * Derive a key from a base key, creating a new key object.
  */
 CK_RV icsftok_derive_key(STDLL_TokData_t * tokdata, SESSION * session,
@@ -6182,6 +6443,12 @@ CK_RV icsftok_derive_key(STDLL_TokData_t * tokdata, SESSION * session,
     unsigned int i;
     int reason = 0;
     struct icsf_policy_attr pattr = { 0 };
+    /* For ECDH public data normalisation */
+    CK_BYTE *unc_point = NULL;
+    CK_ULONG unc_point_len = 0;
+    CK_BBOOL unc_allocated = FALSE;
+    CK_ECDH1_DERIVE_PARAMS ecdh_norm = { 0 };
+    CK_MECHANISM mech_norm = { 0 };
 
     /* Variable for multiple keys derivation */
     int multiple = 0;
@@ -6266,6 +6533,40 @@ CK_RV icsftok_derive_key(STDLL_TokData_t * tokdata, SESSION * session,
         goto done;
     }
 
+    /*
+     * ICSF expects the ECDH peer public key in pPublicData as a raw
+     * uncompressed EC point (0x04 || X || Y).  Normalise it before
+     * calling ICSF in case the caller supplied it in another form.
+     */
+    if (mech->mechanism == CKM_ECDH1_DERIVE) {
+        CK_ECDH1_DERIVE_PARAMS *ecdh_params =
+                        (CK_ECDH1_DERIVE_PARAMS *)mech->pParameter;
+
+        if (!ecdh_params || !ecdh_params->pPublicData ||
+            ecdh_params->ulPublicDataLen == 0) {
+            TRACE_ERROR("Missing ECDH public data\n");
+            rc = CKR_MECHANISM_PARAM_INVALID;
+            goto done;
+        }
+
+        rc = icsf_ecdh_fixup_public_data(session_state->ld,
+                                         &base_key_mapping->icsf_object,
+                                         ecdh_params->pPublicData,
+                                         ecdh_params->ulPublicDataLen,
+                                         &unc_point, &unc_point_len,
+                                         &unc_allocated);
+        if (rc != CKR_OK)
+            goto done;
+
+        /* Build a local copy of the mechanism with the normalised point */
+        ecdh_norm = *ecdh_params;
+        ecdh_norm.pPublicData = unc_point;
+        ecdh_norm.ulPublicDataLen = unc_point_len;
+        mech_norm = *mech;
+        mech_norm.pParameter = &ecdh_norm;
+        mech = &mech_norm;
+    }
+
     /* Call ICSF service */
     if (!multiple) {
         rc = icsf_derive_key(session_state->ld, &reason, mech,
@@ -6335,6 +6636,9 @@ CK_RV icsftok_derive_key(STDLL_TokData_t * tokdata, SESSION * session,
     }
 
 done:
+    if (unc_allocated && unc_point != NULL)
+        free(unc_point);
+
     if (rc == CKR_OK && tokdata->statistics->increment_func != NULL)
         tokdata->statistics->increment_func(tokdata->statistics,
                                             session->session_info.slotID,
