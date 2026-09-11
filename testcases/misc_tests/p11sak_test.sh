@@ -332,8 +332,12 @@ RC_P11SAK_PINENV=$?
 printf "${PKCS11_USER_PIN}\n" | ${P11SAK} list-key all --slot $SLOT --force-pin-prompt | tail -n +2 &> $P11SAK_ALL_PINCON
 RC_P11SAK_PINCON=$?
 
-${P11SAK} list-key all --slot $SLOT --no-login &> $P11SAK_ALL_NOLOGIN
-RC_P11SAK_NOLOGIN=$?
+if [[ -z $( ${PKCSCONF} -t -c $SLOT | grep "Model: HCR") ]]; then
+	${P11SAK} list-key all --slot $SLOT --no-login &> $P11SAK_ALL_NOLOGIN
+	RC_P11SAK_NOLOGIN=$?
+else
+	echo "Skip no-login, the ICSF token does not support this"
+fi
 if [[ -n $PKCS11_SO_PIN ]]; then
 	${P11SAK} list-key all --slot $SLOT --pin $PKCS11_SO_PIN --so &> $P11SAK_ALL_SO
 	RC_P11SAK_SO=$?
@@ -3045,7 +3049,9 @@ else
 	status=1
 fi
 
-if [ $RC_P11SAK_NOLOGIN = 0 ]; then
+if [[ -z $RC_P11SAK_NOLOGIN ]]; then
+	echo "* TESTCASE list-key no-login SKIP public session"
+elif [ $RC_P11SAK_NOLOGIN = 0 ]; then
 	echo "* TESTCASE list-key no-login PASS public session"
 else
 	echo "* TESTCASE list-key no-login FAIL public session"
