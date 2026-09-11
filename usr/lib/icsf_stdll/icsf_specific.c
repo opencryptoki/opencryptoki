@@ -6107,6 +6107,8 @@ CK_RV icsftok_wrap_key(STDLL_TokData_t * tokdata,
     struct icsf_object_mapping *wrapping_key_mapping = NULL;
     struct icsf_object_mapping *key_mapping = NULL;
     size_t expected_block_size = 0;
+    CK_ULONG key_class;
+    CK_ATTRIBUTE class_attr = { CKA_CLASS, &key_class, sizeof(key_class) };
 
     /* Check session */
     if (!(session_state = get_session_state(tokdata, session->handle))) {
@@ -6166,6 +6168,19 @@ CK_RV icsftok_wrap_key(STDLL_TokData_t * tokdata,
         if (mech->ulParameterLen != 0) {
             TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
             rc = CKR_MECHANISM_PARAM_INVALID;
+            goto done;
+        }
+        /* CKM_RSA_PKCS can only wrap secret keys, not private keys */
+        rc = icsf_get_attribute(session_state->ld, &reason, NULL,
+                                &key_mapping->icsf_object, &class_attr, 1);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("icsf_get_attribute(CKA_CLASS) failed\n");
+            rc = icsf_to_ock_err(rc, reason);
+            goto done;
+        }
+        if (key_class != CKO_SECRET_KEY) {
+            TRACE_ERROR("CKM_RSA_PKCS only wraps secret keys.\n");
+            rc = CKR_KEY_NOT_WRAPPABLE;
             goto done;
         }
         break;
@@ -6240,6 +6255,7 @@ CK_RV icsftok_unwrap_key(STDLL_TokData_t * tokdata,
     CK_ULONG node_number;
     size_t expected_block_size = 0;
     struct icsf_policy_attr pattr = { 0 };
+    CK_ATTRIBUTE_PTR cls_attr;
 
     /* Check session */
     if (!(session_state = get_session_state(tokdata, session->handle))) {
@@ -6300,6 +6316,18 @@ CK_RV icsftok_unwrap_key(STDLL_TokData_t * tokdata,
         if (mech->ulParameterLen != 0) {
             TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
             rc = CKR_MECHANISM_PARAM_INVALID;
+            goto done;
+        }
+        /* CKM_RSA_PKCS can only unwrap secret keys, not private keys */
+        cls_attr = get_attribute_by_type(attrs, attrs_len, CKA_CLASS);
+        if (cls_attr == NULL) {
+            TRACE_ERROR("CKA_CLASS is required in unwrap template.\n");
+            rc = CKR_TEMPLATE_INCOMPLETE;
+            goto done;
+        }
+        if (*((CK_ULONG *) cls_attr->pValue) != CKO_SECRET_KEY) {
+            TRACE_ERROR("CKM_RSA_PKCS only unwraps secret keys.\n");
+            rc = CKR_ARGUMENTS_BAD;
             goto done;
         }
         break;
