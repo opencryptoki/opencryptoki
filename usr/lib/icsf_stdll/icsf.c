@@ -1225,7 +1225,6 @@ int icsf_copy_object(LDAP * ld, int *reason,
 
     CHECK_ARG_NON_NULL(ld);
     CHECK_ARG_NON_NULL(src);
-    CHECK_ARG_NON_NULL(attrs);
 
     object_record_to_handle(handle, src);
 
@@ -1298,7 +1297,6 @@ int icsf_create_object(LDAP * ld, int *reason, const char *token_name,
 
     CHECK_ARG_NON_NULL(ld);
     CHECK_ARG_NON_NULL_AND_MAX_LEN(token_name, ICSF_TOKEN_NAME_LEN);
-    CHECK_ARG_NON_NULL(attrs);
 
     token_name_to_handle(handle, token_name);
 
@@ -1556,7 +1554,6 @@ int icsf_generate_secret_key(LDAP * ld, int *reason, const char *token_name,
     CHECK_ARG_NON_NULL(ld);
     CHECK_ARG_NON_NULL_AND_MAX_LEN(token_name, ICSF_TOKEN_NAME_LEN);
     CHECK_ARG_NON_NULL(mech);
-    CHECK_ARG_NON_NULL(attrs);
 
     token_name_to_handle(handle, token_name);
 
