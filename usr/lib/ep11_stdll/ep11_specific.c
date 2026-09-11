@@ -16285,6 +16285,7 @@ CK_RV ep11tok_is_mechanism_supported(STDLL_TokData_t *tokdata,
     case CKM_IBM_ED25519_SHA512:
     case CKM_IBM_EC_X448:
     case CKM_IBM_ED448_SHA3:
+    case CKM_EDDSA:
         if (compare_ck_version(&ep11_data->ep11_lib_version, &ver3) < 0) {
             TRACE_INFO("%s Mech '%s' banned due to host library version\n",
                        __func__, ep11_get_ckm(tokdata, orig_mech));
@@ -16299,6 +16300,31 @@ CK_RV ep11tok_is_mechanism_supported(STDLL_TokData_t *tokdata,
                        __func__, ep11_get_ckm(tokdata, orig_mech));
             rc = CKR_MECHANISM_INVALID;
             goto out;
+        }
+        break;
+
+    case CKM_EC_KEY_PAIR_GEN:
+        switch (orig_mech) {
+        case CKM_EC_EDWARDS_KEY_PAIR_GEN:
+        case CKM_EC_MONTGOMERY_KEY_PAIR_GEN:
+            if (compare_ck_version(&ep11_data->ep11_lib_version, &ver3) < 0) {
+                TRACE_INFO("%s Mech '%s' banned due to host library version\n",
+                           __func__, ep11_get_ckm(tokdata, orig_mech));
+                rc = CKR_MECHANISM_INVALID;
+                goto out;
+            }
+
+            status = check_required_versions(tokdata, edwards_req_versions,
+                                             NUM_EDWARDS_REQ);
+            if (status != 1) {
+                TRACE_INFO("%s Mech '%s' banned due to old card or mixed firmware versions\n",
+                           __func__, ep11_get_ckm(tokdata, orig_mech));
+                rc = CKR_MECHANISM_INVALID;
+                goto out;
+            }
+            break;
+        default:
+            break;
         }
         break;
 
