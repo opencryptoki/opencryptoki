@@ -6196,6 +6196,8 @@ CK_RV icsftok_wrap_key(STDLL_TokData_t * tokdata,
         } else {
             TRACE_DEVEL("icsf_wrap_key failed\n");
             rc = icsf_to_ock_err(rc, reason);
+            if (rc == CKR_DATA_LEN_RANGE)
+                rc = CKR_KEY_SIZE_RANGE;
         }
         goto done;
     }
