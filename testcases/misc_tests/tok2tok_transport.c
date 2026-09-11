@@ -1500,7 +1500,7 @@ CK_RV do_wrap_key_test(struct wrapped_mech_info *tsuite,
             rc = CKR_OK;
             goto testcase_cleanup;
         }
-        if (rc == CKR_KEY_SIZE_RANGE) {
+        if (rc == CKR_KEY_SIZE_RANGE || rc == CKR_CURVE_NOT_SUPPORTED) {
             testcase_skip("generate to be wrapped key of the key size with "
                           "mech %s (%u) in slot %lu is not supported",
                           mech_to_str(tsuite->wrapped_key_gen_mech.mechanism),
@@ -2044,7 +2044,7 @@ CK_RV do_wrapping_test(struct wrapping_mech_info *tsuite)
             rc = CKR_OK;
             goto testcase_cleanup;
         }
-        if (rc == CKR_KEY_SIZE_RANGE) {
+        if (rc == CKR_KEY_SIZE_RANGE || rc == CKR_CURVE_NOT_SUPPORTED) {
             testcase_skip("generate wrapping key of the key size with mech %s "
                           "(%u) in slot %lu is not supported",
                           mech_to_str(tsuite->wrapping_key_gen_mech.mechanism),
