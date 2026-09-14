@@ -94,6 +94,8 @@ char *mech = NULL;
 char *cert = NULL;
 char *cacert = NULL;
 char *privkey = NULL;
+char *opt_sopin = NULL;
+char *opt_racfpwd = NULL;
 unsigned long flags = 0;
 int requested_slot = -1;
 
@@ -104,8 +106,10 @@ static void usage(char *progname)
 {
     printf("usage:\t%s [-h] [ -l | -a token-name] [-b BINDDN]"
            " [-c client-cert-file] [-C CA-cert-file] [-k key] [-u URI]"
-           " [-m MECHANISM] [-s slot]\n", progname);
-    printf("      \t%s -p token-name\n", progname);
+           " [-m MECHANISM] [-s slot] [-R RACF-passwd] [-S SO-pin]\n",
+           progname);
+    printf("      \t%s -p token-name [-R RACF-passwd] [-S SO-pin]\n",
+           progname);
     printf("\t-a add specified token\n");
     printf("\t-b the distinguish name to bind for simple mode\n");
     printf("\t-C the CA certificate file for SASL mode\n");
@@ -116,6 +120,8 @@ static void usage(char *progname)
     printf("\t-m the authentication mechanism, "
            "it can be 'simple' or 'sasl'\n");
     printf("\t-p change the RACF password for an existing token\n");
+    printf("\t-R the RACF password (prompted if not specified)\n");
+    printf("\t-S the SO PIN (prompted if not specified)\n");
     printf("\t-s the slot number to use when adding a token\n");
     printf("\t-u the URI to connect to\n");
 
@@ -907,13 +913,18 @@ static int secure_racf_passwd(const char *racfpwd, CK_ULONG len,
         goto cleanup;
     }
 
-    /* get the SO PIN */
-    snprintf(msg, sizeof(msg), "Enter the SO PIN for token '%s': ", tokname);
-    sopin = pin_prompt(&buf_so, msg);
-    if (!sopin) {
-        fprintf(stderr, "Could not get SO PIN.\n");
-        rc = -1;
-        goto cleanup;
+    /* get the SO PIN: use command-line value if provided, else prompt */
+    if (opt_sopin != NULL) {
+        sopin = opt_sopin;
+    } else {
+        snprintf(msg, sizeof(msg),
+                 "Enter the SO PIN for token '%s': ", tokname);
+        sopin = pin_prompt(&buf_so, msg);
+        if (!sopin) {
+            fprintf(stderr, "Could not get SO PIN.\n");
+            rc = -1;
+            goto cleanup;
+        }
     }
 
     /* generate a masterkey */
@@ -1038,13 +1049,22 @@ static int change_racf_passwd(const char *tokname)
         return -1;
     }
 
-    /* Step 2: prompt for the new RACF password and verify it via LDAP */
-    snprintf(msg, sizeof(msg),
-             "Enter the new RACF passwd for token '%s': ", tokname);
-    racfpwd = pin_prompt(&buf_racfpwd, msg);
-    if (!racfpwd) {
-        fprintf(stderr, "Could not get RACF passwd.\n");
-        goto cleanup;
+    /* Step 2: get the new RACF password (command-line value or prompt).
+     * Note: when -R is used with -p, it supplies the NEW password to set,
+     * not the current one. The new password is validated by binding to the
+     * LDAP server below (step 2 binding); if the bind fails the update is
+     * aborted and no local files are modified.
+     */
+    if (opt_racfpwd != NULL) {
+        racfpwd = opt_racfpwd;
+    } else {
+        snprintf(msg, sizeof(msg),
+                 "Enter the new RACF passwd for token '%s': ", tokname);
+        racfpwd = pin_prompt(&buf_racfpwd, msg);
+        if (!racfpwd) {
+            fprintf(stderr, "Could not get RACF passwd.\n");
+            goto cleanup;
+        }
     }
     racflen = strlen(racfpwd);
     if (racflen >= PIN_SIZE) {
@@ -1130,12 +1150,17 @@ static int change_racf_passwd(const char *tokname)
     close(lockfd);
     lockfd = -1;
 
-    /* Step 5: prompt for the SO PIN and unwrap the master key */
-    snprintf(msg, sizeof(msg), "Enter the SO PIN for token '%s': ", tokname);
-    sopin = pin_prompt(&buf_so, msg);
-    if (!sopin) {
-        fprintf(stderr, "Could not get SO PIN.\n");
-        goto cleanup;
+    /* Step 5: get the SO PIN (command-line value or prompt) and unwrap */
+    if (opt_sopin != NULL) {
+        sopin = opt_sopin;
+    } else {
+        snprintf(msg, sizeof(msg),
+                 "Enter the SO PIN for token '%s': ", tokname);
+        sopin = pin_prompt(&buf_so, msg);
+        if (!sopin) {
+            fprintf(stderr, "Could not get SO PIN.\n");
+            goto cleanup;
+        }
     }
 
     if (is_v3) {
@@ -1230,7 +1255,7 @@ int main(int argc, char **argv)
     char *endptr;
     long val;
 
-    while ((c = getopt(argc, argv, "hla:b:u:m:k:c:C:p:s:")) != (-1)) {
+    while ((c = getopt(argc, argv, "hla:b:u:m:k:c:C:p:s:R:S:")) != (-1)) {
         switch (c) {
         case 'a':
             flags |= CFG_ADD;
@@ -1324,6 +1349,20 @@ int main(int argc, char **argv)
             flags |= CFG_SLOT;
             requested_slot = (int)val;
             break;
+        case 'R':
+            if ((opt_racfpwd = strdup(optarg)) == NULL) {
+                rc = -1;
+                fprintf(stderr, "strdup failed: line %d\n", __LINE__);
+                goto cleanup;
+            }
+            break;
+        case 'S':
+            if ((opt_sopin = strdup(optarg)) == NULL) {
+                rc = -1;
+                fprintf(stderr, "strdup failed: line %d\n", __LINE__);
+                goto cleanup;
+            }
+            break;
         case 'h':
         default:
             usage(argv[0]);
@@ -1392,11 +1431,15 @@ int main(int argc, char **argv)
     /* get racf password and bind for -a and -l; -p handles this itself */
     if ((flags & CFG_ADD) || (flags & CFG_LIST)) {
         if (flags & CFG_MECH_SIMPLE) {
-            racfpwd = pin_prompt(&buf_racfpwd, "Enter the RACF passwd: ");
-            if (!racfpwd) {
-                fprintf(stderr, "Could not get RACF passwd.\n");
-                rc = -1;
-                goto cleanup;
+            if (opt_racfpwd != NULL) {
+                racfpwd = opt_racfpwd;
+            } else {
+                racfpwd = pin_prompt(&buf_racfpwd, "Enter the RACF passwd: ");
+                if (!racfpwd) {
+                    fprintf(stderr, "Could not get RACF passwd.\n");
+                    rc = -1;
+                    goto cleanup;
+                }
             }
             if (strlen(racfpwd) >= PIN_SIZE) {
                 fprintf(stderr, "RACF passwd too long (max %d characters).\n",
@@ -1481,6 +1524,14 @@ cleanup:
     if (mech)
         free(mech);
     pin_free(&buf_racfpwd);
+    if (opt_sopin) {
+        OPENSSL_cleanse(opt_sopin, strlen(opt_sopin));
+        free(opt_sopin);
+    }
+    if (opt_racfpwd) {
+        OPENSSL_cleanse(opt_racfpwd, strlen(opt_racfpwd));
+        free(opt_racfpwd);
+    }
 
     return rc;
 }
