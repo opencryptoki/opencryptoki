@@ -9,46 +9,61 @@
 #
 
 set timeout 30
-spawn @sbindir@/pkcsconf -c [lindex $argv 0] -I
-expect {
-    "Enter the SO PIN: " { sleep .1; send "87654321\r"; }
-    timeout { send_user "Timeout when sending SO PIN during initialization\n"; exit 1 }
-    default { send_user "Error sending SO PIN during initialization\n"; exit 1 }
-}
-expect {
-    "label: " { sleep .1; send "ibmtest\r"; }
-    timeout { send_user "Timeout when sending label during initialization\n"; exit 1 }
-    default { send_user "Error sending label during initialization\n"; exit 1 }
-}
-expect {
-    eof {}
-    "Incorrect PIN Entered." { exit 1 }
-    timeout { send_user "Timeout during initialization\n"; exit 1 }
+set slot [lindex $argv 0]
+
+# Check whether this token is already initialized (e.g. an ICSF token
+# configured by pkcsicsf -a, which sets TOKEN_INITIALIZED and the SO PIN
+# but leaves the user PIN unset).  If so, skip C_InitToken (-I) and the
+# SO PIN change (-P) and go straight to user PIN initialization (-u/-p).
+set already_initialized 0
+set catch_rc [catch {exec @sbindir@/pkcsconf -c $slot -t} tok_info]
+if {$catch_rc == 0 && [string match "*TOKEN_INITIALIZED*" $tok_info]} {
+    set already_initialized 1
+    send_user "Token at slot $slot is already initialized; skipping -I and -P steps\n"
 }
 
-spawn @sbindir@/pkcsconf -c [lindex $argv 0] -P
-expect {
-    "Enter the SO PIN: " { sleep .1; send "87654321\r"; }
-    timeout { send_user "Timeout when sending SO PIN during SO PIN setting\n"; exit 1 }
-    default { send_user "Error sending SO PIN during SO PIN setting\n"; exit 1 }
-}
-expect {
-    "Enter the new SO PIN: " { sleep .1; send $env(PKCS11_SO_PIN); send "\r"; }
-    timeout { send_user "Timeout when sending new SO PIN during SO PIN setting\n"; exit 1 }
-    default { send_user "Error sending new SO PIN during SO PIN setting\n"; exit 1 }
-}
-expect {
-    "Re-enter the new SO PIN: " { sleep .1; send $env(PKCS11_SO_PIN); send "\r"; }
-    timeout { send_user "Timeout when resending new SO PIN during SO PIN setting\n"; exit 1 }
-    default { send_user "Error resending new SO PIN during SO PIN setting\n"; exit 1 }
-}
-expect {
-    eof {}
-    "Incorrect PIN Entered." { exit 1 }
-    timeout { send_user "Timeout during SO PIN setting\n"; exit 1 }
+if {!$already_initialized} {
+    spawn @sbindir@/pkcsconf -c $slot -I
+    expect {
+        "Enter the SO PIN: " { sleep .1; send "87654321\r"; }
+        timeout { send_user "Timeout when sending SO PIN during initialization\n"; exit 1 }
+        default { send_user "Error sending SO PIN during initialization\n"; exit 1 }
+    }
+    expect {
+        "label: " { sleep .1; send "ibmtest\r"; }
+        timeout { send_user "Timeout when sending label during initialization\n"; exit 1 }
+        default { send_user "Error sending label during initialization\n"; exit 1 }
+    }
+    expect {
+        eof {}
+        "Incorrect PIN Entered." { exit 1 }
+        timeout { send_user "Timeout during initialization\n"; exit 1 }
+    }
+
+    spawn @sbindir@/pkcsconf -c $slot -P
+    expect {
+        "Enter the SO PIN: " { sleep .1; send "87654321\r"; }
+        timeout { send_user "Timeout when sending SO PIN during SO PIN setting\n"; exit 1 }
+        default { send_user "Error sending SO PIN during SO PIN setting\n"; exit 1 }
+    }
+    expect {
+        "Enter the new SO PIN: " { sleep .1; send $env(PKCS11_SO_PIN); send "\r"; }
+        timeout { send_user "Timeout when sending new SO PIN during SO PIN setting\n"; exit 1 }
+        default { send_user "Error sending new SO PIN during SO PIN setting\n"; exit 1 }
+    }
+    expect {
+        "Re-enter the new SO PIN: " { sleep .1; send $env(PKCS11_SO_PIN); send "\r"; }
+        timeout { send_user "Timeout when resending new SO PIN during SO PIN setting\n"; exit 1 }
+        default { send_user "Error resending new SO PIN during SO PIN setting\n"; exit 1 }
+    }
+    expect {
+        eof {}
+        "Incorrect PIN Entered." { exit 1 }
+        timeout { send_user "Timeout during SO PIN setting\n"; exit 1 }
+    }
 }
 
-spawn @sbindir@/pkcsconf -c [lindex $argv 0] -u
+spawn @sbindir@/pkcsconf -c $slot -u
 expect {
     "Enter the SO PIN: " { sleep .1; send $env(PKCS11_SO_PIN); send "\r"; }
     timeout { send_user "Timeout when sending SO PIN during user PIN initialization\n"; exit 1 }
@@ -70,7 +85,7 @@ expect {
     timeout { send_user "Timeout during user PIN initialization\n"; exit 1 }
 }
 
-spawn @sbindir@/pkcsconf -c [lindex $argv 0] -p
+spawn @sbindir@/pkcsconf -c $slot -p
 expect {
     "Enter user PIN: " { sleep .1; send "12345678\r"; }
     timeout { send_user "Timeout when sending user PIN during user PIN setting\n"; exit 1 }
