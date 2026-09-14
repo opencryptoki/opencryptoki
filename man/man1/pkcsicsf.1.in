@@ -14,8 +14,12 @@ pkcsicsf \- configuration utility for the ICSF token
 [\fB-C\fP \fICA-cert-file\fP]
 [\fB-k\fP \fIprivatekey\fP]
 [\fB-s\fP \fIslot\fP]
+[\fB-R\fP \fIRACF-passwd\fP]
+[\fB-S\fP \fISO-pin\fP]
 .br
 \fBpkcsicsf\fP \fB-p\fP \fItoken-name\fP
+[\fB-R\fP \fIRACF-passwd\fP]
+[\fB-S\fP \fISO-pin\fP]
 
 .SH DESCRIPTION
 The \fBpkcsicsf\fP utility lists available ICSF tokens, adds a specific
@@ -341,6 +345,25 @@ The caller must be a member of the \fBpkcs11\fP group.
 See
 .B "RACF PASSWORD CHANGE"
 below for the full procedure.
+.IP "\fB-R\fP \fIRACF-passwd\fP" 10
+The RACF password to use for simple authentication.
+If not specified, the password is prompted for interactively.
+This option may be used with \fB\-l\fP, \fB\-a\fP, and \fB\-p\fP when
+the authentication mechanism is \fBsimple\fP.
+.B "Security note:"
+Passing a password on the command line may expose it to other local
+users via process listings (e.g.\& \fBps\fP(1) or
+\fI/proc/<pid>/cmdline\fP).
+Prefer interactive prompting in security-sensitive environments.
+.IP "\fB-S\fP \fISO-pin\fP" 10
+The SO PIN for the token.
+If not specified, the PIN is prompted for interactively.
+This option may be used with \fB\-a\fP (simple authentication) and
+\fB\-p\fP.
+.B "Security note:"
+Passing a PIN on the command line may expose it to other local users
+via process listings (e.g.\& \fBps\fP(1) or \fI/proc/<pid>/cmdline\fP).
+Prefer interactive prompting in security-sensitive environments.
 .IP "\fB-s\fP \fIslot\fP" 10
 The slot number to assign to the token when adding it with \fB\-a\fP.
 The tool verifies that the requested slot number is not already in use

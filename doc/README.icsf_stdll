@@ -71,8 +71,10 @@ information it needs to bind and authenticate to the server.
 When using this option,
     - with Simple authentication, you need to specify the authentication
       mechanism as simple when adding the ICSF token into openCryptoki with the
-      pkcsicsf utility. You will also be prompted for the RACF password, which
-      will be securely stored on disk by openCryptoki for subsequent use.
+      pkcsicsf utility. You will also be prompted for the RACF password (or
+      supply it with -R), which will be securely stored on disk by openCryptoki
+      for subsequent use. When adding a token you will also be prompted for the
+      SO PIN (or supply it with -S).
 
     - with SASL authentication, you need to specify the authentication mechanism
       as sasl when adding the ICSF token into openCryptoki with the pkcsicsf
@@ -96,8 +98,9 @@ When using this option,
     - with Simple authentication, you need to specify the authentication
       mechanism as simple, along with the BINDDN, and the URI when adding the
       ICSF token into openCryptoki with the pkcsicsf utility. You will also be
-      prompted for the RACF password, which will be securely stored on disk for
-      subsequent use by openCryptoki.
+      prompted for the RACF password (or supply it with -R), which will be
+      securely stored on disk for subsequent use by openCryptoki. When adding a
+      token you will also be prompted for the SO PIN (or supply it with -S).
 
     - with SASL authentication, you need to specify the authentication mechanism
       as sasl, along with the CERT, CACERT, and KEY when adding the ICSF token
@@ -172,6 +175,11 @@ choose one token and add it into openCryptoki. After successfully adding the
 ICSF token and any related information into openCryptoki, initialize the ICSF
 token.
 
+Note: Supplying passwords or PINs via -R or -S on the command line is
+convenient for scripting but may expose secrets to other local users via
+process listings (e.g. 'ps' or /proc/<pid>/cmdline). Use interactive
+prompting in security-sensitive environments.
+
 Examples to get a list of available tokens
 -------------------------------------------
 1. Using simple authentication and .ldaprc which has BINDDN and URI set in it,
@@ -179,18 +187,28 @@ get a list of the available tokens from the remote.
 
         pkcsicsf -l -m simple
 
-        you will be prompted for the racf passwd and the SO PIN.
+        you will be prompted for the racf passwd.
 
         you should get a list of the available tokens from the remote
+
+        To supply the RACF password on the command line instead of being
+        prompted:
+
+        pkcsicsf -l -m simple -R <racf-passwd>
 
 2. Using simple authentication and giving openCryptoki the credentials to use to
 get a list of available tokens from the remote.
 
         pkcsicsf -l -b <binddn> -u <uri> -m simple
 
-        you will be prompted for the racf passwd and the SO PIN.
+        you will be prompted for the racf passwd.
 
         you should get a list of the available tokens from the remote
+
+        To supply the RACF password on the command line instead of being
+        prompted:
+
+        pkcsicsf -l -b <binddn> -u <uri> -m simple -R <racf-passwd>
 
 3. Using sasl authentication and ldap configuration files, get list of available
 tokens from the remote.
@@ -219,6 +237,11 @@ add the token named, Foo.
         The racf passwd should have been secured in
         /usr/local/var/lib/opencryptoki/icsf/RACF.
 
+        To supply the RACF password and SO PIN on the command line instead
+        of being prompted:
+
+        pkcsicsf -a Foo -m simple -R <racf-passwd> -S <so-pin>
+
         To assign the token to a specific slot number (e.g. slot 3):
 
         pkcsicsf -a Foo -m simple -s 3
@@ -229,8 +252,6 @@ URI) will be stored in the Foo.conf file that will be created.
 
         pkcsicsf -a Foo -b <binddn> -u <uri> -m simple
 
-        pkcsicsf -l -b <binddn> -u <uri> -m simple
-
         you will be prompted for the racf passwd and the SO PIN.
 
         An entry for the token should have been added in the
@@ -239,6 +260,11 @@ URI) will be stored in the Foo.conf file that will be created.
 
         The racf passwd should have been secured in
         /usr/local/var/lib/opencryptoki/icsf/RACF.
+
+        To supply the RACF password and SO PIN on the command line instead
+        of being prompted:
+
+        pkcsicsf -a Foo -b <binddn> -u <uri> -m simple -R <racf-passwd> -S <so-pin>
 
 3. Using sasl authentication and ldap configuration files to authenticate, add
 an ICSF token named, Foo into openCryptoki.
