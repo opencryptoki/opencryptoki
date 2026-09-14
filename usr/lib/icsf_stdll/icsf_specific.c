@@ -1729,9 +1729,13 @@ CK_RV icsftok_open_session(STDLL_TokData_t * tokdata, SESSION * sess)
     /* see if user has logged in to acquire ldap handle for session.
      * pkcs#11v2.2 states that all sessions within a process have
      * same login state.
+     * For SASL authentication, public sessions are supported because
+     * credentials are available in the token configuration without login.
      */
     if (session_mgr_user_session_exists(tokdata) ||
-        session_mgr_so_session_exists(tokdata)) {
+        session_mgr_so_session_exists(tokdata) ||
+        (icsf_data->slot_data != NULL &&
+         icsf_data->slot_data->mech == ICSF_CFG_MECH_SASL)) {
         ld = getLDAPhandle(tokdata, sess->session_info.slotID);
         if (ld == NULL) {
             TRACE_DEVEL("Failed to get LDAP handle for session.\n");
@@ -4730,8 +4734,10 @@ CK_RV icsftok_destroy_object(STDLL_TokData_t * tokdata, SESSION * sess,
         goto done;
     }
 
-    /* SO sessions may not access private objects. */
-    if (sess->session_info.state == CKS_RW_SO_FUNCTIONS) {
+    /* Public and SO sessions may not access private objects. */
+    if (sess->session_info.state == CKS_RO_PUBLIC_SESSION ||
+        sess->session_info.state == CKS_RW_PUBLIC_SESSION ||
+        sess->session_info.state == CKS_RW_SO_FUNCTIONS) {
         rc = icsf_get_attribute(session_state->ld, &reason, NULL,
                                 &mapping->icsf_object, priv_attr, 1);
         if (rc != CKR_OK) {

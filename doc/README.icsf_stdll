@@ -104,6 +104,13 @@ When using this option,
       into openCryptoki with the pkcsicsf utility. SASL does not require an RACF
       password, so you will not be prompted for it.
 
+      Since SASL authentication does not require unlocking the token master key
+      to obtain an RACF password, public sessions (sessions opened without a
+      prior User or SO login) are supported for accessing and operating on public
+      objects when using SASL. In contrast, Simple authentication requires a User
+      or SO login before token operations can be performed because the RACF
+      password must be decrypted from disk using the token master key.
+
 When required, the RACF password is stored securely on disk for subsequent use
 in /var/lib/opencryptoki/icsf/RACF.
 
