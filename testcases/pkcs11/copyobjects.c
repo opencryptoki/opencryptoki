@@ -36,6 +36,7 @@ CK_RV do_CopyObjects(void)
     CK_BYTE user_pin[PKCS11_MAX_PIN_LEN];
     CK_ULONG user_pin_len;
     CK_ATTRIBUTE empty_tmpl;
+    CK_BBOOL is_icsf;
 
     CK_OBJECT_HANDLE keyobj = CK_INVALID_HANDLE;
     CK_OBJECT_HANDLE keyobj_no_copy = CK_INVALID_HANDLE;
@@ -110,6 +111,8 @@ CK_RV do_CopyObjects(void)
     testcase_rw_session();
     testcase_user_login();
 
+    is_icsf = is_icsf_token(SLOT_ID);
+
     // Create an AES Key Object.
     rc = funcs->C_CreateObject(session, aes_tmpl, 4, &keyobj);
     if (rc != CKR_OK) {
@@ -121,7 +124,7 @@ CK_RV do_CopyObjects(void)
         goto testcase_cleanup;
     }
 
-    rc = funcs->C_CreateObject(session, aes_tmpl_no_copy, 5, &keyobj_no_copy);
+    rc = funcs->C_CreateObject(session, aes_tmpl_no_copy, is_icsf ? 4 : 5, &keyobj_no_copy);
     if (rc != CKR_OK) {
         if (is_rejected_by_policy(rc, session)) {
             testcase_skip("Key import is not allowed by policy");
@@ -131,7 +134,7 @@ CK_RV do_CopyObjects(void)
         goto testcase_cleanup;
     }
 
-    rc = funcs->C_CreateObject(session, aes_tmpl_copy, 5, &keyobj_copy);
+    rc = funcs->C_CreateObject(session, aes_tmpl_copy, is_icsf ? 4 : 5, &keyobj_copy);
     if (rc != CKR_OK) {
         if (is_rejected_by_policy(rc, session)) {
             testcase_skip("Key import is not allowed by policy");
@@ -302,7 +305,9 @@ CK_RV do_CopyObjects(void)
     testcase_new_assertion();
 
     rc = funcs->C_CopyObject(session, keyobj_no_copy, null_tmpl, 0, &sixthobj);
-    if (rc == CKR_ACTION_PROHIBITED)
+    if (is_icsf && rc == CKR_OK)
+        testcase_skip("The ICSF token does not support CKA_COPYABLE.");
+    else if (rc == CKR_ACTION_PROHIBITED)
         testcase_pass("C_CopyObject() did not copy the object. rc = %s "
                       "(as expected)", p11_get_ckr(rc));
     else
