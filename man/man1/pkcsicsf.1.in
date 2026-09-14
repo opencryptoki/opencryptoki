@@ -303,14 +303,20 @@ The distinguished name to bind when using simple authentication.
 .IP "\fB-c\fP \fIclient-cert-file\fP" 10
 The client certificate file for SASL authentication.
 If not specified, the value from \fBldap.conf\fP(5) or \fI~/.ldaprc\fP is used.
+Relative paths are resolved to absolute paths before being written to the
+token configuration file.
 .IP "\fB-C\fP \fICA-cert-file\fP" 10
 The CA certificate file for SASL authentication.
 If not specified, the value from \fBldap.conf\fP(5) or \fI~/.ldaprc\fP is used.
+Relative paths are resolved to absolute paths before being written to the
+token configuration file.
 .IP "\fB-h\fP" 10
 Show usage information.
 .IP "\fB-k\fP \fIprivatekey\fP" 10
 The client private key file for SASL authentication.
 If not specified, the value from \fBldap.conf\fP(5) or \fI~/.ldaprc\fP is used.
+Relative paths are resolved to absolute paths before being written to the
+token configuration file.
 .IP "\fB-l\fP" 10
 List available ICSF tokens.
 .IP "\fB-m\fP \fImechanism\fP" 10
