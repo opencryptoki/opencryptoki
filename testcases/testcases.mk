@@ -16,7 +16,8 @@ include testcases/policy/policy.mk
 
 noinst_SCRIPTS += testcases/ock_tests.sh testcases/init_token.sh testcases/init_vhsm.exp testcases/cleanup_vhsm.exp
 CLEANFILES += testcases/ock_tests.sh testcases/init_token.sh testcases/init_vhsm.exp testcases/cleanup_vhsm.exp
-EXTRA_DIST += testcases/ock_tests.sh.in testcases/init_token.sh.in testcases/init_vhsm.exp.in testcases/cleanup_vhsm.exp.in
+EXTRA_DIST += testcases/ock_tests.sh.in testcases/init_token.sh.in testcases/init_vhsm.exp.in testcases/cleanup_vhsm.exp.in \
+	testcases/ciconfig.sh testcases/cicleanup.sh
 
 testcases/ock_tests.sh: testcases/ock_tests.sh.in
 	$(AM_V_GEN)@SED@	-e s!\@sysconfdir\@!"@sysconfdir@"!g	\
