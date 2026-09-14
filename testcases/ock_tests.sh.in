@@ -181,8 +181,16 @@ check_slot()
             return 1
         esac
 
-        # Check if token is initialized and set $NONEED_TOKEN_INIT if so
+        # Check if token is initialized and set $NONEED_TOKEN_INIT if so.
+        # Even when TOKEN_INITIALIZED is set, also require USER_PIN_INITIALIZED
+        # before skipping init - 'pkcsicsf -a' sets the former but not the latter.
         NONEED_TOKEN_INIT=`echo "$TOKDESCR" | grep "Flags:" | grep TOKEN_INITIALIZED | wc -l`
+        if [ $NONEED_TOKEN_INIT -ne 0 ]; then
+            USER_PIN_INIT=`echo "$TOKDESCR" | grep "Flags:" | grep USER_PIN_INITIALIZED | wc -l`
+            if [ $USER_PIN_INIT -eq 0 ]; then
+                NONEED_TOKEN_INIT=0
+            fi
+        fi
 }
 
 ##

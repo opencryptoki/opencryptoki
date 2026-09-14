@@ -276,13 +276,19 @@ endif
 ci-prepare:
 	$(KILLALL) -HUP pkcsslotd || true
 	if [ -z "$${OCK_CI_REUSE_TOKENS}" ]; then \
-		${srcdir}/testcases/ciconfig.sh "$(sysconfdir)/opencryptoki" "$(sysconfdir)/opencryptoki" "$(sysconfdir)/opencryptoki" "${srcdir}/testcases/test_combined_extract.slots"; \
+		${srcdir}/testcases/ciconfig.sh "$(sysconfdir)/opencryptoki" "$(sysconfdir)/opencryptoki" "$(sysconfdir)/opencryptoki" "${srcdir}/testcases/test_combined_extract.slots" "$(CI_ICSF_MOCK_PID_FILE)" "${srcdir}/tools/icsf_mock_server/server.py" "$(CI_ICSF_MOCK_PORT)" "$(CI_ICSF_MOCK_TOKEN)" "$(CI_ICSF_SLOT)" "$(CI_ICSF_MOCK_LOG)"; \
 	else \
 		echo "OCK_CI_REUSE_TOKENS set - skipping ciconfig.sh, reusing existing token configuration"; \
 	fi
 	@sbindir@/pkcsslotd
 	@sbindir@/pkcsstats --reset-all
-	for slot in `awk '/^slot (.*)/ { print $$2; }' $(sysconfdir)/opencryptoki/opencryptoki.conf`; do @sbindir@/pkcsconf -c $$slot -t | grep "Flags:" | grep -q TOKEN_INITIALIZED || PKCS11_USER_PIN=$(PKCS11_USER_PIN) PKCS11_SO_PIN=$(PKCS11_SO_PIN) PKCSLIB=$(PKCSLIB) ${srcdir}/testcases/init_token.sh $$slot || exit; done
+	for slot in `awk '/^slot (.*)/ { print $$2; }' $(sysconfdir)/opencryptoki/opencryptoki.conf`; do \
+		TOKINFO=$$(@sbindir@/pkcsconf -c $$slot -t 2>/dev/null); \
+		echo "$$TOKINFO" | grep "Flags:" | grep -q TOKEN_INITIALIZED || \
+			{ PKCS11_USER_PIN=$(PKCS11_USER_PIN) PKCS11_SO_PIN=$(PKCS11_SO_PIN) PKCSLIB=$(PKCSLIB) ${srcdir}/testcases/init_token.sh $$slot || exit; continue; }; \
+		echo "$$TOKINFO" | grep "Flags:" | grep -q USER_PIN_INITIALIZED || \
+			{ PKCS11_USER_PIN=$(PKCS11_USER_PIN) PKCS11_SO_PIN=$(PKCS11_SO_PIN) PKCSLIB=$(PKCSLIB) ${srcdir}/testcases/init_token.sh $$slot || exit; }; \
+	done
 #	if [ -z "$${OCK_CI_REUSE_TOKENS}" ]; then \
 #		cd ${srcdir}/testcases && PKCS11_USER_PIN=$(PKCS11_USER_PIN) PKCS11_VHSM_PIN=$(PKCS11_VHSM_PIN) PKCSLIB=$(PKCSLIB) ./init_vhsm.exp 42; \
 #		echo "VHSM_MODE" >> "$(sysconfdir)/opencryptoki/ep11tok42.conf"; \
@@ -308,6 +314,21 @@ installcheck-local: all check
 # OCK_CI_SWTOK_DATASTORE (default: $(localstatedir)/lib/opencryptoki/sw0)
 CI_SWTOK_SLOT      = $${OCK_CI_SWTOK_SLOT:-30}
 CI_SWTOK_DATASTORE = $${OCK_CI_SWTOK_DATASTORE:-$(localstatedir)/lib/opencryptoki/sw0}
+
+# ICSF mock server settings used by ci-prepare / ci-installcheck.
+# CI_ICSF_MOCK_PID_FILE       path where the mock server PID is recorded (used to
+#                             stop it after tests).
+# CI_ICSF_MOCK_LOG            log file for the mock server; placed in the testcases
+#                             directory as log-*.txt so the post-process script picks
+#                             it up alongside the other CI log files.
+# CI_ICSF_MOCK_PORT           LDAP listen port for the mock server (default: 1389).
+# CI_ICSF_MOCK_TOKEN          name of the pre-created ICSF token (default: icsf0).
+# CI_ICSF_SLOT                slot number assigned to the ICSF token (default: 50).
+CI_ICSF_MOCK_PID_FILE = ${builddir}/.icsf_mock_server.pid
+CI_ICSF_MOCK_LOG      = ${srcdir}/testcases/log-icsf-mock-server.txt
+CI_ICSF_MOCK_PORT     = 1389
+CI_ICSF_MOCK_TOKEN    = icsf0
+CI_ICSF_SLOT          = 50
 
 ci-installcheck: ci-prepare installcheck
 	$(KILLALL) -HUP pkcsslotd || true
@@ -340,6 +361,20 @@ ci-installcheck: ci-prepare installcheck
 	   ./misc_tests/pkcstok_migrate_test.sh | tee log-pkcstok-migrate.txt
 	@sbindir@/pkcsstats --all
 	$(KILLALL) -HUP pkcsslotd
+	if [ -z "$${OCK_CI_REUSE_TOKENS}" ]; then \
+		if [ -f "$(CI_ICSF_MOCK_PID_FILE)" ]; then \
+			ICSF_PID=$$(cat "$(CI_ICSF_MOCK_PID_FILE)"); \
+			if kill -0 "$${ICSF_PID}" 2>/dev/null; then \
+				echo "Stopping ICSF mock server (pid=$${ICSF_PID})..."; \
+				kill "$${ICSF_PID}" && rm -f "$(CI_ICSF_MOCK_PID_FILE)"; \
+			else \
+				echo "WARNING: ICSF mock server PID $${ICSF_PID} is stale; nothing to stop." >&2; \
+				rm -f "$(CI_ICSF_MOCK_PID_FILE)"; \
+			fi; \
+		else \
+			echo "WARNING: ICSF mock server PID file '$(CI_ICSF_MOCK_PID_FILE)' not found; nothing to stop." >&2; \
+		fi; \
+	fi
 	rm ${srcdir}/testcases/test_combined_extract.slots -f
 	@echo "done"
 

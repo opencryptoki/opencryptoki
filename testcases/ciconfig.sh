@@ -4,6 +4,12 @@ OCKCONFDIR="$1"
 EPCONFDIR="$2"
 CCACONFDIR="$3"
 COMBINED_EXTRACT_FILE="$4"
+ICSF_MOCK_SERVER_PID_FILE="${5:-.icsf_mock_server.pid}"
+ICSF_MOCK_SERVER_SCRIPT="${6:-$(dirname "$0")/../tools/icsf_mock_server/server.py}"
+ICSF_MOCK_SERVER_PORT="${7:-1389}"
+ICSF_MOCK_TOKEN="${8:-icsf0}"
+ICSF_SLOT="${9:-50}"
+ICSF_MOCK_SERVER_LOG="${10:-/tmp/icsf_mock_server.log}"
 
 LATESTCEXP="CEX8P"
 
@@ -62,6 +68,63 @@ function genlatestep11cfg() {
     fi
     rm -f tmp.apqns
     return $res
+}
+
+# Usage: setup_icsf_mock_token
+# Starts the ICSF mock server in the background, writes its PID to
+# ICSF_MOCK_SERVER_PID_FILE, then runs pkcsicsf -a to register the token.
+# All variables are read from the script-level globals set at the top.
+function setup_icsf_mock_token() {
+    if ! command -v python3 &>/dev/null; then
+        echo "NOTE: python3 not found; skipping ICSF mock server setup."
+        return 0
+    fi
+    if [ ! -f "${ICSF_MOCK_SERVER_SCRIPT}" ]; then
+        echo "NOTE: ICSF mock server script not found at '${ICSF_MOCK_SERVER_SCRIPT}'; skipping ICSF mock server setup."
+        return 0
+    fi
+
+    echo "Starting ICSF mock server (token=${ICSF_MOCK_TOKEN}, port=${ICSF_MOCK_SERVER_PORT})..."
+    python3 "${ICSF_MOCK_SERVER_SCRIPT}" \
+        --port "${ICSF_MOCK_SERVER_PORT}" \
+        --token "${ICSF_MOCK_TOKEN}" \
+        &>"${ICSF_MOCK_SERVER_LOG}" &
+    local pid=$!
+    echo "${pid}" > "${ICSF_MOCK_SERVER_PID_FILE}"
+    # Wait up to 5 seconds for the mock server to start listening
+    local ready=0
+    for _ in $(seq 1 50); do
+        if ! kill -0 "${pid}" 2>/dev/null; then
+            break
+        fi
+        if python3 -c "import socket; s = socket.socket(); s.settimeout(0.5); s.connect(('127.0.0.1', ${ICSF_MOCK_SERVER_PORT})); s.close()" 2>/dev/null; then
+            ready=1
+            break
+        fi
+        sleep 0.1
+    done
+
+    if [ ${ready} -eq 0 ]; then
+        echo "WARNING: ICSF mock server failed to start or listen on port ${ICSF_MOCK_SERVER_PORT}; skipping ICSF token setup." >&2
+        kill "${pid}" 2>/dev/null || true
+        rm -f "${ICSF_MOCK_SERVER_PID_FILE}"
+        return 1
+    fi
+    echo "ICSF mock server started (pid=${pid})"
+
+    pkcsicsf -a "${ICSF_MOCK_TOKEN}" \
+        -u "ldap://127.0.0.1:${ICSF_MOCK_SERVER_PORT}" \
+        -b "cn=testuser,dc=example,dc=com" \
+        -m simple \
+        -s "${ICSF_SLOT}" \
+        -R "${ICSF_MOCK_RACF_PASSWORD:-testpassword}" \
+        -S "${PKCS11_SO_PIN:-76543210}"
+    local pkcsicsf_rc=$?
+    if [ ${pkcsicsf_rc} -ne 0 ]; then
+        echo "WARNING: pkcsicsf -a failed (rc=${pkcsicsf_rc}); ICSF slot ${ICSF_SLOT} will not be configured." >&2
+        return 1
+    fi
+    echo "ICSF token '${ICSF_MOCK_TOKEN}' added at slot ${ICSF_SLOT}"
 }
 
 # Usage: genccacfg num
@@ -159,4 +222,7 @@ if genlatestep11cfg 46 "PKEY_MODE ENABLE4ALL"; then
     addslot 46 libpkcs11_ep11.so ep6 ep11tok46.conf
     echo "46" > $COMBINED_EXTRACT_FILE
 fi
+
+# ICSF token backed by the mock server (failure is non-fatal)
+setup_icsf_mock_token || true
 
