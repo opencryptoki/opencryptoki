@@ -117,6 +117,9 @@ The ICSF-specific configuration file
 No \fINVTOK.DAT\fP, \fIMK_SO\fP, or \fIRACF\fP file is written.
 SASL authentication uses client certificates; there is no RACF password
 to protect.
+Because no master key or RACF password is required for LDAP binding,
+the token supports public sessions (sessions opened without prior User
+or SO login) for accessing and operating on public objects.
 When the slot daemon first accesses the token it creates \fINVTOK.DAT\fP
 and sets \fBCKF_TOKEN_INITIALIZED\fP, \fBCKF_SO_PIN_TO_BE_CHANGED\fP, and
 \fBCKF_USER_PIN_TO_BE_CHANGED\fP.
