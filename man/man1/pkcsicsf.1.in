@@ -45,51 +45,42 @@ The \fBpkcsicsf\fP utility must be run as root when adding an ICSF token to
 opencryptoki.
 
 .SH "TOKEN INITIALIZATION"
-Unlike other openCryptoki tokens, the ICSF token does \fBnot\fP require
-\fBC_InitToken\fP (i.e.
+The ICSF token does \fBnot\fP require \fBC_InitToken\fP (i.e.\&
 .BR pkcsconf (1)
-\fB-I\fP) to be run after adding the token.
+\fB\-I\fP) to initialize it.
 The cryptographic objects and key material reside on the remote z/OS ICSF
 server, which is already fully provisioned before \fBpkcsicsf\fP is invoked.
-Running \fBC_InitToken\fP on an ICSF token is therefore unnecessary.
 
-When \fBpkcsicsf \-a\fP succeeds it performs the full local initialization
-automatically:
-.RS
-.IP \(bu 4
-Creates the token directory under \fI@localstatedir@/lib/opencryptoki/\fP.
-.IP \(bu 4
-Creates the ICSF-specific configuration file
-\fI@sysconfdir@/opencryptoki/token_name.conf\fP.
-.IP \(bu 4
-Writes the initial token data file (\fINVTOK.DAT\fP) with:
-.RS
-.IP \(bu 4
-The SO PIN supplied during \fBpkcsicsf \-a\fP.
-.IP \(bu 4
-\fBCKF_TOKEN_INITIALIZED\fP already set \(em no further init step is needed.
-.IP \(bu 4
-\fBCKF_USER_PIN_TO_BE_CHANGED\fP set, indicating the user PIN must be
-established before first use.
-.IP \(bu 4
-\fBtokversion = 3.28\fP recorded in \fIopencryptoki.conf\fP, enabling the
-FIPS-compliant data store format (see
+In all cases \fBtokversion = 3.28\fP is recorded in
+\fIopencryptoki.conf\fP, enabling the FIPS-compliant data store format
+(see
 .B "TOKEN DATA FORMAT"
 below).
-.RE
+The local credential store created by \fBpkcsicsf \-a\fP differs between
+the two authentication mechanisms.
+.SS "Simple authentication"
+\fBpkcsicsf \-a\fP prompts for the SO PIN and writes the full local
+credential store:
+.RS
 .IP \(bu 4
-Writes the RACF file (\fIRACF\fP) with the RACF password encrypted using
-AES-256-GCM under the token master key.
+The token directory under \fI@localstatedir@/lib/opencryptoki/\fP.
 .IP \(bu 4
-Writes \fIMK_SO\fP with the token master key wrapped using AES-256 Key Wrap
-(RFC\~3394) under a PBKDF2-SHA-512 derived key.
+The ICSF-specific configuration file
+\fI@sysconfdir@/opencryptoki/\fItoken_name\fP.conf\fP.
+.IP \(bu 4
+\fINVTOK.DAT\fP with \fBCKF_TOKEN_INITIALIZED\fP and
+\fBCKF_USER_PIN_TO_BE_CHANGED\fP set, and the SO PIN already recorded.
+.IP \(bu 4
+\fIMK_SO\fP \(em the token master key wrapped under the SO PIN.
+.IP \(bu 4
+\fIRACF\fP \(em the RACF password encrypted with AES-256-GCM.
 .RE
 
-The correct post-installation sequence is therefore:
+The correct post-installation sequence for simple authentication is:
 .RS
 .TP
 \fB1.\fP
-Add the token (run as root):
+Add the token (run as root); you will be prompted for the SO PIN:
 .PP
 .RS
 \fBpkcsicsf \-a \fItoken-name\fB \-m simple \-u ldap://\fIhost\fR\fP
@@ -103,14 +94,70 @@ Restart the slot daemon so the new token is visible:
 .RE
 .TP
 \fB3.\fP
-Initialize the user PIN (run as SO):
+Initialize the user PIN (run as SO, using the SO PIN from step\~1):
 .PP
 .RS
 \fBpkcsconf \-u \-c \fIslot\fR\fP
 .RE
 .RE
 .PP
-After step\~3 the token is fully operational and
+After step\~3 the token is fully operational.
+
+.SS "SASL authentication"
+\fBpkcsicsf \-a\fP does \fBnot\fP prompt for a PIN.
+It writes only:
+.RS
+.IP \(bu 4
+The token directory under \fI@localstatedir@/lib/opencryptoki/\fP.
+.IP \(bu 4
+The ICSF-specific configuration file
+\fI@sysconfdir@/opencryptoki/\fItoken_name\fP.conf\fP.
+.RE
+.PP
+No \fINVTOK.DAT\fP, \fIMK_SO\fP, or \fIRACF\fP file is written.
+SASL authentication uses client certificates; there is no RACF password
+to protect.
+When the slot daemon first accesses the token it creates \fINVTOK.DAT\fP
+and sets \fBCKF_TOKEN_INITIALIZED\fP, \fBCKF_SO_PIN_TO_BE_CHANGED\fP, and
+\fBCKF_USER_PIN_TO_BE_CHANGED\fP.
+The SO PIN defaults to \fB87654321\fP.
+Both PINs must therefore be set in separate steps after the daemon is
+restarted.
+
+The correct post-installation sequence for SASL authentication is:
+.RS
+.TP
+\fB1.\fP
+Add the token (run as root):
+.PP
+.RS
+\fBpkcsicsf \-a \fItoken-name\fB \-m sasl \-u ldaps://\fIhost\fB \-c \fIclient.crt\fB \-k \fIclient.key\fB \-C \fIserver.crt\fR\fP
+.RE
+.TP
+\fB2.\fP
+Restart the slot daemon so the new token is visible:
+.PP
+.RS
+\fBsystemctl restart pkcsslotd\fP
+.RE
+.TP
+\fB3.\fP
+Change the SO PIN away from the default \fB87654321\fP
+(\fBCKF_SO_PIN_TO_BE_CHANGED\fP is set):
+.PP
+.RS
+\fBpkcsconf \-P \-c \fIslot\fR\fP
+.RE
+.TP
+\fB4.\fP
+Initialize the user PIN (run as SO, using the SO PIN set in step\~3):
+.PP
+.RS
+\fBpkcsconf \-u \-c \fIslot\fR\fP
+.RE
+.RE
+.PP
+After step\~4 the token is fully operational and
 \fBCKF_TOKEN_INITIALIZED\fP will be reported by
 .BR pkcsconf (1)
 \fB\-t\fP.
