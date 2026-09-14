@@ -1717,6 +1717,11 @@ CK_RV obj_mgmt_functions(void)
 {
     int rc;
 
+    if (is_icsf_token(SLOT_ID)) {
+        testcase_skip("Skip tests for the ICSF token");
+        return CKR_OK;
+    }
+
     rc = do_CreateSessionObject();
     if (rc && !no_stop)
         return rc;
