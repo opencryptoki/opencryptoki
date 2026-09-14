@@ -219,6 +219,10 @@ add the token named, Foo.
         The racf passwd should have been secured in
         /usr/local/var/lib/opencryptoki/icsf/RACF.
 
+        To assign the token to a specific slot number (e.g. slot 3):
+
+        pkcsicsf -a Foo -m simple -s 3
+
 2. Using simple authentication and giving openCryptoki the credentials to use,
 add the ICSF token named, Foo. In this case, the credentials (the BINDDN and
 URI) will be stored in the Foo.conf file that will be created.
@@ -240,6 +244,10 @@ URI) will be stored in the Foo.conf file that will be created.
 an ICSF token named, Foo into openCryptoki.
 
         pkcsicsf -a Foo -m sasl
+
+        To assign the token to a specific slot number (e.g. slot 3):
+
+        pkcsicsf -a Foo -m sasl -s 3
 
 4. Using sasl authentication and giving openCryptoki the credentials to use to
 get a list of available tokens from the remote.  (TO DO)
