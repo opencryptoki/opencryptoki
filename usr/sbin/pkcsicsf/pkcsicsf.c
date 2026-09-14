@@ -71,6 +71,7 @@ pkcs_trace_level_t trace_level = TRACE_LEVEL_NONE;
 #define CFG_MECH_SASL   0x0100
 #define CFG_MECH_SIMPLE 0x0200
 #define CFG_CHGPWD      0x0400
+#define CFG_SLOT        0x0800
 
 /* Token authentication mechanism values, matching ICSF_CFG_MECH_* in
  * icsf_config.h */
@@ -94,6 +95,7 @@ char *cert = NULL;
 char *cacert = NULL;
 char *privkey = NULL;
 unsigned long flags = 0;
+int requested_slot = -1;
 
 static int secure_racf_passwd(const char *racfpwd, CK_ULONG len,
                               const struct icsf_token_record *token);
@@ -102,7 +104,7 @@ static void usage(char *progname)
 {
     printf("usage:\t%s [-h] [ -l | -a token-name] [-b BINDDN]"
            " [-c client-cert-file] [-C CA-cert-file] [-k key] [-u URI]"
-           " [-m MECHANISM]\n", progname);
+           " [-m MECHANISM] [-s slot]\n", progname);
     printf("      \t%s -p token-name\n", progname);
     printf("\t-a add specified token\n");
     printf("\t-b the distinguish name to bind for simple mode\n");
@@ -114,12 +116,13 @@ static void usage(char *progname)
     printf("\t-m the authentication mechanism, "
            "it can be 'simple' or 'sasl'\n");
     printf("\t-p change the RACF password for an existing token\n");
+    printf("\t-s the slot number to use when adding a token\n");
     printf("\t-u the URI to connect to\n");
 
     exit(-1);
 }
 
-static int get_free_slot(struct ConfigBaseNode *config)
+static int get_free_slot(struct ConfigBaseNode *config, int want_slot)
 {
     struct ConfigBaseNode *c;
     struct ConfigIdxStructNode *slot;
@@ -133,6 +136,19 @@ static int get_free_slot(struct ConfigBaseNode *config)
                 slot->idx < NUMBER_SLOTS_MANAGED)
                 slot_used[slot->idx] = CK_TRUE;
         }
+    }
+
+    if (want_slot >= 0) {
+        if (want_slot >= NUMBER_SLOTS_MANAGED) {
+            fprintf(stderr, "Slot number %d exceeds maximum allowed slot "
+                    "number %d.\n", want_slot, NUMBER_SLOTS_MANAGED - 1);
+            return -1;
+        }
+        if (slot_used[want_slot] == CK_TRUE) {
+            fprintf(stderr, "Slot number %d is already in use.\n", want_slot);
+            return -1;
+        }
+        return want_slot;
     }
 
     for (i = 0; i < NUMBER_SLOTS_MANAGED; i++) {
@@ -395,7 +411,8 @@ static int read_token_config(const char *tokname, int *out_mech,
 }
 
 static int config_add_slotinfo(int num_of_slots,
-                               struct icsf_token_record *tokens)
+                               struct icsf_token_record *tokens,
+                               int want_slot)
 {
     int slot_id = -1;
     char configname[LINESIZ];
@@ -420,10 +437,14 @@ static int config_add_slotinfo(int num_of_slots,
      *        from the ICSF and the BIND authentication info.
      */
     for (i = 0; i < num_of_slots; i++) {
-        /* get the slot for next entry */
-        slot_id = get_free_slot(config);
+        /* get the slot for next entry; for the "all" case each successive
+         * token gets the next free slot after the explicitly requested one
+         * (or after auto-selected ones). */
+        slot_id = get_free_slot(config, (i == 0) ? want_slot : -1);
         if (slot_id == -1) {
-            fprintf(stderr, "No more free slot found\n");
+            if (i > 0 || want_slot < 0)
+                fprintf(stderr, "No more free slot found\n");
+            /* else: specific error already printed by get_free_slot */
             confignode_deepfree(config);
             return 1;
         }
@@ -650,7 +671,7 @@ static int create_directory(const char *parent_dir, const char *tokname)
     return 0;
 }
 
-static int retrieve_all(const char *racfpwd)
+static int retrieve_all(const char *racfpwd, int want_slot)
 {
     size_t tokenCount, i;
     struct icsf_token_record *previous = NULL;
@@ -665,7 +686,7 @@ static int retrieve_all(const char *racfpwd)
     }
 
     /* add slot and token entry(ies) */
-    rc = config_add_slotinfo(tokenCount, tokens);
+    rc = config_add_slotinfo(tokenCount, tokens, want_slot);
     if (rc) {
         fprintf(stderr, "Could not add list of tokens.\n");
         return -1;
@@ -1206,8 +1227,10 @@ int main(int argc, char **argv)
     int c;
     int rc = 0;
     struct icsf_token_record found_token;
+    char *endptr;
+    long val;
 
-    while ((c = getopt(argc, argv, "hla:b:u:m:k:c:C:p:")) != (-1)) {
+    while ((c = getopt(argc, argv, "hla:b:u:m:k:c:C:p:s:")) != (-1)) {
         switch (c) {
         case 'a':
             flags |= CFG_ADD;
@@ -1286,6 +1309,21 @@ int main(int argc, char **argv)
             else
                 flags |= CFG_MECH_SIMPLE;
             break;
+        case 's':
+            errno = 0;
+            val = strtol(optarg, &endptr, 10);
+            if (errno != 0 || *endptr != '\0' || val < 0 ||
+                val >= NUMBER_SLOTS_MANAGED) {
+                fprintf(stderr,
+                        "Invalid slot number '%s': must be a non-negative "
+                        "integer less than %d.\n",
+                        optarg, NUMBER_SLOTS_MANAGED);
+                rc = -1;
+                goto cleanup;
+            }
+            flags |= CFG_SLOT;
+            requested_slot = (int)val;
+            break;
         case 'h':
         default:
             usage(argv[0]);
@@ -1308,6 +1346,10 @@ int main(int argc, char **argv)
 
     /* If add, then must specify a mechanism and a name */
     if ((flags & CFG_ADD) && (!(flags & CFG_MECH) || tokenname == NULL))
+        usage(argv[0]);
+
+    /* -s is only meaningful with -a */
+    if ((flags & CFG_SLOT) && !(flags & CFG_ADD))
         usage(argv[0]);
 
     /* If list, then must specify a mechanism */
@@ -1383,7 +1425,7 @@ int main(int argc, char **argv)
     /* Add token(s) */
     if (flags & CFG_ADD) {
         if (strcmp(tokenname, "all") == 0) {
-            rc = retrieve_all(racfpwd);
+            rc = retrieve_all(racfpwd, requested_slot);
             if (rc) {
                 fprintf(stderr, "Could not add the list of " "tokens.\n");
                 goto cleanup;
@@ -1401,7 +1443,7 @@ int main(int argc, char **argv)
             }
 
             /* add the entry */
-            rc = config_add_slotinfo(1, &found_token);
+            rc = config_add_slotinfo(1, &found_token, requested_slot);
             if (rc != 0)
                 goto cleanup;
 
