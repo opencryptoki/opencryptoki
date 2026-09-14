@@ -64,6 +64,7 @@ CK_RV do_TestAttributes(void)
     CK_BBOOL false = FALSE;
     CK_BBOOL true = TRUE;
     CK_BBOOL boolval, boolval2;
+    CK_BBOOL is_icsf;
 
     CK_ATTRIBUTE pub_template[] = {
         {CKA_CLASS, &class, sizeof(class)},
@@ -85,8 +86,8 @@ CK_RV do_TestAttributes(void)
     };
 
     CK_ATTRIBUTE new_attrs[] = {
-        {CKA_ENCRYPT, &false, sizeof(false)},
         {CKA_WRAP, &false, sizeof(false)},
+        {CKA_ENCRYPT, &false, sizeof(false)},
     };
 
     CK_ATTRIBUTE update_label[] = {
@@ -166,6 +167,8 @@ CK_RV do_TestAttributes(void)
     testcase_rw_session();
     testcase_user_login();
 
+    is_icsf = is_icsf_token(SLOT_ID);
+
     /* create a public key object */
     rc = funcs->C_CreateObject(session, pub_template, 6, &obj_handle);
     if (rc != CKR_OK) {
@@ -179,7 +182,7 @@ CK_RV do_TestAttributes(void)
 
     /* Now add new attributes */
     testcase_new_assertion();
-    rc = funcs->C_SetAttributeValue(session, obj_handle, new_attrs, 2);
+    rc = funcs->C_SetAttributeValue(session, obj_handle, new_attrs, is_icsf ? 1 : 2);
     if (rc != CKR_OK) {
         testcase_fail("C_SetAttributeValue() rc = %s", p11_get_ckr(rc));
         goto testcase_cleanup;
@@ -235,13 +238,14 @@ CK_RV do_TestAttributes(void)
 
     rc = funcs->C_SetAttributeValue(session, obj_handle_no_mod,
                                     update_label, 1);
-    if (rc == CKR_ACTION_PROHIBITED)
+    if (rc == CKR_ACTION_PROHIBITED || rc == CKR_ATTRIBUTE_READ_ONLY)
         testcase_pass("C_SetAttributeValue() did not update the object rc = %s "
                       "(as expected)", p11_get_ckr(rc));
     else
         testcase_fail("C_SetAttributeValue() to update CKA_MODIFIABLE should "
-                      "have failed with CKR_ACTION_PROHIBITED, but got "
-                      "rc = %s.", p11_get_ckr(rc));
+                      "have failed with CKR_ACTION_PROHIBITED or "
+                      "CKR_ATTRIBUTE_READ_ONLY, but got rc = %s.",
+                      p11_get_ckr(rc));
 
     /*
      * Try to update CKA_MODIFIABLE on the object that has CKA_MODIFIABLE=TRUE.
@@ -281,16 +285,23 @@ CK_RV do_TestAttributes(void)
     rc = funcs->C_SetAttributeValue(session, obj_handle,
                                     update_copyable_false, 1);
     if (rc != CKR_OK) {
-        testcase_fail("C_SetAttributeValue() rc = %s", p11_get_ckr(rc));
-        goto testcase_cleanup;
+        if (rc == CKR_ATTRIBUTE_TYPE_INVALID && is_icsf) {
+            testcase_skip("The ICSF token does not support CKA_COPYABLE");
+        } else {
+            testcase_fail("C_SetAttributeValue() rc = %s", p11_get_ckr(rc));
+            goto testcase_cleanup;
+        }
+    } else {
+        testcase_pass("Successfully set CKA_COPYABLE to FALSE.");
     }
-    testcase_pass("Successfully set CKA_COPYABLE to FALSE.");
 
     testcase_new_assertion();
 
     rc = funcs->C_SetAttributeValue(session, obj_handle,
                                     update_copyable_true, 1);
-    if (rc == CKR_ATTRIBUTE_READ_ONLY)
+    if (rc == CKR_ATTRIBUTE_TYPE_INVALID && is_icsf)
+        testcase_skip("The ICSF token does not support CKA_COPYABLE");
+    else if (rc == CKR_ATTRIBUTE_READ_ONLY)
         testcase_pass("C_SetAttributeValue() did not update CKA_COPYABLE to "
                       "TRUE rc = %s (as expected)", p11_get_ckr(rc));
     else
@@ -306,22 +317,30 @@ CK_RV do_TestAttributes(void)
     rc = funcs->C_SetAttributeValue(session, obj_handle,
                                     update_destroyable_false, 1);
     if (rc != CKR_OK) {
-        testcase_fail("C_SetAttributeValue() rc = %s", p11_get_ckr(rc));
-        goto testcase_cleanup;
+        if (rc == CKR_ATTRIBUTE_TYPE_INVALID && is_icsf) {
+            testcase_skip("The ICSF token does not support CKA_DESTROYABLE");
+        } else {
+            testcase_fail("C_SetAttributeValue() rc = %s", p11_get_ckr(rc));
+            goto testcase_cleanup;
+        }
+    } else {
+        testcase_pass("Successfully set CKA_DESTROYABLE to FALSE.");
     }
-
-    testcase_pass("Successfully set CKA_DESTROYABLE to FALSE.");
 
     testcase_new_assertion();
 
     rc = funcs->C_SetAttributeValue(session, obj_handle,
                                     update_destroyable_true, 1);
     if (rc != CKR_OK) {
-        testcase_fail("C_SetAttributeValue() rc = %s", p11_get_ckr(rc));
-        goto testcase_cleanup;
+        if (rc == CKR_ATTRIBUTE_TYPE_INVALID && is_icsf) {
+            testcase_skip("The ICSF token does not support CKA_DESTROYABLE");
+        } else {
+            testcase_fail("C_SetAttributeValue() rc = %s", p11_get_ckr(rc));
+            goto testcase_cleanup;
+        }
+    } else {
+        testcase_pass("Successfully set CKA_DESTROYABLE to TRUE.");
     }
-
-    testcase_pass("Successfully set CKA_DESTROYABLE to TRUE.");
 
     /*
      * Try to update CKA_TRUSTED when logged in a user.
@@ -331,14 +350,18 @@ CK_RV do_TestAttributes(void)
 
     rc = funcs->C_SetAttributeValue(session, obj_handle,
                                     update_trusted_true, 1);
-    if (rc == CKR_USER_NOT_LOGGED_IN)
+    if (rc == CKR_USER_NOT_LOGGED_IN) {
         testcase_pass("C_SetAttributeValue() did not update CKA_TRUSTED to "
                       "TRUE rc = %s (as expected, because only SO can set "
                       "CKA_TRUSTED to TRUE)", p11_get_ckr(rc));
-    else
-        testcase_fail("C_SetAttributeValue() to update CKA_TRUSTED should "
-                      "have failed with CKR_USER_NOT_LOGGED_IN, but got "
-                      "rc = %s.", p11_get_ckr(rc));
+    } else {
+        if (rc == CKR_OK && is_icsf)
+            testcase_skip("For the ICSF token CKA_TRUSTED is always true");
+        else
+            testcase_fail("C_SetAttributeValue() to update CKA_TRUSTED should "
+                          "have failed with CKR_USER_NOT_LOGGED_IN, but got "
+                          "rc = %s.", p11_get_ckr(rc));
+    }
 
     /* Login a SO */
     testcase_user_logout();
@@ -377,7 +400,7 @@ CK_RV do_TestAttributes(void)
 
 
     /* create a public key object with an array-attribute */
-    rc = funcs->C_CreateObject(session, pub_template_private, 8, &obj_handle);
+    rc = funcs->C_CreateObject(session, pub_template_private, is_icsf ? 7 : 8, &obj_handle);
     if (rc != CKR_OK) {
         testcase_fail("C_CreateObject() rc = %s", p11_get_ckr(rc));
         goto testcase_cleanup;
@@ -425,6 +448,11 @@ CK_RV do_TestAttributes(void)
 
     /* Now get the attribute-array attribute and verify it */
     testcase_new_assertion();
+    if (is_icsf) {
+        testcase_skip("The ICSF token does not support attribute-arrays.");
+        goto testcase_cleanup;
+    }
+
     rc = funcs->C_GetAttributeValue(session, obj_handle, verify_array, 1);
     if (rc != CKR_OK) {
         testcase_fail("C_GetAttributeValue() rc = %s", p11_get_ckr(rc));

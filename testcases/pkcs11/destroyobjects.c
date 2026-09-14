@@ -41,6 +41,7 @@ CK_RV do_DestroyObjects(void)
     CK_ULONG i, num_objs = 0, find_count, found = 0;
     CK_MECHANISM mech;
     CK_BBOOL false = CK_FALSE;
+    CK_BBOOL is_icsf;
 
     CK_BBOOL true = TRUE;
     CK_KEY_TYPE aes_type = CKK_AES;
@@ -80,6 +81,8 @@ CK_RV do_DestroyObjects(void)
     testcase_begin("");
     testcase_rw_session();
     testcase_user_login();
+
+    is_icsf = is_icsf_token(SLOT_ID);
 
     /* Create a few  session key objects */
     for (i = 0; i < 4; i++) {
@@ -222,7 +225,7 @@ CK_RV do_DestroyObjects(void)
 
     testcase_new_assertion();
     /* Create a key object with CKA_DESTROYABLE=FALSE */
-    rc = funcs->C_CreateObject(session, aes_tmpl_no_destroy, 5,
+    rc = funcs->C_CreateObject(session, aes_tmpl_no_destroy, is_icsf ? 4 : 5,
                                &keyobj_no_destroy);
     if (rc != CKR_OK) {
         testcase_error("C_CreateObject() rc = %s", p11_get_ckr(rc));
@@ -234,7 +237,10 @@ CK_RV do_DestroyObjects(void)
      * CKR_ACTION_PROHIBITED
      */
     rc = funcs->C_DestroyObject(session, keyobj_no_destroy);
-    if (rc == CKR_ACTION_PROHIBITED) {
+    if (is_icsf && rc == CKR_OK) {
+        testcase_skip("The ICSF token does not support CKA_DESTROYABLE.");
+        keyobj_no_destroy = CK_INVALID_HANDLE;
+    } else if (rc == CKR_ACTION_PROHIBITED) {
         testcase_pass("C_DestroyObject() did not delete the object. rc = %s "
                 "(as expected)", p11_get_ckr(rc));
     } else {
