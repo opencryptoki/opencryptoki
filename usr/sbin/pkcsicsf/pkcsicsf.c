@@ -1238,25 +1238,31 @@ int main(int argc, char **argv)
             break;
         case 'c':
             flags |= CFG_CERT;
-            if ((cert = strdup(optarg)) == NULL) {
+            cert = realpath(optarg, NULL);
+            if (cert == NULL) {
                 rc = -1;
-                fprintf(stderr, "strdup failed: line %d\n", __LINE__);
+                fprintf(stderr, "Cannot resolve path '%s': %s\n",
+                        optarg, strerror(errno));
                 goto cleanup;
             }
             break;
         case 'k':
             flags |= CFG_PRIVKEY;
-            if ((privkey = strdup(optarg)) == NULL) {
+            privkey = realpath(optarg, NULL);
+            if (privkey == NULL) {
                 rc = -1;
-                fprintf(stderr, "strdup failed: line %d\n", __LINE__);
+                fprintf(stderr, "Cannot resolve path '%s': %s\n",
+                        optarg, strerror(errno));
                 goto cleanup;
             }
             break;
         case 'C':
             flags |= CFG_CACERT;
-            if ((cacert = strdup(optarg)) == NULL) {
+            cacert = realpath(optarg, NULL);
+            if (cacert == NULL) {
                 rc = -1;
-                fprintf(stderr, "strdup failed: line %d\n", __LINE__);
+                fprintf(stderr, "Cannot resolve path '%s': %s\n",
+                        optarg, strerror(errno));
                 goto cleanup;
             }
             break;
