@@ -976,6 +976,22 @@ static int icsf_ber_put_attribute_list(BerElement * ber, CK_ATTRIBUTE * attrs,
                 break;
             }
             break;
+        case CKO_PUBLIC_KEY:
+            switch (attrs[i].type) {
+            case CKA_ENCAPSULATE:
+                continue; /* ignore this attribute */
+            default:
+                break;
+            }
+            break;
+        case CKO_PRIVATE_KEY:
+            switch (attrs[i].type) {
+            case CKA_DECAPSULATE:
+                continue; /* ignore this attribute */
+            default:
+                break;
+            }
+            break;
         default:
             break;
         }
