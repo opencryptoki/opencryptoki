@@ -2,19 +2,22 @@
 #
 # cicleanup.sh - remove all tokens created by ciconfig.sh
 #
-# Usage: cicleanup.sh <sbindir> [icsf-token-name [icsf-mock-pid-file]]
+# Usage: cicleanup.sh <sbindir> [icsf-token-name [icsf-mock-pid-file [ockconfdir]]]
 #
 #   sbindir             directory containing pkcsstats
 #   icsf-token-name     name of the ICSF token added by pkcsicsf -a (default: icsf0)
 #   icsf-mock-pid-file  PID file written by ciconfig.sh for the mock server
 #                       (default: .icsf_mock_server.pid in the current directory)
+#   ockconfdir          directory containing opencryptoki.conf; when given, the
+#                       backup created by ciconfig.sh is restored and removed
 
 SBINDIR="$1"
 ICSF_MOCK_TOKEN="${2:-icsf0}"
 ICSF_MOCK_PID_FILE="${3:-.icsf_mock_server.pid}"
+OCKCONFDIR="$4"
 
 if [ -z "${SBINDIR}" ]; then
-    echo "Usage: $0 <sbindir> [icsf-token-name [icsf-mock-pid-file]]" >&2
+    echo "Usage: $0 <sbindir> [icsf-token-name [icsf-mock-pid-file [ockconfdir]]]" >&2
     exit 1
 fi
 
@@ -28,6 +31,16 @@ if [ -f "${ICSF_MOCK_PID_FILE}" ]; then
         echo "WARNING: ICSF mock server PID ${ICSF_PID} is stale; nothing to stop." >&2
     fi
     rm -f "${ICSF_MOCK_PID_FILE}"
+fi
+
+# Restore the opencryptoki.conf backup created by ciconfig.sh, if present.
+if [ -n "${OCKCONFDIR}" ]; then
+    OCKCONF_BACKUP="${OCKCONFDIR}/.opencryptoki.conf.ci-backup"
+    if [ -f "${OCKCONF_BACKUP}" ]; then
+        cp -p "${OCKCONF_BACKUP}" "${OCKCONFDIR}/opencryptoki.conf"
+        rm -f "${OCKCONF_BACKUP}"
+        echo "Restored opencryptoki.conf from ${OCKCONF_BACKUP}"
+    fi
 fi
 
 # Remove all token datastores created by ciconfig.sh.

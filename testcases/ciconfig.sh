@@ -158,6 +158,12 @@ if test ! -z ${PKCS11_TEST_USER}; then
     usermod -a -G ${TOKEN_GROUP} ${PKCS11_TEST_USER}
 fi
 
+OCKCONF_BACKUP="${OCKCONFDIR}/.opencryptoki.conf.ci-backup"
+if [ ! -f "${OCKCONF_BACKUP}" ] && [ -f "${OCKCONFDIR}/opencryptoki.conf" ]; then
+    cp -p "${OCKCONFDIR}/opencryptoki.conf" "${OCKCONF_BACKUP}"
+    echo "Backed up opencryptoki.conf to ${OCKCONF_BACKUP}"
+fi
+
 # initialize opencryptoki.conf
 echo "version opencryptoki-3.27" > "${OCKCONFDIR}/opencryptoki.conf"
 
