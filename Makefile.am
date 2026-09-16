@@ -301,10 +301,10 @@ installcheck-local: all check
 	if test ! -z ${PKCS11_TEST_USER}; then				\
 		chmod 777 ${srcdir}/testcases &&			\
 		cd ${srcdir}/testcases &&                               \
-		su -s /bin/bash -c "PKCS11_SO_PIN=$(PKCS11_SO_PIN) PKCS11_USER_PIN=$(PKCS11_USER_PIN) PKCSLIB=$(PKCSLIB) /bin/bash ./ock_tests.sh || true" ${PKCS11_TEST_USER}; \
+		su -s /bin/bash -c "PKCS11_SO_PIN=$(PKCS11_SO_PIN) PKCS11_USER_PIN=$(PKCS11_USER_PIN) PKCSLIB=$(PKCSLIB) MAX_JOBS=$(TEST_MAX_JOBS) /bin/bash ./ock_tests.sh || true" ${PKCS11_TEST_USER}; \
 	else								\
 		cd ${srcdir}/testcases && 				\
-		PKCS11_SO_PIN=$(PKCS11_SO_PIN) PKCS11_USER_PIN=$(PKCS11_USER_PIN) PKCSLIB=$(PKCSLIB) ./ock_tests.sh || true; \
+		PKCS11_SO_PIN=$(PKCS11_SO_PIN) PKCS11_USER_PIN=$(PKCS11_USER_PIN) PKCSLIB=$(PKCSLIB) MAX_JOBS=$(TEST_MAX_JOBS) ./ock_tests.sh || true; \
 	fi
 	$(KILLALL) -HUP pkcsslotd
 
@@ -343,7 +343,7 @@ ci-installcheck: ci-prepare installcheck
 	&& export PKCS11_SO_PIN=$(PKCS11_SO_PIN)			\
 	&& SBINDIR=@sbindir@ SLOT=$(CI_SWTOK_SLOT) ./misc_tests/p11sak_test.sh   | tee log-p11sak.txt		\
 	&& SBINDIR=@sbindir@ ./misc_tests/pkcsconf_test.sh | tee log-pkcsconf.txt	\
-	&& SBINDIR=@sbindir@ ./misc_tests/tok2tok_test.sh  | tee log-tok2tok.txt
+	&& SBINDIR=@sbindir@ MAX_JOBS=$(TEST_MAX_JOBS) ./misc_tests/tok2tok_test.sh  | tee log-tok2tok.txt
 	if [[ -n "${KMIP_IP}" ]] && [[ -n "${KMIP_REST_USER}" ]] && [[ -n "${KMIP_REST_PASSWORD}" ]]; then \
 		cd ${srcdir}/testcases					\
 		&& export PKCSLIB=$(PKCSLIB)				\

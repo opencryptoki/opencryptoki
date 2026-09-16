@@ -369,7 +369,9 @@ else
 fi
 
 dnl --- enable_sanitizer
+TEST_MAX_JOBS=16
 if test "x$enable_sanitizer" = "xyes"; then
+	TEST_MAX_JOBS=4
 	AC_CHECK_LIB([asan], [strcpy], [LDFLAGS="-lasan $LDFLAGS"],
 			[AC_MSG_ERROR(['libasan' library is missing on your system. Please install 'libasan'.])])
 	AC_CHECK_LIB([ubsan], [strcpy], [LDFLAGS="-lubsan $LDFLAGS"],
@@ -380,6 +382,7 @@ if test "x$enable_sanitizer" = "xyes"; then
 	CFLAGS="$CFLAGS -fstack-protector-all -fsanitize=address,signed-integer-overflow,undefined -Wformat -Wformat-security -Werror=format-security -Warray-bounds -Werror=array-bounds -D_FORTIFY_SOURCE=2"
 	AC_DEFINE([WITH_SANITIZER])
 fi
+AC_SUBST([TEST_MAX_JOBS])
 
 if test "x$build_aix" = "xno"; then
 	LIBCAP_LIBS=

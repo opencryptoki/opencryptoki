@@ -145,7 +145,7 @@ echo ""
 # At most MAX_JOBS processes run concurrently to avoid OOM situations.
 # Each run writes its output to log-tok2tok-slots_X_Y.txt.
 # ---------------------------------------------------------------------------
-MAX_JOBS=4
+MAX_JOBS=${MAX_JOBS:-16}
 OVERALL_RC=0
 FAILED_JOBS=()
 PIDS=()
@@ -157,7 +157,10 @@ for slot_x in "${SLOTS[@]}"; do
     for slot_y in "${SLOTS[@]}"; do
         # Wait until the number of running jobs drops below MAX_JOBS.
         while [ "${#PIDS[@]}" -ge "$MAX_JOBS" ]; do
-            # Scan for any job that has already finished.
+            # Wait for any job to finish (Bash 4.3+); fallback on older versions
+            wait -n 2>/dev/null || sleep 0.2
+
+            # Scan for running jobs and reap any completed ones
             NEW_PIDS=()
             NEW_LOGFILES=()
             NEW_SLOTS1=()
@@ -184,8 +187,6 @@ for slot_x in "${SLOTS[@]}"; do
             LOGFILES=("${NEW_LOGFILES[@]}")
             SLOTS1=("${NEW_SLOTS1[@]}")
             SLOTS2=("${NEW_SLOTS2[@]}")
-            # If still at limit, yield briefly before re-checking.
-            [ "${#PIDS[@]}" -ge "$MAX_JOBS" ] && sleep 1
         done
 
         LOGFILE="log-tok2tok-slots_${slot_x}_${slot_y}.txt"
