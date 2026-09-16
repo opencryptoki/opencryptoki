@@ -321,7 +321,28 @@ main_script()
 
     rm -f error_file.*
 
-    for i in $SLOT; do (
+    MAX_JOBS=${MAX_JOBS:-16}
+    PIDS=()
+
+    for i in $SLOT; do
+        # Wait until the number of running jobs drops below MAX_JOBS.
+        while [ "${#PIDS[@]}" -ge "$MAX_JOBS" ]; do
+            # Wait for any job to finish (Bash 4.3+); fallback on older versions
+            wait -n 2>/dev/null || sleep 0.2
+
+            # Scan for running jobs and reap any completed ones
+            NEW_PIDS=()
+            for pid in "${PIDS[@]}"; do
+                if kill -0 "$pid" 2>/dev/null; then
+                    NEW_PIDS+=("$pid")
+                else
+                    wait "$pid"
+                fi
+            done
+            PIDS=("${NEW_PIDS[@]}")
+        done
+
+        (
         echo "********** Testing Slot $i **********"
         check_slot $i || { echo "SKIPPING slot $i"; exit; }
         if [ $NONEED_TOKEN_INIT -eq 0 ]; then
@@ -346,8 +367,11 @@ main_script()
         fi
         echo "********** Finished Testing Slot $i with RC=$RC **********"
         ) &
+        PIDS+=($!)
     done
-    wait
+    for pid in "${PIDS[@]}"; do
+        wait "$pid"
+    done
     ls error_file.* &>/dev/null
     if [ $? -eq 0 ]; then
         echo "********** At least one slot finished with error **********"
