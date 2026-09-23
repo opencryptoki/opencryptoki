@@ -3968,7 +3968,8 @@ static CK_RV parse_key_pair_label(const char *label, char **pub_label,
 static CK_RV parse_key_pair_attrs(const char *attrs, char **pub_attrs,
                                   char** priv_attrs)
 {
-    char *ch, *pub, *priv;
+    char *pub, *priv;
+    const char *ch;
 
     if (attrs == NULL) {
         *pub_attrs = NULL;
