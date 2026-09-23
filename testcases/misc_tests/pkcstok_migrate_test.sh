@@ -222,6 +222,9 @@ sleep 1
 # Bail out early if migration itself failed - comparison results would be
 # meaningless and the remaining cleanup steps may not apply.
 if [[ $MIGRATE_RC -ne 0 ]]; then
+    rm -f "${MIGRATE_AES_PRE}" "${MIGRATE_RSA_PRE}" \
+          "${MIGRATE_AES_POST}" "${MIGRATE_RSA_POST}" \
+          "${MIGRATE_TOOL_LOG}"
     exit 1
 fi
 
@@ -320,5 +323,9 @@ ${P11SAK} remove-key rsa \
 
 rm -rf "${OCK_DATASTORE}_BAK"
 rm -f  "${OCK_CONFDIR}/opencryptoki.conf_BAK"
+
+rm -f "${MIGRATE_AES_PRE}" "${MIGRATE_RSA_PRE}" \
+      "${MIGRATE_AES_POST}" "${MIGRATE_RSA_POST}" \
+      "${MIGRATE_TOOL_LOG}"
 
 exit $status
