@@ -1268,7 +1268,7 @@ CK_RV icsftok_set_pin(STDLL_TokData_t * tokdata, SESSION * sess,
     CK_BYTE old_hash_sha[SHA1_HASH_SIZE];
     CK_BYTE old_login_key[32];
     CK_BYTE new_login_key[32];
-    CK_BYTE new_wrap_key[32];
+    CK_BYTE new_wrap_key[32] = { 0 };
     CK_BYTE new_login_salt[64];
     CK_BYTE new_wrap_salt[64];
     uint64_t new_login_it, new_wrap_it;
