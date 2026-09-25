@@ -807,12 +807,12 @@ static int config_parse_slot(const char *config_file,
                        config_file, c->key, str, 0))
                 return 1;
 
-            if (sinfo[slot_no].confname[0] != '/' &&
-                !is_valid_filename_component(sinfo[slot_no].confname)) {
+            if (str[0] != '/' &&
+                !is_valid_filename_component(str)) {
                 ErrLog("Error parsing config file '%s': confname '%s' is not "
                        "valid (must not be empty, must not be '.' or '..', "
                        "and must not contain '/')\n",
-                       config_file, sinfo[slot_no].confname);
+                       config_file, str);
                 return 1;
             }
 
@@ -826,17 +826,17 @@ static int config_parse_slot(const char *config_file,
                        config_file, c->key, str, 0))
                 return 1;
 
-            if (strcmp(sinfo[slot_no].tokname, "HSM_MK_CHANGE") == 0) {
+            if (strcmp(str, "HSM_MK_CHANGE") == 0) {
                 ErrLog("Error parsing config file '%s': tokname 'HSM_MK_CHANGE' "
                        "is reserved\n", config_file);
                 return 1;
             }
 
-            if (!is_valid_filename_component(sinfo[slot_no].tokname)) {
+            if (!is_valid_filename_component(str)) {
                 ErrLog("Error parsing config file '%s': tokname '%s' is not "
                        "valid (must not be empty, must not be '.' or '..', "
                        "and must not contain '/')\n",
-                       config_file, sinfo[slot_no].tokname);
+                       config_file, str);
                 return 1;
             }
 
