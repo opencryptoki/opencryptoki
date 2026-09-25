@@ -2369,7 +2369,7 @@ CK_BBOOL do_GetFunctionList(void)
     }
     version.major = 0x03;
     version.minor = 0x00;
-    flags = CKF_INTERFACE_FORK_SAFE;
+    flags = 0;
     rc = getinterface((CK_UTF8CHAR *)"PKCS 11", &version, &interface, flags);
     if (rc != CKR_OK) {
         testcase_error("C_GetInterface (v3.0) rc=%s", p11_get_ckr(rc));
@@ -2379,7 +2379,7 @@ CK_BBOOL do_GetFunctionList(void)
 
     version.major = 0x03;
     version.minor = 0x02;
-    flags = CKF_INTERFACE_FORK_SAFE;
+    flags = 0;
     rc = getinterface((CK_UTF8CHAR *)"PKCS 11", &version, &interface, flags);
     if (rc != CKR_OK) {
         testcase_error("C_GetInterface (v3.2) rc=%s", p11_get_ckr(rc));
