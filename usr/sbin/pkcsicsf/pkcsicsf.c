@@ -728,7 +728,7 @@ static int write_initial_nvtok_dat(const char *tokname, const char *sopin,
                                    const struct icsf_token_record *token,
                                    unsigned char out_so_wrap_key[32])
 {
-    char fname[PATH_MAX];
+    char fname[PATH_MAX] = { 0 };
     TOKEN_DATA td;
     TOKEN_DATA_VERSION *dat = &td.dat;
     struct group *grp;
@@ -876,7 +876,7 @@ done:
     else if (fd >= 0)
         close(fd);
     /* On failure remove any partially-written file. */
-    if (rc != 0)
+    if (rc != 0 && fname[0] != '\0')
         unlink(fname);
     OPENSSL_cleanse(&td, sizeof(td));
     return rc;
