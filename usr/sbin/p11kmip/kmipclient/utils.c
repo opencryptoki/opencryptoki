@@ -467,9 +467,11 @@ int kmip_format_mask(enum kmip_tag tag, int32_t value, char separator,
 	int rc = 0, i;
 
 	info = kmip_enum_info_by_tag(tag);
-	if (info == NULL || value == 0)
+	if (info == NULL || value == 0) {
+		value = htobe32((uint32_t)value);
 		return kmip_format_hex((const unsigned char *)&value,
 				       sizeof(value), true, str);
+	}
 
 	/* Process all known mask bits */
 	for (i = 0; value != 0 && info[i].name != NULL; i++) {
@@ -485,6 +487,7 @@ int kmip_format_mask(enum kmip_tag tag, int32_t value, char separator,
 
 	/* Any bits left in the value? */
 	if (value != 0) {
+		value = htobe32((uint32_t)value);
 		rc = kmip_format_hex((const unsigned char *)&value,
 				      sizeof(value), true, &tmp);
 		if (rc != 0)
