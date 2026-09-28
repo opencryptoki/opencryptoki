@@ -633,6 +633,8 @@ int kmip_v2_attr_from_v1_attr(struct kmip_node *v1_attr,
 						     cloned_value);
 		free(copy);
 		kmip_node_free(cloned_value);
+		if (*v2_attr == NULL)
+			return -ENOMEM;
 		return 0;
 	}
 
@@ -1066,7 +1068,7 @@ int kmip_get_attribute_reference(const struct kmip_node *node,
 			*attr_tag = kmip_node_get_enumeration(node);
 
 		if (vendor_id != NULL)
-			vendor_id = NULL;
+			*vendor_id = NULL;
 		if (name != NULL)
 			*name = NULL;
 
