@@ -459,7 +459,7 @@ out:
 /**
  * Perform a request over the KMIP connection
  *
- * @param conn     n        the KMIP connection
+ * @param conn              the KMIP connection
  * @param request           the request to send
  * @param response          On return: the received response. Must be freed by
  *                          the caller.
@@ -479,6 +479,11 @@ int kmip_connection_tls_perform(struct kmip_connection *conn,
 	if (conn == NULL || request == NULL || response == NULL)
 		return -EINVAL;
 
+	if (conn->plain_tls.bio == NULL) {
+		kmip_debug(debug, "TLS connection is not established");
+		return -ENOTCONN;
+	}
+
 	*response = NULL;
 
 	/* Send out the request */
@@ -489,6 +494,7 @@ int kmip_connection_tls_perform(struct kmip_connection *conn,
 	}
 	if (BIO_flush(conn->plain_tls.bio) != 1) {
 		kmip_debug(debug, "BIO_flush failed");
+		rc = -EIO;
 		goto out;
 	}
 	kmip_debug(debug, "%lu bytes sent", size);
@@ -498,16 +504,17 @@ int kmip_connection_tls_perform(struct kmip_connection *conn,
 			      KMIP_DECODE_MAX_NESTING_LEVEL, debug);
 	if (rc != 0 || *response == NULL) {
 		kmip_debug(debug, "kmip_decode_ttlv failed");
+		if (rc == 0)
+			rc = -EIO;
 		goto out;
 	}
 
 	rc = 0;
 
 out:
-	if (rc != 0) {
-		if (BIO_reset(conn->plain_tls.bio) != 1)
-			kmip_debug(debug, "BIO_reset failed");
-	}
+	/* On any I/O failure tear down the connection completely */
+	if (rc != 0)
+		kmip_connection_tls_term(conn);
 
 	return rc;
 }
