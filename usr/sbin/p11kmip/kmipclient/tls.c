@@ -247,7 +247,7 @@ out:
  */
 int kmip_connection_tls_init(struct kmip_connection *conn, bool debug)
 {
-	char *hostname = NULL, *port = NULL, *tok;
+	char *orig_hostname = NULL, *hostname = NULL, *port = NULL, *tok;
 	struct stat sb;
 	int rc;
 
@@ -354,12 +354,13 @@ int kmip_connection_tls_init(struct kmip_connection *conn, bool debug)
 		goto out;
 	}
 
-	hostname = strdup(conn->config.server);
-	if (hostname == NULL) {
+	orig_hostname = strdup(conn->config.server);
+	if (orig_hostname == NULL) {
 		kmip_debug(debug, "strdup failed");
 		rc = -ENOMEM;
 		goto out;
 	}
+	hostname = orig_hostname;
 
 	/* Split port number from hostname, if specified */
 	if (hostname[0] == '[') {
@@ -370,11 +371,14 @@ int kmip_connection_tls_init(struct kmip_connection *conn, bool debug)
 			rc = -EINVAL;
 			goto out;
 		}
+		/* strip the trailing ']' so the bare address is passed to SSL */
+		*tok = '\0';
 		tok++;
 		if (*tok == ':') {
 			port = tok + 1;
-			*tok = 0;
 		}
+		/* advance hostname past the leading '[' */
+		hostname++;
 	} else {
 		/* hostname or IPv4 address */
 		tok = strchr(hostname, ':');
@@ -466,8 +470,8 @@ int kmip_connection_tls_init(struct kmip_connection *conn, bool debug)
 out:
 	if (rc != 0)
 		kmip_connection_tls_term(conn);
-	if (hostname != NULL)
-		free(hostname);
+	if (orig_hostname != NULL)
+		free(orig_hostname);
 
 	return rc;
 }
