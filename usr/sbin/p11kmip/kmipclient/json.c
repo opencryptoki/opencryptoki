@@ -574,6 +574,7 @@ int kmip_encode_json(const struct kmip_node *node, json_object **obj,
 		    int64 > -4503599627370496) {
 			memb_obj = json_object_new_int64(int64);
 		} else {
+			int64 = (int64_t)htobe64((uint64_t)int64);
 			rc = kmip_format_hex((const unsigned char *)&int64,
 					     sizeof(int64), true, &tmp);
 			if (rc != 0) {
