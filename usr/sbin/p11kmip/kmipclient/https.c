@@ -755,6 +755,7 @@ int kmip_connection_https_perform(struct kmip_connection *conn,
 			   conn->config.server, curl_easy_strerror(rc));
 		kmip_debug(debug, "Error: %s", error_str);
 
+		rc = -EIO;
 		if (header_cb.error) {
 			kmip_debug(debug, "Unexpected Content-Type");
 			rc = -EBADMSG;
@@ -763,7 +764,6 @@ int kmip_connection_https_perform(struct kmip_connection *conn,
 			kmip_debug(debug, "JSON/XML parsing failed");
 			rc = -EBADMSG;
 		}
-		rc = -EIO;
 		goto out;
 	}
 
