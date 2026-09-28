@@ -317,6 +317,22 @@ int kmip_connection_tls_init(struct kmip_connection *conn, bool debug)
 				goto out;
 			}
 		}
+	} else if (conn->config.tls_verify_peer ||
+		   conn->config.tls_verify_host) {
+		/*
+		 * No explicit CA bundle specified: load the system's default
+		 * CA certificates so that peer/hostname verification can
+		 * succeed.
+		 */
+		if (SSL_CTX_set_default_verify_paths(
+					conn->plain_tls.ssl_ctx) != 1) {
+			kmip_debug(debug, "SSL_CTX_set_default_verify_paths "
+				   "failed");
+			if (debug)
+				ERR_print_errors_fp(stderr);
+			rc = -EIO;
+			goto out;
+		}
 	}
 
 	conn->plain_tls.bio =
