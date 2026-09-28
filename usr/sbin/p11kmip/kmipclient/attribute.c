@@ -1806,7 +1806,7 @@ int kmip_get_state(const struct kmip_node *node, enum kmip_state *state)
  */
 struct kmip_node *kmip_new_initial_date(int64_t date)
 {
-	return kmip_node_new_enumeration(KMIP_TAG_INITIAL_DATE, NULL, date);
+	return kmip_node_new_date_time(KMIP_TAG_INITIAL_DATE, NULL, date);
 }
 
 /**
@@ -1847,7 +1847,7 @@ int kmip_get_initial_date(const struct kmip_node *node, int64_t *date)
  */
 struct kmip_node *kmip_new_activation_date(int64_t date)
 {
-	return kmip_node_new_enumeration(KMIP_TAG_ACTIVATION_DATE, NULL, date);
+	return kmip_node_new_date_time(KMIP_TAG_ACTIVATION_DATE, NULL, date);
 }
 
 /**
@@ -1888,8 +1888,7 @@ int kmip_get_activation_date(const struct kmip_node *node, int64_t *date)
  */
 struct kmip_node *kmip_new_deactivation_date(int64_t date)
 {
-	return kmip_node_new_enumeration(KMIP_TAG_DEACTIVATION_DATE, NULL,
-					 date);
+	return kmip_node_new_date_time(KMIP_TAG_DEACTIVATION_DATE, NULL, date);
 }
 
 /**
@@ -1930,7 +1929,7 @@ int kmip_get_deactivation_date(const struct kmip_node *node, int64_t *date)
  */
 struct kmip_node *kmip_new_destroy_date(int64_t date)
 {
-	return kmip_node_new_enumeration(KMIP_TAG_DESTROY_DATE, NULL, date);
+	return kmip_node_new_date_time(KMIP_TAG_DESTROY_DATE, NULL, date);
 }
 
 /**
@@ -1971,7 +1970,7 @@ int kmip_get_destroy_date(const struct kmip_node *node, int64_t *date)
  */
 struct kmip_node *kmip_new_compromise_date(int64_t date)
 {
-	return kmip_node_new_enumeration(KMIP_TAG_COMPROMIZE_DATE, NULL, date);
+	return kmip_node_new_date_time(KMIP_TAG_COMPROMIZE_DATE, NULL, date);
 }
 
 /**
@@ -2012,8 +2011,8 @@ int kmip_get_compromise_date(const struct kmip_node *node, int64_t *date)
  */
 struct kmip_node *kmip_new_compromise_occurrence_date(int64_t date)
 {
-	return kmip_node_new_enumeration(KMIP_TAG_COMPROMISE_OCCURRENCE_DATE,
-					 NULL, date);
+	return kmip_node_new_date_time(KMIP_TAG_COMPROMISE_OCCURRENCE_DATE,
+				       NULL, date);
 }
 
 /**
@@ -2055,7 +2054,7 @@ int kmip_get_compromise_occurrence_date(const struct kmip_node *node,
  */
 struct kmip_node *kmip_new_last_change_date(int64_t date)
 {
-	return kmip_node_new_enumeration(KMIP_TAG_LAST_CHANGE_DATE, NULL, date);
+	return kmip_node_new_date_time(KMIP_TAG_LAST_CHANGE_DATE, NULL, date);
 }
 
 /**
@@ -2096,8 +2095,8 @@ int kmip_get_last_change_date(const struct kmip_node *node, int64_t *date)
  */
 struct kmip_node *kmip_new_original_creation_date(int64_t date)
 {
-	return kmip_node_new_enumeration(KMIP_TAG_ORIGINAL_CREATION_DATE, NULL,
-					 date);
+	return kmip_node_new_date_time(KMIP_TAG_ORIGINAL_CREATION_DATE, NULL,
+				       date);
 }
 
 /**
@@ -2138,7 +2137,7 @@ int kmip_get_original_creation_date(const struct kmip_node *node, int64_t *date)
  */
 struct kmip_node *kmip_new_archive_date(int64_t date)
 {
-	return kmip_node_new_enumeration(KMIP_TAG_ARCHIVE_DATE, NULL, date);
+	return kmip_node_new_date_time(KMIP_TAG_ARCHIVE_DATE, NULL, date);
 }
 
 /**
@@ -2179,8 +2178,7 @@ int kmip_get_archive_date(const struct kmip_node *node, int64_t *date)
  */
 struct kmip_node *kmip_new_process_start_date(int64_t date)
 {
-	return kmip_node_new_enumeration(KMIP_TAG_PROCESS_START_DATE, NULL,
-					 date);
+	return kmip_node_new_date_time(KMIP_TAG_PROCESS_START_DATE, NULL, date);
 }
 
 /**
@@ -2221,8 +2219,7 @@ int kmip_get_process_start_date(const struct kmip_node *node, int64_t *date)
  */
 struct kmip_node *kmip_new_protect_stop_date(int64_t date)
 {
-	return kmip_node_new_enumeration(KMIP_TAG_PROTECT_STOP_DATE, NULL,
-					 date);
+	return kmip_node_new_date_time(KMIP_TAG_PROTECT_STOP_DATE, NULL, date);
 }
 
 /**
@@ -3417,8 +3414,8 @@ struct kmip_node *kmip_new_application_specific_information(
 			goto out;
 	}
 
-	ret = kmip_node_new_structure_va(KMIP_TAG_APPLICATION_DATA, NULL, 2,
-					 ns, d);
+	ret = kmip_node_new_structure_va(KMIP_TAG_APPLICATION_SPECIFIC_INFORMATION,
+					 NULL, 2, ns, d);
 
 out:
 	kmip_node_free(ns);
@@ -3453,7 +3450,7 @@ int kmip_get_application_specific_information(const struct kmip_node *node,
 	if (node == NULL || name_space == NULL)
 		return -EINVAL;
 
-	if (kmip_node_get_tag(node) != KMIP_TAG_APPLICATION_DATA)
+	if (kmip_node_get_tag(node) != KMIP_TAG_APPLICATION_SPECIFIC_INFORMATION)
 		return -EBADMSG;
 
 	n = kmip_node_get_structure_element_by_tag(node,
