@@ -97,6 +97,13 @@ int kmip_decode_ttlv(BIO *bio, size_t *size, struct kmip_node **node,
 
 	switch (n->type) {
 	case KMIP_TYPE_STRUCTURE:
+		if ((n->length % KMIP_TTLV_BLOCK_LENGTH) != 0) {
+			kmip_debug(debug, "structure length %u is not a "
+				   "multiple of %d", n->length,
+				   KMIP_TTLV_BLOCK_LENGTH);
+			rc = -EBADMSG;
+			goto out;
+		}
 		value_len = n->length;
 		break;
 
