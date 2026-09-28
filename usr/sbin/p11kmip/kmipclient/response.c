@@ -184,6 +184,8 @@ int kmip_get_response_header(const struct kmip_node *node,
 			return -EBADMSG;
 		*client_corr_value = kmip_node_get_text_string(n);
 		kmip_node_free(n);
+		if (*client_corr_value == NULL)
+			return -EBADMSG;
 	}
 
 	if (server_corr_value != NULL) {
@@ -193,6 +195,8 @@ int kmip_get_response_header(const struct kmip_node *node,
 			return -EBADMSG;
 		*server_corr_value = kmip_node_get_text_string(n);
 		kmip_node_free(n);
+		if (*server_corr_value == NULL)
+			return -EBADMSG;
 	}
 
 	return 0;

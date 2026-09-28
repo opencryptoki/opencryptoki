@@ -377,10 +377,20 @@ int kmip_get_vendor_attribute(const struct kmip_node *node,
 		goto out;
 	}
 
-	if (vendor_id != NULL)
+	if (vendor_id != NULL) {
 		*vendor_id = kmip_node_get_text_string(vend);
-	if (name != NULL)
+		if (*vendor_id == NULL) {
+			rc = -EBADMSG;
+			goto out;
+		}
+	}
+	if (name != NULL) {
 		*name = kmip_node_get_text_string(nam);
+		if (*name == NULL) {
+			rc = -EBADMSG;
+			goto out;
+		}
+	}
 	if (value != NULL)
 		*value =  val;
 
@@ -1078,10 +1088,20 @@ int kmip_get_attribute_reference(const struct kmip_node *node,
 		goto out;
 	}
 
-	if (vendor_id != NULL)
+	if (vendor_id != NULL) {
 		*vendor_id = kmip_node_get_text_string(vend);
-	if (name != NULL)
+		if (*vendor_id == NULL) {
+			rc = -EBADMSG;
+			goto out;
+		}
+	}
+	if (name != NULL) {
 		*name = kmip_node_get_text_string(nam);
+		if (*name == NULL) {
+			rc = -EBADMSG;
+			goto out;
+		}
+	}
 
 out:
 	kmip_node_free(vend);
@@ -1406,8 +1426,13 @@ int kmip_get_name(const struct kmip_node *node,
 		goto out;
 	}
 
-	if (value != NULL)
+	if (value != NULL) {
 		*value = kmip_node_get_text_string(val);
+		if (*value == NULL) {
+			rc = -EBADMSG;
+			goto out;
+		}
+	}
 	if (type != NULL)
 		*type = kmip_node_get_enumeration(typ);
 
@@ -1497,8 +1522,13 @@ int kmip_get_alternative_name(const struct kmip_node *node,
 		goto out;
 	}
 
-	if (value != NULL)
+	if (value != NULL) {
 		*value = kmip_node_get_text_string(val);
+		if (*value == NULL) {
+			rc = -EBADMSG;
+			goto out;
+		}
+	}
 	if (type != NULL)
 		*type = kmip_node_get_enumeration(typ);
 
@@ -2840,6 +2870,9 @@ int kmip_get_object_group(const struct kmip_node *node, const char **group)
 		return -EBADMSG;
 
 	*group = kmip_node_get_text_string(node);
+	if (*group == NULL)
+		return -EBADMSG;
+
 	return 0;
 }
 
@@ -2966,6 +2999,9 @@ int kmip_get_contact_information(const struct kmip_node *node,
 		return -EBADMSG;
 
 	*contact = kmip_node_get_text_string(node);
+	if (*contact == NULL)
+		return -EBADMSG;
+
 	return 0;
 }
 
@@ -3007,6 +3043,9 @@ int kmip_get_description(const struct kmip_node *node, const char **description)
 		return -EBADMSG;
 
 	*description = kmip_node_get_text_string(node);
+	if (*description == NULL)
+		return -EBADMSG;
+
 	return 0;
 }
 
@@ -3047,6 +3086,9 @@ int kmip_get_comment(const struct kmip_node *node, const char **comment)
 		return -EBADMSG;
 
 	*comment = kmip_node_get_text_string(node);
+	if (*comment == NULL)
+		return -EBADMSG;
+
 	return 0;
 }
 
@@ -3420,6 +3462,8 @@ int kmip_get_application_specific_information(const struct kmip_node *node,
 		return -EBADMSG;
 	*name_space = kmip_node_get_text_string(n);
 	kmip_node_free(n);
+	if (*name_space == NULL)
+		return -EBADMSG;
 
 	if (data != NULL) {
 		n = kmip_node_get_structure_element_by_tag(node,
@@ -3428,6 +3472,8 @@ int kmip_get_application_specific_information(const struct kmip_node *node,
 			return -EBADMSG;
 		*data = kmip_node_get_text_string(n);
 		kmip_node_free(n);
+		if (*data == NULL)
+			return -EBADMSG;
 	}
 
 	return 0;
@@ -3508,8 +3554,13 @@ int kmip_get_key_value_location(const struct kmip_node *node,
 		goto out;
 	}
 
-	if (value != NULL)
+	if (value != NULL) {
 		*value = kmip_node_get_text_string(val);
+		if (*value == NULL) {
+			rc = -EBADMSG;
+			goto out;
+		}
+	}
 	if (type != NULL)
 		*type = kmip_node_get_enumeration(typ);
 
@@ -3976,6 +4027,9 @@ int kmip_get_operation_policy_name(const struct kmip_node *node,
 		return -EBADMSG;
 
 	*policy = kmip_node_get_text_string(node);
+	if (*policy == NULL)
+		return -EBADMSG;
+
 	return 0;
 }
 

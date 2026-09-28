@@ -885,6 +885,8 @@ int kmip_get_key_wrapping_specification(const struct kmip_node *node,
 			return -ENOENT;
 		*attr_name = kmip_node_get_text_string(n);
 		kmip_node_free(n);
+		if (*attr_name == NULL)
+			return -EBADMSG;
 	}
 
 	if (encr_key_info != NULL)
