@@ -537,7 +537,8 @@ int kmip_encode_json(const struct kmip_node *node, json_object **obj,
 			if (rc != 0) {
 				kmip_debug(debug,
 					   "json_object_array_add failed");
-				rc = EIO;
+				json_object_put(elem_obj);
+				rc = -EIO;
 				goto out;
 			}
 			element = element->next;
