@@ -1,3 +1,19 @@
++ openCryptoki 3.28
+- EP11: Add support for CKM_IBM_ETH_DERIVE mechanism for Ethereum 2.0 key
+  derivation.
+- EP11: Fix Edwards/Montgomery mechanisms reporting (EP11 version dependent).
+- CCA: Enable SHA3 mechanisms for Linux on x64/Power/AIX only if the resprective
+  access comntrol points (ACPs) are set.
+- ICSF: Introduce a FIPS-compliant token data store format.
+- PKCSICSF: Fix token initialization in regards of the specified SO pin.
+- PKCSICSF: Add support for changing the RACF password.
+- COMMON: Remove dependency on liblber for BER encoding; refactor BER
+  primitive encoding/decoding and public key encoding functions.
+- TOOLS: Add an ICSF mock server that simulates ICSF for integration testing.
+- Bug fixes and security hardening (symlink-following protections, integer
+  overflow prevention, memory cleansing, and input validation across all
+  components).
+
 + openCryptoki 3.27
 - Add base support for PKCS#11 v3.2.
 - Add support for PKCS#11 v3.2 C_VerifySignature[Init|Update|Final].
