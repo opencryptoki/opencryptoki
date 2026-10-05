@@ -165,7 +165,7 @@ if [ ! -f "${OCKCONF_BACKUP}" ] && [ -f "${OCKCONFDIR}/opencryptoki.conf" ]; the
 fi
 
 # initialize opencryptoki.conf
-echo "version opencryptoki-3.27" > "${OCKCONFDIR}/opencryptoki.conf"
+echo "version opencryptoki-3.28" > "${OCKCONFDIR}/opencryptoki.conf"
 
 # enable full statistics
 echo "statistics (on,implicit,internal)" >> "${OCKCONFDIR}/opencryptoki.conf"
