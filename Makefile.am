@@ -1,4 +1,5 @@
 ACLOCAL_AMFLAGS = -I m4
+DISTCHECK_CONFIGURE_FLAGS = --enable-testcases
 CLEANFILES =
 DISTCLEANFILES = *~ opencryptoki.map.sym opencryptoki_tok.map.sym
 MAINTAINERCLEANFILES = test-driver \
@@ -297,7 +298,11 @@ ci-prepare:
 
 installcheck-local: all check
 	$(KILLALL) -HUP pkcsslotd || true
-	@sbindir@/pkcsslotd
+	case '$(prefix)' in */_inst)				\
+		echo "SKIP: installcheck skipped under distcheck";	\
+		exit 0 ;;						\
+	esac;								\
+	@sbindir@/pkcsslotd;						\
 	if test ! -z ${PKCS11_TEST_USER}; then				\
 		chmod 777 ${srcdir}/testcases &&			\
 		cd ${srcdir}/testcases &&                               \
@@ -305,7 +310,7 @@ installcheck-local: all check
 	else								\
 		cd ${srcdir}/testcases && 				\
 		PKCS11_SO_PIN=$(PKCS11_SO_PIN) PKCS11_USER_PIN=$(PKCS11_USER_PIN) PKCSLIB=$(PKCSLIB) MAX_JOBS=$(TEST_MAX_JOBS) ./ock_tests.sh || true; \
-	fi
+	fi;								\
 	$(KILLALL) -HUP pkcsslotd
 
 # Slot number and datastore used by the soft-token-based test scripts.
