@@ -99,7 +99,8 @@ testcases_unit_asn1test_SOURCES=testcases/unit/asn1test.c	\
 	testcases/unit/asn1test_stubs.c
 
 testcases_unit_asn1test_CFLAGS=-I${top_srcdir}/usr/lib/common	\
-	-I${top_srcdir}/usr/include -DSTDLL_NAME=\"asn1test\"
+	-I${top_srcdir}/usr/include -I${top_builddir}/usr/lib/api	\
+	-DSTDLL_NAME=\"asn1test\"
 testcases_unit_asn1test_LDFLAGS=-lcrypto
 
 testcases_unit_asn1fuzztest_SOURCES=testcases/unit/asn1fuzztest.c	\
@@ -108,7 +109,8 @@ testcases_unit_asn1fuzztest_SOURCES=testcases/unit/asn1fuzztest.c	\
 	testcases/unit/asn1test_stubs.c
 
 testcases_unit_asn1fuzztest_CFLAGS=-I${top_srcdir}/usr/lib/common	\
-	-I${top_srcdir}/usr/include -DSTDLL_NAME=\"asn1fuzztest\"
+	-I${top_srcdir}/usr/include -I${top_builddir}/usr/lib/api	\
+	-DSTDLL_NAME=\"asn1fuzztest\"
 
 testcases_unit_objectflattentest_SOURCES=testcases/unit/objectflattentest.c	\
 	testcases/unit/objecttest_stubs.c				\
@@ -118,6 +120,7 @@ testcases_unit_objectflattentest_SOURCES=testcases/unit/objectflattentest.c	\
 
 testcases_unit_objectflattentest_CFLAGS=-I${top_srcdir}/usr/lib/common	\
 	-I${top_srcdir}/usr/include -I${top_srcdir}/usr/lib/api	\
+	-I${top_builddir}/usr/lib/api				\
 	-DSTDLL_NAME=\"objectflattentest\" -DOCK_UNIT_TESTS
 
 testcases_unit_objectflattentest_LDFLAGS=-lpthread -lcrypto
@@ -128,6 +131,7 @@ testcases_unit_padtest_SOURCES=testcases/unit/padtest.c			\
 
 testcases_unit_padtest_CFLAGS=-I${top_srcdir}/usr/lib/common		\
 	-I${top_srcdir}/usr/include -I${top_srcdir}/usr/lib/api		\
+	-I${top_builddir}/usr/lib/api					\
 	-DSTDLL_NAME=\"padtest\" -DTOK_NEW_DATA_STORE=0x0003000c
 
 testcases_unit_padtest_LDFLAGS=-lpthread -lcrypto
