@@ -115,7 +115,8 @@ When using this option,
       password must be decrypted from disk using the token master key.
 
 When required, the RACF password is stored securely on disk for subsequent use
-in /var/lib/opencryptoki/icsf/RACF.
+in <localstatedir>/lib/opencryptoki/<tokenname>/RACF (e.g.
+/var/lib/opencryptoki/Foo/RACF for a token named Foo).
 
 **Note: Setup of LDAP and SASL are outside the scope of this README.
 
@@ -136,9 +137,10 @@ remote server for a list of the available ICSF tokens via the pkcsicsf utility.
 The list returned may contain more than one remote token. Note, which token(s)
 returned depend on the caller's SAF authority on the remote server.
 
-openCryptoki can only handle one remote ICSF token. If a list of tokens are
-returned from the query, a single token must be chosen and installed into
-openCryptoki with the pkcsicsf utility.
+openCryptoki supports adding multiple ICSF tokens, each into its own slot.
+From the list returned by the query, choose which token(s) to add. Use
+pkcsicsf -a <tokenname> to add a specific token, or pkcsicsf -a all to add
+every token in the list.
 
 Upon adding the token into openCryptoki with the pkcsicsf utility, an ICSF token
 entry will be created in the openCryptoki.conf file.
@@ -218,7 +220,7 @@ tokens from the remote.
 4. Using sasl authentication and giving openCryptoki the credentials to use to
 get a list of available tokens from the remote.
 
-        (TO DO)
+        pkcsicsf -l -m sasl -u ldaps://<host> -c <client.crt> -k <client.key> -C <ca.crt>
 
 
 Examples to add a token into openCryptoki
@@ -275,15 +277,26 @@ an ICSF token named, Foo into openCryptoki.
 
         pkcsicsf -a Foo -m sasl -s 3
 
-4. Using sasl authentication and giving openCryptoki the credentials to use to
-get a list of available tokens from the remote.  (TO DO)
+4. Using sasl authentication and giving openCryptoki the credentials to use,
+add the ICSF token named, Foo.
+
+        pkcsicsf -a Foo -m sasl -u ldaps://<host> -c <client.crt> -k <client.key> -C <ca.crt>
+
+        To assign the token to a specific slot number (e.g. slot 3):
+
+        pkcsicsf -a Foo -m sasl -u ldaps://<host> -c <client.crt> -k <client.key> -C <ca.crt> -s 3
 
 
 Configure openCryptoki
 ----------------------
 
-Now initialize the ICSF token and set the USER and SO PINs using the pkcsconf
-utility.
+Set the USER and SO PINs using the pkcsconf utility.
+
+NOTE: pkcsconf -I (C_InitToken) is NOT required for the ICSF token. The token
+is already initialized by pkcsicsf -a. Running pkcsconf -I will reset the
+local credential store but does not affect objects on the remote z/OS server.
+
+For simple authentication (NOTE: my ICSF token is listed in slot 5):
 
 1. Start the pkcsslotd daemon
         pkcsslotd
@@ -291,33 +304,36 @@ utility.
 2. List the available tokens in openCryptoki
         pkcsconf -t
 
-3. Initialize the ICSF token.
-   NOTE: For this example, my ICSF token is listed in slot 5.
-        pkcsconf -I -c 5
-
-        You will be prompted for the SO PIN. The default SO PIN is 87654321
-
-        You will also be prompted to enter a unique token label. You can press
-        enter since this will be ignored. The label or name has already been
-        created on the remote server.
-
-4. Set the user pin
+3. Set the user PIN (run as SO using the SO PIN supplied during pkcsicsf -a)
         pkcsconf -u -c 5
 
-        you will be prompted to enter the SO PIN. Enter the default SO PIN,
-        87654321.
+        you will be prompted to enter the SO PIN set during pkcsicsf -a.
         You will be prompted twice to enter the new user PIN. Enter 8 digits for
         the new user pin. Remember it so you can use it later.
 
-5. Set a new SO PIN
+4. (Optional) Set a new SO PIN
         pkcsconf -P -c 5
 
-        you will be prompted to enter the SO PIN. Enter the default SO PIN,
-        87654321.
+        you will be prompted to enter the current SO PIN.
         You will then be prompted to enter the new SO PIN. Enter 8 digits for
         the new SO PIN. Remember it for later use.
 
-6. List the token and ensure it is ready.
+5. List the token and ensure it is ready.
+        pkcsconf -t -c 5
+
+For SASL authentication, the pkcsslotd daemon sets CKF_SO_PIN_TO_BE_CHANGED
+when the token is first accessed, so both PINs must be set:
+
+1. Start the pkcsslotd daemon
+        pkcsslotd
+
+2. Change the SO PIN away from the default (87654321)
+        pkcsconf -P -c 5
+
+3. Initialize the user PIN (run as SO using the PIN set in step 2)
+        pkcsconf -u -c 5
+
+4. List the token and ensure it is ready.
         pkcsconf -t -c 5
 
 Sample output:
@@ -340,3 +356,17 @@ Token #5 Info:
 
 You are now done configuring the ICSF token into openCryptoki and it's ready to
 be used.
+
+
+UPDATING THE RACF PASSWORD
+--------------------------
+When the RACF password for the LDAP bind DN is changed on the z/OS server, the
+locally stored encrypted copy must be updated immediately:
+
+        pkcsicsf -p <tokenname>
+
+You will be prompted for the new RACF password and then for the SO PIN.
+The new password is first verified against the LDAP server before anything is
+written to disk. No restart of pkcsslotd or applications is required.
+
+See pkcsicsf(1) for full details and timing considerations.
