@@ -374,6 +374,17 @@ def handle_dvk(store, request):
             return encode_response(
                 request.handle, RC_ERROR, 3002, ICSF_TAG_CSFPDVK, b'')
 
+        prime_int = int.from_bytes(prime_bytes, 'big')
+        priv_int  = int.from_bytes(priv_bytes, 'big')
+        peer_pub_int = int.from_bytes(peer_public_value, 'big')
+
+        # ICSF verifies private key per NIST SP 800-56A R3 (1 < x < q, where q = (p - 1) / 2)
+        q = (prime_int - 1) // 2
+        if priv_int <= 1 or priv_int >= q:
+            logger.error('DVK: PKCS-DH private key out of range per SP 800-56A (x <= 1 or x >= q)')
+            return encode_response(
+                request.handle, RC_ERROR, 2116, ICSF_TAG_CSFPDVK, b'')
+
         try:
             z_bytes = dh_derive(base_attrs, peer_public_value)
         except Exception as exc:
