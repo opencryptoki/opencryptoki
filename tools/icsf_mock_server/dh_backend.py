@@ -138,12 +138,35 @@ def _make_ossl_param(key: bytes, data_bytes: bytes, buffers: list) -> _OSSLParam
 def dh_generate(prime_bytes: bytes, base_bytes: bytes) -> dict:
     """
     Generate DH key pair given prime (p) and base (g).
+    Ensures the private key satisfies NIST SP 800-56A (1 < priv < q, where q = (p - 1) / 2).
     Returns dict with CKA_PRIME, CKA_BASE, 'pub_value', 'priv_value'.
     """
-    if _OPENSSL3:
-        return _dh_generate_ossl3(prime_bytes, base_bytes)
-    else:
-        return _dh_generate_ossl1(prime_bytes, base_bytes)
+    prime_int = int.from_bytes(prime_bytes, 'big')
+    q = (prime_int - 1) // 2
+
+    # Loop until generated private key conforms to 1 < priv < q
+    for _ in range(10):
+        if _OPENSSL3:
+            key = _dh_generate_ossl3(prime_bytes, base_bytes)
+        else:
+            key = _dh_generate_ossl1(prime_bytes, base_bytes)
+
+        priv_int = int.from_bytes(key['priv_value'], 'big')
+        if 1 < priv_int < q:
+            return key
+
+    # Fallback to python generation if OpenSSL repeatedly picks priv >= q
+    base_int = int.from_bytes(base_bytes, 'big') if base_bytes else 2
+    prime_len = len(prime_bytes)
+    import secrets
+    x_int = secrets.randbelow(q - 2) + 2
+    y_int = pow(base_int, x_int, prime_int)
+    return {
+        CKA_PRIME: prime_bytes,
+        CKA_BASE: base_bytes,
+        'pub_value': y_int.to_bytes(prime_len, 'big'),
+        'priv_value': x_int.to_bytes(prime_len, 'big'),
+    }
 
 
 def _dh_generate_ossl1(prime_bytes: bytes, base_bytes: bytes) -> dict:

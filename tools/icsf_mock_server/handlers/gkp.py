@@ -358,7 +358,8 @@ def _build_dh_attrs(pub_attrs, priv_attrs, pub_dict):
         prime_int = int.from_bytes(prime_bytes, 'big')
         prime_len = len(prime_bytes)
         base_int = int.from_bytes(base_bytes, 'big')
-        x_int = secrets.randbelow(prime_int - 3) + 2
+        q = (prime_int - 1) // 2
+        x_int = secrets.randbelow(q - 2) + 2
         y_int = pow(base_int, x_int, prime_int)
         priv_value = x_int.to_bytes(prime_len, 'big')
         pub_value  = y_int.to_bytes(prime_len, 'big')
