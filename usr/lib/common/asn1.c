@@ -965,7 +965,8 @@ CK_RV ber_decode_RSAPrivateKey(CK_BYTE *data,
     }
     // make sure we're dealing with an RSA key
     //
-    if (memcmp(alg, ber_rsaEncryption, ber_rsaEncryptionLen) != 0) {
+    if (len < ber_rsaEncryptionLen ||
+        memcmp(alg, ber_rsaEncryption, ber_rsaEncryptionLen) != 0) {
         // probably ought to use a different error
         TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
         return CKR_FUNCTION_FAILED;
@@ -1332,7 +1333,6 @@ CK_RV ber_decode_RSAPublicKey(CK_BYTE *data,
     CK_ATTRIBUTE *modulus_attr = NULL;
     CK_ATTRIBUTE *publ_exp_attr = NULL;
 
-    CK_BYTE *algid_RSABase = NULL;
     CK_BYTE *algid = NULL;
     CK_ULONG algid_len;
     CK_BYTE *param = NULL;
@@ -1345,7 +1345,7 @@ CK_RV ber_decode_RSAPublicKey(CK_BYTE *data,
     CK_ULONG mod_len;
     CK_BYTE *exp;
     CK_ULONG exp_len;
-    CK_ULONG field_len, offset, len;
+    CK_ULONG field_len, offset;
     CK_RV rc;
 
     rc = ber_decode_SPKI(data, data_len, &algid, &algid_len, &param, &param_len,
@@ -1356,17 +1356,10 @@ CK_RV ber_decode_RSAPublicKey(CK_BYTE *data,
     }
 
     /*
-     * Make sure we're dealing with an DH key.
+     * Make sure we're dealing with an RSA key.
      */
-    rc = ber_decode_SEQUENCE((CK_BYTE *)ber_AlgIdRSAEncryption,
-                             ber_AlgIdRSAEncryptionLen, &algid_RSABase,
-                             &len, &field_len);
-    if (rc != CKR_OK) {
-        TRACE_DEVEL("ber_decode_SEQUENCE failed\n");
-        return rc;
-    }
-
-    if (memcmp(algid, algid_RSABase, len) != 0) {
+    if (algid_len < ber_rsaEncryptionLen ||
+        memcmp(algid, ber_rsaEncryption, ber_rsaEncryptionLen) != 0) {
         TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
         return CKR_FUNCTION_FAILED;
     }
@@ -1643,7 +1636,8 @@ CK_RV ber_decode_DSAPrivateKey(CK_BYTE *data,
     // make sure we're dealing with a DSA key.  just compare the OBJECT
     // IDENTIFIER
     //
-    if (memcmp(alg, ber_idDSA, ber_idDSALen) != 0) {
+    if (len < ber_idDSALen ||
+        memcmp(alg, ber_idDSA, ber_idDSALen) != 0) {
         TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
         return CKR_FUNCTION_FAILED;
     }
@@ -1912,7 +1906,8 @@ CK_RV ber_decode_DSAPublicKey(CK_BYTE *data,
     /*
      * Make sure we're dealing with an DSA key.
      */
-    if (memcmp(algid, ber_idDSA, ber_idDSALen) != 0) {
+    if (algid_len < ber_idDSALen ||
+        memcmp(algid, ber_idDSA, ber_idDSALen) != 0) {
         TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
         return CKR_FUNCTION_FAILED;
     }
@@ -2309,7 +2304,8 @@ CK_RV der_decode_ECPrivateKey(CK_BYTE *data,
     switch (key_type) {
     case CKK_EC:
         /* Check OBJECT IDENTIFIER to make sure this is an EC key */
-        if (memcmp(alg, ber_idEC, ber_idECLen) != 0) {
+        if (alg_len < ber_idECLen ||
+            memcmp(alg, ber_idEC, ber_idECLen) != 0) {
             TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
             return CKR_FUNCTION_FAILED;
         }
@@ -2553,14 +2549,12 @@ CK_RV der_decode_ECPublicKey(CK_BYTE *data,
 
     CK_BYTE *algid = NULL;
     CK_ULONG algid_len;
-    CK_BYTE *algid_ECBase = NULL;
     CK_BYTE *param = NULL;
     CK_ULONG param_len;
     CK_BYTE *point = NULL;
     CK_ULONG point_len;
     CK_BYTE *ecpoint = NULL;
     CK_ULONG ecpoint_len;
-    CK_ULONG field_len, len;
     CK_BBOOL ecpoint_allocated = FALSE;
     CK_RV rc;
 
@@ -2575,18 +2569,9 @@ CK_RV der_decode_ECPublicKey(CK_BYTE *data,
     case CKK_EC:
         /* AlgID param is curve OID.
          * Make sure we're dealing with an EC key.
-         * Extract base alg-id of DER encoded EC byte string
-         * and compare against the decoded alg-id from the inner sequence
          */
-        rc = ber_decode_SEQUENCE((CK_BYTE *)der_AlgIdECBase,
-                                 der_AlgIdECBaseLen, &algid_ECBase,
-                                 &len, &field_len);
-        if (rc != CKR_OK) {
-            TRACE_DEVEL("ber_decode_SEQUENCE failed\n");
-            return rc;
-        }
-
-        if (memcmp(algid, algid_ECBase, len) != 0) {
+        if (algid_len < ber_idECLen ||
+            memcmp(algid, ber_idEC, ber_idECLen) != 0) {
             TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
             return CKR_FUNCTION_FAILED;
         }
@@ -2851,7 +2836,8 @@ CK_RV ber_decode_DHPrivateKey(CK_BYTE *data,
     }
     // make sure we're dealing with a DH key.  just compare the OBJECT
     // IDENTIFIER
-    if (memcmp(alg, ber_idDH, ber_idDHLen) != 0) {
+    if (len < ber_idDHLen ||
+        memcmp(alg, ber_idDH, ber_idDHLen) != 0) {
         TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
         return CKR_FUNCTION_FAILED;
     }
@@ -3067,7 +3053,8 @@ CK_RV ber_decode_DHPublicKey(CK_BYTE *data,
     /*
      * Make sure we're dealing with an DH key.
      */
-    if (memcmp(algid, ber_idDH, ber_idDHLen) != 0) {
+    if (algid_len < ber_idDHLen ||
+        memcmp(algid, ber_idDH, ber_idDHLen) != 0) {
         TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
         return CKR_FUNCTION_FAILED;
     }
