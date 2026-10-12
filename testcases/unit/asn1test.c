@@ -2988,6 +2988,147 @@ static int test_decode_spki_short_algid(void)
     return 0;
 }
 
+/* Test ber_decode_SPKI with multi-byte length encoded OID */
+static int test_decode_spki_multibyte_oid_len(void)
+{
+    /* SPKI with 2-byte length encoding (0x81, 0x09) on the OID */
+    CK_BYTE spki[] = {
+        0x30, 0x23,        /* SEQUENCE, length 35 */
+        0x30, 0x0E,        /* SEQUENCE (AlgorithmIdentifier), length 14 */
+        0x06, 0x81, 0x09,  /* OID tag, length in long form (1 octet = 9), RSA OID */
+        0x2A, 0x86, 0x48, 0x86, 0xF7, 0x0D, 0x01, 0x01, 0x01,
+        0x05, 0x00,        /* NULL parameters */
+        0x03, 0x11,        /* BIT STRING, length 17 */
+        0x00,              /* unused bits */
+        0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
+        0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F, 0x10
+    };
+    CK_BYTE *alg_oid = NULL, *param = NULL, *key = NULL;
+    CK_ULONG alg_oid_len = 0, param_len = 0, key_len = 0;
+    CK_RV rv;
+
+    rv = ber_decode_SPKI(spki, sizeof(spki),
+                         &alg_oid, &alg_oid_len,
+                         &param, &param_len,
+                         &key, &key_len);
+    if (rv != CKR_OK) {
+        fprintf(stderr, "[FAIL] %s: decode failed with rv=0x%lx\n", __func__, rv);
+        return 1;
+    }
+
+    /* Tag (1) + Length (2) + Value (9) = 12 bytes */
+    if (alg_oid_len != 12) {
+        fprintf(stderr, "[FAIL] %s: OID length mismatch (expected 12, got %lu)\n",
+                __func__, alg_oid_len);
+        return 1;
+    }
+
+    if (param_len != 2 || key_len != 16) {
+        fprintf(stderr, "[FAIL] %s: param/key length mismatch\n", __func__);
+        return 1;
+    }
+
+    printf("[PASS] %s\n", __func__);
+    return 0;
+}
+
+/* Test ber_decode_SPKI with non-OID tag in AlgorithmIdentifier */
+static int test_decode_spki_invalid_oid_tag(void)
+{
+    CK_BYTE spki[] = {
+        0x30, 0x22,        /* SEQUENCE */
+        0x30, 0x0D,        /* SEQUENCE (AlgorithmIdentifier) */
+        0x02, 0x09,        /* INTEGER tag (0x02) instead of OID (0x06) */
+        0x2A, 0x86, 0x48, 0x86, 0xF7, 0x0D, 0x01, 0x01, 0x01,
+        0x05, 0x00,        /* NULL */
+        0x03, 0x11,        /* BIT STRING */
+        0x00,
+        0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
+        0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F, 0x10
+    };
+    CK_BYTE *alg_oid = NULL, *param = NULL, *key = NULL;
+    CK_ULONG alg_oid_len = 0, param_len = 0, key_len = 0;
+    CK_RV rv;
+
+    rv = ber_decode_SPKI(spki, sizeof(spki),
+                         &alg_oid, &alg_oid_len,
+                         &param, &param_len,
+                         &key, &key_len);
+    if (rv == CKR_OK) {
+        fprintf(stderr, "[FAIL] %s: expected error for invalid OID tag\n", __func__);
+        return 1;
+    }
+
+    printf("[PASS] %s\n", __func__);
+    return 0;
+}
+
+/* Test ber_decode_SPKI with OID length exceeding AlgorithmIdentifier */
+static int test_decode_spki_oid_len_overflow(void)
+{
+    CK_BYTE spki[] = {
+        0x30, 0x22,
+        0x30, 0x0D,        /* AlgorithmIdentifier length: 13 */
+        0x06, 0x20,        /* OID claiming 32 bytes (> 13) */
+        0x2A, 0x86, 0x48, 0x86, 0xF7, 0x0D, 0x01, 0x01, 0x01,
+        0x05, 0x00,
+        0x03, 0x11,
+        0x00,
+        0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
+        0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F, 0x10
+    };
+    CK_BYTE *alg_oid = NULL, *param = NULL, *key = NULL;
+    CK_ULONG alg_oid_len = 0, param_len = 0, key_len = 0;
+    CK_RV rv;
+
+    rv = ber_decode_SPKI(spki, sizeof(spki),
+                         &alg_oid, &alg_oid_len,
+                         &param, &param_len,
+                         &key, &key_len);
+    if (rv == CKR_OK) {
+        fprintf(stderr, "[FAIL] %s: expected error for OID length overflow\n", __func__);
+        return 1;
+    }
+
+    printf("[PASS] %s\n", __func__);
+    return 0;
+}
+
+/* Test ber_decode_SPKI with no parameters in AlgorithmIdentifier */
+static int test_decode_spki_no_param(void)
+{
+    CK_BYTE spki[] = {
+        0x30, 0x20,        /* SEQUENCE, length 32 */
+        0x30, 0x0B,        /* SEQUENCE (AlgorithmIdentifier), length 11 (OID only) */
+        0x06, 0x09, 0x2B, 0x06, 0x01, 0x04, 0x01, 0xDA, 0x47, 0x0F, 0x01,
+        0x03, 0x11,        /* BIT STRING */
+        0x00,
+        0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
+        0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F, 0x10
+    };
+    CK_BYTE *alg_oid = NULL, *param = NULL, *key = NULL;
+    CK_ULONG alg_oid_len = 0, param_len = 0, key_len = 0;
+    CK_RV rv;
+
+    rv = ber_decode_SPKI(spki, sizeof(spki),
+                         &alg_oid, &alg_oid_len,
+                         &param, &param_len,
+                         &key, &key_len);
+    if (rv != CKR_OK) {
+        fprintf(stderr, "[FAIL] %s: decode failed with rv=0x%lx\n", __func__, rv);
+        return 1;
+    }
+
+    if (alg_oid_len != 11 || param_len != 0 || key_len != 16) {
+        fprintf(stderr, "[FAIL] %s: length mismatch (oid=%lu, param=%lu, key=%lu)\n",
+                __func__, alg_oid_len, param_len, key_len);
+        return 1;
+    }
+
+    printf("[PASS] %s\n", __func__);
+    return 0;
+}
+
 /* Test ber_encode_SPKI with OID + NULL parameter (RSA-style) */
 static int test_encode_spki_with_null_param(void)
 {
@@ -3364,6 +3505,10 @@ int main(void)
     failed += test_decode_spki_valid();
     failed += test_decode_spki_truncated();
     failed += test_decode_spki_short_algid();
+    failed += test_decode_spki_multibyte_oid_len();
+    failed += test_decode_spki_invalid_oid_tag();
+    failed += test_decode_spki_oid_len_overflow();
+    failed += test_decode_spki_no_param();
     failed += test_encode_spki_with_null_param();
     failed += test_encode_spki_no_param();
     failed += test_encode_spki_length_only();
@@ -3375,6 +3520,7 @@ int main(void)
     failed += test_encode_rsa_private_key_length_only();
     failed += test_decode_rsa_private_key_valid();
     failed += test_decode_rsa_private_key_invalid_alg();
+    failed += test_decode_rsa_private_key_short_algid();
     failed += test_roundtrip_rsa_private_key();
 
     /* RSA Public Key tests */
@@ -3382,6 +3528,7 @@ int main(void)
     failed += test_encode_rsa_public_key_basic();
     failed += test_decode_rsa_public_key_valid();
     failed += test_decode_rsa_public_key_invalid_alg();
+    failed += test_decode_rsa_public_key_short_algid();
     failed += test_roundtrip_rsa_public_key();
 
     /* DSA Private Key tests */
@@ -3389,12 +3536,14 @@ int main(void)
     failed += test_encode_dsa_private_key_basic();
     failed += test_encode_dsa_private_key_length_only();
     failed += test_decode_dsa_private_key_valid();
+    failed += test_decode_dsa_private_key_short_algid();
     failed += test_roundtrip_dsa_private_key();
 
     /* DSA Public Key tests */
     printf("\n--- DSA Public Key Tests ---\n");
     failed += test_encode_dsa_public_key_basic();
     failed += test_decode_dsa_public_key_valid();
+    failed += test_decode_dsa_public_key_short_algid();
     failed += test_roundtrip_dsa_public_key();
 
     /* DH Private Key tests */
@@ -3402,12 +3551,14 @@ int main(void)
     failed += test_encode_dh_private_key_basic();
     failed += test_encode_dh_private_key_length_only();
     failed += test_decode_dh_private_key_valid();
+    failed += test_decode_dh_private_key_short_algid();
     failed += test_roundtrip_dh_private_key();
 
     /* DH Public Key tests */
     printf("\n--- DH Public Key Tests ---\n");
     failed += test_encode_dh_public_key_basic();
     failed += test_decode_dh_public_key_valid();
+    failed += test_decode_dh_public_key_short_algid();
     failed += test_roundtrip_dh_public_key();
 
     /* EC Private Key tests */
@@ -3415,32 +3566,44 @@ int main(void)
     failed += test_encode_ec_private_key_basic();
     failed += test_encode_ec_private_key_length_only();
     failed += test_decode_ec_private_key_valid();
+    failed += test_decode_ec_private_key_short_algid();
+    failed += test_decode_ec_private_key_no_curve_oid();
+    failed += test_decode_ec_private_key_unknown_curve_oid();
     failed += test_roundtrip_ec_private_key();
 
     /* EC Public Key tests */
     printf("\n--- EC Public Key Tests ---\n");
     failed += test_encode_ec_public_key_basic();
     failed += test_decode_ec_public_key_valid();
+    failed += test_decode_ec_public_key_short_algid();
+    failed += test_decode_ec_public_key_no_curve_oid();
+    failed += test_decode_ec_public_key_unknown_curve_oid();
     failed += test_roundtrip_ec_public_key();
 
     /* Edwards Curve Private Key tests */
     printf("\n--- Edwards Curve Private Key Tests ---\n");
     failed += test_encode_edwards_private_key_basic();
+    failed += test_decode_edwards_private_key_unknown_oid();
     failed += test_roundtrip_edwards_private_key();
 
     /* Edwards Curve Public Key tests */
     printf("\n--- Edwards Curve Public Key Tests ---\n");
     failed += test_encode_edwards_public_key_basic();
+    failed += test_decode_edwards_public_key_unknown_oid();
     failed += test_roundtrip_edwards_public_key();
 
     /* Montgomery Curve Private Key tests */
     printf("\n--- Montgomery Curve Private Key Tests ---\n");
     failed += test_encode_montgomery_private_key_basic();
+    failed += test_decode_montgomery_private_key_unknown_oid();
+    failed += test_decode_montgomery_private_key_wrong_curve_type();
     failed += test_roundtrip_montgomery_private_key();
 
     /* Montgomery Curve Public Key tests */
     printf("\n--- Montgomery Curve Public Key Tests ---\n");
     failed += test_encode_montgomery_public_key_basic();
+    failed += test_decode_montgomery_public_key_unknown_oid();
+    failed += test_decode_montgomery_public_key_wrong_curve_type();
     failed += test_roundtrip_montgomery_public_key();
 
     /* IBM ML-DSA Private Key tests */
@@ -3448,12 +3611,14 @@ int main(void)
     failed += test_encode_ibm_ml_dsa_private_key_basic();
     failed += test_encode_ibm_ml_dsa_private_key_length_only();
     failed += test_decode_ibm_ml_dsa_private_key_valid();
+    failed += test_decode_ibm_ml_dsa_private_key_short_algid();
     failed += test_roundtrip_ibm_ml_dsa_private_key();
 
     /* IBM ML-DSA Public Key tests */
     printf("\n--- IBM ML-DSA Public Key Tests ---\n");
     failed += test_encode_ibm_ml_dsa_public_key_basic();
     failed += test_decode_ibm_ml_dsa_public_key_valid();
+    failed += test_decode_ibm_ml_dsa_public_key_short_algid();
     failed += test_roundtrip_ibm_ml_dsa_public_key();
 
     /* IBM ML-KEM Private Key tests */
@@ -3461,47 +3626,55 @@ int main(void)
     failed += test_encode_ibm_ml_kem_private_key_basic();
     failed += test_encode_ibm_ml_kem_private_key_length_only();
     failed += test_decode_ibm_ml_kem_private_key_valid();
+    failed += test_decode_ibm_ml_kem_private_key_short_algid();
     failed += test_roundtrip_ibm_ml_kem_private_key();
 
     /* IBM ML-KEM Public Key tests */
     printf("\n--- IBM ML-KEM Public Key Tests ---\n");
     failed += test_encode_ibm_ml_kem_public_key_basic();
     failed += test_decode_ibm_ml_kem_public_key_valid();
+    failed += test_decode_ibm_ml_kem_public_key_short_algid();
     failed += test_roundtrip_ibm_ml_kem_public_key();
 
     /* IBM Dilithium Tests */
     printf("\n--- IBM Dilithium Private Key Tests ---\n");
     failed += test_encode_ibm_dilithium_private_key_basic();
     failed += test_decode_ibm_dilithium_private_key_basic();
+    failed += test_decode_ibm_dilithium_private_key_short_algid();
     failed += test_roundtrip_ibm_dilithium_private_key();
     failed += test_ibm_dilithium_private_key_null_optional();
 
     printf("\n--- IBM Dilithium Public Key Tests ---\n");
     failed += test_encode_ibm_dilithium_public_key_basic();
     failed += test_decode_ibm_dilithium_public_key_basic();
+    failed += test_decode_ibm_dilithium_public_key_short_algid();
     failed += test_roundtrip_ibm_dilithium_public_key();
 
     /* IBM Kyber Tests */
     printf("\n--- IBM Kyber Private Key Tests ---\n");
     failed += test_encode_ibm_kyber_private_key_basic();
     failed += test_decode_ibm_kyber_private_key_basic();
+    failed += test_decode_ibm_kyber_private_key_short_algid();
     failed += test_roundtrip_ibm_kyber_private_key();
     failed += test_ibm_kyber_private_key_null_optional();
 
     printf("\n--- IBM Kyber Public Key Tests ---\n");
     failed += test_encode_ibm_kyber_public_key_basic();
     failed += test_decode_ibm_kyber_public_key_basic();
+    failed += test_decode_ibm_kyber_public_key_short_algid();
     failed += test_roundtrip_ibm_kyber_public_key();
 
     printf("\n--- ML-DSA Public Key Tests ---\n");
     failed += test_encode_ml_dsa_public_key_basic();
     failed += test_decode_ml_dsa_public_key_valid();
+    failed += test_decode_ml_dsa_public_key_short_algid();
     failed += test_roundtrip_ml_dsa_public_key();
 
     printf("\n--- ML-DSA Private Key Tests ---\n");
     failed += test_encode_ml_dsa_private_key_basic();
     failed += test_encode_ml_dsa_private_key_length_only();
     failed += test_decode_ml_dsa_private_key_valid();
+    failed += test_decode_ml_dsa_private_key_short_algid();
     failed += test_roundtrip_ml_dsa_private_key();
 
     printf("\n--- ML-DSA Private Key Tests with Seed ---\n");
@@ -3519,12 +3692,14 @@ int main(void)
     printf("\n--- ML-KEM Public Key Tests ---\n");
     failed += test_encode_ml_kem_public_key_basic();
     failed += test_decode_ml_kem_public_key_valid();
+    failed += test_decode_ml_kem_public_key_short_algid();
     failed += test_roundtrip_ml_kem_public_key();
 
     printf("\n--- ML-KEM Private Key Tests ---\n");
     failed += test_encode_ml_kem_private_key_basic();
     failed += test_encode_ml_kem_private_key_length_only();
     failed += test_decode_ml_kem_private_key_valid();
+    failed += test_decode_ml_kem_private_key_short_algid();
     failed += test_roundtrip_ml_kem_private_key();
 
     printf("\n--- ML-KEM Private Key Tests with Seed ---\n");

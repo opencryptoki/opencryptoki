@@ -264,6 +264,35 @@ cleanup:
     return result;
 }
 
+/* Test ber_decode_IBM_ML_DSA_PublicKey with short AlgorithmIdentifier */
+int test_decode_ibm_ml_dsa_public_key_short_algid(void)
+{
+    CK_BYTE short_alg_data[] = {
+        0x30, 0x12,        /* SEQUENCE */
+        0x30, 0x03,        /* AlgorithmIdentifier */
+        0x06, 0x01, 0x2A,  /* 3-byte OID */
+        0x03, 0x0B,        /* BIT STRING */
+        0x00,
+        0x04, 0x08, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08
+    };
+    CK_ATTRIBUTE *rho = NULL, *t1 = NULL, *value = NULL;
+    const struct pqc_oid *oid = NULL;
+    CK_RV rv;
+
+    rv = ber_decode_IBM_ML_DSA_PublicKey(CKM_IBM_ML_DSA, short_alg_data, sizeof(short_alg_data),
+                                         &rho, &t1, &value, &oid);
+    if (rv == CKR_OK) {
+        fprintf(stderr, "[FAIL] %s: should have failed on short AlgorithmIdentifier\n", __func__);
+        if (rho) free(rho);
+        if (t1) free(t1);
+        if (value) free(value);
+        return 1;
+    }
+
+    printf("[PASS] %s\n", __func__);
+    return 0;
+}
+
 /* Test ML-DSA public key encode/decode roundtrip */
 int test_roundtrip_ibm_ml_dsa_public_key(void)
 {
@@ -589,6 +618,43 @@ cleanup:
     return result;
 }
 
+/* Test ber_decode_IBM_ML_DSA_PrivateKey with short AlgorithmIdentifier */
+int test_decode_ibm_ml_dsa_private_key_short_algid(void)
+{
+    CK_BYTE short_alg_data[] = {
+        0x30, 0x14,        /* SEQUENCE */
+        0x02, 0x01, 0x00,  /* version = 0 */
+        0x30, 0x03,        /* AlgorithmIdentifier */
+        0x06, 0x01, 0x2A,  /* 3-byte OID */
+        0x04, 0x0A,        /* OCTET STRING */
+        0x04, 0x08, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08
+    };
+    CK_ATTRIBUTE *rho = NULL, *seed = NULL, *tr = NULL, *s1 = NULL;
+    CK_ATTRIBUTE *s2 = NULL, *t0 = NULL, *t1 = NULL, *priv_seed = NULL, *value = NULL;
+    const struct pqc_oid *oid = NULL;
+    CK_RV rv;
+
+    rv = ber_decode_IBM_ML_DSA_PrivateKey(CKM_IBM_ML_DSA, short_alg_data, sizeof(short_alg_data),
+                                          &rho, &seed, &tr, &s1, &s2, &t0, &t1,
+                                          &priv_seed, &value, &oid);
+    if (rv == CKR_OK) {
+        fprintf(stderr, "[FAIL] %s: should have failed on short AlgorithmIdentifier\n", __func__);
+        if (rho) free(rho);
+        if (seed) free(seed);
+        if (tr) free(tr);
+        if (s1) free(s1);
+        if (s2) free(s2);
+        if (t0) free(t0);
+        if (t1) free(t1);
+        if (priv_seed) free(priv_seed);
+        if (value) free(value);
+        return 1;
+    }
+
+    printf("[PASS] %s\n", __func__);
+    return 0;
+}
+
 /* Test ML-DSA private key encode/decode roundtrip */
 int test_roundtrip_ibm_ml_dsa_private_key(void)
 {
@@ -803,6 +869,34 @@ cleanup:
     if (dec_value) free(dec_value);
     if (encoded) free(encoded);
     return result;
+}
+
+/* Test ber_decode_IBM_ML_KEM_PublicKey with short AlgorithmIdentifier */
+int test_decode_ibm_ml_kem_public_key_short_algid(void)
+{
+    CK_BYTE short_alg_data[] = {
+        0x30, 0x12,        /* SEQUENCE */
+        0x30, 0x03,        /* AlgorithmIdentifier */
+        0x06, 0x01, 0x2A,  /* 3-byte OID */
+        0x03, 0x0B,        /* BIT STRING */
+        0x00,
+        0x04, 0x08, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08
+    };
+    CK_ATTRIBUTE *pk = NULL, *value = NULL;
+    const struct pqc_oid *oid = NULL;
+    CK_RV rv;
+
+    rv = ber_decode_IBM_ML_KEM_PublicKey(CKM_IBM_ML_KEM, short_alg_data, sizeof(short_alg_data),
+                                         &pk, &value, &oid);
+    if (rv == CKR_OK) {
+        fprintf(stderr, "[FAIL] %s: should have failed on short AlgorithmIdentifier\n", __func__);
+        if (pk) free(pk);
+        if (value) free(value);
+        return 1;
+    }
+
+    printf("[PASS] %s\n", __func__);
+    return 0;
 }
 
 /* Test ML-KEM public key encode/decode roundtrip */
@@ -1058,6 +1152,36 @@ cleanup:
     return result;
 }
 
+/* Test ber_decode_IBM_ML_KEM_PrivateKey with short AlgorithmIdentifier */
+int test_decode_ibm_ml_kem_private_key_short_algid(void)
+{
+    CK_BYTE short_alg_data[] = {
+        0x30, 0x14,        /* SEQUENCE */
+        0x02, 0x01, 0x00,  /* version = 0 */
+        0x30, 0x03,        /* AlgorithmIdentifier */
+        0x06, 0x01, 0x2A,  /* 3-byte OID */
+        0x04, 0x0A,        /* OCTET STRING */
+        0x04, 0x08, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08
+    };
+    CK_ATTRIBUTE *sk = NULL, *pk = NULL, *priv_seed = NULL, *value = NULL;
+    const struct pqc_oid *oid = NULL;
+    CK_RV rv;
+
+    rv = ber_decode_IBM_ML_KEM_PrivateKey(CKM_IBM_ML_KEM, short_alg_data, sizeof(short_alg_data),
+                                          &sk, &pk, &priv_seed, &value, &oid);
+    if (rv == CKR_OK) {
+        fprintf(stderr, "[FAIL] %s: should have failed on short AlgorithmIdentifier\n", __func__);
+        if (sk) free(sk);
+        if (pk) free(pk);
+        if (priv_seed) free(priv_seed);
+        if (value) free(value);
+        return 1;
+    }
+
+    printf("[PASS] %s\n", __func__);
+    return 0;
+}
+
 /* Test ML-KEM private key encode/decode roundtrip */
 int test_roundtrip_ibm_ml_kem_private_key(void)
 {
@@ -1264,6 +1388,35 @@ cleanup:
     if (dec_value) free(dec_value);
     if (encoded) free(encoded);
     return result;
+}
+
+/* Test ber_decode_IBM_DilithiumPublicKey with short AlgorithmIdentifier */
+int test_decode_ibm_dilithium_public_key_short_algid(void)
+{
+    CK_BYTE short_alg_data[] = {
+        0x30, 0x12,        /* SEQUENCE */
+        0x30, 0x03,        /* AlgorithmIdentifier */
+        0x06, 0x01, 0x2A,  /* 3-byte OID */
+        0x03, 0x0B,        /* BIT STRING */
+        0x00,
+        0x04, 0x08, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08
+    };
+    CK_ATTRIBUTE *rho = NULL, *t1 = NULL, *value = NULL;
+    const struct pqc_oid *oid = NULL;
+    CK_RV rv;
+
+    rv = ber_decode_IBM_ML_DSA_PublicKey(CKM_IBM_DILITHIUM, short_alg_data, sizeof(short_alg_data),
+                                         &rho, &t1, &value, &oid);
+    if (rv == CKR_OK) {
+        fprintf(stderr, "[FAIL] %s: should have failed on short AlgorithmIdentifier\n", __func__);
+        if (rho) free(rho);
+        if (t1) free(t1);
+        if (value) free(value);
+        return 1;
+    }
+
+    printf("[PASS] %s\n", __func__);
+    return 0;
 }
 
 /* Test Dilithium public key encode/decode roundtrip */
@@ -1513,6 +1666,43 @@ cleanup:
     if (dec_value) free(dec_value);
     if (encoded) free(encoded);
     return result;
+}
+
+/* Test ber_decode_IBM_DilithiumPrivateKey with short AlgorithmIdentifier */
+int test_decode_ibm_dilithium_private_key_short_algid(void)
+{
+    CK_BYTE short_alg_data[] = {
+        0x30, 0x14,        /* SEQUENCE */
+        0x02, 0x01, 0x00,  /* version = 0 */
+        0x30, 0x03,        /* AlgorithmIdentifier */
+        0x06, 0x01, 0x2A,  /* 3-byte OID */
+        0x04, 0x0A,        /* OCTET STRING */
+        0x04, 0x08, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08
+    };
+    CK_ATTRIBUTE *rho = NULL, *seed = NULL, *tr = NULL, *s1 = NULL;
+    CK_ATTRIBUTE *s2 = NULL, *t0 = NULL, *t1 = NULL, *priv_seed = NULL, *value = NULL;
+    const struct pqc_oid *oid = NULL;
+    CK_RV rv;
+
+    rv = ber_decode_IBM_ML_DSA_PrivateKey(CKM_IBM_DILITHIUM, short_alg_data, sizeof(short_alg_data),
+                                          &rho, &seed, &tr, &s1, &s2, &t0, &t1,
+                                          &priv_seed, &value, &oid);
+    if (rv == CKR_OK) {
+        fprintf(stderr, "[FAIL] %s: should have failed on short AlgorithmIdentifier\n", __func__);
+        if (rho) free(rho);
+        if (seed) free(seed);
+        if (tr) free(tr);
+        if (s1) free(s1);
+        if (s2) free(s2);
+        if (t0) free(t0);
+        if (t1) free(t1);
+        if (priv_seed) free(priv_seed);
+        if (value) free(value);
+        return 1;
+    }
+
+    printf("[PASS] %s\n", __func__);
+    return 0;
 }
 
 /* Test Dilithium private key encode/decode roundtrip */
@@ -1798,6 +1988,34 @@ cleanup:
     return result;
 }
 
+/* Test ber_decode_IBM_KyberPublicKey with short AlgorithmIdentifier */
+int test_decode_ibm_kyber_public_key_short_algid(void)
+{
+    CK_BYTE short_alg_data[] = {
+        0x30, 0x12,        /* SEQUENCE */
+        0x30, 0x03,        /* AlgorithmIdentifier */
+        0x06, 0x01, 0x2A,  /* 3-byte OID */
+        0x03, 0x0B,        /* BIT STRING */
+        0x00,
+        0x04, 0x08, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08
+    };
+    CK_ATTRIBUTE *pk = NULL, *value = NULL;
+    const struct pqc_oid *oid = NULL;
+    CK_RV rv;
+
+    rv = ber_decode_IBM_ML_KEM_PublicKey(CKM_IBM_KYBER, short_alg_data, sizeof(short_alg_data),
+                                         &pk, &value, &oid);
+    if (rv == CKR_OK) {
+        fprintf(stderr, "[FAIL] %s: should have failed on short AlgorithmIdentifier\n", __func__);
+        if (pk) free(pk);
+        if (value) free(value);
+        return 1;
+    }
+
+    printf("[PASS] %s\n", __func__);
+    return 0;
+}
+
 /* Test Kyber public key encode/decode roundtrip */
 int test_roundtrip_ibm_kyber_public_key(void)
 {
@@ -1990,6 +2208,36 @@ cleanup:
     if (dec_value) free(dec_value);
     if (encoded) free(encoded);
     return result;
+}
+
+/* Test ber_decode_IBM_KyberPrivateKey with short AlgorithmIdentifier */
+int test_decode_ibm_kyber_private_key_short_algid(void)
+{
+    CK_BYTE short_alg_data[] = {
+        0x30, 0x14,        /* SEQUENCE */
+        0x02, 0x01, 0x00,  /* version = 0 */
+        0x30, 0x03,        /* AlgorithmIdentifier */
+        0x06, 0x01, 0x2A,  /* 3-byte OID */
+        0x04, 0x0A,        /* OCTET STRING */
+        0x04, 0x08, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08
+    };
+    CK_ATTRIBUTE *sk = NULL, *pk = NULL, *priv_seed = NULL, *value = NULL;
+    const struct pqc_oid *oid = NULL;
+    CK_RV rv;
+
+    rv = ber_decode_IBM_ML_KEM_PrivateKey(CKM_IBM_KYBER, short_alg_data, sizeof(short_alg_data),
+                                          &sk, &pk, &priv_seed, &value, &oid);
+    if (rv == CKR_OK) {
+        fprintf(stderr, "[FAIL] %s: should have failed on short AlgorithmIdentifier\n", __func__);
+        if (sk) free(sk);
+        if (pk) free(pk);
+        if (priv_seed) free(priv_seed);
+        if (value) free(value);
+        return 1;
+    }
+
+    printf("[PASS] %s\n", __func__);
+    return 0;
 }
 
 /* Test Kyber private key encode/decode roundtrip */
@@ -2225,6 +2473,33 @@ cleanup:
     return result;
 }
 
+/* Test ber_decode_ML_DSA_PublicKey with short AlgorithmIdentifier */
+int test_decode_ml_dsa_public_key_short_algid(void)
+{
+    CK_BYTE short_alg_data[] = {
+        0x30, 0x12,        /* SEQUENCE */
+        0x30, 0x03,        /* AlgorithmIdentifier */
+        0x06, 0x01, 0x2A,  /* 3-byte OID */
+        0x03, 0x0B,        /* BIT STRING */
+        0x00,
+        0x04, 0x08, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08
+    };
+    CK_ATTRIBUTE *value = NULL;
+    const struct pqc_oid *oid = NULL;
+    CK_RV rv;
+
+    rv = ber_decode_ML_DSA_PublicKey(short_alg_data, sizeof(short_alg_data),
+                                     &value, &oid);
+    if (rv == CKR_OK) {
+        fprintf(stderr, "[FAIL] %s: should have failed on short AlgorithmIdentifier\n", __func__);
+        if (value) free(value);
+        return 1;
+    }
+
+    printf("[PASS] %s\n", __func__);
+    return 0;
+}
+
 /* Test ML-DSA public key encode/decode roundtrip */
 int test_roundtrip_ml_dsa_public_key(void)
 {
@@ -2442,6 +2717,34 @@ cleanup:
     if (dec_seed) free(dec_seed);
     if (encoded) free(encoded);
     return result;
+}
+
+/* Test ber_decode_ML_DSA_PrivateKey with short AlgorithmIdentifier */
+int test_decode_ml_dsa_private_key_short_algid(void)
+{
+    CK_BYTE short_alg_data[] = {
+        0x30, 0x14,        /* SEQUENCE */
+        0x02, 0x01, 0x00,  /* version = 0 */
+        0x30, 0x03,        /* AlgorithmIdentifier */
+        0x06, 0x01, 0x2A,  /* 3-byte OID */
+        0x04, 0x0A,        /* OCTET STRING */
+        0x04, 0x08, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08
+    };
+    CK_ATTRIBUTE *value = NULL, *seed = NULL;
+    const struct pqc_oid *oid = NULL;
+    CK_RV rv;
+
+    rv = ber_decode_ML_DSA_PrivateKey(short_alg_data, sizeof(short_alg_data),
+                                      &value, &seed, &oid);
+    if (rv == CKR_OK) {
+        fprintf(stderr, "[FAIL] %s: should have failed on short AlgorithmIdentifier\n", __func__);
+        if (value) free(value);
+        if (seed) free(seed);
+        return 1;
+    }
+
+    printf("[PASS] %s\n", __func__);
+    return 0;
 }
 
 /* Test ML-DSA private key encode/decode roundtrip */
@@ -3111,6 +3414,33 @@ cleanup:
     return result;
 }
 
+/* Test ber_decode_ML_KEM_PublicKey with short AlgorithmIdentifier */
+int test_decode_ml_kem_public_key_short_algid(void)
+{
+    CK_BYTE short_alg_data[] = {
+        0x30, 0x12,        /* SEQUENCE */
+        0x30, 0x03,        /* AlgorithmIdentifier */
+        0x06, 0x01, 0x2A,  /* 3-byte OID */
+        0x03, 0x0B,        /* BIT STRING */
+        0x00,
+        0x04, 0x08, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08
+    };
+    CK_ATTRIBUTE *value = NULL;
+    const struct pqc_oid *oid = NULL;
+    CK_RV rv;
+
+    rv = ber_decode_ML_KEM_PublicKey(short_alg_data, sizeof(short_alg_data),
+                                     &value, &oid);
+    if (rv == CKR_OK) {
+        fprintf(stderr, "[FAIL] %s: should have failed on short AlgorithmIdentifier\n", __func__);
+        if (value) free(value);
+        return 1;
+    }
+
+    printf("[PASS] %s\n", __func__);
+    return 0;
+}
+
 /* Test ML-KEM public key encode/decode roundtrip */
 int test_roundtrip_ml_kem_public_key(void)
 {
@@ -3328,6 +3658,34 @@ cleanup:
     if (dec_seed) free(dec_seed);
     if (encoded) free(encoded);
     return result;
+}
+
+/* Test ber_decode_ML_KEM_PrivateKey with short AlgorithmIdentifier */
+int test_decode_ml_kem_private_key_short_algid(void)
+{
+    CK_BYTE short_alg_data[] = {
+        0x30, 0x14,        /* SEQUENCE */
+        0x02, 0x01, 0x00,  /* version = 0 */
+        0x30, 0x03,        /* AlgorithmIdentifier */
+        0x06, 0x01, 0x2A,  /* 3-byte OID */
+        0x04, 0x0A,        /* OCTET STRING */
+        0x04, 0x08, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08
+    };
+    CK_ATTRIBUTE *value = NULL, *seed = NULL;
+    const struct pqc_oid *oid = NULL;
+    CK_RV rv;
+
+    rv = ber_decode_ML_KEM_PrivateKey(short_alg_data, sizeof(short_alg_data),
+                                      &value, &seed, &oid);
+    if (rv == CKR_OK) {
+        fprintf(stderr, "[FAIL] %s: should have failed on short AlgorithmIdentifier\n", __func__);
+        if (value) free(value);
+        if (seed) free(seed);
+        return 1;
+    }
+
+    printf("[PASS] %s\n", __func__);
+    return 0;
 }
 
 /* Test ML-KEM private key encode/decode roundtrip */
