@@ -23,6 +23,7 @@
 #include "h_extern.h"
 #include "trace.h"
 #include "pqc_defs.h"
+#include "ec_defs.h"
 
 
 #define ADD_OVERFLOW(a, b)  ((b) > ULONG_MAX - (a))
@@ -2271,6 +2272,8 @@ CK_RV der_decode_ECPrivateKey(CK_BYTE *data,
     CK_BYTE *ecpoint = NULL;
     CK_ULONG ecpoint_len;
     CK_BBOOL ecpoint_allocated = FALSE;
+    int expected_curve_type;
+    int i, found;
     CK_RV rc;
 
     /*
@@ -2308,14 +2311,41 @@ CK_RV der_decode_ECPrivateKey(CK_BYTE *data,
             TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
             return CKR_FUNCTION_FAILED;
         }
+        /* Any known curve is acceptable (EP11 uses CKK_EC for all curves). */
+        parm_buf = alg + ber_idECLen;
+        parm_len = alg_len - ber_idECLen;
+        expected_curve_type = -1;
         break;
     case CKK_EC_EDWARDS:
+        parm_buf = alg;
+        parm_len = alg_len;
+        expected_curve_type = EDWARDS_CURVE;
+        break;
     case CKK_EC_MONTGOMERY:
-        /* ALgID itself is curve OID */
+        parm_buf = alg;
+        parm_len = alg_len;
+        expected_curve_type = MONTGOMERY_CURVE;
         break;
     default:
         TRACE_DEVEL("Key type 0x%lx not supported.\n", key_type);
         return CKR_KEY_TYPE_INCONSISTENT;
+    }
+
+    /* Verify curve OID is known (and of the right type for Edwards/Montgomery) */
+    found = 0;
+    for (i = 0; i < NUMEC; i++) {
+        if ((expected_curve_type == -1 ||
+             der_ec_supported[i].curve_type == (uint8_t)expected_curve_type) &&
+            der_ec_supported[i].data_size == parm_len &&
+            memcmp(der_ec_supported[i].data, parm_buf, parm_len) == 0) {
+            found = 1;
+            break;
+        }
+    }
+    if (!found) {
+        TRACE_ERROR("%s: unknown or mismatched curve OID for key type "
+                    "0x%lx\n", __func__, key_type);
+        return CKR_FUNCTION_FAILED;
     }
 
     /* Decode the ecdhkey into buf */
@@ -2382,24 +2412,6 @@ CK_RV der_decode_ECPrivateKey(CK_BYTE *data,
                         "option %ld\n", option);
             goto cleanup;
         }
-    }
-
-    /* Now build attribute for CKA_EC_PARAMS */
-    switch (key_type) {
-    case CKK_EC:
-        /* AlgID param is curve OID */
-        parm_buf = alg + ber_idECLen;
-        parm_len = alg_len - ber_idECLen;
-        break;
-    case CKK_EC_EDWARDS:
-    case CKK_EC_MONTGOMERY:
-        /* ALgID itself is curve OID */
-        parm_buf = alg;
-        parm_len = alg_len;
-        break;
-    default:
-        TRACE_DEVEL("Key type 0x%lx not supported.\n", key_type);
-        return CKR_KEY_TYPE_INCONSISTENT;
     }
 
     rc = build_attribute(CKA_EC_PARAMS, parm_buf, parm_len, &parm_attr);
@@ -2555,6 +2567,8 @@ CK_RV der_decode_ECPublicKey(CK_BYTE *data,
     CK_BYTE *ecpoint = NULL;
     CK_ULONG ecpoint_len;
     CK_BBOOL ecpoint_allocated = FALSE;
+    int expected_curve_type;
+    int i, found;
     CK_RV rc;
 
     rc = ber_decode_SPKI(data, data_len, &algid, &algid_len, &param, &param_len,
@@ -2566,26 +2580,51 @@ CK_RV der_decode_ECPublicKey(CK_BYTE *data,
 
     switch (key_type) {
     case CKK_EC:
-        /* AlgID param is curve OID.
-         * Make sure we're dealing with an EC key.
-         */
+        /* Make sure this is an EC key; param/param_len already set by
+         * ber_decode_SPKI to the curve OID following the EC algorithm OID. */
         if (algid_len < ber_idECLen ||
             memcmp(algid, ber_idEC, ber_idECLen) != 0) {
             TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
             return CKR_FUNCTION_FAILED;
         }
+        /* Any known curve is acceptable (EP11 uses CKK_EC for all curves). */
+        expected_curve_type = -1;
         break;
 
     case CKK_EC_EDWARDS:
-    case CKK_EC_MONTGOMERY:
-        /* ALgID itself is curve OID */
+        /* ALgID itself is the curve OID */
         param = algid;
         param_len = algid_len;
+        expected_curve_type = EDWARDS_CURVE;
+        break;
+
+    case CKK_EC_MONTGOMERY:
+        /* ALgID itself is the curve OID */
+        param = algid;
+        param_len = algid_len;
+        expected_curve_type = MONTGOMERY_CURVE;
         break;
 
     default:
         TRACE_DEVEL("Key type 0x%lx not supported.\n", key_type);
         return CKR_KEY_TYPE_INCONSISTENT;
+    }
+
+    /* Verify curve OID is known (and of the right type for Edwards/Montgomery) */
+    found = 0;
+    for (i = 0; i < NUMEC; i++) {
+        if ((expected_curve_type == -1 ||
+             der_ec_supported[i].curve_type == (uint8_t)expected_curve_type) &&
+            der_ec_supported[i].data_size == param_len &&
+            memcmp(der_ec_supported[i].data, param, param_len) == 0) {
+            found = 1;
+            break;
+        }
+    }
+    if (!found) {
+        TRACE_ERROR("%s: unknown or mismatched curve OID for key type "
+                    "0x%lx\n", __func__, key_type);
+        return CKR_FUNCTION_FAILED;
     }
 
     // build ec-parameter attribute
