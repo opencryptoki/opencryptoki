@@ -485,8 +485,9 @@ CK_RV ber_decode_SPKI(CK_BYTE *spki, CK_ULONG spki_len,
 {
     CK_BYTE *out_seq, *id_seq, *bit_str;
     CK_BYTE *data;
+    CK_BYTE *oid_val;
     CK_ULONG data_len, out_seq_len, id_seq_len, bit_str_len;
-    CK_ULONG field_len;
+    CK_ULONG field_len, oid_val_len, oid_field_len;
     CK_RV rc;
 
     *alg_oid_len = 0;
@@ -512,18 +513,16 @@ CK_RV ber_decode_SPKI(CK_BYTE *spki, CK_ULONG spki_len,
         return rc;
     }
 
-    if (data_len < 2) {
-        TRACE_ERROR("%s Length of id_seq is too short\n", __func__);
-        return CKR_FUNCTION_FAILED;
+    rc = ber_decode_tlv(0x06, NULL, data, data_len,
+                        &oid_val, &oid_val_len, &oid_field_len);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s Failed to decode OID in AlgorithmIdentifier\n",
+                    __func__);
+        return rc;
     }
 
     *alg_oid = data;
-    *alg_oid_len = data[1] + 2;
-
-    if (*alg_oid_len > data_len) {
-        TRACE_ERROR("%s Length of id_seq is too short\n", __func__);
-        return CKR_FUNCTION_FAILED;
-    }
+    *alg_oid_len = oid_field_len;
 
     *param = data + *alg_oid_len;
     *param_len = data_len - *alg_oid_len;
