@@ -381,13 +381,15 @@ ci-installcheck: ci-prepare installcheck
 	rm ${srcdir}/testcases/test_combined_extract.slots -f
 	@echo "done"
 
+# ci-cleanup also removes the testcases/log-*.txt files, so collect them (or
+# run ci-check-results) before running this target.
 ci-cleanup:
 	$(KILLALL) -HUP pkcsslotd || true
 #	@sbindir@/pkcsslotd
 #	cd ${srcdir}/testcases && PKCS11_USER_PIN=$(PKCS11_USER_PIN) PKCSLIB=$(PKCSLIB) ./cleanup_vhsm.exp 42
 #	$(KILLALL) -HUP pkcsslotd
 	@sbindir@/pkcsep11_session status || true
-	${srcdir}/testcases/cicleanup.sh "@sbindir@" "$(CI_ICSF_MOCK_TOKEN)" "$(CI_ICSF_MOCK_PID_FILE)" "$(sysconfdir)/opencryptoki"
+	${srcdir}/testcases/cicleanup.sh "@sbindir@" "$(CI_ICSF_MOCK_TOKEN)" "$(CI_ICSF_MOCK_PID_FILE)" "$(sysconfdir)/opencryptoki" "${srcdir}/testcases"
 	rm ${srcdir}/testcases/test_combined_extract.slots -f
 
 ci-uninstall: uninstall
