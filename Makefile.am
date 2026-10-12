@@ -396,6 +396,52 @@ ci-uninstall: uninstall
 	rm -rf $(lockdir)/*
 	rm -rf $(logdir)/*
 
-.PHONY: ci-prepare ci-installcheck ci-uninstall
+# ci-check-results: scan log files left by a previous ci-installcheck run and
+# report any failures without re-running the tests.
+#
+# Sources examined:
+#   log-slot_N.txt   - per-slot crypto/pkcs11 output from ock_tests.sh
+#   log-p11sak.txt, log-pkcsconf.txt, log-tok2tok.txt,
+#   log-pkcstok-migrate.txt, log-p11kmip.txt - misc_tests harnesses
+# Keep this list in sync with the 'tee log-*.txt' invocations in
+# ci-installcheck.
+#
+# Note: log files are not removed before a test run, so logs from an earlier
+# run (e.g. misc_tests logs when only 'make installcheck' was run, or
+# log-p11kmip.txt when KMIP_* is not set) are examined as well. Run
+# 'make ci-cleanup' between runs to avoid stale results.
+#
+# Exit code: 0 = no failures found, 1 = at least one failure detected.
+ci-check-results:
+	@LOGDIR="${srcdir}/testcases"; \
+	FAILED=0; \
+	LOGS=$$(ls "$$LOGDIR"/log-slot_*.txt "$$LOGDIR"/log-p11sak.txt \
+	           "$$LOGDIR"/log-pkcsconf.txt "$$LOGDIR"/log-tok2tok.txt \
+	           "$$LOGDIR"/log-pkcstok-migrate.txt \
+	           "$$LOGDIR"/log-p11kmip.txt 2>/dev/null); \
+	if [ -z "$$LOGS" ]; then \
+		echo "ci-check-results: no log files found in $$LOGDIR" \
+		     "(has ci-installcheck been run?)"; \
+		exit 1; \
+	fi; \
+	for log in $$LOGS; do \
+		MATCHES=$$(grep -E \
+		    -e "^\* TESTCASE .* (FAIL|ERROR) " \
+		    -e "^ERROR: Testcase .* failed to execute" \
+		    "$$log" 2>/dev/null); \
+		if [ -n "$$MATCHES" ]; then \
+			echo "--- $$log ---"; \
+			echo "$$MATCHES"; \
+			FAILED=1; \
+		fi; \
+	done; \
+	if [ "$$FAILED" -eq 0 ]; then \
+		echo "ci-check-results: no failures found in $$(echo $$LOGS | wc -w) log file(s)."; \
+	else \
+		echo "ci-check-results: FAILED - see matches above."; \
+		exit 1; \
+	fi
+
+.PHONY: ci-prepare ci-installcheck ci-uninstall ci-check-results
 endif
 
