@@ -91,6 +91,7 @@ testcases_unit_asn1test_SOURCES=testcases/unit/asn1test.c	\
 	testcases/unit/asn1test_keys.c				\
 	testcases/unit/asn1test_pqckeys.c			\
 	usr/lib/common/asn1.c usr/lib/common/trace.c		\
+	usr/lib/common/ec_supported.c				\
 	testcases/unit/asn1test_stubs.c
 
 testcases_unit_asn1test_CFLAGS=-I${top_srcdir}/usr/lib/common	\
@@ -98,6 +99,7 @@ testcases_unit_asn1test_CFLAGS=-I${top_srcdir}/usr/lib/common	\
 
 testcases_unit_asn1fuzztest_SOURCES=testcases/unit/asn1fuzztest.c	\
 	usr/lib/common/asn1.c usr/lib/common/trace.c			\
+	usr/lib/common/ec_supported.c					\
 	testcases/unit/asn1test_stubs.c
 
 testcases_unit_asn1fuzztest_CFLAGS=-I${top_srcdir}/usr/lib/common	\

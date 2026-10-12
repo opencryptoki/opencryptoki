@@ -430,6 +430,40 @@ int test_decode_rsa_private_key_invalid_alg(void)
     return 0;
 }
 
+/* Test ber_decode_RSAPrivateKey with truncated/short AlgorithmIdentifier */
+int test_decode_rsa_private_key_short_algid(void)
+{
+    /* PrivateKeyInfo with a 3-byte OID (shorter than RSA OID length 11) */
+    CK_BYTE short_alg_data[] = {
+        0x30, 0x1A,        /* SEQUENCE */
+        0x02, 0x01, 0x00,  /* version = 0 */
+        0x30, 0x03,        /* AlgorithmIdentifier SEQUENCE */
+        0x06, 0x01, 0x2A,  /* 3-byte OID */
+        0x04, 0x10,        /* OCTET STRING (private key) */
+        0x30, 0x0E,
+        0x02, 0x01, 0x00,
+        0x02, 0x03, 0x01, 0x00, 0x01,
+        0x02, 0x04, 0x01, 0x02, 0x03, 0x04
+    };
+
+    CK_ATTRIBUTE *modulus = NULL, *pub_exp = NULL, *priv_exp = NULL;
+    CK_ATTRIBUTE *prime1 = NULL, *prime2 = NULL, *exp1 = NULL, *exp2 = NULL, *coeff = NULL;
+    CK_RV rv;
+
+    rv = ber_decode_RSAPrivateKey(short_alg_data, sizeof(short_alg_data),
+                                  &modulus, &pub_exp, &priv_exp,
+                                  &prime1, &prime2, &exp1, &exp2, &coeff);
+    if (rv == CKR_OK) {
+        fprintf(stderr, "[FAIL] %s: should have failed with short AlgorithmIdentifier\n", __func__);
+        CK_ATTRIBUTE *attrs[] = {modulus, pub_exp, priv_exp, prime1, prime2, exp1, exp2, coeff};
+        free_attributes(attrs, 8);
+        return 1;
+    }
+
+    printf("[PASS] %s\n", __func__);
+    return 0;
+}
+
 /* Test round-trip encoding and decoding of RSA private key */
 int test_roundtrip_rsa_private_key(void)
 {
@@ -723,6 +757,38 @@ int test_decode_rsa_public_key_invalid_alg(void)
     }
 
     printf("[PASS] test_decode_rsa_public_key_invalid_alg\n");
+    return 0;
+}
+
+/* Test ber_decode_RSAPublicKey with truncated/short AlgorithmIdentifier */
+int test_decode_rsa_public_key_short_algid(void)
+{
+    /* SPKI with a 3-byte OID (shorter than RSA OID length 11) */
+    CK_BYTE short_alg_data[] = {
+        0x30, 0x18,        /* SEQUENCE */
+        0x30, 0x03,        /* AlgorithmIdentifier SEQUENCE */
+        0x06, 0x01, 0x2A,  /* 3-byte OID */
+        0x03, 0x11,        /* BIT STRING */
+        0x00,              /* unused bits */
+        0x30, 0x0C,
+        0x02, 0x05, 0x00, 0xC5, 0x3A, 0x7F, 0x8E,
+        0x02, 0x03, 0x01, 0x00, 0x01
+    };
+
+    CK_ATTRIBUTE *modulus = NULL, *pub_exp = NULL;
+    CK_RV rv;
+
+    rv = ber_decode_RSAPublicKey(short_alg_data, sizeof(short_alg_data), &modulus, &pub_exp);
+    if (rv == CKR_OK) {
+        fprintf(stderr, "[FAIL] %s: should have failed with short AlgorithmIdentifier\n", __func__);
+        if (modulus)
+            free(modulus);
+        if (pub_exp)
+            free(pub_exp);
+        return 1;
+    }
+
+    printf("[PASS] %s\n", __func__);
     return 0;
 }
 
@@ -1106,6 +1172,39 @@ cleanup:
     return result;
 }
 
+/* Test ber_decode_DSAPrivateKey with short AlgorithmIdentifier */
+int test_decode_dsa_private_key_short_algid(void)
+{
+    CK_BYTE short_alg_data[] = {
+        0x30, 0x14,        /* SEQUENCE */
+        0x02, 0x01, 0x00,  /* version = 0 */
+        0x30, 0x03,        /* AlgorithmIdentifier SEQUENCE */
+        0x06, 0x01, 0x2A,  /* 3-byte OID */
+        0x04, 0x0A,        /* OCTET STRING */
+        0x02, 0x08, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08
+    };
+    CK_ATTRIBUTE *prime = NULL, *subprime = NULL, *base = NULL, *priv_key = NULL;
+    CK_RV rv;
+
+    rv = ber_decode_DSAPrivateKey(short_alg_data, sizeof(short_alg_data),
+                                  &prime, &subprime, &base, &priv_key);
+    if (rv == CKR_OK) {
+        fprintf(stderr, "[FAIL] %s: should have failed on short AlgorithmIdentifier\n", __func__);
+        if (prime)
+            free(prime);
+        if (subprime)
+            free(subprime);
+        if (base)
+            free(base);
+        if (priv_key)
+            free(priv_key);
+        return 1;
+    }
+
+    printf("[PASS] %s\n", __func__);
+    return 0;
+}
+
 /* ============================================================================
  * DSA Public Key Tests
  * ============================================================================ */
@@ -1260,6 +1359,39 @@ cleanup:
     if (encoded)
         free(encoded);
     return result;
+}
+
+/* Test ber_decode_DSAPublicKey with short AlgorithmIdentifier */
+int test_decode_dsa_public_key_short_algid(void)
+{
+    CK_BYTE short_alg_data[] = {
+        0x30, 0x12,        /* SEQUENCE */
+        0x30, 0x03,        /* AlgorithmIdentifier SEQUENCE */
+        0x06, 0x01, 0x2A,  /* 3-byte OID */
+        0x03, 0x0B,        /* BIT STRING */
+        0x00,
+        0x02, 0x08, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08
+    };
+    CK_ATTRIBUTE *prime = NULL, *subprime = NULL, *base = NULL, *value = NULL;
+    CK_RV rv;
+
+    rv = ber_decode_DSAPublicKey(short_alg_data, sizeof(short_alg_data),
+                                 &prime, &subprime, &base, &value);
+    if (rv == CKR_OK) {
+        fprintf(stderr, "[FAIL] %s: should have failed on short AlgorithmIdentifier\n", __func__);
+        if (prime)
+            free(prime);
+        if (subprime)
+            free(subprime);
+        if (base)
+            free(base);
+        if (value)
+            free(value);
+        return 1;
+    }
+
+    printf("[PASS] %s\n", __func__);
+    return 0;
 }
 
 /* Test round-trip encoding and decoding of DSA public key */
@@ -1558,6 +1690,37 @@ cleanup:
     return result;
 }
 
+/* Test ber_decode_DHPrivateKey with short AlgorithmIdentifier */
+int test_decode_dh_private_key_short_algid(void)
+{
+    CK_BYTE short_alg_data[] = {
+        0x30, 0x14,        /* SEQUENCE */
+        0x02, 0x01, 0x00,  /* version = 0 */
+        0x30, 0x03,        /* AlgorithmIdentifier */
+        0x06, 0x01, 0x2A,  /* 3-byte OID */
+        0x04, 0x0A,        /* OCTET STRING */
+        0x02, 0x08, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08
+    };
+    CK_ATTRIBUTE *prime = NULL, *base = NULL, *value = NULL;
+    CK_RV rv;
+
+    rv = ber_decode_DHPrivateKey(short_alg_data, sizeof(short_alg_data),
+                                 &prime, &base, &value);
+    if (rv == CKR_OK) {
+        fprintf(stderr, "[FAIL] %s: should have failed on short AlgorithmIdentifier\n", __func__);
+        if (prime)
+            free(prime);
+        if (base)
+            free(base);
+        if (value)
+            free(value);
+        return 1;
+    }
+
+    printf("[PASS] %s\n", __func__);
+    return 0;
+}
+
 int test_roundtrip_dh_private_key(void)
 {
     CK_RV rv;
@@ -1792,6 +1955,37 @@ cleanup:
     if (encoded)
         free(encoded);
     return result;
+}
+
+/* Test ber_decode_DHPublicKey with short AlgorithmIdentifier */
+int test_decode_dh_public_key_short_algid(void)
+{
+    CK_BYTE short_alg_data[] = {
+        0x30, 0x12,        /* SEQUENCE */
+        0x30, 0x03,        /* AlgorithmIdentifier */
+        0x06, 0x01, 0x2A,  /* 3-byte OID */
+        0x03, 0x0B,        /* BIT STRING */
+        0x00,
+        0x02, 0x08, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08
+    };
+    CK_ATTRIBUTE *prime = NULL, *base = NULL, *value = NULL;
+    CK_RV rv;
+
+    rv = ber_decode_DHPublicKey(short_alg_data, sizeof(short_alg_data),
+                                &prime, &base, &value);
+    if (rv == CKR_OK) {
+        fprintf(stderr, "[FAIL] %s: should have failed on short AlgorithmIdentifier\n", __func__);
+        if (prime)
+            free(prime);
+        if (base)
+            free(base);
+        if (value)
+            free(value);
+        return 1;
+    }
+
+    printf("[PASS] %s\n", __func__);
+    return 0;
 }
 
 int test_roundtrip_dh_public_key(void)
@@ -2077,6 +2271,37 @@ cleanup:
     if (dec_pubkey) free(dec_pubkey);
     if (encoded) free(encoded);
     return result;
+}
+
+/* Test der_decode_ECPrivateKey with short AlgorithmIdentifier */
+int test_decode_ec_private_key_short_algid(void)
+{
+    CK_BYTE short_alg_data[] = {
+        0x30, 0x14,        /* SEQUENCE */
+        0x02, 0x01, 0x00,  /* version = 0 */
+        0x30, 0x03,        /* AlgorithmIdentifier */
+        0x06, 0x01, 0x2A,  /* 3-byte OID */
+        0x04, 0x0A,        /* OCTET STRING */
+        0x04, 0x08, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08
+    };
+    CK_ATTRIBUTE *params = NULL, *pub_key = NULL, *priv_key = NULL;
+    CK_RV rv;
+
+    rv = der_decode_ECPrivateKey(short_alg_data, sizeof(short_alg_data),
+                                 &params, &pub_key, &priv_key, CKK_EC);
+    if (rv == CKR_OK) {
+        fprintf(stderr, "[FAIL] %s: should have failed on short AlgorithmIdentifier\n", __func__);
+        if (params)
+            free(params);
+        if (pub_key)
+            free(pub_key);
+        if (priv_key)
+            free(priv_key);
+        return 1;
+    }
+
+    printf("[PASS] %s\n", __func__);
+    return 0;
 }
 
 int test_roundtrip_ec_private_key(void)
@@ -2651,6 +2876,269 @@ cleanup:
 
 
 /* ========================================================================
+ * OID Validation Negative Tests
+ * ======================================================================== */
+
+/*
+ * Call der_decode_ECPrivateKey() on the pre-built blob and assert that it
+ * returns an error.  Prints [PASS]/[FAIL] using test_name and returns 0/1.
+ */
+static int decode_ec_private_key_expect_fail(const char *test_name,
+                                             CK_BYTE *blob,
+                                             CK_ULONG blob_len,
+                                             CK_KEY_TYPE key_type)
+{
+    CK_ATTRIBUTE *params = NULL, *pub_key = NULL, *priv_key = NULL;
+    CK_RV rv;
+
+    rv = der_decode_ECPrivateKey(blob, blob_len, &params, &pub_key, &priv_key,
+                                 key_type);
+    if (rv == CKR_OK) {
+        fprintf(stderr, "[FAIL] %s: expected failure but got CKR_OK\n",
+                test_name);
+        if (params)   free(params);
+        if (pub_key)  free(pub_key);
+        if (priv_key) free(priv_key);
+        return 1;
+    }
+    printf("[PASS] %s\n", test_name);
+    return 0;
+}
+
+/*
+ * Call der_decode_ECPublicKey() on the pre-built blob and assert that it
+ * returns an error.  Prints [PASS]/[FAIL] using test_name and returns 0/1.
+ */
+static int decode_ec_public_key_expect_fail(const char *test_name,
+                                            CK_BYTE *blob,
+                                            CK_ULONG blob_len,
+                                            CK_KEY_TYPE key_type)
+{
+    CK_ATTRIBUTE *params = NULL, *point = NULL;
+    CK_RV rv;
+
+    rv = der_decode_ECPublicKey(blob, blob_len, &params, &point, key_type);
+    if (rv == CKR_OK) {
+        fprintf(stderr, "[FAIL] %s: expected failure but got CKR_OK\n",
+                test_name);
+        if (params) free(params);
+        if (point)  free(point);
+        return 1;
+    }
+    printf("[PASS] %s\n", test_name);
+    return 0;
+}
+
+/*
+ * CKK_EC private key whose AlgorithmIdentifier contains only the EC algorithm
+ * OID with no trailing curve OID parameter.  parm_len comes out as 0, the
+ * der_ec_supported loop finds nothing, and the function returns failure.
+ */
+int test_decode_ec_private_key_no_curve_oid(void)
+{
+    /* id-ecPublicKey OID TLV: 06 07 2a 86 48 ce 3d 02 01 */
+    CK_BYTE blob[] = {
+        0x30, 0x1e,             /* SEQUENCE (outer) */
+        0x02, 0x01, 0x00,       /* version INTEGER 0 */
+        0x30, 0x09,             /* AlgorithmIdentifier SEQUENCE */
+          0x06, 0x07, 0x2a, 0x86, 0x48, 0xce, 0x3d, 0x02, 0x01,
+                                /* id-ecPublicKey OID only, no curve OID */
+        0x04, 0x0e,             /* privateKey OCTET STRING */
+          0x30, 0x0c,           /* ECPrivateKey SEQUENCE */
+            0x02, 0x01, 0x01,   /* version INTEGER 1 */
+            0x04, 0x04,         /* privateKey OCTET STRING */
+              0xaa, 0xbb, 0xcc, 0xdd,
+            0xa1, 0x03,         /* [1] publicKey BIT STRING placeholder */
+              0x03, 0x01, 0x00
+    };
+    return decode_ec_private_key_expect_fail(__func__, blob, sizeof(blob),
+                                             CKK_EC);
+}
+
+/*
+ * CKK_EC public key whose AlgorithmIdentifier contains only the EC algorithm
+ * OID with no trailing curve OID parameter.
+ */
+int test_decode_ec_public_key_no_curve_oid(void)
+{
+    CK_BYTE blob[] = {
+        0x30, 0x16,             /* SEQUENCE (outer SPKI) */
+        0x30, 0x09,             /* AlgorithmIdentifier SEQUENCE */
+          0x06, 0x07, 0x2a, 0x86, 0x48, 0xce, 0x3d, 0x02, 0x01,
+                                /* id-ecPublicKey only, no curve OID */
+        0x03, 0x09,             /* BIT STRING */
+          0x00,                 /* unused bits */
+          0x04, 0x41, 0x42, 0x43, 0x44, 0x45, 0x46, 0x47
+    };
+    return decode_ec_public_key_expect_fail(__func__, blob, sizeof(blob),
+                                            CKK_EC);
+}
+
+/*
+ * CKK_EC private key with a well-formed but unknown curve OID.
+ * The EC algorithm OID is present and correct; the curve OID that follows
+ * (1.2.3.4, encoded as 06 03 2a 03 04) is not in der_ec_supported.
+ */
+int test_decode_ec_private_key_unknown_curve_oid(void)
+{
+    CK_BYTE blob[] = {
+        0x30, 0x21,             /* SEQUENCE (outer) */
+        0x02, 0x01, 0x00,       /* version INTEGER 0 */
+        0x30, 0x0e,             /* AlgorithmIdentifier SEQUENCE */
+          0x06, 0x07, 0x2a, 0x86, 0x48, 0xce, 0x3d, 0x02, 0x01,
+                                /* id-ecPublicKey OID */
+          0x06, 0x03, 0x2a, 0x03, 0x04,
+                                /* unknown curve OID 1.2.3.4 */
+        0x04, 0x0e,             /* privateKey OCTET STRING */
+          0x30, 0x0c,           /* ECPrivateKey SEQUENCE */
+            0x02, 0x01, 0x01,   /* version INTEGER 1 */
+            0x04, 0x04,         /* privateKey OCTET STRING */
+              0xaa, 0xbb, 0xcc, 0xdd,
+            0xa1, 0x03,         /* [1] publicKey BIT STRING placeholder */
+              0x03, 0x01, 0x00
+    };
+    return decode_ec_private_key_expect_fail(__func__, blob, sizeof(blob),
+                                             CKK_EC);
+}
+
+/*
+ * CKK_EC public key with a well-formed but unknown curve OID.
+ */
+int test_decode_ec_public_key_unknown_curve_oid(void)
+{
+    CK_BYTE blob[] = {
+        0x30, 0x1b,             /* SEQUENCE (outer SPKI) */
+        0x30, 0x0e,             /* AlgorithmIdentifier SEQUENCE */
+          0x06, 0x07, 0x2a, 0x86, 0x48, 0xce, 0x3d, 0x02, 0x01,
+                                /* id-ecPublicKey OID */
+          0x06, 0x03, 0x2a, 0x03, 0x04,
+                                /* unknown curve OID 1.2.3.4 */
+        0x03, 0x09,             /* BIT STRING */
+          0x00,                 /* unused bits */
+          0x04, 0x41, 0x42, 0x43, 0x44, 0x45, 0x46, 0x47
+    };
+    return decode_ec_public_key_expect_fail(__func__, blob, sizeof(blob),
+                                            CKK_EC);
+}
+
+/*
+ * CKK_EC_EDWARDS private key with a completely unknown OID in the
+ * AlgorithmIdentifier (neither Ed25519 1.3.101.112 nor Ed448 1.3.101.113).
+ */
+int test_decode_edwards_private_key_unknown_oid(void)
+{
+    /* Use an arbitrary unknown OID: 1.2.3.4 → 06 03 2a 03 04 */
+    CK_BYTE blob[] = {
+        0x30, 0x17,             /* SEQUENCE (outer) */
+        0x02, 0x01, 0x00,       /* version INTEGER 0 */
+        0x30, 0x05,             /* AlgorithmIdentifier SEQUENCE */
+          0x06, 0x03, 0x2a, 0x03, 0x04,   /* unknown OID */
+        0x04, 0x0b,             /* privateKey OCTET STRING */
+          0x30, 0x09,           /* ECPrivateKey SEQUENCE */
+            0x02, 0x01, 0x01,   /* version INTEGER 1 */
+            0x04, 0x04,         /* privateKey OCTET STRING */
+              0xaa, 0xbb, 0xcc, 0xdd
+    };
+    return decode_ec_private_key_expect_fail(__func__, blob, sizeof(blob),
+                                             CKK_EC_EDWARDS);
+}
+
+/*
+ * CKK_EC_EDWARDS public key with a completely unknown OID.
+ */
+int test_decode_edwards_public_key_unknown_oid(void)
+{
+    CK_BYTE blob[] = {
+        0x30, 0x13,             /* SEQUENCE (outer SPKI) */
+        0x30, 0x05,             /* AlgorithmIdentifier SEQUENCE */
+          0x06, 0x03, 0x2a, 0x03, 0x04,   /* unknown OID */
+        0x03, 0x0a,             /* BIT STRING */
+          0x00,                 /* unused bits */
+          0x41, 0x42, 0x43, 0x44, 0x45, 0x46, 0x47, 0x48, 0x49
+    };
+    return decode_ec_public_key_expect_fail(__func__, blob, sizeof(blob),
+                                            CKK_EC_EDWARDS);
+}
+
+/*
+ * CKK_EC_MONTGOMERY private key carrying an Edwards OID (Ed25519 1.3.101.112)
+ * — correct OID family but wrong curve type for the requested key_type.
+ */
+int test_decode_montgomery_private_key_wrong_curve_type(void)
+{
+    /* Ed25519 OID: 06 03 2b 65 70 */
+    CK_BYTE blob[] = {
+        0x30, 0x17,             /* SEQUENCE (outer) */
+        0x02, 0x01, 0x00,       /* version INTEGER 0 */
+        0x30, 0x05,             /* AlgorithmIdentifier SEQUENCE */
+          0x06, 0x03, 0x2b, 0x65, 0x70,   /* Ed25519 OID */
+        0x04, 0x0b,             /* privateKey OCTET STRING */
+          0x30, 0x09,           /* ECPrivateKey SEQUENCE */
+            0x02, 0x01, 0x01,   /* version INTEGER 1 */
+            0x04, 0x04,         /* privateKey OCTET STRING */
+              0xaa, 0xbb, 0xcc, 0xdd
+    };
+    return decode_ec_private_key_expect_fail(__func__, blob, sizeof(blob),
+                                             CKK_EC_MONTGOMERY);
+}
+
+/*
+ * CKK_EC_MONTGOMERY public key carrying an Edwards OID (Ed25519).
+ */
+int test_decode_montgomery_public_key_wrong_curve_type(void)
+{
+    /* Ed25519 OID: 06 03 2b 65 70 */
+    CK_BYTE blob[] = {
+        0x30, 0x13,             /* SEQUENCE (outer SPKI) */
+        0x30, 0x05,             /* AlgorithmIdentifier SEQUENCE */
+          0x06, 0x03, 0x2b, 0x65, 0x70,   /* Ed25519 OID */
+        0x03, 0x0a,             /* BIT STRING */
+          0x00,                 /* unused bits */
+          0x41, 0x42, 0x43, 0x44, 0x45, 0x46, 0x47, 0x48, 0x49
+    };
+    return decode_ec_public_key_expect_fail(__func__, blob, sizeof(blob),
+                                            CKK_EC_MONTGOMERY);
+}
+
+/*
+ * CKK_EC_MONTGOMERY private key with a completely unknown OID.
+ */
+int test_decode_montgomery_private_key_unknown_oid(void)
+{
+    CK_BYTE blob[] = {
+        0x30, 0x17,             /* SEQUENCE (outer) */
+        0x02, 0x01, 0x00,       /* version INTEGER 0 */
+        0x30, 0x05,             /* AlgorithmIdentifier SEQUENCE */
+          0x06, 0x03, 0x2a, 0x03, 0x04,   /* unknown OID */
+        0x04, 0x0b,             /* privateKey OCTET STRING */
+          0x30, 0x09,           /* ECPrivateKey SEQUENCE */
+            0x02, 0x01, 0x01,   /* version INTEGER 1 */
+            0x04, 0x04,         /* privateKey OCTET STRING */
+              0xaa, 0xbb, 0xcc, 0xdd
+    };
+    return decode_ec_private_key_expect_fail(__func__, blob, sizeof(blob),
+                                             CKK_EC_MONTGOMERY);
+}
+
+/*
+ * CKK_EC_MONTGOMERY public key with a completely unknown OID.
+ */
+int test_decode_montgomery_public_key_unknown_oid(void)
+{
+    CK_BYTE blob[] = {
+        0x30, 0x13,             /* SEQUENCE (outer SPKI) */
+        0x30, 0x05,             /* AlgorithmIdentifier SEQUENCE */
+          0x06, 0x03, 0x2a, 0x03, 0x04,   /* unknown OID */
+        0x03, 0x0a,             /* BIT STRING */
+          0x00,                 /* unused bits */
+          0x41, 0x42, 0x43, 0x44, 0x45, 0x46, 0x47, 0x48, 0x49
+    };
+    return decode_ec_public_key_expect_fail(__func__, blob, sizeof(blob),
+                                            CKK_EC_MONTGOMERY);
+}
+
+
+/* ========================================================================
  * EC Public Key Tests (CKK_EC)
  * ======================================================================== */
 
@@ -2779,6 +3267,35 @@ cleanup:
     if (dec_point) free(dec_point);
     if (encoded) free(encoded);
     return result;
+}
+
+/* Test der_decode_ECPublicKey with short AlgorithmIdentifier */
+int test_decode_ec_public_key_short_algid(void)
+{
+    CK_BYTE short_alg_data[] = {
+        0x30, 0x12,        /* SEQUENCE */
+        0x30, 0x03,        /* AlgorithmIdentifier */
+        0x06, 0x01, 0x2A,  /* 3-byte OID */
+        0x03, 0x0B,        /* BIT STRING */
+        0x00,
+        0x04, 0x08, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08
+    };
+    CK_ATTRIBUTE *params = NULL, *point = NULL;
+    CK_RV rv;
+
+    rv = der_decode_ECPublicKey(short_alg_data, sizeof(short_alg_data),
+                                &params, &point, CKK_EC);
+    if (rv == CKR_OK) {
+        fprintf(stderr, "[FAIL] %s: should have failed on short AlgorithmIdentifier\n", __func__);
+        if (params)
+            free(params);
+        if (point)
+            free(point);
+        return 1;
+    }
+
+    printf("[PASS] %s\n", __func__);
+    return 0;
 }
 
 int test_roundtrip_ec_public_key(void)
