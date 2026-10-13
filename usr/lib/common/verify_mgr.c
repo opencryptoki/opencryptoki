@@ -1003,6 +1003,7 @@ CK_RV verify_mgr_init(STDLL_TokData_t *tokdata,
             if (rc != CKR_OK) {
                 TRACE_ERROR("ibm_ml_dsa_dup_param failed\n");
                 free(ptr);
+                goto done;
             }
             /* Deep-copied parameter can not be saved as a flat blob */
             ctx->state_unsaveable = CK_TRUE;
@@ -1023,6 +1024,7 @@ CK_RV verify_mgr_init(STDLL_TokData_t *tokdata,
             if (rc != CKR_OK) {
                 TRACE_ERROR("ml_dsa_dup_param failed\n");
                 free(ptr);
+                goto done;
             }
             /* Deep-copied parameter can not be saved as a flat blob */
             ctx->state_unsaveable = CK_TRUE;
@@ -1033,6 +1035,7 @@ CK_RV verify_mgr_init(STDLL_TokData_t *tokdata,
             if (rc != CKR_OK) {
                 TRACE_ERROR("ml_dsa_hash_dup_param failed\n");
                 free(ptr);
+                goto done;
             }
             /* Deep-copied parameter can not be saved as a flat blob */
             ctx->state_unsaveable = CK_TRUE;
