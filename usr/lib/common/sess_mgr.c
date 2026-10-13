@@ -297,65 +297,12 @@ CK_RV session_mgr_close_session(STDLL_TokData_t *tokdata,
     if (sess->find_list)
         free(sess->find_list);
 
-    if (sess->encr_ctx.context) {
-        if (sess->encr_ctx.context_free_func != NULL)
-            sess->encr_ctx.context_free_func(tokdata, sess,
-                                             sess->encr_ctx.context,
-                                             sess->encr_ctx.context_len);
-        else
-            free(sess->encr_ctx.context);
-    }
-
-    if (sess->encr_ctx.mech.pParameter)
-        free(sess->encr_ctx.mech.pParameter);
-
-    if (sess->decr_ctx.context) {
-        if (sess->decr_ctx.context_free_func != NULL)
-            sess->decr_ctx.context_free_func(tokdata, sess,
-                                             sess->decr_ctx.context,
-                                             sess->decr_ctx.context_len);
-        else
-            free(sess->decr_ctx.context);
-    }
-
-    if (sess->decr_ctx.mech.pParameter)
-        free(sess->decr_ctx.mech.pParameter);
-
-    if (sess->digest_ctx.context) {
-        if (sess->digest_ctx.context_free_func != NULL)
-            sess->digest_ctx.context_free_func(tokdata, sess,
-                                               sess->digest_ctx.context,
-                                               sess->digest_ctx.context_len);
-        else
-            free(sess->digest_ctx.context);
-    }
-
-    if (sess->digest_ctx.mech.pParameter)
-        free(sess->digest_ctx.mech.pParameter);
-
-    if (sess->sign_ctx.context) {
-        if (sess->sign_ctx.context_free_func != NULL)
-            sess->sign_ctx.context_free_func(tokdata, sess,
-                                             sess->sign_ctx.context,
-                                             sess->sign_ctx.context_len);
-        else
-            free(sess->sign_ctx.context);
-    }
-
-    if (sess->sign_ctx.mech.pParameter)
-        free(sess->sign_ctx.mech.pParameter);
-
-    if (sess->verify_ctx.context) {
-        if (sess->verify_ctx.context_free_func != NULL)
-            sess->verify_ctx.context_free_func(tokdata, sess,
-                                               sess->verify_ctx.context,
-                                               sess->verify_ctx.context_len);
-        else
-            free(sess->verify_ctx.context);
-    }
-
-    if (sess->verify_ctx.mech.pParameter)
-        free(sess->verify_ctx.mech.pParameter);
+    /* Deep-free mechanism parameters and contexts */
+    encr_mgr_cleanup(tokdata, sess, &sess->encr_ctx);
+    decr_mgr_cleanup(tokdata, sess, &sess->decr_ctx);
+    digest_mgr_cleanup(tokdata, sess, &sess->digest_ctx);
+    sign_mgr_cleanup(tokdata, sess, &sess->sign_ctx);
+    verify_mgr_cleanup(tokdata, sess, &sess->verify_ctx);
 
     bt_put_node_value(&tokdata->sess_btree, sess);
     sess = NULL;
@@ -405,65 +352,12 @@ void session_free(STDLL_TokData_t *tokdata, void *node_value,
     if (sess->find_list)
         free(sess->find_list);
 
-    if (sess->encr_ctx.context) {
-        if (sess->encr_ctx.context_free_func != NULL)
-            sess->encr_ctx.context_free_func(tokdata, sess,
-                                             sess->encr_ctx.context,
-                                             sess->encr_ctx.context_len);
-        else
-            free(sess->encr_ctx.context);
-    }
-
-    if (sess->encr_ctx.mech.pParameter)
-        free(sess->encr_ctx.mech.pParameter);
-
-    if (sess->decr_ctx.context) {
-        if (sess->decr_ctx.context_free_func != NULL)
-            sess->decr_ctx.context_free_func(tokdata, sess,
-                                             sess->decr_ctx.context,
-                                             sess->decr_ctx.context_len);
-        else
-            free(sess->decr_ctx.context);
-    }
-
-    if (sess->decr_ctx.mech.pParameter)
-        free(sess->decr_ctx.mech.pParameter);
-
-    if (sess->digest_ctx.context) {
-        if (sess->digest_ctx.context_free_func != NULL)
-            sess->digest_ctx.context_free_func(tokdata, sess,
-                                               sess->digest_ctx.context,
-                                               sess->digest_ctx.context_len);
-        else
-            free(sess->digest_ctx.context);
-    }
-
-    if (sess->digest_ctx.mech.pParameter)
-        free(sess->digest_ctx.mech.pParameter);
-
-    if (sess->sign_ctx.context) {
-        if (sess->sign_ctx.context_free_func != NULL)
-            sess->sign_ctx.context_free_func(tokdata, sess,
-                                             sess->sign_ctx.context,
-                                             sess->sign_ctx.context_len);
-        else
-            free(sess->sign_ctx.context);
-    }
-
-    if (sess->sign_ctx.mech.pParameter)
-        free(sess->sign_ctx.mech.pParameter);
-
-    if (sess->verify_ctx.context) {
-        if (sess->verify_ctx.context_free_func != NULL)
-            sess->verify_ctx.context_free_func(tokdata, sess,
-                                               sess->verify_ctx.context,
-                                               sess->verify_ctx.context_len);
-        else
-            free(sess->verify_ctx.context);
-    }
-
-    if (sess->verify_ctx.mech.pParameter)
-        free(sess->verify_ctx.mech.pParameter);
+    /* Deep-free mechanism parameters and contexts */
+    encr_mgr_cleanup(tokdata, sess, &sess->encr_ctx);
+    decr_mgr_cleanup(tokdata, sess, &sess->decr_ctx);
+    digest_mgr_cleanup(tokdata, sess, &sess->digest_ctx);
+    sign_mgr_cleanup(tokdata, sess, &sess->sign_ctx);
+    verify_mgr_cleanup(tokdata, sess, &sess->verify_ctx);
 
     /* NB: any access to sess or @node_value after this returns will segfault */
     bt_node_free(&tokdata->sess_btree, node_idx, TRUE);
