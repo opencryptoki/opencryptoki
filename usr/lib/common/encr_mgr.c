@@ -749,7 +749,9 @@ CK_RV encr_mgr_init(STDLL_TokData_t *tokdata,
     rc = CKR_OK;
 
 done:
-    if (ctx->count_statistics == TRUE && rc == CKR_OK)
+    if (rc != CKR_OK)
+        encr_mgr_cleanup(tokdata, sess, ctx);
+    else if (ctx->count_statistics == TRUE)
         INC_COUNTER(tokdata, sess, mech, key_obj, strength);
 
     object_put(tokdata, key_obj, TRUE);
