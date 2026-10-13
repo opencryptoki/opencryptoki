@@ -1919,11 +1919,14 @@ CK_RV ibm_ml_dsa_dup_param(CK_VOID_PTR src, CK_VOID_PTR dst, CK_ULONG len)
     if (len != sizeof(CK_IBM_SIGN_ADDITIONAL_CONTEXT))
         return CKR_MECHANISM_PARAM_INVALID;
 
-    if(param_src->pContext == NULL || param_src->ulContextLen == 0)
-        return CKR_OK;
-
     if (param_dst == NULL)
         return CKR_ARGUMENTS_BAD;
+
+    param_dst->pContext = NULL;
+    param_dst->ulContextLen = 0;
+
+    if (param_src->pContext == NULL || param_src->ulContextLen == 0)
+        return CKR_OK;
 
     param_dst->pContext = malloc(param_src->ulContextLen);
     if (param_dst->pContext == NULL) {
@@ -1966,11 +1969,14 @@ CK_RV ml_dsa_dup_param(CK_VOID_PTR src, CK_VOID_PTR dst, CK_ULONG len)
     if (len != sizeof(CK_SIGN_ADDITIONAL_CONTEXT))
         return CKR_MECHANISM_PARAM_INVALID;
 
-    if(param_src->pContext == NULL || param_src->ulContextLen == 0)
-        return CKR_OK;
-
     if (param_dst == NULL)
         return CKR_ARGUMENTS_BAD;
+
+    param_dst->pContext = NULL;
+    param_dst->ulContextLen = 0;
+
+    if (param_src->pContext == NULL || param_src->ulContextLen == 0)
+        return CKR_OK;
 
     param_dst->pContext = malloc(param_src->ulContextLen);
     if (param_dst->pContext == NULL) {
@@ -2013,11 +2019,14 @@ CK_RV ml_dsa_hash_dup_param(CK_VOID_PTR src, CK_VOID_PTR dst, CK_ULONG len)
     if (len != sizeof(CK_HASH_SIGN_ADDITIONAL_CONTEXT))
         return CKR_MECHANISM_PARAM_INVALID;
 
-    if(param_src->pContext == NULL || param_src->ulContextLen == 0)
-        return CKR_OK;
-
     if (param_dst == NULL)
         return CKR_ARGUMENTS_BAD;
+
+    param_dst->pContext = NULL;
+    param_dst->ulContextLen = 0;
+
+    if (param_src->pContext == NULL || param_src->ulContextLen == 0)
+        return CKR_OK;
 
     param_dst->pContext = malloc(param_src->ulContextLen);
     if (param_dst->pContext == NULL) {
