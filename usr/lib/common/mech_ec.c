@@ -2343,6 +2343,8 @@ CK_RV ec_agg_dup_param(CK_IBM_ECDSA_OTHER_BLS_PARAMS *from,
     if (from == NULL || to == NULL)
         return CKR_ARGUMENTS_BAD;
 
+    memset(to->pAggrElements, 0, sizeof(to->pAggrElements));
+
     if (from->numElements != 0 && from->elementSize > 0) {
         for (i = 0; i < CK_IBM_BLS_MAX_AGGREGATIONS; i++) {
             if (i < from->numElements) {
@@ -2363,7 +2365,6 @@ CK_RV ec_agg_dup_param(CK_IBM_ECDSA_OTHER_BLS_PARAMS *from,
     } else {
         to->numElements = 0;
         to->elementSize = 0;
-        memset(to->pAggrElements, 0, sizeof(to->pAggrElements));
     }
     return CKR_OK;
 }

@@ -3488,6 +3488,27 @@ CK_RV SC_SignInit(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
                     /* Deep-copied parameter can not be saved as flat blob */
                     sess->sign_ctx.state_unsaveable = CK_TRUE;
                     break;
+                case CKM_IBM_EC_AGGREGATE:
+                    if (pMechanism->ulParameterLen !=
+                                    sizeof(CK_IBM_ECDSA_OTHER_BLS_PARAMS)) {
+                        TRACE_ERROR("%s\n",
+                                    ock_err(ERR_MECHANISM_PARAM_INVALID));
+                        rc = CKR_MECHANISM_PARAM_INVALID;
+                        sign_mgr_cleanup(tokdata, sess, &sess->sign_ctx);
+                        goto done;
+                    }
+                    rc = ec_agg_dup_param((CK_IBM_ECDSA_OTHER_BLS_PARAMS *)
+                                                pMechanism->pParameter,
+                                          (CK_IBM_ECDSA_OTHER_BLS_PARAMS *)
+                                                sess->sign_ctx.mech.pParameter);
+                    if (rc != CKR_OK) {
+                        TRACE_ERROR("ec_agg_dup_param failed\n");
+                        sign_mgr_cleanup(tokdata, sess, &sess->sign_ctx);
+                        goto done;
+                    }
+                    /* Deep-copied parameter can not be saved as flat blob */
+                    sess->sign_ctx.state_unsaveable = CK_TRUE;
+                    break;
                 default:
                     break;
                 }
@@ -3500,19 +3521,6 @@ CK_RV SC_SignInit(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
         } else {
             sess->sign_ctx.mech.pParameter = NULL;
             sess->sign_ctx.mech.ulParameterLen = 0;
-        }
-
-        switch (pMechanism->mechanism) {
-        case CKM_IBM_EC_AGGREGATE:
-             rc = ec_agg_dup_param((CK_IBM_ECDSA_OTHER_BLS_PARAMS *)pMechanism->pParameter,
-                                   (CK_IBM_ECDSA_OTHER_BLS_PARAMS *)sess->sign_ctx.mech.pParameter);
-             if (rc != CKR_OK) {
-                 TRACE_ERROR("ec_agg_dup_param failed\n");
-                 goto done;
-             }
-             /* Deep-copied parameter can not be saved as flat blob */
-             sess->sign_ctx.state_unsaveable = CK_TRUE;
-             break;
         }
     } else {
         rc = ep11tok_sign_init(tokdata, sess, pMechanism, FALSE, hKey, TRUE);
