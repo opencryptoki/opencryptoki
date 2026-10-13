@@ -3485,6 +3485,8 @@ CK_RV SC_SignInit(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
                         sign_mgr_cleanup(tokdata, sess, &sess->sign_ctx);
                         goto done;
                     }
+                    /* Deep-copied parameter can not be saved as flat blob */
+                    sess->sign_ctx.state_unsaveable = CK_TRUE;
                     break;
                 default:
                     break;
@@ -3508,6 +3510,8 @@ CK_RV SC_SignInit(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
                  TRACE_ERROR("ec_agg_dup_param failed\n");
                  goto done;
              }
+             /* Deep-copied parameter can not be saved as flat blob */
+             sess->sign_ctx.state_unsaveable = CK_TRUE;
              break;
         }
     } else {
@@ -3966,6 +3970,8 @@ static CK_RV VerifyInit(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
                         verify_mgr_cleanup(tokdata, sess, &sess->verify_ctx);
                         goto done;
                     }
+                    /* Deep-copied parameter can not be saved as flat blob */
+                    sess->verify_ctx.state_unsaveable = CK_TRUE;
                     break;
                 default:
                     break;

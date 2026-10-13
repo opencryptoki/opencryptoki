@@ -1025,6 +1025,8 @@ CK_RV sign_mgr_init(STDLL_TokData_t *tokdata,
                 TRACE_ERROR("ibm_ml_dsa_dup_param failed\n");
                 free(ptr);
             }
+            /* Deep-copied parameter can not be saved as a flat blob */
+            ctx->state_unsaveable = CK_TRUE;
             break;
         case CKM_ML_DSA:
         case CKM_HASH_ML_DSA_SHA224:
@@ -1043,6 +1045,8 @@ CK_RV sign_mgr_init(STDLL_TokData_t *tokdata,
                 TRACE_ERROR("ml_dsa_dup_param failed\n");
                 free(ptr);
             }
+            /* Deep-copied parameter can not be saved as a flat blob */
+            ctx->state_unsaveable = CK_TRUE;
             break;
         case CKM_HASH_ML_DSA:
             rc = ml_dsa_hash_dup_param(mech->pParameter, ptr,
@@ -1051,6 +1055,8 @@ CK_RV sign_mgr_init(STDLL_TokData_t *tokdata,
                 TRACE_ERROR("ml_dsa_hash_dup_param failed\n");
                 free(ptr);
             }
+            /* Deep-copied parameter can not be saved as a flat blob */
+            ctx->state_unsaveable = CK_TRUE;
             break;
         default:
             break;

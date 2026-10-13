@@ -729,6 +729,8 @@ CK_RV encr_mgr_init(STDLL_TokData_t *tokdata,
                 free(ptr);
                 goto done;
             }
+            /* Deep-copied parameter can not be saved as a flat blob */
+            ctx->state_unsaveable = CK_TRUE;
             break;
         default:
             break;
