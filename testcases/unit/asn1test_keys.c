@@ -2406,6 +2406,17 @@ int test_encode_edwards_private_key_basic(void)
         0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27, 0x28,
         0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38
     };
+    /* RFC 8410 DER: SEQUENCE { version 0, AlgorithmIdentifier { Ed25519 }, OCTET STRING { key } } */
+    CK_BYTE expected[] = {
+        0x30, 0x2c,
+        0x02, 0x01, 0x00,
+        0x30, 0x05, 0x06, 0x03, 0x2b, 0x65, 0x70,
+        0x04, 0x20,
+        0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
+        0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18,
+        0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27, 0x28,
+        0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38
+    };
 
     params = create_attribute(CKA_EC_PARAMS, params_data, sizeof(params_data));
     privkey = create_attribute(CKA_VALUE, privkey_data, sizeof(privkey_data));
@@ -2423,8 +2434,15 @@ int test_encode_edwards_private_key_basic(void)
         goto cleanup;
     }
 
-    if (!encoded || encoded_len == 0) {
-        fprintf(stderr, "[FAIL] test_encode_edwards_private_key_basic: No data encoded\n");
+    if (!encoded || encoded_len != sizeof(expected)) {
+        fprintf(stderr, "[FAIL] test_encode_edwards_private_key_basic: Length mismatch: got %lu, expected %lu\n",
+                encoded_len, (CK_ULONG)sizeof(expected));
+        result = 1;
+        goto cleanup;
+    }
+
+    if (memcmp(encoded, expected, sizeof(expected)) != 0) {
+        fprintf(stderr, "[FAIL] test_encode_edwards_private_key_basic: Content mismatch\n");
         result = 1;
         goto cleanup;
     }
@@ -2435,6 +2453,98 @@ cleanup:
     if (params) free(params);
     if (privkey) free(privkey);
     if (encoded) free(encoded);
+    return result;
+}
+
+int test_encode_edwards_private_key_length_only(void)
+{
+    CK_RV rv;
+    CK_ULONG encoded_len = 0;
+    CK_ATTRIBUTE *params = NULL, *privkey = NULL;
+    int result = 0;
+
+    CK_BYTE params_data[] = {
+        0x06, 0x03, 0x2B, 0x65, 0x70
+    };
+    CK_BYTE privkey_data[32] = { 0 };
+
+    params = create_attribute(CKA_EC_PARAMS, params_data, sizeof(params_data));
+    privkey = create_attribute(CKA_VALUE, privkey_data, sizeof(privkey_data));
+
+    if (!params || !privkey) {
+        fprintf(stderr, "[FAIL] test_encode_edwards_private_key_length_only: Failed to create attributes\n");
+        result = 1;
+        goto cleanup;
+    }
+
+    rv = der_encode_ECPrivateKey(TRUE, NULL, &encoded_len, params, privkey, NULL, CKK_EC_EDWARDS);
+    if (rv != CKR_OK) {
+        fprintf(stderr, "[FAIL] test_encode_edwards_private_key_length_only: encode failed with rv=%lu\n", rv);
+        result = 1;
+        goto cleanup;
+    }
+
+    if (encoded_len != 46) {
+        fprintf(stderr, "[FAIL] test_encode_edwards_private_key_length_only: Expected 46, got %lu\n", encoded_len);
+        result = 1;
+        goto cleanup;
+    }
+
+    printf("[PASS] test_encode_edwards_private_key_length_only\n");
+
+cleanup:
+    if (params) free(params);
+    if (privkey) free(privkey);
+    return result;
+}
+
+int test_decode_edwards_private_key_legacy(void)
+{
+    CK_RV rv;
+    CK_ATTRIBUTE *dec_params = NULL, *dec_privkey = NULL, *dec_pubkey = NULL;
+    int result = 0;
+
+    /* Legacy opencryptoki blob (RFC 5915 ECPrivateKey SEQUENCE) */
+    CK_BYTE legacy_blob[] = {
+        0x30, 0x33,
+        0x02, 0x01, 0x00,
+        0x30, 0x05, 0x06, 0x03, 0x2b, 0x65, 0x70,
+        0x04, 0x27,
+        0x30, 0x25, 0x02, 0x01, 0x01, 0x04, 0x20,
+        0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
+        0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18,
+        0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27, 0x28,
+        0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38
+    };
+    CK_BYTE expected_privkey[] = {
+        0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
+        0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18,
+        0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27, 0x28,
+        0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38
+    };
+
+    rv = der_decode_ECPrivateKey(legacy_blob, sizeof(legacy_blob),
+                                 &dec_params, &dec_pubkey, &dec_privkey,
+                                 CKK_EC_EDWARDS);
+    if (rv != CKR_OK) {
+        fprintf(stderr, "[FAIL] test_decode_edwards_private_key_legacy: decode failed with rv=%lu\n", rv);
+        result = 1;
+        goto cleanup;
+    }
+
+    if (dec_privkey->ulValueLen != sizeof(expected_privkey) ||
+        memcmp(dec_privkey->pValue, expected_privkey, sizeof(expected_privkey)) != 0) {
+        fprintf(stderr, "[FAIL] test_decode_edwards_private_key_legacy: private key mismatch\n");
+        result = 1;
+    }
+
+    if (result == 0)
+        printf("[PASS] test_decode_edwards_private_key_legacy\n");
+
+cleanup:
+    if (dec_params) free(dec_params);
+    if (dec_privkey) free(dec_privkey);
+    if (dec_pubkey) free(dec_pubkey);
     return result;
 }
 
@@ -2651,6 +2761,17 @@ int test_encode_montgomery_private_key_basic(void)
         0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27, 0x28,
         0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38
     };
+    /* RFC 8410 DER: SEQUENCE { version 0, AlgorithmIdentifier { X25519 }, OCTET STRING { key } } */
+    CK_BYTE expected[] = {
+        0x30, 0x2c,
+        0x02, 0x01, 0x00,
+        0x30, 0x05, 0x06, 0x03, 0x2b, 0x65, 0x6e,
+        0x04, 0x20,
+        0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
+        0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18,
+        0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27, 0x28,
+        0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38
+    };
 
     params = create_attribute(CKA_EC_PARAMS, params_data, sizeof(params_data));
     privkey = create_attribute(CKA_VALUE, privkey_data, sizeof(privkey_data));
@@ -2668,8 +2789,15 @@ int test_encode_montgomery_private_key_basic(void)
         goto cleanup;
     }
 
-    if (!encoded || encoded_len == 0) {
-        fprintf(stderr, "[FAIL] test_encode_montgomery_private_key_basic: No data encoded\n");
+    if (!encoded || encoded_len != sizeof(expected)) {
+        fprintf(stderr, "[FAIL] test_encode_montgomery_private_key_basic: Length mismatch: got %lu, expected %lu\n",
+                encoded_len, (CK_ULONG)sizeof(expected));
+        result = 1;
+        goto cleanup;
+    }
+
+    if (memcmp(encoded, expected, sizeof(expected)) != 0) {
+        fprintf(stderr, "[FAIL] test_encode_montgomery_private_key_basic: Content mismatch\n");
         result = 1;
         goto cleanup;
     }
@@ -2680,6 +2808,98 @@ cleanup:
     if (params) free(params);
     if (privkey) free(privkey);
     if (encoded) free(encoded);
+    return result;
+}
+
+int test_encode_montgomery_private_key_length_only(void)
+{
+    CK_RV rv;
+    CK_ULONG encoded_len = 0;
+    CK_ATTRIBUTE *params = NULL, *privkey = NULL;
+    int result = 0;
+
+    CK_BYTE params_data[] = {
+        0x06, 0x03, 0x2B, 0x65, 0x6E
+    };
+    CK_BYTE privkey_data[32] = { 0 };
+
+    params = create_attribute(CKA_EC_PARAMS, params_data, sizeof(params_data));
+    privkey = create_attribute(CKA_VALUE, privkey_data, sizeof(privkey_data));
+
+    if (!params || !privkey) {
+        fprintf(stderr, "[FAIL] test_encode_montgomery_private_key_length_only: Failed to create attributes\n");
+        result = 1;
+        goto cleanup;
+    }
+
+    rv = der_encode_ECPrivateKey(TRUE, NULL, &encoded_len, params, privkey, NULL, CKK_EC_MONTGOMERY);
+    if (rv != CKR_OK) {
+        fprintf(stderr, "[FAIL] test_encode_montgomery_private_key_length_only: encode failed with rv=%lu\n", rv);
+        result = 1;
+        goto cleanup;
+    }
+
+    if (encoded_len != 46) {
+        fprintf(stderr, "[FAIL] test_encode_montgomery_private_key_length_only: Expected 46, got %lu\n", encoded_len);
+        result = 1;
+        goto cleanup;
+    }
+
+    printf("[PASS] test_encode_montgomery_private_key_length_only\n");
+
+cleanup:
+    if (params) free(params);
+    if (privkey) free(privkey);
+    return result;
+}
+
+int test_decode_montgomery_private_key_legacy(void)
+{
+    CK_RV rv;
+    CK_ATTRIBUTE *dec_params = NULL, *dec_privkey = NULL, *dec_pubkey = NULL;
+    int result = 0;
+
+    /* Legacy opencryptoki blob (RFC 5915 ECPrivateKey SEQUENCE) */
+    CK_BYTE legacy_blob[] = {
+        0x30, 0x33,
+        0x02, 0x01, 0x00,
+        0x30, 0x05, 0x06, 0x03, 0x2b, 0x65, 0x6e,
+        0x04, 0x27,
+        0x30, 0x25, 0x02, 0x01, 0x01, 0x04, 0x20,
+        0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
+        0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18,
+        0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27, 0x28,
+        0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38
+    };
+    CK_BYTE expected_privkey[] = {
+        0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
+        0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18,
+        0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27, 0x28,
+        0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38
+    };
+
+    rv = der_decode_ECPrivateKey(legacy_blob, sizeof(legacy_blob),
+                                 &dec_params, &dec_pubkey, &dec_privkey,
+                                 CKK_EC_MONTGOMERY);
+    if (rv != CKR_OK) {
+        fprintf(stderr, "[FAIL] test_decode_montgomery_private_key_legacy: decode failed with rv=%lu\n", rv);
+        result = 1;
+        goto cleanup;
+    }
+
+    if (dec_privkey->ulValueLen != sizeof(expected_privkey) ||
+        memcmp(dec_privkey->pValue, expected_privkey, sizeof(expected_privkey)) != 0) {
+        fprintf(stderr, "[FAIL] test_decode_montgomery_private_key_legacy: private key mismatch\n");
+        result = 1;
+    }
+
+    if (result == 0)
+        printf("[PASS] test_decode_montgomery_private_key_legacy\n");
+
+cleanup:
+    if (dec_params) free(dec_params);
+    if (dec_privkey) free(dec_privkey);
+    if (dec_pubkey) free(dec_pubkey);
     return result;
 }
 
