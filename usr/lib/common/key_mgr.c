@@ -1721,8 +1721,10 @@ CK_RV key_mgr_unwrap_key(STDLL_TokData_t *tokdata,
     // the key type.  we're now ready to plug in the decrypted key data.
     // in some cases, the data will be BER-encoded so we'll need to decode it.
     //
-    // this routine also ensires that CKA_EXTRACTABLE == FALSE,
-    // CKA_ALWAYS_SENSITIVE == FALSE and CKA_LOCAL == FALSE
+    // this routine also ensures that CKA_ALWAYS_SENSITIVE == FALSE,
+    // CKA_NEVER_EXTRACTABLE == FALSE and CKA_LOCAL == FALSE, and keeps
+    // CKA_SENSITIVE and CKA_EXTRACTABLE as the object was created (from the
+    // unwrap template, or the class or token defaults)
     //
     switch (keyclass) {
     case CKO_SECRET_KEY:
