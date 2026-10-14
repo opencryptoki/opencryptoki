@@ -2405,3 +2405,168 @@ ret:
     }
     return rv;
 }
+
+/*
+ * Unwraps wrapped_data under unwrapping_key with base_tmpl plus each
+ * combination of CKA_SENSITIVE and CKA_EXTRACTABLE, and once with neither, and
+ * checks every new key:
+ *  - CKA_SENSITIVE and CKA_EXTRACTABLE have the values the template asked for;
+ *    when it does not specify them, any value is accepted, since the defaults
+ *    are token specific (EP11 and CCA default CKA_SENSITIVE to TRUE for
+ *    private keys, and for secret keys with FORCE_SENSITIVE);
+ *  - when forced_sensitive or forced_extractable is not NULL, the unwrapping
+ *    key's CKA_UNWRAP_TEMPLATE sets that attribute to the value it points to:
+ *    a key unwrapped without the attribute gets that value, and a template
+ *    asking for the other value fails with CKR_TEMPLATE_INCONSISTENT;
+ *  - CKA_ALWAYS_SENSITIVE and CKA_NEVER_EXTRACTABLE are FALSE, as for any
+ *    unwrapped key (not checked on ICSF, which unwraps on the ICSF server and
+ *    takes these attributes from it);
+ *  - secret_attr (CKA_VALUE, or CKA_PRIVATE_EXPONENT for RSA) cannot be read
+ *    from a sensitive key.
+ * base_tmpl must not contain CKA_SENSITIVE or CKA_EXTRACTABLE. Records one
+ * assertion per combination.
+ */
+CK_RV check_unwrap_sensitive_extractable(CK_SESSION_HANDLE session,
+                                         CK_MECHANISM *mech,
+                                         CK_OBJECT_HANDLE unwrapping_key,
+                                         CK_BYTE *wrapped_data,
+                                         CK_ULONG wrapped_data_len,
+                                         CK_ATTRIBUTE *base_tmpl,
+                                         CK_ULONG base_count,
+                                         CK_ATTRIBUTE_TYPE secret_attr,
+                                         const CK_BBOOL *forced_sensitive,
+                                         const CK_BBOOL *forced_extractable)
+{
+    static const struct {
+        CK_BBOOL given, sensitive, extractable;
+    } cases[] = {
+        { CK_FALSE, CK_FALSE, CK_FALSE },   /* not given: token defaults */
+        { CK_TRUE, CK_TRUE, CK_FALSE },
+        { CK_TRUE, CK_TRUE, CK_TRUE },
+        { CK_TRUE, CK_FALSE, CK_FALSE },
+        { CK_TRUE, CK_FALSE, CK_TRUE },
+    };
+    CK_ATTRIBUTE tmpl[32];
+    CK_ULONG i, count;
+    CK_RV rc, rc2;
+
+    if (base_count + 2 > sizeof(tmpl) / sizeof(tmpl[0]))
+        return CKR_ARGUMENTS_BAD;
+
+    for (i = 0; i < sizeof(cases) / sizeof(cases[0]); i++) {
+        CK_BBOOL sensitive = cases[i].sensitive;
+        CK_BBOOL extractable = cases[i].extractable;
+        CK_BBOOL conflict = cases[i].given &&
+            ((forced_sensitive != NULL && sensitive != *forced_sensitive) ||
+             (forced_extractable != NULL &&
+              extractable != *forced_extractable));
+        /* without the attributes in the template, only a forced value is
+         * checked */
+        CK_BBOOL check_sens = cases[i].given || forced_sensitive != NULL;
+        CK_BBOOL check_extr = cases[i].given || forced_extractable != NULL;
+        CK_BBOOL got_sens = 0xFF, got_extr = 0xFF;
+        CK_BBOOL got_always_sens = 0xFF, got_never_extr = 0xFF;
+        CK_ATTRIBUTE flags[] = {
+            {CKA_SENSITIVE, &got_sens, sizeof(got_sens)},
+            {CKA_EXTRACTABLE, &got_extr, sizeof(got_extr)},
+            {CKA_ALWAYS_SENSITIVE, &got_always_sens, sizeof(got_always_sens)},
+            {CKA_NEVER_EXTRACTABLE, &got_never_extr, sizeof(got_never_extr)},
+        };
+        CK_ATTRIBUTE secret = {secret_attr, NULL, 0};
+        CK_OBJECT_HANDLE key = CK_INVALID_HANDLE;
+        char desc[64];
+
+        memcpy(tmpl, base_tmpl, base_count * sizeof(CK_ATTRIBUTE));
+        count = base_count;
+        if (cases[i].given) {
+            tmpl[count].type = CKA_SENSITIVE;
+            tmpl[count].pValue = &sensitive;
+            tmpl[count++].ulValueLen = sizeof(sensitive);
+            tmpl[count].type = CKA_EXTRACTABLE;
+            tmpl[count].pValue = &extractable;
+            tmpl[count++].ulValueLen = sizeof(extractable);
+            snprintf(desc, sizeof(desc), "CKA_SENSITIVE=%s CKA_EXTRACTABLE=%s",
+                     sensitive ? "TRUE" : "FALSE",
+                     extractable ? "TRUE" : "FALSE");
+        } else {
+            snprintf(desc, sizeof(desc), "neither attribute");
+        }
+
+        if (forced_sensitive != NULL && !cases[i].given)
+            sensitive = *forced_sensitive;
+        if (forced_extractable != NULL && !cases[i].given)
+            extractable = *forced_extractable;
+
+        rc = funcs->C_UnwrapKey(session, mech, unwrapping_key, wrapped_data,
+                                wrapped_data_len, tmpl, count, &key);
+        if (conflict) {
+            testcase_new_assertion();
+            if (rc == CKR_TEMPLATE_INCONSISTENT) {
+                testcase_pass("Unwrap template with %s conflicts with the "
+                              "unwrapping key's CKA_UNWRAP_TEMPLATE and was "
+                              "refused.", desc);
+                continue;
+            }
+            testcase_fail("Unwrap template with %s conflicts with the "
+                          "unwrapping key's CKA_UNWRAP_TEMPLATE, but "
+                          "C_UnwrapKey returned %s, expected "
+                          "CKR_TEMPLATE_INCONSISTENT.", desc, p11_get_ckr(rc));
+            if (rc == CKR_OK)
+                funcs->C_DestroyObject(session, key);
+            return CKR_GENERAL_ERROR;
+        }
+        if (rc != CKR_OK) {
+            testcase_new_assertion();
+            testcase_error("C_UnwrapKey with %s rc=%s", desc, p11_get_ckr(rc));
+            return rc;
+        }
+
+        testcase_new_assertion();
+
+        rc = funcs->C_GetAttributeValue(session, key, flags, 4);
+        if (rc != CKR_OK) {
+            testcase_error("C_GetAttributeValue rc=%s", p11_get_ckr(rc));
+        } else if ((got_sens != CK_TRUE && got_sens != CK_FALSE) ||
+                   (got_extr != CK_TRUE && got_extr != CK_FALSE) ||
+                   (check_sens && got_sens != sensitive) ||
+                   (check_extr && got_extr != extractable)) {
+            testcase_fail("Unwrap template with %s gave a key with "
+                          "CKA_SENSITIVE=%u CKA_EXTRACTABLE=%u, expected "
+                          "%s and %s.", desc, got_sens, got_extr,
+                          !check_sens ? "either" : sensitive ? "1" : "0",
+                          !check_extr ? "either" : extractable ? "1" : "0");
+            rc = CKR_GENERAL_ERROR;
+        } else if (!is_icsf_token(SLOT_ID) &&
+                   (got_always_sens != CK_FALSE ||
+                    got_never_extr != CK_FALSE)) {
+            testcase_fail("Unwrap template with %s gave a key with "
+                          "CKA_ALWAYS_SENSITIVE=%u CKA_NEVER_EXTRACTABLE=%u, "
+                          "expected FALSE for an unwrapped key.", desc,
+                          got_always_sens, got_never_extr);
+            rc = CKR_GENERAL_ERROR;
+        } else if (got_sens &&
+                   (rc2 = funcs->C_GetAttributeValue(session, key, &secret,
+                                                     1)) !=
+                   CKR_ATTRIBUTE_SENSITIVE &&
+                   (!is_icsf_token(SLOT_ID) ||
+                    rc2 != CKR_ATTRIBUTE_TYPE_INVALID)) {
+            testcase_fail("Unwrap template with %s: reading the key value "
+                          "returned %s, expected CKR_ATTRIBUTE_SENSITIVE.",
+                          desc, p11_get_ckr(rc2));
+            rc = CKR_GENERAL_ERROR;
+        } else {
+            testcase_pass("Unwrap template with %s gave a key with "
+                          "CKA_SENSITIVE=%u CKA_EXTRACTABLE=%u, as expected.",
+                          desc, got_sens, got_extr);
+        }
+
+        rc2 = funcs->C_DestroyObject(session, key);
+        if (rc2 != CKR_OK)
+            testcase_error("C_DestroyObject rc=%s.", p11_get_ckr(rc2));
+
+        if (rc != CKR_OK)
+            return rc;
+    }
+
+    return CKR_OK;
+}
