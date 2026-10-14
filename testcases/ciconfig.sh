@@ -84,6 +84,19 @@ function setup_icsf_mock_token() {
         return 0
     fi
 
+    # Stop any previously running mock server before starting a new one.
+    # This prevents "address already in use" when ci-installcheck is run
+    # again without an intervening ci-cleanup.
+    if [ -f "${ICSF_MOCK_SERVER_PID_FILE}" ]; then
+        local old_pid
+        old_pid=$(cat "${ICSF_MOCK_SERVER_PID_FILE}")
+        if kill -0 "${old_pid}" 2>/dev/null; then
+            echo "Stopping existing ICSF mock server (pid=${old_pid}) before restart..."
+            kill "${old_pid}" && sleep 0.5 || true
+        fi
+        rm -f "${ICSF_MOCK_SERVER_PID_FILE}"
+    fi
+
     echo "Starting ICSF mock server (token=${ICSF_MOCK_TOKEN}, port=${ICSF_MOCK_SERVER_PORT})..."
     python3 "${ICSF_MOCK_SERVER_SCRIPT}" \
         --port "${ICSF_MOCK_SERVER_PORT}" \
@@ -111,6 +124,8 @@ function setup_icsf_mock_token() {
         return 1
     fi
     echo "ICSF mock server started (pid=${pid})"
+
+    pkcstok_admin remove --token "${ICSF_MOCK_TOKEN}" --force &> /dev/null || true
 
     pkcsicsf -a "${ICSF_MOCK_TOKEN}" \
         -u "ldap://127.0.0.1:${ICSF_MOCK_SERVER_PORT}" \
