@@ -1408,13 +1408,10 @@ CK_RV priv_key_unwrap(TEMPLATE *tmpl,
                       CK_ULONG keytype,
                       CK_BYTE *data, CK_ULONG data_len)
 {
-    CK_ATTRIBUTE *extractable = NULL;
     CK_ATTRIBUTE *always_sens = NULL;
     CK_ATTRIBUTE *never_extract = NULL;
-    CK_ATTRIBUTE *sensitive = NULL;
     CK_ATTRIBUTE *local = NULL;
     CK_ATTRIBUTE *pub_key_info = NULL;
-    CK_BBOOL true = TRUE;
     CK_BBOOL false = FALSE;
     CK_BYTE *spki = NULL;
     CK_ULONG spki_length = 0;
@@ -1466,8 +1463,14 @@ CK_RV priv_key_unwrap(TEMPLATE *tmpl,
     // make sure
     //    CKA_LOCAL             == FALSE
     //    CKA_ALWAYS_SENSITIVE  == FALSE
-    //    CKA_EXTRACTABLE       == TRUE
     //    CKA_NEVER_EXTRACTABLE == FALSE
+    //
+    // CKA_SENSITIVE and CKA_EXTRACTABLE are left as the object was created:
+    // the values from the unwrap template or, when it does not specify them,
+    // the defaults (CKA_SENSITIVE == FALSE, CKA_EXTRACTABLE == TRUE, unless
+    // the token's t_set_attrs_for_new_object supplies its own). Overwriting
+    // them here would silently discard a template that asks for a sensitive
+    // or non-extractable key.
     //
     rc = build_attribute(CKA_LOCAL, &false, 1, &local);
     if (rc != CKR_OK) {
@@ -1476,18 +1479,6 @@ CK_RV priv_key_unwrap(TEMPLATE *tmpl,
     }
 
     rc = build_attribute(CKA_ALWAYS_SENSITIVE, &false, 1, &always_sens);
-    if (rc != CKR_OK) {
-        TRACE_DEVEL("build_attribute failed\n");
-        goto cleanup;
-    }
-
-    rc = build_attribute(CKA_SENSITIVE, &false, 1, &sensitive);
-    if (rc != CKR_OK) {
-        TRACE_DEVEL("build_attribute failed\n");
-        goto cleanup;
-    }
-
-    rc = build_attribute(CKA_EXTRACTABLE, &true, 1, &extractable);
     if (rc != CKR_OK) {
         TRACE_DEVEL("build_attribute failed\n");
         goto cleanup;
@@ -1533,18 +1524,6 @@ CK_RV priv_key_unwrap(TEMPLATE *tmpl,
         goto cleanup;
     }
     always_sens = NULL;
-    rc = template_update_attribute(tmpl, sensitive);
-    if (rc != CKR_OK) {
-        TRACE_DEVEL("template_update_attribute failed.\n");
-        goto cleanup;
-    }
-    sensitive = NULL;
-    rc = template_update_attribute(tmpl, extractable);
-    if (rc != CKR_OK) {
-        TRACE_DEVEL("template_update_attribute failed.\n");
-        goto cleanup;
-    }
-    extractable = NULL;
     rc = template_update_attribute(tmpl, never_extract);
     if (rc != CKR_OK) {
         TRACE_DEVEL("template_update_attribute failed.\n");
@@ -1562,10 +1541,6 @@ cleanup:
         free(local);
     if (always_sens)
         free(always_sens);
-    if (sensitive)
-        free(sensitive);
-    if (extractable)
-        free(extractable);
     if (never_extract)
         free(never_extract);
     if (pub_key_info)
@@ -2073,10 +2048,7 @@ CK_RV secret_key_unwrap(STDLL_TokData_t *tokdata,
 {
     CK_ATTRIBUTE *local = NULL;
     CK_ATTRIBUTE *always_sens = NULL;
-    CK_ATTRIBUTE *sensitive = NULL;
-    CK_ATTRIBUTE *extractable = NULL;
     CK_ATTRIBUTE *never_extract = NULL;
-    CK_BBOOL true = TRUE;
     CK_BBOOL false = FALSE;
     CK_RV rc;
 
@@ -2117,8 +2089,14 @@ CK_RV secret_key_unwrap(STDLL_TokData_t *tokdata,
     // make sure
     //    CKA_LOCAL             == FALSE
     //    CKA_ALWAYS_SENSITIVE  == FALSE
-    //    CKA_EXTRACTABLE       == TRUE
     //    CKA_NEVER_EXTRACTABLE == FALSE
+    //
+    // CKA_SENSITIVE and CKA_EXTRACTABLE are left as the object was created:
+    // the values from the unwrap template or, when it does not specify them,
+    // the defaults (CKA_SENSITIVE == FALSE, CKA_EXTRACTABLE == TRUE, unless
+    // the token's t_set_attrs_for_new_object supplies its own). Overwriting
+    // them here would silently discard a template that asks for a sensitive
+    // or non-extractable key.
     //
     rc = build_attribute(CKA_LOCAL, &false, 1, &local);
     if (rc != CKR_OK) {
@@ -2128,16 +2106,6 @@ CK_RV secret_key_unwrap(STDLL_TokData_t *tokdata,
     rc = build_attribute(CKA_ALWAYS_SENSITIVE, &false, 1, &always_sens);
     if (rc != CKR_OK) {
         TRACE_DEVEL("build attribute failed\n");
-        goto cleanup;
-    }
-    rc = build_attribute(CKA_SENSITIVE, &false, 1, &sensitive);
-    if (rc != CKR_OK) {
-        TRACE_DEVEL("build_attribute failed\n");
-        goto cleanup;
-    }
-    rc = build_attribute(CKA_EXTRACTABLE, &true, 1, &extractable);
-    if (rc != CKR_OK) {
-        TRACE_DEVEL("build_attribute failed\n");
         goto cleanup;
     }
     rc = build_attribute(CKA_NEVER_EXTRACTABLE, &false, 1, &never_extract);
@@ -2157,18 +2125,6 @@ CK_RV secret_key_unwrap(STDLL_TokData_t *tokdata,
         goto cleanup;
     }
     always_sens = NULL;
-    rc = template_update_attribute(tmpl, sensitive);
-    if (rc != CKR_OK) {
-        TRACE_DEVEL("template_update_attribute failed.\n");
-        goto cleanup;
-    }
-    sensitive = NULL;
-    rc = template_update_attribute(tmpl, extractable);
-    if (rc != CKR_OK) {
-        TRACE_DEVEL("template_update_attribute failed.\n");
-        goto cleanup;
-    }
-    extractable = NULL;
     rc = template_update_attribute(tmpl, never_extract);
     if (rc != CKR_OK) {
         TRACE_DEVEL("template_update_attribute failed.\n");
@@ -2181,10 +2137,6 @@ CK_RV secret_key_unwrap(STDLL_TokData_t *tokdata,
 cleanup:
     if (local)
         free(local);
-    if (sensitive)
-        free(sensitive);
-    if (extractable)
-        free(extractable);
     if (always_sens)
         free(always_sens);
     if (never_extract)
