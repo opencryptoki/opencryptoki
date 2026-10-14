@@ -1523,6 +1523,15 @@ CK_RV do_WrapUnwrapAES(struct generated_test_suite_info * tsuite)
             goto error;
         }
 
+        /* unwrap again with each CKA_SENSITIVE / CKA_EXTRACTABLE choice */
+        rc = check_unwrap_sensitive_extractable(session, &mech, w_key,
+                                                wrapped_data,
+                                                wrapped_data_len, template,
+                                                tmpl_count, CKA_VALUE, NULL,
+                                                NULL);
+        if (rc != CKR_OK)
+            goto error;
+
         if (wrapped_data) {
             free(wrapped_data);
             wrapped_data = NULL;
@@ -1610,6 +1619,160 @@ testcase_cleanup:
     if (rc != CKR_OK) {
         testcase_error("C_CloseAllSessions rc=%s", p11_get_ckr(rc));
     }
+
+    return rc;
+}
+
+/*
+ * Wraps an AES key under a wrapping key whose CKA_UNWRAP_TEMPLATE sets
+ * CKA_SENSITIVE = TRUE and CKA_EXTRACTABLE = FALSE, and checks that every key
+ * unwrapped with it gets both, and that an unwrap template asking for anything
+ * else is refused.
+ */
+CK_RV do_UnwrapTemplateAES(struct generated_test_suite_info * tsuite)
+{
+    CK_BYTE_PTR wrapped_data = NULL;
+    CK_BYTE user_pin[PKCS11_MAX_PIN_LEN];
+    CK_SESSION_HANDLE session;
+    CK_MECHANISM mechkey, mech;
+    CK_OBJECT_HANDLE h_key = CK_INVALID_HANDLE;
+    CK_OBJECT_HANDLE w_key = CK_INVALID_HANDLE;
+    CK_ULONG wrapped_data_len = 0;
+    CK_ULONG user_pin_len;
+    CK_ULONG tmpl_count = 2; /* Use only the first 2 attrs, except for CCA */
+    CK_ULONG key_size = 0;
+    CK_FLAGS flags;
+    CK_RV rc = CKR_OK;
+    CK_SLOT_ID slot_id = SLOT_ID;
+    CK_OBJECT_CLASS key_class = CKO_SECRET_KEY;
+    CK_KEY_TYPE key_type;
+    CK_BBOOL ck_true = CK_TRUE, ck_false = CK_FALSE;
+    CK_BBOOL w_extractable = !pkey;
+    CK_BBOOL w_pkeyextractable = pkey || combined_extract;
+    CK_ATTRIBUTE unwrap_tmpl_attrs[] = {
+        {CKA_SENSITIVE, &ck_true, sizeof(ck_true)},
+        {CKA_EXTRACTABLE, &ck_false, sizeof(ck_false)},
+    };
+    CK_ATTRIBUTE w_key_tmpl[] = {
+        {CKA_WRAP, &ck_true, sizeof(ck_true)},
+        {CKA_UNWRAP, &ck_true, sizeof(ck_true)},
+        {CKA_VALUE_LEN, &key_size, sizeof(key_size)},
+        {CKA_EXTRACTABLE, &w_extractable, sizeof(w_extractable)},
+        {CKA_IBM_PROTKEY_EXTRACTABLE, &w_pkeyextractable,
+         sizeof(w_pkeyextractable)},
+        {CKA_UNWRAP_TEMPLATE, unwrap_tmpl_attrs, sizeof(unwrap_tmpl_attrs)},
+    };
+    CK_ATTRIBUTE template[] = {
+        {CKA_CLASS, &key_class, sizeof(key_class)},
+        {CKA_KEY_TYPE, &key_type, sizeof(key_type)},
+        {CKA_VALUE_LEN, &key_size, sizeof(key_size)} /* For CCA only */
+    };
+
+    testsuite_begin("%s Unwrap with CKA_UNWRAP_TEMPLATE.", tsuite->name);
+    testcase_rw_session();
+    testcase_user_login();
+
+    /* Skip tests if pkey = true, but the slot doesn't support protected keys*/
+    if (pkey && !is_ep11_token(slot_id) && !is_cca_token(SLOT_ID)) {
+        testsuite_skip(1, "pkey test option is true, but slot %u doesn't support protected keys",
+                       (unsigned int) slot_id);
+        goto testcase_cleanup;
+    }
+
+    /* skip test if the slot doesn't support this mechanism */
+    if (!mech_supported(slot_id, tsuite->mech.mechanism) ||
+        !wrap_supported(slot_id, tsuite->mech)) {
+        testsuite_skip(1, "Slot %u doesn't support %s (0x%x)",
+                       (unsigned int) slot_id,
+                       mech_to_str(tsuite->mech.mechanism),
+                       (unsigned int) tsuite->mech.mechanism);
+        goto testcase_cleanup;
+    }
+
+    /* Skip tests if pkey = false, but the slot doesn't support CKM_AES_XTS */
+    if ((is_ep11_token(slot_id) || is_cca_token(slot_id)) &&
+        tsuite->mech.mechanism == CKM_AES_XTS && pkey == FALSE) {
+        testsuite_skip(1, "Slot supports AES-XTS only for protected keys.");
+        goto testcase_cleanup;
+    }
+
+    /* ICSF does not support array attributes like CKA_UNWRAP_TEMPLATE */
+    if (is_icsf_token(slot_id)) {
+        testsuite_skip(1, "Slot %u doesn't support CKA_UNWRAP_TEMPLATE",
+                       (unsigned int) slot_id);
+        goto testcase_cleanup;
+    }
+
+    testcase_begin("%s Unwrap with the wrapping key's CKA_UNWRAP_TEMPLATE "
+                   "and pkey=%X.", tsuite->name, pkey);
+
+    mech = tsuite->mech;
+    mechkey = mech.mechanism == CKM_AES_XTS ? aes_xts_keygen : aes_keygen;
+    key_type = mech.mechanism == CKM_AES_XTS ? CKK_AES_XTS : CKK_AES;
+    key_size = mech.mechanism == CKM_AES_XTS ? 64 : 32;
+
+    /* generate the key to wrap (must be extractable) */
+    rc = generate_AESKey(session, key_size, CK_TRUE, &mechkey, &h_key);
+    if (rc != CKR_OK) {
+        if (rc == CKR_POLICY_VIOLATION) {
+            testcase_skip("AES key generation is not allowed by policy");
+            goto testcase_cleanup;
+        }
+        testcase_error("C_GenerateKey rc=%s", p11_get_ckr(rc));
+        goto error;
+    }
+
+    /* generate the wrapping key, with its CKA_UNWRAP_TEMPLATE */
+    rc = funcs->C_GenerateKey(session, &mechkey, w_key_tmpl,
+                              sizeof(w_key_tmpl) / sizeof(CK_ATTRIBUTE),
+                              &w_key);
+    if (rc != CKR_OK) {
+        testcase_error("C_GenerateKey (wrapping key) rc=%s",
+                       p11_get_ckr(rc));
+        goto error;
+    }
+
+    /* wrap the key */
+    rc = funcs->C_WrapKey(session, &mech, w_key, h_key, NULL,
+                          &wrapped_data_len);
+    if (rc != CKR_OK) {
+        testcase_error("C_WrapKey rc=%s", p11_get_ckr(rc));
+        goto error;
+    }
+    wrapped_data = malloc(wrapped_data_len);
+    if (wrapped_data == NULL) {
+        testcase_error("malloc failed");
+        goto error;
+    }
+    rc = funcs->C_WrapKey(session, &mech, w_key, h_key, wrapped_data,
+                          &wrapped_data_len);
+    if (rc != CKR_OK) {
+        testcase_error("C_WrapKey rc=%s", p11_get_ckr(rc));
+        goto error;
+    }
+
+    if (is_cca_token(slot_id))
+        tmpl_count = 3; /* CCA requires CKA_VALUE_LEN for unwrap */
+
+    /* unwrap with each choice, under the wrapping key's template */
+    rc = check_unwrap_sensitive_extractable(session, &mech, w_key,
+                                            wrapped_data, wrapped_data_len,
+                                            template, tmpl_count, CKA_VALUE,
+                                            &ck_true, &ck_false);
+
+error:
+    if (wrapped_data)
+        free(wrapped_data);
+    if (h_key != CK_INVALID_HANDLE &&
+        funcs->C_DestroyObject(session, h_key) != CKR_OK)
+        testcase_error("C_DestroyObject failed");
+    if (w_key != CK_INVALID_HANDLE &&
+        funcs->C_DestroyObject(session, w_key) != CKR_OK)
+        testcase_error("C_DestroyObject failed");
+
+testcase_cleanup:
+    if (funcs->C_CloseAllSessions(slot_id) != CKR_OK)
+        testcase_error("C_CloseAllSessions failed");
 
     return rc;
 }
@@ -1809,6 +1972,15 @@ CK_RV do_WrapUnwrapRSA(struct generated_test_suite_info * tsuite)
                 testcase_error("C_UnWrapKey rc=%s", p11_get_ckr(rc));
                 goto testcase_cleanup;
             }
+
+            /* unwrap again with each SENSITIVE / EXTRACTABLE choice */
+            rc = check_unwrap_sensitive_extractable(session, &mech, w_key,
+                                                    wrapped_data,
+                                                    wrapped_data_len, uw_tmpl,
+                                                    2, CKA_PRIVATE_EXPONENT,
+                                                    NULL, NULL);
+            if (rc != CKR_OK)
+                goto testcase_cleanup;
 
             /** generate data **/
             orig_len = 30;
@@ -2833,6 +3005,10 @@ CK_RV aes_funcs(void)
             break;
 
         rv = do_WrapUnwrapRSA(&generated_test_suites[i]);
+        if (rv != CKR_OK && (!no_stop))
+            break;
+
+        rv = do_UnwrapTemplateAES(&generated_test_suites[i]);
         if (rv != CKR_OK && (!no_stop))
             break;
     }

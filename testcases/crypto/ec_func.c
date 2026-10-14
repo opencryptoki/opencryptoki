@@ -2769,6 +2769,12 @@ CK_RV run_TransferECCKeyPairSignVerify(void)
             {CKA_IBM_PROTKEY_EXTRACTABLE, &true, sizeof(true)},
         };
         CK_ULONG unwrap_tmpl_len = sizeof(unwrap_tmpl) / sizeof(CK_ATTRIBUTE);
+        CK_ATTRIBUTE unwrap_base_tmpl[] = {
+            {CKA_CLASS, &class, sizeof(class)},
+            {CKA_KEY_TYPE, &key_type, sizeof(key_type)},
+            {CKA_DERIVE, &derive, sizeof(derive)},
+            {CKA_SIGN, &sign, sizeof(sign)},
+        };
 
         if (is_icsf_token(SLOT_ID))
             unwrap_tmpl_len -= 1; /* ICSF does not supp. CKA_IBM_PROTKEY_... */
@@ -2781,6 +2787,17 @@ CK_RV run_TransferECCKeyPairSignVerify(void)
             testcase_fail("C_UnwrapKey, rc=%s", p11_get_ckr(rc));
             goto testcase_cleanup;
         }
+
+        // unwrap again with each CKA_SENSITIVE / CKA_EXTRACTABLE choice; the
+        // transport key's CKA_UNWRAP_TEMPLATE sets CKA_EXTRACTABLE = FALSE
+        // (except on ICSF, which gets no array attributes)
+        rc = check_unwrap_sensitive_extractable(session, &wrap_mech,
+                    secret_key, wrapped_key, wrapped_keylen, unwrap_base_tmpl,
+                    sizeof(unwrap_base_tmpl) / sizeof(CK_ATTRIBUTE),
+                    CKA_VALUE, NULL,
+                    is_icsf_token(SLOT_ID) ? NULL : &false);
+        if (rc != CKR_OK)
+            goto testcase_cleanup;
 
         if (wrapped_key) {
             free(wrapped_key);
@@ -4510,6 +4527,12 @@ CK_RV run_TransferEdwardsMontgomeryKeyPair(void)
             {CKA_IBM_PROTKEY_EXTRACTABLE, &true, sizeof(true)},
         };
         CK_ULONG unwrap_tmpl_len = sizeof(unwrap_tmpl) / sizeof(CK_ATTRIBUTE);
+        CK_ATTRIBUTE unwrap_base_tmpl[] = {
+            {CKA_CLASS, &class, sizeof(class)},
+            {CKA_KEY_TYPE, &key_type, sizeof(key_type)},
+            {CKA_DERIVE, &derive, sizeof(derive)},
+            {CKA_SIGN, &sign, sizeof(sign)},
+        };
 
         if (is_icsf_token(SLOT_ID))
             unwrap_tmpl_len -= 1; /* ICSF does not supp. CKA_IBM_PROTKEY_... */
@@ -4522,6 +4545,17 @@ CK_RV run_TransferEdwardsMontgomeryKeyPair(void)
             testcase_fail("C_UnwrapKey, rc=%s", p11_get_ckr(rc));
             goto testcase_cleanup;
         }
+
+        // unwrap again with each CKA_SENSITIVE / CKA_EXTRACTABLE choice; the
+        // transport key's CKA_UNWRAP_TEMPLATE sets CKA_EXTRACTABLE = FALSE
+        // (except on ICSF, which gets no array attributes)
+        rc = check_unwrap_sensitive_extractable(session, &wrap_mech,
+                    secret_key, wrapped_key, wrapped_keylen, unwrap_base_tmpl,
+                    sizeof(unwrap_base_tmpl) / sizeof(CK_ATTRIBUTE),
+                    CKA_VALUE, NULL,
+                    is_icsf_token(SLOT_ID) ? NULL : &false);
+        if (rc != CKR_OK)
+            goto testcase_cleanup;
 
         if (wrapped_key) {
             free(wrapped_key);
