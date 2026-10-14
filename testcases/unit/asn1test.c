@@ -3583,6 +3583,8 @@ int main(void)
     /* Edwards Curve Private Key tests */
     printf("\n--- Edwards Curve Private Key Tests ---\n");
     failed += test_encode_edwards_private_key_basic();
+    failed += test_encode_edwards_private_key_length_only();
+    failed += test_decode_edwards_private_key_legacy();
     failed += test_decode_edwards_private_key_unknown_oid();
     failed += test_roundtrip_edwards_private_key();
 
@@ -3595,6 +3597,8 @@ int main(void)
     /* Montgomery Curve Private Key tests */
     printf("\n--- Montgomery Curve Private Key Tests ---\n");
     failed += test_encode_montgomery_private_key_basic();
+    failed += test_encode_montgomery_private_key_length_only();
+    failed += test_decode_montgomery_private_key_legacy();
     failed += test_decode_montgomery_private_key_unknown_oid();
     failed += test_decode_montgomery_private_key_wrong_curve_type();
     failed += test_roundtrip_montgomery_private_key();

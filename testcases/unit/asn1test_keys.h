@@ -76,6 +76,8 @@ int test_roundtrip_ec_public_key(void);
 
 /* Edwards Curve Private Key Tests (CKK_EC_EDWARDS) */
 int test_encode_edwards_private_key_basic(void);
+int test_encode_edwards_private_key_length_only(void);
+int test_decode_edwards_private_key_legacy(void);
 int test_decode_edwards_private_key_unknown_oid(void);
 int test_roundtrip_edwards_private_key(void);
 
@@ -86,6 +88,8 @@ int test_roundtrip_edwards_public_key(void);
 
 /* Montgomery Curve Private Key Tests (CKK_EC_MONTGOMERY) */
 int test_encode_montgomery_private_key_basic(void);
+int test_encode_montgomery_private_key_length_only(void);
+int test_decode_montgomery_private_key_legacy(void);
 int test_decode_montgomery_private_key_unknown_oid(void);
 int test_decode_montgomery_private_key_wrong_curve_type(void);
 int test_roundtrip_montgomery_private_key(void);
