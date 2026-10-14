@@ -1994,13 +1994,20 @@ cleanup:
 /*
  * ECC Functions
  */
-//
-//
 
-
-
-//
-//
+/*
+ * From RFC 5915 (EC):
+ *
+ *   ECPrivateKey ::= SEQUENCE {
+ *     version        INTEGER { ecPrivkeyVer1(1) } (ecPrivkeyVer1),
+ *     privateKey     OCTET STRING,
+ *     parameters [0] ECParameters {{ NamedCurve }} OPTIONAL,
+ *     publicKey  [1] BIT STRING OPTIONAL
+ *   }
+ *
+ * From RFC 8410 (Edwards and Montgomery):
+ *   CurvePrivateKey ::= OCTET STRING
+ */
 CK_RV der_encode_ECPrivateKey(CK_BBOOL length_only,
                               CK_BYTE **data,
                               CK_ULONG *data_len,
@@ -2013,140 +2020,110 @@ CK_RV der_encode_ECPrivateKey(CK_BBOOL length_only,
     CK_BYTE *buf2 = NULL;
     CK_BYTE *buf3 = NULL;
     CK_ULONG len, offset = 0;
-    CK_BYTE version[] = { 1 };  // ecPrivkeyVer1
+    CK_BYTE version[] = { 1 };  /* ecPrivkeyVer1 */
     CK_BYTE der_AlgIdEC[der_AlgIdECBaseLen + params->ulValueLen];
     CK_ULONG der_AlgIdECLen = sizeof(der_AlgIdEC);
     CK_BYTE *ecpoint;
     CK_ULONG ecpoint_len, field_len;
     CK_RV rc = 0;
 
-    /* Calculate BER encoding length
-     * Inner SEQUENCE of
-     * Integer (version), OCTET STRING (private key)
-     * and CHOICE [1] BIT STRING (public key)
-     */
-    // version
-    rc |= ber_encode_INTEGER(TRUE, NULL, &len, NULL, sizeof(version));
-    offset += len;
+    switch (key_type) {
+    case CKK_EC:
+        /* Calculate BER encoding length of RFC 5915 ECPrivateKey SEQUENCE */
+        /* version */
+        rc |= ber_encode_INTEGER(TRUE, NULL, &len, NULL, sizeof(version));
+        offset += len;
 
-    // private key octet
-    rc |= ber_encode_OCTET_STRING(TRUE, NULL, &len, NULL,
-                                  privkey->ulValueLen);
-    if (ADD_OVERFLOW(offset, len))
-        goto overflow;
-    offset += len;
-    if (rc != CKR_OK) {
-        TRACE_DEVEL("der encoding failed\n");
-        return CKR_FUNCTION_FAILED;
-    }
-    // public key bit string
-    if (pubkey && pubkey->pValue) {
-        switch (key_type) {
-        case CKK_EC:
+        /* private key octet */
+        rc |= ber_encode_OCTET_STRING(TRUE, NULL, &len, NULL,
+                                      privkey->ulValueLen);
+        if (ADD_OVERFLOW(offset, len))
+            goto overflow;
+        offset += len;
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("der encoding failed\n");
+            return CKR_FUNCTION_FAILED;
+        }
+
+        /* public key bit string */
+        if (pubkey && pubkey->pValue) {
             rc = ber_decode_OCTET_STRING(pubkey->pValue, pubkey->ulValueLen,
                                          &ecpoint, &ecpoint_len, &field_len);
             if (rc != CKR_OK || pubkey->ulValueLen != field_len) {
                 TRACE_DEVEL("ber decoding of public key failed\n");
                 return CKR_ATTRIBUTE_VALUE_INVALID;
             }
-            break;
-        case CKK_EC_EDWARDS:
-        case CKK_EC_MONTGOMERY:
-            /* Edwards/Montgomery keys have raw CKA_EC_POINT */
-            ecpoint = pubkey->pValue;
-            ecpoint_len = pubkey->ulValueLen;
-            break;
-        default:
-            TRACE_DEVEL("Key type 0x%lx not supported.\n", key_type);
-            return CKR_KEY_TYPE_INCONSISTENT;
+
+            rc = ber_encode_BIT_STRING(FALSE, &buf3, &len, ecpoint, ecpoint_len, 0);
+            if (rc != CKR_OK) {
+                TRACE_DEVEL("ber_encode_BIT_STRING failed\n");
+                return CKR_ATTRIBUTE_VALUE_INVALID;
+            }
+
+            rc = ber_encode_CHOICE(TRUE, 1, &buf2, &len, buf3, len, TRUE);
+            free(buf3);
+            buf3 = NULL;
+            if (rc != 0) {
+                TRACE_DEVEL("ber_encode_CHOICE failed\n");
+                return CKR_FUNCTION_FAILED;
+            }
+
+            if (ADD_OVERFLOW(offset, len))
+                goto overflow;
+            offset += len;
         }
 
-        rc = ber_encode_BIT_STRING(FALSE, &buf3, &len, ecpoint, ecpoint_len, 0);
-        if (rc != CKR_OK) {
-            TRACE_DEVEL("ber_encode_BIT_STRING failed\n");
-            return CKR_ATTRIBUTE_VALUE_INVALID;
-        }
+        if (length_only == TRUE) {
+            rc = ber_encode_SEQUENCE(TRUE, NULL, &len, NULL, offset);
+            if (rc != CKR_OK) {
+                TRACE_DEVEL("ber_encode_SEQUENCE failed\n");
+                return rc;
+            }
 
-        rc = ber_encode_CHOICE(TRUE, 1, &buf2, &len, buf3, len, TRUE);
-        free(buf3);
-        buf3 = NULL;
-        if (rc != 0) {
-            TRACE_DEVEL("ber_encode_CHOICE failed\n");
-            return CKR_FUNCTION_FAILED;
-       }
-
-        if (ADD_OVERFLOW(offset, len))
-            goto overflow;
-        offset += len;
-    }
-
-    if (length_only == TRUE) {
-        rc = ber_encode_SEQUENCE(TRUE, NULL, &len, NULL, offset);
-        if (rc != CKR_OK) {
-            TRACE_DEVEL("ber_encode_SEQUENCE failed\n");
+            rc = ber_encode_PrivateKeyInfo(TRUE, NULL, data_len, NULL,
+                                           der_AlgIdECLen, NULL, len);
+            if (rc != CKR_OK) {
+                TRACE_DEVEL("ber_encode_PrivateKeyInfo failed\n");
+                return rc;
+            }
             return rc;
         }
 
-        switch (key_type) {
-        case CKK_EC:
-            break;
-        case CKK_EC_EDWARDS:
-        case CKK_EC_MONTGOMERY:
-            /* ALgID itself is curve OID */
-            der_AlgIdECLen = 2 + params->ulValueLen;
-            break;
-        default:
-            TRACE_DEVEL("Key type 0x%lx not supported.\n", key_type);
-            return CKR_KEY_TYPE_INCONSISTENT;
+        /* Now starting with the real data */
+        buf = (CK_BYTE *) malloc(offset);
+        if (!buf) {
+            TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+            return CKR_HOST_MEMORY;
         }
+        offset = 0;
 
-        rc = ber_encode_PrivateKeyInfo(TRUE, NULL, data_len, NULL,
-                                       der_AlgIdECLen, NULL, len);
+        rc = ber_encode_INTEGER(FALSE, &buf2, &len, version, sizeof(version));
         if (rc != CKR_OK) {
-            TRACE_DEVEL("ber_encode_PrivateKeyInfo failed\n");
-            return rc;
+            TRACE_DEVEL("ber_encode_INTEGER failed\n");
+            goto error;
         }
-        return rc;
-    }
+        if (buf2 != NULL) {
+            memcpy(buf + offset, buf2, len);
+            offset += len;
+            free(buf2);
+            buf2 = NULL;
+        }
 
-    /* Now starting with the real data */
-    buf = (CK_BYTE *) malloc(offset);
-    if (!buf) {
-        TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-        return CKR_HOST_MEMORY;
-    }
-    offset = 0;
+        rc = ber_encode_OCTET_STRING(FALSE, &buf2, &len,
+                                     privkey->pValue, privkey->ulValueLen);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("ber_encode_OCTET_STRING failed\n");
+            goto error;
+        }
+        if (buf2 != NULL) {
+            memcpy(buf + offset, buf2, len);
+            offset += len;
+            free(buf2);
+            buf2 = NULL;
+        }
 
-    rc = ber_encode_INTEGER(FALSE, &buf2, &len, version, sizeof(version));
-    if (rc != CKR_OK) {
-        TRACE_DEVEL("ber_encode_INTEGER failed\n");
-        goto error;
-    }
-    if (buf2 != NULL) {
-        memcpy(buf + offset, buf2, len);
-        offset += len;
-        free(buf2);
-        buf2 = NULL;
-    }
-
-    rc = ber_encode_OCTET_STRING(FALSE, &buf2, &len,
-                                 (CK_BYTE *)privkey +
-                                 sizeof(CK_ATTRIBUTE), privkey->ulValueLen);
-    if (rc != CKR_OK) {
-        TRACE_DEVEL("ber_encode_INTEGER failed\n");
-        goto error;
-    }
-    if (buf2 != NULL) {
-        memcpy(buf + offset, buf2, len);
-        offset += len;
-        free(buf2);
-        buf2 = NULL;
-    }
-
-    /* generate optional bit-string of public key */
-    if (pubkey && pubkey->pValue) {
-        switch (key_type) {
-        case CKK_EC:
+        /* generate optional bit-string of public key */
+        if (pubkey && pubkey->pValue) {
             rc = ber_decode_OCTET_STRING(pubkey->pValue, pubkey->ulValueLen,
                                          &ecpoint, &ecpoint_len, &field_len);
             if (rc != CKR_OK || pubkey->ulValueLen != field_len) {
@@ -2154,74 +2131,69 @@ CK_RV der_encode_ECPrivateKey(CK_BBOOL length_only,
                 rc = CKR_ATTRIBUTE_VALUE_INVALID;
                 goto error;
             }
-            break;
-        case CKK_EC_EDWARDS:
-        case CKK_EC_MONTGOMERY:
-            /* Edwards/Montgomery keys have raw CKA_EC_POINT */
-            ecpoint = pubkey->pValue;
-            ecpoint_len = pubkey->ulValueLen;
-            break;
-        default:
-            TRACE_DEVEL("Key type 0x%lx not supported.\n", key_type);
-            rc = CKR_KEY_TYPE_INCONSISTENT;
-            goto error;
+
+            rc = ber_encode_BIT_STRING(FALSE, &buf3, &len, ecpoint, ecpoint_len, 0);
+            if (rc != CKR_OK) {
+                TRACE_DEVEL("ber_encode_BIT_STRING failed\n");
+                rc = CKR_ATTRIBUTE_VALUE_INVALID;
+                goto error;
+            }
+
+            rc = ber_encode_CHOICE(FALSE, 1, &buf2, &len, buf3, len, TRUE);
+            free(buf3);
+            buf3 = NULL;
+            if (rc != CKR_OK) {
+                TRACE_DEVEL("ber_encode_CHOICE failed\n");
+                goto error;
+            }
+
+            memcpy(buf + offset, buf2, len);
+            offset += len;
+            free(buf2);
+            buf2 = NULL;
         }
 
-        rc = ber_encode_BIT_STRING(FALSE, &buf3, &len, ecpoint, ecpoint_len, 0);
+        rc = ber_encode_SEQUENCE(FALSE, &buf2, &len, buf, offset);
         if (rc != CKR_OK) {
-            TRACE_DEVEL("ber_encode_BIT_STRING failed\n");
-            rc = CKR_ATTRIBUTE_VALUE_INVALID;
+            TRACE_DEVEL("ber_encode_SEQUENCE failed\n");
             goto error;
         }
 
-        rc = ber_encode_CHOICE(FALSE, 1, &buf2, &len, buf3, len, TRUE);
-        free(buf3);
-        if (rc != CKR_OK) {
-            TRACE_DEVEL("ber_encode_CHOICE failed\n");
-            goto error;
-        }
-
-        memcpy(buf + offset, buf2, len);
-        offset += len;
-        free(buf2);
-        buf2 = NULL;
-    }
-
-    rc = ber_encode_SEQUENCE(FALSE, &buf2, &len, buf, offset);
-    if (rc != CKR_OK) {
-        TRACE_DEVEL("ber_encode_SEQUENCE failed\n");
-        goto error;
-    }
-
-    switch (key_type) {
-    case CKK_EC:
-        /* AlgID param is curve OID. */
-        /* concatenate EC algorithm-id + specific curve id */
+        /* AlgID param is curve OID: concatenate EC algorithm-id +
+         * specific curve id */
         memcpy(der_AlgIdEC, der_AlgIdECBase, der_AlgIdECBaseLen);
         memcpy(der_AlgIdEC + der_AlgIdECBaseLen, params->pValue,
                params->ulValueLen);
-        /* adjust length field */
         der_AlgIdEC[1] = der_AlgIdEC[1] + params->ulValueLen;
+
+        rc = ber_encode_PrivateKeyInfo(FALSE, data, data_len, der_AlgIdEC,
+                                       der_AlgIdECLen, buf2, len);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("ber_encode_PrivateKeyInfo failed\n");
+        }
         break;
+
     case CKK_EC_EDWARDS:
     case CKK_EC_MONTGOMERY:
-        /* ALgID itself is curve OID */
+        /* RFC 8410: CurvePrivateKey ::= OCTET STRING */
+        der_AlgIdECLen = 2 + params->ulValueLen;
+
+        /* AlgID itself is curve OID */
         memcpy(der_AlgIdEC, der_AlgIdECBase, 2); /* Only SEQUENCE */
         memcpy(der_AlgIdEC + 2, params->pValue, params->ulValueLen);
-        der_AlgIdECLen = 2 + params->ulValueLen;
-        /* adjust length field */
         der_AlgIdEC[1] = params->ulValueLen;
+
+        rc = ber_encode_PrivateKeyInfo(length_only, data, data_len,
+                                       der_AlgIdEC, der_AlgIdECLen,
+                                       privkey->pValue, privkey->ulValueLen);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("ber_encode_PrivateKeyInfo failed\n");
+        }
         break;
+
     default:
         TRACE_DEVEL("Key type 0x%lx not supported.\n", key_type);
-        rc= CKR_KEY_TYPE_INCONSISTENT;
-        goto error;
-    }
-
-    rc = ber_encode_PrivateKeyInfo(FALSE, data, data_len, der_AlgIdEC,
-                                   der_AlgIdECLen, buf2, len);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("ber_encode_PrivateKeyInfo failed\n");
+        return CKR_KEY_TYPE_INCONSISTENT;
     }
 
 error:
@@ -2238,16 +2210,6 @@ overflow:
     goto error;
 }
 
-//
-// From RFC 5915:
-//
-//   ECPrivateKey ::= SEQUENCE {
-//     version        INTEGER { ecPrivkeyVer1(1) } (ecPrivkeyVer1),
-//     privateKey     OCTET STRING,
-//     parameters [0] ECParameters {{ NamedCurve }} OPTIONAL,
-//     publicKey  [1] BIT STRING OPTIONAL
-//   }
-//
 CK_RV der_decode_ECPrivateKey(CK_BYTE *data,
                               CK_ULONG data_len,
                               CK_ATTRIBUTE **params,
@@ -2348,70 +2310,90 @@ CK_RV der_decode_ECPrivateKey(CK_BYTE *data,
         return CKR_FUNCTION_FAILED;
     }
 
-    /* Decode the ecdhkey into buf */
-    rc = ber_decode_SEQUENCE(eckey, eckey_len, &buf, &buf_len, &field_len);
-    if (rc != CKR_OK) {
-        TRACE_DEVEL("ber_decode_SEQUENCE failed\n");
-        return rc;
+    if (eckey_len == 0) {
+        TRACE_DEVEL("eckey is empty\n");
+        return CKR_FUNCTION_FAILED;
     }
-    offset = 0;
 
-    /* Decode version (INTEGER) */
-    rc = ber_decode_INTEGER(buf + offset, buf_len - offset,
-                            &version, &version_len, &field_len);
-    if (rc != CKR_OK) {
-        TRACE_DEVEL("ber_decode_INTEGER failed\n");
-        goto cleanup;
-    }
-    offset += field_len;
+    if (ber_decode_SEQUENCE(eckey, eckey_len, &buf, &buf_len,
+                            &field_len) == CKR_OK &&
+        field_len == eckey_len &&
+        (key_type == CKK_EC ||
+         eckey_len > (CK_ULONG)(der_ec_supported[i].len_bits  + 7) / 8)) {
+        /* RFC 5915 ECPrivateKey SEQUENCE — used by CKK_EC always, and
+         * accepted for CKK_EC_EDWARDS / CKK_EC_MONTGOMERY for backwards
+         * compatibility with legacy opencryptoki blobs.
+         * For Edwards/Montgomery the length guard prevents a raw key whose
+         * first byte happens to be 0x30 from being misidentified as legacy:
+         * a valid SEQUENCE containing the key is always longer than the raw
+         * key bytes alone. */
+        offset = 0;
 
-    /* Decode private key (OCTET_STRING) */
-    rc = ber_decode_OCTET_STRING(buf + offset, buf_len - offset,
-                                 &priv_buf, &priv_len, &field_len);
-    if (rc != CKR_OK) {
-        TRACE_DEVEL("ber_decode_OCTET_STRING failed\n");
-        goto cleanup;
-    }
-    offset += field_len;
-
-    /* Check if there is an optional public key */
-    buf_offset = buf - data;
-    if (buf_offset + offset < data_len) {
-
-        /* Decode CHOICE */
-        rc = ber_decode_CHOICE(buf + offset, buf_len - offset, TRUE,
-                               &choice, &choice_len, &field_len, &option);
+        /* Decode version (INTEGER) */
+        rc = ber_decode_INTEGER(buf + offset, buf_len - offset,
+                                &version, &version_len, &field_len);
         if (rc != CKR_OK) {
-            TRACE_DEVEL("ber_decode_CHOICE failed\n");
+            TRACE_DEVEL("ber_decode_INTEGER failed\n");
             goto cleanup;
         }
-        offset += field_len - choice_len;
+        offset += field_len;
 
-        /* Decode public key (BIT_STRING) according to option */
-        switch (option) {
-        case 0:
-            /* parameters [0] ECParameters {{ NamedCurve }} OPTIONAL
-             * These params, if available, are assumed to be the same as algo
-             * above, so nothing to do here.
-             */
-            break;
-        case 1:
-            /* publicKey  [1] BIT STRING OPTIONAL */
-            rc = ber_decode_BIT_STRING(buf + offset, buf_len - offset,
-                                       &pub_buf, &pub_len, &field_len);
+        /* Decode private key (OCTET_STRING) */
+        rc = ber_decode_OCTET_STRING(buf + offset, buf_len - offset,
+                                     &priv_buf, &priv_len, &field_len);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("ber_decode_OCTET_STRING failed\n");
+            goto cleanup;
+        }
+        offset += field_len;
+
+        /* Check if there is an optional public key */
+        buf_offset = buf - data;
+        if (buf_offset + offset < data_len) {
+
+            /* Decode CHOICE */
+            rc = ber_decode_CHOICE(buf + offset, buf_len - offset, TRUE,
+                                   &choice, &choice_len, &field_len, &option);
             if (rc != CKR_OK) {
-                TRACE_DEVEL("ber_decode_BIT_STRING failed\n");
+                TRACE_DEVEL("ber_decode_CHOICE failed\n");
                 goto cleanup;
             }
-            pub_buf++; /* Remove unused-bits byte */
-            pub_len--;
-            pubkey_available = 1;
-            break;
-        default:
-            TRACE_DEVEL("ber_decode_CHOICE returned invalid or unsupported "
-                        "option %ld\n", option);
-            goto cleanup;
+            offset += field_len - choice_len;
+
+            /* Decode public key (BIT_STRING) according to option */
+            switch (option) {
+            case 0:
+                /* parameters [0] ECParameters {{ NamedCurve }} OPTIONAL
+                 * These params, if available, are assumed to be the same as algo
+                 * above, so nothing to do here.
+                 */
+                break;
+            case 1:
+                /* publicKey  [1] BIT STRING OPTIONAL */
+                rc = ber_decode_BIT_STRING(buf + offset, buf_len - offset,
+                                           &pub_buf, &pub_len, &field_len);
+                if (rc != CKR_OK) {
+                    TRACE_DEVEL("ber_decode_BIT_STRING failed\n");
+                    goto cleanup;
+                }
+                pub_buf++; /* Remove unused-bits byte */
+                pub_len--;
+                pubkey_available = 1;
+                break;
+            default:
+                TRACE_DEVEL("ber_decode_CHOICE returned invalid or unsupported "
+                            "option %ld\n", option);
+                goto cleanup;
+            }
         }
+    } else if (key_type == CKK_EC_EDWARDS || key_type == CKK_EC_MONTGOMERY) {
+        /* RFC 8410: ber_decode_PrivateKeyInfo already stripped the outer
+         * OCTET STRING; eckey/eckey_len are the raw CurvePrivateKey bytes. */
+        priv_buf = eckey;
+        priv_len = eckey_len;
+    } else {
+        TRACE_DEVEL("ber_decode_SEQUENCE failed\n");
+        return CKR_FUNCTION_FAILED;
     }
 
     rc = build_attribute(CKA_EC_PARAMS, parm_buf, parm_len, &parm_attr);
