@@ -56,8 +56,10 @@ from ber_codec import (
 from obj_attrs import make_secret_key_attrs, complete_key_attrs
 from pkcs11_const import (
     CKA_CLASS, CKA_VALUE, CKA_VALUE_LEN, CKA_KEY_TYPE, CKA_TOKEN,
+    CKA_SENSITIVE, CKA_EXTRACTABLE, CKA_ALWAYS_SENSITIVE, CKA_NEVER_EXTRACTABLE,
     CKO_PRIVATE_KEY, CKK_EC,
     CKM_UNAVAILABLE_INFORMATION,
+    bool_attr,
 )
 from token_store import OBJ_TYPE_TOKEN
 
@@ -158,6 +160,25 @@ def handle_uwk(store, request):
             caller_attrs=caller_attrs,
             key_gen_mechanism=CKM_UNAVAILABLE_INFORMATION,
         )
+
+    # Apply PKCS#11 C_UnwrapKey rules that complete_key_attrs cannot know:
+    #
+    #   CKA_ALWAYS_SENSITIVE  must always be FALSE — we cannot attest the
+    #   CKA_NEVER_EXTRACTABLE key's protection history before the unwrap.
+    #
+    #   CKA_SENSITIVE / CKA_EXTRACTABLE: when the caller's template did not
+    #   specify an attribute, the PKCS#11 class default applies (FALSE / TRUE
+    #   respectively).  complete_key_attrs uses the key-creation defaults
+    #   (TRUE / FALSE for private keys) which are wrong for the unwrap path.
+    final_dict = dict(final_attrs)
+    final_dict[CKA_ALWAYS_SENSITIVE]  = bool_attr(False)
+    final_dict[CKA_NEVER_EXTRACTABLE] = bool_attr(False)
+    caller_types = {t for t, _ in attrs}
+    if CKA_SENSITIVE not in caller_types:
+        final_dict[CKA_SENSITIVE]   = bool_attr(False)
+    if CKA_EXTRACTABLE not in caller_types:
+        final_dict[CKA_EXTRACTABLE] = bool_attr(True)
+    final_attrs = list(final_dict.items())
 
     new_obj = store.create_object(token_name, obj_type, final_attrs)
     if new_obj is None:
