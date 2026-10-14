@@ -786,6 +786,12 @@ CK_RV run_TransferMLDSAKeyPairSignVerify(void)
     CK_OBJECT_HANDLE unwrapped_key = CK_INVALID_HANDLE;
     CK_MECHANISM wrap_mech, wkey_mech;
     CK_MECHANISM sign_mech = {CKM_ML_DSA, NULL, 0};
+    CK_OBJECT_CLASS uw_class = CKO_PRIVATE_KEY;
+    CK_KEY_TYPE uw_key_type = CKK_ML_DSA;
+    CK_ATTRIBUTE uw_base_tmpl[] = {
+        {CKA_CLASS, &uw_class, sizeof(uw_class)},
+        {CKA_KEY_TYPE, &uw_key_type, sizeof(uw_key_type)},
+    };
 
     testcase_rw_session();
     testcase_user_login();
@@ -919,6 +925,14 @@ CK_RV run_TransferMLDSAKeyPairSignVerify(void)
         }
         testcase_pass("*Unwrap ML-DSA private key (%s) index=%lu passed.",
                       ml_dsa_tv[i].name, i);
+
+        /* Unwrap again with each CKA_SENSITIVE / CKA_EXTRACTABLE choice */
+        rc = check_unwrap_sensitive_extractable(session, &wrap_mech,
+                    secret_key, wrapped_key, wrapped_keylen, uw_base_tmpl,
+                    sizeof(uw_base_tmpl) / sizeof(CK_ATTRIBUTE), CKA_VALUE,
+                    NULL, NULL);
+        if (rc != CKR_OK)
+            goto testcase_cleanup;
 
         free(wrapped_key);
         wrapped_key = NULL;

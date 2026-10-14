@@ -700,6 +700,140 @@ testcase_cleanup:
     return rc;
 }
 
+/*
+ * Wraps a DH private key under an AES key with CKM_AES_CBC_PAD, and checks
+ * that unwrapping it honours CKA_SENSITIVE and CKA_EXTRACTABLE.
+ */
+CK_RV do_WrapUnwrapDHKey(void)
+{
+    CK_SESSION_HANDLE session;
+    CK_MECHANISM mech, wkey_mech, wrap_mech;
+    CK_OBJECT_HANDLE publ_key = CK_INVALID_HANDLE;
+    CK_OBJECT_HANDLE priv_key = CK_INVALID_HANDLE;
+    CK_OBJECT_HANDLE secret_key = CK_INVALID_HANDLE;
+    CK_FLAGS flags;
+    CK_BYTE user_pin[PKCS11_MAX_PIN_LEN];
+    CK_ULONG user_pin_len;
+    CK_RV rc = CKR_OK;
+    CK_BBOOL ltrue = CK_TRUE;
+    CK_OBJECT_CLASS pub_key_class = CKO_PUBLIC_KEY;
+    CK_OBJECT_CLASS priv_key_class = CKO_PRIVATE_KEY;
+    CK_KEY_TYPE key_type = CKK_DH;
+    CK_BYTE iv[] = "0123456789abcdef";
+    CK_BYTE_PTR wrapped_key = NULL;
+    CK_ULONG wrapped_keylen = 0;
+    CK_ATTRIBUTE publ_tmpl[] = {
+        {CKA_CLASS, &pub_key_class, sizeof(pub_key_class)},
+        {CKA_KEY_TYPE, &key_type, sizeof(key_type)},
+        {CKA_PRIME, DH_PUBL_PRIME, sizeof(DH_PUBL_PRIME)},
+        {CKA_BASE, DH_PUBL_BASE, sizeof(DH_PUBL_BASE)}
+    };
+    CK_ATTRIBUTE priv_tmpl[] = {
+        {CKA_CLASS, &priv_key_class, sizeof(priv_key_class)},
+        {CKA_KEY_TYPE, &key_type, sizeof(key_type)},
+        {CKA_DERIVE, &ltrue, sizeof(ltrue)},
+        {CKA_EXTRACTABLE, &ltrue, sizeof(ltrue)}
+    };
+    CK_ATTRIBUTE uw_base_tmpl[] = {
+        {CKA_CLASS, &priv_key_class, sizeof(priv_key_class)},
+        {CKA_KEY_TYPE, &key_type, sizeof(key_type)},
+        {CKA_DERIVE, &ltrue, sizeof(ltrue)}
+    };
+
+    testcase_begin("starting do_WrapUnwrapDHKey...");
+    testcase_rw_session();
+    testcase_user_login();
+
+    if (!mech_supported(SLOT_ID, CKM_AES_KEY_GEN) ||
+        !mech_supported(SLOT_ID, CKM_AES_CBC_PAD)) {
+        testcase_skip("Slot %u doesn't support CKM_AES_KEY_GEN or "
+                      "CKM_AES_CBC_PAD", (unsigned int) SLOT_ID);
+        goto testcase_cleanup;
+    }
+
+    mech.mechanism = CKM_DH_PKCS_KEY_PAIR_GEN;
+    mech.ulParameterLen = 0;
+    mech.pParameter = NULL;
+    rc = funcs->C_GenerateKeyPair(session, &mech,
+                                  publ_tmpl,
+                                  sizeof(publ_tmpl) / sizeof(CK_ATTRIBUTE),
+                                  priv_tmpl,
+                                  sizeof(priv_tmpl) / sizeof(CK_ATTRIBUTE),
+                                  &publ_key, &priv_key);
+    if (rc != CKR_OK) {
+        if (is_rejected_by_policy(rc, session)) {
+            testcase_skip("DH key generation is not allowed by policy");
+            rc = CKR_OK;
+            goto testcase_cleanup;
+        }
+        testcase_error("C_GenerateKeyPair rc=%s", p11_get_ckr(rc));
+        goto testcase_cleanup;
+    }
+
+    wkey_mech.mechanism = CKM_AES_KEY_GEN;
+    wkey_mech.pParameter = NULL;
+    wkey_mech.ulParameterLen = 0;
+    rc = generate_AESKey(session, 32, CK_TRUE, &wkey_mech, &secret_key);
+    if (rc != CKR_OK) {
+        if (rc == CKR_POLICY_VIOLATION) {
+            testcase_skip("AES key generation is not allowed by policy");
+            rc = CKR_OK;
+            goto testcase_cleanup;
+        }
+        testcase_error("generate_AESKey rc=%s", p11_get_ckr(rc));
+        goto testcase_cleanup;
+    }
+
+    wrap_mech.mechanism = CKM_AES_CBC_PAD;
+    wrap_mech.pParameter = iv;
+    wrap_mech.ulParameterLen = 16;
+
+    if (!wrap_supported(SLOT_ID, wrap_mech)) {
+        testcase_skip("Slot %lu doesn't support wrapping with CKM_AES_CBC_PAD",
+                      SLOT_ID);
+        goto testcase_cleanup;
+    }
+
+    rc = funcs->C_WrapKey(session, &wrap_mech, secret_key, priv_key, NULL,
+                          &wrapped_keylen);
+    if (rc != CKR_OK) {
+        testcase_error("C_WrapKey rc=%s", p11_get_ckr(rc));
+        goto testcase_cleanup;
+    }
+    wrapped_key = malloc(wrapped_keylen);
+    if (wrapped_key == NULL) {
+        testcase_error("malloc failed");
+        rc = CKR_HOST_MEMORY;
+        goto testcase_cleanup;
+    }
+    rc = funcs->C_WrapKey(session, &wrap_mech, secret_key, priv_key,
+                          wrapped_key, &wrapped_keylen);
+    if (rc != CKR_OK) {
+        testcase_error("C_WrapKey rc=%s", p11_get_ckr(rc));
+        goto testcase_cleanup;
+    }
+
+    rc = check_unwrap_sensitive_extractable(session, &wrap_mech, secret_key,
+                                            wrapped_key, wrapped_keylen,
+                                            uw_base_tmpl,
+                                            sizeof(uw_base_tmpl) /
+                                                sizeof(CK_ATTRIBUTE),
+                                            CKA_VALUE, NULL, NULL);
+
+testcase_cleanup:
+    if (wrapped_key)
+        free(wrapped_key);
+    if (publ_key != CK_INVALID_HANDLE)
+        funcs->C_DestroyObject(session, publ_key);
+    if (priv_key != CK_INVALID_HANDLE)
+        funcs->C_DestroyObject(session, priv_key);
+    if (secret_key != CK_INVALID_HANDLE)
+        funcs->C_DestroyObject(session, secret_key);
+    testcase_close_session();
+
+    return rc;
+}
+
 CK_RV dh_functions(void)
 {
     CK_RV rv, rv2;
@@ -720,6 +854,8 @@ CK_RV dh_functions(void)
             (mechinfo.flags & CKF_ENCAPSULATE) != 0 &&
             (mechinfo.flags & CKF_DECAPSULATE) != 0)
             rv = do_EnDecapsulateDHKey();
+        if (rv == CKR_OK)
+            rv = do_WrapUnwrapDHKey();
     } else {
         /*
          ** One of the above mechanism is not available, so skip
