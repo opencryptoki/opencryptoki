@@ -715,6 +715,68 @@ def pkcs8_to_ec_attrs(pkcs8: bytes) -> dict:
     return result
 
 
+# ---------------------------------------------------------------------------
+# DH (PKCS#3 dhKeyAgreement) PKCS#8 encode/decode
+#
+#   PrivateKeyInfo ::= SEQUENCE {
+#     version     INTEGER (0),
+#     algorithm   SEQUENCE { OID dhKeyAgreement (1.2.840.113549.1.3.1),
+#                            DHParameter SEQUENCE { INTEGER p, INTEGER g } },
+#     privateKey  OCTET STRING { INTEGER x }
+#   }
+# ---------------------------------------------------------------------------
+
+# dhKeyAgreement OID DER encoding: 1.2.840.113549.1.3.1
+_OID_DH = bytes.fromhex('06092a864886f70d010301')
+# dhKeyAgreement OID value bytes (without tag/length), for pkcs8_get_alg_oid()
+DH_OID_VALUE = _OID_DH[2:]
+
+_CKA_PRIME = 0x00000130
+_CKA_BASE  = 0x00000132
+
+
+def dh_attrs_to_pkcs8(attr_dict: dict) -> bytes:
+    """Encode a DH private key (CKA_PRIME, CKA_BASE, CKA_VALUE) as PKCS#8."""
+    dh_params = encode_sequence(
+        _encode_ber_integer(attr_dict.get(_CKA_PRIME, b'\x00')) +
+        _encode_ber_integer(attr_dict.get(_CKA_BASE, b'\x00'))
+    )
+    alg_id = encode_sequence(_OID_DH + dh_params)
+    priv = _encode_ber_integer(attr_dict.get(_CKA_VALUE, b'\x00'))
+    return encode_sequence(
+        _encode_ber_integer(b'\x00') +
+        alg_id +
+        encode_tlv(LBER_OCTET_STRING, priv)
+    )
+
+
+def pkcs8_to_dh_attrs(pkcs8: bytes) -> dict:
+    """Decode a DH PKCS#8 blob; returns CKA_PRIME, CKA_BASE, CKA_VALUE."""
+    tag, outer, _ = _decode_tlv(pkcs8, 0)
+    if tag != LBER_SEQUENCE:
+        raise ValueError('PKCS#8/DH: expected outer SEQUENCE, got 0x%02x' % tag)
+
+    pos = 0
+    _, pos = _decode_ber_integer_value(outer, pos)          # version
+    tag, alg_seq, pos = _decode_tlv(outer, pos)             # AlgorithmIdentifier
+    if tag != LBER_SEQUENCE:
+        raise ValueError('PKCS#8/DH: expected AlgorithmIdentifier SEQUENCE')
+    tag, priv_bytes, pos = _decode_tlv(outer, pos)          # privateKey
+    if tag != LBER_OCTET_STRING:
+        raise ValueError('PKCS#8/DH: expected OCTET STRING for privateKey')
+
+    _, _, apos = _decode_tlv(alg_seq, 0)                    # skip OID
+    tag, params, _ = _decode_tlv(alg_seq, apos)
+    if tag != LBER_SEQUENCE:
+        raise ValueError('PKCS#8/DH: expected DHParameter SEQUENCE')
+    ppos = 0
+    p, ppos = _decode_ber_integer_value(params, ppos)
+    g, ppos = _decode_ber_integer_value(params, ppos)
+    x, _ = _decode_ber_integer_value(priv_bytes, 0)
+
+    return {_CKA_PRIME: p, _CKA_BASE: g, _CKA_VALUE: x}
+
+
 def pkcs8_get_alg_oid(pkcs8: bytes) -> bytes:
     """
     Return the AlgorithmIdentifier OID bytes from a PKCS#8 blob (the value

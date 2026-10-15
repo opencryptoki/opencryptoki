@@ -51,7 +51,8 @@ from rsa_backend import rsa_private_decrypt
 from ber_codec import (
     encode_response, make_object_handle,
     parse_handle, _decode_tlv, decode_attribute_list, encode_sequence,
-    HANDLE_LEN, pkcs8_to_rsa_attrs, pkcs8_to_ec_attrs, pkcs8_get_alg_oid,
+    HANDLE_LEN, pkcs8_to_rsa_attrs, pkcs8_to_ec_attrs, pkcs8_to_dh_attrs,
+    pkcs8_get_alg_oid, DH_OID_VALUE,
 )
 from obj_attrs import make_secret_key_attrs, complete_key_attrs
 from pkcs11_const import (
@@ -220,7 +221,9 @@ def _build_private_key_attrs(pkcs8_bytes, caller_attrs, attr_dict):
     alg_oid = pkcs8_get_alg_oid(pkcs8_bytes)
     is_ec   = (alg_oid == _EC_OID_VALUE)
 
-    if is_ec:
+    if alg_oid == DH_OID_VALUE:
+        return _build_dh_private_key_attrs(pkcs8_bytes, caller_attrs, attr_dict)
+    elif is_ec:
         return _build_ec_private_key_attrs(pkcs8_bytes, caller_attrs, attr_dict)
     else:
         return _build_rsa_private_key_attrs(pkcs8_bytes, caller_attrs, attr_dict)
@@ -268,5 +271,26 @@ def _build_ec_private_key_attrs(pkcs8_bytes, caller_attrs, attr_dict):
     # Ensure CKA_KEY_TYPE is CKK_EC in the attribute list.
     if CKA_KEY_TYPE not in base_dict:
         base.append((CKA_KEY_TYPE, CKK_EC))
+
+    return complete_key_attrs(base, key_gen_mechanism=CKM_UNAVAILABLE_INFORMATION)
+
+
+def _build_dh_private_key_attrs(pkcs8_bytes, caller_attrs, attr_dict):
+    """Decode PKCS#8 DH blob and return a complete attribute list."""
+    try:
+        dh_components = pkcs8_to_dh_attrs(pkcs8_bytes)
+    except Exception as exc:
+        logger.error('UWK: pkcs8_to_dh_attrs failed: %s', exc)
+        return None
+
+    # Start with the caller's template (class, key type, token flag, etc.)
+    # then inject CKA_PRIME / CKA_BASE / CKA_VALUE decoded from the blob.
+    base = list(caller_attrs)
+    base_dict = dict(attr_dict)
+
+    for cka, val in dh_components.items():
+        if cka not in base_dict:
+            base.append((cka, val))
+            base_dict[cka] = val
 
     return complete_key_attrs(base, key_gen_mechanism=CKM_UNAVAILABLE_INFORMATION)
