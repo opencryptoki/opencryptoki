@@ -408,11 +408,16 @@ def handle_dvk(store, request):
         if not value_len:
             value_len = _DEFAULT_KEY_LEN.get(key_type, len(z_bytes))
 
-        # Truncate or zero-pad if necessary
-        if len(z_bytes) >= value_len:
-            key_bytes = z_bytes[:value_len]
-        else:
-            key_bytes = z_bytes + b'\x00' * (value_len - len(z_bytes))
+        # The requested key can't be longer than the shared secret.
+        if value_len > len(z_bytes):
+            logger.error('DVK: PKCS-DH requested key length %d exceeds shared '
+                         'secret length %d', value_len, len(z_bytes))
+            return encode_response(
+                request.handle, RC_ERROR, 3002, ICSF_TAG_CSFPDVK, b'')
+
+        # Per PKCS#11 §6.4.10: truncation removes bytes from the leading end,
+        # i.e. keep the rightmost value_len bytes of the zero-padded secret.
+        key_bytes = z_bytes[len(z_bytes) - value_len:]
 
         cka_token = derived_dict.get(CKA_TOKEN, b'\x00')
         is_token = bool(cka_token[0] if isinstance(cka_token, bytes) else cka_token)
