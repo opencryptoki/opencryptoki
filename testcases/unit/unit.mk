@@ -11,7 +11,8 @@ TESTS = testcases/unit/policytest testcases/unit/hashmaptest		\
 	testcases/unit/asn1fuzztest testcases/unit/objectflattentest
 
 EXTRA_DIST += testcases/unit/pintest.sh
-noinst_HEADERS += testcases/unit/unittest.h
+noinst_HEADERS += testcases/unit/unittest.h testcases/unit/asn1test_keys.h \
+	testcases/unit/asn1test_pqckeys.h testcases/unit/asn1test_openssl.h
 
 testcases_unit_policytest_CFLAGS=-I${top_srcdir}/usr/lib/common		\
 	-I${top_srcdir}/usr/lib/api -I${top_srcdir}/usr/include		\
@@ -90,12 +91,14 @@ testcases_unit_pintest_LDFLAGS=-lcrypto
 testcases_unit_asn1test_SOURCES=testcases/unit/asn1test.c	\
 	testcases/unit/asn1test_keys.c				\
 	testcases/unit/asn1test_pqckeys.c			\
+	testcases/unit/asn1test_openssl.c			\
 	usr/lib/common/asn1.c usr/lib/common/trace.c		\
 	usr/lib/common/ec_supported.c				\
 	testcases/unit/asn1test_stubs.c
 
 testcases_unit_asn1test_CFLAGS=-I${top_srcdir}/usr/lib/common	\
 	-I${top_srcdir}/usr/include -DSTDLL_NAME=\"asn1test\"
+testcases_unit_asn1test_LDFLAGS=-lcrypto
 
 testcases_unit_asn1fuzztest_SOURCES=testcases/unit/asn1fuzztest.c	\
 	usr/lib/common/asn1.c usr/lib/common/trace.c			\

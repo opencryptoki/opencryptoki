@@ -89,8 +89,8 @@ const CK_ULONG ber_idDSALen = sizeof(ber_idDSA);
 
 /* Real DH OID constant - needed for DH key encoding/decoding */
 const CK_BYTE ber_idDH[] = {
-    0x06, 0x07,  /* OID, length 7 */
-    0x2A, 0x86, 0x48, 0xCE, 0x3E, 0x02, 0x01  /* dhKeyAgreement OID: 1.2.840.10046.2.1 */
+    0x06, 0x09,  /* OID, length 9 */
+    0x2A, 0x86, 0x48, 0x86, 0xF7, 0x0D, 0x01, 0x03, 0x01  /* dhKeyAgreement OID: 1.2.840.113549.1.3.1 */
 };
 const CK_ULONG ber_idDHLen = sizeof(ber_idDH);
 

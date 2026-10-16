@@ -13,8 +13,8 @@
  * This header declares test functions for RSA, DSA, DH, EC, Edwards, and Montgomery keys
  */
 
-#ifndef ASNT1TEST_KEYS_H
-#define ASNT1TEST_KEYS_H
+#ifndef ASN1TEST_KEYS_H
+#define ASN1TEST_KEYS_H
 
 /* RSA Private Key Tests */
 int test_encode_rsa_private_key_basic(void);
@@ -100,4 +100,4 @@ int test_decode_montgomery_public_key_unknown_oid(void);
 int test_decode_montgomery_public_key_wrong_curve_type(void);
 int test_roundtrip_montgomery_public_key(void);
 
-#endif /* ASNT1TEST_KEYS_H */
+#endif /* ASN1TEST_KEYS_H */
