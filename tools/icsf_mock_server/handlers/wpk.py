@@ -51,10 +51,10 @@ from rsa_backend import rsa_public_encrypt
 from ber_codec import (
     encode_response, encode_octet_string, encode_integer,
     parse_handle, _decode_tlv, decode_integer, HANDLE_LEN,
-    rsa_attrs_to_pkcs8, ec_attrs_to_pkcs8, dh_attrs_to_pkcs8,
+    rsa_attrs_to_pkcs8, ec_attrs_to_pkcs8, dh_attrs_to_pkcs8, dsa_attrs_to_pkcs8,
 )
-from pkcs11_const import (CKA_VALUE, CKA_CLASS, CKO_PRIVATE_KEY, CKA_KEY_TYPE, CKK_EC,
-                           CKK_DH, CKA_MODULUS)
+from pkcs11_const import (CKA_VALUE, CKA_CLASS, CKO_PRIVATE_KEY, CKA_KEY_TYPE,
+                           CKK_EC, CKK_DH, CKK_DSA, CKA_MODULUS)
 
 logger = logging.getLogger(__name__)
 
@@ -92,6 +92,8 @@ def handle_wpk(store, request):
             target_key_value = ec_attrs_to_pkcs8(target_obj.attributes)
         elif key_type == CKK_DH:
             target_key_value = dh_attrs_to_pkcs8(target_obj.attributes)
+        elif key_type == CKK_DSA:
+            target_key_value = dsa_attrs_to_pkcs8(target_obj.attributes)
         else:
             target_key_value = rsa_attrs_to_pkcs8(target_obj.attributes)
     else:
