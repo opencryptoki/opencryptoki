@@ -1958,6 +1958,99 @@ CK_RV create_DHPublicKey(CK_SESSION_HANDLE session,
     return rc;
 }
 
+/* Generate a DSA key pair */
+CK_RV generate_DSA_KeyPair(CK_SESSION_HANDLE session,
+                            CK_BYTE *prime, CK_ULONG prime_len,
+                            CK_BYTE *subprime, CK_ULONG subprime_len,
+                            CK_BYTE *base, CK_ULONG base_len,
+                            CK_OBJECT_HANDLE *publ_key,
+                            CK_OBJECT_HANDLE *priv_key,
+                            CK_BBOOL extractable)
+{
+    CK_RV rc;
+    CK_MECHANISM mech = { CKM_DSA_KEY_PAIR_GEN, NULL, 0 };
+    CK_BYTE subject[] = {0};
+    CK_BYTE id[] = { 123 };
+    CK_BBOOL true = TRUE;
+    CK_ATTRIBUTE publicKeyTemplate[] = {
+        {CKA_VERIFY, &true, sizeof(true)},
+        {CKA_PRIME, prime, prime_len},
+        {CKA_SUBPRIME, subprime, subprime_len},
+        {CKA_BASE, base, base_len},
+    };
+    CK_ATTRIBUTE privateKeyTemplate[] = {
+        {CKA_TOKEN, &true, sizeof(true)},
+        {CKA_PRIVATE, &true, sizeof(true)},
+        {CKA_SUBJECT, subject, 0},
+        {CKA_ID, id, sizeof(id)},
+        {CKA_SENSITIVE, &true, sizeof(true)},
+        {CKA_SIGN, &true, sizeof(true)},
+        {CKA_EXTRACTABLE, &extractable, sizeof(CK_BBOOL)},
+    };
+
+    rc = funcs->C_GenerateKeyPair(session, &mech,
+                                  publicKeyTemplate,
+                                  sizeof(publicKeyTemplate) / sizeof(CK_ATTRIBUTE),
+                                  privateKeyTemplate,
+                                  sizeof(privateKeyTemplate) / sizeof(CK_ATTRIBUTE),
+                                  publ_key, priv_key);
+
+    if (is_rejected_by_policy(rc, session))
+        rc = CKR_POLICY_VIOLATION;
+
+    return rc;
+}
+
+/*
+ * Generate a DH key pair.
+ * value_bits is the length in bits of the private value (CKA_VALUE_BITS). A
+ * value of 0 means that CKA_VALUE_BITS is not specified.
+ */
+CK_RV generate_DH_KeyPair(CK_SESSION_HANDLE session,
+                           CK_BYTE *prime, CK_ULONG prime_len,
+                           CK_BYTE *base, CK_ULONG base_len,
+                           CK_OBJECT_HANDLE *publ_key,
+                           CK_OBJECT_HANDLE *priv_key,
+                           CK_BBOOL extractable,
+						   CK_ULONG value_bits)
+{
+    CK_RV rc;
+    CK_MECHANISM mech = { CKM_DH_PKCS_KEY_PAIR_GEN, NULL, 0 };
+    CK_BYTE subject[] = {0};
+    CK_BYTE id[] = { 123 };
+    CK_BBOOL true = TRUE;
+    CK_ATTRIBUTE publicKeyTemplate[] = {
+        {CKA_PRIME, prime, prime_len},
+        {CKA_BASE, base, base_len},
+    };
+    /* CKA_VALUE_BITS must be the last entry, it is only used if non-zero */
+    CK_ATTRIBUTE privateKeyTemplate[] = {
+        {CKA_TOKEN, &true, sizeof(true)},
+        {CKA_PRIVATE, &true, sizeof(true)},
+        {CKA_SUBJECT, subject, 0},
+        {CKA_ID, id, sizeof(id)},
+        {CKA_SENSITIVE, &true, sizeof(true)},
+        {CKA_DERIVE, &true, sizeof(true)},
+        {CKA_EXTRACTABLE, &extractable, sizeof(CK_BBOOL)},
+        {CKA_VALUE_BITS, &value_bits, sizeof(value_bits)},
+    };
+    CK_ULONG priv_tmpl_len = sizeof(privateKeyTemplate) / sizeof(CK_ATTRIBUTE);
+
+    if (value_bits == 0)
+        priv_tmpl_len--;
+
+    rc = funcs->C_GenerateKeyPair(session, &mech,
+                                  publicKeyTemplate,
+                                  sizeof(publicKeyTemplate) / sizeof(CK_ATTRIBUTE),
+                                  privateKeyTemplate, priv_tmpl_len,
+                                  publ_key, priv_key);
+
+    if (is_rejected_by_policy(rc, session))
+        rc = CKR_POLICY_VIOLATION;
+
+    return rc;
+}
+
 /* Generate a secret key */
 CK_RV generate_SecretKey(CK_SESSION_HANDLE session,
                          CK_ULONG keylen,
