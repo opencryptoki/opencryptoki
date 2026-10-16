@@ -23,6 +23,7 @@
 #include "unittest.h"
 #include "asn1test_keys.h"
 #include "asn1test_pqckeys.h"
+#include "asn1test_openssl.h"
 
 /* Function prototypes from asn1.c */
 CK_RV ber_encode_INTEGER(CK_BBOOL length_only,
@@ -3717,6 +3718,28 @@ int main(void)
     failed += test_encode_ml_kem_private_key_seed_only_length_only();
     failed += test_decode_ml_kem_private_key_seed_only();
     failed += test_roundtrip_ml_kem_private_key_seed_only();
+
+    /* OpenSSL PKCS#8 Private Key Tests */
+    printf("\n--- OpenSSL PKCS#8 Private Key Tests ---\n");
+    failed += test_openssl_pkcs8_rsa();
+    failed += test_openssl_pkcs8_dsa();
+    failed += test_openssl_pkcs8_dh();
+    failed += test_openssl_pkcs8_ec();
+    failed += test_openssl_pkcs8_edwards();
+    failed += test_openssl_pkcs8_montgomery();
+    failed += test_openssl_pkcs8_ml_dsa();
+    failed += test_openssl_pkcs8_ml_kem();
+
+    /* OpenSSL SPKI Public Key Tests */
+    printf("\n--- OpenSSL SPKI Public Key Tests ---\n");
+    failed += test_openssl_spki_rsa();
+    failed += test_openssl_spki_dsa();
+    failed += test_openssl_spki_dh();
+    failed += test_openssl_spki_ec();
+    failed += test_openssl_spki_edwards();
+    failed += test_openssl_spki_montgomery();
+    failed += test_openssl_spki_ml_dsa();
+    failed += test_openssl_spki_ml_kem();
 
     printf("\n=== Test Summary ===\n");
     if (failed == 0) {
