@@ -625,7 +625,7 @@ CK_RV do_EncryptDecryptDES3(struct generated_test_suite_info * tsuite)
     CK_BYTE original[BIG_REQUEST];
     CK_BYTE crypt[BIG_REQUEST + DES3_BLOCK_SIZE];
     CK_BYTE decrypt[BIG_REQUEST + DES3_BLOCK_SIZE];
-    CK_ULONG crypt_len, decrypt_len, original_len;
+    CK_ULONG crypt_len, decrypt_len, original_len, small_len;
 
     CK_SLOT_ID slot_id = SLOT_ID;
     CK_SESSION_HANDLE session;
@@ -684,6 +684,37 @@ CK_RV do_EncryptDecryptDES3(struct generated_test_suite_info * tsuite)
         goto error;
     }
 
+    /*
+     * An output buffer that is one byte shorter than the input must be
+     * rejected with CKR_BUFFER_TOO_SMALL without writing to it, and the
+     * encrypt operation must stay active for the retry below.
+     */
+    memset(crypt, 0xAA, sizeof(crypt));
+    small_len = original_len - 1;
+    crypt_len = small_len;
+
+    rc = funcs->C_Encrypt(session, original, original_len, crypt, &crypt_len);
+
+    testcase_new_assertion();
+
+    if (rc != CKR_BUFFER_TOO_SMALL) {
+        testcase_fail("C_Encrypt with too small buffer: expected "
+                      "CKR_BUFFER_TOO_SMALL, but got rc=%s", p11_get_ckr(rc));
+        goto error;
+    } else if (crypt_len <= small_len) {
+        testcase_fail("C_Encrypt with too small buffer did not report a "
+                      "larger required length: passed %lu, got %lu",
+                      small_len, crypt_len);
+    } else if (crypt[original_len - 1] != 0xAA) {
+        testcase_fail("C_Encrypt with too small buffer wrote beyond "
+                      "the provided output buffer length");
+    } else {
+        testcase_pass("%s Encryption with too small buffer passed.",
+                      tsuite->name);
+    }
+
+    crypt_len = sizeof(crypt);
+
     /** do single encryption **/
     rc = funcs->C_Encrypt(session, original, original_len, crypt, &crypt_len);
     if (rc != CKR_OK) {
@@ -697,6 +728,37 @@ CK_RV do_EncryptDecryptDES3(struct generated_test_suite_info * tsuite)
         testcase_error("C_DecryptInit rc=%s", p11_get_ckr(rc));
         goto error;
     }
+
+    /*
+     * An output buffer that is one byte too short must be rejected with
+     * CKR_BUFFER_TOO_SMALL without writing to it, and the decrypt operation
+     * must stay active for the retry below.
+     */
+    memset(decrypt, 0xAA, sizeof(decrypt));
+    small_len = original_len - 1;
+    decrypt_len = small_len;
+
+    rc = funcs->C_Decrypt(session, crypt, crypt_len, decrypt, &decrypt_len);
+
+    testcase_new_assertion();
+
+    if (rc != CKR_BUFFER_TOO_SMALL) {
+        testcase_fail("C_Decrypt with too small buffer: expected "
+                      "CKR_BUFFER_TOO_SMALL, but got rc=%s", p11_get_ckr(rc));
+        goto error;
+    } else if (decrypt_len <= small_len) {
+        testcase_fail("C_Decrypt with too small buffer did not report a "
+                      "larger required length: passed %lu, got %lu",
+                      small_len, decrypt_len);
+    } else if (decrypt[original_len - 1] != 0xAA) {
+        testcase_fail("C_Decrypt with too small buffer wrote beyond "
+                      "the provided output buffer length");
+    } else {
+        testcase_pass("%s Decryption with too small buffer passed.",
+                      tsuite->name);
+    }
+
+    decrypt_len = sizeof(decrypt);
 
     /** do single decryption **/
     rc = funcs->C_Decrypt(session, crypt, crypt_len, decrypt, &decrypt_len);
@@ -751,7 +813,7 @@ CK_RV do_EncryptDecryptUpdateDES3(struct generated_test_suite_info * tsuite)
     CK_BYTE original[BIG_REQUEST];
     CK_BYTE crypt[BIG_REQUEST + DES3_BLOCK_SIZE];
     CK_BYTE decrypt[BIG_REQUEST + DES3_BLOCK_SIZE];
-    CK_ULONG crypt_len, decrypt_len, original_len, tmp;
+    CK_ULONG crypt_len, decrypt_len, original_len, tmp, chunk, small_len;
 
     CK_SLOT_ID slot_id = SLOT_ID;
     CK_SESSION_HANDLE session;
@@ -790,6 +852,13 @@ CK_RV do_EncryptDecryptUpdateDES3(struct generated_test_suite_info * tsuite)
     for (j = 0; j < original_len; j++)
         original[j] = j % 255;
 
+    /*
+     * Use a length that is not a multiple of the block size for CBC_PAD,
+     * so that C_DecryptFinal returns a non-empty last part.
+     */
+    if (tsuite->mech.mechanism == CKM_DES3_CBC_PAD)
+        original_len -= 3;
+
     /** set mechanism for key gen **/
     mechkey = des3_keygen;
 
@@ -819,6 +888,35 @@ CK_RV do_EncryptDecryptUpdateDES3(struct generated_test_suite_info * tsuite)
         k = 0;
 
         while (k < original_len) {
+            if (k == DES3_BLOCK_SIZE) {
+                /*
+                 * An update that produces output must be rejected if the
+                 * output buffer is too small, and must not consume the input
+                 * (the real call follows below).
+                 */
+                small_len = DES3_BLOCK_SIZE - 1;
+                tmp = small_len;
+                rc = funcs->C_EncryptUpdate(session, &crypt[k],
+                                            DES3_BLOCK_SIZE,
+                                            &crypt[k], &tmp);
+
+                testcase_new_assertion();
+
+                if (rc != CKR_BUFFER_TOO_SMALL) {
+                    testcase_fail("C_EncryptUpdate with too small buffer: "
+                                  "expected CKR_BUFFER_TOO_SMALL, but got "
+                                  "rc=%s", p11_get_ckr(rc));
+                    goto error;
+                } else if (tmp <= small_len) {
+                    testcase_fail("C_EncryptUpdate with too small buffer "
+                                  "did not report a larger required length: "
+                                  "passed %lu, got %lu", small_len, tmp);
+                } else {
+                    testcase_pass("%s Multipart Encryption with too small "
+                                  "buffer passed.", tsuite->name);
+                }
+            }
+
             rc = funcs->C_EncryptUpdate(session, &crypt[k],
                                         DES3_BLOCK_SIZE, &crypt[k], &crypt_len);
             if (rc != CKR_OK) {
@@ -834,10 +932,37 @@ CK_RV do_EncryptDecryptUpdateDES3(struct generated_test_suite_info * tsuite)
         tmp = 0;
 
         while (i < original_len) {
+            chunk = original_len - i;
+            if (chunk > DES3_BLOCK_SIZE)
+                chunk = DES3_BLOCK_SIZE;
+
+            if (i == DES3_BLOCK_SIZE) {
+                /* same too small buffer check as for the in-place case */
+                small_len = DES3_BLOCK_SIZE - 1;
+                tmp = small_len;
+                rc = funcs->C_EncryptUpdate(session, &original[i], chunk,
+                                            &crypt[k], &tmp);
+
+                testcase_new_assertion();
+
+                if (rc != CKR_BUFFER_TOO_SMALL) {
+                    testcase_fail("C_EncryptUpdate with too small buffer: "
+                                  "expected CKR_BUFFER_TOO_SMALL, but got "
+                                  "rc=%s", p11_get_ckr(rc));
+                    goto error;
+                } else if (tmp <= small_len) {
+                    testcase_fail("C_EncryptUpdate with too small buffer "
+                                  "did not report a larger required length: "
+                                  "passed %lu, got %lu", small_len, tmp);
+                } else {
+                    testcase_pass("%s Multipart Encryption with too small "
+                                  "buffer passed.", tsuite->name);
+                }
+            }
 
             tmp = crypt_len - k;        // room is left in mpcrypt
             rc = funcs->C_EncryptUpdate(session, &original[i],
-                                        DES3_BLOCK_SIZE, &crypt[k], &tmp);
+                                        chunk, &crypt[k], &tmp);
 
             if (rc != CKR_OK) {
                 testcase_error("C_EncryptUpdate rc=%s", p11_get_ckr(rc));
@@ -845,9 +970,41 @@ CK_RV do_EncryptDecryptUpdateDES3(struct generated_test_suite_info * tsuite)
             }
 
             k += tmp;
-            i += DES3_BLOCK_SIZE;
+            i += chunk;
         }
         crypt_len -= k;
+    }
+
+    if (mech.mechanism == CKM_DES3_CBC_PAD) {
+        /*
+         * The last part is one block (original_len is not a multiple of the
+         * block size). An output buffer that is one byte too short must be
+         * rejected with CKR_BUFFER_TOO_SMALL without writing to it, and the
+         * operation must stay active for the real call below.
+         */
+        memset(&crypt[k], 0xAA, DES3_BLOCK_SIZE);
+        small_len = DES3_BLOCK_SIZE - 1;
+        tmp = small_len;
+        rc = funcs->C_EncryptFinal(session, &crypt[k], &tmp);
+
+        testcase_new_assertion();
+
+        if (rc != CKR_BUFFER_TOO_SMALL) {
+            testcase_fail("C_EncryptFinal with too small buffer: expected "
+                          "CKR_BUFFER_TOO_SMALL, but got rc=%s",
+                          p11_get_ckr(rc));
+            goto error;
+        } else if (tmp <= small_len) {
+            testcase_fail("C_EncryptFinal with too small buffer did not "
+                          "report a larger required length: passed %lu, "
+                          "got %lu", small_len, tmp);
+        } else if (crypt[k + DES3_BLOCK_SIZE - 1] != 0xAA) {
+            testcase_fail("C_EncryptFinal with too small buffer wrote "
+                          "beyond the provided output buffer length");
+        } else {
+            testcase_pass("%s Multipart Encryption final with too small "
+                          "buffer passed.", tsuite->name);
+        }
     }
 
     rc = funcs->C_EncryptFinal(session, &crypt[k], &crypt_len);
@@ -875,6 +1032,35 @@ CK_RV do_EncryptDecryptUpdateDES3(struct generated_test_suite_info * tsuite)
         k = 0;
 
         while (k < crypt_len) {
+            if (k == DES3_BLOCK_SIZE) {
+                /*
+                 * An update that produces output must be rejected if the
+                 * output buffer is too small, and must not consume the input
+                 * (the real call follows below).
+                 */
+                small_len = DES3_BLOCK_SIZE - 1;
+                tmp = small_len;
+                rc = funcs->C_DecryptUpdate(session, &decrypt[k],
+                                            DES3_BLOCK_SIZE,
+                                            &decrypt[k], &tmp);
+
+                testcase_new_assertion();
+
+                if (rc != CKR_BUFFER_TOO_SMALL) {
+                    testcase_fail("C_DecryptUpdate with too small buffer: "
+                                  "expected CKR_BUFFER_TOO_SMALL, but got "
+                                  "rc=%s", p11_get_ckr(rc));
+                    goto error;
+                } else if (tmp <= small_len) {
+                    testcase_fail("C_DecryptUpdate with too small buffer "
+                                  "did not report a larger required length: "
+                                  "passed %lu, got %lu", small_len, tmp);
+                } else {
+                    testcase_pass("%s Multipart Decryption with too small "
+                                  "buffer passed.", tsuite->name);
+                }
+            }
+
             rc = funcs->C_DecryptUpdate(session, &decrypt[k],
                                         DES3_BLOCK_SIZE,
                                         &decrypt[k], &decrypt_len);
@@ -890,6 +1076,30 @@ CK_RV do_EncryptDecryptUpdateDES3(struct generated_test_suite_info * tsuite)
         i = k = 0;
 
         while (i < crypt_len) {
+            if (i == DES3_BLOCK_SIZE) {
+                /* same too small buffer check as for the in-place case */
+                small_len = DES3_BLOCK_SIZE - 1;
+                tmp = small_len;
+                rc = funcs->C_DecryptUpdate(session, &crypt[i],
+                                            DES3_BLOCK_SIZE,
+                                            &decrypt[k], &tmp);
+
+                testcase_new_assertion();
+
+                if (rc != CKR_BUFFER_TOO_SMALL) {
+                    testcase_fail("C_DecryptUpdate with too small buffer: "
+                                  "expected CKR_BUFFER_TOO_SMALL, but got "
+                                  "rc=%s", p11_get_ckr(rc));
+                    goto error;
+                } else if (tmp <= small_len) {
+                    testcase_fail("C_DecryptUpdate with too small buffer "
+                                  "did not report a larger required length: "
+                                  "passed %lu, got %lu", small_len, tmp);
+                } else {
+                    testcase_pass("%s Multipart Decryption with too small "
+                                  "buffer passed.", tsuite->name);
+                }
+            }
 
             tmp = decrypt_len - k;      // room left in mpdecrypt
 
@@ -906,6 +1116,38 @@ CK_RV do_EncryptDecryptUpdateDES3(struct generated_test_suite_info * tsuite)
         }
 
         decrypt_len = sizeof(decrypt) - k;
+    }
+
+    if (mech.mechanism == CKM_DES3_CBC_PAD) {
+        /*
+         * The last part is original_len - k bytes. An output buffer that is
+         * one byte too short must be rejected with CKR_BUFFER_TOO_SMALL
+         * without writing to it, and the operation must stay active for the
+         * real call below.
+         */
+        memset(&decrypt[k], 0xAA, original_len - k);
+        small_len = original_len - k - 1;
+        tmp = small_len;
+        rc = funcs->C_DecryptFinal(session, &decrypt[k], &tmp);
+
+        testcase_new_assertion();
+
+        if (rc != CKR_BUFFER_TOO_SMALL) {
+            testcase_fail("C_DecryptFinal with too small buffer: expected "
+                          "CKR_BUFFER_TOO_SMALL, but got rc=%s",
+                          p11_get_ckr(rc));
+            goto error;
+        } else if (tmp <= small_len) {
+            testcase_fail("C_DecryptFinal with too small buffer did not "
+                          "report a larger required length: passed %lu, "
+                          "got %lu", small_len, tmp);
+        } else if (decrypt[original_len - 1] != 0xAA) {
+            testcase_fail("C_DecryptFinal with too small buffer wrote "
+                          "beyond the provided output buffer length");
+        } else {
+            testcase_pass("%s Multipart Decryption final with too small "
+                          "buffer passed.", tsuite->name);
+        }
     }
 
     rc = funcs->C_DecryptFinal(session, &decrypt[k], &decrypt_len);
