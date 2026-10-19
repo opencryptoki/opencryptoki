@@ -1698,7 +1698,7 @@ CK_RV restore_private_token_object_old(STDLL_TokData_t *tokdata, CK_BYTE *data,
         goto done;
     }
 
-    rc = strip_pkcs_padding(clear, len, &clear_len);
+    rc = strip_pkcs_padding(clear, block_size, len, &clear_len);
 
     // if the padding extraction didn't work it means the object was
     // tampered with or the key was incorrect

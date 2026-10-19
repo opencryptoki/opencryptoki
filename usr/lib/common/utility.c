@@ -28,6 +28,7 @@
 #include "defs.h"
 #include "host_defs.h"
 #include "h_extern.h"
+#include "constant_time.h"
 #include "p11util.h"
 #include "attributes.h"
 #include "tok_spec_struct.h"
@@ -563,17 +564,36 @@ CK_RV add_pkcs_padding(CK_BYTE *ptr,
 
 //
 //
-CK_RV strip_pkcs_padding(CK_BYTE *ptr, CK_ULONG total_len, CK_ULONG *data_len)
+CK_RV strip_pkcs_padding(CK_BYTE *ptr, CK_ULONG block_size,
+                         CK_ULONG total_len, CK_ULONG *data_len)
 {
     CK_BYTE pad_value;
+    unsigned int check_len, i, good, in_pad;
 
-    pad_value = ptr[total_len - 1];
-    if (pad_value > total_len) {
+    if (block_size == 0 || block_size > 255 ||
+        total_len == 0 || total_len % block_size != 0) {
         TRACE_ERROR("%s\n", ock_err(ERR_ENCRYPTED_DATA_INVALID));
         return CKR_ENCRYPTED_DATA_INVALID;
     }
-    // thus, we have 'pad_value' bytes of 'pad_value' appended to the end
-    //
+
+    /*
+     * PKCS#7: the last 'pad_value' bytes all equal 'pad_value', which is in
+     * 1..block_size. Every byte that could be padding is examined, so the
+     * time taken does not depend on the padding.
+     */
+    pad_value = ptr[total_len - 1];
+    check_len = (unsigned int)block_size;
+    good = ~constant_time_is_zero(pad_value);
+    good &= constant_time_ge(check_len, pad_value);
+    for (i = 1; i <= check_len; i++) {
+        in_pad = constant_time_ge(pad_value, i);
+
+        good &= ~in_pad | constant_time_eq(ptr[total_len - i], pad_value);
+    }
+    if (!(good & 1)) {
+        TRACE_ERROR("%s\n", ock_err(ERR_ENCRYPTED_DATA_INVALID));
+        return CKR_ENCRYPTED_DATA_INVALID;
+    }
     *data_len = total_len - pad_value;
 
     return CKR_OK;

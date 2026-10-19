@@ -379,7 +379,7 @@ CK_RV aes_cbc_pad_decrypt(STDLL_TokData_t *tokdata,
     if (rc != CKR_OK)
         goto done;
 
-    rc = strip_pkcs_padding(clear, padded_len, &data_len);
+    rc = strip_pkcs_padding(clear, AES_BLOCK_SIZE, padded_len, &data_len);
     if (rc != CKR_OK)
         goto done;
 
@@ -1730,7 +1730,7 @@ CK_RV aes_cbc_pad_decrypt_final(STDLL_TokData_t *tokdata,
     if (rc != CKR_OK)
         goto done;
 
-    rc = strip_pkcs_padding(clear, out_len, &out_len);
+    rc = strip_pkcs_padding(clear, AES_BLOCK_SIZE, out_len, &out_len);
     if (rc != CKR_OK)
         goto done;
 
@@ -5120,7 +5120,8 @@ CK_RV aes_key_wrap_decrypt(STDLL_TokData_t *tokdata, SESSION *sess,
 done:
     if (rc == CKR_OK && pkcs7_pad == TRUE &&
         out_data != NULL && *out_data_len > 0) {
-        rc = strip_pkcs_padding(out_data, *out_data_len, &unpadded_len);
+        rc = strip_pkcs_padding(out_data, AES_BLOCK_SIZE, *out_data_len,
+                                &unpadded_len);
         if (rc != CKR_OK) {
             TRACE_ERROR("strip_pkcs_padding failed.\n");
             goto done;

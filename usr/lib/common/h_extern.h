@@ -511,7 +511,7 @@ CK_RV add_pkcs_padding(CK_BYTE *ptr,   // where to start appending
                        CK_ULONG block_size,
                        CK_ULONG data_len, CK_ULONG total_len);
 
-CK_RV strip_pkcs_padding(CK_BYTE *ptr,
+CK_RV strip_pkcs_padding(CK_BYTE *ptr, CK_ULONG block_size,
                          CK_ULONG total_len, CK_ULONG *data_len);
 
 
