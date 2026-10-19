@@ -382,7 +382,7 @@ CK_RV des_cbc_pad_decrypt(STDLL_TokData_t *tokdata,
     if (rc != CKR_OK)
         goto done;
 
-    rc = strip_pkcs_padding(clear, padded_len, &data_len);
+    rc = strip_pkcs_padding(clear, DES_BLOCK_SIZE, padded_len, &data_len);
     if (rc != CKR_OK)
         goto done;
 
@@ -1248,7 +1248,7 @@ CK_RV des_cbc_pad_decrypt_final(STDLL_TokData_t *tokdata,
     if (rc != CKR_OK)
         goto done;
 
-    rc = strip_pkcs_padding(clear, out_len, &out_len);
+    rc = strip_pkcs_padding(clear, DES_BLOCK_SIZE, out_len, &out_len);
     if (rc != CKR_OK)
         goto done;
 
