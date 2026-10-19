@@ -324,7 +324,8 @@ CK_RV aes_cbc_pad_decrypt(STDLL_TokData_t *tokdata,
 {
     OBJECT *key = NULL;
     CK_BYTE *clear = NULL;
-    CK_ULONG padded_len;
+    CK_BYTE saved_iv[AES_BLOCK_SIZE];
+    CK_ULONG padded_len, data_len;
     CK_RV rc;
 
 
@@ -344,7 +345,7 @@ CK_RV aes_cbc_pad_decrypt(STDLL_TokData_t *tokdata,
     // we're decrypting so even with CBC-PAD, we should have an integral
     // number of block to decrypt
     //
-    if (in_data_len % AES_BLOCK_SIZE != 0) {
+    if (in_data_len == 0 || in_data_len % AES_BLOCK_SIZE != 0) {
         TRACE_ERROR("%s\n", ock_err(ERR_ENCRYPTED_DATA_LEN_RANGE));
         rc = CKR_ENCRYPTED_DATA_LEN_RANGE;
         goto done;
@@ -366,17 +367,39 @@ CK_RV aes_cbc_pad_decrypt(STDLL_TokData_t *tokdata,
         rc = CKR_HOST_MEMORY;
         goto done;
     }
+    /*
+     * Save the IV before decrypting: the token-specific CBC decrypt
+     * updates ctx->mech.pParameter (the IV) in-place with the last
+     * ciphertext block.  If we end up returning CKR_BUFFER_TOO_SMALL
+     * the caller must be able to retry with the original IV intact.
+     */
+    memcpy(saved_iv, ctx->mech.pParameter, AES_BLOCK_SIZE);
     rc = ckm_aes_cbc_decrypt(tokdata, sess, in_data, in_data_len, clear, &padded_len,
                              ctx->mech.pParameter, key);
+    if (rc != CKR_OK)
+        goto done;
 
-    if (rc == CKR_OK) {
-        strip_pkcs_padding(clear, padded_len, out_data_len);
-        memcpy(out_data, clear, *out_data_len);
+    rc = strip_pkcs_padding(clear, padded_len, &data_len);
+    if (rc != CKR_OK)
+        goto done;
+
+    if (*out_data_len < data_len) {
+        TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
+        *out_data_len = data_len;
+        rc = CKR_BUFFER_TOO_SMALL;
+        /* Restore the IV so the operation can be retried. */
+        memcpy(ctx->mech.pParameter, saved_iv, AES_BLOCK_SIZE);
+        goto done;
     }
 
-    free(clear);
+    memcpy(out_data, clear, data_len);
+    *out_data_len = data_len;
 
 done:
+    if (clear != NULL) {
+        OPENSSL_cleanse(clear, in_data_len);
+        free(clear);
+    }
     object_put(tokdata, key, TRUE);
     key = NULL;
 
@@ -1660,6 +1683,7 @@ CK_RV aes_cbc_pad_decrypt_final(STDLL_TokData_t *tokdata,
     AES_CONTEXT *context = NULL;
     OBJECT *key = NULL;
     CK_BYTE clear[AES_BLOCK_SIZE];
+    CK_BYTE saved_iv[AES_BLOCK_SIZE];
     CK_ULONG out_len;
     CK_RV rc;
 
@@ -1691,21 +1715,40 @@ CK_RV aes_cbc_pad_decrypt_final(STDLL_TokData_t *tokdata,
     if (length_only == TRUE) {
         *out_data_len = out_len;
         rc = CKR_OK;
-    } else {
-        rc = ckm_aes_cbc_decrypt(tokdata, sess, context->data, AES_BLOCK_SIZE, clear,
-                                 &out_len, ctx->mech.pParameter, key);
-
-        if (rc == CKR_OK) {
-            strip_pkcs_padding(clear, out_len, &out_len);
-
-            if (out_len != 0)
-                memcpy(out_data, clear, out_len);
-
-            *out_data_len = out_len;
-        }
+        goto done;
     }
 
+    /*
+     * Save the IV before decrypting: the token-specific CBC decrypt
+     * updates ctx->mech.pParameter (the IV) in-place with the last
+     * ciphertext block.  If we end up returning CKR_BUFFER_TOO_SMALL
+     * the caller must be able to retry with the original IV intact.
+     */
+    memcpy(saved_iv, ctx->mech.pParameter, AES_BLOCK_SIZE);
+    rc = ckm_aes_cbc_decrypt(tokdata, sess, context->data, AES_BLOCK_SIZE, clear,
+                             &out_len, ctx->mech.pParameter, key);
+    if (rc != CKR_OK)
+        goto done;
+
+    rc = strip_pkcs_padding(clear, out_len, &out_len);
+    if (rc != CKR_OK)
+        goto done;
+
+    if (*out_data_len < out_len) {
+        TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
+        *out_data_len = out_len;
+        rc = CKR_BUFFER_TOO_SMALL;
+        /* Restore the IV so the operation can be retried. */
+        memcpy(ctx->mech.pParameter, saved_iv, AES_BLOCK_SIZE);
+        goto done;
+    }
+
+    if (out_len != 0)
+        memcpy(out_data, clear, out_len);
+    *out_data_len = out_len;
+
 done:
+    OPENSSL_cleanse(clear, sizeof(clear));
     object_put(tokdata, key, TRUE);
     key = NULL;
 
