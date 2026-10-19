@@ -74,6 +74,7 @@ testcases/unit/pintest
 testcases/unit/asn1test
 testcases/unit/asn1fuzztest
 testcases/unit/objectflattentest
+testcases/unit/padtest
 usr/sbin/p11sak/p11sak
 usr/sbin/p11kmip/p11kmip
 usr/sbin/pkcscca/pkcscca

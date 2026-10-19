@@ -2,13 +2,15 @@ check_PROGRAMS = testcases/unit/policytest testcases/unit/hashmaptest	\
 	testcases/unit/mechtabletest testcases/unit/configdump		\
 	testcases/unit/buffertest testcases/unit/uritest		\
 	testcases/unit/pintest testcases/unit/asn1test			\
-	testcases/unit/asn1fuzztest testcases/unit/objectflattentest
+	testcases/unit/asn1fuzztest testcases/unit/objectflattentest	\
+	testcases/unit/padtest
 
 TESTS = testcases/unit/policytest testcases/unit/hashmaptest		\
 	testcases/unit/mechtabletest testcases/unit/configdump		\
 	testcases/unit/buffertest testcases/unit/uritest		\
 	testcases/unit/pintest.sh testcases/unit/asn1test		\
-	testcases/unit/asn1fuzztest testcases/unit/objectflattentest
+	testcases/unit/asn1fuzztest testcases/unit/objectflattentest	\
+	testcases/unit/padtest
 
 EXTRA_DIST += testcases/unit/pintest.sh
 noinst_HEADERS += testcases/unit/unittest.h testcases/unit/asn1test_keys.h \
@@ -119,3 +121,13 @@ testcases_unit_objectflattentest_CFLAGS=-I${top_srcdir}/usr/lib/common	\
 	-DSTDLL_NAME=\"objectflattentest\" -DOCK_UNIT_TESTS
 
 testcases_unit_objectflattentest_LDFLAGS=-lpthread -lcrypto
+
+testcases_unit_padtest_SOURCES=testcases/unit/padtest.c			\
+	testcases/unit/padtest_stubs.c usr/lib/common/utility.c		\
+	usr/lib/common/trace.c
+
+testcases_unit_padtest_CFLAGS=-I${top_srcdir}/usr/lib/common		\
+	-I${top_srcdir}/usr/include -I${top_srcdir}/usr/lib/api		\
+	-DSTDLL_NAME=\"padtest\" -DTOK_NEW_DATA_STORE=0x0003000c
+
+testcases_unit_padtest_LDFLAGS=-lpthread -lcrypto
