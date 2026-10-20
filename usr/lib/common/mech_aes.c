@@ -5124,11 +5124,14 @@ done:
                                 &unpadded_len);
         if (rc != CKR_OK) {
             TRACE_ERROR("strip_pkcs_padding failed.\n");
+            OPENSSL_cleanse(out_data, *out_data_len);
+            *out_data_len = 0;
             goto done;
         }
 
         if (unpadded_len < *out_data_len)
-            memset(out_data + unpadded_len, 0, *out_data_len - unpadded_len);
+            OPENSSL_cleanse(out_data + unpadded_len,
+                            *out_data_len - unpadded_len);
 
         *out_data_len = unpadded_len;
     }
