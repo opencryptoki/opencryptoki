@@ -2175,13 +2175,29 @@ int icsf_secret_key_decrypt(LDAP * ld, int *p_reason,
         clear_text == NULL) {
         *p_clear_text_len = length;
     } else {
-        if ((size_t)length > *p_clear_text_len ||
-            bv_clear_data.bv_len > *p_clear_text_len) {
+        /*
+         * For CBC-PAD mechs clear_len was inflated to at least
+         * cipher_text_len so the server does not send back
+         * RSN_TOO_SHORT for the padded-then-unpadded output.
+         * Validate length against the inflated clear_len (what we
+         * told the server) and bv_clear_data.bv_len against the
+         * caller's real buffer.  When the real buffer is too small
+         * for the unpadded result, propagate CKR_BUFFER_TOO_SMALL
+         * so the caller can retry.
+         */
+        if ((size_t)length > clear_len) {
             TRACE_ERROR("Clear data longer than buffer: length=%lu "
                         "bv_len=%lu buf=%lu\n",
                         (unsigned long) length,
                         (unsigned long) bv_clear_data.bv_len,
-                        (unsigned long) *p_clear_text_len);
+                        (unsigned long) clear_len);
+            rc = -1;
+            goto done;
+        }
+        if (bv_clear_data.bv_len > *p_clear_text_len) {
+            *p_clear_text_len = bv_clear_data.bv_len;
+            if (p_reason)
+                *p_reason = ICSF_REASON_OUTPUT_PARAMETER_TOO_SHORT;
             rc = -1;
             goto done;
         }
