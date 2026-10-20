@@ -1387,8 +1387,11 @@ static CK_RV aes_xts_crypt_update(STDLL_TokData_t *tokdata,
         return CKR_OK;
     }
 
-    if (*out_data_len < out_len)
+    if (*out_data_len < out_len) {
+        *out_data_len = out_len;
+        TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
         return CKR_BUFFER_TOO_SMALL;
+    }
 
     rc = object_mgr_find_in_map_nocache(tokdata, ctx->key, &key, READ_LOCK);
     if (rc != CKR_OK) {
@@ -4064,6 +4067,7 @@ CK_RV ckm_aes_ecb_encrypt(STDLL_TokData_t *tokdata,
         return CKR_FUNCTION_FAILED;
     }
     if (*out_data_len < in_data_len) {
+        *out_data_len = in_data_len;
         TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
         return CKR_BUFFER_TOO_SMALL;
     }
@@ -4099,6 +4103,7 @@ CK_RV ckm_aes_ecb_decrypt(STDLL_TokData_t *tokdata,
         return CKR_FUNCTION_FAILED;
     }
     if (*out_data_len < in_data_len) {
+        *out_data_len = in_data_len;
         TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
         return CKR_BUFFER_TOO_SMALL;
     }
@@ -4172,6 +4177,7 @@ CK_RV ckm_aes_cbc_decrypt(STDLL_TokData_t *tokdata,
         return CKR_FUNCTION_FAILED;
     }
     if (*out_data_len < in_data_len) {
+        *out_data_len = in_data_len;
         TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
         return CKR_BUFFER_TOO_SMALL;
     }

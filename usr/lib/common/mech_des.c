@@ -1427,6 +1427,7 @@ CK_RV ckm_des_ecb_encrypt(STDLL_TokData_t *tokdata,
         return CKR_FUNCTION_FAILED;
     }
     if (*out_data_len < in_data_len) {
+        *out_data_len = in_data_len;
         TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
         return CKR_BUFFER_TOO_SMALL;
     }
@@ -1462,6 +1463,7 @@ CK_RV ckm_des_ecb_decrypt(STDLL_TokData_t *tokdata,
         return CKR_FUNCTION_FAILED;
     }
     if (*out_data_len < in_data_len) {
+        *out_data_len = in_data_len;
         TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
         return CKR_BUFFER_TOO_SMALL;
     }
@@ -1532,6 +1534,7 @@ CK_RV ckm_des_cbc_decrypt(STDLL_TokData_t *tokdata,
         return CKR_FUNCTION_FAILED;
     }
     if (*out_data_len < in_data_len) {
+        *out_data_len = in_data_len;
         TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
         return CKR_BUFFER_TOO_SMALL;
     }
