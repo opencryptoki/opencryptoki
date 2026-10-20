@@ -134,17 +134,37 @@ def handle_ske(store, request):
         return encode_response(
             request.handle, RC_ERROR, RC_ERROR, ICSF_TAG_CSFPSKE, b'')
 
+    actual_len = len(cipher_text)
+
+    # If the requested length is too small (this includes 0, which is used
+    # both for size queries and for zero-length buffers), respond exactly as
+    # a real ICSF server would: rc=8, reason=3003, and still include the
+    # required length in the response so the client can retry with the
+    # correct buffer size.
+    if actual_len > req_len:
+        svc_data = (
+            encode_octet_string(chain_out) +
+            encode_octet_string(b'') +
+            encode_integer(actual_len)
+        )
+        logger.info('SKE: token=%r seq=%d algo=%s mode=%s chain=%s '
+                    'RSN_TOO_SHORT req=%d actual=%d',
+                    token_name, sequence, algo, cipher_mode, chain_mode,
+                    req_len, actual_len)
+        return encode_response(
+            request.handle, RC_ERROR, RSN_TOO_SHORT, ICSF_TAG_CSFPSKE, svc_data)
+
     # Build SKEOutput: { chainingData OCTET STRING, cipherText OCTET STRING,
     #                    cipherTextLen INTEGER }
     svc_data = (
         encode_octet_string(chain_out) +
         encode_octet_string(cipher_text) +
-        encode_integer(len(cipher_text))
+        encode_integer(actual_len)
     )
 
     logger.info('SKE: token=%r seq=%d algo=%s mode=%s chain=%s clear=%d cipher=%d',
                 token_name, sequence, algo, cipher_mode, chain_mode,
-                len(clear_text), len(cipher_text))
+                len(clear_text), actual_len)
 
     return encode_response(request.handle, RC_SUCCESS, 0, ICSF_TAG_CSFPSKE, svc_data)
 
