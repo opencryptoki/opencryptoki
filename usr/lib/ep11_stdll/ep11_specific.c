@@ -13965,6 +13965,41 @@ done:
     return rc;
 }
 
+/*
+ * The EP11 host library does not necessarily report the required output
+ * length when an update call fails with CKR_BUFFER_TOO_SMALL.
+ * In this case, report an upper bound of the output length of the update
+ * operation: Less than one block of data can be buffered by a previous update,
+ * thus the output is at most the input length rounded up to a multiple of the
+ * block size. A length already reported by the EP11 library (larger than the
+ * passed one) is kept.
+ */
+static void ep11_update_report_required_len(CK_MECHANISM_TYPE mech,
+                                            CK_ULONG input_part_len,
+                                            CK_ULONG passed_len,
+                                            CK_ULONG_PTR p_output_part_len)
+{
+    CK_ULONG block_size;
+
+    switch (mech) {
+    case CKM_AES_ECB:
+    case CKM_AES_CBC:
+    case CKM_AES_CBC_PAD:
+        block_size = AES_BLOCK_SIZE;
+        break;
+    case CKM_DES3_ECB:
+    case CKM_DES3_CBC:
+    case CKM_DES3_CBC_PAD:
+        block_size = DES_BLOCK_SIZE;
+        break;
+    default:
+        return;
+    }
+
+    if (*p_output_part_len <= passed_len)
+        *p_output_part_len = ((input_part_len + block_size - 1) /
+                                                block_size) * block_size;
+}
 
 CK_RV ep11tok_decrypt_update(STDLL_TokData_t * tokdata, SESSION * session,
                              CK_BYTE_PTR input_part, CK_ULONG input_part_len,
@@ -13979,6 +14014,7 @@ CK_RV ep11tok_decrypt_update(STDLL_TokData_t * tokdata, SESSION * session,
     OBJECT *key_obj = NULL;
     CK_BYTE *state;
     size_t state_len;
+    CK_ULONG passed_len = *p_output_part_len;
 
     if (!input_part || !input_part_len) {
         *p_output_part_len = 0;
@@ -14016,6 +14052,9 @@ CK_RV ep11tok_decrypt_update(STDLL_TokData_t * tokdata, SESSION * session,
     rc = constant_time_select(constant_time_eq(rc, CKR_OK),
                               ep11_error_to_pkcs11_error(rc, session),
                               rc);
+    if (rc == CKR_BUFFER_TOO_SMALL)
+        ep11_update_report_required_len(ctx->mech.mechanism, input_part_len,
+                                        passed_len, p_output_part_len);
     if (!is_rsa_mechanism(ctx->mech.mechanism)) {
         if (rc != CKR_OK) {
             TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
@@ -14232,6 +14271,7 @@ CK_RV ep11tok_encrypt_update(STDLL_TokData_t * tokdata, SESSION * session,
     OBJECT *key_obj = NULL;
     CK_BYTE *state;
     size_t state_len;
+    CK_ULONG passed_len = *p_output_part_len;
 
     if (!input_part || !input_part_len) {
         *p_output_part_len = 0;
@@ -14268,6 +14308,10 @@ CK_RV ep11tok_encrypt_update(STDLL_TokData_t * tokdata, SESSION * session,
 
     if (rc != CKR_OK) {
         rc = ep11_error_to_pkcs11_error(rc, session);
+        if (rc == CKR_BUFFER_TOO_SMALL)
+            ep11_update_report_required_len(ctx->mech.mechanism,
+                                            input_part_len, passed_len,
+                                            p_output_part_len);
         TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
     } else {
         TRACE_INFO("%s rc=0x%lx\n", __func__, rc);
