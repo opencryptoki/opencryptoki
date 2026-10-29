@@ -1387,7 +1387,7 @@ CK_RV do_SignVerifyMAC(struct published_mac_test_suite_info *tsuite)
     CK_MAC_GENERAL_PARAMS mac_param;
     CK_ULONG ofs;
     CK_BYTE actual[MAX_KEY_SIZE];
-    CK_ULONG actual_len, mac_len;
+    CK_ULONG actual_len, actual_len_small, mac_len;
 
     testsuite_begin("%s Sign/Verify MAC.", tsuite->name);
     testcase_rw_session();
@@ -1476,6 +1476,26 @@ CK_RV do_SignVerifyMAC(struct published_mac_test_suite_info *tsuite)
                     goto error;
                 }
                 ofs += tsuite->tv[i].chunks_msg[k];
+            }
+
+            /*
+             * A too small buffer length must return CKR_BUFFER_TOO_SMALL and
+             * must not terminate the signing operation.
+             */
+            actual_len_small = mac_len - 1;
+            rc = funcs->C_SignFinal(session, actual, &actual_len_small);
+            if (rc != CKR_BUFFER_TOO_SMALL) {
+                testcase_error("C_SignFinal (small buffer) rc=%s, expected "
+                               "CKR_BUFFER_TOO_SMALL", p11_get_ckr(rc));
+                rc = CKR_FUNCTION_FAILED;
+                goto error;
+            }
+            if (actual_len_small <= mac_len - 1) {
+                testcase_error("C_SignFinal (small buffer) did not return a "
+                               "larger required length, got %lu",
+                               actual_len_small);
+                rc = CKR_FUNCTION_FAILED;
+                goto error;
             }
 
             rc = funcs->C_SignFinal(session, actual, &actual_len);

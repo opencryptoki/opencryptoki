@@ -512,6 +512,7 @@ CK_RV do_Sign_FIPS_HMAC(struct HMAC_TEST_SUITE_INFO * tsuite)
     CK_OBJECT_HANDLE h_key;
     CK_BYTE user_pin[PKCS11_MAX_PIN_LEN];
     CK_ULONG user_pin_len;
+    CK_ULONG small_len, test_len;
 
     /** begin testsuite **/
     testsuite_begin("%s Sign.", tsuite->name);
@@ -610,6 +611,35 @@ CK_RV do_Sign_FIPS_HMAC(struct HMAC_TEST_SUITE_INFO * tsuite)
         }
 
         /** do signing  **/
+        if (expected_mac_len > 1) {
+            small_len = expected_mac_len - 1;
+            test_len = small_len;
+
+            memset(actual_mac, 0xAA, sizeof(actual_mac));
+
+            rc = funcs->C_Sign(session, data, data_len, actual_mac,
+                               &test_len);
+
+            testcase_new_assertion();
+
+            if (rc != CKR_BUFFER_TOO_SMALL) {
+                testcase_fail("C_Sign with too small buffer: expected "
+                              "CKR_BUFFER_TOO_SMALL, but got rc=%s",
+                              p11_get_ckr(rc));
+                goto error;
+            } else if (test_len < expected_mac_len) {
+                testcase_fail("C_Sign with too small buffer did not report "
+                              "a larger required length: passed %lu, got %lu",
+                              small_len, test_len);
+                goto error;
+            } else if (actual_mac[expected_mac_len - 1] != 0xAA) {
+                testcase_fail("C_Sign with too small buffer wrote beyond "
+                              "the provided output buffer length");
+                goto error;
+            }
+        }
+
+        actual_mac_len = sizeof(actual_mac);
         rc = funcs->C_Sign(session, data, data_len, actual_mac,
                            &actual_mac_len);
         if (rc != CKR_OK) {
@@ -805,6 +835,7 @@ CK_RV do_SignUpdate_FIPS_HMAC(struct HMAC_TEST_SUITE_INFO * tsuite)
     CK_OBJECT_HANDLE h_key;
     CK_BYTE user_pin[PKCS11_MAX_PIN_LEN];
     CK_ULONG user_pin_len;
+    CK_ULONG small_len, test_len;
 
     /** begin testsuite **/
     testsuite_begin("%s SignUpdate.", tsuite->name);
@@ -943,6 +974,34 @@ CK_RV do_SignUpdate_FIPS_HMAC(struct HMAC_TEST_SUITE_INFO * tsuite)
             }
         }
 
+        if (expected_mac_len > 1) {
+            small_len = expected_mac_len - 1;
+            test_len = small_len;
+
+            memset(actual_mac, 0xAA, sizeof(actual_mac));
+
+            rc = funcs->C_SignFinal(session, actual_mac, &test_len);
+
+            testcase_new_assertion();
+
+            if (rc != CKR_BUFFER_TOO_SMALL) {
+                testcase_fail("C_SignFinal with too small buffer: expected "
+                              "CKR_BUFFER_TOO_SMALL, but got rc=%s",
+                              p11_get_ckr(rc));
+                goto error;
+            } else if (test_len < expected_mac_len) {
+                testcase_fail("C_SignFinal with too small buffer did not report "
+                              "a larger required length: passed %lu, got %lu",
+                              small_len, test_len);
+                goto error;
+            } else if (actual_mac[expected_mac_len - 1] != 0xAA) {
+                testcase_fail("C_SignFinal with too small buffer wrote beyond "
+                              "the provided output buffer length");
+                goto error;
+            }
+        }
+
+        actual_mac_len = sizeof(actual_mac);
         rc = funcs->C_SignFinal(session, actual_mac, &actual_mac_len);
         if (rc != CKR_OK) {
             testcase_error("C_SignFinal rc=%s", p11_get_ckr(rc));

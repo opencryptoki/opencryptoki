@@ -1828,7 +1828,7 @@ CK_RV run_GenerateSignVerifyECC(CK_SESSION_HANDLE session,
                                 CK_BYTE *params, CK_ULONG params_len)
 {
     CK_BYTE_PTR data = NULL, signature = NULL;
-    CK_ULONG i, signaturelen;
+    CK_ULONG i, signaturelen, siglen_small;
     CK_MECHANISM_INFO mech_info;
     CK_RV rc;
 
@@ -1996,6 +1996,25 @@ CK_RV run_GenerateSignVerifyECC(CK_SESSION_HANDLE session,
     }
 
     if (parts > 0) {
+        /*
+         * A too small buffer length must return CKR_BUFFER_TOO_SMALL and
+         * must not terminate the signing operation.
+         */
+        siglen_small = 1;
+        rc = funcs->C_SignFinal(session, signature, &siglen_small);
+        if (rc != CKR_BUFFER_TOO_SMALL) {
+            testcase_error("C_SignFinal (small buffer) rc=%s, expected "
+                           "CKR_BUFFER_TOO_SMALL", p11_get_ckr(rc));
+            rc = CKR_FUNCTION_FAILED;
+            goto testcase_cleanup;
+        }
+        if (siglen_small <= 1) {
+            testcase_error("C_SignFinal (small buffer) did not return a "
+                           "larger required length, got %lu", siglen_small);
+            rc = CKR_FUNCTION_FAILED;
+            goto testcase_cleanup;
+        }
+
         rc = funcs->C_SignFinal(session, signature, &signaturelen);
         if (rc != CKR_OK) {
             testcase_error("C_SignFinal rc=%s", p11_get_ckr(rc));

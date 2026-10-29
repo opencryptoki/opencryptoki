@@ -787,7 +787,7 @@ CK_RV do_SignVerifyRSA(struct GENERATED_TEST_SUITE_INFO * tsuite,
     CK_BYTE message[MAX_MESSAGE_SIZE];
     CK_ULONG message_len;
     CK_BYTE signature[MAX_SIGNATURE_SIZE];
-    CK_ULONG signature_len;
+    CK_ULONG signature_len, siglen_small;
     CK_BYTE out_message[MAX_MESSAGE_SIZE];
     CK_ULONG out_message_len;
 
@@ -980,6 +980,27 @@ CK_RV do_SignVerifyRSA(struct GENERATED_TEST_SUITE_INFO * tsuite,
                            recover_mode ? "Recover" : "", p11_get_ckr(rc));
             goto testcase_cleanup;
         }
+        /* a too small buffer must not terminate the operation */
+        testcase_new_assertion();
+        siglen_small = 1;
+        if (recover_mode)
+            rc = funcs->C_SignRecover(session, message, message_len,
+                                      signature, &siglen_small);
+        else
+            rc = funcs->C_Sign(session, message, message_len,
+                               signature, &siglen_small);
+        if (rc != CKR_BUFFER_TOO_SMALL ||
+            siglen_small != (tsuite->tv[i].modbits / 8)) {
+            testcase_fail("C_Sign%s with too small buffer: expected "
+                          "CKR_BUFFER_TOO_SMALL with length %lu, got rc=%s, "
+                          "length %lu.", recover_mode ? "Recover" : "",
+                          tsuite->tv[i].modbits / 8, p11_get_ckr(rc),
+                          siglen_small);
+            goto testcase_cleanup;
+        }
+        testcase_pass("C_Sign%s with too small buffer.",
+                      recover_mode ? "Recover" : "");
+
         // set buffer size
         signature_len = MAX_SIGNATURE_SIZE;
 
@@ -1078,7 +1099,7 @@ CK_RV do_SignVerify_RSAPSS(struct GENERATED_TEST_SUITE_INFO * tsuite)
     CK_BYTE message[MAX_MESSAGE_SIZE];
     CK_BYTE signature[MAX_SIGNATURE_SIZE];
     CK_BYTE hash[MAX_HASH_SIZE];
-    CK_ULONG message_len, signature_len, h_len;
+    CK_ULONG message_len, signature_len, siglen_small, h_len;
 
     CK_MECHANISM mech;
     CK_OBJECT_HANDLE publ_key, priv_key;
@@ -1237,6 +1258,24 @@ CK_RV do_SignVerify_RSAPSS(struct GENERATED_TEST_SUITE_INFO * tsuite)
             testcase_error("C_SignInit(), rc=%s", p11_get_ckr(rc));
             goto testcase_cleanup;
         }
+        /* a too small buffer must not terminate the operation */
+        testcase_new_assertion();
+        siglen_small = 1;
+        if (mech.mechanism == CKM_RSA_PKCS_PSS)
+            rc = funcs->C_Sign(session, hash, h_len, signature, &siglen_small);
+        else
+            rc = funcs->C_Sign(session, message, message_len,
+                               signature, &siglen_small);
+        if (rc != CKR_BUFFER_TOO_SMALL ||
+            siglen_small != (tsuite->tv[i].modbits / 8)) {
+            testcase_fail("C_Sign with too small buffer: expected "
+                          "CKR_BUFFER_TOO_SMALL with length %lu, got rc=%s, "
+                          "length %lu.", tsuite->tv[i].modbits / 8,
+                          p11_get_ckr(rc), siglen_small);
+            goto testcase_cleanup;
+        }
+        testcase_pass("C_Sign with too small buffer.");
+
         // set buffer size
         signature_len = MAX_SIGNATURE_SIZE;
 

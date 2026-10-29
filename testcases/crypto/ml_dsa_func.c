@@ -216,7 +216,7 @@ CK_RV run_SignVerifyMLDSA(CK_SESSION_HANDLE session,
                           CK_OBJECT_HANDLE publ_key)
 {
     CK_BYTE_PTR data = NULL, signature = NULL;
-    CK_ULONG i, signaturelen, ofs;
+    CK_ULONG i, signaturelen, siglen_small, ofs;
     CK_RV rc;
 
     /* Query the slot, check if this mech if supported */
@@ -305,6 +305,25 @@ CK_RV run_SignVerifyMLDSA(CK_SESSION_HANDLE session,
             testcase_error("Can't allocate memory for %lu bytes",
                            sizeof(CK_BYTE) * signaturelen);
             rc = -1;
+            goto testcase_cleanup;
+        }
+
+        /*
+         * A too small buffer length must return CKR_BUFFER_TOO_SMALL and
+         * must not terminate the signing operation.
+         */
+        siglen_small = 1;
+        rc = funcs->C_SignFinal(session, signature, &siglen_small);
+        if (rc != CKR_BUFFER_TOO_SMALL) {
+            testcase_error("C_SignFinal (small buffer) rc=%s, expected "
+                           "CKR_BUFFER_TOO_SMALL", p11_get_ckr(rc));
+            rc = CKR_FUNCTION_FAILED;
+            goto testcase_cleanup;
+        }
+        if (siglen_small <= 1) {
+            testcase_error("C_SignFinal (small buffer) did not return a "
+                           "larger required length, got %lu", siglen_small);
+            rc = CKR_FUNCTION_FAILED;
             goto testcase_cleanup;
         }
 

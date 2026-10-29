@@ -267,6 +267,20 @@ CK_RV do_SignVerifyUpdateRSA(struct GENERATED_TEST_SUITE_INFO *tsuite)
             goto testcase_cleanup;
         }
 
+        /* a too small buffer must not terminate the operation */
+        testcase_new_assertion();
+        signature_len = 1;
+        rc = funcs->C_SignFinal(session, signature, &signature_len);
+        if (rc != CKR_BUFFER_TOO_SMALL ||
+            signature_len != (tsuite->tv[i].modbits / 8)) {
+            testcase_fail("C_SignFinal with too small buffer: expected "
+                          "CKR_BUFFER_TOO_SMALL with length %lu, got rc=%s, "
+                          "length %lu.", tsuite->tv[i].modbits / 8,
+                          p11_get_ckr(rc), signature_len);
+            goto testcase_cleanup;
+        }
+        testcase_pass("C_SignFinal with too small buffer.");
+
         rc = funcs->C_SignFinal(session, signature, &signature_len);
         if (rc != CKR_OK) {
             testcase_error("C_SignFinal(),rc=%s.", p11_get_ckr(rc));
@@ -344,7 +358,7 @@ CK_RV do_SignVerifyUpdate_RSAPSS(struct GENERATED_TEST_SUITE_INFO * tsuite)
     int len;
     CK_BYTE message[MAX_MESSAGE_SIZE];
     CK_BYTE signature[MAX_SIGNATURE_SIZE];
-    CK_ULONG message_len, signature_len, data_done;
+    CK_ULONG message_len, signature_len, siglen_small, data_done;
 
     CK_MECHANISM mech;
     CK_OBJECT_HANDLE publ_key, priv_key;
@@ -539,6 +553,20 @@ CK_RV do_SignVerifyUpdate_RSAPSS(struct GENERATED_TEST_SUITE_INFO * tsuite)
                           signature_len, tsuite->tv[i].modbits / 8);
             goto testcase_cleanup;
         }
+
+        /* a too small buffer must not terminate the operation */
+        testcase_new_assertion();
+        siglen_small = 1;
+        rc = funcs->C_SignFinal(session, signature, &siglen_small);
+        if (rc != CKR_BUFFER_TOO_SMALL ||
+            siglen_small != (tsuite->tv[i].modbits / 8)) {
+            testcase_fail("C_SignFinal with too small buffer: expected "
+                          "CKR_BUFFER_TOO_SMALL with length %lu, got rc=%s, "
+                          "length %lu.", tsuite->tv[i].modbits / 8,
+                          p11_get_ckr(rc), siglen_small);
+            goto testcase_cleanup;
+        }
+        testcase_pass("C_SignFinal with too small buffer.");
 
         rc = funcs->C_SignFinal(session, signature, &signature_len);
         if (rc != CKR_OK) {
