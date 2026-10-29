@@ -2706,6 +2706,146 @@ testcase_cleanup:
     return rc;
 }
 
+CK_RV do_KWP_CorruptedData_Err(void)
+{
+    CK_SLOT_ID slot_id = SLOT_ID;
+    CK_MECHANISM mech = { CKM_AES_KEY_WRAP_KWP, NULL, 0 };
+    CK_OBJECT_HANDLE h_key = CK_INVALID_HANDLE;
+    CK_OBJECT_HANDLE h_unwrap = CK_INVALID_HANDLE;
+    CK_OBJECT_CLASS cls = CKO_SECRET_KEY;
+    CK_KEY_TYPE kt = CKK_GENERIC_SECRET;
+    CK_BBOOL f = CK_FALSE;
+    CK_ATTRIBUTE unwrap_tmpl[] = {
+        { CKA_CLASS, &cls, sizeof(cls) },
+        { CKA_KEY_TYPE, &kt, sizeof(kt) },
+        { CKA_TOKEN, &f, sizeof(f) }
+    };
+    /* Test multiple buffer sizes: 16, 24, 32, 40, 48, 64, 128 bytes */
+    static const CK_ULONG test_lengths[] = { 16, 24, 32, 40, 48, 64, 128 };
+    CK_BYTE in_buf[128];
+    CK_BYTE *out_buf = NULL;
+    CK_ULONG out_len = 0;
+    CK_RV rc = CKR_OK;
+    CK_SESSION_HANDLE session = CK_INVALID_HANDLE;
+    CK_FLAGS flags;
+    CK_BYTE user_pin[PKCS11_MAX_PIN_LEN];
+    CK_ULONG user_pin_len;
+    unsigned int i;
+
+    testsuite_begin("CKM_AES_KEY_WRAP_KWP Corrupted Data Error Handling.");
+    testcase_rw_session();
+    testcase_user_login();
+
+    /* Skip tests if pkey = true, but the slot doesn't support protected keys */
+    if (pkey && !is_ep11_token(slot_id) && !is_cca_token(SLOT_ID)) {
+        testsuite_skip(3, "pkey test option is true, but slot %u doesn't support protected keys",
+                       (unsigned int) slot_id);
+        goto testcase_cleanup;
+    }
+
+    if (!mech_supported(slot_id, CKM_AES_KEY_WRAP_KWP)) {
+        testsuite_skip(3, "Slot %u doesn't support CKM_AES_KEY_WRAP_KWP",
+                       (unsigned int) slot_id);
+        goto testcase_cleanup;
+    }
+
+    if (!mech_supported(slot_id, CKM_AES_KEY_GEN)) {
+        testsuite_skip(3, "Slot %u doesn't support CKM_AES_KEY_GEN",
+                       (unsigned int) slot_id);
+        goto testcase_cleanup;
+    }
+
+    /* Generate an AES-256 key for unwrap / decrypt */
+    rc = generate_AESKey(session, 32, !pkey, &aes_keygen, &h_key);
+    if (rc != CKR_OK) {
+        if (rc == CKR_POLICY_VIOLATION) {
+            testsuite_skip(3, "AES key generation is not allowed by policy");
+            goto testcase_cleanup;
+        }
+        testcase_error("generate_AESKey rc=%s", p11_get_ckr(rc));
+        goto testcase_cleanup;
+    }
+
+    for (i = 0; i < sizeof(test_lengths) / sizeof(test_lengths[0]); i++) {
+        CK_ULONG len = test_lengths[i];
+
+        /* Fill buffer with non-authenticating / pseudo-random pattern */
+        rc = funcs->C_GenerateRandom(session, in_buf, len);
+        if (rc != CKR_OK) {
+            testcase_error("C_GenerateRandom rc=%s", p11_get_ckr(rc));
+            goto testcase_cleanup;
+        }
+
+        /*
+         * 1. Test C_Decrypt path:
+         * Query required buffer size first, allocate exact reported size,
+         * and verify C_Decrypt fails without writing past the allocated buffer.
+         */
+        testcase_begin("CKM_AES_KEY_WRAP_KWP C_Decrypt corrupted data len=%lu", len);
+
+        rc = funcs->C_DecryptInit(session, &mech, h_key);
+        if (rc != CKR_OK) {
+            testcase_error("C_DecryptInit rc=%s", p11_get_ckr(rc));
+            continue;
+        }
+
+        out_len = 0;
+        rc = funcs->C_Decrypt(session, in_buf, len, NULL, &out_len);
+        if (rc != CKR_OK) {
+            testcase_error("C_Decrypt (get length) rc=%s", p11_get_ckr(rc));
+            continue;
+        }
+
+        out_buf = malloc(out_len);
+        if (out_buf == NULL) {
+            testcase_error("malloc failed");
+            rc = CKR_HOST_MEMORY;
+            goto testcase_cleanup;
+        }
+
+        rc = funcs->C_Decrypt(session, in_buf, len, out_buf, &out_len);
+        testcase_new_assertion();
+        if (rc == CKR_OK) {
+            testcase_fail("C_Decrypt succeeded unexpectedly for corrupted data");
+        } else {
+            testcase_pass("C_Decrypt failed gracefully with rc=%s", p11_get_ckr(rc));
+        }
+
+        free(out_buf);
+        out_buf = NULL;
+
+        /*
+         * 2. Test C_UnwrapKey path:
+         * Token internally allocates the buffer based on reported decrypt length.
+         * Verify C_UnwrapKey fails without heap corruption or crash.
+         */
+        testcase_begin("CKM_AES_KEY_WRAP_KWP C_UnwrapKey corrupted data len=%lu", len);
+
+        h_unwrap = CK_INVALID_HANDLE;
+        rc = funcs->C_UnwrapKey(session, &mech, h_key, in_buf, len,
+                                unwrap_tmpl, 3, &h_unwrap);
+        testcase_new_assertion();
+        if (rc == CKR_OK) {
+            testcase_fail("C_UnwrapKey succeeded unexpectedly for corrupted data");
+            funcs->C_DestroyObject(session, h_unwrap);
+        } else {
+            testcase_pass("C_UnwrapKey failed gracefully with rc=%s", p11_get_ckr(rc));
+        }
+    }
+
+    rc = CKR_OK;
+
+testcase_cleanup:
+    if (out_buf != NULL)
+        free(out_buf);
+    if (h_key != CK_INVALID_HANDLE)
+        funcs->C_DestroyObject(session, h_key);
+
+    testcase_close_session();
+
+    return rc;
+}
+
 CK_RV do_SignVerifyMAC(struct published_mac_test_suite_info *tsuite)
 {
     unsigned int i;
@@ -3298,6 +3438,10 @@ CK_RV aes_funcs(void)
         if (rv != CKR_OK && (!no_stop))
             break;
     }
+
+    rv = do_KWP_CorruptedData_Err();
+    if (rv != CKR_OK && (!no_stop))
+        return rv;
 
     /* MAC test cases */
     for (i = 0; i < NUM_OF_PUBLISHED_MAC_TESTSUITES; i++) {
