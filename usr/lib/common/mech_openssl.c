@@ -5345,6 +5345,10 @@ CK_RV openssl_specific_aes_key_wrap(STDLL_TokData_t *tokdata,
                                     CK_BYTE *iv, CK_ULONG iv_len,
                                     CK_BBOOL encrypt, CK_BBOOL pad)
 {
+    CK_BYTE *buf;
+    CK_ULONG buf_len, len;
+    CK_RV rc;
+
     UNUSED(tokdata);
 
     if (iv != NULL &&
@@ -5353,11 +5357,45 @@ CK_RV openssl_specific_aes_key_wrap(STDLL_TokData_t *tokdata,
         return CKR_MECHANISM_PARAM_INVALID;
     }
 
-    return openssl_cipher_perform(key_obj, pad ? CKM_AES_KEY_WRAP_KWP :
-                                                          CKM_AES_KEY_WRAP,
-                                  in_data, in_data_len,
-                                  out_data, out_data_len,
-                                  iv, NULL, encrypt);
+    if (encrypt || !pad)
+        return openssl_cipher_perform(key_obj, pad ? CKM_AES_KEY_WRAP_KWP :
+                                                              CKM_AES_KEY_WRAP,
+                                      in_data, in_data_len,
+                                      out_data, out_data_len,
+                                      iv, NULL, encrypt);
+
+    /*
+     * The caller's buffer only holds the in_data_len - 8 bytes that KWP can
+     * produce, but for wrap modes EVP_CipherUpdate needs room for in_data_len
+     * plus one block, and OpenSSL's CRYPTO_128_unwrap_pad wipes in_data_len
+     * bytes of the output when the integrity check fails. Unwrap into a
+     * buffer of that size and copy the result out.
+     */
+    buf_len = in_data_len + AES_KEY_WRAP_BLOCK_SIZE;
+    buf = malloc(buf_len);
+    if (buf == NULL) {
+        TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+        return CKR_HOST_MEMORY;
+    }
+
+    len = buf_len;
+    rc = openssl_cipher_perform(key_obj, CKM_AES_KEY_WRAP_KWP,
+                                in_data, in_data_len, buf, &len,
+                                iv, NULL, encrypt);
+    if (rc == CKR_OK) {
+        if (len > *out_data_len) {
+            TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
+            rc = CKR_BUFFER_TOO_SMALL;
+        } else {
+            memcpy(out_data, buf, len);
+        }
+        *out_data_len = len;
+    }
+
+    OPENSSL_cleanse(buf, buf_len);
+    free(buf);
+
+    return rc;
 }
 
 CK_RV openssl_specific_des_ecb(STDLL_TokData_t *tokdata,
