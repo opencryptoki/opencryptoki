@@ -266,6 +266,12 @@ CK_RV md5_hmac_sign(STDLL_TokData_t *tokdata,
         return CKR_OK;
     }
 
+    if (*out_data_len < hmac_len) {
+        *out_data_len = hmac_len;
+        TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
+        return CKR_BUFFER_TOO_SMALL;
+    }
+
     rc = openssl_specific_hmac_init(tokdata, ctx, &ctx->mech, ctx->key);
     if (rc != CKR_OK)
         return rc;

@@ -9951,6 +9951,19 @@ CK_RV ccatok_hmac_final(STDLL_TokData_t * tokdata, SIGN_VERIFY_CONTEXT * ctx,
     TRACE_INFO("The mac length is %ld\n", cca_ctx->hash_len);
 
     if (sign) {
+        if (signature == NULL) {
+            *sig_len = cca_ctx->hash_len;
+            rc = CKR_OK;
+            goto done;
+        }
+
+        if (*sig_len < (CK_ULONG)cca_ctx->hash_len) {
+            *sig_len = cca_ctx->hash_len;
+            TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
+            rc = CKR_BUFFER_TOO_SMALL;
+            goto done;
+        }
+
         USE_CCA_ADAPTER_START(tokdata, return_code, reason_code)
         RETRY_NEW_MK_BLOB_START()
             dll_CSNBHMG(&return_code, &reason_code, NULL, NULL,

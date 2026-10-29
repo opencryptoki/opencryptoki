@@ -396,6 +396,12 @@ CK_RV sha_hmac_sign(STDLL_TokData_t *tokdata,
         return CKR_OK;
     }
 
+    if (*out_data_len < hmac_len) {
+        *out_data_len = hmac_len;
+        TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
+        return CKR_BUFFER_TOO_SMALL;
+    }
+
     if (token_specific.t_hmac_sign != NULL)
         return token_specific.t_hmac_sign(tokdata, sess, in_data,
                                           in_data_len, out_data, out_data_len);

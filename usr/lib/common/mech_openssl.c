@@ -5786,6 +5786,15 @@ CK_RV openssl_specific_hmac_final(SIGN_VERIFY_CONTEXT *ctx, CK_BYTE *signature,
         return CKR_OK;
     }
 
+    if (sign) {
+        len = general ? *(CK_ULONG *)ctx->mech.pParameter : mac_len;
+        if (*sig_len < len) {
+            *sig_len = len;
+            TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
+            return CKR_BUFFER_TOO_SMALL;
+        }
+    }
+
     mdctx = (EVP_MD_CTX *) ctx->context;
 
     rc = EVP_DigestSignFinal(mdctx, mac, &mac_len);

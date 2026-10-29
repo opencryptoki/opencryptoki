@@ -210,6 +210,12 @@ CK_RV md2_hmac_sign(STDLL_TokData_t *tokdata,
         return CKR_OK;
     }
 
+    if (*out_data_len < hmac_len) {
+        *out_data_len = hmac_len;
+        TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
+        return CKR_BUFFER_TOO_SMALL;
+    }
+
     memset(&digest_ctx, 0x0, sizeof(DIGEST_CONTEXT));
 
     rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj, READ_LOCK);
