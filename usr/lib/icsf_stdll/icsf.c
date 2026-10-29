@@ -2009,7 +2009,11 @@ int icsf_secret_key_encrypt(LDAP * ld, int *p_reason,
                         (unsigned long) length,
                         (unsigned long) bv_cipher_data.bv_len,
                         (unsigned long) *p_cipher_text_len);
-            rc = -1;
+            *p_cipher_text_len = (size_t)length > bv_cipher_data.bv_len ?
+                                 (size_t)length : bv_cipher_data.bv_len;
+            if (p_reason)
+                *p_reason = ICSF_REASON_OUTPUT_PARAMETER_TOO_SHORT;
+            rc = ICSF_RC_ERROR;
             goto done;
         }
         *p_cipher_text_len = bv_cipher_data.bv_len;
@@ -2198,7 +2202,7 @@ int icsf_secret_key_decrypt(LDAP * ld, int *p_reason,
             *p_clear_text_len = bv_clear_data.bv_len;
             if (p_reason)
                 *p_reason = ICSF_REASON_OUTPUT_PARAMETER_TOO_SHORT;
-            rc = -1;
+            rc = ICSF_RC_ERROR;
             goto done;
         }
         *p_clear_text_len = bv_clear_data.bv_len;
@@ -2577,7 +2581,11 @@ int icsf_private_key_sign(LDAP * ld, int *p_reason, int decrypt,
                         (unsigned long) length,
                         (unsigned long) bv_clear_text.bv_len,
                         (unsigned long) *p_clear_text_len);
-            rc = -1;
+            *p_clear_text_len = (size_t)length > bv_clear_text.bv_len ?
+                                (size_t)length : bv_clear_text.bv_len;
+            if (p_reason)
+                *p_reason = ICSF_REASON_OUTPUT_PARAMETER_TOO_SHORT;
+            rc = ICSF_RC_ERROR;
             goto done;
         }
         *p_clear_text_len = bv_clear_text.bv_len;
@@ -2687,7 +2695,11 @@ int icsf_public_key_verify(LDAP * ld, int *p_reason, int encrypt,
                         (unsigned long) length,
                         (unsigned long) bv_cipher_text.bv_len,
                         (unsigned long) *p_cipher_text_len);
-            rc = -1;
+            *p_cipher_text_len = (size_t)length > bv_cipher_text.bv_len ?
+                                 (size_t)length : bv_cipher_text.bv_len;
+            if (p_reason)
+                *p_reason = ICSF_REASON_OUTPUT_PARAMETER_TOO_SHORT;
+            rc = ICSF_RC_ERROR;
             goto done;
         }
         *p_cipher_text_len = bv_cipher_text.bv_len;
@@ -2824,7 +2836,11 @@ int icsf_hmac_sign(LDAP * ld, int *reason, struct icsf_object_record *key,
         if ((size_t)hmac_length > *hmac_len || bvHmac.bv_len > *hmac_len) {
             TRACE_ERROR("HMAC longer than buffer: length=%d bv_len=%zu buf=%zu\n",
                         hmac_length, bvHmac.bv_len, *hmac_len);
-            rc = -1;
+            *hmac_len = (size_t)hmac_length > bvHmac.bv_len ?
+                        (size_t)hmac_length : bvHmac.bv_len;
+            if (reason)
+                *reason = ICSF_REASON_OUTPUT_PARAMETER_TOO_SHORT;
+            rc = ICSF_RC_ERROR;
             goto done;
         }
         *hmac_len = bvHmac.bv_len;
@@ -3084,7 +3100,11 @@ int icsf_wrap_key(LDAP * ld, int *p_reason, CK_MECHANISM_PTR mech,
                         (unsigned long) bv_wrapped_key.bv_len,
                         (unsigned long) wrapped_key_len,
                         (unsigned long) *p_wrapped_key_len);
-            rc = -1;
+            *p_wrapped_key_len = (CK_ULONG)wrapped_key_len > bv_wrapped_key.bv_len ?
+                                 (CK_ULONG)wrapped_key_len : bv_wrapped_key.bv_len;
+            if (p_reason)
+                *p_reason = ICSF_REASON_OUTPUT_PARAMETER_TOO_SHORT;
+            rc = ICSF_RC_ERROR;
             goto done;
         }
         *p_wrapped_key_len = bv_wrapped_key.bv_len;
@@ -3300,7 +3320,12 @@ int icsf_hash_signverify(LDAP * ld, int *reason, struct icsf_object_record *key,
                             "bv_len=%lu buf=%lu\n",
                             length, (unsigned long) bvSig.bv_len,
                             (unsigned long) *sig_len);
-                rc = -1;
+                if (sig_len)
+                    *sig_len = (unsigned long)length > bvSig.bv_len ?
+                               (unsigned long)length : (unsigned long)bvSig.bv_len;
+                if (reason)
+                    *reason = ICSF_REASON_OUTPUT_PARAMETER_TOO_SHORT;
+                rc = ICSF_RC_ERROR;
                 goto done;
             }
             *sig_len = bvSig.bv_len;

@@ -5083,15 +5083,23 @@ CK_RV icsftok_sign(STDLL_TokData_t * tokdata,
     case CKM_SHA3_512_HMAC:
     case CKM_SSL3_MD5_MAC:
     case CKM_SSL3_SHA1_MAC:
+        hlen = get_signverify_len(ctx->mech);
+        if (hlen < 0) {
+            TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
+            rc = CKR_MECHANISM_INVALID;
+            goto done;
+        }
+
         if (length_only) {
-            hlen = get_signverify_len(ctx->mech);
-            if (hlen < 0) {
-                TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
-                rc = CKR_MECHANISM_INVALID;
-                goto done;
-            }
             *sig_len = hlen;
             rc = CKR_OK;
+            goto done;
+        }
+
+        if (*sig_len < (CK_ULONG)hlen) {
+            *sig_len = hlen;
+            TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
+            rc = CKR_BUFFER_TOO_SMALL;
             goto done;
         }
 
@@ -5405,15 +5413,24 @@ CK_RV icsftok_sign_final(STDLL_TokData_t * tokdata,
     case CKM_SHA3_512_HMAC:
     case CKM_SSL3_MD5_MAC:
     case CKM_SSL3_SHA1_MAC:
-        if (length_only) {
-            hlen = get_signverify_len(ctx->mech);
-            if (hlen < 0) {
-                TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
-                return CKR_MECHANISM_INVALID;
-            }
+        hlen = get_signverify_len(ctx->mech);
+        if (hlen < 0) {
+            TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
+            rc = CKR_MECHANISM_INVALID;
+            goto done;
+        }
 
+        if (length_only) {
             *sig_len = hlen;
-            return CKR_OK;
+            rc = CKR_OK;
+            goto done;
+        }
+
+        if (*sig_len < (CK_ULONG)hlen) {
+            *sig_len = hlen;
+            TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
+            rc = CKR_BUFFER_TOO_SMALL;
+            goto done;
         }
 
         slen = *sig_len;
@@ -5457,7 +5474,8 @@ CK_RV icsftok_sign_final(STDLL_TokData_t * tokdata,
                                   chain_data, &chain_data_len, 0);
 
         if (rc != 0) {
-            if (length_only && reason == 3003) {
+            if (reason == ICSF_REASON_OUTPUT_PARAMETER_TOO_SHORT &&
+                length_only) {
                 rc = CKR_OK;
             } else {
                 TRACE_DEVEL("icsf_hash_signverify failed\n");
