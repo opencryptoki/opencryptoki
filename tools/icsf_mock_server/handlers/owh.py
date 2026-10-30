@@ -264,10 +264,12 @@ def handle_owh(store, request, owh_state=None):
                               sig_in, mech_rule, hash_name, op, key_type,
                               token_name, sequence)
         else:
-            return _do_sign(request.handle, obj.attributes, clear_text,
-                            mech_rule, hash_name, op, key_type,
-                            token_name, sequence,
-                            size_query=(len(sig_in) == 0))
+            resp, _ = _do_sign(request.handle, obj.attributes, clear_text,
+                               mech_rule, hash_name, op, key_type,
+                               token_name, sequence,
+                               size_query=(len(sig_in) == 0),
+                               buf_len=len(sig_in))
+            return resp
 
     elif chain_mode == 'FIRST':
         # Start multi-part; chain_in is all-zeros on entry
@@ -299,39 +301,39 @@ def handle_owh(store, request, owh_state=None):
 
     elif chain_mode == 'LAST':
         sid = chain_in[:16]
-        # Size query: sig_in is empty when the caller passes sig==NULL to
-        # icsf_hash_signverify().  Peek at the session without consuming it so
-        # the subsequent real LAST call can still find it.
-        is_size_query = (not is_verify) and (len(sig_in) == 0)
 
-        if is_size_query:
-            state = _session_peek(sid)
-            if state is None:
-                logger.warning('OWH LAST: session not found (sid=%s)', sid.hex())
-                return encode_response(request.handle, RC_ERROR, 3004,
-                                       ICSF_TAG_CSFPOWH, b'')
-            full_data = state['data'] + clear_text
-        else:
+        if is_verify:
             state = _session_finalize(sid, clear_text)
             if state is None:
                 logger.warning('OWH LAST: session not found (sid=%s)', sid.hex())
                 return encode_response(request.handle, RC_ERROR, 3004,
                                        ICSF_TAG_CSFPOWH, b'')
-            full_data = state['data']
+            mech_rule_s = '%-8s%s' % (state['algo'], state['op'])
+            return _do_verify(request.handle, state['attrs'], state['data'],
+                              sig_in, mech_rule_s, state['algo'], state['op'],
+                              state['key_type'], token_name, sequence)
 
-        attrs       = state['attrs']
-        kt          = state['key_type']
+        # Sign: the session must only be consumed when the signature was
+        # actually returned.  A size query (sig_in is empty when the caller
+        # passes sig==NULL to icsf_hash_signverify()) or an output buffer that
+        # is too short (reason 3003) must leave the chaining state intact, so
+        # that the caller can retry with a larger buffer.
+        state = _session_peek(sid)
+        if state is None:
+            logger.warning('OWH LAST: session not found (sid=%s)', sid.hex())
+            return encode_response(request.handle, RC_ERROR, 3004,
+                                   ICSF_TAG_CSFPOWH, b'')
+        full_data   = state['data'] + clear_text
         mech_rule_s = '%-8s%s' % (state['algo'], state['op'])
 
-        if is_verify:
-            return _do_verify(request.handle, attrs, full_data,
-                              sig_in, mech_rule_s, state['algo'], state['op'],
-                              kt, token_name, sequence)
-        else:
-            return _do_sign(request.handle, attrs, full_data,
-                            mech_rule_s, state['algo'], state['op'],
-                            kt, token_name, sequence,
-                            size_query=is_size_query)
+        resp, completed = _do_sign(request.handle, state['attrs'], full_data,
+                                   mech_rule_s, state['algo'], state['op'],
+                                   state['key_type'], token_name, sequence,
+                                   size_query=(len(sig_in) == 0),
+                                   buf_len=len(sig_in))
+        if completed:
+            _session_finalize(sid, b'')
+        return resp
 
     else:
         logger.warning('OWH: unknown chain mode %r', chain_mode)
@@ -339,26 +341,38 @@ def handle_owh(store, request, owh_state=None):
                                ICSF_TAG_CSFPOWH, b'')
 
 
+def _too_short_response(handle, sig_len):
+    """Reason 3003: output buffer too short, report the required length."""
+    svc_data = (encode_octet_string(b'') +
+                encode_octet_string(b'') +
+                encode_integer(sig_len))
+    return encode_response(handle, RC_ERROR, RSN_TOO_SHORT,
+                           ICSF_TAG_CSFPOWH, svc_data)
+
+
 def _do_sign(handle, attrs, data, mech_rule, hash_name, op, key_type,
-             token_name, sequence, size_query=False):
+             token_name, sequence, size_query=False, buf_len=None):
+    """
+    Sign data and build the OWH response.
+
+    Returns (response, completed).  completed is True only when the signature
+    was returned to the caller; it is False for errors, size queries and
+    output buffers that are too short (buf_len is the size of the caller's
+    signature buffer, or None for no check).  The caller must not consume
+    multi-part chaining state unless completed is True.
+    """
     # Size query for EC/DSA: return the fixed raw signature size without
     # performing a real sign.
-    if size_query and key_type == CKK_EC:
-        ec_params = attrs.get(CKA_EC_PARAMS, b'') if isinstance(attrs, dict) else b''
-        sig_len = ec_max_sig_len(ec_params)
-        svc_data = (encode_octet_string(b'') +
-                    encode_octet_string(b'') +
-                    encode_integer(sig_len))
-        return encode_response(handle, RC_ERROR, RSN_TOO_SHORT,
-                               ICSF_TAG_CSFPOWH, svc_data)
-    if size_query and key_type == CKK_DSA:
-        sig_len = dsa_max_sig_len(attrs.get(CKA_SUBPRIME, b'')
-                                  if isinstance(attrs, dict) else b'')
-        svc_data = (encode_octet_string(b'') +
-                    encode_octet_string(b'') +
-                    encode_integer(sig_len))
-        return encode_response(handle, RC_ERROR, RSN_TOO_SHORT,
-                               ICSF_TAG_CSFPOWH, svc_data)
+    if key_type == CKK_EC or key_type == CKK_DSA:
+        if key_type == CKK_EC:
+            ec_params = (attrs.get(CKA_EC_PARAMS, b'')
+                         if isinstance(attrs, dict) else b'')
+            max_len = ec_max_sig_len(ec_params)
+        else:
+            max_len = dsa_max_sig_len(attrs.get(CKA_SUBPRIME, b'')
+                                      if isinstance(attrs, dict) else b'')
+        if size_query or (buf_len is not None and buf_len < max_len):
+            return _too_short_response(handle, max_len), False
 
     try:
         if key_type == CKK_EC:
@@ -369,15 +383,13 @@ def _do_sign(handle, attrs, data, mech_rule, hash_name, op, key_type,
             sig = rsa_private_sign(attrs, data, mech_rule)
     except Exception as exc:
         logger.error('OWH sign failed (op=%r): %s', op, exc, exc_info=True)
-        return encode_response(handle, RC_ERROR, RC_ERROR, ICSF_TAG_CSFPOWH, b'')
+        return (encode_response(handle, RC_ERROR, RC_ERROR,
+                                ICSF_TAG_CSFPOWH, b''), False)
 
-    # Size query for RSA: performed a real sign to measure length
-    if size_query:
-        svc_data = (encode_octet_string(b'') +
-                    encode_octet_string(b'') +
-                    encode_integer(len(sig)))
-        return encode_response(handle, RC_ERROR, RSN_TOO_SHORT,
-                               ICSF_TAG_CSFPOWH, svc_data)
+    # Size query for RSA: performed a real sign to measure length.  Also
+    # applies when the caller's buffer is too short for the signature.
+    if size_query or (buf_len is not None and buf_len < len(sig)):
+        return _too_short_response(handle, len(sig)), False
 
     # chainData must be EMPTY on ONLY/LAST responses.  The C client allocates
     # exactly ICSF_CHAINING_DATA_LEN (128) bytes for it; returning the full
@@ -387,7 +399,8 @@ def _do_sign(handle, attrs, data, mech_rule, hash_name, op, key_type,
                 encode_integer(len(sig)))
     logger.info('OWH sign: token=%r seq=%d mech=%r sig=%d bytes',
                 token_name, sequence, mech_rule.strip(), len(sig))
-    return encode_response(handle, RC_SUCCESS, 0, ICSF_TAG_CSFPOWH, svc_data)
+    return (encode_response(handle, RC_SUCCESS, 0, ICSF_TAG_CSFPOWH, svc_data),
+            True)
 
 
 def _do_verify(handle, attrs, data, signature, mech_rule, hash_name, op,
