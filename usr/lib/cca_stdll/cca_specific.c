@@ -11085,6 +11085,11 @@ static CK_RV ccatok_ml_dsa_sign(STDLL_TokData_t *tokdata, SESSION *sess,
     if (return_code != CCA_SUCCESS) {
         TRACE_ERROR("CSNDDSG (QSA SIGN) failed. return:%ld,"
                     " reason:%ld\n", return_code, reason_code);
+        if (return_code == 8 && reason_code == 343) {
+            *signature_len = CCA_MAX_ML_DSA_SIGNATURE_LEN;
+            TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
+            return CKR_BUFFER_TOO_SMALL;
+        }
         return CKR_FUNCTION_FAILED;
     } else if (reason_code != 0) {
         TRACE_WARNING("CSNDDSG (QSA SIGN) succeeded, but"
