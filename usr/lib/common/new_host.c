@@ -3792,6 +3792,13 @@ static CK_RV VerifyFinal(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
         goto done;
     }
 
+    if (pSignature != NULL && ulSignatureLen == 0) {
+        /* Zero-length signature can never be valid; terminate the operation. */
+        TRACE_ERROR("%s\n", ock_err(ERR_SIGNATURE_LEN_RANGE));
+        rc = CKR_SIGNATURE_LEN_RANGE;
+        goto done;
+    }
+
     rc = verify_mgr_verify_final(tokdata, sess, &sess->verify_ctx,
                                  sess->verify_ctx.saved_signature != NULL ?
                                        sess->verify_ctx.saved_signature :
@@ -3819,11 +3826,6 @@ done:
 CK_RV SC_VerifyFinal(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
                      CK_BYTE_PTR pSignature, CK_ULONG ulSignatureLen)
 {
-    if (pSignature == NULL || ulSignatureLen == 0) {
-        TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
-        return CKR_ARGUMENTS_BAD;
-    }
-
     return VerifyFinal(tokdata, sSession, pSignature, ulSignatureLen);
 }
 
