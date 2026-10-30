@@ -2679,6 +2679,16 @@ CK_RV aes_mac_sign(STDLL_TokData_t *tokdata,
         return CKR_OK;
     }
 
+    /*
+     * Check the buffer size before the data is added to the context, so that
+     * a retry after CKR_BUFFER_TOO_SMALL does not process the data twice.
+     */
+    if (*out_data_len < mac_len) {
+        *out_data_len = mac_len;
+        TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
+        return CKR_BUFFER_TOO_SMALL;
+    }
+
     if ((in_data_len % AES_BLOCK_SIZE) != 0) {
         rc = aes_mac_sign_update(tokdata, sess, ctx, in_data, in_data_len);
         if (rc != CKR_OK)
@@ -2689,13 +2699,6 @@ CK_RV aes_mac_sign(STDLL_TokData_t *tokdata,
 
         return rc;
     } else {
-
-        if (*out_data_len < mac_len) {
-            *out_data_len = mac_len;
-            TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
-            return CKR_BUFFER_TOO_SMALL;
-        }
-
         rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj, READ_LOCK);
         if (rc != CKR_OK) {
             TRACE_ERROR("Failed to find specified object.\n");
@@ -2827,14 +2830,13 @@ CK_RV aes_mac_sign_final(STDLL_TokData_t *tokdata,
         return CKR_OK;
     }
 
+    if (*out_data_len < mac_len) {
+        *out_data_len = mac_len;
+        TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
+        return CKR_BUFFER_TOO_SMALL;
+    }
+
     if (context->len > 0) {
-
-        if (*out_data_len < mac_len) {
-            *out_data_len = mac_len;
-            TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
-            return CKR_BUFFER_TOO_SMALL;
-        }
-
         /* padding with '00' in case case we didn't reach block size */
         memset(context->data + context->len, 0x0,
                AES_BLOCK_SIZE - context->len);

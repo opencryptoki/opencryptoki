@@ -13741,7 +13741,12 @@ CK_RV token_specific_ml_dsa_sign(STDLL_TokData_t *tokdata, SESSION *sess,
         TRACE_INFO("%s rc=0x%lx\n", __func__, rc);
     }
 
-    if (final_part && sess->sign_ctx.context != NULL && !length_only) {
+    /*
+     * Keep the collected message if the buffer was too small, so that the
+     * caller can retry the C_SignFinal with a larger buffer.
+     */
+    if (final_part && sess->sign_ctx.context != NULL && !length_only &&
+        rc != CKR_BUFFER_TOO_SMALL) {
         free(sess->sign_ctx.context);
         sess->sign_ctx.context = NULL;
         sess->sign_ctx.context_len = 0;

@@ -470,7 +470,7 @@ CK_RV ec_hash_sign_final(STDLL_TokData_t *tokdata,
 {
     CK_BYTE hash[MAX_SHA_HASH_SIZE];
     MP_DIGEST_CONTEXT *context = NULL;
-    CK_ULONG hash_len;
+    CK_ULONG hash_len, sig_req_len = 0;
     CK_MECHANISM sign_mech;
     SIGN_VERIFY_CONTEXT sign_ctx;
     CK_RV rc;
@@ -497,13 +497,6 @@ CK_RV ec_hash_sign_final(STDLL_TokData_t *tokdata,
         return rc;
     }
 
-    rc = digest_mgr_digest_final(tokdata, sess, length_only,
-                                 &context->hash_context, hash, &hash_len);
-    if (rc != CKR_OK) {
-        TRACE_DEVEL("Digest Mgr Final failed.\n");
-        return rc;
-    }
-
     sign_mech.mechanism = CKM_ECDSA;
     sign_mech.ulParameterLen = 0;
     sign_mech.pParameter = NULL;
@@ -514,17 +507,38 @@ CK_RV ec_hash_sign_final(STDLL_TokData_t *tokdata,
         TRACE_DEVEL("Sign Mgr Init failed.\n");
         goto done;
     }
-    //rc = sign_mgr_sign( sess, length_only, &sign_ctx, ber_data, ber_data_len,
-    //signature, sig_len );
+
+    /*
+     * Check the signature buffer size before the digest is finalized, since
+     * finalizing terminates the digest operation. A CKR_BUFFER_TOO_SMALL
+     * must leave the multi-part operation intact so that it can be retried.
+     */
+    if (length_only == FALSE) {
+        rc = sign_mgr_sign(tokdata, sess, TRUE, &sign_ctx, NULL, 0, NULL,
+                           &sig_req_len);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("Sign Mgr Sign (length only) failed.\n");
+            goto done;
+        }
+        if (*sig_len < sig_req_len) {
+            *sig_len = sig_req_len;
+            TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
+            rc = CKR_BUFFER_TOO_SMALL;
+            goto done;
+        }
+    }
+
+    rc = digest_mgr_digest_final(tokdata, sess, length_only,
+                                 &context->hash_context, hash, &hash_len);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("Digest Mgr Final failed.\n");
+        goto done;
+    }
+
     rc = sign_mgr_sign(tokdata, sess, length_only, &sign_ctx, hash, hash_len,
                        signature, sig_len);
     if (rc != CKR_OK)
         TRACE_DEVEL("Sign Mgr Sign failed.\n");
-
-    if (length_only == TRUE || rc == CKR_BUFFER_TOO_SMALL) {
-        sign_mgr_cleanup(tokdata, sess, &sign_ctx);
-        return rc;
-    }
 
 done:
     sign_mgr_cleanup(tokdata, sess, &sign_ctx);

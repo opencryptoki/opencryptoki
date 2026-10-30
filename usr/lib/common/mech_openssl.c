@@ -7421,7 +7421,7 @@ CK_RV openssl_specific_pqc_sign(STDLL_TokData_t *tokdata,
     CK_RV rc = CKR_OK;
     EVP_PKEY_CTX *ctx = NULL;
     const char *alg_name;
-    size_t siglen;
+    size_t siglen = 0;
     CK_HASH_SIGN_ADDITIONAL_CONTEXT *hash_sign_context;
     CK_BYTE *prehashed_msg = NULL;
     CK_ULONG prehashed_msg_len = 0;
@@ -7629,6 +7629,37 @@ CK_RV openssl_specific_pqc_sign(STDLL_TokData_t *tokdata,
         goto out;
     }
 
+    /*
+     * Check the signature buffer size first. A buffer that is too small must
+     * result in CKR_BUFFER_TOO_SMALL and must not terminate a multi-part
+     * operation.
+     */
+    if (single_part) {
+        if (EVP_PKEY_sign(ctx, NULL, &siglen, in_data, in_data_len) <= 0) {
+            TRACE_ERROR("EVP_PKEY_sign failed\n");
+            rc = CKR_FUNCTION_FAILED;
+            goto out;
+        }
+    } else {
+#ifdef EVP_PKEY_OP_SIGNMSG
+        if (EVP_PKEY_sign_message_final(ctx, NULL, &siglen) <= 0) {
+            TRACE_ERROR("EVP_PKEY_sign_message_final failed\n");
+            rc = CKR_FUNCTION_FAILED;
+            goto out;
+        }
+#else
+        rc = CKR_MECHANISM_INVALID; /* Multi-part not supported */
+        TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
+        goto out;
+#endif
+    }
+    if (*signature_len < siglen) {
+        *signature_len = siglen;
+        TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
+        rc = CKR_BUFFER_TOO_SMALL;
+        goto out;
+    }
+
     siglen = *signature_len;
     if (single_part) {
         if (EVP_PKEY_sign(ctx, signature, &siglen, in_data, in_data_len) <= 0) {
@@ -7667,7 +7698,8 @@ out:
         free(prehashed_msg);
     if (pkey != NULL)
         EVP_PKEY_free(pkey);
-    if (final_part && (single_part || !length_only) && ctx != NULL) {
+    if (final_part && ctx != NULL &&
+        (single_part || (!length_only && rc != CKR_BUFFER_TOO_SMALL))) {
         EVP_PKEY_CTX_free(ctx);
         if (!single_part) {
             sess->sign_ctx.context = NULL;

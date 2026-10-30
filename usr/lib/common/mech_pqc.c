@@ -664,7 +664,7 @@ CK_RV ml_dsa_hash_sign_final(STDLL_TokData_t *tokdata, SESSION *sess,
     CK_BYTE hash[MAX_SHA_HASH_SIZE];
     MP_DIGEST_CONTEXT *context = NULL;
     CK_MECHANISM digest_mech;
-    CK_ULONG hash_len;
+    CK_ULONG hash_len, sig_req_len = 0;
     CK_RV rc;
 
     if (sess == NULL || ctx == NULL || sig_len == NULL) {
@@ -698,13 +698,6 @@ CK_RV ml_dsa_hash_sign_final(STDLL_TokData_t *tokdata, SESSION *sess,
         return rc;
     }
 
-    rc = digest_mgr_digest_final(tokdata, sess, length_only,
-                                 &context->hash_context, hash, &hash_len);
-    if (rc != CKR_OK) {
-        TRACE_DEVEL("Digest Mgr Final failed.\n");
-        return rc;
-    }
-
     /* Translate to CKM_HASH_ML_DSA mechanism */
     sign_ctx = *ctx;
     sign_ctx.mech.mechanism = CKM_HASH_ML_DSA;
@@ -718,6 +711,34 @@ CK_RV ml_dsa_hash_sign_final(STDLL_TokData_t *tokdata, SESSION *sess,
     if (rc != CKR_OK) {
         TRACE_DEVEL("ml_dsa_translate_hash_sign_mech_param_from_sign"
                     " failed.\n");
+        return rc;
+    }
+
+    /*
+     * Check the signature buffer size before the digest is finalized, since
+     * finalizing terminates the digest operation. A CKR_BUFFER_TOO_SMALL
+     * must leave the multi-part operation intact so that it can be retried.
+     * The signature size does not depend on the hash value.
+     */
+    if (length_only == FALSE) {
+        memset(hash, 0, sizeof(hash));
+        rc = ml_dsa_sign(tokdata, sess, TRUE, &sign_ctx, hash, hash_len,
+                         NULL, &sig_req_len, TRUE);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("ml_dsa_sign (length only) failed.\n");
+            return rc;
+        }
+        if (*sig_len < sig_req_len) {
+            *sig_len = sig_req_len;
+            TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
+            return CKR_BUFFER_TOO_SMALL;
+        }
+    }
+
+    rc = digest_mgr_digest_final(tokdata, sess, length_only,
+                                 &context->hash_context, hash, &hash_len);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("Digest Mgr Final failed.\n");
         return rc;
     }
 

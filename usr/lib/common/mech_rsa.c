@@ -1687,7 +1687,7 @@ CK_RV rsa_hash_pss_sign_final(STDLL_TokData_t *tokdata, SESSION *sess,
                               CK_BBOOL length_only, SIGN_VERIFY_CONTEXT *ctx,
                               CK_BYTE *signature, CK_ULONG *sig_len)
 {
-    CK_ULONG hlen;
+    CK_ULONG hlen, sig_req_len = 0;
     CK_BYTE hash[MAX_SHA_HASH_SIZE];
     DIGEST_CONTEXT *digest_ctx;
     SIGN_VERIFY_CONTEXT sign_ctx;
@@ -1716,14 +1716,6 @@ CK_RV rsa_hash_pss_sign_final(STDLL_TokData_t *tokdata, SESSION *sess,
         return CKR_MECHANISM_PARAM_INVALID;
     }
 
-    rc = digest_mgr_digest_final(tokdata, sess, length_only, digest_ctx,
-                                 hash, &hlen);
-    if (rc != CKR_OK) {
-        TRACE_DEVEL("Digest Mgr Final failed.\n");
-        return rc;
-    }
-
-    /* sign the hash */
     sign_mech.mechanism = CKM_RSA_PKCS_PSS;
     sign_mech.ulParameterLen = ctx->mech.ulParameterLen;
     sign_mech.pParameter = ctx->mech.pParameter;
@@ -1735,6 +1727,34 @@ CK_RV rsa_hash_pss_sign_final(STDLL_TokData_t *tokdata, SESSION *sess,
         goto done;
     }
 
+    /*
+     * Check the signature buffer size before the digest is finalized, since
+     * finalizing terminates the digest operation. A CKR_BUFFER_TOO_SMALL
+     * must leave the multi-part operation intact so that it can be retried.
+     */
+    if (length_only == FALSE) {
+        rc = sign_mgr_sign(tokdata, sess, TRUE, &sign_ctx, NULL, 0, NULL,
+                           &sig_req_len);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("Sign Mgr Sign (length only) failed.\n");
+            goto done;
+        }
+        if (*sig_len < sig_req_len) {
+            *sig_len = sig_req_len;
+            TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
+            rc = CKR_BUFFER_TOO_SMALL;
+            goto done;
+        }
+    }
+
+    rc = digest_mgr_digest_final(tokdata, sess, length_only, digest_ctx,
+                                 hash, &hlen);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("Digest Mgr Final failed.\n");
+        goto done;
+    }
+
+    /* sign the hash */
     rc = sign_mgr_sign(tokdata, sess, length_only, &sign_ctx, hash, hlen,
                        signature, sig_len);
     if (rc != CKR_OK)
@@ -2260,6 +2280,7 @@ CK_RV rsa_hash_pkcs_sign_final(STDLL_TokData_t *tokdata,
     CK_BYTE hash[MAX_SHA_HASH_SIZE];
     MP_DIGEST_CONTEXT *context = NULL;
     CK_ULONG ber_data_len, hash_len, octet_str_len, oid_len;
+    CK_ULONG sig_req_len = 0;
     CK_MECHANISM sign_mech;
     SIGN_VERIFY_CONTEXT sign_ctx;
     CK_RV rc;
@@ -2286,12 +2307,43 @@ CK_RV rsa_hash_pkcs_sign_final(STDLL_TokData_t *tokdata,
             return rc;
     }
 
+    sign_mech.mechanism = CKM_RSA_PKCS;
+    sign_mech.ulParameterLen = 0;
+    sign_mech.pParameter = NULL;
+
+    rc = sign_mgr_init(tokdata, sess, &sign_ctx, &sign_mech, FALSE, ctx->key,
+                       FALSE, FALSE);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("Sign Mgr Init failed.\n");
+        goto done;
+    }
+
+    /*
+     * Check the signature buffer size before the digest is finalized, since
+     * finalizing terminates the digest operation. A CKR_BUFFER_TOO_SMALL
+     * must leave the multi-part operation intact so that it can be retried.
+     */
+    if (length_only == FALSE) {
+        rc = sign_mgr_sign(tokdata, sess, TRUE, &sign_ctx, NULL, 0, NULL,
+                           &sig_req_len);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("Sign Mgr Sign (length only) failed.\n");
+            goto done;
+        }
+        if (*sig_len < sig_req_len) {
+            *sig_len = sig_req_len;
+            TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
+            rc = CKR_BUFFER_TOO_SMALL;
+            goto done;
+        }
+    }
+
     hash_len = sizeof(hash);
     rc = digest_mgr_digest_final(tokdata, sess, length_only,
                                  &context->hash_context, hash, &hash_len);
     if (rc != CKR_OK) {
         TRACE_DEVEL("Digest Mgr Final failed.\n");
-        return rc;
+        goto done;
     }
     // Build the BER Encoded Data block
     //
@@ -2299,7 +2351,7 @@ CK_RV rsa_hash_pkcs_sign_final(STDLL_TokData_t *tokdata,
                                  hash_len);
     if (rc != CKR_OK) {
         TRACE_DEVEL("ber_encode_OCTET_STRING failed.\n");
-        return rc;
+        goto done;
     }
     tmp = (CK_BYTE *) buf1;
     memcpy(tmp, oid, oid_len);
@@ -2313,25 +2365,10 @@ CK_RV rsa_hash_pkcs_sign_final(STDLL_TokData_t *tokdata,
     }
     // sign the BER-encoded data block
     //
-
-    sign_mech.mechanism = CKM_RSA_PKCS;
-    sign_mech.ulParameterLen = 0;
-    sign_mech.pParameter = NULL;
-
-    rc = sign_mgr_init(tokdata, sess, &sign_ctx, &sign_mech, FALSE, ctx->key,
-                       FALSE, FALSE);
-    if (rc != CKR_OK) {
-        TRACE_DEVEL("Sign Mgr Init failed.\n");
-        goto done;
-    }
     rc = sign_mgr_sign(tokdata, sess, length_only, &sign_ctx, ber_data,
                        ber_data_len, signature, sig_len);
     if (rc != CKR_OK)
         TRACE_DEVEL("Sign Mgr Sign failed.\n");
-
-   /** Not sure why this check is here */
-    if (length_only == TRUE || rc == CKR_BUFFER_TOO_SMALL)
-        goto done;
 
 done:
     if (octet_str)
