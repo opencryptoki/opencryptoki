@@ -176,12 +176,15 @@ done:
 CK_RV local_rng(CK_BYTE *output, CK_ULONG bytes)
 {
     int ranfd;
-    int rlen;
-    unsigned int totallen = 0;
+    ssize_t rlen;
+    CK_ULONG totallen = 0;
 
-    ranfd = open("/dev/prandom", 0);
+    if (bytes == 0)
+        return CKR_OK;
+
+    ranfd = open("/dev/prandom", O_RDONLY);
     if (ranfd < 0)
-        ranfd = open("/dev/urandom", 0);
+        ranfd = open("/dev/urandom", O_RDONLY);
     if (ranfd >= 0) {
         do {
             rlen = read(ranfd, output + totallen, bytes - totallen);

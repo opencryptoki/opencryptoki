@@ -76,7 +76,7 @@ CK_RV template_add_attributes(TEMPLATE *tmpl, CK_ATTRIBUTE *pTemplate,
 {
     CK_ATTRIBUTE *attr = NULL;
     CK_RV rc;
-    unsigned int i;
+    CK_ULONG i;
 
     for (i = 0; i < ulCount; i++) {
         if (!is_attribute_defined(pTemplate[i].type)) {
