@@ -2121,6 +2121,7 @@ static CK_RV ica_specific_shake_key_derive(STDLL_TokData_t *tokdata,
     CK_ATTRIBUTE *base_key_value = NULL;
     CK_ATTRIBUTE *value_attr = NULL, *vallen_attr = NULL;
     CK_BYTE *derived_key_value = NULL;
+    CK_ULONG i;
     CK_RV rc;
 
     UNUSED(tokdata);
@@ -2173,6 +2174,13 @@ static CK_RV ica_specific_shake_key_derive(STDLL_TokData_t *tokdata,
 
     if (rc != CKR_OK)
         goto out;
+
+    /* DES keys must have odd parity set on every byte */
+    if (derived_key_type == CKK_DES || derived_key_type == CKK_DES2 ||
+        derived_key_type == CKK_DES3) {
+        for (i = 0; i < derived_key_len; i++)
+            derived_key_value[i] = parity_adjust(derived_key_value[i]);
+    }
 
     rc = build_attribute(CKA_VALUE, derived_key_value, derived_key_len,
                          &value_attr);

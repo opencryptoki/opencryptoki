@@ -566,7 +566,7 @@ CK_RV ckm_sha_derive(STDLL_TokData_t *tokdata, SESSION *sess,
     CK_BYTE derived_key_value[MAX_SHA_HASH_SIZE];
     DIGEST_CONTEXT ctx;
     CK_MECHANISM digest_mech;
-    CK_ULONG hsize = 0, allowed_keysize = 0;
+    CK_ULONG hsize = 0, allowed_keysize = 0, i;
     CK_ULONG derived_keytype = 0, derived_keylen = 0;
     CK_ATTRIBUTE *base_key_value;
     CK_ATTRIBUTE *value_attr, *vallen_attr = NULL;
@@ -767,6 +767,13 @@ CK_RV ckm_sha_derive(STDLL_TokData_t *tokdata, SESSION *sess,
         TRACE_ERROR("digest_mgr_digest failed with rc=0x%lx\n", rc);
         digest_mgr_cleanup(tokdata, sess, &ctx);
         return rc;
+    }
+
+    /* DES keys must have odd parity set on every byte */
+    if (derived_keytype == CKK_DES || derived_keytype == CKK_DES2 ||
+        derived_keytype == CKK_DES3) {
+        for (i = 0; i < derived_keylen; i++)
+            derived_key_value[i] = parity_adjust(derived_key_value[i]);
     }
 
     rc = build_attribute(CKA_VALUE, derived_key_value, derived_keylen,

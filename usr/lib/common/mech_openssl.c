@@ -4013,6 +4013,7 @@ CK_RV openssl_specific_shake_key_derive(STDLL_TokData_t *tokdata, SESSION *sess,
     CK_BYTE *derived_key_value = NULL;
     EVP_MD_CTX *ctx = NULL;
     const EVP_MD *md = NULL;
+    CK_ULONG i;
     CK_RV rc;
 
     UNUSED(tokdata);
@@ -4061,6 +4062,13 @@ CK_RV openssl_specific_shake_key_derive(STDLL_TokData_t *tokdata, SESSION *sess,
         TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
         rc = CKR_FUNCTION_FAILED;
         goto out;
+    }
+
+    /* DES keys must have odd parity set on every byte */
+    if (derived_key_type == CKK_DES || derived_key_type == CKK_DES2 ||
+        derived_key_type == CKK_DES3) {
+        for (i = 0; i < derived_key_len; i++)
+            derived_key_value[i] = parity_adjust(derived_key_value[i]);
     }
 
     rc = build_attribute(CKA_VALUE, derived_key_value, derived_key_len,
