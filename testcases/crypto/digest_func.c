@@ -1218,6 +1218,109 @@ testcase_cleanup:
     return rc;
 }
 
+/*
+ * Regression test for: C_VerifyFinal(ulSignatureLen=0) must terminate the
+ * active verify operation (PKCS#11 v3.1 sec. 5.14) instead of returning
+ * CKR_ARGUMENTS_BAD without touching the session state.
+ */
+CK_RV do_VerifyFinal_ZeroLen(struct HMAC_TEST_SUITE_INFO *tsuite)
+{
+    CK_MECHANISM mech;
+    CK_BYTE key[MAX_KEY_SIZE], data[MAX_DATA_SIZE];
+    CK_ULONG key_len, data_len;
+    CK_BYTE dummy_sig[1] = { 0 };
+    CK_SESSION_HANDLE session;
+    CK_SLOT_ID slot_id = SLOT_ID;
+    CK_ULONG flags;
+    CK_RV rc;
+    CK_OBJECT_HANDLE h_key = CK_INVALID_HANDLE;
+    CK_BYTE user_pin[PKCS11_MAX_PIN_LEN];
+    CK_ULONG user_pin_len;
+
+    testsuite_begin("%s VerifyFinal zero-length signature terminates operation.",
+                    tsuite->name);
+    testcase_rw_session();
+    testcase_user_login();
+
+    if (!mech_supported(SLOT_ID, tsuite->mech.mechanism)) {
+        testsuite_skip(1, "mechanism %s is not supported with slot %lu",
+                       tsuite->name, slot_id);
+        goto testcase_cleanup;
+    }
+
+    testcase_begin("C_VerifyFinal(len=0) returns CKR_SIGNATURE_LEN_RANGE and "
+                   "terminates the operation (%s).", tsuite->name);
+
+    mech = tsuite->mech;
+    key_len = tsuite->tv[0].key_len;
+    data_len = tsuite->tv[0].data_len;
+    memcpy(key, tsuite->tv[0].key, key_len);
+    memcpy(data, tsuite->tv[0].data, data_len);
+
+    rc = create_GenericSecretKey(session, CKK_GENERIC_SECRET,
+                                 key, key_len, &h_key);
+    if (rc != CKR_OK) {
+        if (rc == CKR_POLICY_VIOLATION) {
+            testcase_skip("generic secret key generation is not allowed by policy");
+            goto testcase_cleanup;
+        }
+        testcase_error("create_GenericSecretKey rc=%s", p11_get_ckr(rc));
+        goto error;
+    }
+
+    rc = funcs->C_VerifyInit(session, &mech, h_key);
+    if (rc != CKR_OK) {
+        testcase_error("C_VerifyInit rc=%s", p11_get_ckr(rc));
+        goto error;
+    }
+
+    rc = funcs->C_VerifyUpdate(session, data, data_len);
+    if (rc != CKR_OK) {
+        testcase_error("C_VerifyUpdate rc=%s", p11_get_ckr(rc));
+        goto error;
+    }
+
+    /* Assertion 1: zero-length final must return CKR_SIGNATURE_LEN_RANGE */
+    testcase_new_assertion();
+    rc = funcs->C_VerifyFinal(session, dummy_sig, 0);
+    if (rc != CKR_SIGNATURE_LEN_RANGE) {
+        testcase_fail("C_VerifyFinal(len=0) returned %s, expected "
+                      "CKR_SIGNATURE_LEN_RANGE", p11_get_ckr(rc));
+        /* If the operation is still active we must clean it up. */
+        if (rc == CKR_ARGUMENTS_BAD)
+            funcs->C_VerifyFinal(session, dummy_sig, 1);
+        goto error;
+    }
+    testcase_pass("%s C_VerifyFinal(len=0) correctly returned "
+                  "CKR_SIGNATURE_LEN_RANGE.", tsuite->name);
+
+    /* Assertion 2: operation must have been terminated - re-init must succeed */
+    testcase_new_assertion();
+    rc = funcs->C_VerifyInit(session, &mech, h_key);
+    if (rc != CKR_OK)
+        testcase_fail("C_VerifyInit after zero-len C_VerifyFinal returned %s "
+                      "(expected CKR_OK - operation was not terminated)",
+                      p11_get_ckr(rc));
+    else
+        testcase_pass("%s operation correctly terminated: C_VerifyInit "
+                      "succeeded after zero-len C_VerifyFinal.", tsuite->name);
+
+    /* Cancel the second init so the session is clean for the next suite. */
+    funcs->C_VerifyInit(session, NULL, h_key);
+
+error:
+    if (h_key != CK_INVALID_HANDLE)
+        funcs->C_DestroyObject(session, h_key);
+
+testcase_cleanup:
+    testcase_user_logout();
+    rc = funcs->C_CloseAllSessions(slot_id);
+    if (rc != CKR_OK)
+        testcase_error("C_CloseAllSessions rc=%s", p11_get_ckr(rc));
+
+    return rc;
+}
+
 /** Tests signature verification with published test vectors. **/
 CK_RV do_SignVerify_HMAC(struct HMAC_TEST_SUITE_INFO * tsuite)
 {
@@ -1999,6 +2102,10 @@ CK_RV digest_funcs(void)
             break;
 
         rc = do_VerifyUpdate_FIPS_HMAC(&fips_hmac_test_suites[i]);
+        if (rc && !no_stop)
+            break;
+
+        rc = do_VerifyFinal_ZeroLen(&fips_hmac_test_suites[i]);
         if (rc && !no_stop)
             break;
     }
