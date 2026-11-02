@@ -4587,8 +4587,8 @@ CK_RV ber_encode_IBM_ML_DSA_PrivateKey(CK_MECHANISM_TYPE mech,
                                       exp_key_raw_len);
     } else if (priv_seed_avail) {
         /* private-seed only */
-        rc = ber_encode_CHOICE(TRUE, 0x00, NULL, &priv_key_len, NULL,
-                               priv_seed->ulValueLen, FALSE);
+        rc |= ber_encode_CHOICE(TRUE, 0x00, NULL, &priv_key_len, NULL,
+                                priv_seed->ulValueLen, FALSE);
     } else {
         TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
         return CKR_FUNCTION_FAILED;
@@ -4673,8 +4673,8 @@ CK_RV ber_encode_IBM_ML_DSA_PrivateKey(CK_MECHANISM_TYPE mech,
                                       exp_key_raw_len);
     } else if (priv_seed_avail) {
         /* private-seed only */
-        rc = ber_encode_CHOICE(FALSE, 0x00, &priv_key, &priv_key_len,
-                               priv_seed->pValue, priv_seed->ulValueLen, FALSE);
+        rc |= ber_encode_CHOICE(FALSE, 0x00, &priv_key, &priv_key_len,
+                                priv_seed->pValue, priv_seed->ulValueLen, FALSE);
     } else {
         TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
         rc = CKR_FUNCTION_FAILED;
@@ -5088,8 +5088,8 @@ CK_RV ber_encode_IBM_ML_KEM_PrivateKey(CK_MECHANISM_TYPE mech,
                                       sk->ulValueLen);
     } else if (priv_seed_avail) {
         /* private-seed only */
-        rc = ber_encode_CHOICE(TRUE, 0x00, NULL, &priv_key_len, NULL,
-                               priv_seed->ulValueLen, FALSE);
+        rc |= ber_encode_CHOICE(TRUE, 0x00, NULL, &priv_key_len, NULL,
+                                priv_seed->ulValueLen, FALSE);
     } else {
         TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
         return CKR_FUNCTION_FAILED;
@@ -5147,8 +5147,8 @@ CK_RV ber_encode_IBM_ML_KEM_PrivateKey(CK_MECHANISM_TYPE mech,
                                       sk->pValue, sk->ulValueLen);
     } else if (priv_seed_avail) {
         /* private-seed only */
-        rc = ber_encode_CHOICE(FALSE, 0x00, &priv_key, &priv_key_len,
-                               priv_seed->pValue, priv_seed->ulValueLen, FALSE);
+        rc |= ber_encode_CHOICE(FALSE, 0x00, &priv_key, &priv_key_len,
+                                priv_seed->pValue, priv_seed->ulValueLen, FALSE);
     } else {
         TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
         rc = CKR_FUNCTION_FAILED;
@@ -5452,8 +5452,8 @@ CK_RV ber_encode_ML_DSA_PrivateKey(CK_BBOOL length_only,
                                       value->ulValueLen);
     } else if (seed_avail) {
         /* private-seed only */
-        rc = ber_encode_CHOICE(TRUE, 0x00, NULL, &priv_key_len, NULL,
-                               seed->ulValueLen, FALSE);
+        rc |= ber_encode_CHOICE(TRUE, 0x00, NULL, &priv_key_len, NULL,
+                                seed->ulValueLen, FALSE);
     } else {
         TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
         return CKR_FUNCTION_FAILED;
@@ -5515,8 +5515,8 @@ CK_RV ber_encode_ML_DSA_PrivateKey(CK_BBOOL length_only,
                                       value->pValue, value->ulValueLen);
     } else if (seed_avail) {
         /* private-seed only */
-        rc = ber_encode_CHOICE(FALSE, 0x00, &priv_key, &priv_key_len,
-                               seed->pValue, seed->ulValueLen, FALSE);
+        rc |= ber_encode_CHOICE(FALSE, 0x00, &priv_key, &priv_key_len,
+                                seed->pValue, seed->ulValueLen, FALSE);
     } else {
         TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
         rc = CKR_FUNCTION_FAILED;
@@ -5799,8 +5799,8 @@ CK_RV ber_encode_ML_KEM_PrivateKey(CK_BBOOL length_only,
                                       value->ulValueLen);
     } else if (seed_avail) {
         /* private-seed only */
-        rc = ber_encode_CHOICE(TRUE, 0x00, NULL, &priv_key_len, NULL,
-                               seed->ulValueLen, FALSE);
+        rc |= ber_encode_CHOICE(TRUE, 0x00, NULL, &priv_key_len, NULL,
+                                seed->ulValueLen, FALSE);
     } else {
         TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
         return CKR_FUNCTION_FAILED;
@@ -5862,8 +5862,8 @@ CK_RV ber_encode_ML_KEM_PrivateKey(CK_BBOOL length_only,
                                       value->pValue, value->ulValueLen);
     } else if (seed_avail) {
         /* private-seed only */
-        rc = ber_encode_CHOICE(FALSE, 0x00, &priv_key, &priv_key_len,
-                               seed->pValue, seed->ulValueLen, FALSE);
+        rc |= ber_encode_CHOICE(FALSE, 0x00, &priv_key, &priv_key_len,
+                                seed->pValue, seed->ulValueLen, FALSE);
     } else {
         TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
         rc = CKR_FUNCTION_FAILED;
