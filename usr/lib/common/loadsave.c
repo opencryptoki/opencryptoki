@@ -737,7 +737,11 @@ CK_RV load_token_data_old(STDLL_TokData_t *tokdata, CK_SLOT_ID slot_id)
     if (!fp) {
         /* Better error checking added */
         if (errno == ENOENT) {
-            init_token_data(tokdata, slot_id);
+            rc = init_token_data(tokdata, slot_id);
+            if (rc != CKR_OK) {
+                TRACE_DEVEL("init_token_data failed.\n");
+                goto out_unlock;
+            }
 
             fp = fopen_nofollow(fname, "r");
             if (!fp) {
@@ -2500,7 +2504,11 @@ CK_RV load_token_data(STDLL_TokData_t *tokdata, CK_SLOT_ID slot_id)
     if (!fp) {
         /* Better error checking added */
         if (errno == ENOENT) {
-            init_token_data(tokdata, slot_id);
+            rc = init_token_data(tokdata, slot_id);
+            if (rc != CKR_OK) {
+                TRACE_DEVEL("init_token_data failed.\n");
+                goto out_unlock;
+            }
 
             fp = fopen_nofollow(fname, "r");
             if (!fp) {
@@ -2732,7 +2740,11 @@ CK_RV save_private_token_object(STDLL_TokData_t *tokdata, OBJECT *obj)
 do_work:
     if (new) {
         /* get key */
-        rng_generate(tokdata, obj_key, 32);
+        rc = rng_generate(tokdata, obj_key, 32);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("rng_generate failed.\n");
+            goto done;
+        }
 
         /* iv = [obj.-name|counter] */
         memcpy(obj_iv, obj->name, 8);

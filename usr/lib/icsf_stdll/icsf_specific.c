@@ -1325,11 +1325,19 @@ CK_RV icsftok_set_pin(STDLL_TokData_t * tokdata, SESSION * sess,
             /* Generate fresh salts for the new PIN */
             new_login_it = USER_KDF_LOGIN_IT;
             memcpy(new_login_salt, USER_KDF_LOGIN_PURPOSE, 32);
-            rng_generate(tokdata, new_login_salt + 32, 32);
+            rc = rng_generate(tokdata, new_login_salt + 32, 32);
+            if (rc != CKR_OK) {
+                TRACE_DEVEL("rng_generate failed.\n");
+                goto done;
+            }
 
             new_wrap_it = USER_KDF_WRAP_IT;
             memcpy(new_wrap_salt, USER_KDF_WRAP_PURPOSE, 32);
-            rng_generate(tokdata, new_wrap_salt + 32, 32);
+            rc = rng_generate(tokdata, new_wrap_salt + 32, 32);
+            if (rc != CKR_OK) {
+                TRACE_DEVEL("rng_generate failed.\n");
+                goto done;
+            }
 
             /* Derive new login key with the fresh salt and check it
              * differs from the old one (compare under the old salt so
@@ -1466,11 +1474,19 @@ CK_RV icsftok_set_pin(STDLL_TokData_t * tokdata, SESSION * sess,
             /* Generate fresh salts for the new SO PIN */
             new_login_it = SO_KDF_LOGIN_IT;
             memcpy(new_login_salt, SO_KDF_LOGIN_PURPOSE, 32);
-            rng_generate(tokdata, new_login_salt + 32, 32);
+            rc = rng_generate(tokdata, new_login_salt + 32, 32);
+            if (rc != CKR_OK) {
+                TRACE_DEVEL("rng_generate failed.\n");
+                goto done;
+            }
 
             new_wrap_it = SO_KDF_WRAP_IT;
             memcpy(new_wrap_salt, SO_KDF_WRAP_PURPOSE, 32);
-            rng_generate(tokdata, new_wrap_salt + 32, 32);
+            rc = rng_generate(tokdata, new_wrap_salt + 32, 32);
+            if (rc != CKR_OK) {
+                TRACE_DEVEL("rng_generate failed.\n");
+                goto done;
+            }
 
             /* Same-PIN rejection: compare under the old salt */
             rc = compute_PKCS5_PBKDF2_HMAC(tokdata, pNewPin, ulNewLen,

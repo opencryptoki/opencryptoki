@@ -376,7 +376,11 @@ CK_RV init_token_data(STDLL_TokData_t *tokdata, CK_SLOT_ID slot_id)
         /* SO login key */
         dat->so_login_it = SO_KDF_LOGIN_IT;
         memcpy(dat->so_login_salt, SO_KDF_LOGIN_PURPOSE, 32);
-        rng_generate(tokdata, dat->so_login_salt + 32, 32);
+        rc = rng_generate(tokdata, dat->so_login_salt + 32, 32);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("rng_generate failed.\n");
+            return rc;
+        }
 
         rc = compute_PKCS5_PBKDF2_HMAC(tokdata, (CK_BYTE *)SO_PIN_DEFAULT,
                                        strlen(SO_PIN_DEFAULT),
@@ -391,7 +395,11 @@ CK_RV init_token_data(STDLL_TokData_t *tokdata, CK_SLOT_ID slot_id)
         /* SO wrap key */
         dat->so_wrap_it = SO_KDF_WRAP_IT;
         memcpy(dat->so_wrap_salt, SO_KDF_WRAP_PURPOSE, 32);
-        rng_generate(tokdata, dat->so_wrap_salt + 32, 32);
+        rc = rng_generate(tokdata, dat->so_wrap_salt + 32, 32);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("rng_generate failed.\n");
+            return rc;
+        }
 
         rc = compute_PKCS5_PBKDF2_HMAC(tokdata, (CK_BYTE *)SO_PIN_DEFAULT,
                                        strlen(SO_PIN_DEFAULT),
@@ -406,7 +414,11 @@ CK_RV init_token_data(STDLL_TokData_t *tokdata, CK_SLOT_ID slot_id)
         /* User login key */
         dat->user_login_it = USER_KDF_LOGIN_IT;
         memcpy(dat->user_login_salt, USER_KDF_LOGIN_PURPOSE, 32);
-        rng_generate(tokdata, dat->user_login_salt + 32, 32);
+        rc = rng_generate(tokdata, dat->user_login_salt + 32, 32);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("rng_generate failed.\n");
+            return rc;
+        }
 
         rc = compute_PKCS5_PBKDF2_HMAC(tokdata, (CK_BYTE *)USER_PIN_DEFAULT,
                                        strlen(USER_PIN_DEFAULT),
@@ -421,7 +433,11 @@ CK_RV init_token_data(STDLL_TokData_t *tokdata, CK_SLOT_ID slot_id)
         /* User wrap key */
         dat->user_wrap_it = USER_KDF_WRAP_IT;
         memcpy(dat->user_wrap_salt, USER_KDF_WRAP_PURPOSE, 32);
-        rng_generate(tokdata, dat->user_wrap_salt + 32, 32);
+        rc = rng_generate(tokdata, dat->user_wrap_salt + 32, 32);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("rng_generate failed.\n");
+            return rc;
+        }
 
         rc = compute_PKCS5_PBKDF2_HMAC(tokdata, (CK_BYTE *)USER_PIN_DEFAULT,
                                        strlen(USER_PIN_DEFAULT),
