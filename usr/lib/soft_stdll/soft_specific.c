@@ -514,6 +514,8 @@ CK_RV token_specific_des_key_gen(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
                                  CK_BYTE **des_key, CK_ULONG *len,
                                  CK_ULONG keysize, CK_BBOOL *is_opaque)
 {
+    CK_RV rc;
+
     UNUSED(tmpl);
 
     *des_key = malloc(keysize);
@@ -526,11 +528,18 @@ CK_RV token_specific_des_key_gen(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
     // random data...  Validation handles the rest
     // Only check for weak keys when DES.
     if (keysize == (3 * DES_KEY_SIZE)) {
-        rng_generate(tokdata, *des_key, keysize);
+        rc = rng_generate(tokdata, *des_key, keysize);
     } else {
         do {
-            rng_generate(tokdata, *des_key, keysize);;
-        } while (des_check_weak_key(*des_key) == TRUE);
+            rc = rng_generate(tokdata, *des_key, keysize);
+        } while (rc == CKR_OK && des_check_weak_key(*des_key) == TRUE);
+    }
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("rng_generate failed.\n");
+        OPENSSL_cleanse(*des_key, keysize);
+        free(*des_key);
+        *des_key = NULL;
+        return rc;
     }
 
     // we really need to validate the key for parity etc...

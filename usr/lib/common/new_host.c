@@ -655,8 +655,11 @@ CK_RV SC_InitPIN(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
     } else {
         login_it = USER_KDF_LOGIN_IT;
         memcpy(login_salt, USER_KDF_LOGIN_PURPOSE, 32);
-        rng_generate(tokdata, login_salt + 32, 32);
-
+        rc = rng_generate(tokdata, login_salt + 32, 32);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("rng_generate failed.\n");
+            goto done;
+        }
 
         rc = compute_PKCS5_PBKDF2_HMAC(tokdata, pPin, ulPinLen,
                                        login_salt, 64,
@@ -669,7 +672,11 @@ CK_RV SC_InitPIN(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
 
         wrap_it = USER_KDF_WRAP_IT;
         memcpy(wrap_salt, USER_KDF_WRAP_PURPOSE, 32);
-        rng_generate(tokdata, wrap_salt + 32, 32);
+        rc = rng_generate(tokdata, wrap_salt + 32, 32);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("rng_generate failed.\n");
+            goto done;
+        }
 
         rc = compute_PKCS5_PBKDF2_HMAC(tokdata, pPin, ulPinLen,
                                        wrap_salt, 64,
@@ -859,7 +866,11 @@ CK_RV SC_SetPIN(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
         } else {
             login_it = USER_KDF_LOGIN_IT;
             memcpy(login_salt, USER_KDF_LOGIN_PURPOSE, 32);
-            rng_generate(tokdata, login_salt + 32, 32);
+            rc = rng_generate(tokdata, login_salt + 32, 32);
+            if (rc != CKR_OK) {
+                TRACE_DEVEL("rng_generate failed.\n");
+                goto done;
+            }
 
             rc = compute_PKCS5_PBKDF2_HMAC(tokdata, pNewPin, ulNewLen,
                                            login_salt, 64,
@@ -872,7 +883,11 @@ CK_RV SC_SetPIN(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
 
             wrap_it = USER_KDF_WRAP_IT;
             memcpy(wrap_salt, USER_KDF_WRAP_PURPOSE, 32);
-            rng_generate(tokdata, wrap_salt + 32, 32);
+            rc = rng_generate(tokdata, wrap_salt + 32, 32);
+            if (rc != CKR_OK) {
+                TRACE_DEVEL("rng_generate failed.\n");
+                goto done;
+            }
 
             rc = compute_PKCS5_PBKDF2_HMAC(tokdata, pNewPin, ulNewLen,
                                            wrap_salt, 64,
@@ -982,7 +997,11 @@ CK_RV SC_SetPIN(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
         } else {
             login_it = SO_KDF_LOGIN_IT;
             memcpy(login_salt, SO_KDF_LOGIN_PURPOSE, 32);
-            rng_generate(tokdata, login_salt + 32, 32);
+            rc = rng_generate(tokdata, login_salt + 32, 32);
+            if (rc != CKR_OK) {
+                TRACE_DEVEL("rng_generate failed.\n");
+                goto done;
+            }
 
             rc = compute_PKCS5_PBKDF2_HMAC(tokdata, pNewPin, ulNewLen,
                                            login_salt, 64,
@@ -995,7 +1014,11 @@ CK_RV SC_SetPIN(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
 
             wrap_it = SO_KDF_WRAP_IT;
             memcpy(wrap_salt, SO_KDF_WRAP_PURPOSE, 32);
-            rng_generate(tokdata, wrap_salt + 32, 32);
+            rc = rng_generate(tokdata, wrap_salt + 32, 32);
+            if (rc != CKR_OK) {
+                TRACE_DEVEL("rng_generate failed.\n");
+                goto done;
+            }
 
             rc = compute_PKCS5_PBKDF2_HMAC(tokdata, pNewPin, ulNewLen,
                                            wrap_salt, 64,
