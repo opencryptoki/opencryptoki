@@ -2836,8 +2836,6 @@ CK_RV do_KWP_CorruptedData_Err(void)
     rc = CKR_OK;
 
 testcase_cleanup:
-    if (out_buf != NULL)
-        free(out_buf);
     if (h_key != CK_INVALID_HANDLE)
         funcs->C_DestroyObject(session, h_key);
 
@@ -3056,9 +3054,8 @@ CK_RV do_SignVerifyMAC(struct published_mac_test_suite_info *tsuite)
     goto testcase_cleanup;
 
 error:
-    rc = funcs->C_DestroyObject(session, h_key);
-    if (rc != CKR_OK)
-        testcase_error("C_DestroyObject rc=%s", p11_get_ckr(rc));
+    if (funcs->C_DestroyObject(session, h_key) != CKR_OK)
+        testcase_error("C_DestroyObject failed");
 
 testcase_cleanup:
     testcase_close_session();
