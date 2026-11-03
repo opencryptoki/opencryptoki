@@ -2722,6 +2722,7 @@ int icsf_hmac_sign(LDAP * ld, int *reason, struct icsf_object_record *key,
                    size_t * hmac_len, char *chain_data, size_t * chain_data_len)
 {
     int rc = 0;
+    int reason_code = 0;
     char handle[ICSF_HANDLE_LEN];
     char rule_array[2 * ICSF_RULE_ITEM_LEN];
     BerElement *msg = NULL;
@@ -2734,6 +2735,8 @@ int icsf_hmac_sign(LDAP * ld, int *reason, struct icsf_object_record *key,
     CHECK_ARG_NON_NULL(ld);
     CHECK_ARG_NON_NULL(key);
     CHECK_ARG_NON_NULL(mech);
+    CHECK_ARG_NON_NULL(hmac_len);
+    CHECK_ARG_NON_NULL(chain_data_len);
 
     object_record_to_handle(handle, key);
 
@@ -2773,11 +2776,13 @@ int icsf_hmac_sign(LDAP * ld, int *reason, struct icsf_object_record *key,
     }
 
     /* Call service */
-    rc = icsf_call(ld, reason, handle, sizeof(handle), rule_array,
+    rc = icsf_call(ld, &reason_code, handle, sizeof(handle), rule_array,
                    sizeof(rule_array), ICSF_TAG_CSFPHMG, msg, &result);
+    if (reason)
+        *reason = reason_code;
 
-    if (ICSF_RC_IS_ERROR(rc) && 
-        *reason != ICSF_REASON_OUTPUT_PARAMETER_TOO_SHORT) {
+    if (ICSF_RC_IS_ERROR(rc) &&
+        reason_code != ICSF_REASON_OUTPUT_PARAMETER_TOO_SHORT) {
         TRACE_DEVEL("icsf_call failed\n");
         goto done;
     }
@@ -2830,7 +2835,7 @@ int icsf_hmac_sign(LDAP * ld, int *reason, struct icsf_object_record *key,
     memcpy(chain_data, bvChain.bv_val, bvChain.bv_len);
 
     /* copy the hmac when needed */
-    if (*reason == ICSF_REASON_OUTPUT_PARAMETER_TOO_SHORT || hmac == NULL) {
+    if (reason_code == ICSF_REASON_OUTPUT_PARAMETER_TOO_SHORT || hmac == NULL) {
         *hmac_len = (size_t)hmac_length;
     } else {
         if ((size_t)hmac_length > *hmac_len || bvHmac.bv_len > *hmac_len) {
@@ -3260,8 +3265,14 @@ int icsf_hash_signverify(LDAP * ld, int *reason, struct icsf_object_record *key,
         return -1;
     }
 
-    if (sig == NULL && sig_len != NULL)
-        *sig_len = 0;
+    if (sig == NULL) {
+        if (sig_len != NULL)
+            *sig_len = 0;
+    } else if (sig_len == NULL) {
+        TRACE_ERROR("sig is provided but sig_len is NULL\n");
+        rc = -1;
+        goto done;
+    }
 
     if (ber_printf(msg, "ooo", (clear_text) ? clear_text : "",
                    clear_text_len, (chain_data) ? chain_data : "",
@@ -3311,7 +3322,7 @@ int icsf_hash_signverify(LDAP * ld, int *reason, struct icsf_object_record *key,
         if (reason_code == ICSF_REASON_OUTPUT_PARAMETER_TOO_SHORT ||
             sig == NULL) {
             /* size query: report required length from protocol */
-            if (sig_len)
+            if (sig_len != NULL)
                 *sig_len = (unsigned long)length;
         } else {
             if ((unsigned long)length > *sig_len ||
@@ -3320,9 +3331,8 @@ int icsf_hash_signverify(LDAP * ld, int *reason, struct icsf_object_record *key,
                             "bv_len=%lu buf=%lu\n",
                             length, (unsigned long) bvSig.bv_len,
                             (unsigned long) *sig_len);
-                if (sig_len)
-                    *sig_len = (unsigned long)length > bvSig.bv_len ?
-                               (unsigned long)length : (unsigned long)bvSig.bv_len;
+                *sig_len = (unsigned long)length > bvSig.bv_len ?
+                           (unsigned long)length : (unsigned long)bvSig.bv_len;
                 if (reason)
                     *reason = ICSF_REASON_OUTPUT_PARAMETER_TOO_SHORT;
                 rc = ICSF_RC_ERROR;
