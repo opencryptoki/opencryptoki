@@ -408,7 +408,7 @@ static int test_fuzz_memory_stress(void)
 static int test_fuzz_interleaved_operations(void)
 {
     CK_BYTE *encoded_data[10] = {NULL};
-    CK_ULONG encoded_len[10];
+    CK_ULONG encoded_len[10] = {0};
     CK_BYTE *decoded_data;
     CK_ULONG decoded_len, field_len;
 
@@ -669,8 +669,9 @@ static int test_fuzz_choice_random_options(void)
 
             if (rv == CKR_OK && encoded_data) {
                 /* Decode */
-                rv = ber_decode_CHOICE(encoded_data, encoded_len, constructed,
-                                      &decoded_data, &decoded_len, &field_len, &option);
+                (void)ber_decode_CHOICE(encoded_data, encoded_len, constructed,
+                                        &decoded_data, &decoded_len,
+                                        &field_len, &option);
 
                 free(encoded_data);
                 encoded_data = NULL;

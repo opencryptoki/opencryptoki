@@ -2197,7 +2197,7 @@ int test_decode_ec_private_key_valid(void)
     CK_RV rv;
     CK_BYTE *encoded = NULL;
     CK_ULONG encoded_len = 0;
-    CK_ATTRIBUTE *orig_params = NULL, *orig_privkey = NULL, *orig_pubkey = NULL;
+    CK_ATTRIBUTE *orig_params = NULL, *orig_privkey = NULL;
     CK_ATTRIBUTE *dec_params = NULL, *dec_privkey = NULL, *dec_pubkey = NULL;
     int result = 0;
 
@@ -2265,7 +2265,6 @@ int test_decode_ec_private_key_valid(void)
 cleanup:
     if (orig_params) free(orig_params);
     if (orig_privkey) free(orig_privkey);
-    if (orig_pubkey) free(orig_pubkey);
     if (dec_params) free(dec_params);
     if (dec_privkey) free(dec_privkey);
     if (dec_pubkey) free(dec_pubkey);

@@ -104,16 +104,24 @@ static void _gen_uri(struct p11_uri *uri,
         uri->obj_class[0].ulValueLen = sizeof(CK_OBJECT_CLASS);
     }
     if (o_id) {
-        memcpy(ckc_id_buf, o_id, strlen(o_id));
+        size_t id_len = strlen(o_id);
+
+        if (id_len > sizeof(ckc_id_buf))
+            id_len = sizeof(ckc_id_buf);
+        memcpy(ckc_id_buf, o_id, id_len);
         uri->obj_id[0].type = CKA_ID;
         uri->obj_id[0].pValue = ckc_id_buf;
-        uri->obj_id[0].ulValueLen = strlen(o_id);
+        uri->obj_id[0].ulValueLen = id_len;
     }
     if (o_lbl) {
-        memcpy(ckc_label_buf, o_lbl, strlen(o_lbl));
+        size_t lbl_len = strlen(o_lbl);
+
+        if (lbl_len > sizeof(ckc_label_buf))
+            lbl_len = sizeof(ckc_label_buf);
+        memcpy(ckc_label_buf, o_lbl, lbl_len);
         uri->obj_label[0].type = CKA_LABEL;
         uri->obj_label[0].pValue = ckc_label_buf;
-        uri->obj_label[0].ulValueLen = strlen(o_lbl);
+        uri->obj_label[0].ulValueLen = lbl_len;
     }
 }
 

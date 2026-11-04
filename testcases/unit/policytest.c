@@ -549,6 +549,7 @@ static int runstrengthdettests(void)
         if (test_load_strength_cfg(pp, (void *)strengthdettests[o].definition,
                                     strengthdettests[o].definitionsize)) {
             fprintf(stderr, "Test %u: Failed to load strength configuration\n", o);
+            p.priv = policy_private_free(pp);
             return -1;
         }
         for (i = 0; i < NUM_KEYTESTS_STRENGTHDET; ++i) {
