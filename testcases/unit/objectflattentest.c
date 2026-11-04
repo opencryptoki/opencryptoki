@@ -73,6 +73,22 @@ static int crashes_prevented = 0;
     } \
 } while(0)
 
+/*
+ * Like TEST_ASSERT, but jumps to the 'out' label (with 'ret' set to -1)
+ * so that the caller can release its resources.
+ */
+#define TEST_ASSERT_GOTO(condition, msg) do { \
+    tests_run++; \
+    if (!(condition)) { \
+        printf("FAIL: %s (line %d): %s\n", __func__, __LINE__, msg); \
+        tests_failed++; \
+        ret = -1; \
+        goto out; \
+    } else { \
+        tests_passed++; \
+    } \
+} while(0)
+
 #define TEST_PASS_FUNC() do { \
     printf("PASS: %s\n", __func__); \
     return 0; \
@@ -227,32 +243,37 @@ static int test_flatten_valid_object(void)
     OBJECT *obj = NULL;
     CK_BYTE *data = NULL;
     CK_ULONG len = 0;
+    CK_OBJECT_CLASS_32 stored_class;
     CK_RV rc;
+    int ret = 0;
 
     rc = create_test_object(&obj, CKO_DATA, "testobj1");
-    TEST_ASSERT(rc == CKR_OK, "Failed to create test object");
+    TEST_ASSERT_GOTO(rc == CKR_OK, "Failed to create test object");
 
     rc = object_flatten(obj, &data, &len);
-    TEST_ASSERT(rc == CKR_OK, "object_flatten should succeed");
-    TEST_ASSERT(data != NULL, "data should not be NULL");
-    TEST_ASSERT(len > 0, "len should be greater than 0");
+    TEST_ASSERT_GOTO(rc == CKR_OK, "object_flatten should succeed");
+    TEST_ASSERT_GOTO(data != NULL, "data should not be NULL");
+    TEST_ASSERT_GOTO(len > 0, "len should be greater than 0");
 
     /* Verify minimum size: class(4) + count(4) + name(8) */
-    TEST_ASSERT(len >= 16, "len should be at least 16 bytes");
+    TEST_ASSERT_GOTO(len >= 16, "len should be at least 16 bytes");
 
     /* Verify object class is stored correctly */
-    CK_OBJECT_CLASS_32 stored_class;
     memcpy(&stored_class, data, sizeof(CK_OBJECT_CLASS_32));
-    TEST_ASSERT(stored_class == CKO_DATA, "stored class should match");
+    TEST_ASSERT_GOTO(stored_class == CKO_DATA, "stored class should match");
 
     /* Verify object name is stored correctly */
-    TEST_ASSERT(memcmp(data + 8, "testobj1", 8) == 0,
-                "stored name should match");
+    TEST_ASSERT_GOTO(memcmp(data + 8, "testobj1", 8) == 0,
+                     "stored name should match");
 
+out:
     free(data);
-    object_free(obj);
+    if (obj != NULL)
+        object_free(obj);
 
-    TEST_PASS_FUNC();
+    if (ret == 0)
+        TEST_PASS_FUNC();
+    return ret;
 }
 
 /* Test 3: object_restore_withSize with NULL data */
@@ -308,30 +329,38 @@ static int test_roundtrip_flatten_restore(void)
     CK_BYTE *data = NULL;
     CK_ULONG len = 0;
     CK_RV rc;
+    int ret = 0;
 
     /* Create and flatten object */
     rc = create_test_object(&obj1, CKO_SECRET_KEY, "roundtrp");
-    TEST_ASSERT(rc == CKR_OK, "Failed to create test object");
+    TEST_ASSERT_GOTO(rc == CKR_OK, "Failed to create test object");
 
     rc = object_flatten(obj1, &data, &len);
-    TEST_ASSERT(rc == CKR_OK, "object_flatten should succeed");
-    TEST_ASSERT(data != NULL && len > 0, "flatten should produce data");
+    TEST_ASSERT_GOTO(rc == CKR_OK, "object_flatten should succeed");
+    TEST_ASSERT_GOTO(data != NULL && len > 0, "flatten should produce data");
 
     /* Restore object */
     rc = object_restore_withSize(NULL, data, &obj2, FALSE, len, NULL);
-    TEST_ASSERT(rc == CKR_OK, "object_restore_withSize should succeed");
-    TEST_ASSERT(obj2 != NULL, "restored object should not be NULL");
+    TEST_ASSERT_GOTO(rc == CKR_OK, "object_restore_withSize should succeed");
+    TEST_ASSERT_GOTO(obj2 != NULL, "restored object should not be NULL");
 
     /* Verify restored object matches original */
-    TEST_ASSERT(obj2->class == obj1->class, "class should match");
-    TEST_ASSERT(memcmp(obj2->name, obj1->name, 8) == 0, "name should match");
-    TEST_ASSERT(template_compare(obj1->template, obj2->template), "template should match");
+    TEST_ASSERT_GOTO(obj2->class == obj1->class, "class should match");
+    TEST_ASSERT_GOTO(memcmp(obj2->name, obj1->name, 8) == 0,
+                     "name should match");
+    TEST_ASSERT_GOTO(template_compare(obj1->template, obj2->template),
+                     "template should match");
 
+out:
     free(data);
-    object_free(obj1);
-    object_free(obj2);
+    if (obj1 != NULL)
+        object_free(obj1);
+    if (obj2 != NULL)
+        object_free(obj2);
 
-    TEST_PASS_FUNC();
+    if (ret == 0)
+        TEST_PASS_FUNC();
+    return ret;
 }
 
 /* Test 7: object_restore_withSize with filename validation */
@@ -764,24 +793,26 @@ static int fuzz_test_corrupted_data(void)
 {
     OBJECT *obj1 = NULL, *obj2 = NULL;
     CK_BYTE *data = NULL;
+    CK_BYTE *corrupted = NULL;
     CK_ULONG len = 0;
     CK_RV rc;
     int iterations = 10000;
     int safe_failures = 0;
+    int ret = 0;
 
     printf("Running fuzz test with corrupted valid data...\n");
 
     /* Create a valid object and flatten it */
     rc = create_test_object(&obj1, CKO_DATA, "corrupt1");
-    TEST_ASSERT(rc == CKR_OK, "Failed to create test object");
+    TEST_ASSERT_GOTO(rc == CKR_OK, "Failed to create test object");
 
     rc = object_flatten(obj1, &data, &len);
-    TEST_ASSERT(rc == CKR_OK, "object_flatten should succeed");
+    TEST_ASSERT_GOTO(rc == CKR_OK, "object_flatten should succeed");
 
     /* Corrupt the data in various ways */
     for (int i = 0; i < iterations; i++) {
-        CK_BYTE *corrupted = (CK_BYTE *)malloc(len);
-        TEST_ASSERT(corrupted != NULL, "malloc failed");
+        corrupted = (CK_BYTE *)malloc(len);
+        TEST_ASSERT_GOTO(corrupted != NULL, "malloc failed");
 
         memcpy(corrupted, data, len);
 
@@ -797,23 +828,29 @@ static int fuzz_test_corrupted_data(void)
 
         if (rc != CKR_OK) {
             safe_failures++;
-            TEST_ASSERT(obj2 == NULL, "obj should be NULL on failure");
+            TEST_ASSERT_GOTO(obj2 == NULL, "obj should be NULL on failure");
         } else {
             if (obj2 != NULL)
                 object_free(obj2);
         }
 
         free(corrupted);
+        corrupted = NULL;
     }
 
     crashes_prevented += safe_failures;
     printf("  Safe failures: %d/%d (prevented crashes)\n",
            safe_failures, iterations);
 
+out:
+    free(corrupted);
     free(data);
-    object_free(obj1);
+    if (obj1 != NULL)
+        object_free(obj1);
 
-    TEST_PASS_FUNC();
+    if (ret == 0)
+        TEST_PASS_FUNC();
+    return ret;
 }
 
 /* Fuzz Test 4: Extreme count values */

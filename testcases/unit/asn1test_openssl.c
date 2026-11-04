@@ -322,6 +322,7 @@ int test_openssl_pkcs8_rsa(void)
     EVP_PKEY_free(pkey);
     if (rv != CKR_OK || p8_der == NULL || p8_der_len == 0) {
         fprintf(stderr, "[FAIL] test_openssl_pkcs8_rsa: failed to encode PKCS#8 via OpenSSL\n");
+        free(p8_der);
         return 1;
     }
 
@@ -401,6 +402,7 @@ int test_openssl_pkcs8_dsa(void)
     EVP_PKEY_free(pkey);
     if (rv != CKR_OK || p8_der == NULL || p8_der_len == 0) {
         fprintf(stderr, "[FAIL] test_openssl_pkcs8_dsa: failed to encode PKCS#8 via OpenSSL\n");
+        free(p8_der);
         return 1;
     }
 
@@ -472,6 +474,7 @@ int test_openssl_pkcs8_dh(void)
     EVP_PKEY_free(pkey);
     if (rv != CKR_OK || p8_der == NULL || p8_der_len == 0) {
         fprintf(stderr, "[FAIL] test_openssl_pkcs8_dh: failed to encode PKCS#8 via OpenSSL\n");
+        free(p8_der);
         return 1;
     }
 
@@ -556,6 +559,7 @@ static int test_openssl_pkcs8_ec_curve(int nid, const char *curve_name)
     if (rv != CKR_OK || p8_der == NULL || p8_der_len == 0) {
         fprintf(stderr, "[FAIL] test_openssl_pkcs8_ec (%s): failed to encode PKCS#8 via OpenSSL\n",
                 curve_name);
+        free(p8_der);
         return 1;
     }
 
@@ -703,6 +707,7 @@ static int test_openssl_pkcs8_edwards_curve(int type_id, const char *type_name)
     if (rv != CKR_OK || p8_der == NULL || p8_der_len == 0) {
         fprintf(stderr, "[FAIL] test_openssl_pkcs8_edwards (%s): failed to encode PKCS#8 via OpenSSL\n",
                 type_name);
+        free(p8_der);
         return 1;
     }
 
@@ -805,6 +810,7 @@ static int test_openssl_pkcs8_montgomery_curve(int type_id, const char *type_nam
     if (rv != CKR_OK || p8_der == NULL || p8_der_len == 0) {
         fprintf(stderr, "[FAIL] test_openssl_pkcs8_montgomery (%s): failed to encode PKCS#8 via OpenSSL\n",
                 type_name);
+        free(p8_der);
         return 1;
     }
 
@@ -896,6 +902,7 @@ static int test_openssl_pkcs8_ml_dsa_fmt(const char *alg_name,
         fprintf(stderr, "[FAIL] test_openssl_pkcs8_ml_dsa (%s, %s): "
                 "failed to encode PKCS#8 via OpenSSL\n", alg_name,
                 fmt ? fmt : "default");
+        free(p8_der);
         return 1;
     }
 
@@ -1016,6 +1023,7 @@ static int test_openssl_pkcs8_ml_kem_fmt(const char *alg_name,
         fprintf(stderr, "[FAIL] test_openssl_pkcs8_ml_kem (%s, %s): "
                 "failed to encode PKCS#8 via OpenSSL\n",
                 alg_name, fmt ? fmt : "default");
+        free(p8_der);
         return 1;
     }
 
@@ -1141,6 +1149,7 @@ int test_openssl_spki_rsa(void)
     EVP_PKEY_free(pkey);
     if (rv != CKR_OK || spki_der == NULL || spki_der_len == 0) {
         fprintf(stderr, "[FAIL] test_openssl_spki_rsa: failed to encode SPKI via OpenSSL\n");
+        free(spki_der);
         return 1;
     }
 
@@ -1207,6 +1216,7 @@ int test_openssl_spki_dsa(void)
     EVP_PKEY_free(pkey);
     if (rv != CKR_OK || spki_der == NULL || spki_der_len == 0) {
         fprintf(stderr, "[FAIL] test_openssl_spki_dsa: failed to encode SPKI via OpenSSL\n");
+        free(spki_der);
         return 1;
     }
 
@@ -1278,6 +1288,7 @@ int test_openssl_spki_dh(void)
     EVP_PKEY_free(pkey);
     if (rv != CKR_OK || spki_der == NULL || spki_der_len == 0) {
         fprintf(stderr, "[FAIL] test_openssl_spki_dh: failed to encode SPKI via OpenSSL\n");
+        free(spki_der);
         return 1;
     }
 
@@ -1362,6 +1373,7 @@ static int test_openssl_spki_ec_curve(int nid, const char *curve_name)
     if (rv != CKR_OK || spki_der == NULL || spki_der_len == 0) {
         fprintf(stderr, "[FAIL] test_openssl_spki_ec (%s): failed to encode SPKI via OpenSSL\n",
                 curve_name);
+        free(spki_der);
         return 1;
     }
 
@@ -1447,6 +1459,7 @@ static int test_openssl_spki_edwards_curve(int type_id, const char *type_name)
     if (rv != CKR_OK || spki_der == NULL || spki_der_len == 0) {
         fprintf(stderr, "[FAIL] test_openssl_spki_edwards (%s): failed to encode SPKI via OpenSSL\n",
                 type_name);
+        free(spki_der);
         return 1;
     }
 
@@ -1540,6 +1553,7 @@ static int test_openssl_spki_montgomery_curve(int type_id, const char *type_name
     if (rv != CKR_OK || spki_der == NULL || spki_der_len == 0) {
         fprintf(stderr, "[FAIL] test_openssl_spki_montgomery (%s): failed to encode SPKI via OpenSSL\n",
                 type_name);
+        free(spki_der);
         return 1;
     }
 
@@ -1634,6 +1648,7 @@ static int test_openssl_spki_ml_dsa_type(const char *alg_name)
     if (rv != CKR_OK || spki_der == NULL || spki_der_len == 0) {
         fprintf(stderr, "[FAIL] test_openssl_spki_ml_dsa (%s): failed to encode SPKI via OpenSSL\n",
                 alg_name);
+        free(spki_der);
         return 1;
     }
 
@@ -1724,6 +1739,7 @@ static int test_openssl_spki_ml_kem_type(const char *alg_name)
     if (rv != CKR_OK || spki_der == NULL || spki_der_len == 0) {
         fprintf(stderr, "[FAIL] test_openssl_spki_ml_kem (%s): failed to encode SPKI via OpenSSL\n",
                 alg_name);
+        free(spki_der);
         return 1;
     }
 
