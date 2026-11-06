@@ -9,7 +9,9 @@
 #   icsf-mock-pid-file  PID file written by ciconfig.sh for the mock server
 #                       (default: .icsf_mock_server.pid in the current directory)
 #   ockconfdir          directory containing opencryptoki.conf; when given, the
-#                       backup created by ciconfig.sh is restored and removed
+#                       backup created by ciconfig.sh is restored and removed,
+#                       and the generated ep11tokNN.conf, ccatokNN.conf and
+#                       <icsf-token-name>.conf files are deleted
 #   logdir              directory containing log-*.txt files written by ci-installcheck
 #                       or installcheck; when given, all log-*.txt files are removed
 
@@ -36,8 +38,13 @@ if [ -f "${ICSF_MOCK_PID_FILE}" ]; then
     rm -f "${ICSF_MOCK_PID_FILE}"
 fi
 
-# Restore the opencryptoki.conf backup created by ciconfig.sh, if present.
+# Restore the opencryptoki.conf backup created by ciconfig.sh, if present, and
+# remove the token config files (ep11tokNN.conf, ccatokNN.conf and the ICSF
+# <token>.conf written by pkcsicsf -a) it generated. The installed default
+# ep11tok.conf and ccatok.conf are kept.
 if [ -n "${OCKCONFDIR}" ]; then
+    rm -f "${OCKCONFDIR}"/ep11tok[0-9]*.conf "${OCKCONFDIR}"/ccatok[0-9]*.conf \
+          "${OCKCONFDIR}/${ICSF_MOCK_TOKEN}.conf"
     OCKCONF_BACKUP="${OCKCONFDIR}/.opencryptoki.conf.ci-backup"
     if [ -f "${OCKCONF_BACKUP}" ]; then
         cp -p "${OCKCONF_BACKUP}" "${OCKCONFDIR}/opencryptoki.conf"
