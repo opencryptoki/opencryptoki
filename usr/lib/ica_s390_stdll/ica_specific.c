@@ -4286,7 +4286,15 @@ CK_RV token_specific_aes_ctr(STDLL_TokData_t *tokdata,
     CK_RV rc;
     CK_ATTRIBUTE *attr = NULL;
 
-    if (!ica_data->ica_aes_available)
+    /*
+     * libica supports any data length, but only counter widths that are a
+     * multiple of 8 bits. A counter width that is not a multiple of 8 bits
+     * is handled by the generic OpenSSL implementation.
+     * Note: libica versions without the fix for the counter increment in
+     * __inc_aes_ctr()/__fill_aes_ctrlist() produce wrong results for
+     * counter widths above 64 bits.
+     */
+    if (!ica_data->ica_aes_available || counter_width % 8 != 0)
         return openssl_specific_aes_ctr(tokdata, in_data, in_data_len,
                                         out_data, out_data_len, key,
                                         counterblock, counter_width, encrypt);
