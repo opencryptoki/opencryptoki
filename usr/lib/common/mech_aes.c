@@ -424,10 +424,6 @@ CK_RV aes_ctr_encrypt(STDLL_TokData_t *tokdata,
         TRACE_ERROR("%s received bad argument(s)\n", __func__);
         return CKR_FUNCTION_FAILED;
     }
-    if (in_data_len % AES_BLOCK_SIZE != 0) {
-        TRACE_ERROR("%s\n", ock_err(ERR_DATA_LEN_RANGE));
-        return CKR_DATA_LEN_RANGE;
-    }
     rc = object_mgr_find_in_map1(tokdata, ctx->key, &key, READ_LOCK);
     if (rc != CKR_OK) {
         TRACE_ERROR("Failed to find specified object.\n");
@@ -477,10 +473,6 @@ CK_RV aes_ctr_decrypt(STDLL_TokData_t *tokdata,
     if (!sess || !ctx || !out_data_len) {
         TRACE_ERROR("%s received bad argument(s)\n", __func__);
         return CKR_FUNCTION_FAILED;
-    }
-    if (in_data_len % AES_BLOCK_SIZE != 0) {
-        TRACE_ERROR("%s\n", ock_err(ERR_ENCRYPTED_DATA_LEN_RANGE));
-        return CKR_ENCRYPTED_DATA_LEN_RANGE;
     }
     rc = object_mgr_find_in_map1(tokdata, ctx->key, &key, READ_LOCK);
     if (rc != CKR_OK) {
@@ -1767,10 +1759,9 @@ CK_RV aes_ctr_encrypt_final(STDLL_TokData_t *tokdata,
                             CK_BYTE *out_data, CK_ULONG *out_data_len)
 {
     AES_CONTEXT *context = NULL;
-
-    UNUSED(tokdata);
-    UNUSED(out_data);
-    UNUSED(length_only);
+    CK_AES_CTR_PARAMS *aesctr = NULL;
+    OBJECT *key = NULL;
+    CK_RV rc;
 
     if (!sess || !ctx || !out_data_len) {
         TRACE_ERROR("%s received bad argument(s)\n", __func__);
@@ -1779,18 +1770,39 @@ CK_RV aes_ctr_encrypt_final(STDLL_TokData_t *tokdata,
 
     context = (AES_CONTEXT *) ctx->context;
 
-    // CTR mode does no padding so there had better not be
-    // any data in the context buffer.  if there is it means
-    // that the overall data length was not a multiple of the blocksize
-    //
-    if (context->len != 0) {
-        TRACE_ERROR("%s\n", ock_err(ERR_DATA_LEN_RANGE));
-        return CKR_DATA_LEN_RANGE;
+    // CTR is a stream mode: encrypt the remaining (partial block) data
+    // that is still buffered in the context.
+    if (context->len == 0) {
+        *out_data_len = 0;
+        return CKR_OK;
     }
 
-    *out_data_len = 0;
+    if (length_only == TRUE) {
+        *out_data_len = context->len;
+        return CKR_OK;
+    }
 
-    return CKR_OK;
+    if (*out_data_len < context->len) {
+        *out_data_len = context->len;
+        TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
+        return CKR_BUFFER_TOO_SMALL;
+    }
+
+    rc = object_mgr_find_in_map1(tokdata, ctx->key, &key, READ_LOCK);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Failed to find specified object.\n");
+        return rc;
+    }
+
+    aesctr = (CK_AES_CTR_PARAMS *) ctx->mech.pParameter;
+    rc = ckm_aes_ctr_encrypt(tokdata, context->data, context->len, out_data,
+                             out_data_len, (CK_BYTE *) aesctr->cb,
+                             (CK_ULONG) aesctr->ulCounterBits, key);
+
+    object_put(tokdata, key, TRUE);
+    key = NULL;
+
+    return rc;
 }
 
 //
@@ -1802,10 +1814,9 @@ CK_RV aes_ctr_decrypt_final(STDLL_TokData_t *tokdata,
                             CK_BYTE *out_data, CK_ULONG *out_data_len)
 {
     AES_CONTEXT *context = NULL;
-
-    UNUSED(tokdata);
-    UNUSED(out_data);
-    UNUSED(length_only);
+    CK_AES_CTR_PARAMS *aesctr = NULL;
+    OBJECT *key = NULL;
+    CK_RV rc;
 
     if (!sess || !ctx || !out_data_len) {
         TRACE_ERROR("%s received bad argument(s)\n", __func__);
@@ -1814,17 +1825,39 @@ CK_RV aes_ctr_decrypt_final(STDLL_TokData_t *tokdata,
 
     context = (AES_CONTEXT *) ctx->context;
 
-    // CTR mode does no padding so there had better not be
-    // any data in the context buffer.  if there is it means
-    // that the overall data length was not a multiple of the blocksize
-    //
-    if (context->len != 0) {
-        TRACE_ERROR("%s\n", ock_err(ERR_ENCRYPTED_DATA_LEN_RANGE));
-        return CKR_ENCRYPTED_DATA_LEN_RANGE;
+    // CTR is a stream mode: decrypt the remaining (partial block) data
+    // that is still buffered in the context.
+    if (context->len == 0) {
+        *out_data_len = 0;
+        return CKR_OK;
     }
-    *out_data_len = 0;
 
-    return CKR_OK;
+    if (length_only == TRUE) {
+        *out_data_len = context->len;
+        return CKR_OK;
+    }
+
+    if (*out_data_len < context->len) {
+        *out_data_len = context->len;
+        TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
+        return CKR_BUFFER_TOO_SMALL;
+    }
+
+    rc = object_mgr_find_in_map1(tokdata, ctx->key, &key, READ_LOCK);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Failed to find specified object.\n");
+        return rc;
+    }
+
+    aesctr = (CK_AES_CTR_PARAMS *) ctx->mech.pParameter;
+    rc = ckm_aes_ctr_decrypt(tokdata, context->data, context->len, out_data,
+                             out_data_len, (CK_BYTE *) aesctr->cb,
+                             (CK_ULONG) aesctr->ulCounterBits, key);
+
+    object_put(tokdata, key, TRUE);
+    key = NULL;
+
+    return rc;
 }
 
 static CK_RV aes_xts_crypt_final(STDLL_TokData_t *tokdata,
