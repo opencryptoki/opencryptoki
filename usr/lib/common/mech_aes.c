@@ -4251,7 +4251,7 @@ CK_RV ckm_aes_ctr_encrypt(STDLL_TokData_t *tokdata,
         TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
         return CKR_BUFFER_TOO_SMALL;
     }
-    if (counter_width % 8 != 0) {
+    if (counter_width == 0 || counter_width > AES_BLOCK_SIZE * 8) {
         TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
         return CKR_MECHANISM_PARAM_INVALID;
     }
@@ -4290,7 +4290,7 @@ CK_RV ckm_aes_ctr_decrypt(STDLL_TokData_t *tokdata,
         TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
         return CKR_BUFFER_TOO_SMALL;
     }
-    if (counter_width % 8 != 0) {
+    if (counter_width == 0 || counter_width > AES_BLOCK_SIZE * 8) {
         TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
         return CKR_MECHANISM_PARAM_INVALID;
     }
