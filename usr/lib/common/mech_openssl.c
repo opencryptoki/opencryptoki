@@ -10,6 +10,7 @@
 
 
 #include <pthread.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -4669,6 +4670,78 @@ CK_RV openssl_specific_aes_cbc(STDLL_TokData_t *tokdata,
                                   encrypt);
 }
 
+/*
+ * Mask of the bits of byte 'idx' (0 = most significant byte) of a counter
+ * block that belong to the counter, i.e. to the 'counter_width' least
+ * significant bits of the 128 bit block.
+ */
+static CK_BYTE aes_ctr_byte_mask(CK_ULONG counter_width, unsigned int idx)
+{
+    CK_ULONG low_bit = (AES_BLOCK_SIZE - 1 - idx) * 8;
+
+    if (counter_width >= low_bit + 8)
+        return 0xff;
+    if (counter_width <= low_bit)
+        return 0x00;
+    return (CK_BYTE)((1u << (counter_width - low_bit)) - 1);
+}
+
+/*
+ * Number of blocks that can be processed with the current counter value
+ * before the counter wraps around (2^counter_width - counter).
+ * Returns UINT64_MAX if this number does not fit into 64 bits.
+ */
+static uint64_t aes_ctr_blocks_to_wrap(const CK_BYTE *cb,
+                                       CK_ULONG counter_width)
+{
+    uint64_t inv = 0;
+    unsigned int i;
+
+    /* inverted counter bits: 2^counter_width - 1 - counter */
+    for (i = 0; i < AES_BLOCK_SIZE; i++) {
+        CK_BYTE b = ~cb[i] & aes_ctr_byte_mask(counter_width, i);
+
+        if (i < AES_BLOCK_SIZE - 8) {
+            if (b != 0)
+                return UINT64_MAX;
+        } else {
+            inv = (inv << 8) | b;
+        }
+    }
+
+    if (inv == UINT64_MAX)
+        return UINT64_MAX;
+    return inv + 1;
+}
+
+/*
+ * Add 'n' to the counter (the 'counter_width' least significant bits) of the
+ * counter block. The counter wraps around at 2^counter_width, the other
+ * (nonce) bits of the block are left unchanged.
+ */
+static void aes_ctr_add(CK_BYTE *cb, CK_ULONG counter_width, uint64_t n)
+{
+    CK_BYTE orig[AES_BLOCK_SIZE];
+    unsigned int carry = 0, sum, add, i;
+    CK_BYTE mask;
+
+    memcpy(orig, cb, sizeof(orig));
+
+    for (i = 0; i < AES_BLOCK_SIZE; i++) {
+        unsigned int shift = i * 8;
+
+        add = shift < 64 ? (unsigned int)((n >> shift) & 0xff) : 0;
+        sum = cb[AES_BLOCK_SIZE - 1 - i] + add + carry;
+        cb[AES_BLOCK_SIZE - 1 - i] = (CK_BYTE)(sum & 0xff);
+        carry = sum >> 8;
+    }
+
+    for (i = 0; i < AES_BLOCK_SIZE; i++) {
+        mask = aes_ctr_byte_mask(counter_width, i);
+        cb[i] = (cb[i] & mask) | (orig[i] & ~mask);
+    }
+}
+
 CK_RV openssl_specific_aes_ctr(STDLL_TokData_t *tokdata,
                                CK_BYTE *in_data,
                                CK_ULONG in_data_len,
@@ -4678,8 +4751,10 @@ CK_RV openssl_specific_aes_ctr(STDLL_TokData_t *tokdata,
                                CK_BYTE *counterblock,
                                CK_ULONG counter_width, CK_BYTE encrypt)
 {
-    unsigned char init_v[AES_BLOCK_SIZE];
-    CK_RV rc;
+    CK_BYTE cb[AES_BLOCK_SIZE];
+    CK_ULONG offset = 0, chunk_len, remaining = in_data_len, len;
+    uint64_t blocks, to_wrap;
+    CK_RV rc = CKR_OK;
 
     UNUSED(tokdata);
 
@@ -4688,17 +4763,39 @@ CK_RV openssl_specific_aes_ctr(STDLL_TokData_t *tokdata,
         return CKR_ARGUMENTS_BAD;
     }
 
-    memset(init_v, 0, sizeof(init_v));
-    memcpy(init_v, counterblock + AES_BLOCK_SIZE - (counter_width / 8),
-           counter_width / 8);
+    /* Work on a copy, so that the counter block is only updated on success */
+    memcpy(cb, counterblock, sizeof(cb));
 
-    rc = openssl_cipher_perform(key, CKM_AES_CTR, in_data, in_data_len,
-                                  out_data, out_data_len, init_v, init_v,
-                                  encrypt);
+    /*
+     * OpenSSL increments the complete 128 bit block. Thus, split the data
+     * at the point where the counter bits wrap around, and restart with the
+     * wrapped counter (nonce bits unchanged) for the next part.
+     */
+    while (remaining > 0) {
+        blocks = ((uint64_t)remaining + AES_BLOCK_SIZE - 1) / AES_BLOCK_SIZE;
+        to_wrap = aes_ctr_blocks_to_wrap(cb, counter_width);
 
-    if (rc == CKR_OK)
-        memcpy(counterblock, init_v + AES_BLOCK_SIZE - (counter_width / 8),
-               counter_width / 8);
+        if (to_wrap < blocks)
+            chunk_len = (CK_ULONG)(to_wrap * AES_BLOCK_SIZE);
+        else
+            chunk_len = remaining;
+
+        len = chunk_len;
+        rc = openssl_cipher_perform(key, CKM_AES_CTR, in_data + offset,
+                                    chunk_len, out_data + offset, &len,
+                                    cb, NULL, encrypt);
+        if (rc != CKR_OK)
+            return rc;
+
+        aes_ctr_add(cb, counter_width,
+                    ((uint64_t)chunk_len + AES_BLOCK_SIZE - 1) /
+                                                        AES_BLOCK_SIZE);
+        offset += chunk_len;
+        remaining -= chunk_len;
+    }
+
+    *out_data_len = in_data_len;
+    memcpy(counterblock, cb, sizeof(cb));
 
     return rc;
 }
