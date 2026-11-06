@@ -534,8 +534,7 @@ CK_RV decr_mgr_init(STDLL_TokData_t *tokdata,
         }
 
         ctr = (CK_AES_CTR_PARAMS *)mech->pParameter;
-        if (ctr->ulCounterBits == 0 || ctr->ulCounterBits > 128 ||
-            ctr->ulCounterBits % 8 != 0) {
+        if (ctr->ulCounterBits == 0 || ctr->ulCounterBits > 128) {
             TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
             rc = CKR_MECHANISM_PARAM_INVALID;
             goto done;
