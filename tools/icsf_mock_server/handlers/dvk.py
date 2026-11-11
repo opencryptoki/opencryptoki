@@ -87,7 +87,7 @@ from pkcs11_const import (
 )
 from obj_attrs import make_secret_key_attrs
 from ec_backend import ec_ecdh_derive, decode_ec_public_value
-from dh_backend import dh_derive
+from dh_backend import dh_derive, dh_private_key_upper_bound
 
 logger = logging.getLogger(__name__)
 
@@ -378,10 +378,13 @@ def handle_dvk(store, request):
         priv_int  = int.from_bytes(priv_bytes, 'big')
         peer_pub_int = int.from_bytes(peer_public_value, 'big')
 
-        # ICSF verifies private key per NIST SP 800-56A R3 (1 < x < q, where q = (p - 1) / 2)
-        q = (prime_int - 1) // 2
-        if priv_int <= 1 or priv_int >= q:
-            logger.error('DVK: PKCS-DH private key out of range per SP 800-56A (x <= 1 or x >= q)')
+        # ICSF verifies private key per NIST SP 800-56A R3: 1 < x < q, where
+        # q = (p - 1) / 2 for safe primes, and 1 < x < p - 1 otherwise.
+        upper = dh_private_key_upper_bound(prime_int)
+        if priv_int <= 1 or priv_int >= upper:
+            logger.error('DVK: PKCS-DH private key out of range per SP 800-56A '
+                         '(x <= 1 or x >= %s)',
+                         'q' if upper == (prime_int - 1) // 2 else 'p - 1')
             return encode_response(
                 request.handle, RC_ERROR, 2116, ICSF_TAG_CSFPDVK, b'')
 

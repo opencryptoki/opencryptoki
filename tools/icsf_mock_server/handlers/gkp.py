@@ -62,7 +62,7 @@ from obj_attrs import (
 )
 from rsa_backend import rsa_generate
 from ec_backend import ec_generate, CurveNotSupportedError
-from dh_backend import dh_generate
+from dh_backend import dh_generate, dh_private_key_upper_bound
 from dsa_backend import dsa_generate
 
 logger = logging.getLogger(__name__)
@@ -302,12 +302,12 @@ def _build_dsa_attrs(pub_attrs, priv_attrs, pub_dict):
         pub_value  = key['pub_value']
         priv_value = key['priv_value']
     except Exception as exc:
-        # Pure-Python fallback: x random in [2, q-2], y = g^x mod p
+        # Pure-Python fallback: x random in [2, q-1], y = g^x mod p
         logger.warning('GKP: OpenSSL dsa_generate failed (%s), falling back to python pow', exc)
         p_int = int.from_bytes(prime_bytes, 'big')
         q_int = int.from_bytes(subprime_bytes, 'big')
         g_int = int.from_bytes(base_bytes, 'big')
-        x_int = secrets.randbelow(q_int - 3) + 2
+        x_int = secrets.randbelow(q_int - 2) + 2
         y_int = pow(g_int, x_int, p_int)
         priv_value = x_int.to_bytes(len(subprime_bytes), 'big')
         pub_value  = y_int.to_bytes(len(prime_bytes), 'big')
@@ -358,8 +358,8 @@ def _build_dh_attrs(pub_attrs, priv_attrs, pub_dict):
         prime_int = int.from_bytes(prime_bytes, 'big')
         prime_len = len(prime_bytes)
         base_int = int.from_bytes(base_bytes, 'big')
-        q = (prime_int - 1) // 2
-        x_int = secrets.randbelow(q - 2) + 2
+        upper = dh_private_key_upper_bound(prime_int)
+        x_int = secrets.randbelow(upper - 2) + 2
         y_int = pow(base_int, x_int, prime_int)
         priv_value = x_int.to_bytes(prime_len, 'big')
         pub_value  = y_int.to_bytes(prime_len, 'big')
