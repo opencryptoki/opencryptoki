@@ -109,6 +109,81 @@ CK_BYTE ed448[] = OCK_ED448;
 CK_BYTE curve25519[] = OCK_CURVE25519;
 CK_BYTE curve448[] = OCK_CURVE448;
 
+/* DSA domain parameters (1024-bit prime / 160-bit subprime) */
+CK_BYTE dsa_prime[128] = {
+    0xba, 0xa2, 0x5b, 0xd9, 0x77, 0xb3, 0xf0, 0x2d, 0xa1, 0x65,
+    0xf1, 0x83, 0xa7, 0xc9, 0xf0, 0x8a, 0x51, 0x3f, 0x74, 0xe8,
+    0xeb, 0x1f, 0xd7, 0x0a, 0xd5, 0x41, 0xfa, 0x52, 0x3c, 0x1f,
+    0x79, 0x15, 0x55, 0x18, 0x45, 0x41, 0x29, 0x27, 0x12, 0x4a,
+    0xb4, 0x32, 0xa6, 0xd2, 0xec, 0xe2, 0x82, 0x73, 0xf4, 0x30,
+    0x66, 0x1a, 0x31, 0x06, 0x37, 0xd2, 0xb0, 0xe4, 0x26, 0x39,
+    0x2a, 0x0e, 0x48, 0xf6, 0x77, 0x94, 0x47, 0xea, 0x7d, 0x99,
+    0x22, 0xce, 0x65, 0x61, 0x82, 0xd5, 0xe3, 0xfc, 0x15, 0x3f,
+    0xff, 0xff, 0xc8, 0xb9, 0x4f, 0x37, 0xbf, 0x7a, 0xa6, 0x6a,
+    0xbe, 0xff, 0xa9, 0xdf, 0xfd, 0xed, 0x4a, 0xb6, 0x83, 0xd6,
+    0x0f, 0xea, 0xf6, 0x90, 0x4f, 0x12, 0x8e, 0x09, 0x6e, 0x3c,
+    0x0a, 0x6d, 0x2e, 0xfb, 0xb3, 0x79, 0x90, 0x8e, 0x39, 0xc0,
+    0x86, 0x0e, 0x5d, 0xf0, 0x56, 0xcd, 0x26, 0x45
+};
+
+CK_BYTE dsa_subprime[20] = {
+    0x9f, 0x3d, 0x47, 0x13, 0xa3, 0xff, 0x93, 0xbb, 0x4a, 0xa6,
+    0xb0, 0xf1, 0x7e, 0x54, 0x1e, 0xba, 0xf0, 0x66, 0x03, 0x61
+};
+
+CK_BYTE dsa_base[128] = {
+    0x1a, 0x5b, 0xfe, 0x12, 0xba, 0x85, 0x8e, 0x9b, 0x08, 0x86,
+    0xd1, 0x43, 0x9b, 0x4a, 0xaf, 0x44, 0x31, 0xdf, 0xa1, 0x57,
+    0xd8, 0xe0, 0xec, 0x34, 0x07, 0x4b, 0x78, 0x8e, 0x3c, 0x62,
+    0x47, 0x4c, 0x2f, 0x5d, 0xd3, 0x31, 0x2c, 0xe9, 0xdd, 0x59,
+    0xc5, 0xe7, 0x2e, 0x06, 0x40, 0x6c, 0x72, 0x9c, 0x95, 0xc6,
+    0xa4, 0x2a, 0x1c, 0x1c, 0x45, 0xb9, 0xf3, 0xdc, 0x83, 0xb6,
+    0xc6, 0xdd, 0x94, 0x45, 0x4f, 0x74, 0xc6, 0x55, 0x36, 0x54,
+    0xba, 0x20, 0xad, 0x9a, 0xb6, 0xe3, 0x20, 0xf2, 0xdd, 0xd3,
+    0x66, 0x19, 0xeb, 0x53, 0xf5, 0x88, 0x35, 0xe1, 0xea, 0xe8,
+    0xd4, 0x57, 0xe1, 0x3d, 0xea, 0xd5, 0x00, 0xc2, 0xa4, 0xf5,
+    0xff, 0xfb, 0x0b, 0xfb, 0xa2, 0xb9, 0xf1, 0x49, 0x46, 0x9d,
+    0x11, 0xa5, 0xb1, 0x94, 0x52, 0x47, 0x6e, 0x2e, 0x79, 0x4b,
+    0xc5, 0x18, 0xe9, 0xbc, 0xff, 0xae, 0x34, 0x7f
+};
+
+/* DH domain parameters (1024-bit prime) */
+CK_BYTE dh_prime[128] = {
+    0xd5, 0xb1, 0xaa, 0x6a, 0x3b, 0x85, 0x50, 0xf0, 0xe2,
+    0xea, 0x6b, 0xec, 0x26, 0x3b, 0xe0, 0xbf, 0x7a, 0x82,
+    0x45, 0x1b, 0xa8, 0x0a, 0x54, 0x2e, 0x14, 0x2c, 0xc2,
+    0x58, 0xb1, 0xf5, 0x59, 0xec, 0x7d, 0x16, 0x9e, 0x00,
+    0x62, 0xb3, 0xa7, 0xdc, 0x38, 0x6f, 0x64, 0x40, 0xfc,
+    0x0d, 0x3e, 0x0b, 0x66, 0x13, 0x5e, 0xa5, 0x84, 0x90,
+    0x26, 0x62, 0xcf, 0x5a, 0x14, 0x72, 0x2d, 0x1b, 0x37,
+    0x7e, 0x8a, 0x4b, 0xc0, 0xb7, 0xf2, 0x63, 0xd1, 0xaa,
+    0x51, 0x92, 0x96, 0x18, 0xae, 0xb9, 0xfd, 0x5f, 0x9d,
+    0x5d, 0xdf, 0x75, 0xa9, 0x80, 0x3d, 0xaa, 0xc2, 0x54,
+    0x00, 0xcc, 0xc1, 0x9e, 0x31, 0x4d, 0x22, 0x31, 0x44,
+    0xe9, 0x69, 0x34, 0xae, 0xcf, 0xcd, 0x6d, 0xf6, 0xe9,
+    0x37, 0x20, 0xa4, 0xd3, 0x85, 0x24, 0xff, 0x9f, 0x39,
+    0xeb, 0x78, 0xf2, 0xd1, 0xc3, 0xf9, 0x66, 0xab, 0xbd,
+    0x2d, 0xd3
+};
+
+CK_BYTE dh_base[128] = {
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x02
+};
+
 struct wrapping_mech_info {
     char *name;
     CK_MECHANISM wrapping_mech;
@@ -473,6 +548,16 @@ struct wrapped_mech_info {
     CK_ULONG ec_params_len;
     CK_ULONG pqc_keyform;
     CK_MECHANISM operation_mech;
+    CK_BYTE *dsa_prime;
+    CK_ULONG dsa_prime_len;
+    CK_BYTE *dsa_subprime;
+    CK_ULONG dsa_subprime_len;
+    CK_BYTE *dsa_base;
+    CK_ULONG dsa_base_len;
+    CK_BYTE *dh_prime;
+    CK_ULONG dh_prime_len;
+    CK_BYTE *dh_base;
+    CK_ULONG dh_base_len;
 };
 
 struct wrapped_mech_info wrapped_key_tests[] = {
@@ -694,6 +779,26 @@ struct wrapped_mech_info wrapped_key_tests[] = {
         .operation_mech = { CKM_ML_KEM, 0, 0 },
         .pqc_keyform = CKP_ML_KEM_1024,
     },
+    {
+        .name = "key type DSA 1024",
+        .wrapped_key_gen_mech = { CKM_DSA_KEY_PAIR_GEN, 0, 0 },
+        .operation_mech = { CKM_DSA, 0, 0 },
+        .dsa_prime = dsa_prime,
+        .dsa_prime_len = sizeof(dsa_prime),
+        .dsa_subprime = dsa_subprime,
+        .dsa_subprime_len = sizeof(dsa_subprime),
+        .dsa_base = dsa_base,
+        .dsa_base_len = sizeof(dsa_base),
+    },
+    {
+        .name = "key type DH 1024",
+        .wrapped_key_gen_mech = { CKM_DH_PKCS_KEY_PAIR_GEN, 0, 0 },
+        .operation_mech = { CKM_DH_PKCS_DERIVE, 0, 0 },
+        .dh_prime = dh_prime,
+        .dh_prime_len = sizeof(dh_prime),
+        .dh_base = dh_base,
+        .dh_base_len = sizeof(dh_base),
+    },
 };
 
 #define NUM_WRAPPED_KEY_TESTS sizeof(wrapped_key_tests) / \
@@ -737,6 +842,7 @@ CK_RV do_perform_operation(CK_MECHANISM *mech,
     CK_ECDH1_DERIVE_PARAMS derive_params;
     CK_OBJECT_CLASS class = CKO_SECRET_KEY;
     CK_KEY_TYPE key_type = CKK_AES;
+    CK_KEY_TYPE gs_key_type = CKK_GENERIC_SECRET;
     CK_BBOOL true = CK_TRUE;
     CK_BBOOL false = CK_FALSE;
     CK_ULONG secret_key_len = 32;
@@ -751,6 +857,17 @@ CK_RV do_perform_operation(CK_MECHANISM *mech,
         {CKA_VERIFY, &true, sizeof(true)},
     };
     CK_ULONG derive_tmpl_len = sizeof(derive_tmpl) / sizeof(CK_ATTRIBUTE);
+    CK_ULONG dh_secret_len = 0;
+    CK_ATTRIBUTE dh_derive_tmpl[] = {
+        {CKA_CLASS, &class, sizeof(class)},
+        {CKA_KEY_TYPE, &gs_key_type, sizeof(gs_key_type)},
+        {CKA_SENSITIVE, &false, sizeof(false)},
+        {CKA_VALUE_LEN, &dh_secret_len, sizeof(dh_secret_len)},
+        {CKA_SIGN, &true, sizeof(true)},
+        {CKA_VERIFY, &true, sizeof(true)},
+    };
+    CK_ULONG dh_derive_tmpl_len = sizeof(dh_derive_tmpl) / sizeof(CK_ATTRIBUTE);
+    CK_MECHANISM sha1_hmac_mech = { CKM_SHA_1_HMAC, NULL, 0 };
     CK_OBJECT_HANDLE key1 = CK_INVALID_HANDLE;
     CK_OBJECT_HANDLE key2 = CK_INVALID_HANDLE;
     CK_MECHANISM kem_mech;
@@ -772,6 +889,9 @@ CK_RV do_perform_operation(CK_MECHANISM *mech,
         {CKA_EC_POINT, pubkey2_value, sizeof(pubkey2_value)},
     };
     CK_ULONG extr_tmpl2_len = sizeof(extr_tmpl2)/sizeof(CK_ATTRIBUTE);
+    CK_ATTRIBUTE dh_pub_attr =
+        { CKA_VALUE, pubkey1_value, sizeof(pubkey1_value) };
+    CK_MECHANISM dh_mech;
 
     /* Check if Encrypt/Decrypt or Sign/Verify is supported */
     rc = funcs->C_GetMechanismInfo(slot1, mech->mechanism, &mech_info);
@@ -875,6 +995,7 @@ CK_RV do_perform_operation(CK_MECHANISM *mech,
         case CKM_RSA_PKCS:
         case CKM_ECDSA:
         case CKM_EDDSA:
+        case CKM_DSA:
         case CKM_IBM_DILITHIUM:
         case CKM_IBM_ML_DSA:
         case CKM_ML_DSA:
@@ -1146,6 +1267,48 @@ CK_RV do_perform_operation(CK_MECHANISM *mech,
                 return rc;
             break;
 
+        case CKM_DH_PKCS_DERIVE: {
+            rc = funcs->C_GetAttributeValue(sess1, publ_key1, &dh_pub_attr, 1);
+            if (rc != CKR_OK) {
+                testcase_error("C_GetAttributeValue on slot %lu rc=%s", slot1,
+                               p11_get_ckr(rc));
+                return rc;
+            }
+
+            dh_mech.mechanism = CKM_DH_PKCS_DERIVE;
+            dh_mech.pParameter = dh_pub_attr.pValue;
+            dh_mech.ulParameterLen = dh_pub_attr.ulValueLen;
+
+            dh_secret_len = dh_pub_attr.ulValueLen;
+
+            rc = funcs->C_DeriveKey(sess1, &dh_mech, priv_key1,
+                                    dh_derive_tmpl, dh_derive_tmpl_len, &key1);
+            if (rc != CKR_OK) {
+                testcase_error("C_DeriveKey on slot %lu rc=%s", slot1,
+                               p11_get_ckr(rc));
+                return rc;
+            }
+
+            rc = funcs->C_DeriveKey(sess2, &dh_mech, priv_key2,
+                                    dh_derive_tmpl, dh_derive_tmpl_len, &key2);
+            if (rc != CKR_OK) {
+                testcase_error("C_DeriveKey on slot %lu rc=%s", slot2,
+                               p11_get_ckr(rc));
+                funcs->C_DestroyObject(sess1, key1);
+                return rc;
+            }
+
+            rc = do_perform_operation(&sha1_hmac_mech,
+                                      slot1, sess1, key1, CK_INVALID_HANDLE,
+                                      CK_INVALID_HANDLE,
+                                      slot2, sess2, key2, CK_INVALID_HANDLE);
+            funcs->C_DestroyObject(sess1, key1);
+            funcs->C_DestroyObject(sess2, key2);
+            if (rc != CKR_OK)
+                return rc;
+            break;
+        }
+
         default:
             testcase_error("Operation not supported by testcase");
             return CKR_FUNCTION_NOT_SUPPORTED;
@@ -1213,13 +1376,13 @@ CK_RV do_wrap_key_test(struct wrapped_mech_info *tsuite,
     CK_OBJECT_CLASS key_class;
     CK_KEY_TYPE key_type;
     CK_BBOOL ck_true = CK_TRUE;
-    CK_BBOOL ck_false = CK_FALSE;
+    CK_BBOOL derive = CK_FALSE; /* overwritten by C_GetAttributeValue */
     CK_ULONG key_len, unwrapped_keylen;
 
     CK_ATTRIBUTE unwrap_tmpl[] = {
         {CKA_CLASS, &key_class, sizeof(CK_OBJECT_CLASS)},
         {CKA_KEY_TYPE, &key_type, sizeof(CK_KEY_TYPE)},
-        {CKA_DERIVE, &ck_false, sizeof(ck_false)},
+        {CKA_DERIVE, &derive, sizeof(derive)},
         {CKA_VALUE_LEN, &key_len, sizeof(CK_ULONG)},
         {0, NULL, 0}
     };
@@ -1483,6 +1646,34 @@ CK_RV do_wrap_key_test(struct wrapped_mech_info *tsuite,
         }
         break;
 
+    case CKM_DSA_KEY_PAIR_GEN:
+        rc = generate_DSA_KeyPair(session1,
+                                  tsuite->dsa_prime, tsuite->dsa_prime_len,
+                                  tsuite->dsa_subprime, tsuite->dsa_subprime_len,
+                                  tsuite->dsa_base, tsuite->dsa_base_len,
+                                  &publ_key, &priv_key,
+                                  CK_TRUE); // must be extractable for Wrap/Unwrap
+        break;
+
+    case CKM_DH_PKCS_KEY_PAIR_GEN:
+        /*
+         * Use a short private value (256 bits, or 8 bits less than the prime
+         * if the prime is smaller). This keeps the private value x always
+         * smaller than q = (p - 1) / 2 (for safe primes), as some tokens
+         * (e.g. ICSF) reject DH private keys with x >= q (see NIST SP 800-56A
+         * R3 5.6.2.1.2). It also keeps it well below the prime length, since
+         * EP11 rejects the key generation (CKR_FUNCTION_CANCELED) when
+         * CKA_VALUE_BITS is close to the prime length.
+         */
+        rc = generate_DH_KeyPair(session1,
+                                 tsuite->dh_prime, tsuite->dh_prime_len,
+                                 tsuite->dh_base, tsuite->dh_base_len,
+                                 &publ_key, &priv_key,
+                                 CK_TRUE, // must be extractable for Wrap/Unwrap
+                                 tsuite->dh_prime_len * 8 - 8 < 256 ?
+                                         tsuite->dh_prime_len * 8 - 8 : 256);
+        break;
+
     default:
         testcase_error("Testcase does not support %s (%u)",
                        mech_to_str(tsuite->wrapped_key_gen_mech.mechanism),
@@ -1634,6 +1825,10 @@ do_wrap:
         break;
     }
 
+    if (tsuite->operation_mech.mechanism == CKM_DH_PKCS_DERIVE) {
+        /* DH private key needs CKA_DERIVE=TRUE in unwrap template */
+        derive = CK_TRUE;
+    }
     if (tsuite->operation_mech.mechanism == CKM_IBM_ML_KEM ||
         tsuite->operation_mech.mechanism == CKM_IBM_ML_KEM_WITH_ECDH) {
         /* KEM needs CKA_DERIVE=TRUE in unwrap template */
@@ -1696,10 +1891,12 @@ do_wrap:
         if ((rc == CKR_MECHANISM_INVALID || rc == CKR_KEY_TYPE_INCONSISTENT) &&
             is_ep11_token(slot_id2) && wrap_mech->mechanism == CKM_DES3_CBC &&
             (key_type == CKK_EC || key_type == CKK_RSA ||
+             key_type == CKK_DSA || key_type == CKK_DH ||
              key_type == CKK_IBM_PQC_DILITHIUM || key_type == CKK_IBM_ML_DSA ||
              key_type == CKK_IBM_ML_KEM || key_type == CKK_ML_DSA ||
              key_type == CKK_ML_KEM)) {
-            testcase_skip("EP11 does not support unwrap of EC, RSA, or PQC keys with DES3 CBC");
+            testcase_skip("EP11 does not support unwrap of EC, RSA, DSA, DH, "
+                          "or PQC keys with DES3 CBC");
             rc = CKR_OK;
             goto testcase_cleanup;
         }
