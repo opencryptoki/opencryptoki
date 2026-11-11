@@ -135,16 +135,66 @@ def _make_ossl_param(key: bytes, data_bytes: bytes, buffers: list) -> _OSSLParam
     return param
 
 
+_MR_BASES = (2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37)
+
+
+def _is_probable_prime(n: int) -> bool:
+    """Miller-Rabin primality test."""
+    if n < 2:
+        return False
+    for sp in _MR_BASES:
+        if n % sp == 0:
+            return n == sp
+    d = n - 1
+    r = 0
+    while d % 2 == 0:
+        d //= 2
+        r += 1
+    for a in _MR_BASES:
+        x = pow(a, d, n)
+        if x in (1, n - 1):
+            continue
+        for _ in range(r - 1):
+            x = x * x % n
+            if x == n - 1:
+                break
+        else:
+            return False
+    return True
+
+
+def is_safe_prime(prime_int: int) -> bool:
+    """True if p is a safe prime, i.e. q = (p - 1) / 2 is prime as well."""
+    return (prime_int > 5 and prime_int % 2 == 1 and
+            _is_probable_prime(prime_int) and
+            _is_probable_prime((prime_int - 1) // 2))
+
+
+def dh_private_key_upper_bound(prime_int: int) -> int:
+    """
+    Return the exclusive upper bound for a DH private key x, so that the
+    check is 1 < x < bound (NIST SP 800-56A R3 5.6.2.1.2).
+
+    For safe primes the subgroup order is q = (p - 1) / 2, so x < q.
+    For other primes the subgroup order is not known, so only x < p - 1
+    can be verified.
+    """
+    if is_safe_prime(prime_int):
+        return (prime_int - 1) // 2
+    return prime_int - 1
+
+
 def dh_generate(prime_bytes: bytes, base_bytes: bytes) -> dict:
     """
     Generate DH key pair given prime (p) and base (g).
-    Ensures the private key satisfies NIST SP 800-56A (1 < priv < q, where q = (p - 1) / 2).
+    Ensures the private key satisfies NIST SP 800-56A (1 < priv < q for safe
+    primes with q = (p - 1) / 2, 1 < priv < p - 1 otherwise).
     Returns dict with CKA_PRIME, CKA_BASE, 'pub_value', 'priv_value'.
     """
     prime_int = int.from_bytes(prime_bytes, 'big')
-    q = (prime_int - 1) // 2
+    upper = dh_private_key_upper_bound(prime_int)
 
-    # Loop until generated private key conforms to 1 < priv < q
+    # Loop until generated private key conforms to 1 < priv < upper
     for _ in range(10):
         if _OPENSSL3:
             key = _dh_generate_ossl3(prime_bytes, base_bytes)
@@ -152,14 +202,14 @@ def dh_generate(prime_bytes: bytes, base_bytes: bytes) -> dict:
             key = _dh_generate_ossl1(prime_bytes, base_bytes)
 
         priv_int = int.from_bytes(key['priv_value'], 'big')
-        if 1 < priv_int < q:
+        if 1 < priv_int < upper:
             return key
 
-    # Fallback to python generation if OpenSSL repeatedly picks priv >= q
+    # Fallback to python generation if OpenSSL repeatedly picks priv >= upper
     base_int = int.from_bytes(base_bytes, 'big') if base_bytes else 2
     prime_len = len(prime_bytes)
     import secrets
-    x_int = secrets.randbelow(q - 2) + 2
+    x_int = secrets.randbelow(upper - 2) + 2
     y_int = pow(base_int, x_int, prime_int)
     return {
         CKA_PRIME: prime_bytes,
