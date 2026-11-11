@@ -10580,7 +10580,7 @@ static CK_RV dh_generate_keypair(STDLL_TokData_t *tokdata,
         value_bits == 0) {
         value_bits = data_len * 8; /* private key is same length as pub key */
 
-        rc = build_attribute(CKA_VALUE_BITS, (CK_BYTE *)&data_len,
+        rc = build_attribute(CKA_VALUE_BITS, (CK_BYTE *)&value_bits,
                              sizeof(value_bits), &value_attr);
         if (rc != CKR_OK) {
             TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n", __func__, rc);
