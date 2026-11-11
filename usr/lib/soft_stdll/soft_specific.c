@@ -20,6 +20,7 @@
 ****************************************************************************/
 
 #include <pthread.h>
+#include <limits.h>
 #include <string.h>             // for memcmp() et al
 #include <stdlib.h>
 #include <unistd.h>
@@ -1070,6 +1071,24 @@ out:
     return rc;
 }                               /* end token_specific_dh_pkcs_derive() */
 
+#if OPENSSL_VERSION_PREREQ(3, 0)
+static int dh_set_keygen_priv_len(EVP_PKEY_CTX *ctx, CK_ULONG value_bits)
+{
+    int priv_len;
+    OSSL_PARAM params[2];
+
+    if (value_bits > INT_MAX)
+        return 0;
+    priv_len = (int)value_bits;
+
+    params[0] = OSSL_PARAM_construct_int(OSSL_PKEY_PARAM_DH_PRIV_LEN,
+                                         &priv_len);
+    params[1] = OSSL_PARAM_construct_end();
+
+    return EVP_PKEY_CTX_set_params(ctx, params) == 1;
+}
+#endif
+
 // This computes DH key pair, where:
 //     Output: priv_tmpl is generated private key
 //             pub_tmpl is computed public key
@@ -1085,7 +1104,7 @@ CK_RV token_specific_dh_pkcs_key_pair_gen(STDLL_TokData_t *tokdata,
     CK_ATTRIBUTE *temp_attr = NULL;
     CK_ATTRIBUTE *value_bits_attr = NULL;
     CK_BYTE *temp_byte = NULL, *temp_byte2 = NULL;
-    CK_ULONG temp_bn_len, temp_byte2_len = 0, value_bits;
+    CK_ULONG temp_bn_len, temp_byte2_len = 0, value_bits = 0;
 #if !OPENSSL_VERSION_PREREQ(3, 0)
     DH *dh = NULL;
 #else
@@ -1179,15 +1198,11 @@ CK_RV token_specific_dh_pkcs_key_pair_gen(STDLL_TokData_t *tokdata,
         goto done;
     }
 
-    /* CKA_VALUE_BITS is optional */
-    if (template_attribute_get_ulong(priv_tmpl, CKA_VALUE_BITS,
-                                     &value_bits) == CKR_OK) {
-        if (!OSSL_PARAM_BLD_push_long(tmpl, OSSL_PKEY_PARAM_DH_PRIV_LEN,
-                                      value_bits)) {
-            rv = CKR_FUNCTION_FAILED;
-            goto done;
-        }
-    }
+    /*
+     * CKA_VALUE_BITS is optional. It is applied to the key generation context
+     * below. If not present, value_bits stays 0.
+     */
+    (void)template_attribute_get_ulong(priv_tmpl, CKA_VALUE_BITS, &value_bits);
 
     osparams = OSSL_PARAM_BLD_to_param(tmpl);
     if (osparams == NULL) {
@@ -1216,6 +1231,10 @@ CK_RV token_specific_dh_pkcs_key_pair_gen(STDLL_TokData_t *tokdata,
     }
 
     if (EVP_PKEY_keygen_init(ctx) != 1
+#if OPENSSL_VERSION_PREREQ(3, 0)
+        || (value_bits > 0 &&
+            !dh_set_keygen_priv_len(ctx, value_bits))
+#endif
         || EVP_PKEY_keygen(ctx, &pkey) != 1
 #if !OPENSSL_VERSION_PREREQ(3, 0)
         /* dh is freed together with pkey */
