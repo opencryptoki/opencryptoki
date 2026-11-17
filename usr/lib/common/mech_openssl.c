@@ -7609,7 +7609,6 @@ CK_RV openssl_specific_pqc_sign(STDLL_TokData_t *tokdata,
     CK_BBOOL single_part = FALSE;
 
     UNUSED(tokdata);
-    UNUSED(sess);
 
     if (mech->mechanism == CKM_HASH_ML_DSA && !final_part) {
         /* CKM_HASH_ML_DSA does not support multipart */
@@ -7879,8 +7878,10 @@ out:
         free(prehashed_msg);
     if (pkey != NULL)
         EVP_PKEY_free(pkey);
-    if (final_part && ctx != NULL &&
-        (single_part || (!length_only && rc != CKR_BUFFER_TOO_SMALL))) {
+    if (ctx != NULL && sess->sign_ctx.context != (CK_BYTE *)ctx) {
+        EVP_PKEY_CTX_free(ctx);
+    } else if (final_part && ctx != NULL &&
+               (single_part || (!length_only && rc != CKR_BUFFER_TOO_SMALL))) {
         EVP_PKEY_CTX_free(ctx);
         if (!single_part) {
             sess->sign_ctx.context = NULL;
@@ -7923,7 +7924,6 @@ CK_RV openssl_specific_pqc_verify(STDLL_TokData_t *tokdata,
     CK_BBOOL single_part = FALSE;
 
     UNUSED(tokdata);
-    UNUSED(sess);
 
     if (mech->mechanism == CKM_HASH_ML_DSA && !final_part) {
         /* CKM_HASH_ML_DSA does not support multipart */
@@ -8143,7 +8143,9 @@ out:
         free(prehashed_msg);
     if (pkey != NULL)
         EVP_PKEY_free(pkey);
-    if (final_part && ctx != NULL) {
+    if (ctx != NULL && sess->verify_ctx.context != (CK_BYTE *)ctx) {
+        EVP_PKEY_CTX_free(ctx);
+    } else if (final_part && ctx != NULL) {
         EVP_PKEY_CTX_free(ctx);
         if (!single_part) {
             sess->verify_ctx.context = NULL;
