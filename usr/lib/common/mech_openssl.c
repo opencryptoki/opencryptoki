@@ -2251,8 +2251,15 @@ static CK_RV fill_ec_key_from_privkey(OSSL_PARAM_BLD *tmpl, const CK_BYTE *data,
             goto out;
         }
 
-        bn_priv = BN_bin2bn(data, data_len, BN_secure_new());
+        bn_priv = BN_secure_new();
         if (bn_priv == NULL) {
+            TRACE_ERROR("BN_secure_new failed\n");
+            rc = CKR_HOST_MEMORY;
+            goto out;
+        }
+
+        if (BN_bin2bn(data, data_len, bn_priv) == NULL) {
+            TRACE_ERROR("BN_bin2bn failed\n");
             rc = CKR_FUNCTION_FAILED;
             goto out;
         }
