@@ -1,0 +1,114 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [ master ]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # x86_64 and arm64 are available as native GitHub hosted runners.
+  native:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.runner }}
+    # Plain containers lack CAP_IPC_OWNER, so root cannot attach to the SysV
+    # shared memory segment owned by pkcsslotd (mode 0660, group pkcs11).
+    container: ${{ matrix.container != '' && fromJSON(matrix.container) || '' }}
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: linux-x86-clang
+            runner: ubuntu-26.04
+            cc: clang
+            config: --enable-swtok --enable-icsftok --enable-ccatok --enable-testcases --with-systemd
+            cflags: -O3 -Werror -DDEBUG
+          - name: linux-x86-gcc
+            runner: ubuntu-26.04
+            cc: gcc
+            config: --enable-swtok --enable-icsftok --enable-ccatok --enable-testcases --with-systemd
+            cflags: -O3 -Wno-clobbered -Werror
+          - name: linux-x86-gcc-openssl-1.1.1
+            runner: ubuntu-24.04
+            container: '{"image": "ubuntu:20.04", "options": "--cap-add=IPC_OWNER"}'
+            cc: gcc
+            config: --enable-swtok --enable-icsftok --enable-ccatok --enable-testcases --with-systemd
+            cflags: -O3 -Wno-clobbered -Werror
+          - name: linux-arm64-clang
+            runner: ubuntu-26.04-arm
+            cc: clang
+            config: --enable-swtok --enable-icsftok --enable-ccatok --enable-tpmtok --enable-testcases --with-systemd
+            cflags: -O3 -Werror
+          - name: linux-arm64-gcc
+            runner: ubuntu-26.04-arm
+            cc: gcc
+            config: --enable-swtok --enable-icsftok --enable-ccatok --enable-tpmtok --enable-testcases --with-systemd
+            cflags: -O3 -Wno-clobbered -Werror -DDEBUG
+    steps:
+      - uses: actions/checkout@v5
+      - name: Build and test
+        env:
+          CC: ${{ matrix.cc }}
+          CFLAGS: ${{ matrix.cflags }}
+          CONFIG_OPTS: ${{ matrix.config }}
+        run: bash .github/scripts/ci-build-test.sh
+
+  # GitHub has no hosted s390x / ppc64le runners. Run these under QEMU user
+  # emulation inside a container of the target architecture.
+  emulated:
+    name: ${{ matrix.name }}
+    runs-on: ubuntu-26.04
+    timeout-minutes: 360
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: linux-ppc64le-clang
+            arch: ppc64le
+            distro: ubuntu_latest
+            cc: clang
+            config: --enable-swtok --enable-icsftok --enable-ccatok --enable-tpmtok --enable-testcases --with-systemd
+            cflags: -O3 -Werror
+          - name: linux-ppc64le-gcc
+            arch: ppc64le
+            distro: ubuntu_latest
+            cc: gcc
+            config: --enable-swtok --enable-icsftok --enable-ccatok --enable-tpmtok --enable-testcases --with-systemd
+            cflags: -O3 -Wno-clobbered -Werror -DDEBUG
+          - name: linux-s390x-clang
+            arch: s390x
+            distro: ubuntu_latest
+            cc: clang
+            config: --enable-swtok --enable-icsftok --enable-ccatok --enable-tpmtok --enable-icatok --enable-ep11tok --enable-testcases --with-systemd
+            cflags: -O3 -Werror -DDEBUG
+          - name: linux-s390x-gcc
+            arch: s390x
+            distro: ubuntu_latest
+            cc: gcc
+            config: --enable-swtok --enable-icsftok --enable-ccatok --enable-tpmtok --enable-icatok --enable-ep11tok --enable-testcases --with-systemd
+            cflags: -O3 -Wno-clobbered -Werror
+          - name: linux-s390x-gcc-openssl-1.1.1
+            arch: s390x
+            distro: ubuntu20.04
+            cc: gcc
+            config: --enable-swtok --enable-icsftok --enable-ccatok --enable-tpmtok --enable-icatok --enable-ep11tok --enable-testcases --with-systemd
+            cflags: -O3 -Wno-clobbered -Werror
+    steps:
+      - uses: actions/checkout@v5
+      - uses: uraimo/run-on-arch-action@v3
+        with:
+          arch: ${{ matrix.arch }}
+          distro: ${{ matrix.distro }}
+          # root needs CAP_IPC_OWNER to attach to pkcsslotd's SysV shared memory
+          dockerRunArgs: --cap-add=IPC_OWNER
+          env: |
+            CC: ${{ matrix.cc }}
+            CFLAGS: ${{ matrix.cflags }}
+            CONFIG_OPTS: ${{ matrix.config }}
+            RUN_TESTCASES: 0
+          run: bash .github/scripts/ci-build-test.sh
