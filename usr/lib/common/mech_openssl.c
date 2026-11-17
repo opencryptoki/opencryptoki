@@ -8591,7 +8591,7 @@ static CK_RV openssl_specific_pqc_kem(STDLL_TokData_t *tokdata, SESSION *sess,
         }
         break;
     case CKK_DES:
-        if (des_check_weak_key(secret)) {
+        if (des_check_weak_key(value)) {
             TRACE_ERROR("Derived key is a weak DES key\n");
             rc = CKR_FUNCTION_FAILED;
             goto out;
@@ -8851,7 +8851,7 @@ static CK_RV openssl_specific_pqc_kem_with_ecdh(STDLL_TokData_t *tokdata,
         }
         break;
     case CKK_DES:
-        if (des_check_weak_key(hybrid_secret)) {
+        if (des_check_weak_key(value)) {
             TRACE_ERROR("Derived key is a weak DES key\n");
             rc = CKR_FUNCTION_FAILED;
             goto out;
