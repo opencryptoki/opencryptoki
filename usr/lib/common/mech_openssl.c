@@ -6256,8 +6256,8 @@ step5_success:
         goto done;
     }
 
-    if (BN_bn2bin(p, buff) != prime_len) {
-        TRACE_DEVEL("BN_bn2bin failed for p\n");
+    if (BN_bn2binpad(p, buff, prime_len) != prime_len) {
+        TRACE_DEVEL("BN_bn2binpad failed for p\n");
         rc = CKR_FUNCTION_FAILED;
         goto done;
     }
@@ -6269,8 +6269,8 @@ step5_success:
     }
 
     memset(buff, 0, prime_len);
-    if (BN_bn2bin(q, buff) != prime_len) {
-        TRACE_DEVEL("BN_bn2bin failed for q\n");
+    if (BN_bn2binpad(q, buff, prime_len) != prime_len) {
+        TRACE_DEVEL("BN_bn2binpad failed for q\n");
         rc = CKR_FUNCTION_FAILED;
         goto done;
     }
@@ -6282,8 +6282,8 @@ step5_success:
     }
 
     memset(buff, 0, prime_len);
-    if (BN_bn2bin(dp, buff) != prime_len) {
-        TRACE_DEVEL("BN_bn2bin failed for dp\n");
+    if (BN_bn2binpad(dp, buff, prime_len) != prime_len) {
+        TRACE_DEVEL("BN_bn2binpad failed for dp\n");
         rc = CKR_FUNCTION_FAILED;
         goto done;
     }
@@ -6295,8 +6295,8 @@ step5_success:
     }
 
     memset(buff, 0, prime_len);
-    if (BN_bn2bin(dq, buff) != prime_len) {
-        TRACE_DEVEL("BN_bn2bin failed for dq\n");
+    if (BN_bn2binpad(dq, buff, prime_len) != prime_len) {
+        TRACE_DEVEL("BN_bn2binpad failed for dq\n");
         rc = CKR_FUNCTION_FAILED;
         goto done;
     }
@@ -6308,8 +6308,8 @@ step5_success:
     }
 
     memset(buff, 0, prime_len);
-    if (BN_bn2bin(invq, buff) != prime_len) {
-        TRACE_DEVEL("BN_bn2bin failed for qinv\n");
+    if (BN_bn2binpad(invq, buff, prime_len) != prime_len) {
+        TRACE_DEVEL("BN_bn2binpad failed for qinv\n");
         rc = CKR_FUNCTION_FAILED;
         goto done;
     }
