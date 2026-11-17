@@ -8446,12 +8446,10 @@ static CK_RV openssl_specific_pqc_kem(STDLL_TokData_t *tokdata, SESSION *sess,
         rc = template_attribute_get_bool(hybrid_key_object->template,
                                          CKA_IBM_USE_AS_DATA, &use_as_data);
         if (rc != CKR_OK || use_as_data == FALSE) {
-            if (rc != CKR_OK) {
-                TRACE_ERROR("hybrid key does not have "
-                            "CKA_IBM_USE_AS_DATA=TRUE\n");
-                rc = CKR_ACTION_PROHIBITED;
-                goto out;
-            }
+            TRACE_ERROR("hybrid key does not have "
+                        "CKA_IBM_USE_AS_DATA=TRUE\n");
+            rc = CKR_ACTION_PROHIBITED;
+            goto out;
         }
 
         rc = template_attribute_get_non_empty(hybrid_key_object->template,
