@@ -3029,12 +3029,18 @@ CK_RV openssl_specific_ec_verify(STDLL_TokData_t *tokdata,
     r = BN_bin2bn(signature, privlen, NULL);
     s = BN_bin2bn(signature + privlen, privlen, NULL);
     if (r == NULL || s == NULL) {
+        if (r != NULL)
+            BN_free(r);
+        if (s != NULL)
+            BN_free(s);
         TRACE_ERROR("BN_bin2bn failed\n");
         rc = CKR_FUNCTION_FAILED;
         goto out;
     }
 
     if (!ECDSA_SIG_set0(sig, r, s)) {
+        BN_free(r);
+        BN_free(s);
         TRACE_ERROR("ECDSA_SIG_set0 failed\n");
         rc = CKR_FUNCTION_FAILED;
         goto out;
