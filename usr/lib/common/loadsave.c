@@ -1660,7 +1660,7 @@ CK_RV restore_private_token_object_old(STDLL_TokData_t *tokdata, CK_BYTE *data,
     CK_BYTE *ptr = NULL;
     CK_BYTE *key = NULL;
     CK_ULONG key_len = 0;
-    CK_ULONG block_size;
+    CK_ULONG block_size = 0;
     CK_BYTE hash_sha[SHA1_HASH_SIZE];
     CK_ULONG clear_len, obj_data_len;
     CK_RV rc;
