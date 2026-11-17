@@ -5043,6 +5043,7 @@ CK_RV openssl_specific_aes_gcm_update(STDLL_TokData_t *tokdata, SESSION *sess,
     EVP_CIPHER_CTX *gcm_ctx = NULL;
     CK_RV rc = CKR_OK;
     CK_ULONG tag_len, len, out_buf_len;
+    CK_BYTE *in_copy = NULL;
     int outlen;
 
     UNUSED(tokdata);
@@ -5078,6 +5079,25 @@ CK_RV openssl_specific_aes_gcm_update(STDLL_TokData_t *tokdata, SESSION *sess,
         /* decrypt */
         out_buf_len = *out_data_len;
         *out_data_len = 0;
+
+        /*
+         * Buffered data is written to out_data before in_data is fully
+         * read. If the output overlaps the input (e.g. in-place operation),
+         * that would clobber input data (ciphertext and tag) not yet
+         * consumed. Work on a private copy of the input in this case.
+         */
+        if (context->len > 0 && in_data_len > 0 && out_data != NULL &&
+            (uintptr_t)out_data < (uintptr_t)in_data + in_data_len &&
+            (uintptr_t)in_data < (uintptr_t)out_data + out_buf_len) {
+            in_copy = malloc(in_data_len);
+            if (in_copy == NULL) {
+                TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+                rc = CKR_HOST_MEMORY;
+                goto done;
+            }
+            memcpy(in_copy, in_data, in_data_len);
+            in_data = in_copy;
+        }
 
         /* Buffer the last tag_len input bytes */
         if (in_data_len >= tag_len) {
@@ -5148,6 +5168,9 @@ CK_RV openssl_specific_aes_gcm_update(STDLL_TokData_t *tokdata, SESSION *sess,
     }
 
 done:
+    if (in_copy != NULL)
+        free(in_copy);
+
     return rc;
 }
 
