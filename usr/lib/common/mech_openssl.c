@@ -6171,7 +6171,7 @@ CK_RV calc_rsa_crt_from_me(CK_ATTRIBUTE *modulus, CK_ATTRIBUTE *pub_exp,
             goto step_3g;
 
         /* Step 3d:  For j = 1 to t – 1 do */
-        for (BN_one(j); BN_cmp(j, t) < 0; BN_add_word(t, 1)) {
+        for (BN_one(j); BN_cmp(j, t) < 0; BN_add_word(j, 1)) {
             /* Step 3d1: Let x = y^2 mod n */
             if (BN_mod_exp(x, y, two, n, bn_ctx) != 1) {
                TRACE_ERROR("BN_mod_exp failed\n");
