@@ -3709,6 +3709,8 @@ CK_RV openssl_specific_sha_init(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *ctx,
         !EVP_DigestInit_ex((EVP_MD_CTX *)ctx->context, md, NULL)) {
         TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
         EVP_MD_CTX_free((EVP_MD_CTX *)ctx->context);
+        ctx->context = NULL;
+        ctx->context_len = 0;
         return CKR_FUNCTION_FAILED;
     }
 
