@@ -9,6 +9,7 @@
  */
 
 
+#include <limits.h>
 #include <pthread.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -3773,6 +3774,12 @@ CK_RV openssl_specific_sha(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *ctx,
         }
         hsize = *(CK_ULONG *)ctx->mech.pParameter;
 
+        if (hsize > UINT_MAX) {
+            TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
+            rc = CKR_MECHANISM_PARAM_INVALID;
+            goto out;
+        }
+
         if (*out_data_len < hsize) {
             TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
             rc = CKR_BUFFER_TOO_SMALL;
@@ -3810,6 +3817,11 @@ CK_RV openssl_specific_sha(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *ctx,
             return CKR_MECHANISM_PARAM_INVALID;
         }
         hsize = *(CK_ULONG *)ctx->mech.pParameter;
+
+        if (hsize > UINT_MAX) {
+            TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
+            return CKR_MECHANISM_PARAM_INVALID;
+        }
 
         if (*out_data_len < hsize) {
             TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
@@ -3940,6 +3952,12 @@ CK_RV openssl_specific_sha_final(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *ctx,
         }
         hsize = *(CK_ULONG *)ctx->mech.pParameter;
 
+        if (hsize > UINT_MAX) {
+            TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
+            rc = CKR_MECHANISM_PARAM_INVALID;
+            goto out;
+        }
+
         if (*out_data_len < hsize) {
             TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
             rc = CKR_BUFFER_TOO_SMALL;
@@ -3981,6 +3999,11 @@ out:
             return CKR_MECHANISM_PARAM_INVALID;
         }
         hsize = *(CK_ULONG *)ctx->mech.pParameter;
+
+        if (hsize > UINT_MAX) {
+            TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
+            return CKR_MECHANISM_PARAM_INVALID;
+        }
 
         if (*out_data_len < hsize) {
             TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
