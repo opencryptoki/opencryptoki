@@ -694,9 +694,9 @@ static EVP_PKEY *rsa_convert_public_key(OBJECT *key_obj)
 
     if (bn_exp == NULL || bn_mod == NULL) {
         if (bn_mod)
-            free(bn_mod);
+            BN_free(bn_mod);
         if (bn_exp)
-            free(bn_exp);
+            BN_free(bn_exp);
         return NULL;
     }
     // Convert from strings to BIGNUMs
@@ -708,9 +708,9 @@ static EVP_PKEY *rsa_convert_public_key(OBJECT *key_obj)
     rsa = RSA_new();
     if (rsa == NULL) {
         if (bn_mod)
-             free(bn_mod);
-         if (bn_exp)
-             free(bn_exp);
+            BN_free(bn_mod);
+        if (bn_exp)
+            BN_free(bn_exp);
         return NULL;
     }
 
