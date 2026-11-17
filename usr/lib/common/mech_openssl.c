@@ -2526,6 +2526,7 @@ CK_RV openssl_ec_edwards_point_from_priv_key(CK_BYTE *parms, CK_ULONG parms_len,
      if (EVP_PKEY_get_octet_string_param(ed_pkey, OSSL_PKEY_PARAM_PUB_KEY,
                                          NULL, 0, &pub_len) != 1) {
          TRACE_DEVEL("EVP_PKEY_get_octet_string_param failed\n");
+         rc = CKR_FUNCTION_FAILED;
          goto out;
      }
 
@@ -2538,6 +2539,7 @@ CK_RV openssl_ec_edwards_point_from_priv_key(CK_BYTE *parms, CK_ULONG parms_len,
      if (EVP_PKEY_get_octet_string_param(ed_pkey, OSSL_PKEY_PARAM_PUB_KEY,
                                          pub, pub_len, &pub_len) != 1) {
          TRACE_DEVEL("EVP_PKEY_get_octet_string_param failed\n");
+         rc = CKR_FUNCTION_FAILED;
          goto out;
      }
 
