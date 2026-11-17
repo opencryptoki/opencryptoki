@@ -20,6 +20,11 @@ jobs:
           os: linux
           compiler: gcc
           env: CONFIG_OPTS="--enable-swtok --enable-icsftok --enable-ccatok --enable-testcases --with-systemd" CFLAGS="-O3 -Wno-clobbered -Werror"
+        - name: "linux-x86-gcc-openssl-1.1.1"
+          os: linux
+          dist: focal
+          compiler: gcc
+          env: CONFIG_OPTS="--enable-swtok --enable-icsftok --enable-ccatok --enable-testcases --with-systemd" CFLAGS="-O3 -Wno-clobbered -Werror"
         - name: "linux-ppc64le-clang"
           os: linux
           arch: ppc64le
