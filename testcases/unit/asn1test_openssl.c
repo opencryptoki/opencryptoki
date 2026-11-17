@@ -277,6 +277,8 @@ static EVP_PKEY *create_openssl_named_key(int type_id, const char *type_name)
 #if OPENSSL_VERSION_NUMBER >= 0x30000000L
     if (type_name != NULL)
         ctx = EVP_PKEY_CTX_new_from_name(NULL, type_name, NULL);
+#else
+    (void)type_name;
 #endif
     if (ctx == NULL && type_id > 0)
         ctx = EVP_PKEY_CTX_new_id(type_id, NULL);
@@ -622,6 +624,8 @@ int test_openssl_pkcs8_ec(void)
     return failed;
 }
 
+#if OPENSSL_VERSION_NUMBER >= 0x30000000L
+
 #ifndef OSSL_PKEY_PARAM_OUTPUT_FORMATS
 #define OSSL_PKEY_PARAM_OUTPUT_FORMATS "output-formats"
 #endif
@@ -674,6 +678,8 @@ out:
     OPENSSL_free(buf);
     return rv;
 }
+
+#endif /* OPENSSL_VERSION_NUMBER >= 0x30000000L */
 
 /* Helper to test Edwards Private Key (ED25519, ED448) */
 static int test_openssl_pkcs8_edwards_curve(int type_id, const char *type_name)
