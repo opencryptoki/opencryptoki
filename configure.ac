@@ -814,6 +814,27 @@ if test "x$build_aix" = "xyes"; then
 else
 	CFLAGS="$CFLAGS -Wall -Wextra"
 	CFLAGS="$CFLAGS -std=c99 -Werror=implicit-int -Werror=implicit-function-declaration -Werror=int-conversion -Werror=strict-prototypes -Werror=old-style-definition -pedantic"
+
+	dnl Recent glibc versions implement strstr() and friends as type-generic
+	dnl macros using _Generic (a C11 feature), which is enabled by _GNU_SOURCE
+	dnl independent of -std=c99. With -pedantic, clang rejects this with
+	dnl -Wc11-extensions (an error with -Werror). Disable only that warning,
+	dnl and only if it is actually required.
+	AC_MSG_CHECKING([whether string.h can be used with -std=c99 -pedantic -Werror])
+	ock_save_CFLAGS="$CFLAGS"
+	CFLAGS="$ock_save_CFLAGS -Werror"
+	AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#include <string.h>]],
+			[[const char *p = strstr("abc", "b"); return p == 0;]])],
+		[AC_MSG_RESULT([yes])],
+		[AC_MSG_RESULT([no])
+		 AC_MSG_CHECKING([whether -Wno-c11-extensions fixes this])
+		 CFLAGS="$ock_save_CFLAGS -Werror -Wno-c11-extensions"
+		 AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#include <string.h>]],
+				[[const char *p = strstr("abc", "b"); return p == 0;]])],
+			[AC_MSG_RESULT([yes])
+			 ock_save_CFLAGS="$ock_save_CFLAGS -Wno-c11-extensions"],
+			[AC_MSG_RESULT([no])])])
+	CFLAGS="$ock_save_CFLAGS"
 fi
 
 AC_DEFINE_UNQUOTED([PKCSSLOTD_USER], "$pkcsslotd_user")
