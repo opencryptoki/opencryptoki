@@ -584,6 +584,29 @@ CK_RV run_ImportMLDSAKeyPairSignVerify(void)
     CK_ULONG user_pin_len, i;
     CK_FLAGS flags;
     CK_MECHANISM sign_mech = {CKM_ML_DSA, NULL, 0};
+    CK_OBJECT_CLASS neg_pub_class = CKO_PUBLIC_KEY;
+    CK_OBJECT_CLASS neg_priv_class = CKO_PRIVATE_KEY;
+    CK_KEY_TYPE neg_dsa_keytype = CKK_ML_DSA;
+    CK_BBOOL neg_true = CK_TRUE;
+    CK_IBM_CCA_ML_DSA_KEY_MODE_TYPE neg_cca_mode = CK_IBM_CCA_ML_DSA_PURE_KEY;
+    CK_ATTRIBUTE neg_pub_tmpl[] = {
+        { CKA_CLASS, &neg_pub_class, sizeof(neg_pub_class) },
+        { CKA_KEY_TYPE, &neg_dsa_keytype, sizeof(neg_dsa_keytype) },
+        { CKA_VERIFY, &neg_true, sizeof(neg_true) },
+        { CKA_PARAMETER_SET, NULL, 0 },
+        { CKA_VALUE, NULL, 0 },
+        { CKA_IBM_CCA_ML_DSA_KEY_MODE, &neg_cca_mode, sizeof(neg_cca_mode) },
+    };
+    CK_ATTRIBUTE neg_priv_tmpl[] = {
+        { CKA_CLASS, &neg_priv_class, sizeof(neg_priv_class) },
+        { CKA_KEY_TYPE, &neg_dsa_keytype, sizeof(neg_dsa_keytype) },
+        { CKA_SIGN, &neg_true, sizeof(neg_true) },
+        { CKA_PARAMETER_SET, NULL, 0 },
+        { CKA_VALUE, NULL, 0 },
+        { CKA_IBM_CCA_ML_DSA_KEY_MODE, &neg_cca_mode, sizeof(neg_cca_mode) },
+    };
+    CK_ULONG neg_num_pub_attrs = sizeof(neg_pub_tmpl) / sizeof(CK_ATTRIBUTE);
+    CK_ULONG neg_num_priv_attrs = sizeof(neg_priv_tmpl) / sizeof(CK_ATTRIBUTE);
     CK_RV rc;
 
     testcase_rw_session();
@@ -683,6 +706,111 @@ CK_RV run_ImportMLDSAKeyPairSignVerify(void)
         rc = funcs->C_DestroyObject(session, priv_key);
         if (rc != CKR_OK) {
             testcase_error("C_DestroyObject(), rc=%s.", p11_get_ckr(rc));
+        }
+
+        /* Test import with invalid public key lengths */
+        neg_pub_tmpl[3].pValue = &ml_dsa_tv[i].parameter_set;
+        neg_pub_tmpl[3].ulValueLen = sizeof(ml_dsa_tv[i].parameter_set);
+        neg_pub_tmpl[4].pValue = ml_dsa_tv[i].pub;
+        neg_pub_tmpl[4].ulValueLen = ml_dsa_tv[i].pub_len - 1;
+
+        testcase_new_assertion();
+        rc = funcs->C_CreateObject(session, neg_pub_tmpl,
+                                   is_cca_token(SLOT_ID) ? neg_num_pub_attrs : neg_num_pub_attrs - 1,
+                                   &publ_key);
+        if (rc == CKR_ATTRIBUTE_VALUE_INVALID) {
+            testcase_pass("*Import ML-DSA public key with shorter length correctly rejected.");
+        } else {
+            testcase_fail("C_CreateObject (ML-DSA Public Key shorter len) returned rc=%s, expected CKR_ATTRIBUTE_VALUE_INVALID",
+                          p11_get_ckr(rc));
+            if (rc == CKR_OK)
+                funcs->C_DestroyObject(session, publ_key);
+        }
+
+        testcase_new_assertion();
+        neg_pub_tmpl[4].ulValueLen = ml_dsa_tv[i].pub_len + 1;
+        rc = funcs->C_CreateObject(session, neg_pub_tmpl,
+                                   is_cca_token(SLOT_ID) ? neg_num_pub_attrs : neg_num_pub_attrs - 1,
+                                   &publ_key);
+        if (rc == CKR_ATTRIBUTE_VALUE_INVALID) {
+            testcase_pass("*Import ML-DSA public key with longer length correctly rejected.");
+        } else {
+            testcase_fail("C_CreateObject (ML-DSA Public Key longer len) returned rc=%s, expected CKR_ATTRIBUTE_VALUE_INVALID",
+                          p11_get_ckr(rc));
+            if (rc == CKR_OK)
+                funcs->C_DestroyObject(session, publ_key);
+        }
+
+        /* Test import with invalid private key lengths if full private key present */
+        if (ml_dsa_tv[i].priv_len > 0) {
+            neg_priv_tmpl[3].pValue = &ml_dsa_tv[i].parameter_set;
+            neg_priv_tmpl[3].ulValueLen = sizeof(ml_dsa_tv[i].parameter_set);
+            neg_priv_tmpl[4].type = CKA_VALUE;
+            neg_priv_tmpl[4].pValue = ml_dsa_tv[i].priv;
+            neg_priv_tmpl[4].ulValueLen = ml_dsa_tv[i].priv_len - 1;
+
+            testcase_new_assertion();
+            rc = funcs->C_CreateObject(session, neg_priv_tmpl,
+                                       is_cca_token(SLOT_ID) ? neg_num_priv_attrs : neg_num_priv_attrs - 1,
+                                       &priv_key);
+            if (rc == CKR_ATTRIBUTE_VALUE_INVALID) {
+                testcase_pass("*Import ML-DSA private key with shorter length correctly rejected.");
+            } else {
+                testcase_fail("C_CreateObject (ML-DSA Private Key shorter len) returned rc=%s, expected CKR_ATTRIBUTE_VALUE_INVALID",
+                              p11_get_ckr(rc));
+                if (rc == CKR_OK)
+                    funcs->C_DestroyObject(session, priv_key);
+            }
+
+            testcase_new_assertion();
+            neg_priv_tmpl[4].ulValueLen = ml_dsa_tv[i].priv_len + 1;
+            rc = funcs->C_CreateObject(session, neg_priv_tmpl,
+                                       is_cca_token(SLOT_ID) ? neg_num_priv_attrs : neg_num_priv_attrs - 1,
+                                       &priv_key);
+            if (rc == CKR_ATTRIBUTE_VALUE_INVALID) {
+                testcase_pass("*Import ML-DSA private key with longer length correctly rejected.");
+            } else {
+                testcase_fail("C_CreateObject (ML-DSA Private Key longer len) returned rc=%s, expected CKR_ATTRIBUTE_VALUE_INVALID",
+                              p11_get_ckr(rc));
+                if (rc == CKR_OK)
+                    funcs->C_DestroyObject(session, priv_key);
+            }
+        }
+
+        /* Test import with invalid private seed lengths if seed present */
+        if (ml_dsa_tv[i].priv_seed_len > 0) {
+            neg_priv_tmpl[3].pValue = &ml_dsa_tv[i].parameter_set;
+            neg_priv_tmpl[3].ulValueLen = sizeof(ml_dsa_tv[i].parameter_set);
+            neg_priv_tmpl[4].type = CKA_SEED;
+            neg_priv_tmpl[4].pValue = ml_dsa_tv[i].priv_seed;
+            neg_priv_tmpl[4].ulValueLen = ml_dsa_tv[i].priv_seed_len - 1;
+
+            testcase_new_assertion();
+            rc = funcs->C_CreateObject(session, neg_priv_tmpl,
+                                       is_cca_token(SLOT_ID) ? neg_num_priv_attrs : neg_num_priv_attrs - 1,
+                                       &priv_key);
+            if (rc == CKR_ATTRIBUTE_VALUE_INVALID) {
+                testcase_pass("*Import ML-DSA private key with shorter seed length correctly rejected.");
+            } else {
+                testcase_fail("C_CreateObject (ML-DSA Private Key shorter seed len) returned rc=%s, expected CKR_ATTRIBUTE_VALUE_INVALID",
+                              p11_get_ckr(rc));
+                if (rc == CKR_OK)
+                    funcs->C_DestroyObject(session, priv_key);
+            }
+
+            testcase_new_assertion();
+            neg_priv_tmpl[4].ulValueLen = ml_dsa_tv[i].priv_seed_len + 1;
+            rc = funcs->C_CreateObject(session, neg_priv_tmpl,
+                                       is_cca_token(SLOT_ID) ? neg_num_priv_attrs : neg_num_priv_attrs - 1,
+                                       &priv_key);
+            if (rc == CKR_ATTRIBUTE_VALUE_INVALID) {
+                testcase_pass("*Import ML-DSA private key with longer seed length correctly rejected.");
+            } else {
+                testcase_fail("C_CreateObject (ML-DSA Private Key longer seed len) returned rc=%s, expected CKR_ATTRIBUTE_VALUE_INVALID",
+                              p11_get_ckr(rc));
+                if (rc == CKR_OK)
+                    funcs->C_DestroyObject(session, priv_key);
+            }
         }
     }
 
