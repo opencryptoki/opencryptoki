@@ -7120,7 +7120,8 @@ CK_RV openssl_make_pqc_key_from_template(TEMPLATE *tmpl,
 
         rc = pqc_pack_priv_key(tmpl, oid, mech, priv_key, &priv_len);
         if (rc != CKR_OK) {
-            if (rc == CKR_ATTRIBUTE_VALUE_INVALID) {
+            if (rc == CKR_ATTRIBUTE_VALUE_INVALID ||
+                rc == CKR_TEMPLATE_INCOMPLETE) {
                 free(priv_key);
                 priv_key = NULL; /* Indicate no priv key */
             } else {
@@ -7147,7 +7148,8 @@ CK_RV openssl_make_pqc_key_from_template(TEMPLATE *tmpl,
 
         rc = pqc_pack_pub_key(tmpl, oid, mech, pub_key, &pub_len);
         if (rc != CKR_OK) {
-            if (rc == CKR_ATTRIBUTE_VALUE_INVALID) {
+            if (rc == CKR_ATTRIBUTE_VALUE_INVALID ||
+                rc == CKR_TEMPLATE_INCOMPLETE) {
                 free(pub_key);
                 pub_key = NULL; /* Indicate no pub key */
             } else {

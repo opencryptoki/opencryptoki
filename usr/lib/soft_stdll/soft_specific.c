@@ -1796,29 +1796,34 @@ static CK_RV import_pqc_key(STDLL_TokData_t *tokdata, OBJECT *obj,
         return CKR_KEY_SIZE_RANGE;
     }
 
+    /* Check if OpenSSL supports the variant and the key is valid */
+    rc = openssl_make_pqc_key_from_template(obj->template, oid, mech,
+                                            class == CKO_PRIVATE_KEY,
+                                            alg_name, &pkey);
+    if (rc != CKR_OK)
+        return rc;
+
     if (class == CKO_PRIVATE_KEY &&
         (keytype == CKK_IBM_ML_DSA || keytype == CKK_IBM_ML_KEM)) {
         /*
          * Try to add public key attributes if IBM ML-DSA or IBM ML-KEM
          * private key.
          */
-        rc = openssl_make_pqc_key_from_template(obj->template, oid, mech,
-                                                TRUE, alg_name, &pkey);
-        if (rc != CKR_OK)
-            return rc;
-
         rc = openssl_get_key_from_pkey(pkey, OSSL_PKEY_PARAM_PUB_KEY,
                                        &pub_key, &pub_len, FALSE);
-        EVP_PKEY_free(pkey);
         if (rc == CKR_OK) {
             rc = pqc_unpack_pub_key(pub_key, pub_len, oid, mech, obj->template);
             free(pub_key);
             if (rc != CKR_OK) {
                 TRACE_ERROR("pqc_unpack_pub_key failed for pub key\n");
+                EVP_PKEY_free(pkey);
                 return rc;
             }
         }
     }
+
+    if (pkey != NULL)
+        EVP_PKEY_free(pkey);
 
     rc = pqc_add_keyform_mode(obj->template, oid, mech);
     if (rc != CKR_OK) {
