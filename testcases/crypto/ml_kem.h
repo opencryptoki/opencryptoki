@@ -14,7 +14,7 @@ struct ML_KEM_TEST_VECTOR {
     CK_ULONG priv_len;
     CK_BYTE priv[8192];
     CK_ULONG priv_seed_len;
-    CK_BYTE priv_seed[64];
+    CK_BYTE priv_seed[64 + 1]; /* 1 byte larger for negative import tests */
     CK_BYTE pub[8192];
     CK_ULONG pub_len;
 };
