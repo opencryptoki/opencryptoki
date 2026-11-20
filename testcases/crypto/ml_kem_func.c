@@ -402,6 +402,26 @@ CK_RV run_ImportMLKEMKeyPairSignVerify(void)
     CK_BYTE user_pin[PKCS11_MAX_PIN_LEN];
     CK_ULONG user_pin_len, i;
     CK_FLAGS flags;
+    CK_OBJECT_CLASS neg_pub_class = CKO_PUBLIC_KEY;
+    CK_OBJECT_CLASS neg_priv_class = CKO_PRIVATE_KEY;
+    CK_KEY_TYPE neg_kem_keytype = CKK_ML_KEM;
+    CK_BBOOL neg_true = CK_TRUE;
+    CK_ATTRIBUTE neg_pub_tmpl[] = {
+        { CKA_CLASS, &neg_pub_class, sizeof(neg_pub_class) },
+        { CKA_KEY_TYPE, &neg_kem_keytype, sizeof(neg_kem_keytype) },
+        { CKA_ENCAPSULATE, &neg_true, sizeof(neg_true) },
+        { CKA_PARAMETER_SET, NULL, 0 },
+        { CKA_VALUE, NULL, 0 },
+    };
+    CK_ATTRIBUTE neg_priv_tmpl[] = {
+        { CKA_CLASS, &neg_priv_class, sizeof(neg_priv_class) },
+        { CKA_KEY_TYPE, &neg_kem_keytype, sizeof(neg_kem_keytype) },
+        { CKA_DECAPSULATE, &neg_true, sizeof(neg_true) },
+        { CKA_PARAMETER_SET, NULL, 0 },
+        { CKA_VALUE, NULL, 0 },
+    };
+    CK_ULONG neg_num_pub_attrs = sizeof(neg_pub_tmpl) / sizeof(CK_ATTRIBUTE);
+    CK_ULONG neg_num_priv_attrs = sizeof(neg_priv_tmpl) / sizeof(CK_ATTRIBUTE);
     CK_RV rc;
 
     testcase_rw_session();
@@ -492,6 +512,99 @@ CK_RV run_ImportMLKEMKeyPairSignVerify(void)
         rc = funcs->C_DestroyObject(session, priv_key);
         if (rc != CKR_OK) {
             testcase_error("C_DestroyObject(), rc=%s.", p11_get_ckr(rc));
+        }
+
+        /* Test import with invalid public key lengths */
+        neg_pub_tmpl[3].pValue = &ml_kem_tv[i].parameter_set;
+        neg_pub_tmpl[3].ulValueLen = sizeof(ml_kem_tv[i].parameter_set);
+        neg_pub_tmpl[4].pValue = ml_kem_tv[i].pub;
+        neg_pub_tmpl[4].ulValueLen = ml_kem_tv[i].pub_len - 1;
+
+        testcase_new_assertion();
+        rc = funcs->C_CreateObject(session, neg_pub_tmpl, neg_num_pub_attrs, &publ_key);
+        if (rc == CKR_ATTRIBUTE_VALUE_INVALID) {
+            testcase_pass("*Import ML-KEM public key with shorter length correctly rejected.");
+        } else {
+            testcase_fail("C_CreateObject (ML-KEM Public Key shorter len) returned rc=%s, expected CKR_ATTRIBUTE_VALUE_INVALID",
+                          p11_get_ckr(rc));
+            if (rc == CKR_OK)
+                funcs->C_DestroyObject(session, publ_key);
+        }
+
+        testcase_new_assertion();
+        neg_pub_tmpl[4].ulValueLen = ml_kem_tv[i].pub_len + 1;
+        rc = funcs->C_CreateObject(session, neg_pub_tmpl, neg_num_pub_attrs, &publ_key);
+        if (rc == CKR_ATTRIBUTE_VALUE_INVALID) {
+            testcase_pass("*Import ML-KEM public key with longer length correctly rejected.");
+        } else {
+            testcase_fail("C_CreateObject (ML-KEM Public Key longer len) returned rc=%s, expected CKR_ATTRIBUTE_VALUE_INVALID",
+                          p11_get_ckr(rc));
+            if (rc == CKR_OK)
+                funcs->C_DestroyObject(session, publ_key);
+        }
+
+        /* Test import with invalid private key lengths if full private key present */
+        if (ml_kem_tv[i].priv_len > 0) {
+            neg_priv_tmpl[3].pValue = &ml_kem_tv[i].parameter_set;
+            neg_priv_tmpl[3].ulValueLen = sizeof(ml_kem_tv[i].parameter_set);
+            neg_priv_tmpl[4].type = CKA_VALUE;
+            neg_priv_tmpl[4].pValue = ml_kem_tv[i].priv;
+            neg_priv_tmpl[4].ulValueLen = ml_kem_tv[i].priv_len - 1;
+
+            testcase_new_assertion();
+            rc = funcs->C_CreateObject(session, neg_priv_tmpl, neg_num_priv_attrs, &priv_key);
+            if (rc == CKR_ATTRIBUTE_VALUE_INVALID) {
+                testcase_pass("*Import ML-KEM private key with shorter length correctly rejected.");
+            } else {
+                testcase_fail("C_CreateObject (ML-KEM Private Key shorter len) returned rc=%s, expected CKR_ATTRIBUTE_VALUE_INVALID",
+                              p11_get_ckr(rc));
+                if (rc == CKR_OK)
+                    funcs->C_DestroyObject(session, priv_key);
+            }
+
+            testcase_new_assertion();
+            neg_priv_tmpl[4].ulValueLen = ml_kem_tv[i].priv_len + 1;
+            rc = funcs->C_CreateObject(session, neg_priv_tmpl, neg_num_priv_attrs, &priv_key);
+            if (rc == CKR_ATTRIBUTE_VALUE_INVALID) {
+                testcase_pass("*Import ML-KEM private key with longer length correctly rejected.");
+            } else {
+                testcase_fail("C_CreateObject (ML-KEM Private Key longer len) returned rc=%s, expected CKR_ATTRIBUTE_VALUE_INVALID",
+                              p11_get_ckr(rc));
+                if (rc == CKR_OK)
+                    funcs->C_DestroyObject(session, priv_key);
+            }
+        }
+
+        /* Test import with invalid private seed lengths if seed present */
+        if (ml_kem_tv[i].priv_seed_len > 0) {
+            neg_priv_tmpl[3].pValue = &ml_kem_tv[i].parameter_set;
+            neg_priv_tmpl[3].ulValueLen = sizeof(ml_kem_tv[i].parameter_set);
+            neg_priv_tmpl[4].type = CKA_SEED;
+            neg_priv_tmpl[4].pValue = ml_kem_tv[i].priv_seed;
+            neg_priv_tmpl[4].ulValueLen = ml_kem_tv[i].priv_seed_len - 1;
+
+            testcase_new_assertion();
+            rc = funcs->C_CreateObject(session, neg_priv_tmpl, neg_num_priv_attrs, &priv_key);
+            if (rc == CKR_ATTRIBUTE_VALUE_INVALID) {
+                testcase_pass("*Import ML-KEM private key with shorter seed length correctly rejected.");
+            } else {
+                testcase_fail("C_CreateObject (ML-KEM Private Key shorter seed len) returned rc=%s, expected CKR_ATTRIBUTE_VALUE_INVALID",
+                              p11_get_ckr(rc));
+                if (rc == CKR_OK)
+                    funcs->C_DestroyObject(session, priv_key);
+            }
+
+            testcase_new_assertion();
+            neg_priv_tmpl[4].ulValueLen = ml_kem_tv[i].priv_seed_len + 1;
+            rc = funcs->C_CreateObject(session, neg_priv_tmpl, neg_num_priv_attrs, &priv_key);
+            if (rc == CKR_ATTRIBUTE_VALUE_INVALID) {
+                testcase_pass("*Import ML-KEM private key with longer seed length correctly rejected.");
+            } else {
+                testcase_fail("C_CreateObject (ML-KEM Private Key longer seed len) returned rc=%s, expected CKR_ATTRIBUTE_VALUE_INVALID",
+                              p11_get_ckr(rc));
+                if (rc == CKR_OK)
+                    funcs->C_DestroyObject(session, priv_key);
+            }
         }
     }
 

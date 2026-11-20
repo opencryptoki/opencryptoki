@@ -9,6 +9,7 @@
  */
 
 
+#include <limits.h>
 #include <pthread.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -694,9 +695,9 @@ static EVP_PKEY *rsa_convert_public_key(OBJECT *key_obj)
 
     if (bn_exp == NULL || bn_mod == NULL) {
         if (bn_mod)
-            free(bn_mod);
+            BN_free(bn_mod);
         if (bn_exp)
-            free(bn_exp);
+            BN_free(bn_exp);
         return NULL;
     }
     // Convert from strings to BIGNUMs
@@ -708,9 +709,9 @@ static EVP_PKEY *rsa_convert_public_key(OBJECT *key_obj)
     rsa = RSA_new();
     if (rsa == NULL) {
         if (bn_mod)
-             free(bn_mod);
-         if (bn_exp)
-             free(bn_exp);
+            BN_free(bn_mod);
+        if (bn_exp)
+            BN_free(bn_exp);
         return NULL;
     }
 
@@ -2251,8 +2252,15 @@ static CK_RV fill_ec_key_from_privkey(OSSL_PARAM_BLD *tmpl, const CK_BYTE *data,
             goto out;
         }
 
-        bn_priv = BN_bin2bn(data, data_len, BN_secure_new());
+        bn_priv = BN_secure_new();
         if (bn_priv == NULL) {
+            TRACE_ERROR("BN_secure_new failed\n");
+            rc = CKR_HOST_MEMORY;
+            goto out;
+        }
+
+        if (BN_bin2bn(data, data_len, bn_priv) == NULL) {
+            TRACE_ERROR("BN_bin2bn failed\n");
             rc = CKR_FUNCTION_FAILED;
             goto out;
         }
@@ -2519,6 +2527,7 @@ CK_RV openssl_ec_edwards_point_from_priv_key(CK_BYTE *parms, CK_ULONG parms_len,
      if (EVP_PKEY_get_octet_string_param(ed_pkey, OSSL_PKEY_PARAM_PUB_KEY,
                                          NULL, 0, &pub_len) != 1) {
          TRACE_DEVEL("EVP_PKEY_get_octet_string_param failed\n");
+         rc = CKR_FUNCTION_FAILED;
          goto out;
      }
 
@@ -2531,6 +2540,7 @@ CK_RV openssl_ec_edwards_point_from_priv_key(CK_BYTE *parms, CK_ULONG parms_len,
      if (EVP_PKEY_get_octet_string_param(ed_pkey, OSSL_PKEY_PARAM_PUB_KEY,
                                          pub, pub_len, &pub_len) != 1) {
          TRACE_DEVEL("EVP_PKEY_get_octet_string_param failed\n");
+         rc = CKR_FUNCTION_FAILED;
          goto out;
      }
 
@@ -3022,12 +3032,18 @@ CK_RV openssl_specific_ec_verify(STDLL_TokData_t *tokdata,
     r = BN_bin2bn(signature, privlen, NULL);
     s = BN_bin2bn(signature + privlen, privlen, NULL);
     if (r == NULL || s == NULL) {
+        if (r != NULL)
+            BN_free(r);
+        if (s != NULL)
+            BN_free(s);
         TRACE_ERROR("BN_bin2bn failed\n");
         rc = CKR_FUNCTION_FAILED;
         goto out;
     }
 
     if (!ECDSA_SIG_set0(sig, r, s)) {
+        BN_free(r);
+        BN_free(s);
         TRACE_ERROR("ECDSA_SIG_set0 failed\n");
         rc = CKR_FUNCTION_FAILED;
         goto out;
@@ -3709,6 +3725,8 @@ CK_RV openssl_specific_sha_init(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *ctx,
         !EVP_DigestInit_ex((EVP_MD_CTX *)ctx->context, md, NULL)) {
         TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
         EVP_MD_CTX_free((EVP_MD_CTX *)ctx->context);
+        ctx->context = NULL;
+        ctx->context_len = 0;
         return CKR_FUNCTION_FAILED;
     }
 
@@ -3756,6 +3774,12 @@ CK_RV openssl_specific_sha(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *ctx,
         }
         hsize = *(CK_ULONG *)ctx->mech.pParameter;
 
+        if (hsize > UINT_MAX) {
+            TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
+            rc = CKR_MECHANISM_PARAM_INVALID;
+            goto out;
+        }
+
         if (*out_data_len < hsize) {
             TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
             rc = CKR_BUFFER_TOO_SMALL;
@@ -3793,6 +3817,11 @@ CK_RV openssl_specific_sha(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *ctx,
             return CKR_MECHANISM_PARAM_INVALID;
         }
         hsize = *(CK_ULONG *)ctx->mech.pParameter;
+
+        if (hsize > UINT_MAX) {
+            TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
+            return CKR_MECHANISM_PARAM_INVALID;
+        }
 
         if (*out_data_len < hsize) {
             TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
@@ -3923,6 +3952,12 @@ CK_RV openssl_specific_sha_final(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *ctx,
         }
         hsize = *(CK_ULONG *)ctx->mech.pParameter;
 
+        if (hsize > UINT_MAX) {
+            TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
+            rc = CKR_MECHANISM_PARAM_INVALID;
+            goto out;
+        }
+
         if (*out_data_len < hsize) {
             TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
             rc = CKR_BUFFER_TOO_SMALL;
@@ -3964,6 +3999,11 @@ out:
             return CKR_MECHANISM_PARAM_INVALID;
         }
         hsize = *(CK_ULONG *)ctx->mech.pParameter;
+
+        if (hsize > UINT_MAX) {
+            TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
+            return CKR_MECHANISM_PARAM_INVALID;
+        }
 
         if (*out_data_len < hsize) {
             TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
@@ -5041,6 +5081,7 @@ CK_RV openssl_specific_aes_gcm_update(STDLL_TokData_t *tokdata, SESSION *sess,
     EVP_CIPHER_CTX *gcm_ctx = NULL;
     CK_RV rc = CKR_OK;
     CK_ULONG tag_len, len, out_buf_len;
+    CK_BYTE *in_copy = NULL;
     int outlen;
 
     UNUSED(tokdata);
@@ -5076,6 +5117,25 @@ CK_RV openssl_specific_aes_gcm_update(STDLL_TokData_t *tokdata, SESSION *sess,
         /* decrypt */
         out_buf_len = *out_data_len;
         *out_data_len = 0;
+
+        /*
+         * Buffered data is written to out_data before in_data is fully
+         * read. If the output overlaps the input (e.g. in-place operation),
+         * that would clobber input data (ciphertext and tag) not yet
+         * consumed. Work on a private copy of the input in this case.
+         */
+        if (context->len > 0 && in_data_len > 0 && out_data != NULL &&
+            (uintptr_t)out_data < (uintptr_t)in_data + in_data_len &&
+            (uintptr_t)in_data < (uintptr_t)out_data + out_buf_len) {
+            in_copy = malloc(in_data_len);
+            if (in_copy == NULL) {
+                TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+                rc = CKR_HOST_MEMORY;
+                goto done;
+            }
+            memcpy(in_copy, in_data, in_data_len);
+            in_data = in_copy;
+        }
 
         /* Buffer the last tag_len input bytes */
         if (in_data_len >= tag_len) {
@@ -5146,6 +5206,9 @@ CK_RV openssl_specific_aes_gcm_update(STDLL_TokData_t *tokdata, SESSION *sess,
     }
 
 done:
+    if (in_copy != NULL)
+        free(in_copy);
+
     return rc;
 }
 
@@ -6108,7 +6171,7 @@ CK_RV calc_rsa_crt_from_me(CK_ATTRIBUTE *modulus, CK_ATTRIBUTE *pub_exp,
             goto step_3g;
 
         /* Step 3d:  For j = 1 to t – 1 do */
-        for (BN_one(j); BN_cmp(j, t) < 0; BN_add_word(t, 1)) {
+        for (BN_one(j); BN_cmp(j, t) < 0; BN_add_word(j, 1)) {
             /* Step 3d1: Let x = y^2 mod n */
             if (BN_mod_exp(x, y, two, n, bn_ctx) != 1) {
                TRACE_ERROR("BN_mod_exp failed\n");
@@ -6193,8 +6256,8 @@ step5_success:
         goto done;
     }
 
-    if (BN_bn2bin(p, buff) != prime_len) {
-        TRACE_DEVEL("BN_bn2bin failed for p\n");
+    if (BN_bn2binpad(p, buff, prime_len) != prime_len) {
+        TRACE_DEVEL("BN_bn2binpad failed for p\n");
         rc = CKR_FUNCTION_FAILED;
         goto done;
     }
@@ -6206,8 +6269,8 @@ step5_success:
     }
 
     memset(buff, 0, prime_len);
-    if (BN_bn2bin(q, buff) != prime_len) {
-        TRACE_DEVEL("BN_bn2bin failed for q\n");
+    if (BN_bn2binpad(q, buff, prime_len) != prime_len) {
+        TRACE_DEVEL("BN_bn2binpad failed for q\n");
         rc = CKR_FUNCTION_FAILED;
         goto done;
     }
@@ -6219,8 +6282,8 @@ step5_success:
     }
 
     memset(buff, 0, prime_len);
-    if (BN_bn2bin(dp, buff) != prime_len) {
-        TRACE_DEVEL("BN_bn2bin failed for dp\n");
+    if (BN_bn2binpad(dp, buff, prime_len) != prime_len) {
+        TRACE_DEVEL("BN_bn2binpad failed for dp\n");
         rc = CKR_FUNCTION_FAILED;
         goto done;
     }
@@ -6232,8 +6295,8 @@ step5_success:
     }
 
     memset(buff, 0, prime_len);
-    if (BN_bn2bin(dq, buff) != prime_len) {
-        TRACE_DEVEL("BN_bn2bin failed for dq\n");
+    if (BN_bn2binpad(dq, buff, prime_len) != prime_len) {
+        TRACE_DEVEL("BN_bn2binpad failed for dq\n");
         rc = CKR_FUNCTION_FAILED;
         goto done;
     }
@@ -6245,8 +6308,8 @@ step5_success:
     }
 
     memset(buff, 0, prime_len);
-    if (BN_bn2bin(invq, buff) != prime_len) {
-        TRACE_DEVEL("BN_bn2bin failed for qinv\n");
+    if (BN_bn2binpad(invq, buff, prime_len) != prime_len) {
+        TRACE_DEVEL("BN_bn2binpad failed for qinv\n");
         rc = CKR_FUNCTION_FAILED;
         goto done;
     }
@@ -7057,7 +7120,8 @@ CK_RV openssl_make_pqc_key_from_template(TEMPLATE *tmpl,
 
         rc = pqc_pack_priv_key(tmpl, oid, mech, priv_key, &priv_len);
         if (rc != CKR_OK) {
-            if (rc == CKR_ATTRIBUTE_VALUE_INVALID) {
+            if (rc == CKR_ATTRIBUTE_VALUE_INVALID ||
+                rc == CKR_TEMPLATE_INCOMPLETE) {
                 free(priv_key);
                 priv_key = NULL; /* Indicate no priv key */
             } else {
@@ -7084,7 +7148,8 @@ CK_RV openssl_make_pqc_key_from_template(TEMPLATE *tmpl,
 
         rc = pqc_pack_pub_key(tmpl, oid, mech, pub_key, &pub_len);
         if (rc != CKR_OK) {
-            if (rc == CKR_ATTRIBUTE_VALUE_INVALID) {
+            if (rc == CKR_ATTRIBUTE_VALUE_INVALID ||
+                rc == CKR_TEMPLATE_INCOMPLETE) {
                 free(pub_key);
                 pub_key = NULL; /* Indicate no pub key */
             } else {
@@ -7571,7 +7636,6 @@ CK_RV openssl_specific_pqc_sign(STDLL_TokData_t *tokdata,
     CK_BBOOL single_part = FALSE;
 
     UNUSED(tokdata);
-    UNUSED(sess);
 
     if (mech->mechanism == CKM_HASH_ML_DSA && !final_part) {
         /* CKM_HASH_ML_DSA does not support multipart */
@@ -7841,8 +7905,10 @@ out:
         free(prehashed_msg);
     if (pkey != NULL)
         EVP_PKEY_free(pkey);
-    if (final_part && ctx != NULL &&
-        (single_part || (!length_only && rc != CKR_BUFFER_TOO_SMALL))) {
+    if (ctx != NULL && sess->sign_ctx.context != (CK_BYTE *)ctx) {
+        EVP_PKEY_CTX_free(ctx);
+    } else if (final_part && ctx != NULL &&
+               (single_part || (!length_only && rc != CKR_BUFFER_TOO_SMALL))) {
         EVP_PKEY_CTX_free(ctx);
         if (!single_part) {
             sess->sign_ctx.context = NULL;
@@ -7885,7 +7951,6 @@ CK_RV openssl_specific_pqc_verify(STDLL_TokData_t *tokdata,
     CK_BBOOL single_part = FALSE;
 
     UNUSED(tokdata);
-    UNUSED(sess);
 
     if (mech->mechanism == CKM_HASH_ML_DSA && !final_part) {
         /* CKM_HASH_ML_DSA does not support multipart */
@@ -8105,7 +8170,9 @@ out:
         free(prehashed_msg);
     if (pkey != NULL)
         EVP_PKEY_free(pkey);
-    if (final_part && ctx != NULL) {
+    if (ctx != NULL && sess->verify_ctx.context != (CK_BYTE *)ctx) {
+        EVP_PKEY_CTX_free(ctx);
+    } else if (final_part && ctx != NULL) {
         EVP_PKEY_CTX_free(ctx);
         if (!single_part) {
             sess->verify_ctx.context = NULL;
@@ -8421,12 +8488,10 @@ static CK_RV openssl_specific_pqc_kem(STDLL_TokData_t *tokdata, SESSION *sess,
         rc = template_attribute_get_bool(hybrid_key_object->template,
                                          CKA_IBM_USE_AS_DATA, &use_as_data);
         if (rc != CKR_OK || use_as_data == FALSE) {
-            if (rc != CKR_OK) {
-                TRACE_ERROR("hybrid key does not have "
-                            "CKA_IBM_USE_AS_DATA=TRUE\n");
-                rc = CKR_ACTION_PROHIBITED;
-                goto out;
-            }
+            TRACE_ERROR("hybrid key does not have "
+                        "CKA_IBM_USE_AS_DATA=TRUE\n");
+            rc = CKR_ACTION_PROHIBITED;
+            goto out;
         }
 
         rc = template_attribute_get_non_empty(hybrid_key_object->template,
@@ -8568,7 +8633,7 @@ static CK_RV openssl_specific_pqc_kem(STDLL_TokData_t *tokdata, SESSION *sess,
         }
         break;
     case CKK_DES:
-        if (des_check_weak_key(secret)) {
+        if (des_check_weak_key(value)) {
             TRACE_ERROR("Derived key is a weak DES key\n");
             rc = CKR_FUNCTION_FAILED;
             goto out;
@@ -8828,7 +8893,7 @@ static CK_RV openssl_specific_pqc_kem_with_ecdh(STDLL_TokData_t *tokdata,
         }
         break;
     case CKK_DES:
-        if (des_check_weak_key(hybrid_secret)) {
+        if (des_check_weak_key(value)) {
             TRACE_ERROR("Derived key is a weak DES key\n");
             rc = CKR_FUNCTION_FAILED;
             goto out;

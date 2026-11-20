@@ -6735,7 +6735,7 @@ static CK_RV pqc_check_attributes(TEMPLATE *tmpl, CK_ULONG mode,
     CK_ATTRIBUTE *attr = NULL;
     CK_BBOOL keyform_present = FALSE;
     CK_BBOOL mode_present = FALSE;
-    const struct pqc_oid *oids, *oid;
+    const struct pqc_oid *oids, *oid = NULL;
     CK_ULONG i;
     CK_RV rc;
 
@@ -6774,13 +6774,138 @@ static CK_RV pqc_check_attributes(TEMPLATE *tmpl, CK_ULONG mode,
             template_attribute_get_non_empty(tmpl, CKA_IBM_OPAQUE,
                                              &attr) == CKR_OK)
             break;
+
+        if (mech == CKM_ML_DSA || mech == CKM_ML_KEM) {
+            if (!keyform_present) {
+                TRACE_ERROR("%s, attribute %08lX missing.\n",
+                            ock_err(ERR_TEMPLATE_INCOMPLETE), keyform_attr);
+                return CKR_TEMPLATE_INCOMPLETE;
+            }
+
+            if (priv_seed_attr == (CK_ATTRIBUTE_TYPE)-1) {
+                /* Public key */
+                rc = template_attribute_get_non_empty(tmpl, CKA_VALUE, &attr);
+                if (rc != CKR_OK) {
+                    if (rc != CKR_ATTRIBUTE_VALUE_INVALID)
+                        TRACE_ERROR("%s, attribute CKA_VALUE missing.\n",
+                                    ock_err(ERR_TEMPLATE_INCOMPLETE));
+                    return rc;
+                }
+                if (mech == CKM_ML_DSA) {
+                    if (attr->ulValueLen != oid->len_info.ml_dsa.rho_len +
+                                            oid->len_info.ml_dsa.t1_len) {
+                        TRACE_ERROR("%s, attribute CKA_VALUE has invalid "
+                                    "length.\n",
+                                    ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
+                        return CKR_ATTRIBUTE_VALUE_INVALID;
+                    }
+                } else { /* CKM_ML_KEM */
+                    if (attr->ulValueLen != oid->len_info.ml_kem.pk_len) {
+                        TRACE_ERROR("%s, attribute CKA_VALUE has invalid "
+                                    "length.\n",
+                                    ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
+                        return CKR_ATTRIBUTE_VALUE_INVALID;
+                    }
+                }
+            } else {
+                /* Private key */
+                CK_ATTRIBUTE *val_attr = NULL, *seed_attr = NULL;
+                CK_RV rc_val, rc_seed = CKR_TEMPLATE_INCOMPLETE;
+
+                rc_val = template_attribute_get_non_empty(tmpl, CKA_VALUE,
+                                                          &val_attr);
+                if (rc_val == CKR_OK) {
+                    if (mech == CKM_ML_DSA) {
+                        if (val_attr->ulValueLen !=
+                            oid->len_info.ml_dsa.rho_len +
+                            oid->len_info.ml_dsa.seed_len +
+                            oid->len_info.ml_dsa.tr_len +
+                            oid->len_info.ml_dsa.s1_len +
+                            oid->len_info.ml_dsa.s2_len +
+                            oid->len_info.ml_dsa.t0_len) {
+                            TRACE_ERROR("%s, attribute CKA_VALUE has invalid "
+                                        "length.\n",
+                                        ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
+                            return CKR_ATTRIBUTE_VALUE_INVALID;
+                        }
+                    } else { /* CKM_ML_KEM */
+                        if (val_attr->ulValueLen !=
+                                                oid->len_info.ml_kem.sk_len) {
+                            TRACE_ERROR("%s, attribute CKA_VALUE has invalid "
+                                        "length.\n",
+                                        ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
+                            return CKR_ATTRIBUTE_VALUE_INVALID;
+                        }
+                    }
+                }
+
+                if (priv_seed_attr != (CK_ATTRIBUTE_TYPE)-1) {
+                    rc_seed = template_attribute_get_non_empty(tmpl,
+                                                               priv_seed_attr,
+                                                               &seed_attr);
+                    if (rc_seed == CKR_OK) {
+                        if (mech == CKM_ML_DSA) {
+                            if (seed_attr->ulValueLen !=
+                                        oid->len_info.ml_dsa.priv_seed_len) {
+                                TRACE_ERROR("%s, attribute %08lX has invalid "
+                                            "length.\n",
+                                            ock_err(ERR_ATTRIBUTE_VALUE_INVALID),
+                                            priv_seed_attr);
+                                return CKR_ATTRIBUTE_VALUE_INVALID;
+                            }
+                        } else { /* CKM_ML_KEM */
+                            if (seed_attr->ulValueLen !=
+                                        oid->len_info.ml_kem.priv_seed_len) {
+                                TRACE_ERROR("%s, attribute %08lX has invalid "
+                                            "length.\n",
+                                            ock_err(ERR_ATTRIBUTE_VALUE_INVALID),
+                                            priv_seed_attr);
+                                return CKR_ATTRIBUTE_VALUE_INVALID;
+                            }
+                        }
+                    }
+                }
+
+                if (rc_val != CKR_OK && rc_seed != CKR_OK) {
+                    if (rc_val == CKR_ATTRIBUTE_VALUE_INVALID ||
+                        rc_seed == CKR_ATTRIBUTE_VALUE_INVALID) {
+                        TRACE_ERROR("%s, attribute CKA_VALUE or %08lX is "
+                                    "empty.\n",
+                                    ock_err(ERR_ATTRIBUTE_VALUE_INVALID),
+                                    priv_seed_attr);
+                        return CKR_ATTRIBUTE_VALUE_INVALID;
+                    }
+                    TRACE_ERROR("%s, Either CKA_VALUE or private seed attr "
+                                "%08lX must be specified.\n",
+                                ock_err(ERR_TEMPLATE_INCOMPLETE), priv_seed_attr);
+                    return CKR_TEMPLATE_INCOMPLETE;
+                }
+            }
+            break;
+        }
+
+        /* IBM PQC keys (Dilithium, Kyber, IBM ML-DSA, IBM ML-KEM) */
         /* Either CKA_VALUE or priv. seed or all other attrs must be present */
         if (template_attribute_get_non_empty(tmpl, CKA_VALUE, &attr) == CKR_OK)
             break;
         if (priv_seed_attr != (CK_ATTRIBUTE_TYPE)-1 &&
             template_attribute_get_non_empty(tmpl, priv_seed_attr, &attr)
-                                                                    == CKR_OK)
+                                                                    == CKR_OK) {
+            if (oid != NULL) {
+                CK_ULONG exp_seed_len = 0;
+                if (mech == CKM_IBM_ML_DSA)
+                    exp_seed_len = oid->len_info.ml_dsa.priv_seed_len;
+                else if (mech == CKM_IBM_ML_KEM)
+                    exp_seed_len = oid->len_info.ml_kem.priv_seed_len;
+                if (exp_seed_len > 0 && attr->ulValueLen != exp_seed_len) {
+                    TRACE_ERROR("%s, attribute %08lX has invalid length.\n",
+                                ock_err(ERR_ATTRIBUTE_VALUE_INVALID),
+                                priv_seed_attr);
+                    return CKR_ATTRIBUTE_VALUE_INVALID;
+                }
+            }
             break;
+        }
         for (i = 0; i < num_req_attrs; i++) {
             rc = template_attribute_get_non_empty(tmpl, req_attrs[i], &attr);
             if (rc != CKR_OK) {
@@ -6788,6 +6913,44 @@ static CK_RV pqc_check_attributes(TEMPLATE *tmpl, CK_ULONG mode,
                     TRACE_ERROR("%s, attribute %08lX missing.\n",
                                 ock_err(ERR_TEMPLATE_INCOMPLETE), req_attrs[i]);
                 return rc;
+            }
+            if (oid != NULL) {
+                CK_ULONG exp_len = 0;
+                switch (req_attrs[i]) {
+                case CKA_IBM_ML_DSA_RHO:
+                    exp_len = oid->len_info.ml_dsa.rho_len;
+                    break;
+                case CKA_IBM_ML_DSA_SEED:
+                    exp_len = oid->len_info.ml_dsa.seed_len;
+                    break;
+                case CKA_IBM_ML_DSA_TR:
+                    exp_len = oid->len_info.ml_dsa.tr_len;
+                    break;
+                case CKA_IBM_ML_DSA_S1:
+                    exp_len = oid->len_info.ml_dsa.s1_len;
+                    break;
+                case CKA_IBM_ML_DSA_S2:
+                    exp_len = oid->len_info.ml_dsa.s2_len;
+                    break;
+                case CKA_IBM_ML_DSA_T0:
+                    exp_len = oid->len_info.ml_dsa.t0_len;
+                    break;
+                case CKA_IBM_ML_DSA_T1:
+                    exp_len = oid->len_info.ml_dsa.t1_len;
+                    break;
+                case CKA_IBM_ML_KEM_PK:
+                    exp_len = oid->len_info.ml_kem.pk_len;
+                    break;
+                case CKA_IBM_ML_KEM_SK:
+                    exp_len = oid->len_info.ml_kem.sk_len;
+                    break;
+                }
+                if (exp_len > 0 && attr->ulValueLen != exp_len) {
+                    TRACE_ERROR("%s, attribute %08lX has invalid length.\n",
+                                ock_err(ERR_ATTRIBUTE_VALUE_INVALID),
+                                req_attrs[i]);
+                    return CKR_ATTRIBUTE_VALUE_INVALID;
+                }
             }
         }
         if (num_req_attrs == 0) {
