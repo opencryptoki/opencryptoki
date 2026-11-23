@@ -4764,6 +4764,11 @@ CK_RV ber_decode_IBM_ML_DSA_PrivateKey(CK_MECHANISM_TYPE mech,
      *       }
      *     }
      */
+    if (priv_len == 0) {
+        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
+        return CKR_FUNCTION_FAILED;
+    }
+
     switch (priv[0]) {
     case 0x30: /* SEQUENCE  - both format*/
         rc = ber_decode_SEQUENCE(priv, priv_len, &both, &both_len, &field_len);
@@ -5231,6 +5236,11 @@ CK_RV ber_decode_IBM_ML_KEM_PrivateKey(CK_MECHANISM_TYPE mech,
      *       }
      *     }
      */
+    if (priv_len == 0) {
+        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
+        return CKR_FUNCTION_FAILED;
+    }
+
     switch (priv[0]) {
     case 0x30: /* SEQUENCE  - both format*/
         rc = ber_decode_SEQUENCE(priv, priv_len, &both, &both_len, &field_len);
@@ -5588,6 +5598,11 @@ CK_RV ber_decode_ML_DSA_PrivateKey(CK_BYTE *data, CK_ULONG data_len,
      *       }
      *     }
      */
+    if (priv_len == 0) {
+        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
+        return CKR_FUNCTION_FAILED;
+    }
+
     switch (priv[0]) {
     case 0x30: /* SEQUENCE  - both format*/
         rc = ber_decode_SEQUENCE(priv, priv_len, &both, &both_len, &field_len);
@@ -5935,6 +5950,11 @@ CK_RV ber_decode_ML_KEM_PrivateKey(CK_BYTE *data, CK_ULONG data_len,
      *       }
      *     }
      */
+    if (priv_len == 0) {
+        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
+        return CKR_FUNCTION_FAILED;
+    }
+
     switch (priv[0]) {
     case 0x30: /* SEQUENCE  - both format*/
         rc = ber_decode_SEQUENCE(priv, priv_len, &both, &both_len, &field_len);

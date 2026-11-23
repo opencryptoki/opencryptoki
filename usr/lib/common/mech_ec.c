@@ -1635,6 +1635,11 @@ int ec_point_from_public_data(const CK_BYTE *data, CK_ULONG data_len,
         return CKR_CURVE_NOT_SUPPORTED;
     }
 
+    if (data_len == 0) {
+        TRACE_ERROR("Not a valid EC Point: no data\n");
+        return CKR_PUBLIC_KEY_INVALID;
+    }
+
     if (!allow_raw)
         goto check_encoded;
 
@@ -1671,7 +1676,8 @@ check_encoded:
     /* If we reach here, try to BER decode it as OCTET-STRING */
     rc = ber_decode_OCTET_STRING((CK_BYTE *)data, data_len, &value, &value_len,
                                   &field_len);
-    if (rc == CKR_OK && field_len == data_len && value_len <= data_len - 2) {
+    if (rc == CKR_OK && field_len == data_len && value_len > 0 &&
+        value_len <= data_len - 2) {
          /* Looks like a BER encoded EC Point */
         form  = value[0] & ~0x01;
         TRACE_DEVEL("Encoded EC Point, form: %02x\n", form);
