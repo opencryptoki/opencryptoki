@@ -845,7 +845,9 @@ CK_RV pkey_aes_cmac(STDLL_TokData_t *tokdata, SESSION *session,
                     num_tries++;
                 }
                 if (len > 0) {
-                    memset(pb_lookup.keys, 0, pkey_attr->ulValueLen);
+                    OPENSSL_cleanse(pb_lookup.keys,
+                                    MIN(pkey_attr->ulValueLen,
+                                        MAXPROTKEYSIZE));
                     ret = CKR_FUNCTION_FAILED;
                     goto done;
                 }
@@ -861,7 +863,8 @@ CK_RV pkey_aes_cmac(STDLL_TokData_t *tokdata, SESSION *session,
             rc = s390_pcc(fc, pb_lookup.base);
             num_tries++;
         }
-        memset(pb_lookup.keys, 0, pkey_attr->ulValueLen);
+        OPENSSL_cleanse(pb_lookup.keys,
+                        MIN(pkey_attr->ulValueLen, MAXPROTKEYSIZE));
         if (rc != 0) {
             ret = CKR_FUNCTION_FAILED;
             goto done;
