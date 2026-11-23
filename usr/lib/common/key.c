@@ -9009,6 +9009,12 @@ CK_RV aes_unwrap(STDLL_TokData_t *tokdata,
         return CKR_WRAPPED_KEY_LEN_RANGE;
     }
 
+    /* the key must not be larger than the unwrapped data */
+    if (key_size > data_len) {
+        TRACE_ERROR("%s\n", ock_err(ERR_WRAPPED_KEY_LEN_RANGE));
+        return CKR_WRAPPED_KEY_LEN_RANGE;
+    }
+
     if (fromend == TRUE)
         ptr = data + data_len - key_size;
     else
