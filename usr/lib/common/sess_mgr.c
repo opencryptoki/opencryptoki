@@ -813,6 +813,24 @@ CK_RV session_mgr_get_op_state(STDLL_TokData_t *tokdata, SESSION *sess,
     return CKR_OK;
 }
 
+static CK_BBOOL op_state_lens_valid(CK_ULONG data_len, CK_ULONG hdr_len,
+                                    CK_ULONG len1, CK_ULONG len2,
+                                    CK_ULONG len3)
+{
+    if (data_len < hdr_len)
+        return FALSE;
+    data_len -= hdr_len;
+
+    if (len1 > data_len)
+        return FALSE;
+    data_len -= len1;
+
+    if (len2 > data_len)
+        return FALSE;
+    data_len -= len2;
+
+    return len3 == data_len;
+}
 
 //
 //
@@ -831,7 +849,6 @@ CK_RV session_mgr_set_op_state(STDLL_TokData_t *tokdata, SESSION *sess,
     CK_BYTE *ptr2 = NULL;
     CK_BYTE *ptr3 = NULL;
     CK_BYTE *ptr4 = NULL;
-    CK_ULONG len;
     CK_ULONG encr_key_needed = 0;
     CK_ULONG auth_key_needed = 0;
 
@@ -849,7 +866,7 @@ CK_RV session_mgr_set_op_state(STDLL_TokData_t *tokdata, SESSION *sess,
     while (cur_data_len >= sizeof(OP_STATE_DATA)) {
         op_data = (OP_STATE_DATA *)cur_data;
 
-        if (cur_data_len < op_data->data_len + sizeof(OP_STATE_DATA)) {
+        if (op_data->data_len > cur_data_len - sizeof(OP_STATE_DATA)) {
             TRACE_ERROR("%s\n", ock_err(ERR_SAVED_STATE_INVALID));
             return CKR_SAVED_STATE_INVALID;
         }
@@ -885,9 +902,11 @@ CK_RV session_mgr_set_op_state(STDLL_TokData_t *tokdata, SESSION *sess,
                 ENCR_DECR_CONTEXT *ctx =
                     (ENCR_DECR_CONTEXT *)(cur_data + sizeof(OP_STATE_DATA));
 
-                len = sizeof(ENCR_DECR_CONTEXT) + ctx->context_len +
-                                                ctx->mech.ulParameterLen;
-                if (len != op_data->data_len) {
+                if (op_data->data_len < sizeof(ENCR_DECR_CONTEXT) ||
+                    !op_state_lens_valid(op_data->data_len,
+                                         sizeof(ENCR_DECR_CONTEXT),
+                                         ctx->context_len,
+                                         ctx->mech.ulParameterLen, 0)) {
                     TRACE_ERROR("%s\n", ock_err(ERR_SAVED_STATE_INVALID));
                     return CKR_SAVED_STATE_INVALID;
                 }
@@ -902,10 +921,12 @@ CK_RV session_mgr_set_op_state(STDLL_TokData_t *tokdata, SESSION *sess,
                 SIGN_VERIFY_CONTEXT *ctx =
                     (SIGN_VERIFY_CONTEXT *)(cur_data + sizeof(OP_STATE_DATA));
 
-                len = sizeof(SIGN_VERIFY_CONTEXT) + ctx->context_len +
-                                                ctx->mech.ulParameterLen +
-                                                ctx->saved_signature_len;
-                if (len != op_data->data_len) {
+                if (op_data->data_len < sizeof(SIGN_VERIFY_CONTEXT) ||
+                    !op_state_lens_valid(op_data->data_len,
+                                         sizeof(SIGN_VERIFY_CONTEXT),
+                                         ctx->context_len,
+                                         ctx->mech.ulParameterLen,
+                                         ctx->saved_signature_len)) {
                     TRACE_ERROR("%s\n", ock_err(ERR_SAVED_STATE_INVALID));
                     return CKR_SAVED_STATE_INVALID;
                 }
@@ -919,9 +940,11 @@ CK_RV session_mgr_set_op_state(STDLL_TokData_t *tokdata, SESSION *sess,
                 DIGEST_CONTEXT *ctx =
                     (DIGEST_CONTEXT *) (cur_data + sizeof(OP_STATE_DATA));
 
-                len = sizeof(DIGEST_CONTEXT) + ctx->context_len +
-                                                ctx->mech.ulParameterLen;
-                if (len != op_data->data_len) {
+                if (op_data->data_len < sizeof(DIGEST_CONTEXT) ||
+                    !op_state_lens_valid(op_data->data_len,
+                                         sizeof(DIGEST_CONTEXT),
+                                         ctx->context_len,
+                                         ctx->mech.ulParameterLen, 0)) {
                     TRACE_ERROR("%s\n", ock_err(ERR_SAVED_STATE_INVALID));
                     return CKR_SAVED_STATE_INVALID;
                 }
@@ -977,7 +1000,7 @@ CK_RV session_mgr_set_op_state(STDLL_TokData_t *tokdata, SESSION *sess,
     while (cur_data_len >= sizeof(OP_STATE_DATA)) {
         op_data = (OP_STATE_DATA *)cur_data;
 
-        if (cur_data_len < op_data->data_len + sizeof(OP_STATE_DATA)) {
+        if (op_data->data_len > cur_data_len - sizeof(OP_STATE_DATA)) {
             TRACE_ERROR("%s\n", ock_err(ERR_SAVED_STATE_INVALID));
             return CKR_SAVED_STATE_INVALID;
         }
@@ -989,9 +1012,11 @@ CK_RV session_mgr_set_op_state(STDLL_TokData_t *tokdata, SESSION *sess,
                 ENCR_DECR_CONTEXT *ctx =
                     (ENCR_DECR_CONTEXT *)(cur_data + sizeof(OP_STATE_DATA));
 
-                len = sizeof(ENCR_DECR_CONTEXT) + ctx->context_len +
-                                                ctx->mech.ulParameterLen;
-                if (len != op_data->data_len) {
+                if (op_data->data_len < sizeof(ENCR_DECR_CONTEXT) ||
+                    !op_state_lens_valid(op_data->data_len,
+                                         sizeof(ENCR_DECR_CONTEXT),
+                                         ctx->context_len,
+                                         ctx->mech.ulParameterLen, 0)) {
                     TRACE_ERROR("%s\n", ock_err(ERR_SAVED_STATE_INVALID));
                     return CKR_SAVED_STATE_INVALID;
                 }
@@ -1031,10 +1056,12 @@ CK_RV session_mgr_set_op_state(STDLL_TokData_t *tokdata, SESSION *sess,
                 SIGN_VERIFY_CONTEXT *ctx =
                     (SIGN_VERIFY_CONTEXT *)(cur_data + sizeof(OP_STATE_DATA));
 
-                len = sizeof(SIGN_VERIFY_CONTEXT) + ctx->context_len +
-                                                    ctx->mech.ulParameterLen +
-                                                    ctx->saved_signature_len;
-                if (len != op_data->data_len) {
+                if (op_data->data_len < sizeof(SIGN_VERIFY_CONTEXT) ||
+                    !op_state_lens_valid(op_data->data_len,
+                                         sizeof(SIGN_VERIFY_CONTEXT),
+                                         ctx->context_len,
+                                         ctx->mech.ulParameterLen,
+                                         ctx->saved_signature_len)) {
                     TRACE_ERROR("%s\n", ock_err(ERR_SAVED_STATE_INVALID));
                     return CKR_SAVED_STATE_INVALID;
                 }
@@ -1089,9 +1116,11 @@ CK_RV session_mgr_set_op_state(STDLL_TokData_t *tokdata, SESSION *sess,
                 DIGEST_CONTEXT *ctx =
                     (DIGEST_CONTEXT *)(cur_data + sizeof(OP_STATE_DATA));
 
-                len = sizeof(DIGEST_CONTEXT) + ctx->context_len +
-                                                ctx->mech.ulParameterLen;
-                if (len != op_data->data_len) {
+                if (op_data->data_len < sizeof(DIGEST_CONTEXT) ||
+                    !op_state_lens_valid(op_data->data_len,
+                                         sizeof(DIGEST_CONTEXT),
+                                         ctx->context_len,
+                                         ctx->mech.ulParameterLen, 0)) {
                     TRACE_ERROR("%s\n", ock_err(ERR_SAVED_STATE_INVALID));
                     return CKR_SAVED_STATE_INVALID;
                 }
