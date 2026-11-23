@@ -3059,6 +3059,11 @@ CK_RV aes_mac_verify_final(STDLL_TokData_t *tokdata,
     else
         mac_len = AES_BLOCK_SIZE / 2;
 
+    if (signature_len != mac_len) {
+        TRACE_ERROR("%s\n", ock_err(ERR_SIGNATURE_LEN_RANGE));
+        return CKR_SIGNATURE_LEN_RANGE;
+    }
+
     // there will never be more than one block in the context buffer
     // so the amount of output is as follows:
     // if less than 1 block stored, we generate one block of output (with
@@ -3066,12 +3071,6 @@ CK_RV aes_mac_verify_final(STDLL_TokData_t *tokdata,
     // if no data stored, we are done (take the cipher from previous round)
 
     if (context->len > 0) {
-
-        if (signature_len != mac_len) {
-            TRACE_ERROR("%s\n", ock_err(ERR_SIGNATURE_LEN_RANGE));
-            return CKR_SIGNATURE_LEN_RANGE;
-        }
-
         /* padding with '00' in case case we didn't reach block size */
         memset(context->data + context->len, 0x0,
                AES_BLOCK_SIZE - context->len);
