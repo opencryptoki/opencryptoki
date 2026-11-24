@@ -54,7 +54,7 @@ jobs:
             config: --enable-swtok --enable-icsftok --enable-ccatok --enable-tpmtok --enable-testcases --with-systemd
             cflags: -O3 -Wno-clobbered -Werror -DDEBUG
     steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Build and test
         env:
           CC: ${{ matrix.cc }}
@@ -103,7 +103,7 @@ jobs:
             config: --enable-swtok --enable-icsftok --enable-ccatok --enable-tpmtok --enable-icatok --enable-ep11tok --enable-testcases --with-systemd
             cflags: -O3 -Wno-clobbered -Werror
     steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: uraimo/run-on-arch-action@1e2c619f81e6d8609845ea1d2f443a778df1ac68 # v3
         with:
           arch: ${{ matrix.arch }}
