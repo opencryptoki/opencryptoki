@@ -27,6 +27,7 @@ ec_verify(attr_dict, data, signature, mech_rule) -> bool
 
 import ctypes
 import logging
+import sys
 
 from cipher_backend import _libcrypto
 from pkcs11_const import CKA_EC_PARAMS, CKA_EC_POINT, CKA_VALUE
@@ -245,7 +246,7 @@ if _OPENSSL3:
             ('data_size',   ctypes.c_size_t),
             ('return_size', ctypes.c_size_t),
         ]
-    _OSSL_PARAM_UNSIGNED_INTEGER = 2   # BN: big-endian bytes (used for priv scalar)
+    _OSSL_PARAM_UNSIGNED_INTEGER = 2   # BN: native byte order (used for priv scalar)
     _OSSL_PARAM_OCTET_STRING     = 5   # used for pub point
     # OSSL_KEYMGMT_SELECT_* flags (openssl/core_dispatch.h).
     # The 'group' OSSL_PARAM carries a domain parameter — bit 0x04 must be
@@ -656,7 +657,10 @@ def _build_ec_pkey_ossl3(ec_params, ec_point, ec_value, private):
     if ec_point:
         params.append(_make_param(b'pub',  _OSSL_PARAM_OCTET_STRING,     ec_point))
     if private:
-        params.append(_make_param(b'priv', _OSSL_PARAM_UNSIGNED_INTEGER, ec_value))
+        # OSSL_PARAM unsigned integers use native byte order, not big-endian.
+        priv_native = ec_value[::-1] if sys.byteorder == 'little' else ec_value
+        params.append(_make_param(b'priv', _OSSL_PARAM_UNSIGNED_INTEGER,
+                                  priv_native))
 
     # Terminator
     term = _OSSLParam()

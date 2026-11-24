@@ -31,6 +31,7 @@ rsa_public_verify(attr_dict, data, signature, mech_rule) -> bool
 
 import ctypes
 import ctypes.util
+import sys
 
 from cipher_backend import _libcrypto   # reuse already-loaded libcrypto handle
 
@@ -398,6 +399,10 @@ if not _OPENSSL3:
     _EVP_PKEY_new        = _bind('EVP_PKEY_new',        ctypes.c_void_p, [])
     _EVP_PKEY_assign_RSA = _bind('EVP_PKEY_assign_RSA', ctypes.c_int,
                                   [ctypes.c_void_p, ctypes.c_void_p])
+    # Must return a full-width pointer; the ctypes default (c_int) would
+    # truncate it to 32 bits.
+    _EVP_PKEY_get0_RSA   = _bind('EVP_PKEY_get0_RSA',   ctypes.c_void_p,
+                                  [ctypes.c_void_p])
 
 # ===========================================================================
 # OpenSSL 3.x EVP_PKEY_fromdata path
@@ -461,10 +466,10 @@ if _OPENSSL3:
 
     # OSSL_PARAM data type constants from openssl/params.h
     _OSSL_PARAM_INTEGER          = 1
-    _OSSL_PARAM_UNSIGNED_INTEGER = 2   # also used for BN (big-endian bytes)
+    _OSSL_PARAM_UNSIGNED_INTEGER = 2   # also used for BN (native byte order)
     _OSSL_PARAM_UTF8_STRING      = 4
     _OSSL_PARAM_OCTET_STRING     = 5
-    # Alias: OpenSSL passes BN values as UNSIGNED_INTEGER with big-endian bytes
+    # Alias: OpenSSL passes BN values as UNSIGNED_INTEGER in native byte order
     _OSSL_PARAM_BN = _OSSL_PARAM_UNSIGNED_INTEGER
 
     # EVP_PKEY_CTX — log any missing symbols immediately at import time
@@ -605,6 +610,9 @@ def _build_pkey_ossl3(n, e, d, p, q, dp, dq, qi, private):
     def _add_bn_param(params, name, value):
         if value is None:
             return
+        # OSSL_PARAM unsigned integers use native byte order, not big-endian.
+        if sys.byteorder == 'little':
+            value = value[::-1]
         buf = ctypes.create_string_buffer(value, len(value))
         bufs.append(buf)
         param = _OSSLParam()
@@ -952,8 +960,7 @@ def _pkey_encrypt(pkey, plaintext: bytes, pad: int) -> bytes:
             _EVP_PKEY_CTX_free(pctx)
     else:
         # OpenSSL 1.1: extract RSA* from pkey for direct call
-        rsa = ctypes.cast(
-            _libcrypto.EVP_PKEY_get0_RSA(pkey), ctypes.c_void_p)
+        rsa = _EVP_PKEY_get0_RSA(pkey)
         mod_len = _RSA_size(rsa)
         out_buf = ctypes.create_string_buffer(mod_len)
         rc = _RSA_public_encrypt(len(plaintext), plaintext, out_buf, rsa, pad)
@@ -983,8 +990,7 @@ def _pkey_decrypt(pkey, ciphertext: bytes, pad: int) -> bytes:
         finally:
             _EVP_PKEY_CTX_free(pctx)
     else:
-        rsa = ctypes.cast(
-            _libcrypto.EVP_PKEY_get0_RSA(pkey), ctypes.c_void_p)
+        rsa = _EVP_PKEY_get0_RSA(pkey)
         mod_len = _RSA_size(rsa)
         out_buf = ctypes.create_string_buffer(mod_len)
         rc = _RSA_private_decrypt(len(ciphertext), ciphertext, out_buf, rsa, pad)
@@ -1020,8 +1026,7 @@ def _pkey_sign_raw(pkey, data: bytes, pad: int) -> bytes:
         finally:
             _EVP_PKEY_CTX_free(pctx)
     else:
-        rsa = ctypes.cast(
-            _libcrypto.EVP_PKEY_get0_RSA(pkey), ctypes.c_void_p)
+        rsa = _EVP_PKEY_get0_RSA(pkey)
         mod_len = _RSA_size(rsa)
         if pad == _RSA_NO_PADDING:
             data = data.rjust(mod_len, b'\x00')
@@ -1047,8 +1052,7 @@ def _pkey_verify_raw(pkey, data: bytes, signature: bytes, pad: int) -> bool:
         finally:
             _EVP_PKEY_CTX_free(pctx)
     else:
-        rsa = ctypes.cast(
-            _libcrypto.EVP_PKEY_get0_RSA(pkey), ctypes.c_void_p)
+        rsa = _EVP_PKEY_get0_RSA(pkey)
         mod_len = _RSA_size(rsa)
         out_buf = ctypes.create_string_buffer(mod_len)
         rc = _RSA_public_decrypt(len(signature), signature, out_buf, rsa, pad)

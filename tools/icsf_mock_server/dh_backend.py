@@ -22,6 +22,7 @@ dh_derive(priv_attr_dict, peer_pub_bytes) -> bytes
 
 import ctypes
 import logging
+import sys
 from cipher_backend import _libcrypto
 from pkcs11_const import CKA_PRIME, CKA_BASE, CKA_VALUE
 
@@ -79,7 +80,7 @@ else:
             ('return_size', ctypes.c_size_t),
         ]
 
-    _OSSL_PARAM_UNSIGNED_INTEGER = 2   # BN: big-endian bytes
+    _OSSL_PARAM_UNSIGNED_INTEGER = 2   # BN: native byte order
 
     _OSSL_KEYMGMT_SELECT_PRIVATE_KEY       = 0x01
     _OSSL_KEYMGMT_SELECT_PUBLIC_KEY        = 0x02
@@ -124,6 +125,9 @@ def _bn_to_bytes(bn_ptr, pad_to_len: int = 0) -> bytes:
 
 
 def _make_ossl_param(key: bytes, data_bytes: bytes, buffers: list) -> _OSSLParam:
+    # OSSL_PARAM unsigned integers use native byte order, not big-endian.
+    if sys.byteorder == 'little':
+        data_bytes = data_bytes[::-1]
     buf = ctypes.create_string_buffer(data_bytes)
     buffers.append(buf)
     param = _OSSLParam()
