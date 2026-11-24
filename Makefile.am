@@ -349,7 +349,7 @@ ci-installcheck: ci-prepare installcheck
 	&& SBINDIR=@sbindir@ SLOT=$(CI_SWTOK_SLOT) ./misc_tests/p11sak_test.sh   | tee log-p11sak.txt		\
 	&& SBINDIR=@sbindir@ ./misc_tests/pkcsconf_test.sh | tee log-pkcsconf.txt	\
 	&& SBINDIR=@sbindir@ MAX_JOBS=$(TEST_MAX_JOBS) ./misc_tests/tok2tok_test.sh  | tee log-tok2tok.txt
-	if [[ -n "${KMIP_IP}" ]] && [[ -n "${KMIP_REST_USER}" ]] && [[ -n "${KMIP_REST_PASSWORD}" ]]; then \
+	if [ -n "$${KMIP_IP}" ] && [ -n "$${KMIP_REST_USER}" ] && [ -n "$${KMIP_REST_PASSWORD}" ]; then \
 		cd ${srcdir}/testcases					\
 		&& export PKCSLIB=$(PKCSLIB)				\
 		&& export PKCS11_USER_PIN=$(PKCS11_USER_PIN)		\
