@@ -31,6 +31,7 @@ dsa_max_sig_len(subprime_bytes) -> int    = 2 * len(q)
 
 import ctypes
 import logging
+import sys
 
 from cipher_backend import _libcrypto
 from pkcs11_const import CKA_PRIME, CKA_SUBPRIME, CKA_BASE, CKA_VALUE
@@ -334,6 +335,9 @@ def _dsa_generate_ossl1(prime_bytes: bytes, subprime_bytes: bytes,
 
 
 def _make_ossl_param(key: bytes, data_bytes: bytes, buffers: list) -> '_OSSLParam':
+    # OSSL_PARAM unsigned integers use native byte order, not big-endian.
+    if sys.byteorder == 'little':
+        data_bytes = data_bytes[::-1]
     buf = ctypes.create_string_buffer(data_bytes, len(data_bytes))
     buffers.append(buf)
     param = _OSSLParam()
